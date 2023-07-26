@@ -2122,6 +2122,11 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
+	DefaultSeriesKey: {
+		Description: "DEPRECATED in favour of default-base. Will be removed in 4.0. The default series to use for deploying charms, will act like --series when deploying charms",
+		Type:        environschema.Tstring,
+		Group:       environschema.EnvironGroup,
+	},
 	// TODO (jack-w-shaw) integrate this into mode
 	"development": {
 		Description: "Whether the model is in development mode",
