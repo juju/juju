@@ -290,6 +290,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
 
+		// Force the controller API port to be set upon startup.
+		if args.ControllerConfig.ControllerAPIPort() != 0 {
+			agentConfig.SetControllerAPIPort(args.ControllerConfig.ControllerAPIPort())
+		}
+
 		mmprof, err := mongo.NewMemoryProfile(args.ControllerConfig.MongoMemoryProfile())
 		if err != nil {
 			logger.Errorf("could not set requested memory profile: %v", err)

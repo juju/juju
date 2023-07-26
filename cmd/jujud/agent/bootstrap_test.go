@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"context"
 	stdcontext "context"
 	"encoding/json"
 	"fmt"
@@ -675,7 +674,7 @@ func (s *BootstrapSuite) TestBootstrapWithInvalidCredentialLogs(c *gc.C) {
 	called := false
 	newEnviron := func(_ stdcontext.Context, ps environs.OpenParams) (environs.Environ, error) {
 		called = true
-		env, _ := environs.New(context.TODO(), ps)
+		env, _ := environs.New(stdcontext.TODO(), ps)
 		return &mockDummyEnviron{env}, nil
 	}
 	s.PatchValue(&environsNewIAAS, newEnviron)
@@ -820,7 +819,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Open(context.TODO(), provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.TODO(), provider, environs.OpenParams{
 		Cloud:  dummy.SampleCloudSpec(),
 		Config: cfg,
 	})
@@ -877,7 +876,7 @@ func nullContext() environs.BootstrapContext {
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = io.Discard
 	ctx.Stderr = io.Discard
-	return environscmd.BootstrapContext(context.Background(), ctx)
+	return environscmd.BootstrapContext(stdcontext.Background(), ctx)
 }
 
 type mockDummyEnviron struct {
