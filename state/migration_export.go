@@ -75,7 +75,6 @@ type ExportConfig struct {
 	SkipInstanceData         bool
 	SkipApplicationOffers    bool
 	SkipOfferConnections     bool
-	SkipExternalControllers  bool
 	SkipSecrets              bool
 }
 
