@@ -575,12 +575,6 @@ func (a *MachineAgent) makeEngineCreator(
 				return nil
 			})
 		}
-		updateControllerAPIPort := func(port int) error {
-			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
-				setter.SetControllerAPIPort(port)
-				return nil
-			})
-		}
 
 		// statePoolReporter is an introspection.IntrospectionReporter,
 		// which is set to the current StatePool managed by the state
@@ -596,28 +590,27 @@ func (a *MachineAgent) makeEngineCreator(
 		charmhubHTTPClient := charmhub.DefaultHTTPClient(charmhubLogger)
 
 		manifoldsCfg := machine.ManifoldsConfig{
-			PreviousAgentVersion:    previousAgentVersion,
-			AgentName:               agentName,
-			Agent:                   agent.APIHostPortsSetter{Agent: a},
-			RootDir:                 a.rootDir,
-			AgentConfigChanged:      a.configChangedVal,
-			UpgradeStepsLock:        a.upgradeComplete,
-			UpgradeCheckLock:        a.initialUpgradeCheckComplete,
-			OpenStatePool:           a.initState,
-			OpenStateForUpgrade:     a.openStateForUpgrade,
-			MachineStartup:          a.machineStartup,
-			PreUpgradeSteps:         a.preUpgradeSteps,
-			LogSource:               a.bufferedLogger.Logs(),
-			NewDeployContext:        deployer.NewNestedContext,
-			Clock:                   clock.WallClock,
-			ValidateMigration:       a.validateMigration,
-			PrometheusRegisterer:    a.prometheusRegistry,
-			CentralHub:              a.centralHub,
-			LocalHub:                localHub,
-			PubSubReporter:          pubsubReporter,
-			PresenceRecorder:        presenceRecorder,
-			UpdateLoggerConfig:      updateAgentConfLogging,
-			UpdateControllerAPIPort: updateControllerAPIPort,
+			PreviousAgentVersion: previousAgentVersion,
+			AgentName:            agentName,
+			Agent:                agent.APIHostPortsSetter{Agent: a},
+			RootDir:              a.rootDir,
+			AgentConfigChanged:   a.configChangedVal,
+			UpgradeStepsLock:     a.upgradeComplete,
+			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
+			OpenStatePool:        a.initState,
+			OpenStateForUpgrade:  a.openStateForUpgrade,
+			MachineStartup:       a.machineStartup,
+			PreUpgradeSteps:      a.preUpgradeSteps,
+			LogSource:            a.bufferedLogger.Logs(),
+			NewDeployContext:     deployer.NewNestedContext,
+			Clock:                clock.WallClock,
+			ValidateMigration:    a.validateMigration,
+			PrometheusRegisterer: a.prometheusRegistry,
+			CentralHub:           a.centralHub,
+			LocalHub:             localHub,
+			PubSubReporter:       pubsubReporter,
+			PresenceRecorder:     presenceRecorder,
+			UpdateLoggerConfig:   updateAgentConfLogging,
 			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
 				return a.statusSetter(apiConn)
 			},

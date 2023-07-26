@@ -50,7 +50,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = httpserverargs.ManifoldConfig{
 		ClockName:             "clock",
 		StateName:             "state",
-		ControllerPortName:    "controller-port",
 		NewStateAuthenticator: s.newStateAuthenticator,
 	}
 	s.manifold = httpserverargs.Manifold(s.config)
@@ -58,9 +57,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"clock":           s.clock,
-		"state":           &s.state,
-		"controller-port": nil,
+		"clock": s.clock,
+		"state": &s.state,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -81,7 +79,7 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	return &s.authenticator, nil
 }
 
-var expectedInputs = []string{"state", "clock", "controller-port"}
+var expectedInputs = []string{"state", "clock"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -166,17 +164,14 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		expect string
 	}
 	tests := []test{{
-		func(cfg *httpserverargs.ManifoldConfig) { cfg.StateName = "" },
-		"empty StateName not valid",
+		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.StateName = "" },
+		expect: "empty StateName not valid",
 	}, {
-		func(cfg *httpserverargs.ManifoldConfig) { cfg.ClockName = "" },
-		"empty ClockName not valid",
+		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.ClockName = "" },
+		expect: "empty ClockName not valid",
 	}, {
-		func(cfg *httpserverargs.ManifoldConfig) { cfg.ControllerPortName = "" },
-		"empty ControllerPortName not valid",
-	}, {
-		func(cfg *httpserverargs.ManifoldConfig) { cfg.NewStateAuthenticator = nil },
-		"nil NewStateAuthenticator not valid",
+		f:      func(cfg *httpserverargs.ManifoldConfig) { cfg.NewStateAuthenticator = nil },
+		expect: "nil NewStateAuthenticator not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

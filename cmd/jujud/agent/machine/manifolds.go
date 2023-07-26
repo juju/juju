@@ -51,7 +51,6 @@ import (
 	"github.com/juju/juju/worker/changestreampruner"
 	"github.com/juju/juju/worker/common"
 	lxdbroker "github.com/juju/juju/worker/containerbroker"
-	"github.com/juju/juju/worker/controllerport"
 	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/deployer"
@@ -188,10 +187,6 @@ type ManifoldsConfig struct {
 	// UpdateLoggerConfig is a function that will save the specified
 	// config value as the logging config in the agent.conf file.
 	UpdateLoggerConfig func(string) error
-
-	// UpdateControllerAPIPort is a function that will save the updated
-	// controller api port in the agent.conf file.
-	UpdateControllerAPIPort func(int) error
 
 	// NewAgentStatusSetter provides upgradesteps.StatusSetter.
 	NewAgentStatusSetter func(apiConn api.Connection) (upgradesteps.StatusSetter, error)
@@ -551,23 +546,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		httpServerArgsName: httpserverargs.Manifold(httpserverargs.ManifoldConfig{
 			ClockName:             clockName,
-			ControllerPortName:    controllerPortName,
 			StateName:             stateName,
 			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
-		}),
-
-		// TODO Juju 3.0: the controller port worker is only needed while
-		// the controller port is a mutable controller config value.
-		// When we hit 3.0 we should make controller-port a required
-		// and immutable value.
-		controllerPortName: controllerport.Manifold(controllerport.ManifoldConfig{
-			AgentName:               agentName,
-			HubName:                 centralHubName,
-			StateName:               stateName,
-			Logger:                  loggo.GetLogger("juju.worker.controllerport"),
-			UpdateControllerAPIPort: config.UpdateControllerAPIPort,
-			GetControllerConfig:     controllerport.GetControllerConfig,
-			NewWorker:               controllerport.NewWorker,
 		}),
 
 		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
@@ -637,7 +617,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
 			AgentName:            agentName,
 			ClockName:            clockName,
-			ControllerPortName:   controllerPortName,
 			StateName:            stateName,
 			Hub:                  config.CentralHub,
 			PrometheusRegisterer: config.PrometheusRegisterer,
@@ -1024,7 +1003,6 @@ const (
 	agentConfigUpdaterName = "agent-config-updater"
 	terminationName        = "termination-signal-handler"
 	stateConfigWatcherName = "state-config-watcher"
-	controllerPortName     = "controller-port"
 	stateName              = "state"
 	apiCallerName          = "api-caller"
 	s3CallerName           = "s3-caller"
