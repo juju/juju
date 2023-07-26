@@ -2542,15 +2542,6 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	err = remoteApp.SetStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
 
-	service := state.NewExternalControllers(s.State)
-	_, err = service.Save(crossmodel.ControllerInfo{
-		ControllerTag: s.Model.ControllerTag(),
-		Addrs:         []string{"192.168.1.1:8080"},
-		Alias:         "magic",
-		CACert:        "magic-ca-cert",
-	}, s.Model.UUID())
-	c.Assert(err, jc.ErrorIsNil)
-
 	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2619,15 +2610,6 @@ func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
 			},
 		}},
 	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	service := state.NewExternalControllers(s.State)
-	_, err = service.Save(crossmodel.ControllerInfo{
-		ControllerTag: s.Model.ControllerTag(),
-		Addrs:         []string{"192.168.1.1:8080"},
-		Alias:         "magic",
-		CACert:        "magic-ca-cert",
-	}, s.Model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := s.State.Export(map[string]string{})

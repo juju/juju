@@ -39,7 +39,6 @@ func (m *stateShim) GetExportConfig() state.ExportConfig {
 	cfg.SkipMachineAgentBinaries = true
 	cfg.SkipUnitAgentBinaries = true
 	cfg.SkipInstanceData = true
-	cfg.SkipExternalControllers = true
 	cfg.SkipSecrets = true
 
 	return cfg

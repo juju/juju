@@ -247,8 +247,6 @@ type modelShim struct {
 	*state.Model
 }
 
-type ExternalController state.ExternalController
-
 type StorageInterface interface {
 	storagecommon.StorageAccess
 	VolumeAccess() storagecommon.VolumeAccess

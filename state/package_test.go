@@ -26,7 +26,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,StateDocumentFactory,DocModelNamespace
 //go:generate go run go.uber.org/mock/mockgen -package state -destination migration_import_input_mock_test.go github.com/juju/juju/state RemoteEntitiesInput,RelationNetworksInput,RemoteApplicationsInput,ApplicationOfferStateDocumentFactory,ApplicationOfferInput,FirewallRulesInput,FirewallRulesOutput
-//go:generate go run go.uber.org/mock/mockgen -package state -destination migration_description_mock_test.go github.com/juju/description/v4 ApplicationOffer,ExternalController,FirewallRule,RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
+//go:generate go run go.uber.org/mock/mockgen -package state -destination migration_description_mock_test.go github.com/juju/description/v4 ApplicationOffer,FirewallRule,RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/operation_mock.go github.com/juju/juju/state ModelOperation
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/application_ports_mock.go github.com/juju/juju/state ApplicationPortRanges
 

@@ -86,7 +86,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		offerConnectionsC,
 		relationNetworksC,
 		remoteEntitiesC,
-		externalControllersC,
 
 		// secrets
 		secretMetadataC,

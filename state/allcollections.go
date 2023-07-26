@@ -505,11 +505,6 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid", "token"},
 			}},
 		},
-		// externalControllersC holds connection information for other
-		// controllers hosting models involved in cross-model relations.
-		externalControllersC: {
-			global: true,
-		},
 		// relationNetworksC holds required ingress or egress cidrs for remote relations.
 		relationNetworksC: {},
 
@@ -669,12 +664,11 @@ const (
 	volumesC                   = "volumes"
 
 	// Cross model relations
-	applicationOffersC   = "applicationOffers"
-	remoteApplicationsC  = "remoteApplications"
-	offerConnectionsC    = "applicationOfferConnections"
-	remoteEntitiesC      = "remoteEntities"
-	externalControllersC = "externalControllers"
-	relationNetworksC    = "relationNetworks"
+	applicationOffersC  = "applicationOffers"
+	remoteApplicationsC = "remoteApplications"
+	offerConnectionsC   = "applicationOfferConnections"
+	remoteEntitiesC     = "remoteEntities"
+	relationNetworksC   = "relationNetworks"
 
 	// Secrets
 	secretMetadataC        = "secretMetadata"
