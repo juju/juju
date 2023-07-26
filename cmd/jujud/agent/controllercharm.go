@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
+	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/agent"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/upgradesteps"
 )
 
 const controllerCharmURL = "ch:juju-controller"
@@ -224,6 +226,18 @@ func (st *stateShim) PrepareCharmUpload(curl *charm.URL) (services.UploadedCharm
 
 func (st *stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {
 	return st.State.UpdateUploadedCharm(info)
+}
+
+func (s stateShim) ModelType() (state.ModelType, error) {
+	m, err := s.State.Model()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return m.Type(), nil
+}
+
+func (s stateShim) EnsureUpgradeInfo(controllerId string, previousVersion, targetVersion version.Number) (upgradesteps.UpgradeInfo, error) {
+	return s.State.EnsureUpgradeInfo(controllerId, previousVersion, targetVersion)
 }
 
 // populateLocalControllerCharm downloads and stores a local controller charm archive.

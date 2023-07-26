@@ -11,17 +11,16 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/series"
-	"github.com/juju/juju/state"
 )
 
 // PreUpgradeStepsFunc is the function type of PreUpgradeSteps. This may be
 // used to provide an alternative to PreUpgradeSteps to the upgrade steps
 // worker.
-type PreUpgradeStepsFunc = func(_ *state.StatePool, _ agent.Config, isController, isCaas bool) error
+type PreUpgradeStepsFunc = func(_ agent.Config, isController, isCaas bool) error
 
 // PreUpgradeSteps runs various checks and prepares for performing an upgrade.
 // If any check fails, an error is returned which aborts the upgrade.
-func PreUpgradeSteps(_ *state.StatePool, agentConf agent.Config, isController, isCaas bool) error {
+func PreUpgradeSteps(agentConf agent.Config, isController, isCaas bool) error {
 	if isCaas {
 		logger.Debugf("skipping disk space checks for k8s controllers")
 		return nil

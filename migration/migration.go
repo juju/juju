@@ -26,9 +26,9 @@ import (
 
 var logger = loggo.GetLogger("juju.migration")
 
-// Note: This is being deprecated.
 // LegacyStateExporter describes interface on state required to export a
 // model.
+// Note: This is being deprecated.
 type LegacyStateExporter interface {
 	// Export generates an abstract representation of a model.
 	Export(leaders map[string]string) (description.Model, error)

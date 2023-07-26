@@ -5,7 +5,6 @@ package modelcmd_test
 
 import (
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/juju/cmd/v3"
@@ -14,14 +13,10 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/api"
-	apitesting "github.com/juju/juju/api/testing"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 )
@@ -450,81 +445,4 @@ func (c *allowedCAASCommand) Info() *cmd.Info {
 
 func (c *allowedCAASCommand) Run(ctx *cmd.Context) error {
 	return nil
-}
-
-var _ = gc.Suite(&macaroonLoginSuite{})
-
-type macaroonLoginSuite struct {
-	apitesting.MacaroonSuite
-	store          *jujuclient.MemStore
-	controllerName string
-	modelName      string
-	apiOpen        api.OpenFunc
-}
-
-const testUser = "testuser@somewhere"
-
-func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
-	s.MacaroonSuite.SetUpTest(c)
-	s.MacaroonSuite.AddModelUser(c, testUser)
-	s.MacaroonSuite.AddControllerUser(c, testUser, permission.LoginAccess)
-
-	s.controllerName = "my-controller"
-	s.modelName = testUser + "/my-model"
-	apiInfo := s.APIInfo(c)
-
-	s.store = jujuclient.NewMemStore()
-	s.store.Controllers[s.controllerName] = jujuclient.ControllerDetails{
-		APIEndpoints:   apiInfo.Addrs,
-		ControllerUUID: s.ControllerModel(c).ControllerUUID(),
-		CACert:         apiInfo.CACert,
-	}
-	s.store.Accounts[s.controllerName] = jujuclient.AccountDetails{
-		// External user forces use of macaroons.
-		User: "me@external",
-	}
-	s.store.Models[s.controllerName] = &jujuclient.ControllerModels{
-		Models: map[string]jujuclient.ModelDetails{
-			s.modelName: {ModelUUID: s.ControllerModelUUID(), ModelType: model.IAAS},
-		},
-	}
-	s.apiOpen = func(info *api.Info, dialOpts api.DialOpts) (api.Connection, error) {
-		mac, err := apitesting.NewMacaroon("test")
-		c.Assert(err, jc.ErrorIsNil)
-		info.Macaroons = []macaroon.Slice{{mac}}
-		return api.Open(info, dialOpts)
-	}
-}
-
-func (s *macaroonLoginSuite) newModelCommandBase() *modelcmd.ModelCommandBase {
-	var c modelcmd.ModelCommandBase
-	c.SetClientStore(s.store)
-	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, &c)
-	modelcmd.SetRunStarted(&c)
-	err := c.SetModelIdentifier(s.controllerName+":"+s.modelName, false)
-	if err != nil {
-		panic(err)
-	}
-	return &c
-}
-
-func (s *macaroonLoginSuite) TestsSuccessfulLogin(c *gc.C) {
-	s.DischargerLogin = func() string {
-		return testUser
-	}
-
-	cmd := s.newModelCommandBase()
-	_, err := cmd.NewAPIRoot()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *macaroonLoginSuite) TestsFailToObtainDischargeLogin(c *gc.C) {
-	s.DischargerLogin = func() string {
-		return ""
-	}
-
-	cmd := s.newModelCommandBase()
-	cmd.SetAPIOpen(s.apiOpen)
-	_, err := cmd.NewAPIRoot()
-	c.Assert(err, gc.ErrorMatches, "cannot get discharge.*", gc.Commentf("%s", errors.Details(err)))
 }

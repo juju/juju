@@ -48,7 +48,10 @@ func (m MemSettings) CreateSettings(key string, settings map[string]interface{})
 	if _, ok := m.Settings[key]; ok {
 		return errors.AlreadyExistsf("settings with key %q", key)
 	}
-	m.Settings[key] = settings
+	m.Settings[key] = make(map[string]interface{})
+	for k, v := range settings {
+		m.Settings[key][k] = v
+	}
 	return nil
 }
 
@@ -57,7 +60,10 @@ func (m MemSettings) ReplaceSettings(key string, settings map[string]interface{}
 	if _, ok := m.Settings[key]; !ok {
 		return errors.NotFoundf("settings with key %q", key)
 	}
-	m.Settings[key] = settings
+	m.Settings[key] = make(map[string]interface{})
+	for k, v := range settings {
+		m.Settings[key][k] = v
+	}
 	return nil
 }
 

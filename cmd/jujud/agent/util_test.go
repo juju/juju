@@ -169,7 +169,7 @@ func NewTestMachineAgentFactory(
 	rootDir string,
 	cmdRunner CommandRunner,
 ) machineAgentFactoryFnType {
-	preUpgradeSteps := func(_ *state.StatePool, _ agent.Config, isController, isCaas bool) error {
+	preUpgradeSteps := func(_ agent.Config, isController, isCaas bool) error {
 		return nil
 	}
 

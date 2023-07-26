@@ -13,49 +13,34 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/database"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
-	domaintesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/migration"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
 
 type ImportSuite struct {
-	statetesting.StateSuite
-	domaintesting.ControllerSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&ImportSuite{})
 
 func (s *ImportSuite) SetUpTest(c *gc.C) {
-	// Specify the config to use for the controller model before
-	// calling SetUpTest of the StateSuite, otherwise we get
-	// coretesting.ModelConfig(c). The default provider type
-	// specified in the coretesting.ModelConfig function is one that
-	// isn't registered as a valid provider. For our tests here we
-	// need a real registered provider, so we use the dummy provider.
-	// NOTE: make a better test provider.
-	s.InitialConfig = coretesting.CustomModelConfig(c, dummy.SampleConfig())
-	s.StateSuite.SetUpTest(c)
-	s.ControllerSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 }
 
 func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
-	controller := state.NewController(s.StatePool)
-	scope := modelmigration.NewScope(database.ConstFactory(s.TxnRunner()), nil)
+	scope := modelmigration.NewScope(nil, nil)
+	controller := &fakeImporter{}
 	importer := migration.NewModelImporter(controller, scope)
 	model, st, err := importer.ImportModel(context.Background(), bytes)
 	c.Check(st, gc.IsNil)
@@ -63,34 +48,75 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "yaml: unmarshal errors:\n.*")
 }
 
-func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) *state.State {
-	model, err := s.State.Export(leaders)
-	c.Assert(err, jc.ErrorIsNil)
+const model = `
+cloud: dev
+config:
+  name: foo
+  type: lxd
+  uuid: bd3fae18-5ea1-4bc5-8837-45400cf1f8f6
+actions:
+  actions: []
+  version: 1
+applications:
+  applications: []
+  version: 1
+cloud-image-metadata:
+  cloudimagemetadata: []
+  version: 1
+filesystems:
+  filesystems: []
+  version: 1
+ip-addresses:
+  ip-addresses: []
+  version: 1
+link-layer-devices:
+  link-layer-devices: []
+  version: 1
+machines:
+  machines: []
+  version: 1
+owner: admin
+relations:
+  relations: []
+  version: 1
+sequences:
+  machine: 2
+spaces:
+  spaces: []
+  version: 1
+ssh-host-keys:
+  ssh-host-keys: []
+  version: 1
+storage-pools:
+  pools: []
+  version: 1
+storages:
+  storages: []
+  version: 1
+subnets:
+  subnets: []
+  version: 1
+users:
+  users: []
+  version: 1
+volumes:
+  volumes: []
+  version: 1
+version: 1
+`
 
-	// Update the config values in the exported model for different values for
-	// "state-port", "api-port", and "ca-cert". Also give the model a new UUID
-	// and name, so we can import it nicely.
-	uuid := utils.MustNewUUID().String()
-	model.UpdateConfig(map[string]interface{}{
-		"name": "new-model",
-		"uuid": uuid,
-	})
-
-	bytes, err := description.Serialize(model)
-	c.Check(err, jc.ErrorIsNil)
-
-	controller := state.NewController(s.StatePool)
-	scope := modelmigration.NewScope(database.ConstFactory(s.TxnRunner()), nil)
+func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
+	bytes := []byte(model)
+	st := &state.State{}
+	m := &state.Model{}
+	controller := &fakeImporter{st: st, m: m}
+	scope := modelmigration.NewScope(nil, nil)
 	importer := migration.NewModelImporter(controller, scope)
-	dbModel, dbState, err := importer.ImportModel(context.Background(), bytes)
+	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { dbState.Close() })
-
-	dbConfig, err := dbModel.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(dbConfig.UUID(), gc.Equals, uuid)
-	c.Assert(dbConfig.Name(), gc.Equals, "new-model")
-	return dbState
+	c.Assert(controller.model.Tag().Id(), gc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
+	c.Assert(gotM, gc.Equals, m)
+	c.Assert(gotSt, gc.Equals, st)
 }
 
 func (s *ImportSuite) TestImportModel(c *gc.C) {
@@ -211,6 +237,17 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 	err := migration.UploadBinaries(config)
 	c.Assert(err, gc.ErrorMatches,
 		"cannot upload charms: charm local:foo/bar-2 unexpectedly assigned local:foo/bar-1")
+}
+
+type fakeImporter struct {
+	model description.Model
+	st    *state.State
+	m     *state.Model
+}
+
+func (i *fakeImporter) Import(model description.Model) (*state.Model, *state.State, error) {
+	i.model = model
+	return i.m, i.st, nil
 }
 
 type fakeDownloader struct {

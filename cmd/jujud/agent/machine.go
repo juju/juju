@@ -825,16 +825,16 @@ func (a *MachineAgent) Restart() error {
 //
 // TODO(mjs)- review the need for this once the dependency engine is
 // in use. Why can't upgradesteps depend on the main state connection?
-func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
+func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, upgradesteps.SystemState, error) {
 	agentConfig := a.CurrentConfig()
 	if !a.isCaasAgent {
 		if err := cmdutil.EnsureMongoServerStarted(agentConfig.JujuDBSnapChannel()); err != nil {
-			return nil, errors.Trace(err)
+			return nil, nil, errors.Trace(err)
 		}
 	}
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
-		return nil, errors.New("no state info available")
+		return nil, nil, errors.New("no state info available")
 	}
 	dialOpts, err := mongoDialOptions(
 		mongo.DefaultDialOpts(),
@@ -842,11 +842,11 @@ func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
 		a.mongoDialCollector,
 	)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	session, err := mongo.DialWithInfo(*info, dialOpts)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 	defer session.Close()
 
@@ -867,9 +867,13 @@ func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
 		RunTransactionObserver: a.mongoTxnCollector.AfterRunTransaction,
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
-	return pool, nil
+	st, err := pool.SystemState()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	return pool, stateShim{st}, nil
 }
 
 // validateMigration is called by the migrationminion to help check
