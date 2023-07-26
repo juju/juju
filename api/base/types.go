@@ -71,7 +71,7 @@ type ModelInfo struct {
 	ControllerUUID  string
 	IsController    bool
 	ProviderType    string
-	DefaultSeries   string
+	DefaultBase     string
 	Cloud           string
 	CloudRegion     string
 	CloudCredential string
@@ -125,7 +125,6 @@ type UserModelSummary struct {
 	ControllerUUID     string
 	IsController       bool
 	ProviderType       string
-	DefaultSeries      string
 	Cloud              string
 	CloudRegion        string
 	CloudCredential    string

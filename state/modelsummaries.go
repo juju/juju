@@ -55,10 +55,9 @@ type ModelSummary struct {
 	SLAOwner string
 
 	// Needs Config()
-	ProviderType  string
-	DefaultSeries string
-	DefaultBase   series.Base
-	AgentVersion  *version.Number
+	ProviderType string
+	DefaultBase  series.Base
+	AgentVersion *version.Number
 
 	// Needs Statuses collection
 	Status status.StatusInfo
@@ -150,12 +149,6 @@ func (p *modelSummaryProcessor) fillInFromConfig() error {
 		detail := &(p.summaries[idx])
 		detail.ProviderType = cfg.Type()
 		detail.DefaultBase = config.PreferredBase(cfg)
-
-		// TODO(stickupkid): Ensure we fill in the default series for now, we
-		// can switch that out later.
-		if detail.DefaultSeries, err = series.GetSeriesFromBase(detail.DefaultBase); err != nil {
-			return errors.Trace(err)
-		}
 
 		if agentVersion, exists := cfg.AgentVersion(); exists {
 			detail.AgentVersion = &agentVersion

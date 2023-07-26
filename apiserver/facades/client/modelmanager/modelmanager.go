@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var (
@@ -688,9 +687,8 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 				Owner: mi.Owner,
 			},
 
-			DefaultSeries: mi.DefaultSeries,
-			ProviderType:  mi.ProviderType,
-			AgentVersion:  mi.AgentVersion,
+			ProviderType: mi.ProviderType,
+			AgentVersion: mi.AgentVersion,
 
 			Status:             common.EntityStatusFromState(mi.Status),
 			Counts:             []params.ModelEntityCount{},
@@ -938,19 +936,6 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (pa
 
 		if agentVersion, exists := cfg.AgentVersion(); exists {
 			info.AgentVersion = &agentVersion
-		}
-
-		// TODO(stickupkid): Series is deprecated, always use a base as the
-		// source of truth.
-		defaultBase := config.PreferredBase(cfg)
-		info.DefaultBase = defaultBase.String()
-		if defaultSeries, err := series.GetSeriesFromBase(defaultBase); err == nil {
-			info.DefaultSeries = defaultSeries
-		} else {
-			logger.Errorf("cannot get default series from base %q: %v", defaultBase, err)
-			// This is slightly defensive, but we should always show a series
-			// in the model info.
-			info.DefaultSeries = jujuversion.DefaultSupportedLTS()
 		}
 	}
 
