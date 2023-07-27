@@ -17,8 +17,8 @@ type bundleSuite struct {
 var _ = gc.Suite(&bundleSuite{})
 
 func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
-	explicitSeriesErrorUbuntu := "base must be explicitly provided for \"ch:ubuntu\" when image-id constraint is used"
-	explicitSeriesError := "base must be explicitly provided for(.)*"
+	explicitBaseErrorUbuntu := "base must be explicitly provided for \"ch:ubuntu\" when image-id constraint is used"
+	explicitBaseError := "base must be explicitly provided for(.)*"
 
 	testCases := []struct {
 		title         string
@@ -27,7 +27,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 		expectedError string
 	}{
 		{
-			title: "two apps, no image-id, no series -> no error",
+			title: "two apps, no image-id, no base -> no error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
@@ -43,7 +43,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			deployBundle: deployBundle{},
 		},
 		{
-			title: "two apps, one with image-id, no series -> error",
+			title: "two apps, one with image-id, no base -> error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
@@ -57,10 +57,10 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 				},
 			},
 			deployBundle:  deployBundle{},
-			expectedError: explicitSeriesError,
+			expectedError: explicitBaseError,
 		},
 		{
-			title: "two apps, model with image-id, no series -> error",
+			title: "two apps, model with image-id, no base -> error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
@@ -78,10 +78,10 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 					ImageID: strptr("ubuntu-bf2"),
 				},
 			},
-			expectedError: explicitSeriesError,
+			expectedError: explicitBaseError,
 		},
 		{
-			title: "two apps, model and one app with image-id, no series -> error",
+			title: "two apps, model and one app with image-id, no base -> error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
@@ -99,10 +99,10 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 					ImageID: strptr("ubuntu-bf2"),
 				},
 			},
-			expectedError: explicitSeriesError,
+			expectedError: explicitBaseError,
 		},
 		{
-			title: "two apps, machine with image-id in (app).To, no series -> error",
+			title: "two apps, machine with image-id in (app).To, no base -> error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
@@ -125,10 +125,10 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 				},
 			},
 			deployBundle:  deployBundle{},
-			expectedError: explicitSeriesErrorUbuntu,
+			expectedError: explicitBaseErrorUbuntu,
 		},
 		{
-			title: "two apps, machine with image-id not in (app).To, no series -> no error",
+			title: "two apps, machine with image-id not in (app).To, no base -> no error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
@@ -170,12 +170,29 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			deployBundle: deployBundle{},
 		},
 		{
-			title: "two apps, model with image-id, series in one app -> error",
+			title: "two apps, one with image-id, base in same app -> no error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
 						Charm:       "ch:prometheus2",
-						Series:      "focal",
+						Base:        "ubuntu@20.04",
+						Constraints: "image-id=ubuntu-bf2",
+					},
+					"ubuntu": {
+						Charm:       "ch:ubuntu",
+						Constraints: "mem=2G",
+					},
+				},
+			},
+			deployBundle: deployBundle{},
+		},
+		{
+			title: "two apps, model with image-id, base in one app -> error",
+			bundleData: &charm.BundleData{
+				Applications: map[string]*charm.ApplicationSpec{
+					"prometheus2": {
+						Charm:       "ch:prometheus2",
+						Base:        "ubuntu@20.04",
 						Constraints: "cpu-cores=2",
 					},
 					"ubuntu": {
@@ -189,20 +206,20 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 					ImageID: strptr("ubuntu-bf2"),
 				},
 			},
-			expectedError: explicitSeriesErrorUbuntu,
+			expectedError: explicitBaseErrorUbuntu,
 		},
 		{
-			title: "two apps, model with image-id, series in two apps -> no error",
+			title: "two apps, model with image-id, base in two apps -> no error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
 						Charm:       "ch:prometheus2",
-						Series:      "focal",
+						Base:        "ubuntu@20.04",
 						Constraints: "cpu-cores=2",
 					},
 					"ubuntu": {
 						Charm:       "ch:ubuntu",
-						Series:      "focal",
+						Base:        "ubuntu@20.04",
 						Constraints: "mem=2G",
 					},
 				},
@@ -214,13 +231,13 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			},
 		},
 		{
-			title: "two apps, model and one app with image-id, series in one app -> error",
+			title: "two apps, model and one app with image-id, base in one app -> error",
 
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
 						Charm:       "ch:prometheus2",
-						Series:      "focal",
+						Base:        "ubuntu@20.04",
 						Constraints: "image-id=ubuntu-bf2",
 					},
 					"ubuntu": {
@@ -234,21 +251,21 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 					ImageID: strptr("ubuntu-bf2"),
 				},
 			},
-			expectedError: explicitSeriesErrorUbuntu,
+			expectedError: explicitBaseErrorUbuntu,
 		},
 		{
-			title: "two apps, model and one app with image-id, series in two apps -> no error",
+			title: "two apps, model and one app with image-id, base in two apps -> no error",
 
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
 						Charm:       "ch:prometheus2",
-						Series:      "focal",
+						Base:        "ubuntu@20.04",
 						Constraints: "image-id=ubuntu-bf2",
 					},
 					"ubuntu": {
 						Charm:       "ch:ubuntu",
-						Series:      "focal",
+						Base:        "ubuntu@20.04",
 						Constraints: "mem=2G",
 					},
 				},
@@ -260,7 +277,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			},
 		},
 		{
-			title: "two apps, machine with image-id in (app).To, series in app -> no error",
+			title: "two apps, machine with image-id in (app).To, base in app -> no error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
@@ -269,7 +286,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 					},
 					"ubuntu": {
 						Charm:       "ch:ubuntu",
-						Series:      "jammy",
+						Base:        "ubuntu@22.04",
 						Constraints: "mem=2G",
 						To:          []string{"0"},
 					},
@@ -286,9 +303,9 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			deployBundle: deployBundle{},
 		},
 		{
-			title: "two apps, one with image-id, series in bundle -> no error",
+			title: "two apps, one with image-id, base in bundle -> no error",
 			bundleData: &charm.BundleData{
-				Series: "focal",
+				DefaultBase: "ubuntu@20.04",
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
 						Charm:       "ch:prometheus2",
@@ -303,9 +320,9 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			deployBundle: deployBundle{},
 		},
 		{
-			title: "two apps, model with image-id, series in bundle -> no error",
+			title: "two apps, model with image-id, base in bundle -> no error",
 			bundleData: &charm.BundleData{
-				Series: "focal",
+				DefaultBase: "ubuntu@20.04",
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
 						Charm:       "ch:prometheus2",
@@ -324,9 +341,9 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			},
 		},
 		{
-			title: "two apps, model with image-id, series in bundle and app -> no error",
+			title: "two apps, model with image-id, base in bundle and app -> no error",
 			bundleData: &charm.BundleData{
-				Series: "focal",
+				DefaultBase: "ubuntu@20.04",
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
 						Charm:       "ch:prometheus2",
@@ -334,7 +351,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 					},
 					"ubuntu": {
 						Charm:       "ch:ubuntu",
-						Series:      "jammy",
+						Base:        "ubuntu@22.04",
 						Constraints: "mem=2G",
 					},
 				},
@@ -346,9 +363,9 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			},
 		},
 		{
-			title: "two apps, machine with image-id in (app).To, series in bundle -> no error",
+			title: "two apps, machine with image-id in (app).To, base in bundle -> no error",
 			bundleData: &charm.BundleData{
-				Series: "focal",
+				DefaultBase: "ubuntu@20.04",
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
 						Charm:       "ch:prometheus2",
@@ -372,7 +389,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			deployBundle: deployBundle{},
 		},
 		{
-			title: "application targeting new container, no series -> error",
+			title: "application targeting new container, no base -> error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
@@ -394,7 +411,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			deployBundle: deployBundle{},
 		},
 		{
-			title: "application targeting new machine, no series -> error",
+			title: "application targeting new machine, no base -> error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
@@ -416,7 +433,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			deployBundle: deployBundle{},
 		},
 		{
-			title: "application targeting container in bundle, no series -> error",
+			title: "application targeting container in bundle, no base -> error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
@@ -436,12 +453,12 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 				},
 			},
 			deployBundle:  deployBundle{},
-			expectedError: explicitSeriesErrorUbuntu,
+			expectedError: explicitBaseErrorUbuntu,
 		},
 		{
-			title: "application targeting container in bundle, series in bundle -> no error",
+			title: "application targeting container in bundle, base in bundle -> no error",
 			bundleData: &charm.BundleData{
-				Series: "focal",
+				DefaultBase: "ubuntu@20.04",
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
 						Charm:       "ch:prometheus2",
@@ -465,7 +482,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 		{
 			title: "ensure nil machine spec produces no error",
 			bundleData: &charm.BundleData{
-				Series: "focal",
+				DefaultBase: "ubuntu@20.04",
 				Applications: map[string]*charm.ApplicationSpec{
 					"prometheus2": {
 						Charm:       "ch:prometheus2",

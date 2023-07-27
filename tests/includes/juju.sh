@@ -285,7 +285,7 @@ pre_bootstrap() {
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --model-default agent-stream=build-${SHORT_GIT_COMMIT}"
 	fi
 
-	if [[ -n ${BOOTSTRAP_ARCH:-} ]]; then
+	if [[ -n ${BOOTSTRAP_ARCH} ]]; then
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --bootstrap-constraints arch=${BOOTSTRAP_ARCH}"
 	fi
 
@@ -317,7 +317,7 @@ post_add_model() {
 		;;
 	esac
 
-	if [[ -n ${MODEL_ARCH:-} ]]; then
+	if [[ -n ${MODEL_ARCH} ]]; then
 		juju set-model-constraints "arch=${MODEL_ARCH}"
 	fi
 }

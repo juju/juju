@@ -8,9 +8,11 @@ export BOOTSTRAP_REUSE="${BOOTSTRAP_REUSE:-false}"
 export BOOTSTRAP_PROVIDER="${BOOTSTRAP_PROVIDER:-lxd}"
 export BOOTSTRAP_CLOUD="${BOOTSTRAP_CLOUD:-lxd}"
 export BOOTSTRAP_SERIES="${BOOTSTRAP_SERIES:-}"
+export BOOTSTRAP_ARCH="${BOOTSTRAP_ARCH:-}"
+export BUILD_ARCH="${BUILD_ARCH:-}"
+export MODEL_ARCH="${MODEL_ARCH:-}"
 export BUILD_AGENT="${BUILD_AGENT:-false}"
 export RUN_SUBTEST="${RUN_SUBTEST:-}"
-
 export CURRENT_LTS="jammy"
 
 current_pwd=$(pwd)
