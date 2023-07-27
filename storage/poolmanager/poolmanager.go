@@ -111,7 +111,7 @@ func (pm *poolManager) Replace(name, provider string, attrs map[string]interface
 	validatedAttrs := cfg.Attrs()
 	validatedAttrs[Name] = name
 	validatedAttrs[Type] = string(providerType)
-	return pm.settings.ReplaceSettings(globalKey(name), attrs)
+	return pm.settings.ReplaceSettings(globalKey(name), validatedAttrs)
 }
 
 // Get is defined on PoolManager interface.

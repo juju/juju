@@ -11,12 +11,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/multiwatcher"
 )
 
 type WorkerSuite struct {
-	statetesting.StateSuite
+	testing.BaseSuite
 	logger loggo.Logger
 	config multiwatcher.Config
 }
@@ -24,16 +24,14 @@ type WorkerSuite struct {
 var _ = gc.Suite(&WorkerSuite{})
 
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.logger = loggo.GetLogger("test")
 	s.logger.SetLogLevel(loggo.TRACE)
 
-	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
-	c.Assert(err, jc.ErrorIsNil)
 	s.config = multiwatcher.Config{
 		Clock:                clock.WallClock,
 		Logger:               s.logger,
-		Backing:              allWatcherBacking,
+		Backing:              noopWatcherBacking{},
 		PrometheusRegisterer: noopRegisterer{},
 	}
 }
@@ -64,4 +62,8 @@ func (s *WorkerSuite) TestConfigMissingRegisterer(c *gc.C) {
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing PrometheusRegisterer not valid")
+}
+
+type noopWatcherBacking struct {
+	state.AllWatcherBacking
 }

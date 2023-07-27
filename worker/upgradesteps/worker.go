@@ -73,6 +73,24 @@ type StatusSetter interface {
 	SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error
 }
 
+// SystemState defines the methods needed to query the system state for upgrade info.
+type SystemState interface {
+	EnsureUpgradeInfo(
+		controllerId string, previousVersion, targetVersion version.Number,
+	) (UpgradeInfo, error)
+	ModelType() (state.ModelType, error)
+}
+
+type UpgradeInfo interface {
+	SetControllerDone(controllerId string) error
+	Watch() state.NotifyWatcher
+	Refresh() error
+	AllProvisionedControllersReady() (bool, error)
+	SetStatus(status state.UpgradeStatus) error
+	Status() state.UpgradeStatus
+	Abort() error
+}
+
 // NewWorker returns a new instance of the upgradeSteps worker. It
 // will run any required steps to upgrade to the currently running
 // Juju version.
@@ -81,11 +99,10 @@ func NewWorker(
 	agent agent.Agent,
 	apiConn api.Connection,
 	isController bool,
-	openState func() (*state.StatePool, error),
+	openState func() (*state.StatePool, SystemState, error),
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	retryStrategy retry.CallArgs,
 	entity StatusSetter,
-	isCaas bool,
 ) (worker.Worker, error) {
 	w := &upgradeSteps{
 		upgradeComplete: upgradeComplete,
@@ -97,7 +114,6 @@ func NewWorker(
 		entity:          entity,
 		tag:             agent.CurrentConfig().Tag(),
 		isController:    isController,
-		isCaas:          isCaas,
 	}
 	w.tomb.Go(w.run)
 	return w, nil
@@ -108,7 +124,7 @@ type upgradeSteps struct {
 	upgradeComplete gate.Lock
 	agent           agent.Agent
 	apiConn         api.Connection
-	openState       func() (*state.StatePool, error)
+	openState       func() (*state.StatePool, SystemState, error)
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc
 	entity          StatusSetter
 	retryStrategy   retry.CallArgs
@@ -120,6 +136,7 @@ type upgradeSteps struct {
 	// needs to be opened before running upgrade steps
 	isController bool
 	isCaas       bool
+	systemState  SystemState
 	pool         *state.StatePool
 }
 
@@ -178,20 +195,19 @@ func (w *upgradeSteps) run() error {
 	// and how often StateWorker might run.
 	if w.isController {
 		var err error
-		if w.pool, err = w.openState(); err != nil {
+		if w.pool, w.systemState, err = w.openState(); err != nil {
+			return err
+		}
+		if err != nil {
 			return err
 		}
 		defer func() { _ = w.pool.Close() }()
 
-		st, err := w.pool.SystemState()
+		modelType, err := w.systemState.ModelType()
 		if err != nil {
-			return errors.Trace(err)
+			return err
 		}
-		model, err := st.Model()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		w.isCaas = model.Type() == state.ModelTypeCAAS
+		w.isCaas = modelType == state.ModelTypeCAAS
 	}
 
 	if err := w.runUpgrades(); err != nil {
@@ -238,9 +254,9 @@ func (w *upgradeSteps) runUpgrades() error {
 	return nil
 }
 
-func (w *upgradeSteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
+func (w *upgradeSteps) prepareForUpgrade() (UpgradeInfo, error) {
 	logger.Infof("checking that upgrade can proceed")
-	if err := w.preUpgradeSteps(w.pool, w.agent.CurrentConfig(), w.pool != nil, w.isCaas); err != nil {
+	if err := w.preUpgradeSteps(w.agent.CurrentConfig(), w.isController, w.isCaas); err != nil {
 		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
 	}
 
@@ -250,13 +266,9 @@ func (w *upgradeSteps) prepareForUpgrade() (*state.UpgradeInfo, error) {
 	return nil, nil
 }
 
-func (w *upgradeSteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error) {
+func (w *upgradeSteps) prepareControllerForUpgrade() (UpgradeInfo, error) {
 	logger.Infof("signalling that this controller is ready for upgrade")
-	st, err := w.pool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	info, err := st.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
+	info, err := w.systemState.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -277,7 +289,7 @@ func (w *upgradeSteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error)
 	return info, nil
 }
 
-func (w *upgradeSteps) waitForOtherControllers(info *state.UpgradeInfo) error {
+func (w *upgradeSteps) waitForOtherControllers(info UpgradeInfo) error {
 	watcher := info.Watch()
 	defer func() { _ = watcher.Stop() }()
 
@@ -366,7 +378,7 @@ func (w *upgradeSteps) reportUpgradeFailure(err error, willRetry bool) {
 		fmt.Sprintf("upgrade to %v failed (%s): %v", w.toVersion, retryText, err), nil)
 }
 
-func (w *upgradeSteps) finaliseUpgrade(info *state.UpgradeInfo) error {
+func (w *upgradeSteps) finaliseUpgrade(info UpgradeInfo) error {
 	if !w.isController {
 		return nil
 	}

@@ -256,8 +256,8 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			// Realistically,  operators should not open state for any reason.
-			OpenStateForUpgrade: func() (*state.StatePool, error) {
-				return nil, errors.New("operator cannot open state")
+			OpenStateForUpgrade: func() (*state.StatePool, upgradesteps.SystemState, error) {
+				return nil, nil, errors.New("operator cannot open state")
 			},
 			PreUpgradeSteps: config.PreUpgradeSteps,
 			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {

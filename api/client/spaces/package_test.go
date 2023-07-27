@@ -6,12 +6,13 @@ package spaces
 import (
 	stdtesting "testing"
 
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/testing"
 )
 
 func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 func NewAPIFromCaller(caller base.FacadeCaller) *API {

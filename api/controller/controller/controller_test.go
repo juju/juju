@@ -19,7 +19,9 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/controller"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	proxyfactory "github.com/juju/juju/proxy/factory"
 	"github.com/juju/juju/rpc/params"
@@ -410,6 +412,24 @@ func (s *Suite) TestWatchAllModelSummaries(c *gc.C) {
 	c.Assert(watcher, gc.IsNil)
 }
 
+func (s *Suite) TestWatchAllModels(c *gc.C) {
+	apiCaller := apitesting.BestVersionCaller{
+		BestVersion: 9,
+		APICallerFunc: func(objType string, version int, id, request string, args, result interface{}) error {
+			c.Check(objType, gc.Equals, "Controller")
+			c.Check(version, gc.Equals, 9)
+			c.Check(request, gc.Equals, "WatchAllModels")
+			c.Check(result, gc.FitsTypeOf, &params.AllWatcherId{})
+			c.Check(args, gc.IsNil)
+			return errors.New("some error")
+		},
+	}
+	client := controller.NewClient(apiCaller)
+	watcher, err := client.WatchAllModels()
+	c.Assert(err, gc.ErrorMatches, "some error")
+	c.Assert(watcher, gc.IsNil)
+}
+
 func (s *Suite) TestDashboardConnectionInfo(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, result interface{}) error {
@@ -431,4 +451,161 @@ func (s *Suite) TestDashboardConnectionInfo(c *gc.C) {
 	connectionInfo, err := client.DashboardConnectionInfo(proxyfactory.NewFactory())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(connectionInfo.SSHTunnel, gc.NotNil)
+}
+
+func (s *Suite) TestAllModels(c *gc.C) {
+	now := time.Now()
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, args, result interface{}) error {
+		c.Check(objType, gc.Equals, "Controller")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "AllModels")
+		c.Check(args, gc.IsNil)
+		c.Check(result, gc.FitsTypeOf, &params.UserModelList{})
+		*(result.(*params.UserModelList)) = params.UserModelList{
+			UserModels: []params.UserModel{{
+				Model: params.Model{
+					Name:     "test",
+					UUID:     coretesting.ModelTag.Id(),
+					Type:     "iaas",
+					OwnerTag: "user-fred",
+				},
+				LastConnection: &now,
+			}},
+		}
+		return nil
+	})
+
+	client := controller.NewClient(apiCaller)
+	m, err := client.AllModels()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m, jc.DeepEquals, []base.UserModel{{
+		Name:           "test",
+		UUID:           coretesting.ModelTag.Id(),
+		Type:           "iaas",
+		Owner:          "fred",
+		LastConnection: &now,
+	}})
+}
+
+func (s *Suite) TestModelConfig(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, args, result interface{}) error {
+		c.Check(objType, gc.Equals, "Controller")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ModelConfig")
+		c.Check(args, gc.IsNil)
+		c.Check(result, gc.FitsTypeOf, &params.ModelConfigResults{})
+		*(result.(*params.ModelConfigResults)) = params.ModelConfigResults{
+			Config: map[string]params.ConfigValue{
+				"name": {
+					Value:  "test",
+					Source: "controller",
+				},
+			},
+		}
+		return nil
+	})
+
+	client := controller.NewClient(apiCaller)
+	m, err := client.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m, jc.DeepEquals, map[string]interface{}{"name": "test"})
+}
+
+func (s *Suite) TestControllerConfig(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, args, result interface{}) error {
+		c.Check(objType, gc.Equals, "Controller")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ControllerConfig")
+		c.Check(args, gc.IsNil)
+		c.Check(result, gc.FitsTypeOf, &params.ControllerConfigResult{})
+		*(result.(*params.ControllerConfigResult)) = params.ControllerConfigResult{
+			Config: map[string]interface{}{
+				"api-port": 666,
+			},
+		}
+		return nil
+	})
+
+	client := controller.NewClient(apiCaller)
+	m, err := client.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m, jc.DeepEquals, corecontroller.Config{"api-port": 666})
+}
+
+func (s *Suite) TestListBlockedModels(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, args, result interface{}) error {
+		c.Check(objType, gc.Equals, "Controller")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "ListBlockedModels")
+		c.Check(args, gc.IsNil)
+		c.Check(result, gc.FitsTypeOf, &params.ModelBlockInfoList{})
+		*(result.(*params.ModelBlockInfoList)) = params.ModelBlockInfoList{
+			Models: []params.ModelBlockInfo{{
+				Name:     "controller",
+				UUID:     coretesting.ModelTag.Id(),
+				OwnerTag: "user-fred",
+				Blocks: []string{
+					"BlockChange",
+					"BlockDestroy",
+				},
+			}},
+		}
+		return nil
+	})
+
+	client := controller.NewClient(apiCaller)
+	results, err := client.ListBlockedModels()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
+		{
+			Name:     "controller",
+			UUID:     coretesting.ModelTag.Id(),
+			OwnerTag: "user-fred",
+			Blocks: []string{
+				"BlockChange",
+				"BlockDestroy",
+			},
+		},
+	})
+}
+
+func (s *Suite) TestRemoveBlocks(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, args, result interface{}) error {
+		c.Check(objType, gc.Equals, "Controller")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "RemoveBlocks")
+		c.Check(args, jc.DeepEquals, params.RemoveBlocksArgs{All: true})
+		c.Check(result, gc.IsNil)
+		return errors.New("some error")
+	})
+
+	client := controller.NewClient(apiCaller)
+	err := client.RemoveBlocks()
+	c.Assert(err, gc.ErrorMatches, "some error")
+}
+
+func (s *Suite) TestGetControllerAccess(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, args, result interface{}) error {
+		c.Check(objType, gc.Equals, "Controller")
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "GetControllerAccess")
+		c.Check(args, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{Tag: "user-fred"}},
+		})
+		c.Check(result, gc.FitsTypeOf, &params.UserAccessResults{})
+		*(result.(*params.UserAccessResults)) = params.UserAccessResults{
+			Results: []params.UserAccessResult{{
+				Result: &params.UserAccess{
+					UserTag: "user-fred",
+					Access:  "superuser",
+				},
+			}},
+		}
+		return nil
+	})
+
+	client := controller.NewClient(apiCaller)
+	access, err := client.GetControllerAccess("fred")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(access, gc.Equals, permission.SuperuserAccess)
 }

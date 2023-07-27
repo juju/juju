@@ -18,14 +18,10 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/stateenvirons"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
@@ -35,12 +31,17 @@ import (
 // implementation. They needn't be internal tests.
 
 type UpgradeSuite struct {
-	statetesting.StateSuite
+	coretesting.BaseSuite
 
 	oldVersion      version.Binary
 	logWriter       loggo.TestWriter
 	connectionDead  bool
 	preUpgradeError bool
+
+	notify          chan struct{}
+	upgradeErr      error
+	controllersDone []string
+	status          state.UpgradeStatus
 }
 
 var _ = gc.Suite(&UpgradeSuite{})
@@ -49,7 +50,7 @@ const fails = true
 const succeeds = false
 
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 
 	s.preUpgradeError = false
 	// Most of these tests normally finish sub-second on a fast machine.
@@ -69,6 +70,10 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&agenterrors.ConnectionIsDead, func(agenterrors.Logger, agenterrors.Breakable) bool {
 		return s.connectionDead
 	})
+
+	s.notify = make(chan struct{}, 1)
+	s.upgradeErr = nil
+	s.controllersDone = nil
 }
 
 func (s *UpgradeSuite) captureLogs(c *gc.C) {
@@ -198,28 +203,16 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 	// steps themselves fails, ensuring the something is logged and
 	// the agent status is updated.
 
-	m := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageModel},
-	})
 	s.captureLogs(c)
 
-	// Simulate the upgrade-database worker having run successfully.
-	info, err := s.State.EnsureUpgradeInfo(m.Id(), s.oldVersion.Number, jujuversion.Current)
-	c.Assert(err, jc.ErrorIsNil)
-	err = info.SetStatus(state.UpgradeDBComplete)
-	c.Assert(err, jc.ErrorIsNil)
-
 	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
-		// Violate the state-machine rules so that finaliseUpgrade() will fail.
-		// Recreating the upgrade doc will put us into status "pending" without
-		// any recorded controller ready/completed entries.
-		if err := s.State.ClearUpgradeInfo(); err != nil {
-			return err
-		}
-		info, err = s.State.EnsureUpgradeInfo(m.Id(), s.oldVersion.Number, jujuversion.Current)
-		return err
+		s.upgradeErr = errors.New("cannot complete upgrade: upgrade has not yet run")
+		return nil
 	}
 	s.PatchValue(&PerformUpgrade, fakePerformUpgrade)
+
+	// Simulate the upgrade-database worker having run successfully.
+	s.notify <- struct{}{}
 
 	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
 	c.Check(workerErr, gc.IsNil)
@@ -255,10 +248,6 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) 
 	// This test checks when a controller is upgrading and one of
 	// the other controllers doesn't signal it is ready in time.
 
-	err := s.State.SetModelAgentVersion(jujuversion.Current, nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.create3Controllers(c)
 	s.captureLogs(c)
 	attemptsP := s.countUpgradeAttempts(nil)
 
@@ -268,10 +257,6 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) 
 	c.Check(*attemptsP, gc.Equals, 0)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't happen
 	c.Assert(doneLock.IsUnlocked(), jc.IsFalse)
-
-	// The environment agent-version should still be the new version.
-	// It's up to the master to trigger the rollback.
-	s.assertEnvironAgentVersion(c, jujuversion.Current)
 
 	causeMsg := " timed out after 50ms"
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
@@ -291,7 +276,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) 
 func (s *UpgradeSuite) TestSuccessLeadingController(c *gc.C) {
 	// This test checks what happens when an upgrade works on the first
 	// attempt, on the first controller to set the status to "running".
-	info := s.checkSuccess(c, "databaseMaster", func(i *state.UpgradeInfo) {
+	info := s.checkSuccess(c, "databaseMaster", func(i UpgradeInfo) {
 		err := i.SetStatus(state.UpgradeDBComplete)
 		c.Assert(err, jc.ErrorIsNil)
 	})
@@ -301,7 +286,7 @@ func (s *UpgradeSuite) TestSuccessLeadingController(c *gc.C) {
 func (s *UpgradeSuite) TestSuccessFollowingController(c *gc.C) {
 	// This test checks what happens when an upgrade works on the a controller
 	// following a controller having already set the status to "running".
-	s.checkSuccess(c, "controller", func(info *state.UpgradeInfo) {
+	s.checkSuccess(c, "controller", func(info UpgradeInfo) {
 		// Indicate that the master is done
 		err := info.SetStatus(state.UpgradeDBComplete)
 		c.Assert(err, jc.ErrorIsNil)
@@ -310,18 +295,11 @@ func (s *UpgradeSuite) TestSuccessFollowingController(c *gc.C) {
 	})
 }
 
-func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*state.UpgradeInfo)) *state.UpgradeInfo {
-	_, machineIdB, machineIdC := s.create3Controllers(c)
-
-	// Indicate that machine B and C are ready to upgrade
-	vPrevious := s.oldVersion.Number
-	vNext := jujuversion.Current
-	info, err := s.State.EnsureUpgradeInfo(machineIdB, vPrevious, vNext)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.EnsureUpgradeInfo(machineIdC, vPrevious, vNext)
-	c.Assert(err, jc.ErrorIsNil)
-
+func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(UpgradeInfo)) UpgradeInfo {
+	info := &fakeUpgradeInfo{s}
 	mungeInfo(info)
+
+	s.notify <- struct{}{}
 
 	attemptsP := s.countUpgradeAttempts(nil)
 	s.captureLogs(c)
@@ -335,9 +313,7 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(0, target, succeeds, ""))
 	c.Check(doneLock.IsUnlocked(), jc.IsTrue)
 
-	err = info.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.ControllersDone(), jc.DeepEquals, []string{"0"})
+	c.Assert(s.controllersDone, jc.SameContents, []string{"0"})
 	return info
 }
 
@@ -395,28 +371,16 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, isController bool) (
 		s.preUpgradeSteps,
 		testRetryStrategy,
 		machineStatus,
-		false,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return worker.Wait(), config, machineStatus.Calls, doneLock
 }
 
-func (s *UpgradeSuite) openStateForUpgrade() (*state.StatePool, error) {
-	newPolicy := stateenvirons.GetNewPolicyFunc()
-	pool, err := state.OpenStatePool(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      s.State.ControllerTag(),
-		ControllerModelTag: s.Model.ModelTag(),
-		MongoSession:       s.State.MongoSession(),
-		NewPolicy:          newPolicy,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return pool, nil
+func (s *UpgradeSuite) openStateForUpgrade() (*state.StatePool, SystemState, error) {
+	return &state.StatePool{}, &fakeSystemState{s}, nil
 }
 
-func (s *UpgradeSuite) preUpgradeSteps(_ *state.StatePool, _ agent.Config, _, _ bool) error {
+func (s *UpgradeSuite) preUpgradeSteps(_ agent.Config, _, _ bool) error {
 	if s.preUpgradeError {
 		return errors.New("preupgrade error")
 	}
@@ -425,32 +389,6 @@ func (s *UpgradeSuite) preUpgradeSteps(_ *state.StatePool, _ agent.Config, _, _ 
 
 func (s *UpgradeSuite) makeFakeConfig() *fakeConfigSetter {
 	return NewFakeConfigSetter(names.NewMachineTag("0"), s.oldVersion.Number)
-}
-
-func (s *UpgradeSuite) create3Controllers(c *gc.C) (machineIdA, machineIdB, machineIdC string) {
-	machine0 := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageModel},
-	})
-	machineIdA = machine0.Id()
-
-	changes, err := s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(changes.Added), gc.Equals, 2)
-
-	machineIdB = changes.Added[0]
-	s.setMachineProvisioned(c, machineIdB)
-
-	machineIdC = changes.Added[1]
-	s.setMachineProvisioned(c, machineIdC)
-
-	return
-}
-
-func (s *UpgradeSuite) setMachineProvisioned(c *gc.C, id string) {
-	machine, err := s.State.Machine(id)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProvisioned(instance.Id(id+"-inst"), "", "nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 const maxUpgradeRetries = 3
@@ -512,12 +450,50 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(retryCount int, target string, ex
 	return outLogs
 }
 
-func (s *UpgradeSuite) assertEnvironAgentVersion(c *gc.C, expected version.Number) {
-	envConfig, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, ok := envConfig.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, expected)
+type fakeUpgradeInfo struct {
+	s *UpgradeSuite
+}
+
+func (u *fakeUpgradeInfo) SetControllerDone(controllerId string) error {
+	u.s.controllersDone = append(u.s.controllersDone, controllerId)
+	return u.s.upgradeErr
+}
+
+func (u *fakeUpgradeInfo) Watch() state.NotifyWatcher {
+	return watchertest.NewMockNotifyWatcher(u.s.notify)
+}
+
+func (u *fakeUpgradeInfo) Refresh() error {
+	return nil
+}
+
+func (u *fakeUpgradeInfo) AllProvisionedControllersReady() (bool, error) {
+	return true, nil
+}
+
+func (u *fakeUpgradeInfo) SetStatus(status state.UpgradeStatus) error {
+	u.s.status = status
+	return nil
+}
+
+func (u *fakeUpgradeInfo) Status() state.UpgradeStatus {
+	return u.s.status
+}
+
+func (u *fakeUpgradeInfo) Abort() error {
+	return nil
+}
+
+type fakeSystemState struct {
+	s *UpgradeSuite
+}
+
+func (*fakeSystemState) ModelType() (state.ModelType, error) {
+	return state.ModelTypeIAAS, nil
+}
+
+func (s *fakeSystemState) EnsureUpgradeInfo(controllerId string, previousVersion, targetVersion version.Number) (UpgradeInfo, error) {
+	return &fakeUpgradeInfo{s.s}, nil
 }
 
 // NewFakeConfigSetter returns a fakeConfigSetter which implements

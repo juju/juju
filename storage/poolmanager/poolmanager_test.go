@@ -5,19 +5,17 @@ package poolmanager_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	dummystorage "github.com/juju/juju/storage/provider/dummy"
 )
 
 type poolSuite struct {
-	// TODO - don't use state directly, mock it out and add feature tests.
-	statetesting.StateSuite
+	testing.IsolationSuite
 	registry    storage.StaticProviderRegistry
 	poolManager poolmanager.PoolManager
 	settings    poolmanager.SettingsManager
@@ -30,8 +28,10 @@ var poolAttrs = map[string]interface{}{
 }
 
 func (s *poolSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
-	s.settings = state.NewStateSettings(s.State)
+	s.IsolationSuite.SetUpTest(c)
+	s.settings = poolmanager.MemSettings{
+		Settings: make(map[string]map[string]interface{}),
+	}
 	s.registry = storage.StaticProviderRegistry{
 		map[storage.ProviderType]storage.Provider{
 			"loop": &dummystorage.StorageProvider{},
@@ -107,7 +107,7 @@ func (s *poolSuite) TestCreateAlreadyExists(c *gc.C) {
 	_, err := s.poolManager.Create("testpool", storage.ProviderType("loop"), storage.Attrs{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.poolManager.Create("testpool", storage.ProviderType("loop"), storage.Attrs{"foo": "bar"})
-	c.Assert(err, gc.ErrorMatches, ".*cannot overwrite.*")
+	c.Assert(err, gc.ErrorMatches, `.*settings with key "pool#testpool" already exists`)
 }
 
 func (s *poolSuite) TestCreateMissingName(c *gc.C) {

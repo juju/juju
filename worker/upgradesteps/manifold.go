@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -27,7 +26,7 @@ type ManifoldConfig struct {
 	AgentName            string
 	APICallerName        string
 	UpgradeStepsGateName string
-	OpenStateForUpgrade  func() (*state.StatePool, error)
+	OpenStateForUpgrade  func() (*state.StatePool, SystemState, error)
 	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
 	NewAgentStatusSetter func(apiConn api.Connection) (StatusSetter, error)
 }
@@ -80,14 +79,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// Application tag for CAAS operator; controller,
 			// machine or unit tag for agents.
 			agentTag := localAgent.CurrentConfig().Tag()
-			isOperator := agentTag.Kind() == names.ApplicationTagKind
 
-			var isController bool
-			if !isOperator {
-				isController, err = apiagent.IsController(apiConn, agentTag)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
+			isController, err := apiagent.IsController(apiConn, agentTag)
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
 			return NewWorker(
 				upgradeStepsLock,
@@ -102,7 +97,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					Attempts: 5,
 				},
 				statusSetter,
-				isOperator,
 			)
 		},
 	}
