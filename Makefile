@@ -595,7 +595,7 @@ image-check: $(image_check_prereq)
 
 .PHONY: image-check-build
 image-check-build:
-	CLIENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" AGENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" make build
+	CLIENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" AGENT_PACKAGE_PLATFORMS="$(OCI_IMAGE_PLATFORMS)" make go-build
 
 .PHONY: image-check-build-skip
 image-check-build-skip:
