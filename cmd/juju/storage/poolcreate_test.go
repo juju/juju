@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/core/model"
-	_ "github.com/juju/juju/provider/dummy"
 )
 
 type PoolCreateSuite struct {

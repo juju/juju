@@ -16,7 +16,6 @@ import (
 	apiapplication "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
 )

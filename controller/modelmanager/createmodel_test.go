@@ -16,11 +16,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	_ "github.com/juju/juju/provider/azure"
-	_ "github.com/juju/juju/provider/dummy"
-	_ "github.com/juju/juju/provider/ec2"
-	_ "github.com/juju/juju/provider/maas"
-	_ "github.com/juju/juju/provider/openstack"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
