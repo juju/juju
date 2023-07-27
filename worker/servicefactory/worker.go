@@ -40,8 +40,14 @@ func (config Config) Validate() error {
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
+	if config.NewServiceFactoryGetter == nil {
+		return errors.NotValidf("nil NewServiceFactoryGetter")
+	}
 	if config.NewControllerServiceFactory == nil {
 		return errors.NotValidf("nil NewControllerServiceFactory")
+	}
+	if config.NewModelServiceFactory == nil {
+		return errors.NotValidf("nil NewModelServiceFactory")
 	}
 	return nil
 }

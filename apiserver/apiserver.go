@@ -310,8 +310,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	loggo.GetLogger("***").Criticalf("SERVER %v", model.UUID())
-
 	shared, err := newSharedServerContext(sharedServerConfig{
 		statePool:            cfg.StatePool,
 		multiwatcherFactory:  cfg.MultiwatcherFactory,
