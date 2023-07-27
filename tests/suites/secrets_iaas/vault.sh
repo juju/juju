@@ -5,7 +5,7 @@ run_secrets_vault() {
 
 	model_name='model-secrets-vault'
 	juju add-secret-backend myvault vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
-	juju --show-log add-model "$model_name" --config secret-backend=myvault
+	add_model "$model_name" --config secret-backend=myvault
 
 	check_secrets
 
@@ -19,7 +19,7 @@ run_secret_drain() {
 	prepare_vault
 
 	model_name='model-secrets-drain'
-	juju --show-log add-model "$model_name"
+	add_model "$model_name"
 
 	vault_backend_name='myvault'
 	juju add-secret-backend "$vault_backend_name" vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
@@ -68,7 +68,7 @@ run_secret_drain() {
 }
 
 prepare_vault() {
-	juju add-model "model-vault-provider"
+	add_model "model-vault-provider"
 
 	if ! which "vault" >/dev/null 2>&1; then
 		sudo snap install vault

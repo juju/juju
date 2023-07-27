@@ -107,7 +107,7 @@ run_deploy_caas_workload() {
 	controller_name=$(juju controllers --format json | jq -r '.controllers | keys[0]')
 	juju add-k8s "${k8s_cloud_name}" --storage "${storage}" --controller "${controller_name}" 2>&1 | OUTPUT "${file}"
 
-	add_model "${model_name}" "${k8s_cloud_name}" "${controller_name}" "${file}"
+	juju_add_model "${model_name}" "${k8s_cloud_name}" "${controller_name}" "${file}"
 
 	juju deploy snappass-test
 
