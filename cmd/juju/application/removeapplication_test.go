@@ -180,36 +180,6 @@ func (s *removeApplicationSuite) TestRemoveApplicationPrompt(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `(?s)will remove application real-app.*`)
 }
 
-func (s *removeApplicationSuite) TestRemoveApplicationPromptOldFacade(c *gc.C) {
-	s.facadeVersion = 15
-	defer s.setup(c).Finish()
-
-	var stdin bytes.Buffer
-	ctx := cmdtesting.Context(c)
-	ctx.Stdin = &stdin
-
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
-	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
-
-	s.mockApi.EXPECT().DestroyApplications(apiapplication.DestroyApplicationsParams{
-		Applications: []string{"real-app"},
-	}).Return([]params.DestroyApplicationResult{{
-		Info: &params.DestroyApplicationInfo{},
-	}}, nil)
-
-	stdin.WriteString("y")
-	_, errc := s.runWithContext(ctx, "real-app")
-
-	select {
-	case err := <-errc:
-		c.Check(err, jc.ErrorIsNil)
-	case <-time.After(testing.LongWait):
-		c.Fatal("command took too long")
-	}
-
-	c.Assert(c.GetTestLog(), gc.Matches, `(?s).*Your controller does not support dry runs.*`)
-}
-
 func setupRace(raceyApplications []string) func(args apiapplication.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
 	return func(args apiapplication.DestroyApplicationsParams) ([]params.DestroyApplicationResult, error) {
 		results := make([]params.DestroyApplicationResult, len(args.Applications))

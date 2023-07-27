@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
-	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
