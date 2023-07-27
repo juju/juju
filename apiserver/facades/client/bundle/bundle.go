@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -335,12 +336,25 @@ func bundleOutputFromBundleData(bd *charm.BundleData) *bundleOutput {
 }
 
 func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults bool, backend Backend) (*charm.BundleData, error) {
-	cfg := model.Config()
-	value, ok := cfg["default-series"]
-	if !ok {
-		value = version.DefaultSupportedLTS()
+	cfg, err := config.New(config.NoDefaults, model.Config())
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	defaultSeries := fmt.Sprintf("%v", value)
+	var base series.Base
+	value, ok := cfg.DefaultBase()
+	if ok {
+		var err error
+		base, err = series.ParseBaseFromString(value)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		base = version.DefaultSupportedLTSBase()
+	}
+	defaultSeries, err := series.GetSeriesFromBase(base)
+	if err != nil {
+		return nil, err
+	}
 
 	data := &charm.BundleData{}
 
