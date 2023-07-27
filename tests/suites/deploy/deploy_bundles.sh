@@ -135,7 +135,7 @@ run_deploy_exported_charmhub_bundle_with_fixed_revisions() {
 
 	echo "Make a copy of reference yaml"
 	cp ${bundle} "${TEST_DIR}/telegraf_bundle.yaml"
-	if [[ -n ${MODEL_ARCH:-} ]]; then
+	if [[ -n ${MODEL_ARCH} ]]; then
 		yq -i "
 			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
 			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
@@ -167,7 +167,7 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	bundle_with_fake_revisions=./tests/suites/deploy/bundles/telegraf_bundle_with_fake_revisions.yaml
 	cp ${bundle} "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
 	cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
-	if [[ -n ${MODEL_ARCH:-} ]]; then
+	if [[ -n ${MODEL_ARCH} ]]; then
 		yq -i "
       .applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
       .applications.juju-qa-test.constraints = \"arch=${MODEL_ARCH}\"
@@ -191,7 +191,7 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	juju deploy "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
 
 	echo "Create telegraf_bundle_without_revisions.yaml with known latest revisions from charmhub"
-	if [[ -n ${MODEL_ARCH:-} ]]; then
+	if [[ -n ${MODEL_ARCH} ]]; then
 		influxdb_rev=$(juju info influxdb --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
 		telegraf_rev=$(juju info telegraf --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."stable"[0].revision')
 		juju_qa_test_rev=$(juju info juju-qa-test --arch="${MODEL_ARCH}" --format json | jq -r '."channels"."latest"."candidate"[0].revision')
@@ -209,7 +209,7 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 		.applications.juju-qa-test.revision = ${juju_qa_test_rev}
 	" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
 
-	if [[ -n ${MODEL_ARCH:-} ]]; then
+	if [[ -n ${MODEL_ARCH} ]]; then
 		yq -i "
 			.applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
 			.applications.juju-qa-test.constraints = \"arch=${MODEL_ARCH}\" |

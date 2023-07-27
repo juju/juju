@@ -28,10 +28,15 @@ create_ami_and_wait_available() {
 	local ami_id_result
 	ami_id_result=${1}
 
+	arch="amd64"
+	if [[ -n ${MODEL_ARCH} ]]; then
+		arch="${MODEL_ARCH}"
+	fi
+
 	# Retrieve the image_id corresponding to ubuntu jammy
 	OUT=$(aws ec2 describe-images \
 		--owners 099720109477 \
-		--filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-jammy-?????-${MODEL_ARCH:-amd64}-server-????????" 'Name=state,Values=available' \
+		--filters "Name=name,Values=ubuntu/images/hvm-ssd/ubuntu-jammy-?????-${arch}-server-????????" 'Name=state,Values=available' \
 		--query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' \
 		--output text)
 	if [[ -z ${OUT} ]]; then
