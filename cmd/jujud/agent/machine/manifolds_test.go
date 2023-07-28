@@ -107,6 +107,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"query-logger",
 			"reboot-executor",
 			"secret-backend-rotate",
+			"service-factory",
 			"ssh-authkeys-updater",
 			"ssh-identity-writer",
 			"state",
@@ -169,6 +170,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"pubsub-forwarder",
 			"query-logger",
 			"secret-backend-rotate",
+			"service-factory",
 			"ssh-identity-writer",
 			"state",
 			"state-config-watcher",
@@ -237,6 +239,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"presence",
 		"pubsub-forwarder",
 		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -281,6 +284,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"query-logger",
 		"change-stream",
 		"file-notify-watcher",
+		"service-factory",
 	)
 
 	// Explicitly guarded by ifPrimaryController.
@@ -451,6 +455,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"lease-manager",
 		"multiwatcher",
 		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -610,6 +615,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"lease-manager",
 		"multiwatcher",
 		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -864,6 +870,16 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
+	"service-factory": {
+		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"state-config-watcher",
+	},
+
 	"ssh-authkeys-updater": {
 		"agent",
 		"api-caller",
@@ -1012,6 +1028,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"lease-manager",
 		"multiwatcher",
 		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -1101,6 +1118,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"lease-manager",
 		"multiwatcher",
 		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 		"syslog",
@@ -1265,6 +1283,16 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+	},
+
+	"service-factory": {
+		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"state-config-watcher",
 	},
 
 	"ssh-identity-writer": {

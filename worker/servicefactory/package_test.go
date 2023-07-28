@@ -26,6 +26,10 @@ type baseSuite struct {
 	logger    *MockLogger
 	dbDeleter *MockDBDeleter
 	dbGetter  *MockWatchableDBGetter
+
+	serviceFactoryGetter     *MockServiceFactoryGetter
+	controllerServiceFactory *MockControllerServiceFactory
+	modelServiceFactory      *MockModelServiceFactory
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -34,6 +38,10 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.logger = NewMockLogger(ctrl)
 	s.dbDeleter = NewMockDBDeleter(ctrl)
 	s.dbGetter = NewMockWatchableDBGetter(ctrl)
+
+	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
+	s.controllerServiceFactory = NewMockControllerServiceFactory(ctrl)
+	s.modelServiceFactory = NewMockModelServiceFactory(ctrl)
 
 	return ctrl
 }

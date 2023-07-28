@@ -70,6 +70,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 	return w, nil
 }
 
+// serviceFactoryWorker is a worker that holds a reference to a service factory.
+// This doesn't actually create them dynamically, it just hands them out
+// when asked.
 type serviceFactoryWorker struct {
 	tomb tomb.Tomb
 
@@ -77,10 +80,24 @@ type serviceFactoryWorker struct {
 	factoryGetter ServiceFactoryGetter
 }
 
+// ControllerFactory returns the controller service factory.
+func (w *serviceFactoryWorker) ControllerFactory() ControllerServiceFactory {
+	// TODO (stickupkid): Add metrics to here to see how often this is called.
+	return w.ctrlFactory
+}
+
+// FactoryGetter returns the service factory getter.
+func (w *serviceFactoryWorker) FactoryGetter() ServiceFactoryGetter {
+	// TODO (stickupkid): Add metrics to here to see how often this is called.
+	return w.factoryGetter
+}
+
+// Kill kills the service factory worker.
 func (w *serviceFactoryWorker) Kill() {
 	w.tomb.Kill(nil)
 }
 
+// Wait waits for the service factory worker to stop.
 func (w *serviceFactoryWorker) Wait() error {
 	return w.tomb.Wait()
 }
@@ -108,4 +125,30 @@ type serviceFactoryLogger struct {
 
 func (c serviceFactoryLogger) Child(name string) servicefactory.Logger {
 	return c
+}
+
+type serviceFactoryGetter struct {
+	ctrlFactory            ControllerServiceFactory
+	dbGetter               changestream.WatchableDBGetter
+	logger                 Logger
+	newModelServiceFactory ModelServiceFactoryFn
+}
+
+// FactoryForModel returns a service factory for the given model uuid.
+// This will late bind the model service factory to the actual service factory.
+func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) ServiceFactory {
+	// At the moment the model service factory is not cached, and is created
+	// on demand. We could cache it here, but then it's not clear when to clear
+	// the cache. Given that the model service factory is cheap to create, we
+	// can just create it on demand and then look into some sort of finalizer
+	// to clear the cache at a later point.
+	return &serviceFactory{
+		ControllerServiceFactory: s.ctrlFactory,
+		ModelServiceFactory:      s.newModelServiceFactory(s.dbGetter, modelUUID, s.logger),
+	}
+}
+
+type serviceFactory struct {
+	ControllerServiceFactory
+	ModelServiceFactory
 }

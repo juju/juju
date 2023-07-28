@@ -153,7 +153,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
-	"syslog", "charmhub-http-client", "change-stream", "db-accessor",
+	"syslog", "charmhub-http-client", "change-stream", "service-factory",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {

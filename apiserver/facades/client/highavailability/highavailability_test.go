@@ -5,7 +5,6 @@ package highavailability_test
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/highavailability"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	databasetesting "github.com/juju/juju/database/testing"
@@ -588,15 +586,4 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 		),
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
-}
-
-// TODO (manadart 2023-06-13): This stub does no verification.
-// An alternative approach will be sought when HA enablement is modified to
-// omit Mongo concerns. This will be done with mocks rather than ApiServerSuite.
-type stubWatchableDB struct {
-	changestream.WatchableDB
-}
-
-func (db stubWatchableDB) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
-	return nil
 }

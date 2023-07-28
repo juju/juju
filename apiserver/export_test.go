@@ -98,12 +98,21 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHan
 		httpAuthenticators:  []authentication.HTTPAuthenticator{authenticator},
 		loginAuthenticators: []authentication.LoginAuthenticator{authenticator},
 		offerAuthCtxt:       offerAuthCtxt,
-		shared:              &sharedServerContext{statePool: pool},
-		tag:                 names.NewMachineTag("0"),
+		shared: &sharedServerContext{
+			statePool:            pool,
+			serviceFactoryGetter: &stubServiceFactoryGetter{},
+		},
+		tag: names.NewMachineTag("0"),
 	}
 	h, err := newAPIHandler(srv, st, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.Resources()
+}
+
+type stubServiceFactoryGetter struct{}
+
+func (s *stubServiceFactoryGetter) FactoryForModel(string) servicefactory.ServiceFactory {
+	return nil
 }
 
 // TestingAPIHandlerWithEntity gives you the sane kind of APIHandler as

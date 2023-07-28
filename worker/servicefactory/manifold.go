@@ -40,6 +40,8 @@ type ServiceFactoryGetterFn func(
 	ModelServiceFactoryFn,
 ) ServiceFactoryGetter
 
+// ControllerServiceFactoryFn is a function that returns a controller service
+// factory.
 type ControllerServiceFactoryFn func(
 	changestream.WatchableDBGetter,
 	coredatabase.DBDeleter,
@@ -130,10 +132,10 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 
 	switch out := out.(type) {
 	case *ControllerServiceFactory:
-		var target ControllerServiceFactory = w.ctrlFactory
+		var target ControllerServiceFactory = w.ControllerFactory()
 		*out = target
 	case *ServiceFactoryGetter:
-		var target ServiceFactoryGetter = w.factoryGetter
+		var target ServiceFactoryGetter = w.FactoryGetter()
 		*out = target
 	default:
 		return errors.Errorf("unsupported output type %T", out)
@@ -179,30 +181,4 @@ func NewServiceFactoryGetter(
 		logger:                 logger,
 		newModelServiceFactory: newModelServiceFactory,
 	}
-}
-
-type serviceFactoryGetter struct {
-	ctrlFactory            ControllerServiceFactory
-	dbGetter               changestream.WatchableDBGetter
-	logger                 Logger
-	newModelServiceFactory ModelServiceFactoryFn
-}
-
-// FactoryForModel returns a service factory for the given model uuid.
-// This will late bind the model service factory to the actual service factory.
-func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) ServiceFactory {
-	// At the moment the model service factory is not cached, and is created
-	// on demand. We could cache it here, but then it's not clear when to clear
-	// the cache. Given that the model service factory is cheap to create, we
-	// can just create it on demand and then look into some sort of finalizer
-	// to clear the cache at a later point.
-	return &serviceFactory{
-		ControllerServiceFactory: s.ctrlFactory,
-		ModelServiceFactory:      s.newModelServiceFactory(s.dbGetter, modelUUID, s.logger),
-	}
-}
-
-type serviceFactory struct {
-	ControllerServiceFactory
-	ModelServiceFactory
 }
