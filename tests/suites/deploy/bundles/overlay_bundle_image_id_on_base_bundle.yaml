@@ -2,12 +2,12 @@ applications:
     ubuntu:
         charm: ubuntu
         scale: 1
-        constraints: image-id=ubuntu-bf2  
+        constraints: image-id={{IMAGE_ID}}
 
 ---
 
 applications:
     ubuntu:
-        series: jammy
+        base: ubuntu@22.04
         scale: 2
-        constraints: image-id=ubuntu-bf2-v2  
+        constraints: image-id={{IMAGE_ID}}
