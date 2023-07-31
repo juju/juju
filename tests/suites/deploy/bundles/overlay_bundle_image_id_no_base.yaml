@@ -8,4 +8,4 @@ applications:
 applications:
     ubuntu:
         scale: 2
-        constraints: image-id=ubuntu-bf2  
+        constraints: image-id={{IMAGE_ID}}
