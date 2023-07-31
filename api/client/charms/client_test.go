@@ -25,7 +25,7 @@ import (
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/http/mocks"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -185,7 +185,7 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 		Revision:     &curl.Revision,
 		Track:        nil,
 		Architecture: arch.DefaultArchitecture,
-		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
+		Base:         corebase.MakeDefaultBase("ubuntu", "18.04"),
 	}
 	facadeArgs := params.AddCharmWithOrigin{
 		URL:    curl.String(),

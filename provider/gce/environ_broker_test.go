@@ -11,9 +11,9 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -63,7 +63,7 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	}
 	s.ic = &instances.InstanceConstraint{
 		Region:      "home",
-		Base:        series.MakeDefaultBase("ubuntu", "22.04"),
+		Base:        corebase.MakeDefaultBase("ubuntu", "22.04"),
 		Arch:        amd64,
 		Constraints: s.StartInstArgs.Constraints,
 	}

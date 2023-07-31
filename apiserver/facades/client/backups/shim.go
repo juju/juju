@@ -8,9 +8,9 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
@@ -28,13 +28,13 @@ type stateShim struct {
 }
 
 // MachineBase implements backups.Backend
-func (s *stateShim) MachineBase(id string) (series.Base, error) {
+func (s *stateShim) MachineBase(id string) (corebase.Base, error) {
 	m, err := s.State.Machine(id)
 	if err != nil {
-		return series.Base{}, errors.Trace(err)
+		return corebase.Base{}, errors.Trace(err)
 	}
 	mBase := m.Base()
-	return series.ParseBase(mBase.OS, mBase.Channel)
+	return corebase.ParseBase(mBase.OS, mBase.Channel)
 }
 
 // ControllerTag disambiguates the ControllerTag method pending further

@@ -31,6 +31,7 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -42,7 +43,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -273,7 +273,7 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 
 	for i, arg := range args.Applications {
 		// If either the charm origin ID or Hash is set before a charm is
-		// downloaded, charm download will fail for charms with a forced series.
+		// downloaded, charm download will fail for charms with a forced corebase.
 		// The logic (refreshConfig) in sending the correct request to charmhub
 		// will break.
 		if arg.CharmOrigin != nil &&
@@ -580,7 +580,7 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL) (corecharm.
 	}
 
 	originType := origin.Type
-	base, err := series.ParseBase(origin.Base.Name, origin.Base.Channel)
+	base, err := corebase.ParseBase(origin.Base.Name, origin.Base.Channel)
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
@@ -870,7 +870,7 @@ func (api *APIBase) UpdateApplicationBase(args params.UpdateChannelArgs) (params
 }
 
 func (api *APIBase) updateOneApplicationBase(arg params.UpdateChannelArg) error {
-	var argBase series.Base
+	var argBase corebase.Base
 	if arg.Channel != "" {
 		appTag, err := names.ParseTag(arg.Entity.Tag)
 		if err != nil {
@@ -881,7 +881,7 @@ func (api *APIBase) updateOneApplicationBase(arg params.UpdateChannelArg) error 
 			return errors.Trace(err)
 		}
 		origin := app.CharmOrigin()
-		argBase, err = series.ParseBase(origin.Platform.OS, arg.Channel)
+		argBase, err = corebase.ParseBase(origin.Platform.OS, arg.Channel)
 		if err != nil {
 			return errors.Trace(err)
 		}

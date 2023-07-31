@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
@@ -54,7 +54,7 @@ type BootstrapParams struct {
 	BootstrapSeries string
 
 	// SupportedBootstrapSeries is a supported set of series to use for
-	// validating against the bootstrap series.
+	// validating against the bootstrap corebase.
 	SupportedBootstrapSeries set.Strings
 
 	// Placement, if non-empty, holds an environment-specific placement
@@ -73,7 +73,7 @@ type BootstrapParams struct {
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
 	ExtraAgentValuesForTesting map[string]string
 
-	// Force is used to allow a bootstrap to be run on unsupported series.
+	// Force is used to allow a bootstrap to be run on unsupported corebase.
 	Force bool
 }
 
@@ -108,7 +108,7 @@ type BootstrapResult struct {
 	Arch string
 
 	// Base is the instance's base.
-	Base series.Base
+	Base corebase.Base
 
 	// CloudBootstrapFinalizer is a function that must be called finalize the
 	// bootstrap process by transferring the tools and installing the

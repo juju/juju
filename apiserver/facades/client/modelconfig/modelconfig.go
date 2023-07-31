@@ -13,8 +13,8 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -127,16 +127,16 @@ func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 			continue
 		}
 
-		// TODO (stickupkid): Remove this when we remove series.
+		// TODO (stickupkid): Remove this when we remove corebase.
 		// This essentially, always ensures that we report back a default-series
 		// if we have a default-base.
 		if attr == config.DefaultBaseKey && val.Value != "" {
-			base, err := series.ParseBaseFromString(val.Value.(string))
+			base, err := corebase.ParseBaseFromString(val.Value.(string))
 			if err != nil {
 				return result, errors.Trace(err)
 			}
 
-			s, err := series.GetSeriesFromBase(base)
+			s, err := corebase.GetSeriesFromBase(base)
 			if err != nil {
 				return result, errors.Trace(err)
 			}
@@ -159,7 +159,7 @@ func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 	}
 
 	// TODO (stickupkid): For backwards compatibility we need to ensure that
-	// we always report back a default-series.
+	// we always report back a default-corebase.
 	if _, ok := result.Config[config.DefaultSeriesKey]; !ok {
 		result.Config[config.DefaultSeriesKey] = params.ConfigValue{
 			Value:  "",
@@ -244,7 +244,7 @@ func (c *ModelConfigAPI) checkUpdateDefaultBase() state.ValidateConfigFunc {
 				updateAttrs[config.DefaultBaseKey] = ""
 			} else {
 				// Ensure that the new default-series updates the default-base.
-				base, err := series.GetBaseFromSeries(cfgSeries.(string))
+				base, err := corebase.GetBaseFromSeries(cfgSeries.(string))
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -252,7 +252,7 @@ func (c *ModelConfigAPI) checkUpdateDefaultBase() state.ValidateConfigFunc {
 			}
 		}
 
-		// Always remove the default-series.
+		// Always remove the default-corebase.
 		delete(updateAttrs, config.DefaultSeriesKey)
 		return nil
 	}

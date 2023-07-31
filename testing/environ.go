@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/config"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -39,9 +39,9 @@ var (
 
 	// FakeSupportedJujuBases is used to provide a list of canned results
 	// of a base to test bootstrap code against.
-	FakeSupportedJujuBases = []series.Base{
-		series.MustParseBaseFromString("ubuntu@20.04"),
-		series.MustParseBaseFromString("ubuntu@22.04"),
+	FakeSupportedJujuBases = []corebase.Base{
+		corebase.MustParseBaseFromString("ubuntu@20.04"),
+		corebase.MustParseBaseFromString("ubuntu@22.04"),
 		jujuversion.DefaultSupportedLTSBase(),
 	}
 )

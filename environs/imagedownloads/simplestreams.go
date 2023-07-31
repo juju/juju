@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3/arch"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 )
@@ -120,7 +120,7 @@ func validateArgs(arch, release, stream, ftype string) error {
 	}
 
 	validVersion := false
-	workloadVersions, err := series.AllWorkloadVersions(release, stream)
+	workloadVersions, err := corebase.AllWorkloadVersions(release, stream)
 	if err != nil {
 		return errors.Trace(err)
 	}

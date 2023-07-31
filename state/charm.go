@@ -17,8 +17,8 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
 
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/mongo"
 	mongoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -53,11 +53,11 @@ func (b Base) compatibleWith(other Base) bool {
 	if b.OS != other.OS {
 		return false
 	}
-	c1, err := series.ParseChannel(b.Channel)
+	c1, err := corebase.ParseChannel(b.Channel)
 	if err != nil {
 		return false
 	}
-	c2, err := series.ParseChannel(other.Channel)
+	c2, err := corebase.ParseChannel(other.Channel)
 	if err != nil {
 		return false
 	}

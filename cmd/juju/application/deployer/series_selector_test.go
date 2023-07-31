@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 type SeriesSelectorSuite struct{}
@@ -25,7 +25,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 		err            string
 	}{
 		{
-			// Simple selectors first, no supported series.
+			// Simple selectors first, no supported corebase.
 
 			title: "juju deploy simple   # no default series, no supported series",
 			seriesSelector: seriesSelector{
@@ -110,7 +110,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			expectedSeries: "jammy",
 		},
 
-		// Now charms with supported series.
+		// Now charms with supported corebase.
 
 		{
 			title: "juju deploy multiseries   # use charm default, nothing specified, no default series",
@@ -271,8 +271,8 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 	}
 
 	// Use bionic for LTS for all calls.
-	previous := series.SetLatestLtsForTesting("bionic")
-	defer series.SetLatestLtsForTesting(previous)
+	previous := corebase.SetLatestLtsForTesting("bionic")
+	defer corebase.SetLatestLtsForTesting(previous)
 
 	for i, test := range deploySeriesTests {
 		c.Logf("test %d [%s]", i, test.title)

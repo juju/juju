@@ -14,7 +14,7 @@ import (
 	"github.com/juju/naturalsort"
 	"github.com/kr/pretty"
 
-	coreseries "github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 const kubernetes = "kubernetes"
@@ -205,7 +205,7 @@ type Application struct {
 	Exposed          bool
 	ExposedEndpoints map[string]ExposedEndpoint
 	SubordinateTo    []string
-	Base             coreseries.Base
+	Base             corebase.Base
 	Channel          string
 	Revision         int
 	Placement        string
@@ -232,7 +232,7 @@ type Unit struct {
 // Machine represents an existing machine in the model.
 type Machine struct {
 	ID          string
-	Base        coreseries.Base
+	Base        corebase.Base
 	Annotations map[string]string
 }
 
@@ -265,7 +265,7 @@ func (m *Model) matchesCharmPermutation(charm, arch, series, channel string, rev
 			}
 		}
 
-		appSeries, _ := coreseries.GetSeriesFromBase(app.Base)
+		appSeries, _ := corebase.GetSeriesFromBase(app.Base)
 		if app.Charm == charm &&
 			appArch == arch &&
 			appSeries == series &&

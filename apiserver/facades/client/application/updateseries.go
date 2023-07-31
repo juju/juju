@@ -13,8 +13,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -30,7 +30,7 @@ type UpdateBase interface {
 
 	// UpdateBase attempts to update an application base for deploying new
 	// units.
-	UpdateBase(string, coreseries.Base, bool) error
+	UpdateBase(string, corebase.Base, bool) error
 }
 
 // UpdateBaseState defines a common set of functions for retrieving state
@@ -49,7 +49,7 @@ type UpdateBaseValidator interface {
 	//
 	// I do question if you actually need to validate anything if force is
 	// employed here?
-	ValidateApplication(application Application, base coreseries.Base, force bool) error
+	ValidateApplication(application Application, base corebase.Base, force bool) error
 }
 
 // UpdateBaseAPI provides the update series API facade for any given version.
@@ -71,7 +71,7 @@ func NewUpdateBaseAPI(
 	}
 }
 
-func (a *UpdateBaseAPI) UpdateBase(tag string, base coreseries.Base, force bool) error {
+func (a *UpdateBaseAPI) UpdateBase(tag string, base corebase.Base, force bool) error {
 	if base.String() == "" {
 		return errors.BadRequestf("base missing from args")
 	}
@@ -113,7 +113,7 @@ func makeUpdateSeriesValidator(client CharmhubClient) updateSeriesValidator {
 	}
 }
 
-func (s updateSeriesValidator) ValidateApplication(app Application, base coreseries.Base, force bool) error {
+func (s updateSeriesValidator) ValidateApplication(app Application, base corebase.Base, force bool) error {
 	// This is not a charmhub charm, so we can fallback to querying state
 	// for the supported series.
 	if origin := app.CharmOrigin(); origin == nil || !corecharm.CharmHub.Matches(origin.Source) {
@@ -131,7 +131,7 @@ type stateSeriesValidator struct{}
 
 // ValidateApplication attempts to validate an applications for
 // a given base.
-func (s stateSeriesValidator) ValidateApplication(application Application, base coreseries.Base, force bool) error {
+func (s stateSeriesValidator) ValidateApplication(application Application, base corebase.Base, force bool) error {
 	ch, _, err := application.Charm()
 	if err != nil {
 		return errors.Trace(err)
@@ -143,7 +143,7 @@ func (s stateSeriesValidator) ValidateApplication(application Application, base 
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
-	series, err := coreseries.GetSeriesFromChannel(base.OS, base.Channel.String())
+	series, err := corebase.GetSeriesFromChannel(base.OS, base.Channel.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -164,7 +164,7 @@ type charmhubSeriesValidator struct {
 
 // ValidateApplication attempts to validate an application for
 // a given base.
-func (s charmhubSeriesValidator) ValidateApplication(application Application, base coreseries.Base, force bool) error {
+func (s charmhubSeriesValidator) ValidateApplication(application Application, base corebase.Base, force bool) error {
 	// We can be assured that the charm origin is not nil, because we
 	// guarded against it before.
 	origin := application.CharmOrigin()

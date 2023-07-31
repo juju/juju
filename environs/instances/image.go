@@ -12,8 +12,8 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/kr/pretty"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 )
 
@@ -23,7 +23,7 @@ var logger = loggo.GetLogger("juju.environs.instances")
 // chosen by the environment provider.
 type InstanceConstraint struct {
 	Region      string
-	Base        series.Base
+	Base        corebase.Base
 	Arch        string
 	Constraints constraints.Value
 

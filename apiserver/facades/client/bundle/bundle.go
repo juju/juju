@@ -23,6 +23,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	appFacade "github.com/juju/juju/apiserver/facades/client/application"
+	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -440,7 +440,7 @@ func (b *BundleAPI) bundleDataApplications(
 			return nil, nil, nil, fmt.Errorf("extracting charm origin from application description %w", err)
 		}
 
-		appSeries, err := series.GetSeriesFromChannel(p.OS, p.Channel)
+		appSeries, err := corebase.GetSeriesFromChannel(p.OS, p.Channel)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("extracting series from application description %w", err)
 		}
@@ -643,11 +643,11 @@ func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineId
 		if !machineIds.Contains(machine.Tag().Id()) {
 			continue
 		}
-		macBase, err := series.ParseBaseFromString(machine.Base())
+		macBase, err := corebase.ParseBaseFromString(machine.Base())
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		macSeries, err := series.GetSeriesFromBase(macBase)
+		macSeries, err := corebase.GetSeriesFromBase(macBase)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}

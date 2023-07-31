@@ -28,9 +28,9 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
@@ -158,7 +158,7 @@ func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
 	f.StringVar(&c.arch, "arch", "", fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", "", "specify a series. DEPRECATED: use --base")
+	f.StringVar(&c.series, "series", "", "specify a corebase. DEPRECATED: use --base")
 	f.StringVar(&c.base, "base", "", "specify a base")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from Charmhub")
 	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")
@@ -198,21 +198,21 @@ func (c *diffBundleCommand) Init(args []string) error {
 // Run is part of cmd.Command.
 func (c *diffBundleCommand) Run(ctx *cmd.Context) error {
 	var (
-		base series.Base
+		base corebase.Base
 		err  error
 	)
 	// Note: we validated that both series and base cannot be specified in
 	// Init(), so it's safe to assume that only one of them is set here.
 	if c.series != "" {
 		ctx.Warningf("series flag is deprecated, use --base instead")
-		if base, err = series.GetBaseFromSeries(c.series); err != nil {
+		if base, err = corebase.GetBaseFromSeries(c.series); err != nil {
 			return errors.Annotatef(err, "attempting to convert %q to a base", c.series)
 		}
 		c.base = base.String()
 		c.series = ""
 	}
 	if c.base != "" {
-		if base, err = series.ParseBaseFromString(c.base); err != nil {
+		if base, err = corebase.ParseBaseFromString(c.base); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -297,7 +297,7 @@ func missingRelationEndpoint(rel string) bool {
 	return len(tokens) != 2 || tokens[1] == ""
 }
 
-func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APICallCloser, base series.Base) (charm.BundleDataSource, error) {
+func (c *diffBundleCommand) bundleDataSource(ctx *cmd.Context, apiRoot base.APICallCloser, base corebase.Base) (charm.BundleDataSource, error) {
 	ds, err := charm.LocalBundleDataSource(c.bundle)
 
 	// NotFound means that the provided local file is not found, and

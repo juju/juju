@@ -37,11 +37,11 @@ import (
 	cmdmodel "github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -127,7 +127,7 @@ installed on all models for the new controller will be the same as that
 of the Juju client used to perform the bootstrap.
 However, a user can specify a different agent version via '--agent-version'
 option to bootstrap command. Juju will use this version for models' agents
-as long as the client's version is from the same Juju release series.
+as long as the client's version is from the same Juju release corebase.
 In other words, a 2.2.1 client can bootstrap any 2.2.x agents but cannot
 bootstrap any 2.0.x or 2.1.x agents.
 The agent version can be specified a simple numeric version, e.g. 2.2.4.
@@ -253,7 +253,7 @@ type bootstrapCommand struct {
 	ControllerCharmChannelStr string
 	ControllerCharmChannel    charm.Channel
 
-	// Force is used to allow a bootstrap to be run on unsupported series.
+	// Force is used to allow a bootstrap to be run on unsupported corebase.
 	Force bool
 }
 
@@ -355,7 +355,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 
 	if c.BootstrapSeries != "" {
-		base, err := series.GetBaseFromSeries(c.BootstrapSeries)
+		base, err := corebase.GetBaseFromSeries(c.BootstrapSeries)
 		if err != nil {
 			return errors.Errorf("cannot determine base for series %q", c.BootstrapSeries)
 		}
@@ -365,7 +365,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	}
 	// Validate the bootstrap base looks like a base.
 	if c.BootstrapBase != "" {
-		if _, err := series.ParseBaseFromString(c.BootstrapBase); err != nil {
+		if _, err := corebase.ParseBaseFromString(c.BootstrapBase); err != nil {
 			return errors.NotValidf("base %q", c.BootstrapBase)
 		}
 	}
@@ -536,7 +536,7 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
-var supportedJujuBases = series.ControllerBases
+var supportedJujuBases = corebase.ControllerBases
 
 var (
 	bootstrapPrepareController = bootstrap.PrepareController
@@ -800,16 +800,16 @@ to create a new model to deploy %sworkloads.
 		}
 	}()
 
-	var bootstrapBase series.Base
+	var bootstrapBase corebase.Base
 	if c.BootstrapBase != "" {
 		var err error
-		bootstrapBase, err = series.ParseBaseFromString(c.BootstrapBase)
+		bootstrapBase, err = corebase.ParseBaseFromString(c.BootstrapBase)
 		if err != nil {
 			return errors.NotValidf("bootstrap base %q", c.BootstrapBase)
 		}
 	}
 
-	// Get the supported bootstrap series.
+	// Get the supported bootstrap corebase.
 	var imageStream string
 	if cfg, ok := bootstrapCfg.bootstrapModel["image-stream"]; ok {
 		imageStream = cfg.(string)
@@ -1640,7 +1640,7 @@ func ensureDefaultBase(m map[string]interface{}) (map[string]interface{}, error)
 		if key == "" {
 			m[config.DefaultBaseKey] = ""
 		} else {
-			s, err := series.GetBaseFromSeries(key.(string))
+			s, err := corebase.GetBaseFromSeries(key.(string))
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

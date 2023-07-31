@@ -17,11 +17,11 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -350,7 +350,7 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 }
 
 // UpdateApplicationBase updates the application base in the db.
-func (c *Client) UpdateApplicationBase(appName string, base coreseries.Base, force bool) error {
+func (c *Client) UpdateApplicationBase(appName string, base corebase.Base, force bool) error {
 	args := params.UpdateChannelArgs{
 		Args: []params.UpdateChannelArg{{
 			Entity:  params.Entity{Tag: names.NewApplicationTag(appName).String()},

@@ -25,8 +25,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	corebase "github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -212,7 +212,7 @@ type uploadSuite struct {
 func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(&coreseries.UbuntuDistroInfo, "/path/notexists")
+	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 
 	// Create a target storage.
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
