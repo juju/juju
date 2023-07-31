@@ -1049,11 +1049,8 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 			result.Results[i].Error = apiservererrors.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
 		}
-		err = m.authorizer.HasPermission(permission.AdminAccess, modelTag)
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-		canModify := err == nil || canModifyController
+
+		canModify := m.authorizer.HasPermission(permission.AdminAccess, modelTag) == nil || canModifyController
 
 		if !canModify {
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
