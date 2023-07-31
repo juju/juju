@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/service"
@@ -244,7 +244,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "error detecting linux hardware characteristics")
 	}
-	info, err := series.GetBaseFromSeries(machineSeries)
+	info, err := corebase.GetBaseFromSeries(machineSeries)
 	if err != nil {
 		return nil, errors.NotValidf("machine series %q", machineSeries)
 	}

@@ -33,8 +33,8 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -408,7 +408,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	chBase, err := series.ParseBase(applicationInfo.Base.Name, applicationInfo.Base.Channel)
+	chBase, err := corebase.ParseBase(applicationInfo.Base.Name, applicationInfo.Base.Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}

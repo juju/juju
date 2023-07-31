@@ -36,10 +36,10 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
 	corearch "github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -508,7 +508,7 @@ func (s *environSuite) makeErrorSender(pattern string, err error, repeat int) *a
 	return sender
 }
 
-func makeStartInstanceParams(c *gc.C, controllerUUID string, base coreseries.Base) environs.StartInstanceParams {
+func makeStartInstanceParams(c *gc.C, controllerUUID string, base corebase.Base) environs.StartInstanceParams {
 	machineTag := names.NewMachineTag("0")
 	apiInfo := &api.Info{
 		Addrs:    []string{"localhost:17777"},
@@ -611,7 +611,7 @@ func (s *environSuite) assertStartInstance(
 ) {
 	env := s.openEnviron(c)
 
-	args := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
+	args := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	if withConflictRetry {
 		s.vmTags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 		args.InstanceConfig.Tags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
@@ -717,7 +717,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04")))
+	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.linuxOsProfile.LinuxConfiguration.SSH.PublicKeys = []*armcompute.SSHPublicKey{{
@@ -750,7 +750,7 @@ func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
 	s.requests = nil
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 
-	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04")))
+	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
 }
@@ -762,7 +762,7 @@ func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	args := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("centos", "7"))
+	args := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("centos", "7"))
 	_, err := env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -797,7 +797,7 @@ func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04")))
+	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "machine-0": `+
 			`waiting for common resources to be created: `+
@@ -821,7 +821,7 @@ func (s *environSuite) TestStartInstanceCommonDeploymentRetryTimeout(c *gc.C) {
 	s.sender = senders
 	s.requests = nil
 
-	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04")))
+	_, err := env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.ErrorMatches,
 		`creating virtual machine "machine-0": `+
 			`waiting for common resources to be created: `+
@@ -841,7 +841,7 @@ func (s *environSuite) TestStartInstanceServiceAvailabilitySet(c *gc.C) {
 	s.vmTags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.InstanceConfig.Tags[tags.JujuUnitsDeployed] = "mysql/0 wordpress/0"
 
 	_, err := env.StartInstance(s.callCtx, params)
@@ -860,7 +860,7 @@ func (s *environSuite) TestStartInstanceWithSpaceConstraints(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false, hasSpaceConstraints: true})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.Constraints.Spaces = &[]string{"foo", "bar"}
 	params.SubnetsToZones = []map[corenetwork.Id][]string{
 		{"/path/to/subnet1": nil},
@@ -884,7 +884,7 @@ func (s *environSuite) TestStartInstanceWithInvalidPlacement(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.Placement = "foo"
 
 	_, err := env.StartInstance(s.callCtx, params)
@@ -895,7 +895,7 @@ func (s *environSuite) TestStartInstanceWithInvalidSubnet(c *gc.C) {
 	env := s.openEnviron(c)
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.Placement = "subnet=foo"
 
 	_, err := env.StartInstance(s.callCtx, params)
@@ -922,7 +922,7 @@ func (s *environSuite) TestStartInstanceWithPlacementNoSpacesConstraint(c *gc.C)
 		subnets:   subnets,
 	})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.Placement = "subnet=subnet2"
 
 	_, err := env.StartInstance(s.callCtx, params)
@@ -958,7 +958,7 @@ func (s *environSuite) TestStartInstanceWithPlacement(c *gc.C) {
 		subnets:   subnets,
 	})
 	s.requests = nil
-	params := makeStartInstanceParams(c, s.controllerUUID, coreseries.MakeDefaultBase("ubuntu", "22.04"))
+	params := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04"))
 	params.Constraints.Spaces = &[]string{"foo", "bar"}
 	params.SubnetsToZones = []map[corenetwork.Id][]string{
 		{"/path/to/subnet1": nil},
@@ -1583,7 +1583,7 @@ func (s *environSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 			ControllerConfig: testing.FakeControllerConfig(),
 			AdminSecret:      jujutesting.AdminSecret,
 			CAPrivateKey:     testing.CAKey,
-			BootstrapBase:    coreseries.MustParseBaseFromString("ubuntu@22.04"),
+			BootstrapBase:    corebase.MustParseBaseFromString("ubuntu@22.04"),
 			BuildAgentTarball: func(
 				build bool, _ string, _ func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {
@@ -1634,7 +1634,7 @@ func (s *environSuite) TestBootstrapCustomResourceGroup(c *gc.C) {
 			ControllerConfig: testing.FakeControllerConfig(),
 			AdminSecret:      jujutesting.AdminSecret,
 			CAPrivateKey:     testing.CAKey,
-			BootstrapBase:    coreseries.MustParseBaseFromString("ubuntu@22.04"),
+			BootstrapBase:    corebase.MustParseBaseFromString("ubuntu@22.04"),
 			BuildAgentTarball: func(
 				build bool, _ string, _ func(version.Number) version.Number,
 			) (*sync.BuiltAgent, error) {

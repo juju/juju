@@ -9,9 +9,9 @@ import (
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/series"
 )
 
 // DeduceOrigin attempts to deduce the origin from a channel and a platform.
@@ -35,8 +35,8 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 
 	var origin commoncharm.Origin
 	// Legacy k8s charms - assume ubuntu focal.
-	if platform.OS == series.Kubernetes.String() || platform.Channel == series.Kubernetes.String() {
-		b := series.LegacyKubernetesBase()
+	if platform.OS == corebase.Kubernetes.String() || platform.Channel == corebase.Kubernetes.String() {
+		b := corebase.LegacyKubernetesBase()
 		platform.OS = b.OS
 		platform.Channel = b.Channel.Track
 	}
@@ -69,7 +69,7 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 		}
 	}
 	if platform.OS != "" && platform.Channel != "" {
-		base, err := series.ParseBase(platform.OS, platform.Channel)
+		base, err := corebase.ParseBase(platform.OS, platform.Channel)
 		if err != nil {
 			return commoncharm.Origin{}, err
 		}
@@ -80,7 +80,7 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 
 // MakePlatform creates a Platform (architecture, os and base) from a set of
 // constraints and a base.
-func MakePlatform(cons constraints.Value, base series.Base, modelCons constraints.Value) corecharm.Platform {
+func MakePlatform(cons constraints.Value, base corebase.Base, modelCons constraints.Value) corecharm.Platform {
 	return corecharm.Platform{
 		Architecture: arch.ConstraintArch(cons, &modelCons),
 		OS:           base.OS,

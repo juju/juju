@@ -11,9 +11,9 @@ import (
 	"github.com/juju/utils/v3/arch"
 	"github.com/juju/version/v2"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	coreos "github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"
@@ -34,7 +34,7 @@ func localToolsArch() string {
 
 // validateUploadAllowed returns an error if an attempt to upload tools should
 // not be allowed.
-func validateUploadAllowed(env environs.ConfigGetter, toolsArch *string, toolsBase *coreseries.Base, validator constraints.Validator) error {
+func validateUploadAllowed(env environs.ConfigGetter, toolsArch *string, toolsBase *corebase.Base, validator constraints.Validator) error {
 	// Now check that the architecture and series for which we are setting up an
 	// environment matches that from which we are bootstrapping.
 	hostArch := localToolsArch()
@@ -63,7 +63,7 @@ func findPackagedTools(
 	env environs.BootstrapEnviron,
 	ss envtools.SimplestreamsFetcher,
 	vers *version.Number,
-	arch *string, base *coreseries.Base,
+	arch *string, base *corebase.Base,
 ) (coretools.List, error) {
 	// Look for tools in the environment's simplestreams search paths
 	// for existing tools.
@@ -106,7 +106,7 @@ func locallyBuildableTools() (buildable coretools.List, _ version.Number, _ erro
 // which it would be reasonable to launch an environment's first machine,
 // given the supplied constraints. If a specific agent version is not requested,
 // all tools matching the current major.minor version are chosen.
-func findBootstrapTools(env environs.BootstrapEnviron, ss envtools.SimplestreamsFetcher, vers *version.Number, arch *string, base *coreseries.Base) (list coretools.List, err error) {
+func findBootstrapTools(env environs.BootstrapEnviron, ss envtools.SimplestreamsFetcher, vers *version.Number, arch *string, base *corebase.Base) (list coretools.List, err error) {
 	// Construct a tools filter.
 	cliVersion := jujuversion.Current
 	var filter coretools.Filter

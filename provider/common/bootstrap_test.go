@@ -26,10 +26,10 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -84,8 +84,8 @@ func minimalConfig(c *gc.C) *config.Config {
 	return minimalConfigWithBase(c, jujuversion.DefaultSupportedLTSBase())
 }
 
-func minimalConfigWithBase(c *gc.C, base coreseries.Base) *config.Config {
-	series, _ := coreseries.GetSeriesFromBase(base)
+func minimalConfigWithBase(c *gc.C, base corebase.Base) *config.Config {
+	series, _ := corebase.GetSeriesFromBase(base)
 	attrs := map[string]interface{}{
 		"name":               "whatever",
 		"type":               "anything, really",
@@ -273,7 +273,7 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Check(result.Base.String(), gc.Equals, coreseries.MakeDefaultBase("ubuntu", "16.04").String())
+	c.Check(result.Base.String(), gc.Equals, corebase.MakeDefaultBase("ubuntu", "16.04").String())
 }
 
 func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {

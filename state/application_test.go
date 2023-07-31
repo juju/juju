@@ -23,6 +23,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -1887,7 +1887,7 @@ func (s *ApplicationSuite) setupMultiSeriesUnitSubordinateGivenUnit(c *gc.C, app
 func assertApplicationBaseUpdate(c *gc.C, a *state.Application, base state.Base) {
 	err := a.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	stBase, err := series.ParseBase(base.OS, base.Channel)
+	stBase, err := corebase.ParseBase(base.OS, base.Channel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(a.Base().String(), gc.Equals, stBase.String())
 }

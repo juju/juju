@@ -41,7 +41,7 @@ import (
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	k8sannotations "github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
@@ -1531,12 +1531,12 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 	)
 
 	chSeries := version.DefaultSupportedLTS()
-	os, err := series.GetOSFromSeries(chSeries)
+	os, err := corebase.GetOSFromSeries(chSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	ver, err := series.SeriesVersion(chSeries)
+	ver, err := corebase.SeriesVersion(chSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

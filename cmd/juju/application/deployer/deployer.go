@@ -25,12 +25,12 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 )
@@ -146,7 +146,7 @@ type DeployerConfig struct {
 	Placement            []*instance.Placement
 	Resources            map[string]string
 	Revision             int
-	Base                 series.Base
+	Base                 corebase.Base
 	Storage              map[string]storage.Constraints
 	Trust                bool
 	UseExisting          bool
@@ -170,7 +170,7 @@ type factory struct {
 	bundleOverlayFile  []string
 	channel            charm.Channel
 	revision           int
-	base               series.Base
+	base               corebase.Base
 	force              bool
 	dryRun             bool
 	applicationName    string
@@ -272,9 +272,9 @@ func (d *factory) maybeReadLocalBundle() (Deployer, error) {
 
 	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	db := d.newDeployBundle(d.defaultCharmSchema, ds)
-	var base series.Base
+	var base corebase.Base
 	if platform.Channel != "" {
-		base, err = series.ParseBase(platform.OS, platform.Channel)
+		base, err = corebase.ParseBase(platform.OS, platform.Channel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -320,10 +320,10 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	// cannot easily be factored out).
 
 	// NOTE: Reading the charm here is only meant to aid in inferring the
-	// correct series, if this fails we fall back to the argument series. If
+	// correct series, if this fails we fall back to the argument corebase. If
 	// reading the charm fails here it will also fail below (the charm is read
 	// again below) where it is handled properly. This is just an expedient to
-	// get the correct series. A proper refactoring of the charmrepo package is
+	// get the correct corebase. A proper refactoring of the charmrepo package is
 	// needed for a more elegant fix.
 	charmOrBundle := d.charmOrBundle
 	if isLocalSchema(charmOrBundle) {
@@ -336,7 +336,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	)
 	if !d.base.Empty() {
 		var err error
-		seriesName, err = series.GetSeriesFromBase(d.base)
+		seriesName, err = corebase.GetSeriesFromBase(d.base)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

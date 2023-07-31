@@ -7,7 +7,7 @@ import (
 	"github.com/juju/charm/v10"
 	"github.com/juju/collections/set"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 // IsKubernetes reports whether the given charm should be deployed to
@@ -22,7 +22,7 @@ func IsKubernetes(cm charm.CharmMeta) bool {
 		// TODO (hml) 2021-04-19
 		// Enhance with logic around Assumes once that is finalized.
 	case charm.FormatV1:
-		if set.NewStrings(cm.Meta().Series...).Contains(series.Kubernetes.String()) {
+		if set.NewStrings(cm.Meta().Series...).Contains(corebase.Kubernetes.String()) {
 			return true
 		}
 	}

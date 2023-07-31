@@ -13,9 +13,9 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/charmhub"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
@@ -59,7 +59,7 @@ type ApplicationValidator interface {
 	//
 	// I do question if you actually need to validate anything if force is
 	// employed here?
-	ValidateApplications(applications []Application, base coreseries.Base, force bool) error
+	ValidateApplications(applications []Application, base corebase.Base, force bool) error
 }
 
 // UpgradeBaseValidator defines a set of validators for the upgrade series
@@ -71,7 +71,7 @@ type UpgradeBaseValidator interface {
 	// machine base.
 	// The machine tag is currently used for descriptive information and could
 	// be deprecated in reality.
-	ValidateBase(requestedBase, machineBase coreseries.Base, machineTag string) error
+	ValidateBase(requestedBase, machineBase corebase.Base, machineTag string) error
 
 	// ValidateMachine validates a given machine for ensuring it meets a given
 	// state (quiescence essentially) and has no current ongoing machine lock.
@@ -219,7 +219,7 @@ func (a *UpgradeSeriesAPI) Prepare(tag, channel string, force bool) (retErr erro
 	}()
 
 	// Once validated, set the machine status to started.
-	mBase, err := coreseries.ParseBase(machine.Base().OS, machine.Base().Channel)
+	mBase, err := corebase.ParseBase(machine.Base().OS, machine.Base().Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -235,8 +235,8 @@ func (a *UpgradeSeriesAPI) Complete(tag string) error {
 	return machine.CompleteUpgradeSeries()
 }
 
-func (a *UpgradeSeriesAPI) validateApplication(machine Machine, requestedBase coreseries.Base, force bool) error {
-	base, err := coreseries.ParseBase(machine.Base().OS, machine.Base().Channel)
+func (a *UpgradeSeriesAPI) validateApplication(machine Machine, requestedBase corebase.Base, force bool) error {
+	base, err := corebase.ParseBase(machine.Base().OS, machine.Base().Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -309,20 +309,20 @@ func makeUpgradeSeriesValidator(client CharmhubClient) upgradeSeriesValidator {
 	}
 }
 
-func baseFromParams(machineTag string, base state.Base, channel string) (coreseries.Base, error) {
+func baseFromParams(machineTag string, base state.Base, channel string) (corebase.Base, error) {
 	if base.OS != "ubuntu" {
-		return coreseries.Base{}, errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
+		return corebase.Base{}, errors.Errorf("%s is running %s and is not valid for Ubuntu series upgrade",
 			machineTag, base.OS)
 	}
 	if channel == "" {
-		return coreseries.Base{}, errors.New("channel missing from args")
+		return corebase.Base{}, errors.New("channel missing from args")
 	}
-	return coreseries.ParseBase(base.OS, channel)
+	return corebase.ParseBase(base.OS, channel)
 }
 
 // ValidateBase validates a given requested base against the current
 // machine base.
-func (s upgradeSeriesValidator) ValidateBase(requestedBase, machineBase coreseries.Base, machineTag string) error {
+func (s upgradeSeriesValidator) ValidateBase(requestedBase, machineBase corebase.Base, machineTag string) error {
 	if requestedBase.String() == "" {
 		return errors.BadRequestf("base missing from args")
 	}
@@ -352,7 +352,7 @@ func (s upgradeSeriesValidator) ValidateBase(requestedBase, machineBase coreseri
 
 // ValidateApplications attempts to validate a series of applications for
 // a given series.
-func (s upgradeSeriesValidator) ValidateApplications(applications []Application, base coreseries.Base, force bool) error {
+func (s upgradeSeriesValidator) ValidateApplications(applications []Application, base corebase.Base, force bool) error {
 	// We do it this way, so we can batch the charmhub charm queries. This is
 	// leaking an implementation detail into the decision logic, but we can't
 	// work around that.
@@ -441,7 +441,7 @@ type stateSeriesValidator struct{}
 
 // ValidateApplications attempts to validate a series of applications for
 // a given base.
-func (s stateSeriesValidator) ValidateApplications(applications []Application, base coreseries.Base, force bool) error {
+func (s stateSeriesValidator) ValidateApplications(applications []Application, base corebase.Base, force bool) error {
 	if len(applications) == 0 {
 		return nil
 	}
@@ -454,7 +454,7 @@ func (s stateSeriesValidator) ValidateApplications(applications []Application, b
 	return nil
 }
 
-func (s stateSeriesValidator) verifySupportedBase(application Application, base coreseries.Base, force bool) error {
+func (s stateSeriesValidator) verifySupportedBase(application Application, base corebase.Base, force bool) error {
 	ch, _, err := application.Charm()
 	if err != nil {
 		return errors.Trace(err)
@@ -466,7 +466,7 @@ func (s stateSeriesValidator) verifySupportedBase(application Application, base 
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
-	series, err := coreseries.GetSeriesFromBase(base)
+	series, err := corebase.GetSeriesFromBase(base)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -487,7 +487,7 @@ type charmhubSeriesValidator struct {
 
 // ValidateApplications attempts to validate a series of applications for
 // a given base.
-func (s charmhubSeriesValidator) ValidateApplications(applications []Application, base coreseries.Base, force bool) error {
+func (s charmhubSeriesValidator) ValidateApplications(applications []Application, base corebase.Base, force bool) error {
 	if len(applications) == 0 {
 		return nil
 	}

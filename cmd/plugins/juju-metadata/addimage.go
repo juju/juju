@@ -10,7 +10,7 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/rpc/params"
 )
@@ -75,7 +75,7 @@ func (c *addImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.cloudImageMetadataCommandBase.SetFlags(f)
 
 	f.StringVar(&c.Region, "region", "", "image cloud region")
-	f.StringVar(&c.Series, "series", "", "image series. DEPRECATED, use --base")
+	f.StringVar(&c.Series, "series", "", "image corebase. DEPRECATED, use --base")
 	f.StringVar(&c.Base, "base", "", "image base")
 	f.StringVar(&c.Arch, "arch", "amd64", "image architecture")
 	f.StringVar(&c.VirtType, "virt-type", "", "image metadata virtualisation type")
@@ -87,21 +87,21 @@ func (c *addImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 // Run implements Command.Run.
 func (c *addImageMetadataCommand) Run(ctx *cmd.Context) error {
 	var (
-		base series.Base
+		base corebase.Base
 		err  error
 	)
 	// Note: we validated that both series and base cannot be specified in
 	// Init(), so it's safe to assume that only one of them is set here.
 	if c.Series != "" {
 		ctx.Warningf("series flag is deprecated, use --base instead")
-		if base, err = series.GetBaseFromSeries(c.Series); err != nil {
+		if base, err = corebase.GetBaseFromSeries(c.Series); err != nil {
 			return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
 		}
 		c.Base = base.String()
 		c.Series = ""
 	}
 	if c.Base != "" {
-		if base, err = series.ParseBaseFromString(c.Base); err != nil {
+		if base, err = corebase.ParseBaseFromString(c.Base); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -132,7 +132,7 @@ func (c *addImageMetadataCommand) getImageMetadataAddAPI() (MetadataAddAPI, erro
 }
 
 // constructMetadataParam returns cloud image metadata as a param.
-func (c *addImageMetadataCommand) constructMetadataParam(base series.Base) params.CloudImageMetadata {
+func (c *addImageMetadataCommand) constructMetadataParam(base corebase.Base) params.CloudImageMetadata {
 	info := params.CloudImageMetadata{
 		ImageId: c.ImageId,
 		Region:  c.Region,

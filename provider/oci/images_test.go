@@ -12,7 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/provider/oci"
 	ocitesting "github.com/juju/juju/provider/oci/testing"
 	jujutesting "github.com/juju/juju/testing"
@@ -236,9 +236,9 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	c.Check(imgCache.ImageMap(), gc.HasLen, 2)
 
 	imageMap := imgCache.ImageMap()
-	jammy := series.MakeDefaultBase("ubuntu", "22.04")
+	jammy := corebase.MakeDefaultBase("ubuntu", "22.04")
 	c.Check(imageMap[jammy], gc.HasLen, 2)
-	c.Check(imageMap[series.MakeDefaultBase("centos", "7")], gc.HasLen, 1)
+	c.Check(imageMap[corebase.MakeDefaultBase("centos", "7")], gc.HasLen, 1)
 
 	timeStamp, _ := time.Parse("2006.01.02", "2018.01.12")
 
@@ -247,7 +247,7 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 
 	// Check that InstanceTypes are set
 	c.Assert(imageMap[jammy][0].InstanceTypes, gc.HasLen, 2)
-	c.Assert(imageMap[series.MakeDefaultBase("centos", "7")][0].InstanceTypes, gc.HasLen, 1)
+	c.Assert(imageMap[corebase.MakeDefaultBase("centos", "7")][0].InstanceTypes, gc.HasLen, 1)
 }
 
 func (s *imagesSuite) TestRefreshImageCacheFetchFromCache(c *gc.C) {
@@ -328,7 +328,7 @@ func (s *imagesSuite) TestRefreshImageCacheWithInvalidImage(c *gc.C) {
 	c.Check(imgCache.ImageMap(), gc.HasLen, 1)
 	imageMap := imgCache.ImageMap()
 
-	jammy := series.MakeDefaultBase("ubuntu", "22.04")
+	jammy := corebase.MakeDefaultBase("ubuntu", "22.04")
 	c.Check(imageMap[jammy][0].Id, gc.Equals, "fakeUbuntu1")
 }
 
@@ -345,8 +345,8 @@ func (s *imagesSuite) TestImageMetadataFromCache(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	cache := &oci.ImageCache{}
-	jammy := series.MakeDefaultBase("ubuntu", "22.04")
-	images := map[series.Base][]oci.InstanceImage{
+	jammy := corebase.MakeDefaultBase("ubuntu", "22.04")
+	images := map[corebase.Base][]oci.InstanceImage{
 		jammy: {
 			imgType,
 		},
@@ -376,8 +376,8 @@ func (s *imagesSuite) TestImageMetadataSpecificImageType(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	cache := &oci.ImageCache{}
-	jammy := series.MakeDefaultBase("ubuntu", "22.04")
-	images := map[series.Base][]oci.InstanceImage{
+	jammy := corebase.MakeDefaultBase("ubuntu", "22.04")
+	images := map[corebase.Base][]oci.InstanceImage{
 		jammy: {
 			imgType,
 		},

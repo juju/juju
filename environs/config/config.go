@@ -26,9 +26,9 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/osenv"
@@ -385,12 +385,12 @@ type HasDefaultBase interface {
 
 // PreferredBase returns the preferred base to use when a charm does not
 // explicitly specify a base.
-func PreferredBase(cfg HasDefaultBase) series.Base {
+func PreferredBase(cfg HasDefaultBase) corebase.Base {
 	base, ok := cfg.DefaultBase()
 	if ok {
 		// We can safely ignore the error here as we know that we have
 		// validated the base when we set it.
-		return series.MustParseBaseFromString(base)
+		return corebase.MustParseBaseFromString(base)
 	}
 	return GetDefaultSupportedLTSBase()
 }
@@ -998,12 +998,12 @@ func (c *Config) validateDefaultBase() error {
 		return nil
 	}
 
-	parsedBase, err := series.ParseBaseFromString(defaultBase)
+	parsedBase, err := corebase.ParseBaseFromString(defaultBase)
 	if err != nil {
 		return errors.Annotatef(err, "invalid default base %q", defaultBase)
 	}
 
-	supported, err := series.WorkloadBases(time.Now(), series.Base{}, "")
+	supported, err := corebase.WorkloadBases(time.Now(), corebase.Base{}, "")
 	if err != nil {
 		return errors.Annotate(err, "cannot read supported bases")
 	}

@@ -14,9 +14,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/arch"
 
+	jujubase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/os"
 	jujuos "github.com/juju/juju/core/os"
-	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -39,10 +39,10 @@ const (
 // Azure Resource Manager.
 //
 // For Ubuntu, we query the SKUs to determine the most recent point release
-// for a series.
+// for a corebase.
 func SeriesImage(
 	ctx context.ProviderCallContext,
-	base jujuseries.Base, stream, location string,
+	base jujubase.Base, stream, location string,
 	client *armcompute.VirtualMachineImagesClient,
 ) (*instances.Image, error) {
 	seriesOS := jujuos.OSTypeForName(base.OS)
@@ -50,7 +50,7 @@ func SeriesImage(
 	var publisher, offering, sku string
 	switch seriesOS {
 	case os.Ubuntu:
-		series, err := jujuseries.GetSeriesFromBase(base)
+		series, err := jujubase.GetSeriesFromBase(base)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -82,7 +82,7 @@ func SeriesImage(
 }
 
 func offerForUbuntuSeries(series string) (string, string, error) {
-	seriesVersion, err := jujuseries.SeriesVersion(series)
+	seriesVersion, err := jujubase.SeriesVersion(series)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -91,7 +91,7 @@ func offerForUbuntuSeries(series string) (string, string, error) {
 }
 
 // ubuntuSKU returns the best SKU for the Canonical:UbuntuServer offering,
-// matching the given series.
+// matching the given corebase.
 func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string, client *armcompute.VirtualMachineImagesClient) (string, string, error) {
 	offer, seriesVersion, err := offerForUbuntuSeries(series)
 	if err != nil {

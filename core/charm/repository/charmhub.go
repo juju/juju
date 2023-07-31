@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	coreseries "github.com/juju/juju/core/series"
 )
 
 // CharmHubClient describes the API exposed by the charmhub client.
@@ -145,7 +145,7 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 		WithRevision(revision)
 	// TODO(wallyworld) - does charm url still need a series?
 	if chSuggestedOrigin.Platform.Channel != "" {
-		series, err := coreseries.GetSeriesFromChannel(chSuggestedOrigin.Platform.OS, chSuggestedOrigin.Platform.Channel)
+		series, err := corebase.GetSeriesFromChannel(chSuggestedOrigin.Platform.OS, chSuggestedOrigin.Platform.Channel)
 		if err != nil {
 			return nil, corecharm.Origin{}, nil, errors.Trace(err)
 		}
@@ -188,7 +188,7 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 	// TODO(juju3) - we should use supported channels not series
 	var series string
 	if outputOrigin.Platform.Channel != "" {
-		series, err = coreseries.GetSeriesFromChannel(outputOrigin.Platform.OS, outputOrigin.Platform.Channel)
+		series, err = corebase.GetSeriesFromChannel(outputOrigin.Platform.OS, outputOrigin.Platform.Channel)
 		if err != nil {
 			return nil, corecharm.Origin{}, nil, errors.Trace(err)
 		}
@@ -199,7 +199,7 @@ func (c *CharmHubRepository) ResolveWithPreferredChannel(charmURL *charm.URL, ar
 	if len(resolvableBases) > 0 {
 		supportedSeries = make([]string, len(resolvableBases))
 		for k, base := range resolvableBases {
-			series, err = coreseries.GetSeriesFromChannel(base.OS, base.Channel)
+			series, err = corebase.GetSeriesFromChannel(base.OS, base.Channel)
 			if err != nil {
 				return nil, corecharm.Origin{}, nil, errors.Trace(err)
 			}
@@ -674,9 +674,9 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 			continue
 		}
 		if track == "all" || base.OS == "all" {
-			series, err = coreseries.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
+			series, err = corebase.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
 		} else {
-			series, err = coreseries.GetSeriesFromChannel(base.OS, base.Channel)
+			series, err = corebase.GetSeriesFromChannel(base.OS, base.Channel)
 		}
 		if err != nil {
 			c.logger.Errorf("converting version to series: %s", err)

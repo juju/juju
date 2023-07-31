@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corearch "github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -41,7 +42,6 @@ import (
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -1898,7 +1898,7 @@ resources:
 `
 	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	// A charm with supported series can only be force-deployed to series
-	// of the same operating systems as the supported series.
+	// of the same operating systems as the supported corebase.
 	cockroach, err := st.AddApplication(state.AddApplicationArgs{
 		Name: "mysql", Charm: ch, NumUnits: 1,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -1935,7 +1935,7 @@ resources:
 `
 	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	// A charm with supported series can only be force-deployed to series
-	// of the same operating systems as the supported series.
+	// of the same operating systems as the supported corebase.
 	cockroach, err := st.AddApplication(state.AddApplicationArgs{
 		Name: "cockroach", Charm: ch, NumUnits: 1,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -2305,7 +2305,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithSeriesInURL(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	// A charm with a series in its URL is implicitly supported by that
 	// series only.
-	base, err := series.GetBaseFromSeries(charm.URL().Series)
+	base, err := corebase.GetBaseFromSeries(charm.URL().Series)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
 		Name: "wordpress", Charm: charm,
@@ -2333,7 +2333,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithNoExplicitSupportedSeries
 func (s *StateSuite) TestAddApplicationOSIncompatibleWithSupportedSeries(c *gc.C) {
 	charm := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	// A charm with supported series can only be force-deployed to series
-	// of the same operating systems as the supported series.
+	// of the same operating systems as the supported corebase.
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: "wordpress", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{

@@ -12,8 +12,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -24,7 +24,7 @@ import (
 type Backend interface {
 	IsController() bool
 	Machine(id string) (Machine, error)
-	MachineBase(id string) (series.Base, error)
+	MachineBase(id string) (corebase.Base, error)
 	MongoSession() *mgo.Session
 	ModelTag() names.ModelTag
 	ModelType() state.ModelType

@@ -24,11 +24,11 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -768,7 +768,7 @@ func (env *maasEnviron) StartInstance(
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
-	series, err := coreseries.GetSeriesFromBase(args.InstanceConfig.Base)
+	series, err := corebase.GetSeriesFromBase(args.InstanceConfig.Base)
 	if err != nil {
 		return nil, environs.ZoneIndependentError(err)
 	}

@@ -12,11 +12,11 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -185,7 +185,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 	preferredBase := config.PreferredBase(env.Config())
 
 	if params.ImageMetadata == nil {
-		preferredSeries, err := series.GetSeriesFromBase(preferredBase)
+		preferredSeries, err := corebase.GetSeriesFromBase(preferredBase)
 		if err != nil {
 			return errors.Trace(err)
 		}

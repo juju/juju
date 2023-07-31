@@ -21,11 +21,11 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/broker"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -51,7 +51,7 @@ func (s *brokerSuite) SetUpSuite(c *gc.C) {
 
 func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
 	obtained, err := broker.CombinedCloudInitData(nil, "ca-certs,apt-primary",
-		series.MakeDefaultBase("ubuntu", "16.04"), loggo.Logger{})
+		corebase.MakeDefaultBase("ubuntu", "16.04"), loggo.Logger{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCloudInitUserData(obtained, map[string]interface{}{
@@ -73,7 +73,7 @@ func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
 func (s *brokerSuite) TestCombinedCloudInitDataNoContainerInheritProperties(c *gc.C) {
 	containerConfig := fakeContainerConfig()
 	obtained, err := broker.CombinedCloudInitData(containerConfig.CloudInitUserData, "",
-		series.MakeDefaultBase("ubuntu", "16.04"), loggo.Logger{})
+		corebase.MakeDefaultBase("ubuntu", "16.04"), loggo.Logger{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertCloudInitUserData(obtained, containerConfig.CloudInitUserData, c)
 }
@@ -215,7 +215,7 @@ type fakeContainerManager struct {
 
 func (m *fakeContainerManager) CreateContainer(instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
-	base series.Base,
+	base corebase.Base,
 	network *container.NetworkConfig,
 	storage *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
@@ -311,7 +311,7 @@ func makeInstanceConfig(c *gc.C, s patcher, machineId string) *instancecfg.Insta
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, machineNonce,
-		"released", series.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
+		"released", corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	return instanceConfig
 }
@@ -387,7 +387,7 @@ func (r *fakeMachineInitReader) GetInitConfig() (map[string]interface{}, error) 
 	}, nil
 }
 
-var newFakeMachineInitReader = func(base series.Base) (cloudconfig.InitReader, error) {
+var newFakeMachineInitReader = func(base corebase.Base) (cloudconfig.InitReader, error) {
 	r, err := cloudconfig.NewMachineInitReader(base)
 	return &fakeMachineInitReader{r}, err
 }

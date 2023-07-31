@@ -29,11 +29,11 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
@@ -135,7 +135,7 @@ type InstanceConfig struct {
 	DisableSSLHostnameVerification bool
 
 	// Base represents the instance base.
-	Base series.Base
+	Base corebase.Base
 
 	// MachineAgentServiceName is the init service name for the Juju machine agent.
 	MachineAgentServiceName string
@@ -760,7 +760,7 @@ func NewInstanceConfig(
 	machineID,
 	machineNonce,
 	imageStream string,
-	base series.Base,
+	base corebase.Base,
 	apiInfo *api.Info,
 ) (*InstanceConfig, error) {
 	osType := paths.OSType(base.OS)
@@ -793,7 +793,7 @@ func NewInstanceConfig(
 func NewBootstrapInstanceConfig(
 	config controller.Config,
 	cons, modelCons constraints.Value,
-	base series.Base, publicImageSigningKey string,
+	base corebase.Base, publicImageSigningKey string,
 	agentEnvironment map[string]string,
 ) (*InstanceConfig, error) {
 	// For a bootstrap instance, the caller must provide the state.Info

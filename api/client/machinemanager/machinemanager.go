@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	coreseries "github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -127,7 +127,7 @@ func (c *Client) RetryProvisioning(all bool, machines ...names.MachineTag) ([]pa
 // place for a given machine and as such the machine is guarded against
 // operations that would impede, fail, or interfere with the upgrade process.
 func (client *Client) UpgradeSeriesPrepare(machineName, series string, force bool) error {
-	base, err := coreseries.GetBaseFromSeries(series)
+	base, err := corebase.GetBaseFromSeries(series)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -168,7 +168,7 @@ func (client *Client) UpgradeSeriesComplete(machineName string) error {
 }
 
 func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]string, error) {
-	base, err := coreseries.GetBaseFromSeries(series)
+	base, err := corebase.GetBaseFromSeries(series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

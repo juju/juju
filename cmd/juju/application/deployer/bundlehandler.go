@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -39,7 +40,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -338,10 +338,10 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			}
 		}
 
-		var base series.Base
+		var base corebase.Base
 		if spec.Series != "" {
 			var err error
-			base, err = series.GetBaseFromSeries(spec.Series)
+			base, err = corebase.GetBaseFromSeries(spec.Series)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -389,7 +389,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 	return nil
 }
 
-func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL string, charmBase series.Base, charmChannel, arch string, revision int) (string, int, error) {
+func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL string, charmBase corebase.Base, charmChannel, arch string, revision int) (string, int, error) {
 	if h.isLocalCharm(charmURL) {
 		return charmChannel, -1, nil
 	}
@@ -441,7 +441,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL string, charmBas
 // constructChannelAndOrigin attempts to construct a fully qualified channel
 // along with an origin that matches the hardware constraints and the charm url
 // source.
-func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmBase series.Base, charmChannel string, cons constraints.Value) (charm.Channel, commoncharm.Origin, error) {
+func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmBase corebase.Base, charmChannel string, cons constraints.Value) (charm.Channel, commoncharm.Origin, error) {
 	var channel charm.Channel
 	if charmChannel != "" {
 		var err error
@@ -620,10 +620,10 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		}
 	}
 
-	var base series.Base
+	var base corebase.Base
 	if chSeries != "" {
 		var err error
-		base, err = series.GetBaseFromSeries(chSeries)
+		base, err = corebase.GetBaseFromSeries(chSeries)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -680,7 +680,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	url = url.WithSeries(chSeries)
 
 	// TODO(juju3) - use os/channel, not series
-	base, err = series.GetBaseFromSeries(chSeries)
+	base, err = corebase.GetBaseFromSeries(chSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -882,7 +882,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	// Only Kubernetes bundles send the unit count and placement with the deploy API call.
 	numUnits := 0
 	var placement []*instance.Placement
-	if h.data.Type == series.Kubernetes.String() {
+	if h.data.Type == corebase.Kubernetes.String() {
 		numUnits = p.NumUnits
 	}
 
@@ -894,7 +894,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 			return errors.Trace(err)
 		}
 		// TODO(juju3) - use os/channel, not series
-		base, err := series.GetBaseFromSeries(selectedSeries)
+		base, err := corebase.GetBaseFromSeries(selectedSeries)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -981,7 +981,7 @@ func (h *bundleHandler) deviceConstraints(application string, deviceMap map[stri
 
 func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.CharmID, curl *charm.URL, chSeries string) (string, error) {
 	if corecharm.IsKubernetes(ch) && charm.MetaFormat(ch) == charm.FormatV1 {
-		chSeries = series.Kubernetes.String()
+		chSeries = corebase.Kubernetes.String()
 	}
 
 	supportedSeries, err := corecharm.ComputedSeries(ch)
@@ -1072,7 +1072,7 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 	}
 	var base *params.Base
 	if p.Series != "" {
-		info, err := series.GetBaseFromSeries(p.Series)
+		info, err := corebase.GetBaseFromSeries(p.Series)
 		if err != nil {
 			return errors.NotValidf("machine series %q", p.Series)
 		}

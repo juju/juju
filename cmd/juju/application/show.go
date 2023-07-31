@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/api/client/application"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -208,7 +208,7 @@ func createApplicationInfo(details params.ApplicationResult) (names.ApplicationT
 
 	}
 
-	base, err := series.ParseBase(details.Base.Name, details.Base.Channel)
+	base, err := corebase.ParseBase(details.Base.Name, details.Base.Channel)
 	if err != nil {
 		return names.ApplicationTag{}, ApplicationInfo{}, errors.Trace(err)
 	}

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/caas"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
@@ -106,7 +106,7 @@ func (c *imageMetadataCommand) Info() *cmd.Info {
 }
 
 func (c *imageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Series, "s", "", "the charm series. DEPRECATED use --base")
+	f.StringVar(&c.Series, "s", "", "the charm corebase. DEPRECATED use --base")
 	f.StringVar(&c.Base, "base", "", "the charm base")
 	f.StringVar(&c.Arch, "a", arch.AMD64, "the image architecture")
 	f.StringVar(&c.Dir, "d", "", "the destination directory in which to place the metadata files")
@@ -127,7 +127,7 @@ func (c *imageMetadataCommand) Init(args []string) error {
 
 // setParams sets parameters based on the environment configuration
 // for those which have not been explicitly specified.
-func (c *imageMetadataCommand) setParams(context *cmd.Context, base series.Base) (series.Base, error) {
+func (c *imageMetadataCommand) setParams(context *cmd.Context, base corebase.Base) (corebase.Base, error) {
 	c.privateStorage = "<private storage name>"
 
 	controllerName, err := c.ControllerName()
@@ -216,21 +216,21 @@ and set the value of image-metadata-url accordingly.
 
 func (c *imageMetadataCommand) Run(ctx *cmd.Context) error {
 	var (
-		base series.Base
+		base corebase.Base
 		err  error
 	)
 	// Note: we validated that both series and base cannot be specified in
 	// Init(), so it's safe to assume that only one of them is set here.
 	if c.Series != "" {
 		ctx.Warningf("series flag is deprecated, use --base instead")
-		if base, err = series.GetBaseFromSeries(c.Series); err != nil {
+		if base, err = corebase.GetBaseFromSeries(c.Series); err != nil {
 			return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
 		}
 		c.Base = base.String()
 		c.Series = ""
 	}
 	if c.Base != "" {
-		if base, err = series.ParseBaseFromString(c.Base); err != nil {
+		if base, err = corebase.ParseBaseFromString(c.Base); err != nil {
 			return errors.Trace(err)
 		}
 	}
