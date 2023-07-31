@@ -18,36 +18,27 @@ type upgradeReadyWatcher struct {
 	catacomb catacomb.Catacomb
 
 	st          State
+	wf          WatcherFactory
 	upgradeUUID string
 
-	in  <-chan []string
 	out chan struct{}
 }
 
 // NewUpgradeReadyWatcher creates a watcher which notifies when all controller
 // nodes have been registered, meaning the upgrade is ready to start
 func NewUpgradeReadyWatcher(ctx context.Context, st State, wf WatcherFactory, upgradeUUID string) (watcher.NotifyWatcher, error) {
-	namespaceWatcher, err := wf.NewNamespaceWatcher("upgrade_info_controller_node", changestream.Create|changestream.Update, "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	w := &upgradeReadyWatcher{
 		ctx:         ctx,
 		st:          st,
+		wf:          wf,
 		upgradeUUID: upgradeUUID,
 		out:         make(chan struct{}),
-		in:          namespaceWatcher.Changes(),
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
 	}); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	if err := w.catacomb.Add(namespaceWatcher); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -69,13 +60,21 @@ func (w *upgradeReadyWatcher) Changes() <-chan struct{} {
 func (w *upgradeReadyWatcher) loop() error {
 	defer close(w.out)
 
+	namespaceWatcher, err := w.wf.NewNamespaceWatcher("upgrade_info_controller_node", changestream.Create|changestream.Update, "")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := w.catacomb.Add(namespaceWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
 	// By reassigning the in and out channels, we effectively ticktock between
 	// read mode and dispatch mode. This ensures we always dispatch deltas that
 	// we received before reading more, and every channel read/write is guarded
 	// by checks of the tomb and subscription liveness.
 	// Start in read mode so we don't send an erroneous initial message
 	var out chan struct{}
-	in := w.in
+	in := namespaceWatcher.Changes()
 
 	for {
 		select {
@@ -98,7 +97,7 @@ func (w *upgradeReadyWatcher) loop() error {
 			}
 		case out <- struct{}{}:
 			// We have dispatched. Tick over to read mode.
-			in = w.in
+			in = namespaceWatcher.Changes()
 			out = nil
 		}
 	}
