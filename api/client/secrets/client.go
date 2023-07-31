@@ -125,3 +125,53 @@ func (c *Client) CreateSecret(label, description string, data map[string]string)
 	}
 	return result.Result, nil
 }
+
+// GrantSecret grants access to a secret to the specified applications.
+func (c *Client) GrantSecret(uri *secrets.URI, apps []string) ([]error, error) {
+	if c.BestAPIVersion() < 2 {
+		return nil, errors.NotSupportedf("user secrets")
+	}
+	arg := params.GrantRevokeUserSecretArg{
+		URI: uri.String(), Applications: apps,
+	}
+
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("GrantSecret", arg, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(apps) {
+		return nil, errors.Errorf("expected %d results, got %d", len(apps), len(results.Results))
+	}
+	return processErrors(results), nil
+}
+
+func processErrors(results params.ErrorResults) []error {
+	var errors []error
+	for _, result := range results.Results {
+		if result.Error != nil {
+			errors = append(errors, params.TranslateWellKnownError(result.Error))
+		}
+	}
+	return errors
+}
+
+// RevokeSecret revokes access to a secret from the specified applications.
+func (c *Client) RevokeSecret(uri *secrets.URI, apps []string) ([]error, error) {
+	if c.BestAPIVersion() < 2 {
+		return nil, errors.NotSupportedf("user secrets")
+	}
+	arg := params.GrantRevokeUserSecretArg{
+		URI: uri.String(), Applications: apps,
+	}
+
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("RevokeSecret", arg, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(apps) {
+		return nil, errors.Errorf("expected %d results, got %d", len(apps), len(results.Results))
+	}
+	return processErrors(results), nil
+}
