@@ -1050,7 +1050,7 @@ func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest
 			continue
 		}
 		err = m.authorizer.HasPermission(permission.AdminAccess, modelTag)
-		if err != nil {
+		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return result, errors.Trace(err)
 		}
 		canModify := err == nil || canModifyController
