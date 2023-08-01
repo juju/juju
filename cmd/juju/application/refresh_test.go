@@ -811,7 +811,7 @@ func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.DeepEquals, make([]error, len(units)))
 
-	// Overwrite the metadata.yaml to change the supported corebase.
+	// Overwrite the metadata.yaml to change the supported series.
 	metadataPath := filepath.Join(repoPath, "metadata.yaml")
 	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
 	if err != nil {
@@ -822,7 +822,7 @@ func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	metadata := strings.Join(
 		[]string{
 			`name: multi-series`,
-			`summary: "That's a dummy charm with multi-corebase."`,
+			`summary: "That's a dummy charm with series."`,
 			`description: |`,
 			`    This is a longer description which`,
 			`    potentially contains multiple lines.`,
@@ -885,7 +885,7 @@ func (s *RefreshSuccessStateSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
 	err = unit.AssignToMachine(container)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Overwrite the lxd-profile.yaml to change the supported corebase.
+	// Overwrite the lxd-profile.yaml to change the supported series.
 	lxdProfilePath := filepath.Join(repoPath, "lxd-profile.yaml")
 	file, err := os.OpenFile(lxdProfilePath, os.O_TRUNC|os.O_RDWR, 0666)
 	if err != nil {

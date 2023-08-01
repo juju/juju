@@ -75,7 +75,7 @@ func (c *addImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.cloudImageMetadataCommandBase.SetFlags(f)
 
 	f.StringVar(&c.Region, "region", "", "image cloud region")
-	f.StringVar(&c.Series, "series", "", "image corebase. DEPRECATED, use --base")
+	f.StringVar(&c.Series, "series", "", "image series. DEPRECATED, use --base")
 	f.StringVar(&c.Base, "base", "", "image base")
 	f.StringVar(&c.Arch, "arch", "amd64", "image architecture")
 	f.StringVar(&c.VirtType, "virt-type", "", "image metadata virtualisation type")

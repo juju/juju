@@ -84,7 +84,7 @@ func (c *listImagesCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Stream, "stream", "", "image metadata stream")
 	f.StringVar(&c.Region, "region", "", "image metadata cloud region")
 
-	f.Var(cmd.NewAppendStringsValue(&c.Series), "series", "only show cloud image metadata for these corebase. DEPRECATED use --bases")
+	f.Var(cmd.NewAppendStringsValue(&c.Series), "series", "only show cloud image metadata for these series. DEPRECATED use --bases")
 	f.Var(cmd.NewAppendStringsValue(&c.Bases), "bases", "only show cloud image metadata for these bases")
 	f.Var(cmd.NewAppendStringsValue(&c.Arches), "arch", "only show cloud image metadata for these architectures")
 

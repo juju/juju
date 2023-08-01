@@ -320,10 +320,10 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 	// cannot easily be factored out).
 
 	// NOTE: Reading the charm here is only meant to aid in inferring the
-	// correct series, if this fails we fall back to the argument corebase. If
+	// correct series, if this fails we fall back to the argument series. If
 	// reading the charm fails here it will also fail below (the charm is read
 	// again below) where it is handled properly. This is just an expedient to
-	// get the correct corebase. A proper refactoring of the charmrepo package is
+	// get the correct series. A proper refactoring of the charmrepo package is
 	// needed for a more elegant fix.
 	charmOrBundle := d.charmOrBundle
 	if isLocalSchema(charmOrBundle) {

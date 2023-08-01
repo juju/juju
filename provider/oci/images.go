@@ -354,7 +354,7 @@ func findInstanceSpec(
 
 	logger.Debugf("received %d image(s): %v", len(allImageMetadata), allImageMetadata)
 	filtered := []*imagemetadata.ImageMetadata{}
-	// Filter by corebase. imgCache.supportedShapes() and
+	// Filter by series. imgCache.supportedShapes() and
 	// imgCache.imageMetadata() will return filtered values
 	// by series already. This additional filtering is done
 	// in case someone wants to use this function with values

@@ -25,7 +25,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 		err            string
 	}{
 		{
-			// Simple selectors first, no supported corebase.
+			// Simple selectors first, no supported series.
 
 			title: "juju deploy simple   # no default series, no supported series",
 			seriesSelector: seriesSelector{
@@ -110,7 +110,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			expectedSeries: "jammy",
 		},
 
-		// Now charms with supported corebase.
+		// Now charms with supported series.
 
 		{
 			title: "juju deploy multiseries   # use charm default, nothing specified, no default series",

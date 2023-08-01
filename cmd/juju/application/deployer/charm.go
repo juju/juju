@@ -398,7 +398,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	if charm.IsUnsupportedSeriesError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
 		if usingDefaultSeries {
-			msg += " Used the default-corebase."
+			msg += " Used the default-series."
 		}
 		return errors.Errorf(msg)
 	} else if err != nil {
@@ -443,7 +443,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	if charm.IsUnsupportedSeriesError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
 		if usingDefaultSeries {
-			msg += " Used the default-corebase."
+			msg += " Used the default-series."
 		}
 		return errors.Errorf(msg)
 	}

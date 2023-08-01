@@ -1505,7 +1505,7 @@ func (s *DeploySuite) setupNonESMBase(c *gc.C) (corebase.Base, string) {
 	}
 	defer func() { _ = file.Close() }()
 
-	// Overwrite the metadata.yaml to contain a non EMS corebase.
+	// Overwrite the metadata.yaml to contain a non EMS series.
 	newMetadata := strings.Join([]string{`name: logging`, `summary: ""`, `description: ""`, `series: `, `  - ` + nonEMSSeries, `  - artful`}, "\n")
 	if _, err := file.WriteString(newMetadata); err != nil {
 		c.Fatal("cannot write to metadata.yaml")

@@ -35,7 +35,7 @@ type modelConfig interface {
 // really only valid if the seriesFlag is specified. There is code and tests
 // that allow the force flag when series isn't specified, but they should
 // really be cleaned up. The `deploy` CLI command has tests to ensure that
-// --force is only valid with --corebase.
+// --force is only valid with --series.
 type seriesSelector struct {
 	// seriesFlag is the series passed to the --series flag on the command line.
 	seriesFlag string
@@ -49,7 +49,7 @@ type seriesSelector struct {
 	// supportedJujuSeries is the list of series that juju supports.
 	supportedJujuSeries set.Strings
 	// force indicates the user explicitly wants to deploy to a requested
-	// series, regardless of whether the charm says it supports that corebase.
+	// series, regardless of whether the charm says it supports that series.
 	force bool
 	// from bundle specifies the deploy request comes from a bundle spec.
 	fromBundle bool
@@ -65,7 +65,7 @@ type seriesSelector struct {
 func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// TODO(sidecar): handle systems
 
-	// User has requested a series with --corebase.
+	// User has requested a series with --series.
 	if s.seriesFlag != "" {
 		return s.userRequested(s.seriesFlag)
 	}

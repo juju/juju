@@ -54,7 +54,7 @@ type BootstrapParams struct {
 	BootstrapSeries string
 
 	// SupportedBootstrapSeries is a supported set of series to use for
-	// validating against the bootstrap corebase.
+	// validating against the bootstrap series.
 	SupportedBootstrapSeries set.Strings
 
 	// Placement, if non-empty, holds an environment-specific placement
@@ -73,7 +73,7 @@ type BootstrapParams struct {
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
 	ExtraAgentValuesForTesting map[string]string
 
-	// Force is used to allow a bootstrap to be run on unsupported corebase.
+	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
 }
 
