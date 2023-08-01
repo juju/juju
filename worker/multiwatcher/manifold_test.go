@@ -158,8 +158,8 @@ type fakeStateTracker struct {
 
 // Return an invalid but non-zero state pool pointer.
 // Is only ever used for comparison.
-func (f *fakeStateTracker) Use() (*state.StatePool, error) {
-	return &state.StatePool{}, nil
+func (f *fakeStateTracker) Use() (*state.StatePool, *state.State, error) {
+	return &state.StatePool{}, &state.State{}, nil
 }
 
 // Done tracks that the used pool is released.

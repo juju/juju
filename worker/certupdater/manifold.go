@@ -79,17 +79,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
-	statePool, err := stTracker.Use()
+	_, st, err := stTracker.Use()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	agentConfig := agent.CurrentConfig()
 
-	st, err := statePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	addressWatcher, err := config.NewMachineAddressWatcher(st, agentConfig.Tag().Id())
 	if err != nil {
 		_ = stTracker.Done()

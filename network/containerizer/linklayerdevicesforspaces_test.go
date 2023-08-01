@@ -4,6 +4,8 @@
 package containerizer
 
 import (
+	"strings"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -13,22 +15,10 @@ import (
 )
 
 type linkLayerDevForSpacesSuite struct {
-	testing.IsolationSuite
-
-	machine *MockContainer
-
-	devices   []LinkLayerDevice
-	addresses []Address
+	baseSuite
 }
 
 var _ = gc.Suite(&linkLayerDevForSpacesSuite{})
-
-func (s *linkLayerDevForSpacesSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-
-	s.devices = make([]LinkLayerDevice, 0)
-	s.addresses = make([]Address, 0)
-}
 
 // TODO(jam): 2017-01-31 Make sure KVM guests default to virbr0, and LXD guests use lxdbr0
 // Add tests for UseLocal = True, but we have named spaces
@@ -65,11 +55,6 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoSuchSpace(c 
 }
 
 func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoBridge(c *gc.C) {
-	//	s.setupMachineWithOneNIC(c):
-	//	           s.setupTwoSpaces(c)
-	//             In the default space
-	//             s.createNICWithIP(c, s.machine, "eth0", "10.0.0.20/24")
-
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -280,7 +265,7 @@ func (s *linkLayerDevForSpacesSuite) setupForNaturalSort(ctrl *gomock.Controller
 	}
 
 	for _, d := range testDevs {
-		s.expectDevice(ctrl, d.name, d.parent, network.EthernetDevice)
+		s.expectDevice(ctrl, d.name, d.parent, network.EthernetDevice, network.NonVirtualPort)
 		if d.parent == "" {
 			continue
 		}
@@ -295,21 +280,38 @@ func (s *linkLayerDevForSpacesSuite) setupForNaturalSort(ctrl *gomock.Controller
 	}
 }
 
-func (s *linkLayerDevForSpacesSuite) setupMocks(c *gc.C) *gomock.Controller {
+type baseSuite struct {
+	testing.IsolationSuite
+
+	machine *MockContainer
+
+	devices   []LinkLayerDevice
+	addresses []Address
+}
+
+func (s *baseSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	s.devices = make([]LinkLayerDevice, 0)
+	s.addresses = make([]Address, 0)
+}
+
+func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.machine = NewMockContainer(ctrl)
+	s.machine.EXPECT().Id().Return("host-id").AnyTimes()
 
 	return ctrl
 }
 
-func (s *linkLayerDevForSpacesSuite) expectMachineAddressesDevices() {
+func (s *baseSuite) expectMachineAddressesDevices() {
 	mExp := s.machine.EXPECT()
 	mExp.AllLinkLayerDevices().Return(s.devices, nil).AnyTimes()
 	mExp.AllDeviceAddresses().Return(s.addresses, nil).AnyTimes()
 }
 
-func (s *linkLayerDevForSpacesSuite) expectNICAndBridgeWithIP(ctrl *gomock.Controller, dev, parent, spaceID string) {
-	s.expectDevice(ctrl, dev, parent, network.EthernetDevice)
+func (s *baseSuite) expectNICAndBridgeWithIP(ctrl *gomock.Controller, dev, parent, spaceID string) {
+	s.expectDevice(ctrl, dev, parent, network.EthernetDevice, network.NonVirtualPort)
 	s.expectBridgeDevice(ctrl, parent)
 
 	subnet := NewMockSubnet(ctrl)
@@ -324,8 +326,50 @@ func (s *linkLayerDevForSpacesSuite) expectNICAndBridgeWithIP(ctrl *gomock.Contr
 	s.addresses = append(s.addresses, address)
 }
 
-func (s *linkLayerDevForSpacesSuite) expectNICWithIP(ctrl *gomock.Controller, dev, spaceID string) {
-	s.expectDevice(ctrl, dev, "", network.EthernetDevice)
+func (s *baseSuite) expectNICWithIP(ctrl *gomock.Controller, dev, spaceID string) *MockLinkLayerDevice {
+	return s.expectNICWithIPAndPortType(ctrl, dev, spaceID, network.NonVirtualPort)
+}
+
+func (s *baseSuite) expectNICWithIPAndPortType(ctrl *gomock.Controller, devName, spaceID string, portType network.VirtualPortType) *MockLinkLayerDevice {
+	dev := s.expectDevice(ctrl, devName, "", network.EthernetDevice, portType)
+
+	subnet := NewMockSubnet(ctrl)
+	sExp := subnet.EXPECT()
+	sExp.SpaceID().Return(spaceID).AnyTimes()
+
+	address := NewMockAddress(ctrl)
+	aExp := address.EXPECT()
+	aExp.Subnet().Return(subnet, nil).AnyTimes()
+	aExp.DeviceName().Return(devName).AnyTimes()
+
+	s.addresses = append(s.addresses, address)
+	return dev
+}
+
+func (s *baseSuite) expectLoopbackNIC(ctrl *gomock.Controller) {
+	s.expectDevice(ctrl, "lo", "", network.LoopbackDevice, network.NonVirtualPort)
+
+	address := NewMockAddress(ctrl)
+	aExp := address.EXPECT()
+	aExp.DeviceName().Return("lo").AnyTimes()
+
+	s.addresses = append(s.addresses, address)
+}
+
+func (s *baseSuite) expectBridgeDevice(ctrl *gomock.Controller, dev string) {
+	s.expectDevice(ctrl, dev, "", network.BridgeDevice, network.NonVirtualPort)
+}
+
+func (s *baseSuite) expectBridgeDeviceWithIP(ctrl *gomock.Controller, dev, spaceID string) {
+	s.expectDeviceWithIP(ctrl, dev, spaceID, network.BridgeDevice)
+}
+
+func (s *baseSuite) expectDeviceWithIP(ctrl *gomock.Controller, dev, spaceID string, devType network.LinkLayerDeviceType) *MockLinkLayerDevice {
+	return s.expectDeviceWithParentWithIP(ctrl, dev, "", spaceID, devType)
+}
+
+func (s *baseSuite) expectDeviceWithParentWithIP(ctrl *gomock.Controller, dev, parent, spaceID string, devType network.LinkLayerDeviceType) *MockLinkLayerDevice {
+	d := s.expectDevice(ctrl, dev, parent, devType, network.NonVirtualPort)
 
 	subnet := NewMockSubnet(ctrl)
 	sExp := subnet.EXPECT()
@@ -337,27 +381,43 @@ func (s *linkLayerDevForSpacesSuite) expectNICWithIP(ctrl *gomock.Controller, de
 	aExp.DeviceName().Return(dev).AnyTimes()
 
 	s.addresses = append(s.addresses, address)
+	return d
 }
 
-func (s *linkLayerDevForSpacesSuite) expectLoopbackNIC(ctrl *gomock.Controller) {
-	s.expectDevice(ctrl, "lo", "", network.LoopbackDevice)
-
-	address := NewMockAddress(ctrl)
-	aExp := address.EXPECT()
-	aExp.DeviceName().Return("lo").AnyTimes()
-
-	s.addresses = append(s.addresses, address)
-}
-
-func (s *linkLayerDevForSpacesSuite) expectBridgeDevice(ctrl *gomock.Controller, dev string) {
-	s.expectDevice(ctrl, dev, "", network.BridgeDevice)
-}
-
-func (s *linkLayerDevForSpacesSuite) expectDevice(ctrl *gomock.Controller, dev, parent string, devType network.LinkLayerDeviceType) {
+func (s *baseSuite) expectDevice(
+	ctrl *gomock.Controller, dev, parent string, devType network.LinkLayerDeviceType,
+	portType network.VirtualPortType,
+) *MockLinkLayerDevice {
 	bridgeDevice := NewMockLinkLayerDevice(ctrl)
 	bEXP := bridgeDevice.EXPECT()
 	bEXP.Name().Return(dev).AnyTimes()
 	bEXP.Type().Return(devType).AnyTimes()
 	bEXP.ParentName().Return(parent).AnyTimes()
+	bEXP.VirtualPortType().Return(portType).AnyTimes()
+	bEXP.MACAddress().Return("").AnyTimes()
+	bEXP.EthernetDeviceForBridge(ethernetDeviceMatcher{}, false).DoAndReturn(func(name string, _ bool) (network.InterfaceInfo, error) {
+		return network.InterfaceInfo{
+			ParentInterfaceName: dev,
+			MACAddress:          "00:16:3e:00:00:00",
+			InterfaceName:       name,
+			InterfaceType:       network.EthernetDevice,
+		}, nil
+	}).AnyTimes()
 	s.devices = append(s.devices, bridgeDevice)
+	return bridgeDevice
+}
+
+type ethernetDeviceMatcher struct {
+}
+
+func (m ethernetDeviceMatcher) Matches(x interface{}) bool {
+	dev, ok := x.(string)
+	if !ok {
+		return false
+	}
+	return strings.HasPrefix(dev, "eth")
+}
+
+func (ethernetDeviceMatcher) String() string {
+	return "matches EthernetDeviceForBridge()"
 }

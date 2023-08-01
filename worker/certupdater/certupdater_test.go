@@ -21,7 +21,7 @@ import (
 )
 
 func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 type CertUpdaterSuite struct {

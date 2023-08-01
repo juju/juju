@@ -29,17 +29,12 @@ type stateWorker struct {
 }
 
 func (w *stateWorker) loop() error {
-	var err error
-	w.pool, err = w.stTracker.Use()
+	pool, systemState, err := w.stTracker.Use()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	w.pool = pool
 	defer func() { _ = w.stTracker.Done() }()
-
-	systemState, err := w.pool.SystemState()
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	w.setStatePool(w.pool)
 	defer w.setStatePool(nil)

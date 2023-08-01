@@ -229,7 +229,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	// Get the state pool after grabbing dependencies so we don't need
 	// to remember to call Done on it if they're not running yet.
-	statePool, err := stTracker.Use()
+	statePool, _, err := stTracker.Use()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

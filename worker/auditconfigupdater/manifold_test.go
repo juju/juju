@@ -17,17 +17,19 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/state/watcher/watchertest"
 	"github.com/juju/juju/worker/auditconfigupdater"
 )
 
 type manifoldSuite struct {
-	statetesting.StateSuite
+	testing.IsolationSuite
 
 	manifold     dependency.Manifold
 	context      dependency.Context
 	agent        *mockAgent
 	stateTracker stubStateTracker
+
+	cfgSource *configSource
 
 	stub testing.Stub
 }
@@ -35,21 +37,23 @@ type manifoldSuite struct {
 var _ = gc.Suite(&manifoldSuite{})
 
 func (s *manifoldSuite) SetUpTest(c *gc.C) {
-	s.ControllerConfig = make(map[string]interface{})
-	s.ControllerConfig["auditing-enabled"] = true
-	s.ControllerConfig["audit-log-capture-args"] = true
-	s.ControllerConfig["audit-log-exclude-methods"] = "This.Method"
-	s.ControllerConfig["audit-log-max-size"] = "10M"
-	s.ControllerConfig["audit-log-max-backups"] = 10
-
-	s.StateSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{}
 	s.agent.conf.logDir = c.MkDir()
 
-	s.stateTracker = stubStateTracker{
-		pool: s.StatePool,
+	configChanged := make(chan struct{}, 1)
+	s.cfgSource = &configSource{
+		watcher: watchertest.NewNotifyWatcher(configChanged),
+		cfg:     makeControllerConfig(true, true, "This.Method"),
 	}
+	s.cfgSource.cfg["audit-log-max-size"] = "10M"
+	s.cfgSource.cfg["audit-log-max-backups"] = 10
+	s.PatchValue(&auditconfigupdater.ConfigSourceFromState, func(st *state.State) auditconfigupdater.ConfigSource {
+		return s.cfgSource
+	})
+
+	s.stateTracker = stubStateTracker{}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -112,7 +116,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 
 	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 3)
-	c.Assert(args[0], gc.Equals, s.State)
+	c.Assert(args[0], gc.Equals, s.cfgSource)
 
 	auditConfig := args[1].(auditlog.Config)
 	target := auditConfig.Target
@@ -132,10 +136,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestStartWithAuditingDisabled(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		"auditing-enabled": false,
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	s.cfgSource.cfg["auditing-enabled"] = false
 	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
@@ -144,7 +145,7 @@ func (s *manifoldSuite) TestStartWithAuditingDisabled(c *gc.C) {
 
 	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 3)
-	c.Assert(args[0], gc.Equals, s.State)
+	c.Assert(args[0], gc.Equals, s.cfgSource)
 
 	auditConfig := args[1].(auditlog.Config)
 	c.Assert(auditConfig.Target, gc.IsNil)
@@ -163,7 +164,7 @@ func (s *manifoldSuite) TestOutput(c *gc.C) {
 
 	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 3)
-	c.Assert(args[0], gc.Equals, s.State)
+	c.Assert(args[0], gc.Equals, s.cfgSource)
 
 	auditConfig := args[1].(auditlog.Config)
 
@@ -210,12 +211,13 @@ func (c *mockAgentConfig) LogDir() string {
 
 type stubStateTracker struct {
 	testing.Stub
-	pool *state.StatePool
+	pool  state.StatePool
+	state state.State
 }
 
-func (s *stubStateTracker) Use() (*state.StatePool, error) {
+func (s *stubStateTracker) Use() (*state.StatePool, *state.State, error) {
 	s.MethodCall(s, "Use")
-	return s.pool, s.NextErr()
+	return &s.pool, &s.state, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {

@@ -90,7 +90,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	pool, err := stTracker.Use()
+	pool, _, err := stTracker.Use()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

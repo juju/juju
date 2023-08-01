@@ -10,6 +10,7 @@ import (
 
 	jujuagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
 )
@@ -49,6 +50,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
+// ConfigSourceFromState is patched for testing.
+var ConfigSourceFromState = func(st *state.State) ConfigSource {
+	return st
+}
+
 func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker, err error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -63,7 +69,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
-	statePool, err := stTracker.Use()
+	_, st, err := stTracker.Use()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -75,15 +81,11 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 
 	logDir := agent.CurrentConfig().LogDir()
 
-	st, err := statePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	logFactory := func(cfg auditlog.Config) auditlog.AuditLog {
 		return auditlog.NewLogFile(logDir, cfg.MaxSizeMB, cfg.MaxBackups)
 	}
-	auditConfig, err := initialConfig(st)
+	configSrc := ConfigSourceFromState(st)
+	auditConfig, err := initialConfig(configSrc)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -91,7 +93,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		auditConfig.Target = logFactory(auditConfig)
 	}
 
-	w, err := config.NewWorker(st, auditConfig, logFactory)
+	w, err := config.NewWorker(configSrc, auditConfig, logFactory)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

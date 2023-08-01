@@ -307,12 +307,13 @@ func (c *mockAgentConfig) Value(key string) string {
 
 type stubStateTracker struct {
 	testing.Stub
-	pool state.StatePool
+	pool  state.StatePool
+	state state.State
 }
 
-func (s *stubStateTracker) Use() (*state.StatePool, error) {
+func (s *stubStateTracker) Use() (*state.StatePool, *state.State, error) {
 	s.MethodCall(s, "Use")
-	return &s.pool, s.NextErr()
+	return &s.pool, &s.state, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {

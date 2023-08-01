@@ -53,7 +53,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}}
 	s.hub = &mockHub{}
 	s.registerer = &fakeRegisterer{}
-	s.stateTracker = stubStateTracker{pool: s.StatePool}
+	s.stateTracker = stubStateTracker{pool: s.StatePool, state: s.State}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -160,12 +160,13 @@ func (s *ManifoldSuite) TestNoStateServingInfoClosesState(c *gc.C) {
 
 type stubStateTracker struct {
 	testing.Stub
-	pool *state.StatePool
+	pool  *state.StatePool
+	state *state.State
 }
 
-func (s *stubStateTracker) Use() (*state.StatePool, error) {
+func (s *stubStateTracker) Use() (*state.StatePool, *state.State, error) {
 	s.MethodCall(s, "Use")
-	return s.pool, s.NextErr()
+	return s.pool, s.state, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {
