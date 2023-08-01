@@ -1001,7 +1001,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()
 	// Wait for machine agent to come up on the bootstrap
-	// machine and ensure it deployed the proper corebase.
+	// machine and ensure it deployed the proper series.
 	m0, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	mw0 := newMachineToolWaiter(m0)

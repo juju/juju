@@ -3584,7 +3584,7 @@ func (s *changesSuite) TestLocalCharmWithSeriesFromCharm(c *gc.C) {
     `, charmDir)
 	charmMeta := `
 name: multi-series
-summary: That's a dummy charm with multi-corebase.
+summary: That's a dummy charm with multi-series.
 description: A dummy charm.
 series:
     - jammy
@@ -3607,7 +3607,7 @@ func (s *changesSuite) TestLocalCharmWithSeriesFromBundle(c *gc.C) {
     `, charmDir)
 	charmMeta := `
 name: multi-series
-summary: That's a dummy charm with multi-corebase.
+summary: That's a dummy charm with multi-series.
 description: A dummy charm.
 series:
     - jammy

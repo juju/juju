@@ -411,7 +411,7 @@ func (ch *AddMachineChange) Description() []string {
 
 // AddMachineOptions holds GUI options for adding a machine or container.
 type AddMachineOptions struct {
-	// Series holds the machine OS corebase.
+	// Series holds the machine OS series.
 	Series string `json:"series,omitempty"`
 	// Constraints holds the machine constraints.
 	Constraints string `json:"constraints,omitempty"`
@@ -423,7 +423,7 @@ type AddMachineOptions struct {
 
 // AddMachineParams holds parameters for adding a machine or container.
 type AddMachineParams struct {
-	// Series holds the optional machine OS corebase.
+	// Series holds the optional machine OS series.
 	Series string `json:"series,omitempty"`
 	// Constraints holds the optional machine constraints.
 	Constraints string `json:"constraints,omitempty"`

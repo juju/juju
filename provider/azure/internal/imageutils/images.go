@@ -39,7 +39,7 @@ const (
 // Azure Resource Manager.
 //
 // For Ubuntu, we query the SKUs to determine the most recent point release
-// for a corebase.
+// for a series.
 func SeriesImage(
 	ctx context.ProviderCallContext,
 	base jujubase.Base, stream, location string,
@@ -91,7 +91,7 @@ func offerForUbuntuSeries(series string) (string, string, error) {
 }
 
 // ubuntuSKU returns the best SKU for the Canonical:UbuntuServer offering,
-// matching the given corebase.
+// matching the given series.
 func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string, client *armcompute.VirtualMachineImagesClient) (string, string, error) {
 	offer, seriesVersion, err := offerForUbuntuSeries(series)
 	if err != nil {

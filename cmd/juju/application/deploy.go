@@ -257,7 +257,7 @@ type DeployCommand struct {
 	Base string
 
 	// Force is used to allow a charm/bundle to be deployed onto a machine
-	// running an unsupported corebase.
+	// running an unsupported series.
 	Force bool
 
 	// DryRun is used to specify that the bundle shouldn't actually be

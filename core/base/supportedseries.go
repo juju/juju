@@ -281,7 +281,7 @@ func getOSFromSeries(series SeriesName) (coreos.OSType, error) {
 }
 
 var (
-	logger = loggo.GetLogger("juju.juju.series")
+	logger = loggo.GetLogger("juju.juju.base")
 
 	seriesVersionsMutex sync.Mutex
 )

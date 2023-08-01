@@ -1253,7 +1253,7 @@ func applicationKey(charm, arch, series, channel string, revision int) string {
 }
 
 // getSeries retrieves the series of a application from the ApplicationSpec or from the
-// charm path or URL if provided, otherwise falling back on a default corebase.
+// charm path or URL if provided, otherwise falling back on a default series.
 //
 // DEPRECATED: This should be all about bases.
 func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string, error) {
@@ -1265,7 +1265,7 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 	if charm.IsValidLocalCharmOrBundlePath(application.Charm) {
 		_, charmURL, err := corecharm.NewCharmAtPath(application.Charm, defaultSeries)
 		if corecharm.IsMissingSeriesError(err) {
-			// local charm path is valid but the charm doesn't declare a default corebase.
+			// local charm path is valid but the charm doesn't declare a default series.
 			return defaultSeries, nil
 		} else if corecharm.IsUnsupportedSeriesError(err) {
 			// The bundle's default series is not supported by the charm, but we'll

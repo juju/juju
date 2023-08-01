@@ -127,7 +127,7 @@ func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 			continue
 		}
 
-		// TODO (stickupkid): Remove this when we remove corebase.
+		// TODO (stickupkid): Remove this when we remove series.
 		// This essentially, always ensures that we report back a default-series
 		// if we have a default-base.
 		if attr == config.DefaultBaseKey && val.Value != "" {
@@ -159,7 +159,7 @@ func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 	}
 
 	// TODO (stickupkid): For backwards compatibility we need to ensure that
-	// we always report back a default-corebase.
+	// we always report back a default-series.
 	if _, ok := result.Config[config.DefaultSeriesKey]; !ok {
 		result.Config[config.DefaultSeriesKey] = params.ConfigValue{
 			Value:  "",
@@ -252,7 +252,7 @@ func (c *ModelConfigAPI) checkUpdateDefaultBase() state.ValidateConfigFunc {
 			}
 		}
 
-		// Always remove the default-corebase.
+		// Always remove the default-series.
 		delete(updateAttrs, config.DefaultSeriesKey)
 		return nil
 	}

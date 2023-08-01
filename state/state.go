@@ -1169,7 +1169,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	}
 
 	// If either the charm origin ID or Hash is set before a charm is
-	// downloaded, charm download will fail for charms with a forced corebase.
+	// downloaded, charm download will fail for charms with a forced series.
 	// The logic (refreshConfig) in sending the correct request to charmhub
 	// will break.
 	if (args.CharmOrigin.ID != "" && args.CharmOrigin.Hash == "") ||
@@ -1458,13 +1458,13 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 }
 
 func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Base, error) {
-	// User has specified corebase. Overriding supported series is
+	// User has specified series. Overriding supported series is
 	// handled by the client, so args.Release is not necessarily
-	// one of the charm's supported corebase. We require that the
+	// one of the charm's supported series. We require that the
 	// specified series is of the same operating system as one of
-	// the supported corebase. For old-style charms with the series
+	// the supported series. For old-style charms with the series
 	// in the URL, that series is the one and only supported
-	// corebase.
+	// series.
 	appBase, err := corebase.ParseBase(args.CharmOrigin.Platform.OS, args.CharmOrigin.Platform.Channel)
 	if err != nil {
 		return Base{}, errors.Trace(err)
@@ -1474,7 +1474,7 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 	if cSeries := args.Charm.URL().Series; cSeries != "" {
 		supportedSeries = []string{cSeries}
 		// If a charm has a url, but is a kubernetes charm then we need to
-		// add this to the list of supported corebase.
+		// add this to the list of supported series.
 		if cSeries != corebase.Kubernetes.String() &&
 			(set.NewStrings(args.Charm.Meta().Series...).Contains(corebase.Kubernetes.String()) ||
 				len(args.Charm.Meta().Containers) > 0) {

@@ -128,7 +128,7 @@ func BootstrapInstance(
 		return nil, nil, nil, err
 	}
 
-	// Filter image metadata to the selected corebase.
+	// Filter image metadata to the selected series.
 	var imageMetadata []*imagemetadata.ImageMetadata
 	seriesVersion, err := corebase.BaseSeriesVersion(requestedBootstrapBase)
 	if err != nil {

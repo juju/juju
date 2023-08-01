@@ -31,7 +31,7 @@ func PreUpgradeSteps(_ *state.StatePool, agentConf agent.Config, isController, i
 	}
 	if isController {
 		// Update distro info in case the new Juju controller version
-		// is aware of new supported corebase. We'll keep going if this
+		// is aware of new supported series. We'll keep going if this
 		// fails, and the user can manually update it if they need to.
 		logger.Infof("updating distro-info")
 		err := updateDistroInfo()
