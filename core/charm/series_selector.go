@@ -10,7 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/version"
 )
 
@@ -100,12 +100,12 @@ func (s SeriesSelector) CharmSeries() (selectedSeries string, err error) {
 	// No series explicitly requested by the user.
 	// Use model default series, if explicitly set and supported by the charm.
 	if defaultBase, explicit := s.Conf.DefaultBase(); explicit {
-		base, err := series.ParseBaseFromString(defaultBase)
+		base, err := corebase.ParseBaseFromString(defaultBase)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
 
-		defaultSeries, err := series.GetSeriesFromBase(base)
+		defaultSeries, err := corebase.GetSeriesFromBase(base)
 		if err != nil {
 			return "", errors.Trace(err)
 		}

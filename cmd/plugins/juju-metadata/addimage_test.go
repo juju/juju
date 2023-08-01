@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	coreseries "github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 )
@@ -164,7 +164,7 @@ func getAddImageMetadataCmdFlags(c *gc.C, data params.CloudImageMetadata) []stri
 
 	var aBase string
 	if data.Version != "" {
-		aBase = coreseries.MakeDefaultBase("ubuntu", data.Version).String()
+		aBase = corebase.MakeDefaultBase("ubuntu", data.Version).String()
 	}
 	addFlag("--base", aBase, "")
 	addFlag("--region", data.Region, "")

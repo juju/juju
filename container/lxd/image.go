@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 
 	jujuarch "github.com/juju/juju/core/arch"
+	jujubase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	jujuos "github.com/juju/juju/core/os"
-	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 )
@@ -37,7 +37,7 @@ type SourcedImage struct {
 // Copied images will have the juju/series/arch alias added to them.
 // The callback argument is used to report copy progress.
 func (s *Server) FindImage(
-	base jujuseries.Base,
+	base jujubase.Base,
 	arch string,
 	virtType instance.VirtType,
 	sources []ServerSpec,
@@ -174,7 +174,7 @@ func (s *Server) CopyRemoteImage(
 }
 
 // baseLocalAlias returns the alias to assign to images for the
-// specified series. The alias is juju-specific, to support the
+// specified corebase. The alias is juju-specific, to support the
 // user supplying a customised image (e.g. CentOS with cloud-init).
 func baseLocalAlias(base, arch string, virtType instance.VirtType) string {
 	// We use a different alias for VMs, so that we can distinguish between
@@ -190,7 +190,7 @@ func baseLocalAlias(base, arch string, virtType instance.VirtType) string {
 }
 
 // baseRemoteAliases returns the aliases to look for in remotes.
-func baseRemoteAliases(base jujuseries.Base, arch string) ([]string, error) {
+func baseRemoteAliases(base jujubase.Base, arch string) ([]string, error) {
 	alias, err := constructBaseRemoteAlias(base, arch)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -207,7 +207,7 @@ func isCompatibleVirtType(virtType instance.VirtType, instanceType string) bool 
 	return string(virtType) == instanceType
 }
 
-func constructBaseRemoteAlias(base jujuseries.Base, arch string) (string, error) {
+func constructBaseRemoteAlias(base jujubase.Base, arch string) (string, error) {
 	seriesOS := jujuos.OSTypeForName(base.OS)
 	switch seriesOS {
 	case jujuos.Ubuntu:

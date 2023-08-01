@@ -22,11 +22,11 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
+	corebase "github.com/juju/juju/core/base"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -444,7 +444,7 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 		return nil, errors.Trace(err)
 	}
 
-	base, err := series.GetBaseFromSeries(hostSeries)
+	base, err := corebase.GetBaseFromSeries(hostSeries)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

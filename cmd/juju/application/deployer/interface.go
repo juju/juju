@@ -18,10 +18,10 @@ import (
 	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/jujuclient"
 	apiparams "github.com/juju/juju/rpc/params"
 )
@@ -98,7 +98,7 @@ type ConsumeDetails interface {
 
 // For testing.
 // TODO: unexport it if we don't need to patch it anymore.
-var SupportedJujuSeries = series.WorkloadSeries
+var SupportedJujuSeries = corebase.WorkloadSeries
 
 type DeployerAPI interface {
 	// APICallCloser is needed for the DeployResourcesFunc.

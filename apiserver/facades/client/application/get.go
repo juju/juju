@@ -10,11 +10,11 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/caas"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -94,7 +94,7 @@ func (api *APIBase) getConfig(
 		appChannel = ch.String()
 	}
 
-	base, err := series.ParseBase(origin.Platform.OS, origin.Platform.Channel)
+	base, err := corebase.ParseBase(origin.Platform.OS, origin.Platform.Channel)
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}

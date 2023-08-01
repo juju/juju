@@ -26,11 +26,10 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/series"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -82,31 +81,31 @@ func BootstrapInstance(
 	env environs.Environ,
 	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
-) (_ *environs.StartInstanceResult, resultBase *series.Base, _ environs.CloudBootstrapFinalizer, err error) {
+) (_ *environs.StartInstanceResult, resultBase *corebase.Base, _ environs.CloudBootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
 
 	// First thing, ensure we have tools otherwise there's no point.
-	supportedBootstrapBase := make([]series.Base, len(args.SupportedBootstrapSeries))
+	supportedBootstrapBase := make([]corebase.Base, len(args.SupportedBootstrapSeries))
 	for i, b := range args.SupportedBootstrapSeries.SortedValues() {
-		sb, err := series.GetBaseFromSeries(b)
+		sb, err := corebase.GetBaseFromSeries(b)
 		if err != nil {
 			return nil, nil, nil, errors.Trace(err)
 		}
 		supportedBootstrapBase[i] = sb
 	}
 
-	var bootstrapBase series.Base
+	var bootstrapBase corebase.Base
 	if args.BootstrapSeries != "" {
-		b, err := series.GetBaseFromSeries(args.BootstrapSeries)
+		b, err := corebase.GetBaseFromSeries(args.BootstrapSeries)
 		if err != nil {
 			return nil, nil, nil, errors.Trace(err)
 		}
 		bootstrapBase = b
 	}
 
-	requestedBootstrapBase, err := coreseries.ValidateBase(
+	requestedBootstrapBase, err := corebase.ValidateBase(
 		supportedBootstrapBase,
 		bootstrapBase,
 		config.PreferredBase(env.Config()),
@@ -114,7 +113,7 @@ func BootstrapInstance(
 	if !args.Force && err != nil {
 		// If the base isn't valid at all, then don't prompt users to use
 		// the --force flag.
-		if _, err := series.UbuntuBaseVersion(requestedBootstrapBase); err != nil {
+		if _, err := corebase.UbuntuBaseVersion(requestedBootstrapBase); err != nil {
 			return nil, nil, nil, errors.NotValidf("base %q", requestedBootstrapBase.String())
 		}
 		return nil, nil, nil, errors.Annotatef(err, "use --force to override")
@@ -132,9 +131,9 @@ func BootstrapInstance(
 		return nil, nil, nil, err
 	}
 
-	// Filter image metadata to the selected series.
+	// Filter image metadata to the selected corebase.
 	var imageMetadata []*imagemetadata.ImageMetadata
-	seriesVersion, err := series.BaseSeriesVersion(requestedBootstrapBase)
+	seriesVersion, err := corebase.BaseSeriesVersion(requestedBootstrapBase)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}

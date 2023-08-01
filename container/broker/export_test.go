@@ -5,7 +5,7 @@ package broker
 
 import (
 	"github.com/juju/juju/cloudconfig"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 var (
@@ -19,6 +19,6 @@ type patcher interface {
 
 // PatchNewMachineInitReader replaces the local init reader factory method
 // with the supplied one.
-func PatchNewMachineInitReader(patcher patcher, factory func(base series.Base) (cloudconfig.InitReader, error)) {
+func PatchNewMachineInitReader(patcher patcher, factory func(base corebase.Base) (cloudconfig.InitReader, error)) {
 	patcher.PatchValue(&newMachineInitReader, factory)
 }

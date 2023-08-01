@@ -10,13 +10,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/state"
 )
 
@@ -183,7 +183,7 @@ func UnitChange(c *gc.C, modelUUID string, unit *state.Unit) cache.UnitChange {
 
 	principal, _ := unit.PrincipalName()
 
-	base, err := series.ParseBase(unit.Base().OS, unit.Base().Channel)
+	base, err := corebase.ParseBase(unit.Base().OS, unit.Base().Channel)
 	c.Assert(err, jc.ErrorIsNil)
 	return cache.UnitChange{
 		ModelUUID:                modelUUID,

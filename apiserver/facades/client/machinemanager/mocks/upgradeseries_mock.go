@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	machinemanager "github.com/juju/juju/apiserver/facades/client/machinemanager"
-	series "github.com/juju/juju/core/series"
+	base "github.com/juju/juju/core/base"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -220,7 +220,7 @@ func (m *MockUpgradeBaseValidator) EXPECT() *MockUpgradeBaseValidatorMockRecorde
 }
 
 // ValidateApplications mocks base method.
-func (m *MockUpgradeBaseValidator) ValidateApplications(arg0 []machinemanager.Application, arg1 series.Base, arg2 bool) error {
+func (m *MockUpgradeBaseValidator) ValidateApplications(arg0 []machinemanager.Application, arg1 base.Base, arg2 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateApplications", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -234,7 +234,7 @@ func (mr *MockUpgradeBaseValidatorMockRecorder) ValidateApplications(arg0, arg1,
 }
 
 // ValidateBase mocks base method.
-func (m *MockUpgradeBaseValidator) ValidateBase(arg0, arg1 series.Base, arg2 string) error {
+func (m *MockUpgradeBaseValidator) ValidateBase(arg0, arg1 base.Base, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateBase", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

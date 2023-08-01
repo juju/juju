@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/simplestreams"
 )
 
@@ -139,7 +139,7 @@ type ImageConstraint struct {
 
 func NewImageConstraint(params simplestreams.LookupParams) (*ImageConstraint, error) {
 	if len(params.Releases) == 0 {
-		workloadVersions, err := series.AllWorkloadVersions("", params.Stream)
+		workloadVersions, err := corebase.AllWorkloadVersions("", params.Stream)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -158,7 +158,7 @@ const (
 
 // ImageRelease maps a legacy series to an image version.
 func ImageRelease(imSeries string) (string, error) {
-	base, err := series.GetBaseFromSeries(imSeries)
+	base, err := corebase.GetBaseFromSeries(imSeries)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

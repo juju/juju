@@ -23,7 +23,7 @@ import (
 	"github.com/juju/loggo"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	jujuos "github.com/juju/os/v2"
-	"github.com/juju/os/v2/series"
+	osseries "github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -35,10 +35,10 @@ import (
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	coreos "github.com/juju/juju/core/os"
-	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -96,8 +96,8 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	s.PatchValue(
-		&jujuseries.LocalSeriesVersionInfo,
-		func() (jujuos.OSType, map[string]series.SeriesVersionInfo, error) {
+		&corebase.LocalSeriesVersionInfo,
+		func() (jujuos.OSType, map[string]osseries.SeriesVersionInfo, error) {
 			return jujuos.Ubuntu, nil, nil
 		},
 	)
@@ -113,9 +113,9 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// override this.
 	s.PatchValue(&jujuversion.Current, v100u64.Number)
 	s.PatchValue(&arch.HostArch, func() string { return v100u64.Arch })
-	s.PatchValue(&series.HostSeries, func() (string, error) { return "jammy", nil })
+	s.PatchValue(&osseries.HostSeries, func() (string, error) { return "jammy", nil })
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
-	s.PatchValue(&jujuseries.UbuntuDistroInfo, "/path/notexists")
+	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 
 	// Ensure KUBECONFIG doesn't interfere with tests.
 	s.PatchEnvironment(k8scmd.RecommendedConfigPathEnvVar, filepath.Join(c.MkDir(), "config"))
@@ -201,7 +201,7 @@ type bootstrapTest struct {
 
 func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, hostSeries string) {
 	resetJujuXDGDataHome(c)
-	s.PatchValue(&series.HostSeries, func() (string, error) { return hostSeries, nil })
+	s.PatchValue(&osseries.HostSeries, func() (string, error) { return hostSeries, nil })
 	s.patchVersion(c)
 }
 
@@ -229,7 +229,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		bootstrapVersion = version.MustParseBinary(test.version)
 		restore = restore.Add(testing.PatchValue(&jujuversion.Current, bootstrapVersion.Number))
 		restore = restore.Add(testing.PatchValue(&arch.HostArch, func() string { return bootstrapVersion.Arch }))
-		restore = restore.Add(testing.PatchValue(&series.HostSeries, func() (string, error) { return "ubuntu", nil }))
+		restore = restore.Add(testing.PatchValue(&osseries.HostSeries, func() (string, error) { return "ubuntu", nil }))
 		bootstrapVersion.Build = 1
 		if test.upload != "" {
 			uploadVers := version.MustParseBinary(test.upload)
@@ -1219,7 +1219,7 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, jc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	base := jujuseries.MustParseBaseFromString("ubuntu@22.04")
+	base := corebase.MustParseBaseFromString("ubuntu@22.04")
 	err = imagemetadata.MergeAndWriteMetadata(ss, base, im, cloudSpec, sourceStor)
 	c.Assert(err, jc.ErrorIsNil)
 	return sourceDir, im
@@ -1339,7 +1339,7 @@ func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *gc.C) {
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.0"))
-	series.SetLatestLtsForTesting("focal")
+	corebase.SetLatestLtsForTesting("focal")
 	resetJujuXDGDataHome(c)
 
 	// Bootstrap the controller with the valid source.
@@ -1411,7 +1411,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
 	s.PatchValue(&jujuversion.Current, version.MustParse(vers))
-	s.PatchValue(&series.HostSeries, func() (string, error) { return ser, nil })
+	s.PatchValue(&osseries.HostSeries, func() (string, error) { return ser, nil })
 
 	// Create home with dummy provider and remove all
 	// of its envtools.

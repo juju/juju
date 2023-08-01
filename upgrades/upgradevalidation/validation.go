@@ -16,8 +16,8 @@ import (
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
+	corebase "github.com/juju/juju/core/base"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/series"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/provider/lxd/lxdnames"
@@ -195,7 +195,7 @@ func checkForDeprecatedUbuntuSeriesForModel(
 ) (*Blocker, error) {
 	supported := false
 	var deprecatedBases []state.Base
-	for _, vers := range series.UbuntuVersions(&supported, nil) {
+	for _, vers := range corebase.UbuntuVersions(&supported, nil) {
 		deprecatedBases = append(deprecatedBases, state.Base{OS: "ubuntu", Channel: vers})
 	}
 

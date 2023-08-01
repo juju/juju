@@ -22,12 +22,11 @@ import (
 	app "github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/series"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/storage"
 )
@@ -50,7 +49,7 @@ type deployCharm struct {
 	placement        []*instance.Placement
 	placementSpec    string
 	resources        map[string]string
-	baseFlag         series.Base
+	baseFlag         corebase.Base
 	steps            []DeployStep
 	storage          map[string]storage.Constraints
 	trust            bool
@@ -282,7 +281,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	base, err := series.GetBaseFromSeries(d.userCharmURL.Series)
+	base, err := corebase.GetBaseFromSeries(d.userCharmURL.Series)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -327,7 +326,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	base, err := series.GetBaseFromSeries(l.curl.Series)
+	base, err := corebase.GetBaseFromSeries(l.curl.Series)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -379,7 +378,7 @@ func (c *repositoryCharm) String() string {
 // then deploys it.
 func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
 	if featureflag.Enabled(feature.ServerSideCharmDeploy) && deployAPI.BestFacadeVersion("Application") >= 18 {
-		var base *series.Base
+		var base *corebase.Base
 		if !c.baseFlag.Empty() {
 			base = &c.baseFlag
 		}
@@ -445,7 +444,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	origin := c.id.Origin
 	var usingDefaultSeries bool
 	if defaultBase, ok := modelCfg.DefaultBase(); ok && origin.Base.Channel.Empty() {
-		base, err := coreseries.ParseBaseFromString(defaultBase)
+		base, err := corebase.ParseBaseFromString(defaultBase)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -456,7 +455,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	if charm.IsUnsupportedSeriesError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
 		if usingDefaultSeries {
-			msg += " Used the default-series."
+			msg += " Used the default-corebase."
 		}
 		return errors.Errorf(msg)
 	} else if err != nil {
@@ -469,7 +468,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	var seriesFlag string
 	if !c.baseFlag.Empty() {
 		var err error
-		seriesFlag, err = series.GetSeriesFromBase(c.baseFlag)
+		seriesFlag, err = corebase.GetSeriesFromBase(c.baseFlag)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -508,7 +507,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	if charm.IsUnsupportedSeriesError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
 		if usingDefaultSeries {
-			msg += " Used the default-series."
+			msg += " Used the default-corebase."
 		}
 		return errors.Errorf(msg)
 	}
@@ -517,11 +516,11 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	// Ensure we save the origin.
-	var base coreseries.Base
-	if series == coreseries.Kubernetes.String() {
-		base = coreseries.LegacyKubernetesBase()
+	var base corebase.Base
+	if series == corebase.Kubernetes.String() {
+		base = corebase.LegacyKubernetesBase()
 	} else {
-		base, err = coreseries.GetBaseFromSeries(series)
+		base, err = corebase.GetBaseFromSeries(series)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -533,7 +532,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// well in the url.
 	curl := storeCharmOrBundleURL
 	if charm.CharmHub.Matches(storeCharmOrBundleURL.Schema) {
-		series, err := coreseries.GetSeriesFromBase(origin.Base)
+		series, err := corebase.GetSeriesFromBase(origin.Base)
 		if err != nil {
 			return errors.Trace(err)
 		}

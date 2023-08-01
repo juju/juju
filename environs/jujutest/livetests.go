@@ -23,11 +23,11 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -270,7 +270,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 	t.PrepareOnce(c)
 	err := t.Env.PrecheckInstance(t.ProviderCallContext,
 		environs.PrecheckInstanceParams{
-			Base: series.MakeDefaultBase("ubuntu", "22.04"),
+			Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1005,7 +1005,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	instanceConfig, err := instancecfg.NewInstanceConfig(coretesting.ControllerTag, machineId, "",
-		"released", series.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
+		"released", corebase.MakeDefaultBase("ubuntu", "22.04"), apiInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
 	t.PrepareOnce(c)
@@ -1078,7 +1078,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()
 	// Wait for machine agent to come up on the bootstrap
-	// machine and ensure it deployed the proper series.
+	// machine and ensure it deployed the proper corebase.
 	m0, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	mw0 := newMachineToolWaiter(m0)

@@ -17,12 +17,12 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -450,7 +450,7 @@ func (v *deployFromRepositoryValidator) deducePlatform(arg params.DeployFromRepo
 			return corecharm.Platform{}, usedModelDefaultBase, err
 		}
 		if db, ok := mCfg.DefaultBase(); ok {
-			defaultBase, err := coreseries.ParseBaseFromString(db)
+			defaultBase, err := corebase.ParseBaseFromString(db)
 			if err != nil {
 				return corecharm.Platform{}, usedModelDefaultBase, err
 			}
@@ -537,7 +537,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 	var seriesFlag string
 	if requestedOrigin.Platform.OS != "" {
 		var err error
-		seriesFlag, err = coreseries.GetSeriesFromChannel(requestedOrigin.Platform.OS, requestedOrigin.Platform.Channel)
+		seriesFlag, err = corebase.GetSeriesFromChannel(requestedOrigin.Platform.OS, requestedOrigin.Platform.Channel)
 		if err != nil {
 			return nil, corecharm.Origin{}, errors.Trace(err)
 		}
@@ -550,7 +550,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 
 	imageStream := modelCfg.ImageStream()
 
-	workloadSeries, err := coreseries.WorkloadSeries(jujuclock.WallClock.Now(), seriesFlag, imageStream)
+	workloadSeries, err := corebase.WorkloadSeries(jujuclock.WallClock.Now(), seriesFlag, imageStream)
 	if err != nil {
 		return nil, corecharm.Origin{}, errors.Trace(err)
 	}
@@ -581,11 +581,11 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 		return nil, corecharm.Origin{}, errors.Errorf(msg)
 	}
 
-	var base coreseries.Base
-	if series == coreseries.Kubernetes.String() {
-		base = coreseries.LegacyKubernetesBase()
+	var base corebase.Base
+	if series == corebase.Kubernetes.String() {
+		base = corebase.LegacyKubernetesBase()
 	} else {
-		base, err = coreseries.GetBaseFromSeries(series)
+		base, err = corebase.GetBaseFromSeries(series)
 		if err != nil {
 			return nil, corecharm.Origin{}, errors.Trace(err)
 		}

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 // Logger defines the logging methods needed
@@ -35,7 +35,7 @@ type ConstraintGetter func(string) ArchConstraint
 
 // CharmResolver resolves the channel and revision of a charm from the list of
 // parameters.
-type CharmResolver func(charm string, series series.Base, channel, arch string, revision int) (string, int, error)
+type CharmResolver func(charm string, series corebase.Base, channel, arch string, revision int) (string, int, error)
 
 // ChangesConfig is used to provide the required data for determining changes.
 type ChangesConfig struct {
@@ -411,7 +411,7 @@ func (ch *AddMachineChange) Description() []string {
 
 // AddMachineOptions holds GUI options for adding a machine or container.
 type AddMachineOptions struct {
-	// Series holds the machine OS series.
+	// Series holds the machine OS corebase.
 	Series string `json:"series,omitempty"`
 	// Constraints holds the machine constraints.
 	Constraints string `json:"constraints,omitempty"`
@@ -423,7 +423,7 @@ type AddMachineOptions struct {
 
 // AddMachineParams holds parameters for adding a machine or container.
 type AddMachineParams struct {
-	// Series holds the optional machine OS series.
+	// Series holds the optional machine OS corebase.
 	Series string `json:"series,omitempty"`
 	// Constraints holds the optional machine constraints.
 	Constraints string `json:"constraints,omitempty"`

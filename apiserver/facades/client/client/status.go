@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -1267,7 +1267,7 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 
 	origin := application.CharmOrigin()
-	base, err := coreseries.ParseBase(origin.Platform.OS, origin.Platform.Channel)
+	base, err := corebase.ParseBase(origin.Platform.OS, origin.Platform.Channel)
 	if err != nil {
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}

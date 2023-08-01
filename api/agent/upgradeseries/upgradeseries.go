@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 )
@@ -213,7 +213,7 @@ func (s *Client) StartUnitCompletion(reason string) error {
 // "Complete" phases.
 func (s *Client) FinishUpgradeSeries(hostSeries string) error {
 	var results params.ErrorResults
-	base, err := coreseries.GetBaseFromSeries(hostSeries)
+	base, err := corebase.GetBaseFromSeries(hostSeries)
 	if err != nil {
 		return errors.Trace(err)
 	}

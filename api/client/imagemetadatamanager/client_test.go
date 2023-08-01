@@ -13,7 +13,7 @@ import (
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/imagemetadatamanager"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -32,7 +32,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	region := "region"
 
 	// This is used by filters to search function
-	base := series.MustParseBaseFromString("ubuntu@22.04")
+	base := corebase.MustParseBaseFromString("ubuntu@22.04")
 	version := base.Channel.Track
 
 	arch := "arch"
@@ -72,7 +72,7 @@ func (s *imagemetadataSuite) TestList(c *gc.C) {
 	client := imagemetadatamanager.NewClientFromCaller(mockFacadeCaller)
 	found, err := client.List(
 		stream, region,
-		[]series.Base{base}, []string{arch},
+		[]corebase.Base{base}, []string{arch},
 		virtType, rootStorageType,
 	)
 	c.Check(err, jc.ErrorIsNil)

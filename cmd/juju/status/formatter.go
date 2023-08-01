@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
+	corebase "github.com/juju/juju/core/base"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 )
@@ -170,7 +170,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 
 	var base *formattedBase
 	if machine.Base.Channel != "" {
-		channel, err := series.ParseChannel(machine.Base.Channel)
+		channel, err := corebase.ParseChannel(machine.Base.Channel)
 		if err == nil {
 			base = &formattedBase{Name: machine.Base.Name, Channel: channel.DisplayString()}
 		}
@@ -258,7 +258,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 	}
 
 	var base *formattedBase
-	channel, err := series.ParseChannel(application.Base.Channel)
+	channel, err := corebase.ParseChannel(application.Base.Channel)
 	if err == nil {
 		base = &formattedBase{Name: application.Base.Name, Channel: channel.DisplayString()}
 	}
