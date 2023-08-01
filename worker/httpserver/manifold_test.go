@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -25,13 +24,11 @@ import (
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/httpserver"
 )
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
-	statetesting.StateSuite
 
 	authority            pki.Authority
 	config               httpserver.ManifoldConfig
@@ -87,31 +84,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		Logger:               loggo.GetLogger("test"),
 	}
 	s.manifold = httpserver.Manifold(s.config)
-	s.StateSuite.SetUpTest(c)
 	s.state = stubStateTracker{
-		pool: s.StatePool,
+		pool:   &state.StatePool{},
+		system: &state.State{},
 	}
-}
-
-func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
-	s.IsolationSuite.SetUpSuite(c)
-
-	mgotesting.MgoServer.EnableReplicaSet = true
-	err := mgotesting.MgoServer.Start(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.IsolationSuite.AddCleanup(func(*gc.C) { mgotesting.MgoServer.Destroy() })
-
-	s.StateSuite.SetUpSuite(c)
-}
-
-func (s *ManifoldSuite) TearDownSuite(c *gc.C) {
-	s.StateSuite.TearDownSuite(c)
-	s.IsolationSuite.TearDownSuite(c)
-}
-
-func (s *ManifoldSuite) TearDownTest(c *gc.C) {
-	s.StateSuite.TearDownTest(c)
-	s.IsolationSuite.TearDownTest(c)
 }
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {

@@ -54,7 +54,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
-	statePool, err := stTracker.Use()
+	statePool, _, err := stTracker.Use()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

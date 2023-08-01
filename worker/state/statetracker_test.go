@@ -44,16 +44,13 @@ func (s *StateTrackerSuite) TestTooManyDones(c *gc.C) {
 }
 
 func (s *StateTrackerSuite) TestUse(c *gc.C) {
-	pool, err := s.stateTracker.Use()
-	c.Assert(err, jc.ErrorIsNil)
-	systemState, err := pool.SystemState()
+	pool, systemState, err := s.stateTracker.Use()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(systemState, gc.Equals, s.State)
 	c.Check(err, jc.ErrorIsNil)
 
 	systemState, err = pool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	pool, err = s.stateTracker.Use()
 	c.Check(systemState, gc.Equals, s.State)
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -61,11 +58,11 @@ func (s *StateTrackerSuite) TestUse(c *gc.C) {
 func (s *StateTrackerSuite) TestUseAndDone(c *gc.C) {
 	// Ref count starts at 1 (the creator/owner)
 
-	_, err := s.stateTracker.Use()
+	_, _, err := s.stateTracker.Use()
 	// 2
 	c.Check(err, jc.ErrorIsNil)
 
-	_, err = s.stateTracker.Use()
+	_, _, err = s.stateTracker.Use()
 	// 3
 	c.Check(err, jc.ErrorIsNil)
 
@@ -73,7 +70,7 @@ func (s *StateTrackerSuite) TestUseAndDone(c *gc.C) {
 	// 2
 	assertStatePoolNotClosed(c, s.StatePool)
 
-	_, err = s.stateTracker.Use()
+	_, _, err = s.stateTracker.Use()
 	// 3
 	c.Check(err, jc.ErrorIsNil)
 
@@ -93,7 +90,7 @@ func (s *StateTrackerSuite) TestUseAndDone(c *gc.C) {
 func (s *StateTrackerSuite) TestUseWhenClosed(c *gc.C) {
 	c.Assert(s.stateTracker.Done(), jc.ErrorIsNil)
 
-	pool, err := s.stateTracker.Use()
+	pool, _, err := s.stateTracker.Use()
 	c.Check(pool, gc.IsNil)
 	c.Check(err, gc.Equals, workerstate.ErrStateClosed)
 }
@@ -128,7 +125,7 @@ func isTxnLogStarted(report map[string]interface{}) bool {
 }
 
 func (s *StateTrackerSuite) TestReport(c *gc.C) {
-	pool, err := s.stateTracker.Use()
+	pool, _, err := s.stateTracker.Use()
 	c.Assert(err, jc.ErrorIsNil)
 	start := time.Now()
 	report := pool.Report()

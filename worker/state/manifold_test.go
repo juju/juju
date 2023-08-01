@@ -161,9 +161,7 @@ func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	err := s.manifold.Output(w, &stTracker)
 	c.Assert(err, jc.ErrorIsNil)
 
-	pool, err := stTracker.Use()
-	c.Assert(err, jc.ErrorIsNil)
-	systemState, err := pool.SystemState()
+	_, systemState, err := stTracker.Use()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(systemState, gc.Equals, s.State)
 	c.Assert(stTracker.Done(), jc.ErrorIsNil)
@@ -180,7 +178,7 @@ func (s *ManifoldSuite) TestStateStillInUse(c *gc.C) {
 	err := s.manifold.Output(w, &stTracker)
 	c.Assert(err, jc.ErrorIsNil)
 
-	pool, err := stTracker.Use()
+	pool, _, err := stTracker.Use()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Close the worker while the State is still in use.
@@ -208,7 +206,7 @@ func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
 	var stTracker workerstate.StateTracker
 	err = s.manifold.Output(w, &stTracker)
 	c.Assert(err, jc.ErrorIsNil)
-	pool, err := stTracker.Use()
+	pool, _, err := stTracker.Use()
 	c.Assert(err, jc.ErrorIsNil)
 	defer stTracker.Done()
 

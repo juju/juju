@@ -17,8 +17,8 @@ var ErrStateClosed = errors.New("state closed")
 // of a *state.State and associated *state.StatePool.
 type StateTracker interface {
 	// Use returns the wrapped StatePool, recording the use of
-	// it. ErrStateClosed is returned if the StatePool is closed.
-	Use() (*state.StatePool, error)
+	// it, and the system state. ErrStateClosed is returned if the StatePool is closed.
+	Use() (*state.StatePool, *state.State, error)
 
 	// Done records that there's one less user of the wrapped StatePool,
 	// closing it if there's no more users. ErrStateClosed is returned
@@ -50,15 +50,16 @@ func newStateTracker(pool *state.StatePool) StateTracker {
 }
 
 // Use implements StateTracker.
-func (c *stateTracker) Use() (*state.StatePool, error) {
+func (c *stateTracker) Use() (*state.StatePool, *state.State, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.references == 0 {
-		return nil, ErrStateClosed
+		return nil, nil, ErrStateClosed
 	}
 	c.references++
-	return c.pool, nil
+	systemState, err := c.pool.SystemState()
+	return c.pool, systemState, err
 }
 
 // Done implements StateTracker.

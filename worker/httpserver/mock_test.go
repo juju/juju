@@ -12,12 +12,13 @@ import (
 
 type stubStateTracker struct {
 	testing.Stub
-	pool *state.StatePool
+	pool   *state.StatePool
+	system *state.State
 }
 
-func (s *stubStateTracker) Use() (*state.StatePool, error) {
+func (s *stubStateTracker) Use() (*state.StatePool, *state.State, error) {
 	s.MethodCall(s, "Use")
-	return s.pool, s.NextErr()
+	return s.pool, s.system, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {

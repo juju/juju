@@ -116,17 +116,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
-	statePool, err := stTracker.Use()
+	statePool, systemState, err := stTracker.Use()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	machineID := agent.CurrentConfig().Tag().Id()
 
-	systemState, err := statePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	w, err := config.NewWorker(Config{
 		Authority:    authority,
 		Clock:        config.Clock,

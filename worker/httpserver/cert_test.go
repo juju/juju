@@ -24,9 +24,9 @@ type certSuite struct {
 var _ = gc.Suite(&certSuite{})
 
 func testSNIGetter(cert *tls.Certificate) httpserver.SNIGetterFunc {
-	return httpserver.SNIGetterFunc(func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		return cert, nil
-	})
+	}
 }
 
 func (s *certSuite) SetUpTest(c *gc.C) {
@@ -42,12 +42,12 @@ func (s *certSuite) SetUpTest(c *gc.C) {
 	tlsConfig.RootCAs = s.config.TLSConfig.RootCAs
 	s.config.TLSConfig = tlsConfig
 	s.config.TLSConfig.ServerName = "juju-apiserver"
-	s.config.Mux.AddHandler("GET", "/hey", http.HandlerFunc(s.handler))
+	_ = s.config.Mux.AddHandler("GET", "/hey", http.HandlerFunc(s.handler))
 }
 
-func (s *certSuite) handler(w http.ResponseWriter, req *http.Request) {
+func (s *certSuite) handler(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("yay"))
+	_, _ = w.Write([]byte("yay"))
 }
 
 func (s *certSuite) TestAutocertFailure(c *gc.C) {
@@ -156,7 +156,7 @@ func gatherLog(f func()) []loggo.Entry {
 	if err != nil {
 		panic(err)
 	}
-	defer loggo.RemoveWriter("test")
+	defer func() { _, _ = loggo.RemoveWriter("test") }()
 	f()
 	return tw.Log()
 }

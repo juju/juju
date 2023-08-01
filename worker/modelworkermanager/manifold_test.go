@@ -21,19 +21,22 @@ import (
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	jujutesting "github.com/juju/juju/testing"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/modelworkermanager"
 )
 
 type ManifoldSuite struct {
-	statetesting.StateSuite
+	jujutesting.BaseSuite
 
 	authority    pki.Authority
 	manifold     dependency.Manifold
 	context      dependency.Context
 	stateTracker stubStateTracker
 	sysLogger    stubLogger
+
+	state *state.State
+	pool  *state.StatePool
 
 	stub testing.Stub
 }
@@ -45,9 +48,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.authority, err = pkitest.NewTestAuthority()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.StateSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 
-	s.stateTracker = stubStateTracker{pool: s.StatePool}
+	s.state = &state.State{}
+	s.pool = &state.StatePool{}
+	s.stateTracker = stubStateTracker{pool: s.pool, state: s.state}
 	s.stub.ResetCalls()
 
 	s.sysLogger = stubLogger{}
@@ -141,11 +146,11 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 
 	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
 		Authority:    s.authority,
-		ModelWatcher: s.State,
+		ModelWatcher: s.state,
 		ModelMetrics: dummyModelMetrics{},
 		Mux:          mux,
 		Controller: modelworkermanager.StatePoolController{
-			StatePool: s.StatePool,
+			StatePool: s.pool,
 			SysLogger: s.sysLogger,
 		},
 		ErrorDelay: jworker.RestartDelay,
@@ -173,12 +178,13 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 
 type stubStateTracker struct {
 	testing.Stub
-	pool *state.StatePool
+	pool  *state.StatePool
+	state *state.State
 }
 
-func (s *stubStateTracker) Use() (*state.StatePool, error) {
+func (s *stubStateTracker) Use() (*state.StatePool, *state.State, error) {
 	s.MethodCall(s, "Use")
-	return s.pool, s.NextErr()
+	return s.pool, s.state, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {

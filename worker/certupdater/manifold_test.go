@@ -19,12 +19,11 @@ import (
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/certupdater"
 )
 
 type ManifoldSuite struct {
-	statetesting.StateSuite
+	testing.IsolationSuite
 
 	authority      pki.Authority
 	manifold       dependency.Manifold
@@ -39,12 +38,10 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 
 	s.agent = &mockAgent{}
-	s.stateTracker = stubStateTracker{
-		pool: s.StatePool,
-	}
+	s.stateTracker = stubStateTracker{}
 	s.stub.ResetCalls()
 
 	authority, err := pkitest.NewTestAuthority()
@@ -110,7 +107,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.stub.CheckCallNames(c, "NewMachineAddressWatcher", "NewWorker")
-	s.stub.CheckCall(c, 0, "NewMachineAddressWatcher", s.State, "123")
+	s.stub.CheckCall(c, 0, "NewMachineAddressWatcher", &s.stateTracker.state, "123")
 
 	args := s.stub.Calls()[1].Args
 	c.Assert(args, gc.HasLen, 1)
@@ -120,7 +117,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	c.Assert(config, jc.DeepEquals, certupdater.Config{
 		AddressWatcher:     &s.addressWatcher,
 		Authority:          s.authority,
-		APIHostPortsGetter: s.State,
+		APIHostPortsGetter: &s.stateTracker.state,
 	})
 }
 
@@ -191,12 +188,13 @@ func (c *mockAgentConfig) Value(key string) string {
 
 type stubStateTracker struct {
 	testing.Stub
-	pool *state.StatePool
+	pool  state.StatePool
+	state state.State
 }
 
-func (s *stubStateTracker) Use() (*state.StatePool, error) {
+func (s *stubStateTracker) Use() (*state.StatePool, *state.State, error) {
 	s.MethodCall(s, "Use")
-	return s.pool, s.NextErr()
+	return &s.pool, &s.state, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {
