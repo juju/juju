@@ -174,7 +174,7 @@ func (s *Server) CopyRemoteImage(
 }
 
 // baseLocalAlias returns the alias to assign to images for the
-// specified corebase. The alias is juju-specific, to support the
+// specified series. The alias is juju-specific, to support the
 // user supplying a customised image (e.g. CentOS with cloud-init).
 func baseLocalAlias(base, arch string, virtType instance.VirtType) string {
 	// We use a different alias for VMs, so that we can distinguish between

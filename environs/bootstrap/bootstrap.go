@@ -162,7 +162,7 @@ type BootstrapParams struct {
 	// in the controller model.
 	StoragePools map[string]corestorage.Attrs
 
-	// Force is used to allow a bootstrap to be run on unsupported corebase.
+	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
 
 	// ControllerCharmPath is a local controller charm archive.
@@ -967,7 +967,7 @@ func bootstrapImageMetadata(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// This constraint will search image metadata for all supported architectures and corebase.
+	// This constraint will search image metadata for all supported architectures and series.
 	imageConstraint, err := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: region,
 		Stream:    environ.Config().ImageStream(),

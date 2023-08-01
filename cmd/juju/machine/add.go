@@ -157,7 +157,7 @@ type addCommand struct {
 	modelConfigAPI    ModelConfigAPI
 	machineManagerAPI MachineManagerAPI
 	// Series defines the series the machine should use instead of the
-	// default-corebase. DEPRECATED use --base
+	// default-series. DEPRECATED use --base
 	Series string
 	// Base defines the series the machine should use instead of the
 	// default-base.

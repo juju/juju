@@ -158,7 +158,7 @@ func (c *diffBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 
 	f.StringVar(&c.arch, "arch", "", fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", "", "specify a corebase. DEPRECATED: use --base")
+	f.StringVar(&c.series, "series", "", "specify a series. DEPRECATED: use --base")
 	f.StringVar(&c.base, "base", "", "specify a base")
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the bundle from Charmhub")
 	f.Var(cmd.NewAppendStringsValue(&c.bundleOverlays), "overlay", "Bundles to overlay on the primary bundle, applied in order")

@@ -1612,7 +1612,7 @@ type SetCharmConfig struct {
 	ForceUnits bool
 
 	// ForceBase forces the use of the charm even if it is not one of
-	// the charm's supported corebase.
+	// the charm's supported series.
 	ForceBase bool
 
 	// Force forces the overriding of the lxd profile validation even if the
@@ -1668,7 +1668,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 	}
 
-	// If it's a v1 or v2 machine charm (no containers), check corebase.
+	// If it's a v1 or v2 machine charm (no containers), check series.
 	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || !corecharm.IsKubernetes(cfg.Charm) {
 		err := checkSeriesForSetCharm(a.CharmOrigin().Platform, cfg.Charm, cfg.ForceBase)
 		if err != nil {
@@ -1793,7 +1793,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		if cfg.CharmOrigin != nil {
 			origin := a.doc.CharmOrigin
 			// If either the charm origin ID or Hash is set before a charm is
-			// downloaded, charm download will fail for charms with a forced corebase.
+			// downloaded, charm download will fail for charms with a forced series.
 			// The logic (refreshConfig) in sending the correct request to charmhub
 			// will break.
 			if (origin.ID != "" && origin.Hash == "") || (origin.ID == "" && origin.Hash != "") {

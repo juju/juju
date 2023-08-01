@@ -253,7 +253,7 @@ type bootstrapCommand struct {
 	ControllerCharmChannelStr string
 	ControllerCharmChannel    charm.Channel
 
-	// Force is used to allow a bootstrap to be run on unsupported corebase.
+	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
 }
 
@@ -821,7 +821,7 @@ to create a new model to deploy %sworkloads.
 		}
 	}
 
-	// Get the supported bootstrap corebase.
+	// Get the supported bootstrap series.
 	var imageStream string
 	if cfg, ok := bootstrapCfg.bootstrapModel["image-stream"]; ok {
 		imageStream = cfg.(string)

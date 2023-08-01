@@ -278,7 +278,7 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 
 	for i, arg := range args.Applications {
 		// If either the charm origin ID or Hash is set before a charm is
-		// downloaded, charm download will fail for charms with a forced corebase.
+		// downloaded, charm download will fail for charms with a forced series.
 		// The logic (refreshConfig) in sending the correct request to charmhub
 		// will break.
 		if arg.CharmOrigin != nil &&

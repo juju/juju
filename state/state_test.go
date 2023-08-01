@@ -1897,7 +1897,7 @@ resources:
 `
 	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	// A charm with supported series can only be force-deployed to series
-	// of the same operating systems as the supported corebase.
+	// of the same operating systems as the supported series.
 	cockroach, err := st.AddApplication(state.AddApplicationArgs{
 		Name: "mysql", Charm: ch, NumUnits: 1,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -1934,7 +1934,7 @@ resources:
 `
 	ch := state.AddCustomCharmWithManifest(c, st, "cockroach", "metadata.yaml", charmDef, "focal", 1)
 	// A charm with supported series can only be force-deployed to series
-	// of the same operating systems as the supported corebase.
+	// of the same operating systems as the supported series.
 	cockroach, err := st.AddApplication(state.AddApplicationArgs{
 		Name: "cockroach", Charm: ch, NumUnits: 1,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
@@ -2332,7 +2332,7 @@ func (s *StateSuite) TestAddApplicationCompatibleOSWithNoExplicitSupportedSeries
 func (s *StateSuite) TestAddApplicationOSIncompatibleWithSupportedSeries(c *gc.C) {
 	charm := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	// A charm with supported series can only be force-deployed to series
-	// of the same operating systems as the supported corebase.
+	// of the same operating systems as the supported series.
 	_, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: "wordpress", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{

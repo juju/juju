@@ -77,7 +77,7 @@ func (c *infoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.charmHubCommand.SetFlags(f)
 
 	f.StringVar(&c.arch, "arch", ArchAll, fmt.Sprintf("specify an arch <%s>", c.archArgumentList()))
-	f.StringVar(&c.series, "series", SeriesAll, "specify a corebase. DEPRECATED use --base")
+	f.StringVar(&c.series, "series", SeriesAll, "specify a series. DEPRECATED use --base")
 	f.StringVar(&c.base, "base", "", "specify a base")
 	f.StringVar(&c.channel, "channel", "", "specify a channel to use instead of the default release")
 	f.BoolVar(&c.config, "config", false, "display config for this charm")

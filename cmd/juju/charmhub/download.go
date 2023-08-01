@@ -306,7 +306,7 @@ func (c *downloadCommand) refresh(
 			if res.Error.Code == transport.ErrorCodeRevisionNotFound {
 				possibleBases, err := c.suggested(cmdContext, base, normChannel.String(), res.Error.Extra.Releases)
 				// The following will attempt to refresh the charm with the
-				// suggested corebase. If it can't do that, it will give up after
+				// suggested series. If it can't do that, it will give up after
 				// the second attempt.
 				if retrySuggested && errors.Is(err, errors.NotSupported) && len(possibleBases) > 0 {
 					cmdContext.Infof("Base %q is not supported for charm %q, trying base %q", base.DisplayString(), c.charmOrBundle, possibleBases[0].DisplayString())
