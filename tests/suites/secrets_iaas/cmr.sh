@@ -2,12 +2,12 @@ run_secrets_cmr() {
 	echo
 
 	echo "First set up a cross model relation"
-	juju --show-log add-model "model-secrets-offer"
+	add_model "model-secrets-offer"
 	juju --show-log deploy juju-qa-dummy-source
 	juju --show-log offer dummy-source:sink
 	wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
-	juju --show-log add-model "model-secrets-consume"
+	add_model "model-secrets-consume"
 	juju --show-log deploy juju-qa-dummy-sink
 	juju --show-log integrate dummy-sink model-secrets-offer.dummy-source
 

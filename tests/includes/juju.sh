@@ -137,7 +137,7 @@ bootstrap() {
 			exit 1
 		fi
 
-		add_model "${model}" "${cloud}" "${bootstrapped_name}" "${output}"
+		juju_add_model "${model}" "${cloud}" "${bootstrapped_name}" "${output}"
 		name="${bootstrapped_name}"
 		BOOTSTRAPPED_CLOUD=$(juju show-model controller | yq -o=j | jq -r '.[] | .cloud')
 		export BOOTSTRAPPED_CLOUD
@@ -163,9 +163,9 @@ bootstrap() {
 	export BOOTSTRAPPED_JUJU_CTRL_NAME="${name}"
 }
 
-# add_model is used to add a model for tracking. This is for internal use only
-# and shouldn't be used by any of the tests directly.
-add_model() {
+# juju_add_model is used to add a model for tracking. This is for internal use
+# only and shouldn't be used by any of the tests directly.
+juju_add_model() {
 	local model cloud controller
 
 	model=${1}
@@ -175,14 +175,23 @@ add_model() {
 
 	OUT=$(juju controllers --format=json | jq '.controllers | .["${bootstrapped_name}"] | .cloud' | grep "${cloud}" || true)
 	if [[ -n ${OUT} ]]; then
-		juju add-model -c "${controller}" "${model}" 2>&1 | OUTPUT "${output}"
+		juju add-model --show-log -c "${controller}" "${model}" 2>&1 | OUTPUT "${output}"
 	else
-		juju add-model -c "${controller}" "${model}" "${cloud}" 2>&1 | OUTPUT "${output}"
+		juju add-model --show-log -c "${controller}" "${model}" "${cloud}" 2>&1 | OUTPUT "${output}"
 	fi
 
-	post_add_model
+	post_add_model "${controller}" "${model}"
 
 	echo "${model}" >>"${TEST_DIR}/models"
+}
+
+add_model() {
+	local model
+
+	model=${1}
+
+	juju add-model --show-log "${model}" 2>&1
+	post_add_model "" "${model}"
 }
 
 # add_images_for_vsphere is used to add-image with known vSphere template paths for LTS series
@@ -248,7 +257,7 @@ juju_bootstrap() {
 	${command} "$@" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
 
-	post_bootstrap
+	post_bootstrap "${name}" "${model}"
 }
 
 # pre_bootstrap contains setup required before bootstrap specific to providers
@@ -300,17 +309,46 @@ pre_bootstrap() {
 # and shouldn't be used by any of the tests directly.  Calls post_add_model
 # models are added during bootstrap.
 post_bootstrap() {
+	local name model
+
+	name=${1}
+	model=${2}
+
+	# Setup up log tailing on the controller.
+	# shellcheck disable=SC2069
+	juju debug-log -m "${name}:controller" --replay --tail 2>&1 >"${TEST_DIR}/controller-debug.log" &
+	CMD_PID=$!
+	echo "${CMD_PID}" >>"${TEST_DIR}/pids"
+
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"vsphere")
 		rm -r "${TEST_DIR}"/image-streams
 		;;
 	esac
-	post_add_model
+	post_add_model "${name}" "${model}"
 }
 
 # post_add_model does provider specific config required after a new model is added
 # and shouldn't be used by any of the tests directly.
 post_add_model() {
+	local controller model
+
+	controller=${1}
+	model=${2}
+
+	ctrl_arg="${controller}:${model}"
+	log_file="${controller}-${model}.log"
+	if [[ -z ${controller} ]]; then
+		ctrl_arg="${model}"
+		log_file="${model}.log"
+	fi
+
+	# Setup up log tailing on the controller.
+	# shellcheck disable=SC2069
+	juju debug-log -m "${ctrl_arg}" --replay --tail 2>&1 >"${TEST_DIR}/${log_file}" &
+	CMD_PID=$!
+	echo "${CMD_PID}" >>"${TEST_DIR}/pids"
+
 	case "${BOOTSTRAP_PROVIDER:-}" in
 	"vsphere")
 		add_images_for_vsphere
