@@ -42,11 +42,11 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/cmd/juju/interact"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -2302,7 +2302,7 @@ func (e *Environ) AgentMetadataLookupParams(region string) (*simplestreams.Metad
 // ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
 func (e *Environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	base := config.PreferredBase(e.ecfg())
-	baseSeries, err := series.GetSeriesFromBase(base)
+	baseSeries, err := corebase.GetSeriesFromBase(base)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

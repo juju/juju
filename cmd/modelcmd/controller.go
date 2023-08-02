@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -417,6 +418,7 @@ func translateControllerError(store jujuclient.ClientStore, err error) error {
 	for name := range controllers {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return errors.Wrap(err, NewNoCurrentController(names))
 }
 

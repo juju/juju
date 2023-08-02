@@ -21,11 +21,11 @@ import (
 
 	cmdcrossmodel "github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/storage"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -619,7 +619,7 @@ func printMachine(w *output.Wrapper, m machineStatus) {
 	w.PrintColor(output.InfoHighlight, m.DNSName)
 	baseStr := ""
 	if m.Base != nil {
-		base, err := series.ParseBase(m.Base.Name, m.Base.Channel)
+		base, err := corebase.ParseBase(m.Base.Name, m.Base.Channel)
 		if err == nil {
 			baseStr = base.DisplayString()
 		}

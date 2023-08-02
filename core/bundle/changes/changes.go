@@ -14,7 +14,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 // Logger defines the logging methods needed
@@ -35,7 +35,7 @@ type ConstraintGetter func(string) ArchConstraint
 
 // CharmResolver resolves the channel and revision of a charm from the list of
 // parameters.
-type CharmResolver func(charm string, base series.Base, channel, arch string, revision int) (string, int, error)
+type CharmResolver func(charm string, base corebase.Base, channel, arch string, revision int) (string, int, error)
 
 // ChangesConfig is used to provide the required data for determining changes.
 type ChangesConfig struct {

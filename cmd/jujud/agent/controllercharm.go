@@ -23,11 +23,11 @@ import (
 	"github.com/juju/juju/charmhub"
 	coreapplication "github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/state"
 	statestorage "github.com/juju/juju/state/storage"
@@ -73,7 +73,7 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 				resultErr = controllerUnit.AssignToMachine(m)
 			}
 		}()
-		base, err = coreseries.ParseBase(m.Base().OS, m.Base().Channel)
+		base, err = corebase.ParseBase(m.Base().OS, m.Base().Channel)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -141,7 +141,7 @@ var (
 )
 
 // populateStoreControllerCharm downloads and stores the controller charm from charmhub.
-func populateStoreControllerCharm(st *state.State, charmPath string, channel charm.Channel, arch string, base coreseries.Base) (*charm.URL, *corecharm.Origin, error) {
+func populateStoreControllerCharm(st *state.State, charmPath string, channel charm.Channel, arch string, base corebase.Base) (*charm.URL, *corecharm.Origin, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, nil, err
@@ -241,7 +241,7 @@ func (s stateShim) EnsureUpgradeInfo(controllerId string, previousVersion, targe
 }
 
 // populateLocalControllerCharm downloads and stores a local controller charm archive.
-func populateLocalControllerCharm(st *state.State, dataDir, arch string, base coreseries.Base) (*charm.URL, *corecharm.Origin, error) {
+func populateLocalControllerCharm(st *state.State, dataDir, arch string, base corebase.Base) (*charm.URL, *corecharm.Origin, error) {
 	controllerCharmPath := filepath.Join(dataDir, "charms", bootstrap.ControllerCharmArchive)
 	_, err := os.Stat(controllerCharmPath)
 	if os.IsNotExist(err) {
@@ -269,7 +269,7 @@ func populateLocalControllerCharm(st *state.State, dataDir, arch string, base co
 }
 
 // addLocalControllerCharm adds the specified local charm to the controller.
-func addLocalControllerCharm(st *state.State, base coreseries.Base, charmFileName string) (*charm.URL, error) {
+func addLocalControllerCharm(st *state.State, base corebase.Base, charmFileName string) (*charm.URL, error) {
 	archive, err := charm.ReadCharmArchive(charmFileName)
 	if err != nil {
 		return nil, errors.Errorf("invalid charm archive: %v", err)
@@ -280,7 +280,7 @@ func addLocalControllerCharm(st *state.State, base coreseries.Base, charmFileNam
 		return nil, errors.Errorf("unexpected controller charm name %q", name)
 	}
 
-	series, err := coreseries.GetSeriesFromBase(base)
+	series, err := corebase.GetSeriesFromBase(base)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

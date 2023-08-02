@@ -14,7 +14,7 @@ import (
 	"github.com/juju/naturalsort"
 	"github.com/kr/pretty"
 
-	coreseries "github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 // Model represents the existing deployment if any.
@@ -203,7 +203,7 @@ type Application struct {
 	Exposed          bool
 	ExposedEndpoints map[string]ExposedEndpoint
 	SubordinateTo    []string
-	Base             coreseries.Base
+	Base             corebase.Base
 	Channel          string
 	Revision         int
 	Placement        string
@@ -230,7 +230,7 @@ type Unit struct {
 // Machine represents an existing machine in the model.
 type Machine struct {
 	ID          string
-	Base        coreseries.Base
+	Base        corebase.Base
 	Annotations map[string]string
 }
 
@@ -246,7 +246,7 @@ func (m *Model) hasCharm(charm string, revision int) bool {
 	return false
 }
 
-func (m *Model) matchesCharmPermutation(charm, arch string, base coreseries.Base, channel string, revision int, constraintGetter ConstraintGetter) bool {
+func (m *Model) matchesCharmPermutation(charm, arch string, base corebase.Base, channel string, revision int, constraintGetter ConstraintGetter) bool {
 	if arch == "" && base.Empty() && channel == "" {
 		return m.hasCharm(charm, revision)
 	}

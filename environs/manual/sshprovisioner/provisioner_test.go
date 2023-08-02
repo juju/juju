@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/rpc/params"
@@ -157,7 +157,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		ControllerTag: testing.ControllerTag,
 		MachineId:     "10",
 		MachineNonce:  "5432",
-		Base:          series.MustParseBaseFromString("ubuntu@22.04"),
+		Base:          base.MustParseBaseFromString("ubuntu@22.04"),
 		APIInfo: &api.Info{
 			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw2",

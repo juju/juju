@@ -21,12 +21,12 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -505,7 +505,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 	if params.CharmOrigin == nil {
 		curl := params.Charm.URL()
 		chSeries := curl.Series
-		base, err := coreseries.GetBaseFromSeries(chSeries)
+		base, err := corebase.GetBaseFromSeries(chSeries)
 		c.Assert(err, jc.ErrorIsNil)
 		var channel *state.Channel
 		var source string

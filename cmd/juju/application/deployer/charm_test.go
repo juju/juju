@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -108,7 +108,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 		Name:     "testme",
 		Revision: 1,
 		Channel:  "latest/stable",
-		Base: series.Base{Channel: series.Channel{Track: "20.04"},
+		Base: corebase.Base{Channel: corebase.Channel{Track: "20.04"},
 			OS: "ubuntu"},
 	}
 
@@ -157,7 +157,7 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 		Name:     dCharm.applicationName,
 		Revision: 1,
 		Channel:  "latest/stable",
-		Base: series.Base{Channel: series.Channel{Track: "20.04"},
+		Base: corebase.Base{Channel: corebase.Channel{Track: "20.04"},
 			OS: "ubuntu"},
 	}
 
@@ -224,7 +224,7 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 		},
 		id: application.CharmID{
 			URL:    s.url,
-			Origin: commoncharm.Origin{Base: series.MakeDefaultBase("ubuntu", "20.04")},
+			Origin: commoncharm.Origin{Base: corebase.MakeDefaultBase("ubuntu", "20.04")},
 		},
 		flagSet:  &gnuflag.FlagSet{},
 		model:    s.modelCommand,
@@ -251,11 +251,11 @@ func (s *charmSuite) expectResolveChannel() {
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
-			return curl, requestedOrigin, []series.Base{
-				series.MustParseBaseFromString("ubuntu@18.04"),
-				series.MustParseBaseFromString("ubuntu@20.04"),
-				series.MustParseBaseFromString("ubuntu@16.04"),
+		func(curl *charm.URL, requestedOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
+			return curl, requestedOrigin, []corebase.Base{
+				corebase.MustParseBaseFromString("ubuntu@18.04"),
+				corebase.MustParseBaseFromString("ubuntu@20.04"),
+				corebase.MustParseBaseFromString("ubuntu@16.04"),
 			}, nil
 		}).AnyTimes()
 }

@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/common"
@@ -70,7 +70,7 @@ func (s *environSuite) TestConfig(c *gc.C) {
 
 func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.FakeCommon.Arch = "amd64"
-	s.FakeCommon.Base = series.MakeDefaultBase("ubuntu", "22.04")
+	s.FakeCommon.Base = corebase.MakeDefaultBase("ubuntu", "22.04")
 	finalizer := func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
 		return nil
 	}

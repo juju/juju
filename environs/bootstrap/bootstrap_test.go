@@ -14,7 +14,7 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
-	"github.com/juju/os/v2/series"
+	osseries "github.com/juju/os/v2/series"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -25,11 +25,10 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	jujuos "github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
-	jujuseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscmd "github.com/juju/juju/environs/cmd"
@@ -58,14 +57,14 @@ const (
 )
 
 var (
-	bionicBootstrapBase = jujuseries.MustParseBaseFromString("ubuntu@18.04")
-	focalBootstrapBase  = jujuseries.MustParseBaseFromString("ubuntu@20.04")
-	jammyBootstrapBase  = jujuseries.MustParseBaseFromString("ubuntu@22.04")
+	bionicBootstrapBase = corebase.MustParseBaseFromString("ubuntu@18.04")
+	focalBootstrapBase  = corebase.MustParseBaseFromString("ubuntu@20.04")
+	jammyBootstrapBase  = corebase.MustParseBaseFromString("ubuntu@22.04")
 	// Ensure that we add the default supported series so that tests that
 	// use the default supported lts internally will always work in the
 	// future.
 	supportedJujuBases = append(coretesting.FakeSupportedJujuBases,
-		jujuseries.MustParseBaseFromString("ubuntu@18.04"),
+		corebase.MustParseBaseFromString("ubuntu@18.04"),
 	)
 )
 
@@ -88,7 +87,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&jujuseries.UbuntuDistroInfo, "/path/notexists")
+	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
 	s.callContext = envcontext.NewEmptyCloudCallContext()
@@ -303,7 +302,7 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapBase(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			BootstrapBase:           jujuseries.MustParseBaseFromString("spock@1"),
+			BootstrapBase:           corebase.MustParseBaseFromString("spock@1"),
 			SupportedBootstrapBases: supportedJujuBases,
 		})
 	c.Assert(err, gc.ErrorMatches, `base "spock@1/stable" not valid`)
@@ -323,7 +322,7 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapSeries(c *gc.C) {
 			ControllerConfig:        coretesting.FakeControllerConfig(),
 			AdminSecret:             "admin-secret",
 			CAPrivateKey:            coretesting.CAKey,
-			BootstrapBase:           jujuseries.MustParseBaseFromString("spock@1"),
+			BootstrapBase:           corebase.MustParseBaseFromString("spock@1"),
 			SupportedBootstrapBases: supportedJujuBases,
 		})
 	c.Assert(err, gc.ErrorMatches, `base "spock@1/stable" not valid`)
@@ -388,7 +387,7 @@ func intPtr(i uint64) *uint64 {
 }
 
 func (s *bootstrapSuite) TestBootstrapImage(c *gc.C) {
-	s.PatchValue(&series.HostSeries, func() (string, error) { return "jammy", nil })
+	s.PatchValue(&osseries.HostSeries, func() (string, error) { return "jammy", nil })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	metadataDir, metadata := createImageMetadata(c)
@@ -471,7 +470,7 @@ type testImageMetadata struct {
 // setupImageMetadata returns architecture for which metadata was setup
 func (s *bootstrapSuite) setupImageMetadata(c *gc.C) testImageMetadata {
 	testArch := arch.S390X
-	s.PatchValue(&series.HostSeries, func() (string, error) { return "jammy", nil })
+	s.PatchValue(&osseries.HostSeries, func() (string, error) { return "jammy", nil })
 	s.PatchValue(&arch.HostArch, func() string { return testArch })
 
 	metadataDir, metadata := createImageMetadataForArch(c, testArch)
@@ -575,7 +574,7 @@ func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEn
 // despite image metadata in other data sources compatible with the same configuration as well.
 // Related to bug#1560625.
 func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
-	s.PatchValue(&series.HostSeries, func() (string, error) { return "raring", nil })
+	s.PatchValue(&osseries.HostSeries, func() (string, error) { return "raring", nil })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 
 	// Ensure that we can find at least one image metadata
@@ -939,7 +938,7 @@ func createImageMetadataForArch(c *gc.C, arch string) (dir string, _ []*imagemet
 	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, jc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	base := coreseries.MustParseBaseFromString("ubuntu@16.04")
+	base := corebase.MustParseBaseFromString("ubuntu@16.04")
 	err = imagemetadata.MergeAndWriteMetadata(ss, base, im, cloudSpec, sourceStor)
 	c.Assert(err, jc.ErrorIsNil)
 	return sourceDir, im
@@ -1476,7 +1475,7 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envc
 	base := jujuversion.DefaultSupportedLTSBase()
 	if args.BootstrapSeries != "" {
 		var err error
-		base, err = jujuseries.GetBaseFromSeries(args.BootstrapSeries)
+		base, err = corebase.GetBaseFromSeries(args.BootstrapSeries)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -13,8 +13,8 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
+	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
-	"github.com/juju/juju/core/series"
 )
 
 type diffSuite struct {
@@ -76,7 +76,7 @@ applications:
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				ExposedEndpoints: map[string]bundlechanges.ExposedEndpoint{
@@ -208,7 +208,7 @@ func (s *diffSuite) TestBundleMissingApplication(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -218,7 +218,7 @@ func (s *diffSuite) TestBundleMissingApplication(c *gc.C) {
 			"memcached": {
 				Name:     "memcached",
 				Charm:    "ch:memcached",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -259,7 +259,7 @@ func (s *diffSuite) TestMissingApplicationBoth(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -300,7 +300,7 @@ func (s *diffSuite) TestApplicationCharm(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 8,
 				Units: []bundlechanges.Unit{
@@ -349,7 +349,7 @@ func (s *diffSuite) TestApplicationSeries(c *gc.C) {
 				Charm:    "ch:prometheus",
 				Channel:  "stable",
 				Revision: 7,
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/0", Machine: "0"},
 					{Name: "prometheus/1", Machine: "1"},
@@ -395,7 +395,7 @@ func (s *diffSuite) TestApplicationChannel(c *gc.C) {
 				Charm:    "ch:prometheus",
 				Revision: 7,
 				Channel:  "2.0/edge",
-				Base:     series.MakeDefaultBase("ubuntu", "18.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "18.04"),
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/0", Machine: "0"},
 					{Name: "prometheus/1", Machine: "1"},
@@ -439,7 +439,7 @@ func (s *diffSuite) TestApplicationNumUnits(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -482,7 +482,7 @@ func (s *diffSuite) TestApplicationScale(c *gc.C) {
 			"prometheus": {
 				Name:      "prometheus",
 				Charm:     "ch:prometheus",
-				Base:      series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:      corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:   "stable",
 				Revision:  7,
 				Scale:     1,
@@ -530,7 +530,7 @@ func (s *diffSuite) TestApplicationSubordinateNumUnits(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -541,7 +541,7 @@ func (s *diffSuite) TestApplicationSubordinateNumUnits(c *gc.C) {
 			"nrpe": {
 				Name:          "nrpe",
 				Charm:         "ch:nrpe",
-				Base:          series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:          corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:       "stable",
 				Revision:      12,
 				SubordinateTo: []string{"prometheus"},
@@ -587,7 +587,7 @@ func (s *diffSuite) TestApplicationConstraints(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 
@@ -636,7 +636,7 @@ func (s *diffSuite) TestBundleSeries(c *gc.C) {
 				Charm:       "ch:prometheus",
 				Channel:     "stable",
 				Revision:    7,
-				Base:        series.MakeDefaultBase("ubuntu", "20.04"),
+				Base:        corebase.MakeDefaultBase("ubuntu", "20.04"),
 				Constraints: "something",
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/0", Machine: "0"},
@@ -646,7 +646,7 @@ func (s *diffSuite) TestBundleSeries(c *gc.C) {
 		Machines: map[string]*bundlechanges.Machine{
 			"0": {
 				ID:   "0",
-				Base: series.MakeDefaultBase("ubuntu", "20.04"),
+				Base: corebase.MakeDefaultBase("ubuntu", "20.04"),
 			},
 		},
 	}
@@ -675,7 +675,7 @@ func (s *diffSuite) TestNoBundleSeries(c *gc.C) {
 				Charm:       "ch:prometheus",
 				Channel:     "stable",
 				Revision:    7,
-				Base:        series.MakeDefaultBase("ubuntu", "20.04"),
+				Base:        corebase.MakeDefaultBase("ubuntu", "20.04"),
 				Constraints: "something",
 				Units: []bundlechanges.Unit{
 					{Name: "prometheus/0", Machine: "0"},
@@ -685,7 +685,7 @@ func (s *diffSuite) TestNoBundleSeries(c *gc.C) {
 		Machines: map[string]*bundlechanges.Machine{
 			"0": {
 				ID:   "0",
-				Base: series.MakeDefaultBase("ubuntu", "20.04"),
+				Base: corebase.MakeDefaultBase("ubuntu", "20.04"),
 			},
 		},
 	}
@@ -724,7 +724,7 @@ func (s *diffSuite) TestApplicationOptions(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Options: map[string]interface{}{
@@ -776,7 +776,7 @@ func (s *diffSuite) TestApplicationAnnotations(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Annotations: map[string]string{
@@ -828,7 +828,7 @@ func (s *diffSuite) TestApplicationAnnotationsWithOptionOff(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Annotations: map[string]string{
@@ -873,7 +873,7 @@ func (s *diffSuite) TestApplicationExpose(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Exposed:  true,
@@ -929,7 +929,7 @@ func (s *diffSuite) TestApplicationExposeImplicitCIDRs(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Exposed:  true,
@@ -986,7 +986,7 @@ func (s *diffSuite) TestApplicationPlacement(c *gc.C) {
 			"prometheus": {
 				Name:      "prometheus",
 				Charm:     "ch:prometheus",
-				Base:      series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:      corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:   "stable",
 				Revision:  7,
 				Scale:     2,
@@ -1026,7 +1026,7 @@ func (s *diffSuite) TestModelMissingMachine(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -1068,7 +1068,7 @@ func (s *diffSuite) TestBundleMissingMachine(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -1112,7 +1112,7 @@ func (s *diffSuite) TestMachineSeries(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -1123,7 +1123,7 @@ func (s *diffSuite) TestMachineSeries(c *gc.C) {
 		Machines: map[string]*bundlechanges.Machine{
 			"0": {
 				ID:   "0",
-				Base: series.MakeDefaultBase("ubuntu", "16.04"),
+				Base: corebase.MakeDefaultBase("ubuntu", "16.04"),
 			},
 		},
 	}
@@ -1161,7 +1161,7 @@ func (s *diffSuite) TestMachineAnnotations(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -1213,7 +1213,7 @@ func (s *diffSuite) TestMachineAnnotationsWithOptionOff(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -1270,7 +1270,7 @@ func (s *diffSuite) TestRelations(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -1280,7 +1280,7 @@ func (s *diffSuite) TestRelations(c *gc.C) {
 			"memcached": {
 				Name:     "memcached",
 				Charm:    "ch:memcached",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -1351,7 +1351,7 @@ func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
 			"prometheus": {
 				Name:     "prometheus",
 				Charm:    "ch:prometheus",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{
@@ -1361,7 +1361,7 @@ func (s *diffSuite) TestRelationsWithMissingEndpoints(c *gc.C) {
 			"memcached": {
 				Name:     "memcached",
 				Charm:    "ch:memcached",
-				Base:     series.MakeDefaultBase("ubuntu", "16.04"),
+				Base:     corebase.MakeDefaultBase("ubuntu", "16.04"),
 				Channel:  "stable",
 				Revision: 7,
 				Units: []bundlechanges.Unit{

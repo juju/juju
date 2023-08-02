@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/series"
 )
 
 type refresherFactorySuite struct{}
@@ -163,7 +163,7 @@ func (s *baseRefresherSuite) TestResolveCharm(c *gc.C) {
 	origin := commoncharm.Origin{}
 
 	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []series.Base{}, nil)
+	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []corebase.Base{}, nil)
 
 	refresher := baseRefresher{
 		charmRef:        "meshuggah",
@@ -188,11 +188,11 @@ func (s *baseRefresherSuite) TestResolveCharmWithSeriesError(c *gc.C) {
 	origin := commoncharm.Origin{}
 
 	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []series.Base{series.MustParseBaseFromString("ubuntu@20.04")}, nil)
+	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []corebase.Base{corebase.MustParseBaseFromString("ubuntu@20.04")}, nil)
 
 	refresher := baseRefresher{
 		charmRef:        "meshuggah",
-		deployedBase:    series.MakeDefaultBase("ubuntu", "18.04"),
+		deployedBase:    corebase.MakeDefaultBase("ubuntu", "18.04"),
 		charmURL:        charm.MustParseURL("meshuggah"),
 		charmResolver:   charmResolver,
 		resolveOriginFn: charmHubOriginResolver,
@@ -212,7 +212,7 @@ func (s *baseRefresherSuite) TestResolveCharmWithNoCharmURL(c *gc.C) {
 	origin := commoncharm.Origin{}
 
 	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []series.Base{}, nil)
+	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []corebase.Base{}, nil)
 
 	refresher := baseRefresher{
 		charmRef:        "meshuggah",
@@ -313,7 +313,7 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
 	origin := commoncharm.Origin{
 		Source: commoncharm.OriginCharmHub,
-		Base:   series.MakeDefaultBase("ubuntu", "18.04"),
+		Base:   corebase.MakeDefaultBase("ubuntu", "18.04"),
 	}
 	actualOrigin := origin
 	actualOrigin.ID = "charmid"
@@ -322,9 +322,9 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(actualOrigin, nil)
 
 	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []series.Base{}, nil)
+	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []corebase.Base{}, nil)
 
-	base := series.MakeDefaultBase("ubuntu", "18.04")
+	base := corebase.MakeDefaultBase("ubuntu", "18.04")
 	cfg := refresherConfigWithOrigin(curl, ref, base)
 	cfg.DeployedBase = base
 
@@ -349,16 +349,16 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoOrigin(c *gc.C) {
 	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
 	origin := commoncharm.Origin{
 		Source: commoncharm.OriginCharmHub,
-		Base:   series.MakeDefaultBase("ubuntu", "18.04"),
+		Base:   corebase.MakeDefaultBase("ubuntu", "18.04"),
 	}
 
 	charmAdder := NewMockCharmAdder(ctrl)
 	charmAdder.EXPECT().AddCharm(newCurl, origin, false).Return(origin, nil)
 
 	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []series.Base{}, nil)
+	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []corebase.Base{}, nil)
 
-	base := series.MakeDefaultBase("ubuntu", "18.04")
+	base := corebase.MakeDefaultBase("ubuntu", "18.04")
 	cfg := refresherConfigWithOrigin(curl, ref, base)
 	cfg.DeployedBase = base
 
@@ -387,9 +387,9 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 	charmAdder := NewMockCharmAdder(ctrl)
 
 	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(curl, origin, []series.Base{}, nil)
+	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(curl, origin, []corebase.Base{}, nil)
 
-	cfg := refresherConfigWithOrigin(curl, ref, series.Base{})
+	cfg := refresherConfigWithOrigin(curl, ref, corebase.Base{})
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -412,9 +412,9 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 	charmAdder := NewMockCharmAdder(ctrl)
 
 	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(curl, origin, []series.Base{}, nil)
+	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(curl, origin, []corebase.Base{}, nil)
 
-	cfg := refresherConfigWithOrigin(curl, ref, series.Base{})
+	cfg := refresherConfigWithOrigin(curl, ref, corebase.Base{})
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -438,7 +438,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
 	charmAdder := NewMockCharmAdder(ctrl)
 
 	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(curl, origin, []series.Base{}, nil)
+	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(curl, origin, []corebase.Base{}, nil)
 
 	cfg := basicRefresherConfig(curl, ref)
 	cfg.CharmOrigin = corecharm.Origin{
@@ -475,7 +475,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
 	charmAdder := NewMockCharmAdder(ctrl)
 
 	charmResolver := NewMockCharmResolver(ctrl)
-	charmResolver.EXPECT().ResolveCharm(curl, origin, true).Return(curl, origin, []series.Base{}, nil)
+	charmResolver.EXPECT().ResolveCharm(curl, origin, true).Return(curl, origin, []corebase.Base{}, nil)
 
 	cfg := basicRefresherConfig(curl, ref)
 	cfg.Switch = true // flag this as a refresh --switch operation
@@ -507,8 +507,8 @@ func (s *charmHubCharmRefresherSuite) TestAllowed(c *gc.C) {
 	charmAdder := NewMockCharmAdder(ctrl)
 	charmResolver := NewMockCharmResolver(ctrl)
 
-	cfg := refresherConfigWithOrigin(curl, ref, series.Base{})
-	cfg.DeployedBase = series.MakeDefaultBase("ubuntu", "18.04")
+	cfg := refresherConfigWithOrigin(curl, ref, corebase.Base{})
+	cfg.DeployedBase = corebase.MakeDefaultBase("ubuntu", "18.04")
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -531,8 +531,8 @@ func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *gc.C) {
 
 	charmResolver := NewMockCharmResolver(ctrl)
 
-	cfg := refresherConfigWithOrigin(curl, ref, series.Base{})
-	cfg.DeployedBase = series.MakeDefaultBase("ubuntu", "18.04")
+	cfg := refresherConfigWithOrigin(curl, ref, corebase.Base{})
+	cfg.DeployedBase = corebase.MakeDefaultBase("ubuntu", "18.04")
 	cfg.Switch = true
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
@@ -556,8 +556,8 @@ func (s *charmHubCharmRefresherSuite) TestAllowedError(c *gc.C) {
 
 	charmResolver := NewMockCharmResolver(ctrl)
 
-	cfg := refresherConfigWithOrigin(curl, ref, series.Base{})
-	cfg.DeployedBase = series.MakeDefaultBase("ubuntu", "18.04")
+	cfg := refresherConfigWithOrigin(curl, ref, corebase.Base{})
+	cfg.DeployedBase = corebase.MakeDefaultBase("ubuntu", "18.04")
 	cfg.Switch = true
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
@@ -638,7 +638,7 @@ func basicRefresherConfig(curl *charm.URL, ref string) RefresherConfig {
 	}
 }
 
-func refresherConfigWithOrigin(curl *charm.URL, ref string, base series.Base) RefresherConfig {
+func refresherConfigWithOrigin(curl *charm.URL, ref string, base corebase.Base) RefresherConfig {
 	rc := basicRefresherConfig(curl, ref)
 	rc.CharmOrigin = corecharm.Origin{
 		Source:  corecharm.CharmHub,

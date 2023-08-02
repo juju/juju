@@ -20,10 +20,10 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -87,7 +87,7 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 		"123",
 		"nonce",
 		"imagestream",
-		series.MakeDefaultBase("ubuntu", "16.04"),
+		corebase.MakeDefaultBase("ubuntu", "16.04"),
 		apiInfo,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -172,7 +172,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	)
 
 	instance, hc, err := s.manager.CreateContainer(
-		iCfg, constraints.Value{}, series.MakeDefaultBase("ubuntu", "16.04"), prepNetworkConfig(), &container.StorageConfig{}, lxdtesting.NoOpCallback,
+		iCfg, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "16.04"), prepNetworkConfig(), &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -226,7 +226,7 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 		ParentInterfaceName: network.DefaultLXDBridge,
 	}})
 	_, _, err = s.manager.CreateContainer(
-		iCfg, constraints.Value{}, series.MakeDefaultBase("ubuntu", "16.04"), netConfig, &container.StorageConfig{}, lxdtesting.NoOpCallback,
+		iCfg, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "16.04"), netConfig, &container.StorageConfig{}, lxdtesting.NoOpCallback,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -247,7 +247,7 @@ func (s *managerSuite) TestCreateContainerCreateFailed(c *gc.C) {
 	_, _, err := s.manager.CreateContainer(
 		prepInstanceConfig(c),
 		constraints.Value{},
-		series.MakeDefaultBase("ubuntu", "16.04"),
+		corebase.MakeDefaultBase("ubuntu", "16.04"),
 		prepNetworkConfig(),
 		&container.StorageConfig{},
 		lxdtesting.NoOpCallback,
@@ -270,7 +270,7 @@ func (s *managerSuite) TestCreateContainerSpecCreationError(c *gc.C) {
 	_, _, err := s.manager.CreateContainer(
 		prepInstanceConfig(c),
 		constraints.Value{},
-		series.MakeDefaultBase("ubuntu", "16.04"),
+		corebase.MakeDefaultBase("ubuntu", "16.04"),
 		prepNetworkConfig(),
 		&container.StorageConfig{},
 		lxdtesting.NoOpCallback,
@@ -303,7 +303,7 @@ func (s *managerSuite) TestCreateContainerStartFailed(c *gc.C) {
 	_, _, err = s.manager.CreateContainer(
 		iCfg,
 		constraints.Value{},
-		series.MakeDefaultBase("ubuntu", "16.04"),
+		corebase.MakeDefaultBase("ubuntu", "16.04"),
 		prepNetworkConfig(),
 		&container.StorageConfig{},
 		lxdtesting.NoOpCallback,

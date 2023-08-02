@@ -28,11 +28,11 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
@@ -301,7 +301,7 @@ func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name st
 
 func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
 	series := ch.URL().Series
-	base, err := coreseries.GetBaseFromSeries(series)
+	base, err := corebase.GetBaseFromSeries(series)
 	c.Assert(err, jc.ErrorIsNil)
 	var source string
 	switch ch.URL().Schema {
@@ -361,7 +361,7 @@ func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Applica
 	c.Assert(params.ch, gc.NotNil)
 	origin := params.origin
 	if origin == nil {
-		base, err := coreseries.GetBaseFromSeries(params.ch.URL().Series)
+		base, err := corebase.GetBaseFromSeries(params.ch.URL().Series)
 		c.Assert(err, jc.ErrorIsNil)
 		var channel *Channel
 		// local charms cannot have a channel

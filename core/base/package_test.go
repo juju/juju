@@ -1,7 +1,7 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package series_test
+package base_test
 
 import (
 	"testing"
@@ -12,7 +12,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package series -destination distrosource_mock_test.go github.com/juju/juju/core/series DistroSource
+//go:generate go run go.uber.org/mock/mockgen -package base -destination distrosource_mock_test.go github.com/juju/juju/core/base DistroSource
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -23,7 +23,7 @@ type ImportTest struct{}
 var _ = gc.Suite(&ImportTest{})
 
 func (*ImportTest) TestImports(c *gc.C) {
-	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/series")
+	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/base")
 	c.Assert(found, jc.SameContents, []string{
 		"core/os",
 	})

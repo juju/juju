@@ -27,11 +27,11 @@ import (
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -3701,7 +3701,7 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	if series == "" {
 		series = "quantal"
 	}
-	base, err := coreseries.GetBaseFromSeries(series)
+	base, err := corebase.GetBaseFromSeries(series)
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	app := params.ApplicationStatus{

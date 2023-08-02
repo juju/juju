@@ -24,10 +24,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -1466,7 +1466,7 @@ type IsBaseLessThanMachineManagerSuite struct{}
 // but complex enough to warrant being exported from an export test package for
 // testing.
 func (s *IsBaseLessThanMachineManagerSuite) TestIsBaseLessThan(c *gc.C) {
-	workloadVersions, err := series.AllWorkloadVersions("", "")
+	workloadVersions, err := corebase.AllWorkloadVersions("", "")
 	c.Assert(err, jc.ErrorIsNil)
 	vers := workloadVersions.Values()
 	s.assertSeriesLessThan(c, "ubuntu", vers)
@@ -1496,9 +1496,9 @@ func (s *IsBaseLessThanMachineManagerSuite) assertSeriesLessThan(c *gc.C, os str
 
 		// get the series for the specified version
 		os = strings.ToLower(os)
-		b1, err := series.ParseBase(os, vs[i])
+		b1, err := corebase.ParseBase(os, vs[i])
 		c.Assert(err, jc.ErrorIsNil)
-		b2, err := series.ParseBase(os, vs[i+1])
+		b2, err := corebase.ParseBase(os, vs[i+1])
 		c.Assert(err, jc.ErrorIsNil)
 
 		isLessThan, err := machinemanager.IsBaseLessThan(b1, b2)

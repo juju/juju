@@ -30,12 +30,12 @@ import (
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -1807,7 +1807,7 @@ var (
 			Addrs:    []string{"10.0.0.1"},
 			CACert:   coretesting.CACert,
 		},
-		Base:               series.MustParseBaseFromString("ubuntu@22.04"),
+		Base:               corebase.MustParseBaseFromString("ubuntu@22.04"),
 		TransientDataDir:   "/var/run/juju",
 		DataDir:            "/var/lib/juju",
 		LogDir:             "/var/log/juju",

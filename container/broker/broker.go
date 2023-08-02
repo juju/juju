@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc/params"
 	coretools "github.com/juju/juju/tools"
@@ -177,7 +177,7 @@ var newMachineInitReader = cloudconfig.NewMachineInitReader
 // and instance cloud init properties provided.
 func combinedCloudInitData(
 	cloudInitData map[string]interface{},
-	containerInheritProperties string, base series.Base,
+	containerInheritProperties string, base corebase.Base,
 	log loggo.Logger,
 ) (map[string]interface{}, error) {
 	if containerInheritProperties == "" {

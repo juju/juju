@@ -10,7 +10,7 @@ import (
 	"github.com/juju/utils/v3/du"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 // PreUpgradeStepsFunc is the function type of PreUpgradeSteps. This may be
@@ -64,5 +64,5 @@ func updateDistroInfo() error {
 	if err := pm.Install("distro-info"); err != nil {
 		return errors.Annotate(err, "updating distro-info package")
 	}
-	return series.UpdateSeriesVersions()
+	return corebase.UpdateSeriesVersions()
 }

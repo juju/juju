@@ -16,10 +16,10 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	jujuos "github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -175,7 +175,7 @@ func (env *sessionEnviron) newRawInstance(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	series, err := coreseries.GetSeriesFromBase(args.InstanceConfig.Base)
+	series, err := corebase.GetSeriesFromBase(args.InstanceConfig.Base)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

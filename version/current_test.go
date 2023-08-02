@@ -10,8 +10,8 @@ import (
 	osseries "github.com/juju/os/v2/series"
 	gc "gopkg.in/check.v1"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
 )
 
 type CurrentSuite struct{}
@@ -32,7 +32,7 @@ func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
 		case "darwin":
 			c.Check(s, gc.Matches, `mavericks|mountainlion|lion|snowleopard`)
 		default:
-			currentOS, err := series.GetOSFromSeries(s)
+			currentOS, err := corebase.GetOSFromSeries(s)
 			c.Assert(err, gc.IsNil)
 			if s != "n/a" {
 				// There is no lsb_release command on CentOS.
@@ -43,7 +43,7 @@ func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
 		}
 	} else {
 		//OpenSUSE lsb-release returns n/a
-		currentOS, err := series.GetOSFromSeries(s)
+		currentOS, err := corebase.GetOSFromSeries(s)
 		c.Assert(err, gc.IsNil)
 		if string(out) == "n/a" && currentOS == os.OpenSUSE {
 			c.Check(s, gc.Matches, "opensuseleap")

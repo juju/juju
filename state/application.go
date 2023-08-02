@@ -25,6 +25,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -33,7 +34,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -355,6 +355,9 @@ type DestroyApplicationOperation struct {
 	// scheduled by a forced cleanup task.
 	CleanupIgnoringResources bool
 
+	// Removed is true if the application is removed during destroy.
+	Removed bool
+
 	// PostDestroyAppLife is the life of the app if destroy completes without error.
 	PostDestroyAppLife Life
 
@@ -405,6 +408,10 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 				logger.Errorf("cannot delete history for application %q: %v", op.app, err)
 			}
 			op.AddError(errors.Errorf("force erase application %q history proceeded despite encountering ERROR %v", op.app, err))
+		}
+		// Only delete secrets after application is removed.
+		if !op.Removed {
+			return nil
 		}
 		if err := op.deleteSecrets(); err != nil {
 			logger.Errorf("cannot delete secrets for application %q: %v", op.app, err)
@@ -630,6 +637,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 			op.AddError(err)
 			return ops, nil
 		}
+		op.Removed = true
 		return append(ops, removeOps...), nil
 	}
 	// In all other cases, application removal will be handled as a consequence
@@ -1929,7 +1937,7 @@ func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, ForceBase b
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".
-	curSeries, err := series.GetSeriesFromChannel(currentPlatform.OS, currentPlatform.Channel)
+	curSeries, err := corebase.GetSeriesFromChannel(currentPlatform.OS, currentPlatform.Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1964,7 +1972,7 @@ func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, ForceBase b
 		currentOS := os.OSTypeForName(currentPlatform.OS)
 		supportedOS := false
 		for _, oneSeries := range charmSeries {
-			charmSeriesOS, err := series.GetOSFromSeries(oneSeries)
+			charmSeriesOS, err := corebase.GetOSFromSeries(oneSeries)
 			if err != nil {
 				return nil
 			}
@@ -2089,11 +2097,11 @@ func (a *Application) UpdateApplicationBase(newBase Base, force bool) (err error
 			return nil, errors.Trace(err)
 		}
 		appOrigin := a.CharmOrigin()
-		appBase, err := series.ParseBase(appOrigin.Platform.OS, appOrigin.Platform.Channel)
+		appBase, err := corebase.ParseBase(appOrigin.Platform.OS, appOrigin.Platform.Channel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		newAppBase, err := series.ParseBase(newBase.OS, newBase.Channel)
+		newAppBase, err := corebase.ParseBase(newBase.OS, newBase.Channel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2184,7 +2192,7 @@ func (a *Application) VerifySupportedBase(base Base, force bool) error {
 	if len(supportedSeries) == 0 {
 		supportedSeries = append(supportedSeries, ch.URL().Series)
 	}
-	series, err := series.GetSeriesFromChannel(base.OS, base.Channel)
+	series, err := corebase.GetSeriesFromChannel(base.OS, base.Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2662,7 +2670,7 @@ func (a *Application) addUnitStorageOps(
 		machineAssignable = pu
 	}
 	platform := a.CharmOrigin().Platform
-	sSeries, _ := series.GetSeriesFromChannel(platform.OS, platform.Channel)
+	sSeries, _ := corebase.GetSeriesFromChannel(platform.OS, platform.Channel)
 	storageOps, storageTags, numStorageAttachments, err := createStorageOps(
 		sb,
 		unitTag,

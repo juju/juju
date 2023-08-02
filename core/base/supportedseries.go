@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package series
+package base
 
 import (
 	"strings"
@@ -275,7 +275,7 @@ func getOSFromSeries(series SeriesName) (coreos.OSType, error) {
 }
 
 var (
-	logger = loggo.GetLogger("juju.juju.series")
+	logger = loggo.GetLogger("juju.juju.base")
 
 	seriesVersionsMutex sync.Mutex
 )

@@ -26,12 +26,12 @@ import (
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/workerpool"
@@ -825,7 +825,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	}
 
 	nonce := fmt.Sprintf("%s:%s", task.hostTag, uuid)
-	base, err := series.ParseBase(pInfo.Base.Name, pInfo.Base.Channel)
+	base, err := corebase.ParseBase(pInfo.Base.Name, pInfo.Base.Channel)
 	if err != nil {
 		return nil, errors.Annotatef(err, "parsing machine base %q", pInfo.Base)
 	}

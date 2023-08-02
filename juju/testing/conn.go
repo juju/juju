@@ -28,13 +28,13 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscmd "github.com/juju/juju/environs/cmd"
@@ -657,7 +657,7 @@ func (s *JujuConnSuite) AddTestingCharmForSeries(c *gc.C, name, series string) *
 
 func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
 	appSeries := ch.URL().Series
-	base, err := series.GetBaseFromSeries(appSeries)
+	base, err := corebase.GetBaseFromSeries(appSeries)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: name, Charm: ch,
@@ -684,7 +684,7 @@ func (s *JujuConnSuite) AddTestingApplicationWithOrigin(c *gc.C, name string, ch
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *state.Charm, arch string) *state.Application {
-	base, err := series.GetBaseFromSeries(ch.URL().Series)
+	base, err := corebase.GetBaseFromSeries(ch.URL().Series)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
@@ -703,7 +703,7 @@ func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	base, err := series.GetBaseFromSeries(ch.URL().Series)
+	base, err := corebase.GetBaseFromSeries(ch.URL().Series)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
@@ -721,7 +721,7 @@ func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, c
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
-	base, err := series.GetBaseFromSeries(ch.URL().Series)
+	base, err := corebase.GetBaseFromSeries(ch.URL().Series)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
