@@ -10,6 +10,7 @@ import (
 var (
 	ParseSettingsCompatible = parseSettingsCompatible
 	GetStorageState         = getStorageState
+	ValidateSecretConfig    = validateSecretConfig
 )
 
 func GetState(st *state.State) Backend {

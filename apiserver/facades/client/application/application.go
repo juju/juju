@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -643,17 +644,44 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL) (corecharm.
 	}, nil
 }
 
+func validateSecretConfig(chCfg *charm.Config, cfg charm.Settings) error {
+	for name, value := range cfg {
+		option, ok := chCfg.Options[name]
+		if !ok {
+			// This should never happen.
+			return errors.NotValidf("unknown option %q", name)
+		}
+		if option.Type == "secret" {
+			uriStr, ok := value.(string)
+			if !ok {
+				return errors.NotValidf("unexpected value type for secret option %q", name)
+			}
+			_, err := secrets.ParseURI(uriStr)
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // parseCharmSettings parses, verifies and combines the config settings for a
 // charm as specified by the provided config map and config yaml payload. Any
 // model-specific application settings will be automatically extracted and
 // returned back as an *application.Config.
-func parseCharmSettings(modelType state.ModelType, chCfg *charm.Config, appName string, cfg map[string]string, configYaml string, defaults environsconfig.Defaulting) (*config.Config, environschema.Fields, charm.Settings, schema.Defaults, error) {
+func parseCharmSettings(
+	modelType state.ModelType, chCfg *charm.Config, appName string,
+	cfg map[string]string, configYaml string, defaults environsconfig.Defaulting,
+) (_ *config.Config, _ environschema.Fields, chOut charm.Settings, _ schema.Defaults, err error) {
+	defer func() {
+		if chOut != nil {
+			err = validateSecretConfig(chCfg, chOut)
+		}
+	}()
+
 	// Split out the app config from the charm config for any config
 	// passed in as a map as opposed to YAML.
 	var (
 		applicationConfig map[string]interface{}
 		charmConfig       map[string]string
-		err               error
 	)
 	if len(cfg) > 0 {
 		if applicationConfig, charmConfig, err = splitApplicationAndCharmConfig(modelType, cfg); err != nil {
@@ -1161,8 +1189,8 @@ func charmConfigFromConfigValues(yamlContents map[string]interface{}) (charm.Set
 		return nil, errors.New("unknown format for settings")
 	}
 
-	for setting := range settingsMap {
-		s, ok := settingsMap[setting].(map[interface{}]interface{})
+	for setting, content := range settingsMap {
+		s, ok := content.(map[interface{}]interface{})
 		if !ok {
 			return nil, errors.Errorf("unknown format for settings section %v", setting)
 		}

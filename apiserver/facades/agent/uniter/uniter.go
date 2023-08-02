@@ -811,7 +811,6 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsR
 			var settings charm.Settings
 			settings, err = unit.ConfigSettings()
 			if err == nil {
-				// TODO: should we get the content of the secret type config or just return the secret URI and let the charm tu run secret-get?
 				result.Results[i].Settings = params.ConfigSettings(settings)
 			}
 		}
