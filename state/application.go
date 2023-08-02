@@ -355,6 +355,9 @@ type DestroyApplicationOperation struct {
 	// scheduled by a forced cleanup task.
 	CleanupIgnoringResources bool
 
+	// Removed is true if the application is removed during destroy.
+	Removed bool
+
 	// PostDestroyAppLife is the life of the app if destroy completes without error.
 	PostDestroyAppLife Life
 
@@ -405,6 +408,10 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 				logger.Errorf("cannot delete history for application %q: %v", op.app, err)
 			}
 			op.AddError(errors.Errorf("force erase application %q history proceeded despite encountering ERROR %v", op.app, err))
+		}
+		// Only delete secrets after application is removed.
+		if !op.Removed {
+			return nil
 		}
 		if err := op.deleteSecrets(); err != nil {
 			logger.Errorf("cannot delete secrets for application %q: %v", op.app, err)
@@ -630,6 +637,7 @@ func (op *DestroyApplicationOperation) destroyOps() ([]txn.Op, error) {
 			op.AddError(err)
 			return ops, nil
 		}
+		op.Removed = true
 		return append(ops, removeOps...), nil
 	}
 	// In all other cases, application removal will be handled as a consequence
