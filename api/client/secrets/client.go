@@ -147,10 +147,12 @@ func (c *Client) GrantSecret(uri *secrets.URI, apps []string) ([]error, error) {
 }
 
 func processErrors(results params.ErrorResults) []error {
-	var errors []error
-	for _, result := range results.Results {
+	errors := make([]error, len(results.Results))
+	for i, result := range results.Results {
 		if result.Error != nil {
-			errors = append(errors, params.TranslateWellKnownError(result.Error))
+			errors[i] = params.TranslateWellKnownError(result.Error)
+		} else {
+			errors[i] = nil
 		}
 	}
 	return errors
