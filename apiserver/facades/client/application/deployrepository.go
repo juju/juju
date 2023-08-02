@@ -20,13 +20,12 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -638,7 +637,7 @@ func (v *deployFromRepositoryValidator) deducePlatform(arg params.DeployFromRepo
 			return corecharm.Platform{}, usedModelDefaultBase, err
 		}
 		if db, ok := mCfg.DefaultBase(); ok {
-			defaultBase, err := coreseries.ParseBaseFromString(db)
+			defaultBase, err := corebase.ParseBaseFromString(db)
 			if err != nil {
 				return corecharm.Platform{}, usedModelDefaultBase, err
 			}
@@ -727,13 +726,13 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 		resolvedOrigin.Platform.Architecture = constraints.ArchOrDefault(modelCons, nil)
 	}
 
-	var requestedBase coreseries.Base
+	var requestedBase corebase.Base
 	if requestedOrigin.Platform.OS != "" {
 		// The requested base has either been specified directly as a
 		// base argument, or via model config DefaultBase, to be
 		// part of the requestedOrigin.
 		var err error
-		requestedBase, err = coreseries.ParseBase(requestedOrigin.Platform.OS, requestedOrigin.Platform.Channel)
+		requestedBase, err = corebase.ParseBase(requestedOrigin.Platform.OS, requestedOrigin.Platform.Channel)
 		if err != nil {
 			return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 		}
@@ -743,11 +742,11 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
-	supportedBases, err := coreseries.ParseManifestBases(resolvedData.EssentialMetadata.Manifest.Bases)
+	supportedBases, err := corebase.ParseManifestBases(resolvedData.EssentialMetadata.Manifest.Bases)
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
-	workloadBases, err := series.WorkloadBases(jujuclock.WallClock.Now(), requestedBase, modelCfg.ImageStream())
+	workloadBases, err := corebase.WorkloadBases(jujuclock.WallClock.Now(), requestedBase, modelCfg.ImageStream())
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}

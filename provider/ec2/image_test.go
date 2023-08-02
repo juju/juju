@@ -7,8 +7,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/testing"
@@ -227,7 +227,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 		imageMetadata := filterImageMetadata(
 			c, TestImageMetadata, test.version, test.arch,
 		)
-		base := series.MakeDefaultBase("ubuntu", test.version)
+		base := corebase.MakeDefaultBase("ubuntu", test.version)
 		spec, err := findInstanceSpec(
 			false, // non-controller
 			imageMetadata,
@@ -265,7 +265,7 @@ func (s *specSuite) TestFindInstanceSpecNotSetCpuPowerWhenInstanceTypeSet(c *gc.
 }
 
 var findInstanceSpecErrorTests = []struct {
-	base series.Base
+	base corebase.Base
 	arch string
 	cons string
 	err  string
@@ -275,7 +275,7 @@ var findInstanceSpecErrorTests = []struct {
 		arch: "arm",
 		err:  `no metadata for "ubuntu@22.04" images in test with arch arm`,
 	}, {
-		base: series.MakeDefaultBase("ubuntu", "15.04"),
+		base: corebase.MakeDefaultBase("ubuntu", "15.04"),
 		arch: "amd64",
 		cons: "mem=4G",
 		err:  `no metadata for \"ubuntu@15.04\" images in test with arch amd64`,

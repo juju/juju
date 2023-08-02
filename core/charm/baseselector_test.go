@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/version"
 )
 
@@ -20,15 +20,15 @@ type baseSelectorSuite struct {
 var _ = gc.Suite(&baseSelectorSuite{})
 
 var (
-	bionic      = series.MustParseBaseFromString("ubuntu@18.04/stable")
-	cosmic      = series.MustParseBaseFromString("ubuntu@18.10/stable")
-	disco       = series.MustParseBaseFromString("ubuntu@19.04")
-	jammy       = series.MustParseBaseFromString("ubuntu@22.04")
-	focal       = series.MustParseBaseFromString("ubuntu@20.04")
-	precise     = series.MustParseBaseFromString("ubuntu@14.04")
-	utopic      = series.MustParseBaseFromString("ubuntu@16.10")
-	vivid       = series.MustParseBaseFromString("ubuntu@17.04")
-	latest      = series.LatestLTSBase()
+	bionic      = corebase.MustParseBaseFromString("ubuntu@18.04/stable")
+	cosmic      = corebase.MustParseBaseFromString("ubuntu@18.10/stable")
+	disco       = corebase.MustParseBaseFromString("ubuntu@19.04")
+	jammy       = corebase.MustParseBaseFromString("ubuntu@22.04")
+	focal       = corebase.MustParseBaseFromString("ubuntu@20.04")
+	precise     = corebase.MustParseBaseFromString("ubuntu@14.04")
+	utopic      = corebase.MustParseBaseFromString("ubuntu@16.10")
+	vivid       = corebase.MustParseBaseFromString("ubuntu@17.04")
+	latest      = corebase.LatestLTSBase()
 	jujuDefault = version.DefaultSupportedLTSBase()
 )
 
@@ -36,7 +36,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 	deployBasesTests := []struct {
 		title        string
 		selector     BaseSelector
-		expectedBase series.Base
+		expectedBase corebase.Base
 		err          string
 	}{
 		{
@@ -44,7 +44,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 			selector: BaseSelector{
 				defaultBase:         focal,
 				explicitDefaultBase: true,
-				supportedBases:      []series.Base{bionic, focal},
+				supportedBases:      []corebase.Base{bionic, focal},
 			},
 			expectedBase: focal,
 		},
@@ -52,7 +52,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 			title: "juju deploy simple --base=ubuntu@14.04   # no supported base",
 			selector: BaseSelector{
 				requestedBase:  precise,
-				supportedBases: []series.Base{bionic, cosmic},
+				supportedBases: []corebase.Base{bionic, cosmic},
 			},
 			err: `base: ubuntu@14.04/stable`,
 		},
@@ -62,7 +62,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 				requestedBase:       bionic,
 				defaultBase:         focal,
 				explicitDefaultBase: true,
-				supportedBases:      []series.Base{bionic, focal, cosmic},
+				supportedBases:      []corebase.Base{bionic, focal, cosmic},
 			},
 			expectedBase: bionic,
 		},
@@ -70,16 +70,16 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 		// Now charms with supported base.
 
 		{
-			title: "juju deploy multiseries   # use charm default, nothing specified, no default base",
+			title: "juju deploy multicorebase   # use charm default, nothing specified, no default base",
 			selector: BaseSelector{
-				supportedBases: []series.Base{bionic, cosmic},
+				supportedBases: []corebase.Base{bionic, cosmic},
 			},
 			expectedBase: bionic,
 		},
 		{
-			title: "juju deploy multiseries   # use charm defaults used if default base doesn't match, nothing specified",
+			title: "juju deploy multicorebase   # use charm defaults used if default base doesn't match, nothing specified",
 			selector: BaseSelector{
-				supportedBases:      []series.Base{bionic, cosmic},
+				supportedBases:      []corebase.Base{bionic, cosmic},
 				defaultBase:         precise,
 				explicitDefaultBase: true,
 			},
@@ -88,7 +88,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 		{
 			title: "juju deploy multiseries   # use model base defaults if supported by charm",
 			selector: BaseSelector{
-				supportedBases:      []series.Base{bionic, cosmic, disco},
+				supportedBases:      []corebase.Base{bionic, cosmic, disco},
 				defaultBase:         disco,
 				explicitDefaultBase: true,
 			},
@@ -98,7 +98,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 			title: "juju deploy multiseries --base=ubuntu@18.04   # use supported requested",
 			selector: BaseSelector{
 				requestedBase:  bionic,
-				supportedBases: []series.Base{cosmic, bionic},
+				supportedBases: []corebase.Base{cosmic, bionic},
 			},
 			expectedBase: bionic,
 		},
@@ -106,36 +106,36 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 			title: "juju deploy multiseries --base=ubuntu@18.04   # unsupported requested",
 			selector: BaseSelector{
 				requestedBase:  bionic,
-				supportedBases: []series.Base{utopic, vivid},
+				supportedBases: []corebase.Base{utopic, vivid},
 			},
 			err: `base: ubuntu@18.04/stable`,
 		},
 		{
-			title: "juju deploy multiseries    # fallback to series.LatestLTSBase()",
+			title: "juju deploy multiseries    # fallback to corebase.LatestLTSBase()",
 			selector: BaseSelector{
-				supportedBases: []series.Base{utopic, vivid, latest},
+				supportedBases: []corebase.Base{utopic, vivid, latest},
 			},
 			expectedBase: latest,
 		},
 		{
 			title: "juju deploy multiseries    # fallback to version.DefaultSupportedLTSBase()",
 			selector: BaseSelector{
-				supportedBases: []series.Base{utopic, vivid, jujuDefault},
+				supportedBases: []corebase.Base{utopic, vivid, jujuDefault},
 			},
 			expectedBase: jujuDefault,
 		},
 		{
-			title: "juju deploy multiseries    # prefer series.LatestLTSBase() to  version.DefaultSupportedLTSBase()",
+			title: "juju deploy multiseries    # prefer corebase.LatestLTSBase() to  version.DefaultSupportedLTSBase()",
 			selector: BaseSelector{
-				supportedBases: []series.Base{utopic, vivid, jujuDefault, latest},
+				supportedBases: []corebase.Base{utopic, vivid, jujuDefault, latest},
 			},
 			expectedBase: latest,
 		},
 	}
 
 	// Use bionic for LTS for all calls.
-	previous := series.SetLatestLtsForTesting("focal")
-	defer series.SetLatestLtsForTesting(previous)
+	previous := corebase.SetLatestLtsForTesting("focal")
+	defer corebase.SetLatestLtsForTesting(previous)
 
 	for i, test := range deployBasesTests {
 		c.Logf("test %d [%s]", i, test.title)
@@ -143,7 +143,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 		// For test purposes, change the supportedJujuBases to a consistent
 		// known value. Allowing for juju supported bases to change without
 		// making the tests fail.
-		//baseSelect.supportedJujuBases = []series.Base{bionic, focal, cosmic}
+		//baseSelect.supportedJujuBases = []corebase.Base{bionic, focal, cosmic}
 		base, err := test.selector.CharmBase()
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
@@ -159,8 +159,8 @@ func (s *baseSelectorSuite) TestValidate(c *gc.C) {
 	deploySeriesTests := []struct {
 		title               string
 		selector            BaseSelector
-		supportedCharmBases []series.Base
-		supportedJujuBases  []series.Base
+		supportedCharmBases []corebase.Base
+		supportedJujuBases  []corebase.Base
 		err                 string
 	}{{
 		// Simple selectors first, no supported bases, check we're validating
@@ -179,21 +179,21 @@ func (s *baseSelectorSuite) TestValidate(c *gc.C) {
 			requestedBase: jammy,
 			usingImageID:  true,
 		},
-		supportedJujuBases:  []series.Base{jammy, bionic},
-		supportedCharmBases: []series.Base{jammy, bionic},
+		supportedJujuBases:  []corebase.Base{jammy, bionic},
+		supportedCharmBases: []corebase.Base{jammy, bionic},
 	}, {
 		title: "should return no errors when using image-id and explicit base from Config",
 		selector: BaseSelector{
 			explicitDefaultBase: true,
 			usingImageID:        true,
 		},
-		supportedJujuBases:  []series.Base{jammy, bionic},
-		supportedCharmBases: []series.Base{jammy, bionic},
+		supportedJujuBases:  []corebase.Base{jammy, bionic},
+		supportedCharmBases: []corebase.Base{jammy, bionic},
 	}, {
 		title:               "juju deploy multiseries with invalid series  # use charm default, nothing specified, no default base",
 		selector:            BaseSelector{},
-		supportedCharmBases: []series.Base{precise},
-		supportedJujuBases:  []series.Base{jammy},
+		supportedCharmBases: []corebase.Base{precise},
+		supportedJujuBases:  []corebase.Base{jammy},
 		err:                 `the charm defined bases "ubuntu@14.04" not supported`,
 	}}
 
@@ -215,35 +215,35 @@ func (s *baseSelectorSuite) TestConfigureBaseSelector(c *gc.C) {
 		Config:              mockModelCfg{},
 		Force:               false,
 		Logger:              &noOpLogger{},
-		RequestedBase:       series.Base{},
-		SupportedCharmBases: []series.Base{jammy, focal, bionic},
-		WorkloadBases:       []series.Base{jammy, focal},
+		RequestedBase:       corebase.Base{},
+		SupportedCharmBases: []corebase.Base{jammy, focal, bionic},
+		WorkloadBases:       []corebase.Base{jammy, focal},
 		UsingImageID:        false,
 	}
 
 	obtained, err := ConfigureBaseSelector(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained.supportedBases, gc.DeepEquals, []series.Base{jammy, focal})
+	c.Check(obtained.supportedBases, gc.DeepEquals, []corebase.Base{jammy, focal})
 }
 
 func (s *baseSelectorSuite) TestConfigureBaseSelectorCentos(c *gc.C) {
 
-	c7 := series.MustParseBaseFromString("centos@7/stable")
-	c8 := series.MustParseBaseFromString("centos@8/stable")
-	c6 := series.MustParseBaseFromString("centos@6/stable")
+	c7 := corebase.MustParseBaseFromString("centos@7/stable")
+	c8 := corebase.MustParseBaseFromString("centos@8/stable")
+	c6 := corebase.MustParseBaseFromString("centos@6/stable")
 	cfg := SelectorConfig{
 		Config:              mockModelCfg{},
 		Force:               false,
 		Logger:              &noOpLogger{},
-		RequestedBase:       series.Base{},
-		SupportedCharmBases: []series.Base{c6, c7, c8},
-		WorkloadBases:       []series.Base{c7, c8},
+		RequestedBase:       corebase.Base{},
+		SupportedCharmBases: []corebase.Base{c6, c7, c8},
+		WorkloadBases:       []corebase.Base{c7, c8},
 		UsingImageID:        false,
 	}
 
 	obtained, err := ConfigureBaseSelector(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(obtained.supportedBases, gc.DeepEquals, []series.Base{c7, c8})
+	c.Check(obtained.supportedBases, gc.DeepEquals, []corebase.Base{c7, c8})
 }
 
 func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBase(c *gc.C) {
@@ -254,21 +254,21 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBase(c *gc.C) {
 		},
 		Force:               false,
 		Logger:              &noOpLogger{},
-		RequestedBase:       series.Base{},
-		SupportedCharmBases: []series.Base{jammy, focal, bionic},
-		WorkloadBases:       []series.Base{jammy, focal},
+		RequestedBase:       corebase.Base{},
+		SupportedCharmBases: []corebase.Base{jammy, focal, bionic},
+		WorkloadBases:       []corebase.Base{jammy, focal},
 		UsingImageID:        false,
 	}
 
 	baseSelector, err := ConfigureBaseSelector(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(baseSelector.supportedBases, jc.SameContents, []series.Base{jammy, focal})
+	c.Check(baseSelector.supportedBases, jc.SameContents, []corebase.Base{jammy, focal})
 	c.Check(baseSelector.defaultBase, gc.DeepEquals, focal)
 	c.Check(baseSelector.explicitDefaultBase, jc.IsTrue)
 
 	obtained, err := baseSelector.CharmBase()
 	c.Assert(err, jc.ErrorIsNil)
-	expectedBase := series.MustParseBaseFromString("ubuntu@20.04")
+	expectedBase := corebase.MustParseBaseFromString("ubuntu@20.04")
 	c.Check(obtained.IsCompatible(expectedBase), jc.IsTrue, gc.Commentf("obtained: %q, expected %q", obtained, expectedBase))
 }
 
@@ -280,9 +280,9 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBaseFail(c *gc.C) {
 		},
 		Force:               false,
 		Logger:              &noOpLogger{},
-		RequestedBase:       series.Base{},
-		SupportedCharmBases: []series.Base{jammy, focal, bionic},
-		WorkloadBases:       []series.Base{jammy, focal},
+		RequestedBase:       corebase.Base{},
+		SupportedCharmBases: []corebase.Base{jammy, focal, bionic},
+		WorkloadBases:       []corebase.Base{jammy, focal},
 		UsingImageID:        false,
 	}
 

@@ -24,11 +24,11 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -835,7 +835,7 @@ func (env *maasEnviron) distroSeries(args environs.StartInstanceParams) (string,
 	if args.Constraints.HasImageID() {
 		return *args.Constraints.ImageID, nil
 	}
-	return coreseries.GetSeriesFromBase(args.InstanceConfig.Base)
+	return corebase.GetSeriesFromBase(args.InstanceConfig.Base)
 }
 
 func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, id instance.Id, timeout time.Duration) error {

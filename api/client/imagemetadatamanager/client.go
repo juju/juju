@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -28,7 +28,7 @@ func NewClient(st base.APICallCloser) *Client {
 // Empty filter will return all image metadata.
 func (c *Client) List(
 	stream, region string,
-	bases []series.Base, arches []string,
+	bases []corebase.Base, arches []string,
 	virtType, rootStorageType string,
 ) ([]params.CloudImageMetadata, error) {
 	versions := make([]string, len(bases))

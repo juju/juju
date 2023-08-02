@@ -13,9 +13,9 @@ import (
 	"github.com/juju/utils/v3"
 	"gopkg.in/yaml.v2"
 
+	corebase "github.com/juju/juju/core/base"
 	utilsos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/core/series"
 )
 
 // InitReader describes methods for extracting machine provisioning config,
@@ -35,7 +35,7 @@ type InitReader interface {
 // a single machine.
 type MachineInitReaderConfig struct {
 	// Base is the base of the machine.
-	Base series.Base
+	Base corebase.Base
 
 	// CloudInitConfigDir is the directory where cloud configuration resides
 	// on MAAS hosts.
@@ -60,7 +60,7 @@ type MachineInitReader struct {
 
 // NewMachineInitReader creates and returns a new MachineInitReader for the
 // input os name.
-func NewMachineInitReader(base series.Base) (InitReader, error) {
+func NewMachineInitReader(base corebase.Base) (InitReader, error) {
 	osType := paths.OSType(base.OS)
 	cfg := MachineInitReaderConfig{
 		Base:                       base,
@@ -83,7 +83,7 @@ func (r *MachineInitReader) GetInitConfig() (map[string]interface{}, error) {
 	switch utilsos.OSTypeForName(r.config.Base.OS) {
 	case utilsos.Ubuntu, utilsos.CentOS, utilsos.OpenSUSE:
 		hostSeries, err := osseries.HostSeries()
-		series, err2 := series.GetSeriesFromBase(r.config.Base)
+		series, err2 := corebase.GetSeriesFromBase(r.config.Base)
 		if err != nil || err2 != nil || series != hostSeries {
 			logger.Debugf("not attempting to get init config for %s, base of machine and container differ", r.config.Base.DisplayString())
 			return nil, nil

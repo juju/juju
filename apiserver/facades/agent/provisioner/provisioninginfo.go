@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -575,7 +575,7 @@ func (api *ProvisionerAPI) availableImageMetadata(
 // constructImageConstraint returns model-specific criteria used to look for image metadata.
 func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env environs.Environ) (*imagemetadata.ImageConstraint, error) {
 	// TODO(wallyworld) - does centos still need the series hack?
-	base, err := series.ParseBase(m.Base().OS, m.Base().Channel)
+	base, err := corebase.ParseBase(m.Base().OS, m.Base().Channel)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

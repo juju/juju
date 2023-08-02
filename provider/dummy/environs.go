@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/auditlog"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
@@ -55,7 +56,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -1047,7 +1047,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 	bsResult := &environs.BootstrapResult{
 		Arch:                    arch,
-		Base:                    series.MakeDefaultBase("ubuntu", "22.04"),
+		Base:                    corebase.MakeDefaultBase("ubuntu", "22.04"),
 		CloudBootstrapFinalizer: finalize,
 	}
 	return bsResult, nil

@@ -17,7 +17,7 @@ import (
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 )
@@ -99,7 +99,7 @@ type InstanceImage struct {
 	// Id is the provider ID of the image
 	Id string
 	// Base is the os base.
-	Base series.Base
+	Base corebase.Base
 	// Version is the version of the image
 	Version ImageVersion
 	// Raw stores the core.Image object
@@ -143,12 +143,12 @@ func (t byVersion) Less(i, j int) bool {
 // ImageCache holds a cache of all provider images for a fixed
 // amount of time before it becomes stale
 type ImageCache struct {
-	images map[series.Base][]InstanceImage
+	images map[corebase.Base][]InstanceImage
 
 	lastRefresh time.Time
 }
 
-func (i *ImageCache) ImageMap() map[series.Base][]InstanceImage {
+func (i *ImageCache) ImageMap() map[corebase.Base][]InstanceImage {
 	return i.images
 }
 
@@ -158,7 +158,7 @@ func (i *ImageCache) SetLastRefresh(t time.Time) {
 	i.lastRefresh = t
 }
 
-func (i *ImageCache) SetImages(images map[series.Base][]InstanceImage) {
+func (i *ImageCache) SetImages(images map[corebase.Base][]InstanceImage) {
 	i.images = images
 }
 
@@ -175,7 +175,7 @@ func (i *ImageCache) isStale() bool {
 // all images that are currently in cache, matching the provided base
 // If defaultVirtType is specified, all generic images will inherit the
 // value of defaultVirtType.
-func (i ImageCache) ImageMetadata(base series.Base, defaultVirtType string) []*imagemetadata.ImageMetadata {
+func (i ImageCache) ImageMetadata(base corebase.Base, defaultVirtType string) []*imagemetadata.ImageMetadata {
 	var metadata []*imagemetadata.ImageMetadata
 
 	images, ok := i.images[base]
@@ -206,7 +206,7 @@ func (i ImageCache) ImageMetadata(base series.Base, defaultVirtType string) []*i
 
 // SupportedShapes returns the InstanceTypes available for images matching
 // the supplied base
-func (i ImageCache) SupportedShapes(base series.Base) []instances.InstanceType {
+func (i ImageCache) SupportedShapes(base corebase.Base) []instances.InstanceType {
 	matches := map[string]int{}
 	ret := []instances.InstanceType{}
 	// TODO(gsamfira): Find a better way for this.
@@ -252,22 +252,22 @@ func getImageType(img ociCore.Image) ImageType {
 }
 
 func NewInstanceImage(img ociCore.Image, compartmentID *string) (imgType InstanceImage, err error) {
-	var base series.Base
+	var base corebase.Base
 	switch osName := *img.OperatingSystem; osName {
 	case centOS:
-		base = series.MakeDefaultBase("centos", *img.OperatingSystemVersion)
+		base = corebase.MakeDefaultBase("centos", *img.OperatingSystemVersion)
 	case ubuntuOS:
 		// TODO: fix base creation:
 		//  e.g.
 		//        OperatingSystem:        &"Canonical Ubuntu",
 		//        OperatingSystemVersion: &"22.04 Minimal aarch64",
 		//  becomes ->
-		//  Base:      series.Base{
+		//  Base:      corebase.Base{
 		//        OS:      "ubuntu",
-		//        Channel: series.Channel{Track:"22.04 Minimal aarch64", Risk:"stable"},
+		//        Channel: corebase.Channel{Track:"22.04 Minimal aarch64", Risk:"stable"},
 		//    },
 		//  This may limit our ability to use arm64 images currently.
-		base = series.MakeDefaultBase("ubuntu", *img.OperatingSystemVersion)
+		base = corebase.MakeDefaultBase("ubuntu", *img.OperatingSystemVersion)
 	default:
 		return imgType, errors.NotSupportedf("os %s", osName)
 	}
@@ -425,7 +425,7 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 		return nil, err
 	}
 
-	images := map[series.Base][]InstanceImage{}
+	images := map[corebase.Base][]InstanceImage{}
 
 	for _, val := range items {
 		instTypes, err := instanceTypes(cli, compartmentID, val.Id)

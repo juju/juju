@@ -20,11 +20,11 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -393,7 +393,7 @@ type fakeCommon struct {
 	fake
 
 	Arch        string
-	Base        series.Base
+	Base        corebase.Base
 	BSFinalizer environs.CloudBootstrapFinalizer
 	AZInstances []common.AvailabilityZoneInstances
 }

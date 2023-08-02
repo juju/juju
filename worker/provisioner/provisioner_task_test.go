@@ -28,11 +28,11 @@ import (
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/controller/authentication"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -1087,7 +1087,7 @@ func (s *ProvisionerTaskSuite) expectProvisioningInfo(machines ...*testMachine) 
 		return names.NewMachineTag(m.id)
 	})
 
-	base, _ := series.GetBaseFromSeries(jujuversion.DefaultSupportedLTS())
+	base, _ := corebase.GetBaseFromSeries(jujuversion.DefaultSupportedLTS())
 
 	piResults := transform.Slice(machines, func(m *testMachine) params.ProvisioningInfoResult {
 		return params.ProvisioningInfoResult{

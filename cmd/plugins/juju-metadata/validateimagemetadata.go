@@ -16,7 +16,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -147,21 +147,21 @@ func (oes *overrideEnvStream) Config() *config.Config {
 
 func (c *validateImageMetadataCommand) Run(ctx *cmd.Context) error {
 	var (
-		base series.Base
+		base corebase.Base
 		err  error
 	)
 	// Note: we validated that both series and base cannot be specified in
 	// Init(), so it's safe to assume that only one of them is set here.
 	if c.series != "" {
 		ctx.Warningf("series flag is deprecated, use --base instead")
-		if base, err = series.GetBaseFromSeries(c.series); err != nil {
+		if base, err = corebase.GetBaseFromSeries(c.series); err != nil {
 			return errors.Annotatef(err, "attempting to convert %q to a base", c.series)
 		}
 		c.base = base.String()
 		c.series = ""
 	}
 	if c.base != "" {
-		if base, err = series.ParseBaseFromString(c.base); err != nil {
+		if base, err = corebase.ParseBaseFromString(c.base); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -207,7 +207,7 @@ func (c *validateImageMetadataCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context, base series.Base) (*simplestreams.MetadataLookupParams, error) {
+func (c *validateImageMetadataCommand) createLookupParams(context *cmd.Context, base corebase.Base) (*simplestreams.MetadataLookupParams, error) {
 	ss := simplestreams.NewSimpleStreams(simplestreams.DefaultDataSourceFactory())
 
 	controllerName, err := c.ControllerName()

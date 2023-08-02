@@ -21,12 +21,12 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -497,9 +497,9 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		chSeries := curl.Series
 		// Legacy k8s charms - assume ubuntu focal.
 		if chSeries == "kubernetes" {
-			chSeries = coreseries.LegacyKubernetesSeries()
+			chSeries = corebase.LegacyKubernetesSeries()
 		}
-		base, err := coreseries.GetBaseFromSeries(chSeries)
+		base, err := corebase.GetBaseFromSeries(chSeries)
 		c.Assert(err, jc.ErrorIsNil)
 		var channel *state.Channel
 		var source string

@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -75,7 +75,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunCompatibility(c *gc.C) {
 	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.expectResolveChannel()
-	s.expectDeployerAPIModelGet(c, series.Base{})
+	s.expectDeployerAPIModelGet(c, corebase.Base{})
 
 	dCharm := s.newDeployCharm()
 	dCharm.dryRun = true
@@ -98,7 +98,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunImageIdNoBase(c *gc.C) {
 	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.expectResolveChannel()
-	s.expectDeployerAPIModelGet(c, series.Base{})
+	s.expectDeployerAPIModelGet(c, corebase.Base{})
 
 	dCharm := s.newDeployCharm()
 	dCharm.dryRun = true
@@ -124,7 +124,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 	s.deployerAPI.EXPECT().BestFacadeVersion("Application").Return(17).AnyTimes()
 	s.resolver = mocks.NewMockResolver(ctrl)
 	s.expectResolveChannel()
-	s.expectDeployerAPIModelGet(c, series.MustParseBaseFromString("ubuntu@22.04"))
+	s.expectDeployerAPIModelGet(c, corebase.MustParseBaseFromString("ubuntu@22.04"))
 
 	dCharm := s.newDeployCharm()
 	dCharm.dryRun = true
@@ -192,7 +192,7 @@ func (s *charmSuite) TestDeployFromRepositoryCharmAppNameVSCharmName(c *gc.C) {
 		Name:     dCharm.applicationName,
 		Revision: 1,
 		Channel:  "latest/stable",
-		Base: series.Base{Channel: series.Channel{Track: "20.04"},
+		Base: corebase.Base{Channel: corebase.Channel{Track: "20.04"},
 			OS: "ubuntu"},
 	}
 
@@ -260,7 +260,7 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 		},
 		id: application.CharmID{
 			URL:    s.url,
-			Origin: commoncharm.Origin{Base: series.MakeDefaultBase("ubuntu", "20.04")},
+			Origin: commoncharm.Origin{Base: corebase.MakeDefaultBase("ubuntu", "20.04")},
 		},
 		flagSet:  &gnuflag.FlagSet{},
 		model:    s.modelCommand,
@@ -286,16 +286,16 @@ func (s *charmSuite) expectResolveChannel() {
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, requestedOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
-			return curl, requestedOrigin, []series.Base{
-				series.MustParseBaseFromString("ubuntu@18.04"),
-				series.MustParseBaseFromString("ubuntu@20.04"),
-				series.MustParseBaseFromString("ubuntu@16.04"),
+		func(curl *charm.URL, requestedOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
+			return curl, requestedOrigin, []corebase.Base{
+				corebase.MustParseBaseFromString("ubuntu@18.04"),
+				corebase.MustParseBaseFromString("ubuntu@20.04"),
+				corebase.MustParseBaseFromString("ubuntu@16.04"),
 			}, nil
 		}).AnyTimes()
 }
 
-func (s *charmSuite) expectDeployerAPIModelGet(c *gc.C, defaultBase series.Base) {
+func (s *charmSuite) expectDeployerAPIModelGet(c *gc.C, defaultBase corebase.Base) {
 	cfg, err := config.New(true, minimalModelConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := cfg.AllAttrs()

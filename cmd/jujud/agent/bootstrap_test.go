@@ -41,13 +41,13 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
@@ -119,7 +119,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&sshGenerateKey, func(name string) (string, string, error) {
 		return "private-key", "public-key", nil
 	})
-	s.PatchValue(&coreseries.UbuntuDistroInfo, "/path/notexists")
+	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()

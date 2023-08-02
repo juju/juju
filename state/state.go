@@ -25,13 +25,13 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -1464,7 +1464,7 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 	// the supported series. For old-style charms with the series
 	// in the URL, that series is the one and only supported
 	// series.
-	appBase, err := series.ParseBase(args.CharmOrigin.Platform.OS, args.CharmOrigin.Platform.Channel)
+	appBase, err := corebase.ParseBase(args.CharmOrigin.Platform.OS, args.CharmOrigin.Platform.Channel)
 	if err != nil {
 		return Base{}, errors.Trace(err)
 	}
@@ -1474,10 +1474,10 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 		supportedSeries = []string{cSeries}
 		// If a charm has a url, but is a kubernetes charm then we need to
 		// add this to the list of supported series.
-		if cSeries != series.Kubernetes.String() &&
-			(set.NewStrings(args.Charm.Meta().Series...).Contains(series.Kubernetes.String()) ||
+		if cSeries != corebase.Kubernetes.String() &&
+			(set.NewStrings(args.Charm.Meta().Series...).Contains(corebase.Kubernetes.String()) ||
 				len(args.Charm.Meta().Containers) > 0) {
-			supportedSeries = append(supportedSeries, series.Kubernetes.String())
+			supportedSeries = append(supportedSeries, corebase.Kubernetes.String())
 		}
 	} else {
 		var err error
@@ -1489,10 +1489,10 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 	if len(supportedSeries) > 0 {
 		supportedOperatingSystems := make(map[string]bool)
 		for _, chSeries := range supportedSeries {
-			if chSeries == series.Kubernetes.String() {
-				chSeries = series.LegacyKubernetesSeries()
+			if chSeries == corebase.Kubernetes.String() {
+				chSeries = corebase.LegacyKubernetesSeries()
 			}
-			os, err := series.GetOSFromSeries(chSeries)
+			os, err := corebase.GetOSFromSeries(chSeries)
 			if err != nil {
 				// If we can't figure out a series written in the charm
 				// just skip it.
@@ -1501,7 +1501,7 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 			supportedOperatingSystems[strings.ToLower(os.String())] = true
 		}
 		if !supportedOperatingSystems[appBase.OS] {
-			series, _ := series.GetSeriesFromBase(appBase)
+			series, _ := corebase.GetSeriesFromBase(appBase)
 			return Base{}, errors.NewNotSupported(errors.Errorf(
 				"series %q not supported by charm, supported series are %q",
 				series, strings.Join(supportedSeries, ", "),
@@ -2244,18 +2244,18 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				}
 				var charmBases []string
 				for _, s := range charmSeries {
-					if s == series.Kubernetes.String() {
-						charmBases = append(charmBases, series.LegacyKubernetesBase().DisplayString())
+					if s == corebase.Kubernetes.String() {
+						charmBases = append(charmBases, corebase.LegacyKubernetesBase().DisplayString())
 						continue
 					}
-					b, err := series.GetBaseFromSeries(s)
+					b, err := corebase.GetBaseFromSeries(s)
 					if err != nil {
 						return nil, errors.Trace(err)
 					}
 					charmBases = append(charmBases, b.DisplayString())
 				}
 				if len(charmBases) == 0 {
-					localBase, err := series.ParseBase(localApp.Base().OS, localApp.Base().Channel)
+					localBase, err := corebase.ParseBase(localApp.Base().OS, localApp.Base().Channel)
 					if err != nil {
 						return nil, errors.Trace(err)
 					}

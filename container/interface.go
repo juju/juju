@@ -5,10 +5,10 @@ package container
 
 import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
 )
@@ -33,7 +33,7 @@ type Manager interface {
 	CreateContainer(
 		instanceConfig *instancecfg.InstanceConfig,
 		cons constraints.Value,
-		base series.Base,
+		base corebase.Base,
 		network *NetworkConfig,
 		storage *StorageConfig,
 		callback environs.StatusCallbackFunc) (instances.Instance, *instance.HardwareCharacteristics, error)

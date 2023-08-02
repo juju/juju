@@ -18,8 +18,8 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/charmhub"
+	corebase "github.com/juju/juju/core/base"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/version"
@@ -162,7 +162,7 @@ func (api *CharmRevisionUpdaterAPI) retrieveLatestCharmInfo() ([]latestCharmInfo
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			series, err := coreseries.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
+			series, err := corebase.GetSeriesFromChannel(origin.Platform.OS, origin.Platform.Channel)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

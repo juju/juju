@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	coreseries "github.com/juju/juju/core/series"
 )
 
 // CharmHubClient describes the API exposed by the charmhub client.
@@ -183,7 +183,7 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(charmURL *charm.URL, re
 		WithRevision(revision)
 	// TODO(wallyworld) - does charm url still need a series?
 	if chSuggestedOrigin.Platform.Channel != "" {
-		series, err := coreseries.GetSeriesFromChannel(chSuggestedOrigin.Platform.OS, chSuggestedOrigin.Platform.Channel)
+		series, err := corebase.GetSeriesFromChannel(chSuggestedOrigin.Platform.OS, chSuggestedOrigin.Platform.Channel)
 		if err != nil {
 			return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Trace(err)
 		}
@@ -994,7 +994,7 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 			continue
 		}
 		var (
-			base coreseries.Base
+			base corebase.Base
 			err  error
 		)
 		track, err := corecharm.ChannelTrack(release.Base.Channel)
@@ -1003,9 +1003,9 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 			continue
 		}
 		if track == "all" || release.Base.Name == "all" {
-			base, err = coreseries.ParseBase(origin.Platform.OS, origin.Platform.Channel)
+			base, err = corebase.ParseBase(origin.Platform.OS, origin.Platform.Channel)
 		} else {
-			base, err = coreseries.ParseBase(release.Base.Name, release.Base.Channel)
+			base, err = corebase.ParseBase(release.Base.Name, release.Base.Channel)
 		}
 		if err != nil {
 			c.logger.Errorf("converting version to base: %s", err)

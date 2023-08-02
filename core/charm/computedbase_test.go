@@ -11,7 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 type computedBaseSuite struct {
@@ -41,9 +41,9 @@ func (s *computedBaseSuite) TestComputedBase(c *gc.C) {
 	}).AnyTimes()
 	bases, err := ComputedBases(cm)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bases, jc.DeepEquals, []series.Base{
-		series.MustParseBaseFromString("ubuntu@18.04"),
-		series.MustParseBaseFromString("ubuntu@20.04"),
+	c.Assert(bases, jc.DeepEquals, []corebase.Base{
+		corebase.MustParseBaseFromString("ubuntu@18.04"),
+		corebase.MustParseBaseFromString("ubuntu@20.04"),
 	})
 }
 
@@ -60,8 +60,8 @@ func (s *computedBaseSuite) TestComputedBaseNilManifest(c *gc.C) {
 	cm.EXPECT().Manifest().Return(nil).AnyTimes()
 	bases, err := ComputedBases(cm)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bases, jc.DeepEquals, []series.Base{
-		series.MustParseBaseFromString("ubuntu@18.04"),
+	c.Assert(bases, jc.DeepEquals, []corebase.Base{
+		corebase.MustParseBaseFromString("ubuntu@18.04"),
 	})
 }
 
@@ -78,8 +78,8 @@ func (s *computedBaseSuite) TestComputedBaseNilManifestKubernetes(c *gc.C) {
 	cm.EXPECT().Manifest().Return(nil).AnyTimes()
 	bases, err := ComputedBases(cm)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bases, jc.DeepEquals, []series.Base{
-		series.LegacyKubernetesBase(),
+	c.Assert(bases, jc.DeepEquals, []corebase.Base{
+		corebase.LegacyKubernetesBase(),
 	})
 }
 
@@ -108,35 +108,35 @@ func (s *computedBaseSuite) TestComputedBaseError(c *gc.C) {
 }
 
 func (s *computedBaseSuite) TestBaseToUse(c *gc.C) {
-	trusty := series.MustParseBaseFromString("ubuntu@16.04")
-	jammy := series.MustParseBaseFromString("ubuntu@22.04")
-	focal := series.MustParseBaseFromString("ubuntu@20.04")
+	trusty := corebase.MustParseBaseFromString("ubuntu@16.04")
+	jammy := corebase.MustParseBaseFromString("ubuntu@22.04")
+	focal := corebase.MustParseBaseFromString("ubuntu@20.04")
 	tests := []struct {
-		series         series.Base
-		supportedBases []series.Base
-		baseToUse      series.Base
+		base           corebase.Base
+		supportedBases []corebase.Base
+		baseToUse      corebase.Base
 		err            string
 	}{{
-		series: series.Base{},
-		err:    "base not specified and charm does not define any",
+		base: corebase.Base{},
+		err:  "base not specified and charm does not define any",
 	}, {
-		series:    trusty,
+		base:      trusty,
 		baseToUse: trusty,
 	}, {
-		series:         trusty,
-		supportedBases: []series.Base{focal, trusty},
+		base:           trusty,
+		supportedBases: []corebase.Base{focal, trusty},
 		baseToUse:      trusty,
 	}, {
-		series:         series.LatestLTSBase(),
-		supportedBases: []series.Base{focal, series.LatestLTSBase(), trusty},
-		baseToUse:      series.LatestLTSBase(),
+		base:           corebase.LatestLTSBase(),
+		supportedBases: []corebase.Base{focal, corebase.LatestLTSBase(), trusty},
+		baseToUse:      corebase.LatestLTSBase(),
 	}, {
-		series:         trusty,
-		supportedBases: []series.Base{jammy, focal},
+		base:           trusty,
+		supportedBases: []corebase.Base{jammy, focal},
 		err:            `base "ubuntu@16.04" not supported by charm.*`,
 	}}
 	for _, test := range tests {
-		base, err := BaseForCharm(test.series, test.supportedBases)
+		base, err := BaseForCharm(test.base, test.supportedBases)
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
 			continue

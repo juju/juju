@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	coretesting "github.com/juju/juju/testing"
@@ -348,7 +348,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 		}
 		imageCons := constraints.MustParse(t.constraints)
 		spec, err := FindInstanceSpec(images, &InstanceConstraint{
-			Base:        series.MakeDefaultBase("ubuntu", "12.04"),
+			Base:        corebase.MakeDefaultBase("ubuntu", "12.04"),
 			Region:      t.region,
 			Arch:        t.arch,
 			Constraints: imageCons,
@@ -456,7 +456,7 @@ func (*imageSuite) TestImageMetadataToImagesMaintainsOrdering(c *gc.C) {
 func (*imageSuite) TestInstanceConstraintString(c *gc.C) {
 	imageCons := constraints.MustParse("mem=4G")
 	ic := &InstanceConstraint{
-		Base:        series.MakeDefaultBase("ubuntu", "12.04"),
+		Base:        corebase.MakeDefaultBase("ubuntu", "12.04"),
 		Region:      "region",
 		Arch:        "amd64",
 		Constraints: imageCons,
