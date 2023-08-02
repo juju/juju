@@ -12,9 +12,9 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -57,7 +57,7 @@ type ModelSummary struct {
 	// Needs Config()
 	ProviderType  string
 	DefaultSeries string
-	DefaultBase   series.Base
+	DefaultBase   corebase.Base
 	AgentVersion  *version.Number
 
 	// Needs Statuses collection
@@ -153,7 +153,7 @@ func (p *modelSummaryProcessor) fillInFromConfig() error {
 
 		// TODO(stickupkid): Ensure we fill in the default series for now, we
 		// can switch that out later.
-		if detail.DefaultSeries, err = series.GetSeriesFromBase(detail.DefaultBase); err != nil {
+		if detail.DefaultSeries, err = corebase.GetSeriesFromBase(detail.DefaultBase); err != nil {
 			return errors.Trace(err)
 		}
 

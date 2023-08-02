@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/charmhub"
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 const (
@@ -137,7 +137,7 @@ func (c *infoCommand) validateCharmOrBundle(charmOrBundle string) error {
 // part of the cmd.Command interface.
 func (c *infoCommand) Run(cmdContext *cmd.Context) error {
 	var (
-		base series.Base
+		base corebase.Base
 		err  error
 	)
 	// Note: we validated that both series and base cannot be specified in
@@ -146,14 +146,14 @@ func (c *infoCommand) Run(cmdContext *cmd.Context) error {
 		c.series = ""
 	} else if c.series != "" {
 		cmdContext.Warningf("series flag is deprecated, use --base instead")
-		if base, err = series.GetBaseFromSeries(c.series); err != nil {
+		if base, err = corebase.GetBaseFromSeries(c.series); err != nil {
 			return errors.Annotatef(err, "attempting to convert %q to a base", c.series)
 		}
 		c.base = base.String()
 		c.series = ""
 	}
 	if c.base != "" {
-		if base, err = series.ParseBaseFromString(c.base); err != nil {
+		if base, err = corebase.ParseBaseFromString(c.base); err != nil {
 			return errors.Trace(err)
 		}
 	}

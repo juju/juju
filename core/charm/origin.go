@@ -10,7 +10,7 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 
-	coreseries "github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 // Source represents the source of the charm.
@@ -132,9 +132,9 @@ func ParsePlatform(s string) (Platform, error) {
 			// We are transitioning away from series but still need to support it.
 			// If an os version is specified, os is mandatory.
 			series := *channel
-			vers, err := coreseries.SeriesVersion(series)
+			vers, err := corebase.SeriesVersion(series)
 			if err == nil {
-				osType, _ := coreseries.GetOSFromSeries(series)
+				osType, _ := corebase.GetOSFromSeries(series)
 				platform.OS = strings.ToLower(osType.String())
 				*channel = vers
 			} else if platform.OS == "" {

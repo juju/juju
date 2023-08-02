@@ -24,11 +24,11 @@ import (
 	"github.com/juju/juju/container/lxd"
 	containerlxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -421,7 +421,7 @@ func (conn *StubClient) CreateContainerFromSpec(spec lxd.ContainerSpec) (*lxd.Co
 }
 
 func (conn *StubClient) FindImage(
-	base series.Base, arch string, virtType instance.VirtType, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
+	base corebase.Base, arch string, virtType instance.VirtType, sources []lxd.ServerSpec, copyLocal bool, callback environs.StatusCallbackFunc,
 ) (lxd.SourcedImage, error) {
 	conn.AddCall("FindImage", base.DisplayString(), arch)
 	if err := conn.NextErr(); err != nil {

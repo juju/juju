@@ -23,8 +23,8 @@ import (
 	apicharm "github.com/juju/juju/api/common/charm"
 	commoncharms "github.com/juju/juju/api/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -54,7 +54,7 @@ type CharmToResolve struct {
 type ResolvedCharm struct {
 	URL            *charm.URL
 	Origin         apicharm.Origin
-	SupportedBases []series.Base
+	SupportedBases []corebase.Base
 	Error          error
 }
 
@@ -99,8 +99,8 @@ func (c *Client) resolveCharm(r params.ResolveCharmWithChannelResult) ResolvedCh
 		return ResolvedCharm{Error: apiservererrors.RestoreError(err)}
 	}
 
-	supportedBases, err := transform.SliceOrErr(r.SupportedBases, func(in params.Base) (series.Base, error) {
-		return series.ParseBase(in.Name, in.Channel)
+	supportedBases, err := transform.SliceOrErr(r.SupportedBases, func(in params.Base) (corebase.Base, error) {
+		return corebase.ParseBase(in.Name, in.Channel)
 	})
 	if err != nil {
 		return ResolvedCharm{Error: apiservererrors.RestoreError(err)}
@@ -124,7 +124,7 @@ func (c *Client) resolveCharmV6(r params.ResolveCharmWithChannelResultV6) Resolv
 	if err != nil {
 		return ResolvedCharm{Error: apiservererrors.RestoreError(err)}
 	}
-	supportedBases, err := transform.SliceOrErr(r.SupportedSeries, series.GetBaseFromSeries)
+	supportedBases, err := transform.SliceOrErr(r.SupportedSeries, corebase.GetBaseFromSeries)
 	if err != nil {
 		return ResolvedCharm{Error: apiservererrors.RestoreError(err)}
 	}

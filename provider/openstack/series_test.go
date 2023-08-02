@@ -14,9 +14,9 @@ import (
 	"github.com/go-goose/goose/v5/swift"
 	"github.com/juju/errors"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -689,7 +689,7 @@ func DiscardSecurityGroup(e environs.Environ, name string) error {
 
 func FindInstanceSpec(
 	e environs.Environ,
-	base series.Base, arch, cons string,
+	base corebase.Base, arch, cons string,
 	imageMetadata []*imagemetadata.ImageMetadata,
 ) (spec *instances.InstanceSpec, err error) {
 	env := e.(*Environ)

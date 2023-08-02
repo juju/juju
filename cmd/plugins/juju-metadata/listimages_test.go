@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
@@ -61,7 +61,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 	s.BaseCloudImageMetadataSuite.SetUpTest(c)
 
 	s.mockAPI = &mockListAPI{}
-	s.mockAPI.list = func(stream, region string, bases []series.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+	s.mockAPI.list = func(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 		return testData, nil
 	}
 	s.PatchValue(&getImageMetadataListAPI, func(c *listImagesCommand) (MetadataListAPI, error) {
@@ -164,7 +164,7 @@ public:
 
 func (s *ListSuite) TestListMetadataFailed(c *gc.C) {
 	msg := "failed"
-	s.mockAPI.list = func(stream, region string, bases []series.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+	s.mockAPI.list = func(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 		return nil, errors.New(msg)
 	}
 
@@ -174,7 +174,7 @@ func (s *ListSuite) TestListMetadataFailed(c *gc.C) {
 
 func (s *ListSuite) TestListMetadataFilterStream(c *gc.C) {
 	msg := "stream"
-	s.mockAPI.list = func(stream, region string, bases []series.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+	s.mockAPI.list = func(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 		c.Assert(stream, gc.DeepEquals, msg)
 		return nil, nil
 	}
@@ -183,7 +183,7 @@ func (s *ListSuite) TestListMetadataFilterStream(c *gc.C) {
 
 func (s *ListSuite) TestListMetadataFilterRegion(c *gc.C) {
 	msg := "region"
-	s.mockAPI.list = func(stream, region string, bases []series.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+	s.mockAPI.list = func(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 		c.Assert(region, gc.DeepEquals, msg)
 		return nil, nil
 	}
@@ -193,10 +193,10 @@ func (s *ListSuite) TestListMetadataFilterRegion(c *gc.C) {
 func (s *ListSuite) TestListMetadataFilterBases(c *gc.C) {
 	all := []string{"ubuntu@22.04", "ubuntu@20.04"}
 	msg := strings.Join(all, ",")
-	s.mockAPI.list = func(stream, region string, bases []series.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
-		expected := make([]series.Base, len(all))
+	s.mockAPI.list = func(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+		expected := make([]corebase.Base, len(all))
 		for i, b := range all {
-			expected[i] = series.MustParseBaseFromString(b)
+			expected[i] = corebase.MustParseBaseFromString(b)
 		}
 		c.Assert(bases, gc.DeepEquals, expected)
 		return nil, nil
@@ -207,7 +207,7 @@ func (s *ListSuite) TestListMetadataFilterBases(c *gc.C) {
 func (s *ListSuite) TestListMetadataFilterArches(c *gc.C) {
 	all := []string{"arch1", "barch2"}
 	msg := strings.Join(all, ",")
-	s.mockAPI.list = func(stream, region string, bases []series.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+	s.mockAPI.list = func(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 		c.Assert(arch, gc.DeepEquals, all)
 		return nil, nil
 	}
@@ -216,7 +216,7 @@ func (s *ListSuite) TestListMetadataFilterArches(c *gc.C) {
 
 func (s *ListSuite) TestListMetadataFilterVirtType(c *gc.C) {
 	msg := "virtType"
-	s.mockAPI.list = func(stream, region string, bases []series.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+	s.mockAPI.list = func(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 		c.Assert(virtType, gc.DeepEquals, msg)
 		return nil, nil
 	}
@@ -225,7 +225,7 @@ func (s *ListSuite) TestListMetadataFilterVirtType(c *gc.C) {
 
 func (s *ListSuite) TestListMetadataFilterStorageType(c *gc.C) {
 	msg := "storagetype"
-	s.mockAPI.list = func(stream, region string, bases []series.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+	s.mockAPI.list = func(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 		c.Assert(rootStorageType, gc.DeepEquals, msg)
 		return nil, nil
 	}
@@ -233,7 +233,7 @@ func (s *ListSuite) TestListMetadataFilterStorageType(c *gc.C) {
 }
 
 func (s *ListSuite) TestListMetadataNoFilter(c *gc.C) {
-	s.mockAPI.list = func(stream, region string, bases []series.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+	s.mockAPI.list = func(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 		c.Assert(rootStorageType, gc.DeepEquals, "")
 		c.Assert(virtType, gc.DeepEquals, "")
 		c.Assert(region, gc.DeepEquals, "")
@@ -249,7 +249,7 @@ func (s *ListSuite) TestListMetadataFewFilters(c *gc.C) {
 	streamValue := "streamValue"
 	regionValue := "regionValue"
 	typeValue := "typeValue"
-	s.mockAPI.list = func(stream, region string, bases []series.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+	s.mockAPI.list = func(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 		c.Assert(stream, gc.DeepEquals, streamValue)
 		c.Assert(region, gc.DeepEquals, regionValue)
 		c.Assert(virtType, gc.DeepEquals, typeValue)
@@ -270,14 +270,14 @@ func (s *ListSuite) assertValidList(c *gc.C, expectedValid, expectedErr string, 
 }
 
 type mockListAPI struct {
-	list func(stream, region string, bases []series.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error)
+	list func(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error)
 }
 
 func (s mockListAPI) Close() error {
 	return nil
 }
 
-func (s mockListAPI) List(stream, region string, bases []series.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
+func (s mockListAPI) List(stream, region string, bases []corebase.Base, arch []string, virtType, rootStorageType string) ([]params.CloudImageMetadata, error) {
 	return s.list(stream, region, bases, arch, virtType, rootStorageType)
 }
 

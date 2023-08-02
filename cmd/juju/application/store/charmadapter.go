@@ -14,7 +14,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
-	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/base"
 )
 
 // DownloadBundleClient represents a way to download a bundle from a given
@@ -56,7 +56,7 @@ func NewCharmAdaptor(charmsAPI CharmsAPI, downloadBundleClientFunc DownloadBundl
 
 // ResolveCharm tries to interpret url as a Charmhub charm and
 // returns the resolved URL, origin and a slice of supported series.
-func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
+func (c *CharmAdaptor) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []base.Base, error) {
 	resolved, err := c.charmsAPI.ResolveCharms([]apicharm.CharmToResolve{{URL: url, Origin: preferredOrigin, SwitchCharm: switchCharm}})
 	if err != nil {
 		return nil, commoncharm.Origin{}, nil, errors.Trace(err)

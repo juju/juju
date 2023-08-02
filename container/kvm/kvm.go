@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -150,7 +150,7 @@ func (manager *containerManager) Namespace() instance.Namespace {
 func (manager *containerManager) CreateContainer(
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
-	base series.Base,
+	base corebase.Base,
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,

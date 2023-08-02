@@ -16,11 +16,11 @@ import (
 	charmscommon "github.com/juju/juju/api/common/charms"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
@@ -143,7 +143,7 @@ type ProvisioningInfo struct {
 	Constraints          constraints.Value
 	Filesystems          []storage.KubernetesFilesystemParams
 	Devices              []devices.KubernetesDeviceParams
-	Base                 series.Base
+	Base                 corebase.Base
 	ImageDetails         resources.DockerImageDetails
 	CharmModifiedVersion int
 	CharmURL             *charm.URL
@@ -170,7 +170,7 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		return ProvisioningInfo{}, errors.Trace(params.TranslateWellKnownError(err))
 	}
 
-	base, err := series.ParseBase(r.Base.Name, r.Base.Channel)
+	base, err := corebase.ParseBase(r.Base.Name, r.Base.Channel)
 	if err != nil {
 		return ProvisioningInfo{}, errors.Trace(err)
 	}

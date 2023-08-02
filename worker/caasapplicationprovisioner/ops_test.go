@@ -18,12 +18,12 @@ import (
 	api "github.com/juju/juju/api/controller/caasapplicationprovisioner"
 	"github.com/juju/juju/caas"
 	caasmocks "github.com/juju/juju/caas/mocks"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/docker"
@@ -538,11 +538,11 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 				ServerAddress: "registry.com",
 			},
 		},
-		Base: series.Base{
+		Base: corebase.Base{
 			OS: "ubuntu",
-			Channel: series.Channel{
+			Channel: corebase.Channel{
 				Track: "22.04",
-				Risk:  series.Stable,
+				Risk:  corebase.Stable,
 			},
 		},
 		Version:              version.MustParse("2.9.99"),

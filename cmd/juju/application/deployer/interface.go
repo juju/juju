@@ -17,10 +17,10 @@ import (
 	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/jujuclient"
 	apiparams "github.com/juju/juju/rpc/params"
 )
@@ -71,11 +71,11 @@ type ConsumeDetails interface {
 
 // For testing.
 // TODO: unexport it if we don't need to patch it anymore.
-var SupportedJujuSeries = series.WorkloadSeries
+var SupportedJujuSeries = corebase.WorkloadSeries
 
 // For testing.
 // TODO: unexport it if we don't need to patch it anymore.
-var SupportedJujuBases = series.WorkloadBases
+var SupportedJujuBases = corebase.WorkloadBases
 
 type DeployerAPI interface {
 	// APICallCloser is needed for the DeployResourcesFunc.
@@ -135,7 +135,7 @@ type Bundle interface {
 type Resolver interface {
 	GetBundle(*charm.URL, commoncharm.Origin, string) (charm.Bundle, error)
 	ResolveBundleURL(*charm.URL, commoncharm.Origin) (*charm.URL, commoncharm.Origin, error)
-	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error)
+	ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error)
 }
 
 type ModelConfigGetter interface {

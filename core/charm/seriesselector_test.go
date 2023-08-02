@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 type SeriesSelectorSuite struct{}
@@ -271,8 +271,8 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 	}
 
 	// Use bionic for LTS for all calls.
-	previous := series.SetLatestLtsForTesting("bionic")
-	defer series.SetLatestLtsForTesting(previous)
+	previous := corebase.SetLatestLtsForTesting("bionic")
+	defer corebase.SetLatestLtsForTesting(previous)
 
 	for i, test := range deploySeriesTests {
 		c.Logf("test %d [%s]", i, test.title)

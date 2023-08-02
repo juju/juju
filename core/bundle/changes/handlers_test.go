@@ -9,7 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 type resolverSuite struct {
@@ -47,7 +47,7 @@ func (s *resolverSuite) TestAllowUpgradeWithSameChannel(c *gc.C) {
 
 	r := resolver{
 		force: true,
-		charmResolver: func(string, series.Base, string, string, int) (string, int, error) {
+		charmResolver: func(string, corebase.Base, string, string, int) (string, int, error) {
 			return "stable", 1, nil
 		},
 	}
@@ -71,7 +71,7 @@ func (s *resolverSuite) TestAllowUpgradeWithDowngrades(c *gc.C) {
 
 	r := resolver{
 		force: true,
-		charmResolver: func(string, series.Base, string, string, int) (string, int, error) {
+		charmResolver: func(string, corebase.Base, string, string, int) (string, int, error) {
 			return "stable", 1, nil
 		},
 	}
@@ -94,7 +94,7 @@ func (s *resolverSuite) TestAllowUpgradeWithSameRevision(c *gc.C) {
 
 	r := resolver{
 		force: true,
-		charmResolver: func(string, series.Base, string, string, int) (string, int, error) {
+		charmResolver: func(string, corebase.Base, string, string, int) (string, int, error) {
 			return "stable", 1, nil
 		},
 	}
@@ -152,7 +152,7 @@ func (s *resolverSuite) TestAllowUpgradeWithDifferentChannelAndForce(c *gc.C) {
 
 	r := resolver{
 		force: true,
-		charmResolver: func(string, series.Base, string, string, int) (string, int, error) {
+		charmResolver: func(string, corebase.Base, string, string, int) (string, int, error) {
 			return "stable", 1, nil
 		},
 	}

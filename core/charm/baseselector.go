@@ -10,7 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/version"
 )
 
@@ -22,14 +22,14 @@ const (
 // BaseSelector is a helper type that determines what base the charm should
 // be deployed to.
 type BaseSelector struct {
-	requestedBase       series.Base
-	defaultBase         series.Base
+	requestedBase       base.Base
+	defaultBase         base.Base
 	explicitDefaultBase bool
 	force               bool
 	logger              SelectorLogger
 	// supportedBases is the union of SupportedCharmBases and
 	// SupportedJujuBases.
-	supportedBases     []series.Base
+	supportedBases     []base.Base
 	jujuSupportedBases set.Strings
 	usingImageID       bool
 }
@@ -38,9 +38,9 @@ type SelectorConfig struct {
 	Config              SelectorModelConfig
 	Force               bool
 	Logger              SelectorLogger
-	RequestedBase       series.Base
-	SupportedCharmBases []series.Base
-	WorkloadBases       []series.Base
+	RequestedBase       base.Base
+	SupportedCharmBases []base.Base
+	WorkloadBases       []base.Base
 	// usingImageID is true when the user is using the image-id constraint
 	// when deploying the charm. This is needed to validate that in that
 	// case the user is also explicitly providing a base.
@@ -61,11 +61,11 @@ func ConfigureBaseSelector(cfg SelectorConfig) (BaseSelector, error) {
 	// necessary for the callers?
 	defaultBase, explicit := cfg.Config.DefaultBase()
 	var (
-		parsedDefaultBase series.Base
+		parsedDefaultBase base.Base
 		err               error
 	)
 	if explicit {
-		parsedDefaultBase, err = series.ParseBaseFromString(defaultBase)
+		parsedDefaultBase, err = base.ParseBaseFromString(defaultBase)
 		if err != nil {
 			return BaseSelector{}, errors.Trace(err)
 		}
@@ -89,7 +89,7 @@ func ConfigureBaseSelector(cfg SelectorConfig) (BaseSelector, error) {
 // TODO(nvinuesa): The force flag is only valid if the requestedBase is specified
 // or to force the deploy of a LXD profile that doesn't pass validation, this
 // should be added to these validation checks.
-func (s BaseSelector) validate(supportedCharmBases, supportedJujuBases []series.Base) ([]series.Base, error) {
+func (s BaseSelector) validate(supportedCharmBases, supportedJujuBases []base.Base) ([]base.Base, error) {
 	// If the image-id constraint is provided then base must be explicitly
 	// provided either by flag either by model-config default base.
 	if s.logger == nil {
@@ -106,7 +106,7 @@ func (s BaseSelector) validate(supportedCharmBases, supportedJujuBases []series.
 	}
 	// Verify that the charm supported bases include at least one juju
 	// supported base.
-	var supportedBases []series.Base
+	var supportedBases []base.Base
 	for _, charmBase := range supportedCharmBases {
 		for _, jujuCharmBase := range supportedJujuBases {
 			s.jujuSupportedBases.Add(jujuCharmBase.String())
@@ -130,7 +130,7 @@ func (s BaseSelector) validate(supportedCharmBases, supportedJujuBases []series.
 //   - first base listed in the charm manifest
 //   - in the case of local charms with no manifest nor base in metadata,
 //     base must be provided by the user.
-func (s BaseSelector) CharmBase() (selectedBase series.Base, err error) {
+func (s BaseSelector) CharmBase() (selectedBase base.Base, err error) {
 	// TODO(sidecar): handle systems
 
 	// TODO (hml) 2023-05-16
@@ -151,12 +151,12 @@ func (s BaseSelector) CharmBase() (selectedBase series.Base, err error) {
 	}
 
 	// Prefer latest Ubuntu LTS.
-	preferredBase, err := BaseForCharm(series.LatestLTSBase(), s.supportedBases)
+	preferredBase, err := BaseForCharm(base.LatestLTSBase(), s.supportedBases)
 	if err == nil {
-		s.logger.Infof(msgLatestLTSBase, series.LatestLTSBase())
+		s.logger.Infof(msgLatestLTSBase, base.LatestLTSBase())
 		return preferredBase, nil
 	} else if IsMissingBaseError(err) {
-		return series.Base{}, err
+		return base.Base{}, err
 	}
 
 	// Try juju's current default supported Ubuntu LTS
@@ -167,35 +167,35 @@ func (s BaseSelector) CharmBase() (selectedBase series.Base, err error) {
 	}
 
 	// Last chance, the first base in the charm's manifest
-	return BaseForCharm(series.Base{}, s.supportedBases)
+	return BaseForCharm(base.Base{}, s.supportedBases)
 }
 
 // userRequested checks the base the user has requested, and returns it if it
 // is supported, or if they used --force.
-func (s BaseSelector) userRequested(requestedBase series.Base) (series.Base, error) {
+func (s BaseSelector) userRequested(requestedBase base.Base) (base.Base, error) {
 	// TODO(sidecar): handle computed base
-	base, err := BaseForCharm(requestedBase, s.supportedBases)
+	b, err := BaseForCharm(requestedBase, s.supportedBases)
 	if s.force && IsUnsupportedBaseError(err) && s.jujuSupportedBases.Contains(requestedBase.String()) {
 		// If the base is unsupported by juju, using force will not
 		// apply.
-		base = requestedBase
+		b = requestedBase
 	} else if err != nil {
 		if !s.jujuSupportedBases.Contains(requestedBase.String()) {
-			return series.Base{}, errors.NewNotSupported(nil, fmt.Sprintf("base: %s", requestedBase))
+			return base.Base{}, errors.NewNotSupported(nil, fmt.Sprintf("base: %s", requestedBase))
 		}
 		if IsUnsupportedBaseError(err) {
-			return series.Base{}, errors.Errorf(
+			return base.Base{}, errors.Errorf(
 				"base %q is not supported, base series are: %s",
 				requestedBase, printBases(s.supportedBases),
 			)
 		}
-		return series.Base{}, err
+		return base.Base{}, err
 	}
-	s.logger.Infof(msgUserRequestedBase, base)
-	return base, nil
+	s.logger.Infof(msgUserRequestedBase, b)
+	return b, nil
 }
 
-func printBases(bases []series.Base) string {
+func printBases(bases []base.Base) string {
 	baseStrings := make([]string, len(bases))
 	for i, base := range bases {
 		baseStrings[i] = base.DisplayString()

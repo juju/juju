@@ -26,10 +26,10 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -70,7 +70,7 @@ func (s *legacyEnvironBrokerSuite) SetUpTest(c *gc.C) {
 func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
 	var cons constraints.Value
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
-		coretesting.FakeControllerConfig(), cons, cons, coreseries.MakeDefaultBase("ubuntu", "22.04"), "", nil,
+		coretesting.FakeControllerConfig(), cons, cons, corebase.MakeDefaultBase("ubuntu", "22.04"), "", nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -640,7 +640,7 @@ func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 		"0",
 		"nonce",
 		"",
-		coreseries.MakeDefaultBase("ubuntu", "22.04"),
+		corebase.MakeDefaultBase("ubuntu", "22.04"),
 		&api.Info{
 			Tag:      names.NewMachineTag("0"),
 			ModelTag: coretesting.ModelTag,

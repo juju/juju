@@ -16,11 +16,11 @@ import (
 
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	coreseries "github.com/juju/juju/core/series"
 )
 
-func convertInfoResponse(info transport.InfoResponse, arch string, base coreseries.Base) (InfoResponse, error) {
+func convertInfoResponse(info transport.InfoResponse, arch string, base corebase.Base) (InfoResponse, error) {
 	ir := InfoResponse{
 		Type:        string(info.Type),
 		ID:          info.ID,
@@ -109,7 +109,7 @@ func convertCharm(info transport.InfoResponse) *Charm {
 	return ch
 }
 
-func includeChannel(p []corecharm.Platform, architecture string, base coreseries.Base) bool {
+func includeChannel(p []corecharm.Platform, architecture string, base corebase.Base) bool {
 	allArch := architecture == ArchAll
 
 	// If we're searching for everything then we can skip the filtering logic
@@ -121,7 +121,7 @@ func includeChannel(p []corecharm.Platform, architecture string, base coreseries
 	archSet := channelArches(p)
 	basesSet := channelBases(p)
 
-	contains := func(bases []Base, base coreseries.Base) bool {
+	contains := func(bases []Base, base corebase.Base) bool {
 		for _, b := range bases {
 			if b.Name == base.OS && b.Channel == base.Channel.Track {
 				return true
@@ -301,7 +301,7 @@ func formatRelationPart(r map[string]charm.Relation) (map[string]string, bool) {
 // filterChannels returns channel map data in a format that facilitates
 // determining track order and open vs closed channels for displaying channel
 // data. The result is filtered on base and arch.
-func filterChannels(channelMap []transport.InfoChannelMap, arch string, base coreseries.Base) ([]string, RevisionsMap, error) {
+func filterChannels(channelMap []transport.InfoChannelMap, arch string, base corebase.Base) ([]string, RevisionsMap, error) {
 	var trackList []string
 
 	tracksSeen := set.NewStrings()

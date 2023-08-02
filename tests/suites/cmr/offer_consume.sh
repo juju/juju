@@ -62,6 +62,7 @@ run_offer_consume() {
 	# The offer must be removed before model/controller destruction will work.
 	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
 	juju switch "model-offer"
+	wait_for null '.offers."dummy-offer"."total-connected-count"'
 	juju remove-offer "admin/model-offer.dummy-offer" -y
 
 	echo "Clean up"
@@ -122,6 +123,7 @@ run_offer_consume_cross_controller() {
 	# The offer must be removed before model/controller destruction will work.
 	# See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
 	juju switch "${offer_controller}:model-offer"
+	wait_for null '.offers."dummy-offer"."total-connected-count"'
 	juju remove-offer "${offer_controller}:admin/model-offer.dummy-source" -y
 
 	echo "Clean up"

@@ -25,7 +25,7 @@ import (
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/http/mocks"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -112,24 +112,24 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 		{
 			URL:    curl,
 			Origin: stableChannelOrigin,
-			SupportedBases: []series.Base{
-				series.MustParseBaseFromString("ubuntu@18.04"),
-				series.MustParseBaseFromString("ubuntu@20.04"),
-				series.MustParseBaseFromString("ubuntu@16.04"),
+			SupportedBases: []corebase.Base{
+				corebase.MustParseBaseFromString("ubuntu@18.04"),
+				corebase.MustParseBaseFromString("ubuntu@20.04"),
+				corebase.MustParseBaseFromString("ubuntu@16.04"),
 			},
 		}, {
 			URL:    curl2,
 			Origin: edgeChannelOrigin,
-			SupportedBases: []series.Base{
-				series.MustParseBaseFromString("ubuntu@18.04"),
-				series.MustParseBaseFromString("ubuntu@20.04"),
-				series.MustParseBaseFromString("ubuntu@16.04"),
+			SupportedBases: []corebase.Base{
+				corebase.MustParseBaseFromString("ubuntu@18.04"),
+				corebase.MustParseBaseFromString("ubuntu@20.04"),
+				corebase.MustParseBaseFromString("ubuntu@16.04"),
 			},
 		}, {
 			URL:    curl2,
 			Origin: edgeChannelOrigin,
-			SupportedBases: []series.Base{
-				series.MustParseBaseFromString("ubuntu@20.04"),
+			SupportedBases: []corebase.Base{
+				corebase.MustParseBaseFromString("ubuntu@20.04"),
 			},
 		},
 	}
@@ -199,24 +199,24 @@ func (s *charmsMockSuite) TestResolveCharmsLegacy(c *gc.C) {
 		{
 			URL:    curl,
 			Origin: stableChannelOrigin,
-			SupportedBases: []series.Base{
-				series.MustParseBaseFromString("ubuntu@18.04"),
-				series.MustParseBaseFromString("ubuntu@20.04"),
-				series.MustParseBaseFromString("ubuntu@16.04"),
+			SupportedBases: []corebase.Base{
+				corebase.MustParseBaseFromString("ubuntu@18.04"),
+				corebase.MustParseBaseFromString("ubuntu@20.04"),
+				corebase.MustParseBaseFromString("ubuntu@16.04"),
 			},
 		}, {
 			URL:    curl2,
 			Origin: edgeChannelOrigin,
-			SupportedBases: []series.Base{
-				series.MustParseBaseFromString("ubuntu@18.04"),
-				series.MustParseBaseFromString("ubuntu@20.04"),
-				series.MustParseBaseFromString("ubuntu@16.04"),
+			SupportedBases: []corebase.Base{
+				corebase.MustParseBaseFromString("ubuntu@18.04"),
+				corebase.MustParseBaseFromString("ubuntu@20.04"),
+				corebase.MustParseBaseFromString("ubuntu@16.04"),
 			},
 		}, {
 			URL:    curl2,
 			Origin: edgeChannelOrigin,
-			SupportedBases: []series.Base{
-				series.MustParseBaseFromString("ubuntu@20.04"),
+			SupportedBases: []corebase.Base{
+				corebase.MustParseBaseFromString("ubuntu@20.04"),
 			},
 		},
 	}
@@ -276,7 +276,7 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 		Revision:     &curl.Revision,
 		Track:        nil,
 		Architecture: arch.DefaultArchitecture,
-		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
+		Base:         corebase.MakeDefaultBase("ubuntu", "18.04"),
 	}
 	facadeArgs := params.AddCharmWithOrigin{
 		URL:    curl.String(),

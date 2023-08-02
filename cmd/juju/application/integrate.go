@@ -219,9 +219,6 @@ func (c *addRelationCommand) Init(args []string) error {
 	if err := c.validateCIDRs(); err != nil {
 		return err
 	}
-	if c.remoteEndpoint == nil && len(c.viaCIDRs) > 0 {
-		return errors.New("the --via option can only be used when integrating with offers in a different model")
-	}
 	return nil
 }
 

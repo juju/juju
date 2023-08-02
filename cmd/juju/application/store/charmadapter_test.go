@@ -16,7 +16,7 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/store/mocks"
-	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/base"
 )
 
 type resolveSuite struct {
@@ -44,9 +44,9 @@ func (s *resolveSuite) TestResolveCharm(c *gc.C) {
 	obtainedURL, obtainedOrigin, obtainedBases, err := charmAdapter.ResolveCharm(curl, origin, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin.Risk, gc.Equals, "edge")
-	c.Assert(obtainedBases, jc.SameContents, []series.Base{
-		series.MustParseBaseFromString("ubuntu@18.04"),
-		series.MustParseBaseFromString("ubuntu@20.04"),
+	c.Assert(obtainedBases, jc.SameContents, []base.Base{
+		base.MustParseBaseFromString("ubuntu@18.04"),
+		base.MustParseBaseFromString("ubuntu@20.04"),
 	})
 	c.Assert(obtainedURL, gc.Equals, curl)
 }
@@ -162,9 +162,9 @@ func (s *resolveSuite) expectCharmResolutionCall(curl *charm.URL, out string, er
 	retVal := []apicharm.ResolvedCharm{{
 		URL:    curl,
 		Origin: origin,
-		SupportedBases: []series.Base{
-			series.MustParseBaseFromString("ubuntu@18.04"),
-			series.MustParseBaseFromString("ubuntu@20.04"),
+		SupportedBases: []base.Base{
+			base.MustParseBaseFromString("ubuntu@18.04"),
+			base.MustParseBaseFromString("ubuntu@20.04"),
 		},
 	}}
 	s.charmsAPI.EXPECT().ResolveCharms(gomock.Any()).Return(retVal, err)
@@ -178,9 +178,9 @@ func (s *resolveSuite) expectCharmResolutionCallWithAPIError(curl *charm.URL, ou
 	retVal := []apicharm.ResolvedCharm{{
 		URL:    curl,
 		Origin: origin,
-		SupportedBases: []series.Base{
-			series.MustParseBaseFromString("ubuntu@18.04"),
-			series.MustParseBaseFromString("ubuntu@20.04"),
+		SupportedBases: []base.Base{
+			base.MustParseBaseFromString("ubuntu@18.04"),
+			base.MustParseBaseFromString("ubuntu@20.04"),
 		},
 		Error: err,
 	}}

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/base"
 )
 
 // NewCharmAtPath returns the charm represented by this path,
@@ -174,8 +174,8 @@ func IsUnsupportedSeriesError(err error) bool {
 // unsupportedBaseError represents an error indicating that the requested base
 // is not supported by the charm.
 type unsupportedBaseError struct {
-	requestedBase  series.Base
-	supportedBases []series.Base
+	requestedBase  base.Base
+	supportedBases []base.Base
 }
 
 func (e *unsupportedBaseError) Error() string {
@@ -187,7 +187,7 @@ func (e *unsupportedBaseError) Error() string {
 
 // NewUnsupportedBaseError returns an error indicating that the requested series
 // is not supported by a charm.
-func NewUnsupportedBaseError(requestedBase series.Base, supportedBases []series.Base) error {
+func NewUnsupportedBaseError(requestedBase base.Base, supportedBases []base.Base) error {
 	return &unsupportedBaseError{requestedBase, supportedBases}
 }
 

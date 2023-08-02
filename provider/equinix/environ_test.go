@@ -15,10 +15,10 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -644,7 +644,7 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 	cons := constraints.Value{}
-	base := series.MakeDefaultBase("ubuntu", "20.04")
+	base := corebase.MakeDefaultBase("ubuntu", "20.04")
 	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, base, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = env.StartInstance(environContext.NewCloudCallContext(context.TODO()), environs.StartInstanceParams{
@@ -741,7 +741,7 @@ func (*EquinixUtils) TestIsDistroSupported(c *gc.C) {
 				Version: "20.10",
 			},
 			ic: &instances.InstanceConstraint{
-				Base: series.MakeDefaultBase("ubuntu", "20.10"),
+				Base: corebase.MakeDefaultBase("ubuntu", "20.10"),
 			},
 			expect: false,
 		},

@@ -19,10 +19,10 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
@@ -282,7 +282,7 @@ func (c *addCommand) getMachineManagerAPI() (MachineManagerAPI, error) {
 
 func (c *addCommand) Run(ctx *cmd.Context) error {
 	var (
-		base series.Base
+		base corebase.Base
 		err  error
 	)
 	// Note: we validated that both series and base cannot be specified in
@@ -292,7 +292,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 			return fmt.Errorf(`command "add-machine" does not support container models`)
 		} else {
 			ctx.Warningf("series flag is deprecated, use --base instead")
-			if base, err = series.GetBaseFromSeries(c.Series); err != nil {
+			if base, err = corebase.GetBaseFromSeries(c.Series); err != nil {
 				return errors.Annotatef(err, "attempting to convert %q to a base", c.Series)
 			}
 		}
@@ -300,7 +300,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		c.Series = ""
 	}
 	if c.Base != "" {
-		if base, err = series.ParseBaseFromString(c.Base); err != nil {
+		if base, err = corebase.ParseBaseFromString(c.Base); err != nil {
 			return errors.Trace(err)
 		}
 	}

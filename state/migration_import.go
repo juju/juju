@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	secretsprovider "github.com/juju/juju/secrets/provider"
@@ -280,7 +280,7 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 		if v == "" {
 			attrs[config.DefaultBaseKey] = ""
 		} else {
-			s, err := series.GetBaseFromSeries(v.(string))
+			s, err := corebase.GetBaseFromSeries(v.(string))
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -719,7 +719,7 @@ func (i *importer) makeMachineDoc(m description.Machine) (*machineDoc, error) {
 	}
 
 	machineTag := m.Tag()
-	base, err := series.ParseBaseFromString(m.Base())
+	base, err := corebase.ParseBaseFromString(m.Base())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	coretools "github.com/juju/juju/tools"
@@ -52,7 +52,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 	if filter.OSType != "" {
 		osToSearch = []string{filter.OSType}
 	} else {
-		workloadOSTypes, err := series.AllWorkloadOSTypes("", stream)
+		workloadOSTypes, err := corebase.AllWorkloadOSTypes("", stream)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -18,10 +18,10 @@ import (
 	"github.com/juju/juju/api/client/application"
 	apicharm "github.com/juju/juju/api/common/charm"
 	apitesting "github.com/juju/juju/api/testing"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -1432,7 +1432,7 @@ func (s *applicationSuite) TestDeployFromRepository(c *gc.C) {
 	arg := application.DeployFromRepositoryArg{
 		CharmName:       "ubuntu",
 		ApplicationName: "jammy",
-		Base:            &series.Base{OS: "ubuntu", Channel: series.Channel{Track: "22.04"}},
+		Base:            &corebase.Base{OS: "ubuntu", Channel: corebase.Channel{Track: "22.04"}},
 	}
 	client := application.NewClientFromCaller(mockFacadeCaller)
 	info, _, errs := client.DeployFromRepository(arg)
@@ -1444,9 +1444,9 @@ func (s *applicationSuite) TestDeployFromRepository(c *gc.C) {
 	c.Assert(info, gc.DeepEquals, application.DeployInfo{
 		Channel:      candidate,
 		Architecture: "arm64",
-		Base: series.Base{
+		Base: corebase.Base{
 			OS:      "ubuntu",
-			Channel: series.Channel{Track: "22.04", Risk: "stable"},
+			Channel: corebase.Channel{Track: "22.04", Risk: "stable"},
 		},
 		EffectiveChannel: &stable,
 		Name:             "ubuntu",

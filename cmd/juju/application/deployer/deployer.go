@@ -26,12 +26,12 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/storage"
 )
@@ -297,7 +297,7 @@ func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter Mode
 	)
 	if !d.base.Empty() {
 		var err error
-		seriesName, err = series.GetSeriesFromBase(d.base)
+		seriesName, err = corebase.GetSeriesFromBase(d.base)
 		if err != nil {
 			return "", "", errors.Trace(err)
 		}
@@ -449,7 +449,7 @@ type DeployerConfig struct {
 	Placement            []*instance.Placement
 	Resources            map[string]string
 	Revision             int
-	Base                 series.Base
+	Base                 corebase.Base
 	Storage              map[string]storage.Constraints
 	Trust                bool
 	UseExisting          bool
@@ -473,7 +473,7 @@ type factory struct {
 	bundleOverlayFile  []string
 	channel            charm.Channel
 	revision           int
-	base               series.Base
+	base               corebase.Base
 	force              bool
 	dryRun             bool
 	applicationName    string
@@ -532,10 +532,10 @@ func (dt *localBundleDeployerKind) CreateDeployer(d factory) (Deployer, error) {
 
 	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	db := d.newDeployBundle(d.defaultCharmSchema, dt.DataSource)
-	var base series.Base
+	var base corebase.Base
 	var err error
 	if platform.Channel != "" {
-		base, err = series.ParseBase(platform.OS, platform.Channel)
+		base, err = corebase.ParseBase(platform.OS, platform.Channel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
