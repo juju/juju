@@ -21,9 +21,9 @@ import (
 
 	"github.com/juju/juju/charmhub/path"
 	"github.com/juju/juju/charmhub/transport"
+	corebase "github.com/juju/juju/core/base"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/version"
 )
 
@@ -418,14 +418,14 @@ func constructRefreshBase(base RefreshBase) (transport.Base, error) {
 		// Kubernetes is not a valid channel for a base.
 		// Instead use the latest LTS version of ubuntu.
 		name = "ubuntu"
-		channel, err = coreseries.SeriesVersion(version.DefaultSupportedLTS())
+		channel, err = corebase.SeriesVersion(version.DefaultSupportedLTS())
 		if err != nil {
 			return transport.Base{}, errors.NotValidf("invalid latest version")
 		}
 	default:
 		// If we have a series, we need to convert it to a stable version.
 		// If we have a version, then just pass that through.
-		potential, err := coreseries.SeriesVersion(base.Channel)
+		potential, err := corebase.SeriesVersion(base.Channel)
 		if err == nil {
 			channel = potential
 		} else {

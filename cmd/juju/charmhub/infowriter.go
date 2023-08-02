@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/output"
-	coreseries "github.com/juju/juju/core/series"
 )
 
 // Note:
@@ -147,7 +147,7 @@ func formatRevision(r Revision, showName bool) string {
 func basesDisplay(bases []Base) []string {
 	strs := make([]string, len(bases))
 	for i, b := range bases {
-		base, err := coreseries.ParseBase(b.Name, b.Channel)
+		base, err := corebase.ParseBase(b.Name, b.Channel)
 		if err != nil {
 			strs[i] = base.DisplayString()
 			continue

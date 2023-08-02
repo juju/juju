@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/imagemetadata/testing"
@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	testBase    = series.MustParseBaseFromString("ubuntu@16.04")
+	testBase    = corebase.MustParseBaseFromString("ubuntu@16.04")
 	testVersion = "16.04"
 )
 
@@ -29,7 +29,7 @@ type generateSuite struct {
 }
 
 func (s *generateSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&series.UbuntuDistroInfo, "/path/notexists")
+	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 }
 
 func assertFetch(c *gc.C, ss *simplestreams.Simplestreams, stor storage.Storage, version, arch, region, endpoint string, ids ...string) {
@@ -147,7 +147,7 @@ func (s *generateSuite) TestWriteMetadataMergeDifferentSeries(c *gc.C) {
 			Version: "12.04",
 		},
 	}
-	base := series.MustParseBaseFromString("ubuntu@12.04")
+	base := corebase.MustParseBaseFromString("ubuntu@12.04")
 	err = imagemetadata.MergeAndWriteMetadata(ss, base, newImageMetadata, cloudSpec, targetStorage)
 	c.Assert(err, jc.ErrorIsNil)
 	metadata := testing.ParseMetadataFromDir(c, dir)

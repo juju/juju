@@ -23,9 +23,9 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/output/progress"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/version"
 )
 
@@ -143,7 +143,7 @@ func (c *downloadCommand) validateCharmOrBundle(charmOrBundle string) (*charm.UR
 // part of the cmd.Command interface.
 func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	var (
-		base series.Base
+		base corebase.Base
 		err  error
 	)
 	// Note: we validated that both series and base cannot be specified in
@@ -152,14 +152,14 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 		c.series = ""
 	} else if c.series != "" {
 		cmdContext.Warningf("series flag is deprecated, use --base instead")
-		if base, err = series.GetBaseFromSeries(c.series); err != nil {
+		if base, err = corebase.GetBaseFromSeries(c.series); err != nil {
 			return errors.Annotatef(err, "attempting to convert %q to a base", c.series)
 		}
 		c.base = base.String()
 		c.series = ""
 	}
 	if c.base != "" {
-		if base, err = series.ParseBaseFromString(c.base); err != nil {
+		if base, err = corebase.ParseBaseFromString(c.base); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -273,7 +273,7 @@ func (c *downloadCommand) refresh(
 	client CharmHubClient,
 	normChannel charm.Channel,
 	arch string,
-	base series.Base,
+	base corebase.Base,
 	retrySuggested bool,
 ) ([]transport.RefreshResponse, *corecharm.Platform, error) {
 	platform := fmt.Sprintf("%s/%s/%s", arch, base.OS, base.Channel.Track)
@@ -321,14 +321,14 @@ func (c *downloadCommand) refresh(
 	return results, &normBase, nil
 }
 
-func (c *downloadCommand) suggested(cmdContext *cmd.Context, requestedBase series.Base, channel string, releases []transport.Release) ([]series.Base, error) {
+func (c *downloadCommand) suggested(cmdContext *cmd.Context, requestedBase corebase.Base, channel string, releases []transport.Release) ([]corebase.Base, error) {
 	var (
-		ordered []series.Base
-		bases   = make(map[series.Base]struct{})
+		ordered []corebase.Base
+		bases   = make(map[corebase.Base]struct{})
 	)
 	for _, rel := range releases {
 		if rel.Channel == channel {
-			parsedBase, err := series.ParseBase(rel.Base.Name, rel.Base.Channel)
+			parsedBase, err := corebase.ParseBase(rel.Base.Name, rel.Base.Channel)
 			if err != nil {
 				// Shouldn't happen, log and continue if verbose is set.
 				cmdContext.Verbosef("%s of %s", err, rel.Base.Name)

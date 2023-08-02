@@ -32,10 +32,10 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -62,8 +62,8 @@ var (
 		model.JobHostUnits,
 	}
 
-	jammy = coreseries.MakeDefaultBase("ubuntu", "22.04")
-	focal = coreseries.MakeDefaultBase("ubuntu", "20.04")
+	jammy = corebase.MakeDefaultBase("ubuntu", "22.04")
+	focal = corebase.MakeDefaultBase("ubuntu", "20.04")
 )
 
 func jujuLogDir(osName string) string {
@@ -102,7 +102,7 @@ type testInstanceConfig instancecfg.InstanceConfig
 
 // makeTestConfig returns a minimal instance config for a non state
 // server machine (unless bootstrap is true) for the given series.
-func makeTestConfig(base coreseries.Base, bootstrap bool, vers version.Number, build int) *testInstanceConfig {
+func makeTestConfig(base corebase.Base, bootstrap bool, vers version.Number, build int) *testInstanceConfig {
 	const defaultMachineID = "99"
 
 	cfg := new(testInstanceConfig)
@@ -148,13 +148,13 @@ func makeTestConfig(base coreseries.Base, bootstrap bool, vers version.Number, b
 }
 
 // makeBootstrapConfig is a shortcut to call makeTestConfig(series, true).
-func makeBootstrapConfig(base coreseries.Base, build int) *testInstanceConfig {
+func makeBootstrapConfig(base corebase.Base, build int) *testInstanceConfig {
 	return makeTestConfig(base, true, version.MustParse("1.2.3"), build)
 }
 
 // makeNormalConfig is a shortcut to call makeTestConfig(series,
 // false).
-func makeNormalConfig(base coreseries.Base, build int) *testInstanceConfig {
+func makeNormalConfig(base corebase.Base, build int) *testInstanceConfig {
 	return makeTestConfig(base, false, version.MustParse("1.2.3"), build)
 }
 
@@ -195,7 +195,7 @@ func (cfg *testInstanceConfig) setEnableOSUpdateAndUpgrade(updateEnabled, upgrad
 
 // setBase sets the series-specific fields (Tools, Release, DataDir,
 // LogDir, and CloudInitOutputLog) to match the given series.
-func (cfg *testInstanceConfig) setBase(base coreseries.Base, vers version.Number, build int) *testInstanceConfig {
+func (cfg *testInstanceConfig) setBase(base corebase.Base, vers version.Number, build int) *testInstanceConfig {
 	ver := ""
 	if build > 0 {
 		ver = fmt.Sprintf("%s.%d-%s-amd64", vers.String(), build, base.OS)
@@ -420,7 +420,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-ubuntu-amd64\.sha256
 
 	// CentOS non controller
 	{
-		cfg:               makeNormalConfig(coreseries.MakeDefaultBase("centos", "7"), 0),
+		cfg:               makeNormalConfig(corebase.MakeDefaultBase("centos", "7"), 0),
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
 		expectScripts: `
@@ -431,7 +431,7 @@ sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
 	},
 	// OpenSUSE non controller
 	{
-		cfg:               makeNormalConfig(coreseries.MakeDefaultBase("opensuse", "opensuse42"), 0),
+		cfg:               makeNormalConfig(corebase.MakeDefaultBase("opensuse", "opensuse42"), 0),
 		inexactMatch:      true,
 		upgradedToVersion: "1.2.3",
 		expectScripts: `

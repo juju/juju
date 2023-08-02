@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/cmd/juju/application/deployer"
 	apputils "github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -72,11 +72,11 @@ func (s *BundleDeploySuite) makeBundleDir(c *gc.C, content string) string {
 	return bundlePath
 }
 
-func (s *BundleDeploySuite) setupCharm(c *gc.C, url, name string, base series.Base) charm.Charm {
-	return s.setupCharmMaybeForce(c, url, name, base, arch.DefaultArchitecture, false)
+func (s *BundleDeploySuite) setupCharm(c *gc.C, url, name string, b base.Base) charm.Charm {
+	return s.setupCharmMaybeForce(c, url, name, b, arch.DefaultArchitecture, false)
 }
 
-func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abase series.Base, arc string, force bool) charm.Charm {
+func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abase base.Base, arc string, force bool) charm.Charm {
 	baseURL := charm.MustParseURL(url)
 	baseURL.Series = ""
 	deployURL := charm.MustParseURL(url)
@@ -89,7 +89,7 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abas
 	noRevisionURL.Revision = -1
 	charmHubURL := charm.MustParseURL(fmt.Sprintf("ch:%s", baseURL.Name))
 	seriesURL := charm.MustParseURL(url)
-	aseries, err := series.GetSeriesFromBase(abase)
+	aseries, err := base.GetSeriesFromBase(abase)
 	c.Assert(err, jc.ErrorIsNil)
 	seriesURL.Series = aseries
 	// In order to replicate what the charmstore does in terms of matching, we
@@ -108,17 +108,17 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abas
 	}
 	for _, url := range charmURLs {
 		for _, serie := range []string{"", url.Series, aseries} {
-			var base series.Base
+			var b base.Base
 			if serie != "" {
 				var err error
-				base, err = series.GetBaseFromSeries(serie)
+				b, err = base.GetBaseFromSeries(serie)
 				c.Assert(err, jc.ErrorIsNil)
 			}
 			for _, a := range []string{"", arc, arch.DefaultArchitecture} {
 				platform := corecharm.Platform{
 					Architecture: a,
-					OS:           base.OS,
-					Channel:      base.Channel.Track,
+					OS:           b.OS,
+					Channel:      b.Channel.Track,
 				}
 				origin, err := apputils.DeduceOrigin(url, charm.Channel{}, platform)
 				c.Assert(err, jc.ErrorIsNil)
@@ -126,7 +126,7 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abas
 				s.fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 					resolveURL,
 					origin,
-					[]series.Base{abase},
+					[]base.Base{abase},
 					error(nil),
 				)
 
@@ -134,7 +134,7 @@ func (s *BundleDeploySuite) setupCharmMaybeForce(c *gc.C, url, name string, abas
 				s.fakeAPI.Call("ResolveCharm", url, origin, false).Returns(
 					resolveURL,
 					origin,
-					[]series.Base{abase},
+					[]base.Base{abase},
 					error(nil),
 				)
 
@@ -165,14 +165,14 @@ func (s *BundleDeploySuite) setupBundle(c *gc.C, url, name string, allSeries ...
 	// Resolve a bundle with no revision and return a url with a version.  Ensure
 	// GetBundle expects the url with revision.
 	for _, serie := range append([]string{"", baseURL.Series}, allSeries...) {
-		var base series.Base
+		var b base.Base
 		if serie != "" && serie != "bundle" {
 			var err error
-			base, err = series.GetBaseFromSeries(serie)
+			b, err = base.GetBaseFromSeries(serie)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		origin, err := apputils.DeduceOrigin(bundleResolveURL, charm.Channel{}, corecharm.Platform{
-			OS: base.OS, Channel: base.Channel.Track})
+			OS: b.OS, Channel: b.Channel.Track})
 		c.Assert(err, jc.ErrorIsNil)
 		origin.Revision = nil
 		s.fakeAPI.Call("ResolveBundleURL", &baseURL, origin).Returns(
@@ -191,8 +191,8 @@ func (s *BundleDeploySuite) runDeploy(c *gc.C, args ...string) error {
 }
 
 func (s *BundleDeploySuite) TestDeployBundleInvalidFlags(c *gc.C) {
-	s.setupCharm(c, "ch:xenial/mysql-42", "mysql", series.MustParseBaseFromString("ubuntu@18.04"))
-	s.setupCharm(c, "ch:xenial/wordpress-47", "wordpress", series.MustParseBaseFromString("ubuntu@18.04"))
+	s.setupCharm(c, "ch:xenial/mysql-42", "mysql", base.MustParseBaseFromString("ubuntu@18.04"))
+	s.setupCharm(c, "ch:xenial/wordpress-47", "wordpress", base.MustParseBaseFromString("ubuntu@18.04"))
 	s.setupBundle(c, "ch:bundle/wordpress-simple-1", "wordpress-simple", "bionic", "xenial")
 
 	err := s.runDeploy(c, "ch:bundle/wordpress-simple", "--config", "config.yaml")
@@ -218,7 +218,7 @@ func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c 
 	dummyURL := charm.MustParseURL("local:quantal/dummy-1")
 	withLocalCharmDeployable(s.fakeAPI, dummyURL, charmDir, force)
 	withLocalBundleCharmDeployable(
-		s.fakeAPI, dummyURL, series.MustParseBaseFromString("ubuntu@12.10"),
+		s.fakeAPI, dummyURL, base.MustParseBaseFromString("ubuntu@12.10"),
 		charmDir.Meta(), charmDir.Manifest(), force,
 	)
 	s.fakeAPI.Call("CharmInfo", "local:quantal/dummy-1").Returns(
@@ -361,7 +361,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {
 	curl := charm.MustParseURL("local:focal/lxd-profile-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withLocalBundleCharmDeployable(
-		s.fakeAPI, curl, series.MustParseBaseFromString("ubuntu@20.04"),
+		s.fakeAPI, curl, base.MustParseBaseFromString("ubuntu@20.04"),
 		charmDir.Meta(), charmDir.Manifest(), false,
 	)
 
@@ -404,7 +404,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadLXDProfileWithForc
 	curl := charm.MustParseURL("local:focal/lxd-profile-fail-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, true)
 	withLocalBundleCharmDeployable(
-		s.fakeAPI, curl, series.MustParseBaseFromString("ubuntu@20.04"),
+		s.fakeAPI, curl, base.MustParseBaseFromString("ubuntu@20.04"),
 		charmDir.Meta(), charmDir.Manifest(), true,
 	)
 
@@ -504,7 +504,7 @@ applications:
 	curl := charm.MustParseURL("local:focal/dummy-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withLocalBundleCharmDeployable(
-		s.fakeAPI, curl, series.MustParseBaseFromString("ubuntu@20.04"),
+		s.fakeAPI, curl, base.MustParseBaseFromString("ubuntu@20.04"),
 		charmDir.Meta(), charmDir.Manifest(), false,
 	)
 
@@ -514,7 +514,7 @@ applications:
 
 func (s *BundleDeploySuite) TestDeployBundleLocalAndCharmhubCharms(c *gc.C) {
 	charmsPath := c.MkDir()
-	wordpressDir := s.setupCharm(c, "ch:focal/wordpress-1", "wordpress", series.MustParseBaseFromString("ubuntu@20.04"))
+	wordpressDir := s.setupCharm(c, "ch:focal/wordpress-1", "wordpress", base.MustParseBaseFromString("ubuntu@20.04"))
 	mysqlDir := testcharms.RepoWithSeries("bionic").ClonedDir(charmsPath, "mysql")
 	mysqlURL := charm.MustParseURL("local:jammy/mysql-1")
 	wordpressURL := charm.MustParseURL("ch:focal/wordpress-1")
@@ -531,7 +531,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalAndCharmhubCharms(c *gc.C) {
 		},
 		error(nil),
 	)
-	base := series.MustParseBaseFromString("ubuntu@20.04/stable")
+	base := base.MustParseBaseFromString("ubuntu@20.04/stable")
 	deployArgs := application.DeployArgs{
 		CharmID: application.CharmID{
 			URL:    wordpressURL,
@@ -655,7 +655,7 @@ func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	origin := commoncharm.Origin{
 		Source:       commoncharm.OriginCharmHub,
 		Architecture: arch.DefaultArchitecture,
-		Base:         series.MakeDefaultBase("ubuntu", "22.04"),
+		Base:         base.MakeDefaultBase("ubuntu", "22.04"),
 	}
 
 	deployURL := *inURL

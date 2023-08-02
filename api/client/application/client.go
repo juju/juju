@@ -17,11 +17,11 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apicharm "github.com/juju/juju/api/common/charm"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -336,7 +336,7 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 }
 
 // UpdateApplicationBase updates the application base in the db.
-func (c *Client) UpdateApplicationBase(appName string, base coreseries.Base, force bool) error {
+func (c *Client) UpdateApplicationBase(appName string, base corebase.Base, force bool) error {
 	args := params.UpdateChannelArgs{
 		Args: []params.UpdateChannelArg{{
 			Entity:  params.Entity{Tag: names.NewApplicationTag(appName).String()},
@@ -1024,7 +1024,7 @@ type DeployInfo struct {
 	// Architecture is the architecture used to deploy the charm.
 	Architecture string `json:"architecture"`
 	// Base is the base used to deploy the charm.
-	Base coreseries.Base `json:"base,omitempty"`
+	Base corebase.Base `json:"base,omitempty"`
 	// Channel is a string representation of the channel used to
 	// deploy the charm.
 	Channel string `json:"channel"`
@@ -1061,7 +1061,7 @@ type DeployFromRepositoryArg struct {
 	// may be non-empty only if NumUnits is 1.
 	AttachStorage []string
 	// Base describes the OS base intended to be used by the charm.
-	Base *coreseries.Base `json:"base,omitempty"`
+	Base *corebase.Base `json:"base,omitempty"`
 	// Channel is the channel in the repository to deploy from.
 	// This is an optional value. Required if revision is provided.
 	// Defaults to “stable” if not defined nor required.
@@ -1137,7 +1137,7 @@ func (c *Client) DeployFromRepository(arg DeployFromRepositoryArg) (DeployInfo, 
 }
 
 func deployInfoFromParams(di params.DeployFromRepositoryInfo) (DeployInfo, error) {
-	base, err := coreseries.ParseBase(di.Base.Name, di.Base.Channel)
+	base, err := corebase.ParseBase(di.Base.Name, di.Base.Channel)
 	return DeployInfo{
 		Architecture:     di.Architecture,
 		Base:             base,

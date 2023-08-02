@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/charmhub"
 	"github.com/juju/juju/charmhub/transport"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
@@ -233,7 +233,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		p.Addrs = nil
 	}
 
-	var base coreseries.Base
+	var base corebase.Base
 	if p.Base == nil {
 		model, err := mm.st.Model()
 		if err != nil {
@@ -246,7 +246,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 		base = config.PreferredBase(conf)
 	} else {
 		var err error
-		base, err = coreseries.ParseBase(p.Base.Name, p.Base.Channel)
+		base, err = corebase.ParseBase(p.Base.Name, p.Base.Channel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -778,7 +778,7 @@ func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
 // version is lexicographically less than the second argument's, thus indicating
 // that the series represents an older version of the operating system. The
 // output is only valid for Ubuntu series.
-func isBaseLessThan(base1, base2 coreseries.Base) (bool, error) {
+func isBaseLessThan(base1, base2 corebase.Base) (bool, error) {
 	// Versions may be numeric.
 	vers1Int, err1 := strconv.Atoi(base1.Channel.Track)
 	vers2Int, err2 := strconv.Atoi(base2.Channel.Track)

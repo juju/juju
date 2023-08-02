@@ -9,7 +9,7 @@ import (
 
 	charm "github.com/juju/charm/v11"
 	charm0 "github.com/juju/juju/api/common/charm"
-	series "github.com/juju/juju/core/series"
+	series "github.com/juju/juju/core/base"
 	gomock "go.uber.org/mock/gomock"
 )
 

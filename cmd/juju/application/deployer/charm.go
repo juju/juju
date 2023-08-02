@@ -20,11 +20,11 @@ import (
 	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	coreapplication "github.com/juju/juju/core/application"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/storage"
 )
 
@@ -46,7 +46,7 @@ type deployCharm struct {
 	placement        []*instance.Placement
 	placementSpec    string
 	resources        map[string]string
-	baseFlag         series.Base
+	baseFlag         corebase.Base
 	storage          map[string]storage.Constraints
 	trust            bool
 
@@ -260,7 +260,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	base, err := series.GetBaseFromSeries(d.userCharmURL.Series)
+	base, err := corebase.GetBaseFromSeries(d.userCharmURL.Series)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -305,7 +305,7 @@ func (l *localCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, _
 		return errors.Trace(err)
 	}
 
-	base, err := series.GetBaseFromSeries(l.curl.Series)
+	base, err := corebase.GetBaseFromSeries(l.curl.Series)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -357,7 +357,7 @@ func (c *repositoryCharm) String() string {
 // PrepareAndDeploy finishes preparing to deploy a repository charm,
 // then deploys it.
 func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerAPI, resolver Resolver) error {
-	var base *series.Base
+	var base *corebase.Base
 	if !c.baseFlag.Empty() {
 		base = &c.baseFlag
 	}

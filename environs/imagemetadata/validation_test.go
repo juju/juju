@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -26,7 +26,7 @@ type ValidateSuite struct {
 
 var _ = gc.Suite(&ValidateSuite{})
 
-func (s *ValidateSuite) makeLocalMetadata(c *gc.C, ss *simplestreams.Simplestreams, id, region string, base series.Base, endpoint, stream string) {
+func (s *ValidateSuite) makeLocalMetadata(c *gc.C, ss *simplestreams.Simplestreams, id, region string, base corebase.Base, endpoint, stream string) {
 	metadata := []*imagemetadata.ImageMetadata{
 		{
 			Id:     id,
@@ -50,7 +50,7 @@ func (s *ValidateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ValidateSuite) assertMatch(c *gc.C, ss *simplestreams.Simplestreams, stream string) {
-	base := series.MustParseBaseFromString("ubuntu@13.04")
+	base := corebase.MustParseBaseFromString("ubuntu@13.04")
 	s.makeLocalMetadata(c, ss, "1234", "region-2", base, "some-auth-url", stream)
 	metadataPath := filepath.Join(s.metadataDir, "images")
 	params := &simplestreams.MetadataLookupParams{
@@ -81,7 +81,7 @@ func (s *ValidateSuite) TestMatch(c *gc.C) {
 }
 
 func (s *ValidateSuite) assertNoMatch(c *gc.C, ss *simplestreams.Simplestreams, stream string) {
-	base := series.MustParseBaseFromString("ubuntu@13.04")
+	base := corebase.MustParseBaseFromString("ubuntu@13.04")
 	s.makeLocalMetadata(c, ss, "1234", "region-2", base, "some-auth-url", stream)
 	params := &simplestreams.MetadataLookupParams{
 		Region:        "region-2",

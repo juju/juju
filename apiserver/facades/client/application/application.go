@@ -30,6 +30,7 @@ import (
 	k8s "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
@@ -42,7 +43,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain"
 	ecservice "github.com/juju/juju/domain/externalcontroller/service"
@@ -592,7 +592,7 @@ func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL) (corecharm.
 	}
 
 	originType := origin.Type
-	base, err := series.ParseBase(origin.Base.Name, origin.Base.Channel)
+	base, err := corebase.ParseBase(origin.Base.Name, origin.Base.Channel)
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
@@ -885,7 +885,7 @@ func (api *APIBase) UpdateApplicationBase(args params.UpdateChannelArgs) (params
 }
 
 func (api *APIBase) updateOneApplicationBase(arg params.UpdateChannelArg) error {
-	var argBase series.Base
+	var argBase corebase.Base
 	if arg.Channel != "" {
 		appTag, err := names.ParseTag(arg.Entity.Tag)
 		if err != nil {
@@ -896,7 +896,7 @@ func (api *APIBase) updateOneApplicationBase(arg params.UpdateChannelArg) error 
 			return errors.Trace(err)
 		}
 		origin := app.CharmOrigin()
-		argBase, err = series.ParseBase(origin.Platform.OS, arg.Channel)
+		argBase, err = corebase.ParseBase(origin.Platform.OS, arg.Channel)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1806,6 +1806,11 @@ func (api *APIBase) AddRelation(args params.AddRelation) (_ params.AddRelationRe
 		return params.AddRelationResults{}, errors.Trace(err)
 	}
 
+	inEps, err := api.backend.InferEndpoints(args.Endpoints...)
+	if err != nil {
+		return params.AddRelationResults{}, errors.Trace(err)
+	}
+
 	// Validate any CIDRs.
 	for _, cidr := range args.ViaCIDRs {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
@@ -1815,11 +1820,22 @@ func (api *APIBase) AddRelation(args params.AddRelation) (_ params.AddRelationRe
 			return params.AddRelationResults{}, errors.Errorf("CIDR %q not allowed", cidr)
 		}
 	}
-
-	inEps, err := api.backend.InferEndpoints(args.Endpoints...)
-	if err != nil {
-		return params.AddRelationResults{}, errors.Trace(err)
+	if len(args.ViaCIDRs) > 0 {
+		var isCrossModel bool
+		for _, ep := range inEps {
+			_, err = api.backend.RemoteApplication(ep.ApplicationName)
+			if err == nil {
+				isCrossModel = true
+				break
+			} else if !errors.IsNotFound(err) {
+				return params.AddRelationResults{}, errors.Trace(err)
+			}
+		}
+		if !isCrossModel {
+			return params.AddRelationResults{}, errors.NotSupportedf("integration via subnets for non cross model relations")
+		}
 	}
+
 	if rel, err = api.backend.AddRelation(inEps...); err != nil {
 		return params.AddRelationResults{}, errors.Trace(err)
 	}

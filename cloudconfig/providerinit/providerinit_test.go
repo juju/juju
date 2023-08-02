@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/controller"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/provider/openstack"
@@ -119,14 +119,14 @@ func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 }
 
 func (s *CloudInitSuite) TestUserData(c *gc.C) {
-	s.testUserData(c, coreseries.MakeDefaultBase("ubuntu", "22.04"), false)
+	s.testUserData(c, corebase.MakeDefaultBase("ubuntu", "22.04"), false)
 }
 
 func (s *CloudInitSuite) TestControllerUserData(c *gc.C) {
-	s.testUserData(c, coreseries.MakeDefaultBase("ubuntu", "22.04"), true)
+	s.testUserData(c, corebase.MakeDefaultBase("ubuntu", "22.04"), true)
 }
 
-func (*CloudInitSuite) testUserData(c *gc.C, base coreseries.Base, bootstrap bool) {
+func (*CloudInitSuite) testUserData(c *gc.C, base corebase.Base, bootstrap bool) {
 	// Use actual series paths instead of local defaults
 	logDir := paths.LogDir(paths.OSType(base.OS))
 	metricsSpoolDir := paths.MetricsSpoolDir(paths.OSType(base.OS))

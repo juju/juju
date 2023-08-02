@@ -16,7 +16,7 @@ import (
 	openpgperrors "golang.org/x/crypto/openpgp/errors"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	. "github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -41,7 +41,7 @@ func newTestDataSourceFunc(s string) func() simplestreams.DataSource {
 }
 
 func (s *Suite) SetUpTest(c *gc.C) {
-	s.PatchValue(&series.UbuntuDistroInfo, "/path/notexists")
+	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 	imagemetadata.SimplestreamsImagesPublicKey = streamstesting.SignedMetadataPublicKey
 
 	// The index.sjson file used by these tests have been regenerated using

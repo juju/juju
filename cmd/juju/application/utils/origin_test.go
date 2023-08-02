@@ -7,9 +7,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application/utils"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/series"
 )
 
 type originSuite struct{}
@@ -19,7 +19,7 @@ var _ = gc.Suite(&originSuite{})
 func (*originSuite) TestMakePlatform(c *gc.C) {
 	arch := constraints.MustParse("arch=amd64")
 	fallback := constraints.MustParse("arch=amd64")
-	base := series.MustParseBaseFromString("ubuntu@20.04")
+	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 
 	platform := utils.MakePlatform(arch, base, fallback)
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
@@ -32,7 +32,7 @@ func (*originSuite) TestMakePlatform(c *gc.C) {
 func (*originSuite) TestMakePlatformWithFallbackArch(c *gc.C) {
 	arch := constraints.MustParse("mem=100G")
 	fallback := constraints.MustParse("arch=s390x")
-	base := series.MustParseBaseFromString("ubuntu@20.04")
+	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 
 	platform := utils.MakePlatform(arch, base, fallback)
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
@@ -45,7 +45,7 @@ func (*originSuite) TestMakePlatformWithFallbackArch(c *gc.C) {
 func (*originSuite) TestMakePlatformWithNoArch(c *gc.C) {
 	arch := constraints.MustParse("mem=100G")
 	fallback := constraints.MustParse("cores=1")
-	base := series.MustParseBaseFromString("ubuntu@20.04")
+	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 
 	platform := utils.MakePlatform(arch, base, fallback)
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{
@@ -58,7 +58,7 @@ func (*originSuite) TestMakePlatformWithNoArch(c *gc.C) {
 func (*originSuite) TestMakePlatformWithEmptyBase(c *gc.C) {
 	arch := constraints.MustParse("mem=100G")
 	fallback := constraints.MustParse("cores=1")
-	base := series.Base{}
+	base := corebase.Base{}
 
 	platform := utils.MakePlatform(arch, base, fallback)
 	c.Assert(platform, gc.DeepEquals, corecharm.Platform{

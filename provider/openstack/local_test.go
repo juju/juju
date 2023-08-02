@@ -42,12 +42,12 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -1577,7 +1577,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 
 	// An error occurs if no suitable image is found.
-	_, err := openstack.FindInstanceSpec(env, series.MakeDefaultBase("ubuntu", "15.04"), "amd64", "mem=1G", nil)
+	_, err := openstack.FindInstanceSpec(env, corebase.MakeDefaultBase("ubuntu", "15.04"), "amd64", "mem=1G", nil)
 	c.Assert(err, gc.ErrorMatches, `no metadata for "ubuntu@15.04" images in some-region with arch amd64`)
 }
 
@@ -3151,7 +3151,7 @@ func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 		Number: jujuversion.Current,
 		Arch:   arch.AMD64,
 	}
-	workloadOSList, err := series.AllWorkloadOSTypes("", "")
+	workloadOSList, err := corebase.AllWorkloadOSTypes("", "")
 	c.Assert(err, jc.ErrorIsNil)
 	for _, workloadOS := range workloadOSList.Values() {
 		amd64Version.Release = workloadOS

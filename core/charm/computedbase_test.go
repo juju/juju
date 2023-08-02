@@ -11,7 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/series"
+	"github.com/juju/juju/core/base"
 )
 
 type computedBaseSuite struct {
@@ -41,9 +41,9 @@ func (s *computedBaseSuite) TestComputedBase(c *gc.C) {
 	}).AnyTimes()
 	bases, err := ComputedBases(cm)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bases, jc.DeepEquals, []series.Base{
-		series.MustParseBaseFromString("ubuntu@18.04"),
-		series.MustParseBaseFromString("ubuntu@20.04"),
+	c.Assert(bases, jc.DeepEquals, []base.Base{
+		base.MustParseBaseFromString("ubuntu@18.04"),
+		base.MustParseBaseFromString("ubuntu@20.04"),
 	})
 }
 
@@ -60,8 +60,8 @@ func (s *computedBaseSuite) TestComputedBaseNilManifest(c *gc.C) {
 	cm.EXPECT().Manifest().Return(nil).AnyTimes()
 	bases, err := ComputedBases(cm)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bases, jc.DeepEquals, []series.Base{
-		series.MustParseBaseFromString("ubuntu@18.04"),
+	c.Assert(bases, jc.DeepEquals, []base.Base{
+		base.MustParseBaseFromString("ubuntu@18.04"),
 	})
 }
 
@@ -90,31 +90,31 @@ func (s *computedBaseSuite) TestComputedBaseError(c *gc.C) {
 }
 
 func (s *computedBaseSuite) TestBaseToUse(c *gc.C) {
-	trusty := series.MustParseBaseFromString("ubuntu@16.04")
-	jammy := series.MustParseBaseFromString("ubuntu@22.04")
-	focal := series.MustParseBaseFromString("ubuntu@20.04")
+	trusty := base.MustParseBaseFromString("ubuntu@16.04")
+	jammy := base.MustParseBaseFromString("ubuntu@22.04")
+	focal := base.MustParseBaseFromString("ubuntu@20.04")
 	tests := []struct {
-		series         series.Base
-		supportedBases []series.Base
-		baseToUse      series.Base
+		series         base.Base
+		supportedBases []base.Base
+		baseToUse      base.Base
 		err            string
 	}{{
-		series: series.Base{},
+		series: base.Base{},
 		err:    "base not specified and charm does not define any",
 	}, {
 		series:    trusty,
 		baseToUse: trusty,
 	}, {
 		series:         trusty,
-		supportedBases: []series.Base{focal, trusty},
+		supportedBases: []base.Base{focal, trusty},
 		baseToUse:      trusty,
 	}, {
-		series:         series.LatestLTSBase(),
-		supportedBases: []series.Base{focal, series.LatestLTSBase(), trusty},
-		baseToUse:      series.LatestLTSBase(),
+		series:         base.LatestLTSBase(),
+		supportedBases: []base.Base{focal, base.LatestLTSBase(), trusty},
+		baseToUse:      base.LatestLTSBase(),
 	}, {
 		series:         trusty,
-		supportedBases: []series.Base{jammy, focal},
+		supportedBases: []base.Base{jammy, focal},
 		err:            `base "ubuntu@16.04" not supported by charm.*`,
 	}}
 	for _, test := range tests {

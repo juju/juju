@@ -37,11 +37,11 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreresouces "github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
@@ -111,7 +111,7 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 
 	s.resolvedChannel = charm.Stable
 	s.resolveCharm = mockCharmResolver{
-		resolveFunc: func(url *charm.URL, preferredOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
+		resolveFunc: func(url *charm.URL, preferredOrigin commoncharm.Origin, _ bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 			s.AddCall("ResolveCharm", url, preferredOrigin)
 			if err := s.NextErr(); err != nil {
 				return nil, commoncharm.Origin{}, nil, err
@@ -120,7 +120,7 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 			if s.resolvedChannel != "" {
 				preferredOrigin.Risk = string(s.resolvedChannel)
 			}
-			return s.resolvedCharmURL, preferredOrigin, []series.Base{series.MustParseBaseFromString("ubuntu@12.10")}, nil
+			return s.resolvedCharmURL, preferredOrigin, []corebase.Base{corebase.MustParseBaseFromString("ubuntu@12.10")}, nil
 		},
 	}
 
@@ -448,7 +448,7 @@ func (s *RefreshSuite) TestInvalidRevision(c *gc.C) {
 
 func (s *RefreshSuite) TestLocalRevisionUnchanged(c *gc.C) {
 	s.BaseRefreshSuite.setup(c, charm.MustParseURL("ch:bionic/riak"), charm.MustParseURL("ch:bionic/riak"))
-	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: series.MustParseBaseFromString("ubuntu@18.04")}
+	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	_, err := s.runRefresh(c, "riak", "--path", path)
@@ -631,7 +631,7 @@ func (s *RefreshSuite) TestUpgradeWithTermsNotSigned(c *gc.C) {
 
 func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
 	s.BaseRefreshSuite.setup(c, charm.MustParseURL("ch:bionic/riak"), charm.MustParseURL("ch:bionic/riak"))
-	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: series.MustParseBaseFromString("ubuntu@18.04")}
+	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	dir, err := charm.ReadCharmDir(myriakPath)
@@ -671,7 +671,7 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	metadata := strings.Join(
 		[]string{
 			`name: multi-series`,
-			`summary: "That's a dummy charm with multi-series."`,
+			`summary: "That's a dummy charm with series."`,
 			`description: |`,
 			`    This is a longer description which`,
 			`    potentially contains multiple lines.`,
@@ -709,7 +709,7 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 
 func (s *RefreshSuite) TestForcedUnitsUpgrade(c *gc.C) {
 	s.BaseRefreshSuite.setup(c, charm.MustParseURL("ch:bionic/riak"), charm.MustParseURL("ch:bionic/riak"))
-	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: series.MustParseBaseFromString("ubuntu@18.04")}
+	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	_, err := s.runRefresh(c, "riak", "--path", myriakPath, "--force-units")
@@ -749,7 +749,7 @@ func (s *RefreshSuite) TestCharmPathNotFound(c *gc.C) {
 
 func (s *RefreshSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 	s.BaseRefreshSuite.setup(c, charm.MustParseURL("local:bionic/riak"), charm.MustParseURL("local:bionic/riak"))
-	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: series.MustParseBaseFromString("ubuntu@18.04")}
+	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 	// Revision 7 is running to start with.
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 
@@ -773,7 +773,7 @@ func (s *RefreshSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 
 func (s *RefreshSuite) TestCharmPathDifferentNameFails(c *gc.C) {
 	s.BaseRefreshSuite.setup(c, charm.MustParseURL("local:bionic/riak"), charm.MustParseURL("local:bionic/riak"))
-	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: series.MustParseBaseFromString("ubuntu@18.04")}
+	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 	myriakPath := testcharms.RepoWithSeries("bionic").RenamedClonedDirPath(c.MkDir(), "riak", "myriak")
 	metadataPath := filepath.Join(myriakPath, "metadata.yaml")
 	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
@@ -1123,10 +1123,10 @@ func (m *mockCharmClient) ListCharmResources(curl *charm.URL, origin commoncharm
 
 type mockCharmResolver struct {
 	testing.Stub
-	resolveFunc func(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error)
+	resolveFunc func(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error)
 }
 
-func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
+func (m *mockCharmResolver) ResolveCharm(url *charm.URL, preferredOrigin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 	return m.resolveFunc(url, preferredOrigin, switchCharm)
 }
 

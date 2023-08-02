@@ -10,8 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
@@ -66,7 +66,7 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	// Host runs arm64, environment supports arm64.
 	arm64 := "arm64"
-	ubuntuFocal := series.MustParseBaseFromString("ubuntu@20.04")
+	ubuntuFocal := corebase.MustParseBaseFromString("ubuntu@20.04")
 	s.PatchValue(&arch.HostArch, func() string { return arm64 })
 	s.PatchValue(&os.HostOS, func() os.OSType { return os.Ubuntu })
 	validator, err := env.ConstraintsValidator(context.NewEmptyCloudCallContext())
@@ -95,7 +95,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	type test struct {
 		version *version.Number
 		arch    *string
-		base    *series.Base
+		base    *corebase.Base
 		dev     bool
 		filter  tools.Filter
 		streams []string
@@ -217,7 +217,7 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 
 func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&series.UbuntuDistroInfo, "/path/notexists")
+	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 
 	allTools := tools.List{
 		&tools.Tools{

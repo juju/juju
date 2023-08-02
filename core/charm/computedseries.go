@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	coreseries "github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 var logger = loggo.GetLogger("juju.core.charm")
@@ -65,7 +65,7 @@ func ComputedSeries(c charm.CharmMeta) (seriesSlice []string, _ error) {
 		// preserve the order of elements as they appear in the manifest.
 		seriesSet := set.NewStrings()
 		for _, base := range manifest.Bases {
-			series, err := coreseries.GetSeriesFromChannel(base.Name, base.Channel.Track)
+			series, err := corebase.GetSeriesFromChannel(base.Name, base.Channel.Track)
 			if err != nil {
 				return []string{}, errors.Trace(err)
 			}

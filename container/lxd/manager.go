@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
 	jujuarch "github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -108,7 +108,7 @@ func (m *containerManager) DestroyContainer(id instance.Id) error {
 func (m *containerManager) CreateContainer(
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
-	base series.Base,
+	base corebase.Base,
 	networkConfig *container.NetworkConfig,
 	_ *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
@@ -192,7 +192,7 @@ func (m *containerManager) IsInitialized() bool {
 func (m *containerManager) getContainerSpec(
 	instanceConfig *instancecfg.InstanceConfig,
 	cons constraints.Value,
-	base series.Base,
+	base corebase.Base,
 	networkConfig *container.NetworkConfig,
 	callback environs.StatusCallbackFunc,
 ) (ContainerSpec, error) {

@@ -25,9 +25,9 @@ import (
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -340,11 +340,11 @@ func (m *ModelManagerAPI) CreateModel(ctx stdcontext.Context, args params.ModelC
 		if s == "" {
 			args.Config[config.DefaultBaseKey] = ""
 		} else {
-			series, err := series.GetBaseFromSeries(s.(string))
+			base, err := corebase.GetBaseFromSeries(s.(string))
 			if err != nil {
 				return result, errors.Trace(err)
 			}
-			args.Config[config.DefaultBaseKey] = series.String()
+			args.Config[config.DefaultBaseKey] = base.String()
 		}
 
 		delete(args.Config, config.DefaultSeriesKey)

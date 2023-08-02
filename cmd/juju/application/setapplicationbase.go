@@ -16,7 +16,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 // NewSetApplicationBaseCommand returns a command which updates the base of
@@ -29,7 +29,7 @@ func NewSetApplicationBaseCommand() cmd.Command {
 // by the set-application-base command.
 type setApplicationBaseAPI interface {
 	Close() error
-	UpdateApplicationBase(string, series.Base, bool) error
+	UpdateApplicationBase(string, corebase.Base, bool) error
 }
 
 // setApplicationBase is responsible for updating the base of an application.
@@ -144,7 +144,7 @@ func (c *setApplicationBase) Run(ctx *cmd.Context) error {
 	return errors.New("no application name specified")
 }
 
-func (c *setApplicationBase) updateApplicationBase(base series.Base) error {
+func (c *setApplicationBase) updateApplicationBase(base corebase.Base) error {
 	err := block.ProcessBlockedError(
 		c.apiClient.UpdateApplicationBase(c.applicationName, base, false),
 		block.BlockChange)
@@ -152,16 +152,16 @@ func (c *setApplicationBase) updateApplicationBase(base series.Base) error {
 	return err
 }
 
-func (c *setApplicationBase) parseBase(ctx *cmd.Context, arg string) (series.Base, error) {
+func (c *setApplicationBase) parseBase(ctx *cmd.Context, arg string) (corebase.Base, error) {
 	// If this doesn't contain an @ then it's a series and not a base.
 	if strings.Contains(arg, "@") {
-		return series.ParseBaseFromString(arg)
+		return corebase.ParseBaseFromString(arg)
 	}
 
 	ctx.Warningf("series argument is deprecated, use base instead")
-	_, err := series.GetOSFromSeries(arg)
+	_, err := corebase.GetOSFromSeries(arg)
 	if err != nil {
-		return series.Base{}, errors.Trace(err)
+		return corebase.Base{}, errors.Trace(err)
 	}
-	return series.GetBaseFromSeries(arg)
+	return corebase.GetBaseFromSeries(arg)
 }

@@ -14,9 +14,9 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/caasapplicationprovisioner"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/rpc/params"
@@ -196,7 +196,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 		Version:      vers,
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags:         map[string]string{"foo": "bar"},
-		Base:         series.MakeDefaultBase("ubuntu", "18.04"),
+		Base:         corebase.MakeDefaultBase("ubuntu", "18.04"),
 		ImageDetails: params.ConvertDockerImageInfo(params.DockerImageInfo{
 			Repository:   "jujuqa",
 			RegistryPath: "juju-operator-image",

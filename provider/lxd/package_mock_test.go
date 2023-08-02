@@ -10,8 +10,8 @@ import (
 	lxd "github.com/canonical/lxd/client"
 	api "github.com/canonical/lxd/shared/api"
 	lxd0 "github.com/juju/juju/container/lxd"
+	base "github.com/juju/juju/core/base"
 	network "github.com/juju/juju/core/network"
-	series "github.com/juju/juju/core/series"
 	environs "github.com/juju/juju/environs"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -259,7 +259,7 @@ func (mr *MockServerMockRecorder) FilterContainers(arg0 interface{}, arg1 ...int
 }
 
 // FindImage mocks base method.
-func (m *MockServer) FindImage(arg0 series.Base, arg1 string, arg2 api.InstanceType, arg3 []lxd0.ServerSpec, arg4 bool, arg5 environs.StatusCallbackFunc) (lxd0.SourcedImage, error) {
+func (m *MockServer) FindImage(arg0 base.Base, arg1 string, arg2 api.InstanceType, arg3 []lxd0.ServerSpec, arg4 bool, arg5 environs.StatusCallbackFunc) (lxd0.SourcedImage, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindImage", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(lxd0.SourcedImage)

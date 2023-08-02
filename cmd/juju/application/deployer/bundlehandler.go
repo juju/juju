@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
 	coreapplication "github.com/juju/juju/core/application"
+	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -38,7 +39,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -340,12 +340,12 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 			}
 		}
 
-		var base series.Base
+		var base corebase.Base
 		if spec.Series != "" {
-			base, err = series.GetBaseFromSeries(spec.Series)
+			base, err = corebase.GetBaseFromSeries(spec.Series)
 		}
 		if spec.Base != "" {
-			base, err = series.ParseBaseFromString(spec.Base)
+			base, err = corebase.ParseBaseFromString(spec.Base)
 		}
 		if err != nil {
 			return errors.Trace(err)
@@ -393,7 +393,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 	return nil
 }
 
-func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL string, charmBase series.Base, charmChannel, arch string, revision int) (string, int, error) {
+func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL string, charmBase corebase.Base, charmChannel, arch string, revision int) (string, int, error) {
 	if h.isLocalCharm(charmURL) {
 		return charmChannel, -1, nil
 	}
@@ -445,7 +445,7 @@ func (h *bundleHandler) resolveCharmChannelAndRevision(charmURL string, charmBas
 // constructChannelAndOrigin attempts to construct a fully qualified channel
 // along with an origin that matches the hardware constraints and the charm url
 // source.
-func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmBase series.Base, charmChannel string, cons constraints.Value) (charm.Channel, commoncharm.Origin, error) {
+func (h *bundleHandler) constructChannelAndOrigin(curl *charm.URL, charmBase corebase.Base, charmChannel string, cons constraints.Value) (charm.Channel, commoncharm.Origin, error) {
 	var channel charm.Channel
 	if charmChannel != "" {
 		var err error
@@ -594,11 +594,11 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	chParams := change.Params
 
 	var (
-		base series.Base
+		base corebase.Base
 		err  error
 	)
 	if chParams.Base != "" {
-		base, err = series.ParseBaseFromString(chParams.Base)
+		base, err = corebase.ParseBaseFromString(chParams.Base)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -675,7 +675,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	selectedSeries, err := series.GetSeriesFromBase(selectedBase)
+	selectedSeries, err := corebase.GetSeriesFromBase(selectedBase)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -698,7 +698,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	return nil
 }
 
-func (h *bundleHandler) addLocalCharm(chParams bundlechanges.AddCharmParams, chBase series.Base, id string) error {
+func (h *bundleHandler) addLocalCharm(chParams bundlechanges.AddCharmParams, chBase corebase.Base, id string) error {
 	// The charm path could contain the local schema prefix. If that's the
 	// case we should remove that before attempting to join with the bundle
 	// directory.
@@ -717,7 +717,7 @@ func (h *bundleHandler) addLocalCharm(chParams bundlechanges.AddCharmParams, chB
 	var chSeries string
 	if !chBase.Empty() {
 		var err error
-		chSeries, err = series.GetSeriesFromBase(chBase)
+		chSeries, err = corebase.GetSeriesFromBase(chBase)
 		if err != nil {
 			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 		}
@@ -898,11 +898,11 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 
 	if charm.Local.Matches(chID.URL.Schema) {
 		var (
-			base series.Base
+			base corebase.Base
 			err  error
 		)
 		if p.Base != "" {
-			base, err = series.ParseBaseFromString(p.Base)
+			base, err = corebase.ParseBaseFromString(p.Base)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -994,14 +994,14 @@ func (h *bundleHandler) deviceConstraints(application string, deviceMap map[stri
 	return deviceConstraints, nil
 }
 
-func (h *bundleHandler) selectedBase(ch charm.CharmMeta, chBase series.Base) (series.Base, error) {
+func (h *bundleHandler) selectedBase(ch charm.CharmMeta, chBase corebase.Base) (corebase.Base, error) {
 	supportedBases, err := corecharm.ComputedBases(ch)
 	if err != nil {
-		return series.Base{}, errors.Trace(err)
+		return corebase.Base{}, errors.Trace(err)
 	}
 	workloadBases, err := SupportedJujuBases(jujuclock.WallClock.Now(), chBase, h.modelConfig.ImageStream())
 	if err != nil {
-		return series.Base{}, errors.Trace(err)
+		return corebase.Base{}, errors.Trace(err)
 	}
 	selector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
 		Config:              h.modelConfig,
@@ -1012,7 +1012,7 @@ func (h *bundleHandler) selectedBase(ch charm.CharmMeta, chBase series.Base) (se
 		WorkloadBases:       workloadBases,
 	})
 	if err != nil {
-		return series.Base{}, errors.Trace(err)
+		return corebase.Base{}, errors.Trace(err)
 	}
 	selectedBase, err := selector.CharmBase()
 	return selectedBase, errors.Trace(err)
@@ -1044,11 +1044,11 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 	p := change.Params
 	var (
 		verbose []string
-		base    series.Base
+		base    corebase.Base
 		err     error
 	)
 	if p.Base != "" {
-		base, err = series.ParseBaseFromString(p.Base)
+		base, err = corebase.ParseBaseFromString(p.Base)
 		if err != nil {
 			return errors.Trace(err)
 		}

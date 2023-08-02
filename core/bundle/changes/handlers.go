@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
 
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/series"
 )
 
 const Kubernetes = "kubernetes"
@@ -313,16 +313,16 @@ func (r *resolver) allowCharmUpgrade(existingApp *Application, bundleApp *charm.
 		}
 		var (
 			err  error
-			base series.Base
+			base corebase.Base
 		)
 		if bundleApp.Series != "" {
-			base, err = series.GetBaseFromSeries(bundleApp.Series)
+			base, err = corebase.GetBaseFromSeries(bundleApp.Series)
 			if err != nil {
 				return false, errors.Trace(err)
 			}
 		}
 		if bundleApp.Base != "" {
-			base, err = series.ParseBaseFromString(bundleApp.Base)
+			base, err = corebase.ParseBaseFromString(bundleApp.Base)
 			if err != nil {
 				return false, errors.Trace(err)
 			}
@@ -1264,7 +1264,7 @@ func placeholder(changeID string) string {
 	return "$" + changeID
 }
 
-func applicationKey(charm, arch string, base series.Base, channel string, revision int) string {
+func applicationKey(charm, arch string, base corebase.Base, channel string, revision int) string {
 	return fmt.Sprintf("%s:%s:%s:%s:%d", charm, arch, base, channel, revision)
 }
 
@@ -1274,11 +1274,11 @@ func applicationKey(charm, arch string, base series.Base, channel string, revisi
 // DEPRECATED: This should be all about bases.
 func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string, error) {
 	if application.Base != "" {
-		base, err := series.ParseBaseFromString(application.Base)
+		base, err := corebase.ParseBaseFromString(application.Base)
 		if err != nil {
 			return "", errors.Trace(err)
 		}
-		return series.GetSeriesFromBase(base)
+		return corebase.GetSeriesFromBase(base)
 	}
 	if application.Series != "" {
 		return application.Series, nil
@@ -1316,17 +1316,17 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 
 // getBase calculates the base to use for a resource. If none is provided, we will fall back to
 // the specified series and convert to a base
-func getBase(base string, defaultBase string, computedSeries string) (series.Base, error) {
+func getBase(base string, defaultBase string, computedSeries string) (corebase.Base, error) {
 	if base != "" {
-		return series.ParseBaseFromString(base)
+		return corebase.ParseBaseFromString(base)
 	}
 	if defaultBase != "" {
-		return series.ParseBaseFromString(defaultBase)
+		return corebase.ParseBaseFromString(defaultBase)
 	}
 	if computedSeries != "" {
-		return series.GetBaseFromSeries(computedSeries)
+		return corebase.GetBaseFromSeries(computedSeries)
 	}
-	return series.Base{}, nil
+	return corebase.Base{}, nil
 }
 
 // parseEndpoint creates an endpoint from its string representation.

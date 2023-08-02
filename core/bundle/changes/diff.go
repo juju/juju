@@ -12,7 +12,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	coreseries "github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 )
 
 // DiffSide represents one side of a bundle-model diff.
@@ -145,7 +145,7 @@ func (d *differ) diffApplication(name string) *ApplicationDiff {
 		bundleSeries = d.config.Bundle.Series
 	}
 
-	modelSeries, _ := coreseries.GetSeriesFromBase(model.Base)
+	modelSeries, _ := corebase.GetSeriesFromBase(model.Base)
 	result := &ApplicationDiff{
 		Charm:            d.diffStrings(bundle.Charm, model.Charm),
 		Expose:           d.diffBools(effectiveBundleExpose, effectiveModelExpose),
@@ -213,7 +213,7 @@ func (d *differ) diffMachines() map[string]*MachineDiff {
 			bundleSeries = d.config.Bundle.Series
 		}
 
-		machineSeries, _ := coreseries.GetSeriesFromBase(modelMachine.Base)
+		machineSeries, _ := corebase.GetSeriesFromBase(modelMachine.Base)
 		diff := &MachineDiff{
 			Series: d.diffStrings(
 				bundleSeries, machineSeries,

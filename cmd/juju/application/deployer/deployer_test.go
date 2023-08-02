@@ -25,8 +25,8 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -82,7 +82,7 @@ func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *gc.C) {
 func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectModelGet(c)
-	cfg := s.basicDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
+	cfg := s.basicDeployerConfig(corebase.MustParseBaseFromString("ubuntu@18.04"))
 	s.expectModelType()
 
 	dir := c.MkDir()
@@ -188,7 +188,7 @@ func (s *deployerSuite) TestSeriesOverride(c *gc.C) {
 func (s *deployerSuite) TestGetDeployerLocalBundle(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cfg := s.basicDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
+	cfg := s.basicDeployerConfig(corebase.MustParseBaseFromString("ubuntu@18.04"))
 	cfg.FlagSet = &gnuflag.FlagSet{}
 	s.expectModelType()
 
@@ -222,7 +222,8 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithChannel(c *gc.C) {
 	cfg.CharmOrBundle = bundle.String()
 
 	s.expectResolveBundleURL(nil, 1)
-	cfg.Base = series.MustParseBaseFromString("ubuntu@18.04")
+
+	cfg.Base = corebase.MustParseBaseFromString("ubuntu@18.04")
 	cfg.FlagSet = &gnuflag.FlagSet{}
 	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
@@ -242,7 +243,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevision(c *gc.C) {
 	cfg := s.basicDeployerConfig()
 	cfg.Revision = 8
 	cfg.CharmOrBundle = bundle.String()
-	cfg.Base = series.MustParseBaseFromString("ubuntu@18.04")
+	cfg.Base = corebase.MustParseBaseFromString("ubuntu@18.04")
 	cfg.FlagSet = &gnuflag.FlagSet{}
 	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
 	s.expectModelType()
@@ -260,7 +261,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevisionURL(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	bundle := charm.MustParseURL("ch:test-bundle-8")
-	cfg := s.basicDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
+	cfg := s.basicDeployerConfig(corebase.MustParseBaseFromString("ubuntu@18.04"))
 	cfg.CharmOrBundle = bundle.String()
 	cfg.FlagSet = &gnuflag.FlagSet{}
 	s.expectStat(cfg.CharmOrBundle, errors.NotFoundf("file"))
@@ -275,7 +276,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	bundle := charm.MustParseURL("ch:test-bundle")
-	cfg := s.channelDeployerConfig(series.MustParseBaseFromString("ubuntu@18.04"))
+	cfg := s.channelDeployerConfig(corebase.MustParseBaseFromString("ubuntu@18.04"))
 	cfg.Revision = 42
 	cfg.CharmOrBundle = bundle.String()
 	cfg.FlagSet = &gnuflag.FlagSet{}
@@ -424,10 +425,10 @@ func (s *deployerSuite) newDeployerFactory() DeployerFactory {
 	return NewDeployerFactory(dep)
 }
 
-func (s *deployerSuite) basicDeployerConfig(bases ...series.Base) DeployerConfig {
-	var base series.Base
+func (s *deployerSuite) basicDeployerConfig(bases ...corebase.Base) DeployerConfig {
+	var base corebase.Base
 	if len(bases) == 0 {
-		base = series.MustParseBaseFromString("ubuntu@20.04")
+		base = corebase.MustParseBaseFromString("ubuntu@20.04")
 	} else {
 		base = bases[0]
 	}
@@ -437,10 +438,10 @@ func (s *deployerSuite) basicDeployerConfig(bases ...series.Base) DeployerConfig
 	}
 }
 
-func (s *deployerSuite) channelDeployerConfig(bases ...series.Base) DeployerConfig {
-	var base series.Base
+func (s *deployerSuite) channelDeployerConfig(bases ...corebase.Base) DeployerConfig {
+	var base corebase.Base
 	if len(bases) == 0 {
-		base = series.MustParseBaseFromString("ubuntu@20.04")
+		base = corebase.MustParseBaseFromString("ubuntu@20.04")
 	} else {
 		base = bases[0]
 	}

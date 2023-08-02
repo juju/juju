@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -129,7 +129,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx context
 		return common.ConfigureMachine(ctx, ssh.DefaultClient, e.host, icfg, nil)
 	}
 
-	base, err := coreseries.GetBaseFromSeries(series)
+	base, err := corebase.GetBaseFromSeries(series)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

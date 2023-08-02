@@ -3,7 +3,7 @@
 
 package version
 
-import "github.com/juju/juju/core/series"
+import corebase "github.com/juju/juju/core/base"
 
 // DefaultSupportedLTS returns the latest LTS that Juju supports and is
 // compatible with.
@@ -13,6 +13,6 @@ func DefaultSupportedLTS() string {
 
 // DefaultSupportedLTSBase returns the latest LTS base that Juju supports
 // and is compatible with.
-func DefaultSupportedLTSBase() series.Base {
-	return series.MakeDefaultBase("ubuntu", "22.04")
+func DefaultSupportedLTSBase() corebase.Base {
+	return corebase.MakeDefaultBase("ubuntu", "22.04")
 }
