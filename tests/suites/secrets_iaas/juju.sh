@@ -69,7 +69,7 @@ check_secrets() {
 run_secrets_juju() {
 	echo
 
-	juju --show-log add-model "model-secrets-juju"
+	add_model "model-secrets-juju"
 	check_secrets
 	destroy_model "model-secrets-juju"
 }

@@ -280,6 +280,7 @@ cleanup() {
 
 	archive_logs "partial"
 
+	cleanup_pids
 	cleanup_jujus
 	cleanup_funcs
 

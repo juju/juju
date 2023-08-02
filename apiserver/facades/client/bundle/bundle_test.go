@@ -1979,21 +1979,27 @@ machines:
 
 func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
-		Config:      coretesting.FakeConfig(),
+		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
+			"default-base": "ubuntu@20.04",
+		}),
 		CloudRegion: "some-region"})
 
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("magic"),
 		CharmURL: "ch:magic",
 	})
-	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
+
+	// TODO(jack-w-shaw) this test is somewhat contrived since ubuntu@21.04 is not a supported base.
+	// However, since this test requires at least 3 different bases, we need to do this until 24.04
+	// is supported
+	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/21.04/stable"})
 	application.AddUnit(description.UnitArgs{
 		Tag:     names.NewUnitTag("magic/0"),
 		Machine: names.NewMachineTag("0"),
 	})
 	s.st.model.AddMachine(description.MachineArgs{
 		Id:   names.NewMachineTag("0"),
-		Base: "ubuntu@20.04",
+		Base: "ubuntu@21.04",
 	})
 
 	application = s.st.model.AddApplication(description.ApplicationArgs{
@@ -2014,23 +2020,24 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
-series: jammy
 applications:
   magic:
     charm: magic
-    series: focal
+    series: hirsute
     num_units: 1
     to:
     - "0"
   mojo:
     charm: mojo
+    series: jammy
     num_units: 1
     to:
     - "1"
 machines:
   "0":
-    series: focal
-  "1": {}
+    series: hirsute
+  "1":
+    series: jammy
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
