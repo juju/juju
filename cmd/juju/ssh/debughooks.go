@@ -209,7 +209,7 @@ func (c *debugHooksCommand) getValidHooks(ch charm.Charm) (set.Strings, error) {
 		hook := fmt.Sprintf("juju-info-%s", hook)
 		validHooks.Add(hook)
 	}
-	return validHooks.Union(set.Strings(ch.Meta().Hooks())), nil
+	return validHooks.Union(ch.Meta().Hooks()), nil
 }
 
 func (c *debugHooksCommand) decideEntryPoint(ctx *cmd.Context) string {
