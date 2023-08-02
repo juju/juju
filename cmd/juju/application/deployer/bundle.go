@@ -16,9 +16,9 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/cmd/juju/application/utils"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/storage"
 )
 
@@ -129,7 +129,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 					return errors.Trace(err)
 				}
 
-				base, err := series.GetBaseFromSeries(applicationSpec.Series)
+				base, err := corebase.GetBaseFromSeries(applicationSpec.Series)
 				if err != nil {
 					return errors.Trace(err)
 				}

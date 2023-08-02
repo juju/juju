@@ -25,9 +25,9 @@ import (
 	"github.com/juju/juju/api/client/resources"
 	apicharm "github.com/juju/juju/api/common/charm"
 	httpmocks "github.com/juju/juju/api/http/mocks"
+	corebase "github.com/juju/juju/core/base"
 	coreresources "github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -170,7 +170,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 				Source:       apicharm.OriginCharmHub,
 				ID:           "id",
 				Risk:         "stable",
-				Base:         series.MakeDefaultBase("ubuntu", "22.04"),
+				Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
 				Architecture: "arm64",
 			},
 		},

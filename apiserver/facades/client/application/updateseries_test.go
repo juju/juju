@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub/transport"
-	coreseries "github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/state"
 )
 
@@ -34,7 +34,7 @@ func (s *UpdateBaseSuite) TestUpdateBase(c *gc.C) {
 	state.EXPECT().Application("foo").Return(app, nil)
 
 	validator := NewMockUpdateBaseValidator(ctrl)
-	coreBase := coreseries.MakeDefaultBase("ubuntu", "20.04")
+	coreBase := corebase.MakeDefaultBase("ubuntu", "20.04")
 	validator.EXPECT().ValidateApplication(app, coreBase, false).Return(nil)
 
 	api := NewUpdateBaseAPI(state, validator)
@@ -47,7 +47,7 @@ func (s *UpdateBaseSuite) TestUpdateBaseNoSeries(c *gc.C) {
 	defer ctrl.Finish()
 
 	api := NewUpdateBaseAPI(nil, nil)
-	err := api.UpdateBase("application-foo", coreseries.Base{}, false)
+	err := api.UpdateBase("application-foo", corebase.Base{}, false)
 	c.Assert(err, gc.ErrorMatches, `base missing from args`)
 }
 
@@ -64,7 +64,7 @@ func (s *UpdateBaseSuite) TestUpdateBaseNotPrincipal(c *gc.C) {
 	validator := NewMockUpdateBaseValidator(ctrl)
 
 	api := NewUpdateBaseAPI(state, validator)
-	err := api.UpdateBase("application-foo", coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := api.UpdateBase("application-foo", corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `"foo" is a subordinate application, update-series not supported`)
 }
 
@@ -79,10 +79,10 @@ func (s *UpdateBaseSuite) TestUpdateBaseNotValid(c *gc.C) {
 	state.EXPECT().Application("foo").Return(app, nil)
 
 	validator := NewMockUpdateBaseValidator(ctrl)
-	validator.EXPECT().ValidateApplication(app, coreseries.MakeDefaultBase("ubuntu", "20.04"), false).Return(errors.New("bad"))
+	validator.EXPECT().ValidateApplication(app, corebase.MakeDefaultBase("ubuntu", "20.04"), false).Return(errors.New("bad"))
 
 	api := NewUpdateBaseAPI(state, validator)
-	err := api.UpdateBase("application-foo", coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := api.UpdateBase("application-foo", corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
@@ -106,7 +106,7 @@ func (s StateValidatorSuite) TestValidateApplication(c *gc.C) {
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
-	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -125,7 +125,7 @@ func (s StateValidatorSuite) TestValidateApplicationWithFallbackSeries(c *gc.C) 
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
-	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -144,7 +144,7 @@ func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeries(c *gc.
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
-	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `series "focal" not supported by charm "ch:foo-1", supported series are: xenial, bionic`)
 }
 
@@ -162,7 +162,7 @@ func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeriesWithFor
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
-	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), true)
+	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -199,7 +199,7 @@ func (s CharmhubValidatorSuite) TestValidateApplication(c *gc.C) {
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -216,7 +216,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithNoRevision(c *gc.C) {
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `no revision found for application "foo"`)
 }
 
@@ -245,7 +245,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithClientRefreshError(c 
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
@@ -276,7 +276,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshError(c *gc.C)
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `unable to locate application with base ubuntu@20.04: bad`)
 }
 
@@ -310,6 +310,6 @@ func (s CharmhubValidatorSuite) TestValidateApplicationWithRefreshErrorAndForce(
 	validator := charmhubSeriesValidator{
 		client: client,
 	}
-	err := validator.ValidateApplication(application, coreseries.MakeDefaultBase("ubuntu", "20.04"), true)
+	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
 	c.Assert(err, jc.ErrorIsNil)
 }

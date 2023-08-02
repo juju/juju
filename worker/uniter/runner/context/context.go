@@ -22,11 +22,11 @@ import (
 	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/application"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/quota"
 	coresecrets "github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
@@ -1358,11 +1358,11 @@ func (ctx *HookContext) HookVars(
 	if ctx.baseUpgradeTarget != "" {
 		// We need to set both the base and the series for the hook. This until
 		// we migrate everything to use base.
-		b, err := series.ParseBaseFromString(ctx.baseUpgradeTarget)
+		b, err := corebase.ParseBaseFromString(ctx.baseUpgradeTarget)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		s, err := series.GetSeriesFromBase(b)
+		s, err := corebase.GetSeriesFromBase(b)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

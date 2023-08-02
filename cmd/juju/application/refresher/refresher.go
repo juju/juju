@@ -15,8 +15,8 @@ import (
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/series"
 )
 
 // ErrExhausted reveals if a refresher was exhausted in it's task. If so, then
@@ -40,7 +40,7 @@ type RefresherConfig struct {
 	CharmOrigin     corecharm.Origin
 	CharmRef        string
 	Channel         charm.Channel
-	DeployedBase    series.Base
+	DeployedBase    corebase.Base
 	Force           bool
 	ForceBase       bool
 	Switch          bool
@@ -153,7 +153,7 @@ type localCharmRefresher struct {
 	charmOrigin  corecharm.Origin
 	charmURL     *charm.URL
 	charmRef     string
-	deployedBase series.Base
+	deployedBase corebase.Base
 	force        bool
 	forceBase    bool
 }
@@ -171,7 +171,7 @@ func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 	var deployedSeries string
 	if !d.deployedBase.Channel.Empty() {
 		var err error
-		if deployedSeries, err = series.GetSeriesFromBase(d.deployedBase); err != nil {
+		if deployedSeries, err = corebase.GetSeriesFromBase(d.deployedBase); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -236,7 +236,7 @@ type baseRefresher struct {
 	charmOrigin     corecharm.Origin
 	charmRef        string
 	channel         charm.Channel
-	deployedBase    series.Base
+	deployedBase    corebase.Base
 	switchCharm     bool
 	force           bool
 	forceBase       bool
@@ -271,7 +271,7 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 
 	var deployedSeries string
 	if !r.deployedBase.Channel.Empty() {
-		if deployedSeries, err = series.GetSeriesFromBase(r.deployedBase); err != nil {
+		if deployedSeries, err = corebase.GetSeriesFromBase(r.deployedBase); err != nil {
 			return nil, commoncharm.Origin{}, errors.Trace(err)
 		}
 	}

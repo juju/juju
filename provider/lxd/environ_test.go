@@ -17,9 +17,9 @@ import (
 
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	envcontext "github.com/juju/juju/environs/context"
@@ -86,7 +86,7 @@ func (s *environSuite) TestConfig(c *gc.C) {
 func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 	s.Common.BootstrapResult = &environs.BootstrapResult{
 		Arch: "amd64",
-		Base: series.MakeDefaultBase("ubuntu", "22.04"),
+		Base: corebase.MakeDefaultBase("ubuntu", "22.04"),
 		CloudBootstrapFinalizer: func(environs.BootstrapContext, *instancecfg.InstanceConfig, environs.BootstrapDialOpts) error {
 			return nil
 		},

@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
 
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/core/series"
 )
 
 type resolver struct {
@@ -50,7 +50,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 		application := applications[name]
 		// Legacy k8s charms - assume ubuntu focal.
 		if application.Series == kubernetes {
-			application.Series = series.LegacyKubernetesSeries()
+			application.Series = corebase.LegacyKubernetesSeries()
 		}
 		existingApp := existing.GetApplication(name)
 		computedSeries, err := getSeries(application, defaultSeries)
@@ -92,10 +92,10 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			// The case of upgrade charmhub charm with by channel... need the correct revision,
 			// or we will not have an addCharmChange corresponding to the upgradeCharmChange.
 			if r.charmResolver != nil {
-				var base series.Base
+				var base corebase.Base
 				if application.Series != "" {
 					var err error
-					base, err = series.GetBaseFromSeries(application.Series)
+					base, err = corebase.GetBaseFromSeries(application.Series)
 					if err != nil {
 						return nil, errors.Trace(err)
 					}
@@ -318,10 +318,10 @@ func (r *resolver) allowCharmUpgrade(existingApp *Application, bundleApp *charm.
 		}
 		var (
 			err  error
-			base series.Base
+			base corebase.Base
 		)
 		if bundleApp.Series != "" {
-			base, err = series.GetBaseFromSeries(bundleApp.Series)
+			base, err = corebase.GetBaseFromSeries(bundleApp.Series)
 			if err != nil {
 				return false, errors.Trace(err)
 			}
@@ -1288,7 +1288,7 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 	if charmURL.Series != "" {
 		// Legacy k8s charms - assume ubuntu focal.
 		if charmURL.Series == kubernetes {
-			return series.LegacyKubernetesSeries(), nil
+			return corebase.LegacyKubernetesSeries(), nil
 		}
 		return charmURL.Series, nil
 	}

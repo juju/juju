@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	corecontext "github.com/juju/juju/core/context"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -176,11 +176,11 @@ type BootstrapParams struct {
 
 	// BootstrapBase, if specified, is the base to use for the
 	// initial bootstrap machine (deprecated use BootstrapBase).
-	BootstrapBase series.Base
+	BootstrapBase corebase.Base
 
 	// SupportedBootstrapBase is a supported set of bases to use for
 	// validating against the bootstrap base.
-	SupportedBootstrapBases []series.Base
+	SupportedBootstrapBases []corebase.Base
 }
 
 // Validate validates the bootstrap parameters.
@@ -356,7 +356,7 @@ func bootstrapIAAS(
 		}
 
 		if args.BootstrapBase.Empty() && detectedSeries != "" {
-			base, err := series.GetBaseFromSeries(detectedSeries)
+			base, err := corebase.GetBaseFromSeries(detectedSeries)
 			if err != nil {
 				base = jujuversion.DefaultSupportedLTSBase()
 			}
@@ -376,7 +376,7 @@ func bootstrapIAAS(
 		}
 	}
 
-	requestedBootstrapBase, err := series.ValidateBase(
+	requestedBootstrapBase, err := corebase.ValidateBase(
 		args.SupportedBootstrapBases,
 		args.BootstrapBase,
 		config.PreferredBase(cfg),
@@ -384,7 +384,7 @@ func bootstrapIAAS(
 	if !args.Force && err != nil {
 		// If the series isn't valid at all, then don't prompt users to use
 		// the --force flag.
-		if _, err := series.UbuntuBaseVersion(requestedBootstrapBase); err != nil {
+		if _, err := corebase.UbuntuBaseVersion(requestedBootstrapBase); err != nil {
 			return errors.NotValidf("base %q", requestedBootstrapBase.String())
 		}
 		return errors.Annotatef(err, "use --force to override")
@@ -697,14 +697,14 @@ func Bootstrap(
 	var bootstrapSeries string
 	if !args.BootstrapBase.Empty() {
 		var err error
-		bootstrapSeries, err = series.GetSeriesFromBase(args.BootstrapBase)
+		bootstrapSeries, err = corebase.GetSeriesFromBase(args.BootstrapBase)
 		if err != nil {
 			return errors.NotValidf("base %q", args.BootstrapBase)
 		}
 	}
 	supportedBootstrapSeries := set.NewStrings()
 	for _, base := range args.SupportedBootstrapBases {
-		s, err := series.GetSeriesFromBase(base)
+		s, err := corebase.GetSeriesFromBase(base)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -913,7 +913,7 @@ func userPublicSigningKey() (string, error) {
 func bootstrapImageMetadata(
 	environ environs.BootstrapEnviron,
 	fetcher imagemetadata.SimplestreamsFetcher,
-	bootstrapBase *series.Base,
+	bootstrapBase *corebase.Base,
 	bootstrapArch string,
 	bootstrapImageId string,
 	customImageMetadata *[]*imagemetadata.ImageMetadata,
@@ -941,7 +941,7 @@ func bootstrapImageMetadata(
 		if bootstrapBase == nil {
 			return nil, errors.NotValidf("no base specified with bootstrap image")
 		}
-		seriesVersion, err := series.BaseSeriesVersion(*bootstrapBase)
+		seriesVersion, err := corebase.BaseSeriesVersion(*bootstrapBase)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

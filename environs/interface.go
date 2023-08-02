@@ -13,10 +13,10 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/assumes"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/series"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -471,7 +471,7 @@ type InstanceLister interface {
 // InstancePrechecker.PrecheckInstance.
 type PrecheckInstanceParams struct {
 	// Base contains the base of the machine.
-	Base series.Base
+	Base corebase.Base
 
 	// Constraints contains the machine constraints.
 	Constraints constraints.Value

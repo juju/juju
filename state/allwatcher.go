@@ -12,13 +12,13 @@ import (
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/watcher"
@@ -339,7 +339,7 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 
 	}
 	isManual := isManualMachine(m.Id, m.Nonce, providerType)
-	base, err := series.ParseBase(m.Base.OS, m.Base.Channel)
+	base, err := corebase.ParseBase(m.Base.OS, m.Base.Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -515,7 +515,7 @@ func (u *backingUnit) updateAgentVersion(info *multiwatcher.UnitInfo) {
 
 func (u *backingUnit) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`unit "%s:%s" updated`, ctx.modelUUID, ctx.id)
-	base, err := series.ParseBase(u.Base.OS, u.Base.Channel)
+	base, err := corebase.ParseBase(u.Base.OS, u.Base.Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}

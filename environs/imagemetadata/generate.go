@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 )
@@ -29,7 +29,7 @@ func ProductMetadataStoragePath() string {
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with supplied metadata, writing the resulting metadata is written to storage.
 func MergeAndWriteMetadata(fetcher SimplestreamsFetcher,
-	base series.Base,
+	base corebase.Base,
 	metadata []*ImageMetadata,
 	cloudSpec *simplestreams.CloudSpec,
 	metadataStore storage.Storage) error {
@@ -68,7 +68,7 @@ func mapKey(im *ImageMetadata) string {
 }
 
 // mergeMetadata merges the newMetadata into existingMetadata, overwriting existing matching image records.
-func mergeMetadata(base series.Base, cloudSpec *simplestreams.CloudSpec, newMetadata,
+func mergeMetadata(base corebase.Base, cloudSpec *simplestreams.CloudSpec, newMetadata,
 	existingMetadata []*ImageMetadata) ([]*ImageMetadata, []simplestreams.CloudSpec) {
 
 	regions := make(map[string]bool)

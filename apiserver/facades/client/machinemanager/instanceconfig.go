@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/authentication"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/stateenvirons"
@@ -103,7 +103,7 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 		return nil, errors.Annotate(err, "setting up machine authentication")
 	}
 
-	base, err := series.ParseBase(machine.Base().OS, machine.Base().Channel)
+	base, err := corebase.ParseBase(machine.Base().OS, machine.Base().Channel)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting machine base")
 	}

@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 )
 
@@ -36,7 +36,7 @@ func (s *setApplicationBaseSuite) runSetApplicationBase(c *gc.C, args ...string)
 func (s *setApplicationBaseSuite) TestSetSeriesApplicationGoodPath(c *gc.C) {
 	_, err := s.runSetApplicationBase(c, "ghost", "ubuntu@20.04")
 	c.Assert(err, jc.ErrorIsNil)
-	s.mockApplicationAPI.CheckCall(c, 0, "UpdateApplicationBase", "ghost", series.MustParseBaseFromString("ubuntu@20.04"), false)
+	s.mockApplicationAPI.CheckCall(c, 0, "UpdateApplicationBase", "ghost", corebase.MustParseBaseFromString("ubuntu@20.04"), false)
 }
 
 func (s *setApplicationBaseSuite) TestNoArguments(c *gc.C) {
@@ -68,7 +68,7 @@ func (a *mockSetApplicationBaseAPI) Close() error {
 	return a.NextErr()
 }
 
-func (a *mockSetApplicationBaseAPI) UpdateApplicationBase(appName string, series series.Base, force bool) error {
+func (a *mockSetApplicationBaseAPI) UpdateApplicationBase(appName string, series corebase.Base, force bool) error {
 	a.MethodCall(a, "UpdateApplicationBase", appName, series, force)
 	return a.NextErr()
 }

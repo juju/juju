@@ -11,9 +11,9 @@ import (
 	charm "github.com/juju/charm/v10"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
+	base "github.com/juju/juju/core/base"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
-	series "github.com/juju/juju/core/series"
 	state "github.com/juju/juju/state"
 	tools "github.com/juju/juju/tools"
 	names "github.com/juju/names/v4"
@@ -703,7 +703,7 @@ func (m *MockUpdateBaseValidator) EXPECT() *MockUpdateBaseValidatorMockRecorder 
 }
 
 // ValidateApplication mocks base method.
-func (m *MockUpdateBaseValidator) ValidateApplication(arg0 Application, arg1 series.Base, arg2 bool) error {
+func (m *MockUpdateBaseValidator) ValidateApplication(arg0 Application, arg1 base.Base, arg2 bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateApplication", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

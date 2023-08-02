@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -135,7 +135,7 @@ func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) 
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		series, err := coreseries.GetSeriesFromChannel(machine.Base().OS, machine.Base().Channel)
+		series, err := corebase.GetSeriesFromChannel(machine.Base().OS, machine.Base().Channel)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue

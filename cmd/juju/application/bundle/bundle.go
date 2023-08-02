@@ -12,11 +12,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )
@@ -41,11 +41,11 @@ func BuildModelRepresentation(
 	machines := make(map[string]*bundlechanges.Machine)
 	for id, machineStatus := range status.Machines {
 		var (
-			base series.Base
+			base corebase.Base
 			err  error
 		)
 		if machineStatus.Base.Channel != "" {
-			base, err = series.ParseBase(machineStatus.Base.Name, machineStatus.Base.Channel)
+			base, err = corebase.ParseBase(machineStatus.Base.Name, machineStatus.Base.Channel)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -87,7 +87,7 @@ func BuildModelRepresentation(
 			charmAlias = curl.Name
 		}
 
-		base, err := series.ParseBase(appStatus.Base.Name, appStatus.Base.Channel)
+		base, err := corebase.ParseBase(appStatus.Base.Name, appStatus.Base.Channel)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
