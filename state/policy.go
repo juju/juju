@@ -7,8 +7,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -70,7 +70,7 @@ func (st *State) precheckInstance(
 	if prechecker == nil {
 		return errors.New("policy returned nil prechecker without an error")
 	}
-	mBase, err := series.ParseBase(base.OS, base.Channel)
+	mBase, err := corebase.ParseBase(base.OS, base.Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}

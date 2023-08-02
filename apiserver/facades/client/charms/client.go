@@ -25,10 +25,10 @@ import (
 	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -417,7 +417,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 
 	switch {
 	case resultURL.Series != "" && len(resolvedBases) == 0:
-		base, err := series.GetBaseFromSeries(resultURL.Series)
+		base, err := base.GetBaseFromSeries(resultURL.Series)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
 			return result
@@ -440,11 +440,11 @@ func (a *APIv6) ResolveCharms(args params.ResolveCharmsWithChannel) (params.Reso
 	}
 	results, err := transform.SliceOrErr(res.Results, func(result params.ResolveCharmWithChannelResult) (params.ResolveCharmWithChannelResultV6, error) {
 		supportedSeries, err := transform.SliceOrErr(result.SupportedBases, func(pBase params.Base) (string, error) {
-			base, err := series.ParseBase(pBase.Name, pBase.Channel)
+			b, err := base.ParseBase(pBase.Name, pBase.Channel)
 			if err != nil {
 				return "", err
 			}
-			return series.GetSeriesFromBase(base)
+			return base.GetSeriesFromBase(b)
 		})
 		if err != nil {
 			return params.ResolveCharmWithChannelResultV6{}, err

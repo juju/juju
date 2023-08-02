@@ -26,6 +26,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -33,7 +34,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corepresence "github.com/juju/juju/core/presence"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
@@ -4298,7 +4298,7 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	if series == "" {
 		series = "quantal"
 	}
-	base, err := coreseries.GetBaseFromSeries(series)
+	base, err := corebase.GetBaseFromSeries(series)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := ctx.st.AddApplication(state.AddApplicationArgs{
 		Name:             as.name,

@@ -32,12 +32,12 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -377,7 +377,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	err := bootstrap.Bootstrap(t.BootstrapContext, env,
 		t.callCtx, bootstrap.BootstrapParams{
 			ControllerConfig:        coretesting.FakeControllerConfig(),
-			BootstrapBase:           coreseries.LatestLTSBase(),
+			BootstrapBase:           corebase.LatestLTSBase(),
 			AdminSecret:             testing.AdminSecret,
 			CAPrivateKey:            coretesting.CAKey,
 			SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,

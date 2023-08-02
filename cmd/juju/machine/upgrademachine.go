@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/api/client/machinemanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -35,7 +35,7 @@ const (
 )
 
 // For testing.
-var SupportedJujuSeries = series.WorkloadSeries
+var SupportedJujuSeries = corebase.WorkloadSeries
 
 var upgradeMachineConfirmationMsg = `
 WARNING: This command will mark machine %q as being upgraded to %q.
@@ -235,22 +235,22 @@ func (c *upgradeMachineCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func (c *upgradeMachineCommand) parseBase(ctx *cmd.Context, arg string) (series.Base, error) {
+func (c *upgradeMachineCommand) parseBase(ctx *cmd.Context, arg string) (corebase.Base, error) {
 	// If this doesn't contain an @ then it's a series and not a base.
 	if strings.Contains(arg, "@") {
-		return series.ParseBaseFromString(arg)
+		return corebase.ParseBaseFromString(arg)
 	}
 
 	ctx.Warningf("series argument is deprecated, use base instead")
 	workloadSeries, err := SupportedJujuSeries(time.Now(), arg, "")
 	if err != nil {
-		return series.Base{}, errors.Trace(err)
+		return corebase.Base{}, errors.Trace(err)
 	}
 	s, err := checkSeries(workloadSeries.Values(), arg)
 	if err != nil {
-		return series.Base{}, err
+		return corebase.Base{}, err
 	}
-	return series.GetBaseFromSeries(s)
+	return corebase.GetBaseFromSeries(s)
 }
 
 func (c *upgradeMachineCommand) trapInterrupt(ctx *cmd.Context) func() {
@@ -307,7 +307,7 @@ func (c *upgradeMachineCommand) UpgradePrepare(ctx *cmd.Context) (err error) {
 		return errors.NotFoundf("units for machine %q", c.machineNumber)
 	}
 
-	s, err := series.GetSeriesFromBase(base)
+	s, err := corebase.GetSeriesFromBase(base)
 	if err != nil {
 		return errors.Annotatef(err, "invalid series to base conversion")
 	}
@@ -408,7 +408,7 @@ func (c *upgradeMachineCommand) displayProgressFromError(ctx *cmd.Context, err e
 	return errors.Trace(err)
 }
 
-func (c *upgradeMachineCommand) promptConfirmation(ctx *cmd.Context, base series.Base, affectedUnits []string) error {
+func (c *upgradeMachineCommand) promptConfirmation(ctx *cmd.Context, base corebase.Base, affectedUnits []string) error {
 	if c.yes {
 		return nil
 	}

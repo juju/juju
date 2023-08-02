@@ -31,14 +31,13 @@ import (
 	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/series"
-	coreseries "github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
@@ -64,8 +63,8 @@ func (s *BundleDeployRepositorySuite) SetUpTest(_ *gc.C) {
 	s.deployArgs = make(map[string]application.DeployArgs)
 	s.output = bytes.NewBuffer([]byte{})
 
-	s.PatchValue(&SupportedJujuBases, func(time.Time, series.Base, string) ([]series.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, series.ParseBaseFromString)
+	s.PatchValue(&SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, corebase.ParseBaseFromString)
 	})
 }
 
@@ -376,12 +375,12 @@ func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
+		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 			curl = curl.WithRevision(rev).WithSeries("focal").WithArchitecture("amd64")
-			origin.Base = coreseries.MakeDefaultBase("ubuntu", "20.04")
+			origin.Base = corebase.MakeDefaultBase("ubuntu", "20.04")
 			origin.Revision = &rev
 			origin.Type = "charm"
-			return curl, origin, []series.Base{series.MustParseBaseFromString("ubuntu@20.04")}, nil
+			return curl, origin, []corebase.Base{corebase.MustParseBaseFromString("ubuntu@20.04")}, nil
 		}).Times(3)
 
 	fullCurl := curl.WithSeries("focal").WithRevision(rev).WithArchitecture("amd64")
@@ -465,14 +464,14 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, 
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
+		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 			curl = curl.WithRevision(rev)
 			curl = curl.WithSeries("focal")
 			curl = curl.WithArchitecture("amd64")
-			origin.Base = coreseries.MakeDefaultBase("ubuntu", "20.04")
+			origin.Base = corebase.MakeDefaultBase("ubuntu", "20.04")
 			origin.Revision = &rev
 			origin.Type = "charm"
-			return curl, origin, []series.Base{series.MustParseBaseFromString("ubuntu@20.04")}, nil
+			return curl, origin, []corebase.Base{corebase.MustParseBaseFromString("ubuntu@20.04")}, nil
 		}).Times(2)
 
 	fullCurl := curl.WithSeries("focal").WithRevision(rev).WithArchitecture("amd64")
@@ -629,10 +628,10 @@ func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL) *c
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
+		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 			origin.Type = "charm"
-			base := coreseries.MakeDefaultBase("ubuntu", "20.04")
-			return curl, origin, []series.Base{base}, nil
+			base := corebase.MakeDefaultBase("ubuntu", "20.04")
+			return curl, origin, []corebase.Base{base}, nil
 		}).Times(3)
 
 	fullCurl := curl.WithSeries("focal")
@@ -642,7 +641,7 @@ func (s *BundleDeployRepositorySuite) expectCharmhubK8sCharm(curl *charm.URL) *c
 		false,
 	).DoAndReturn(
 		func(_ *charm.URL, origin commoncharm.Origin, _ bool) (commoncharm.Origin, error) {
-			origin.Base = coreseries.MakeDefaultBase("kubernetes", "kubernetes")
+			origin.Base = corebase.MakeDefaultBase("kubernetes", "kubernetes")
 			return origin, nil
 		})
 
@@ -2329,14 +2328,14 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIModelGet(c *gc.C) {
 }
 
 func (s *BundleDeployRepositorySuite) expectResolveCharmWithBases(bases []string, err error) {
-	b := transform.Slice(bases, series.MustParseBaseFromString)
+	b := transform.Slice(bases, corebase.MustParseBaseFromString)
 	s.bundleResolver.EXPECT().ResolveCharm(
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
 		false,
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
-		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []series.Base, error) {
+		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 			return curl, origin, b, err
 		}).AnyTimes()
 }
@@ -2516,7 +2515,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
 
 	arch := "arm64"
 	curl := charm.MustParseURL("ch:mysql")
-	base := series.MustParseBaseFromString("ubuntu@20.04")
+	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 	channel := "stable"
 	cons := constraints.Value{
 		Arch: &arch,
@@ -2527,7 +2526,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOrigin(c *gc.C) {
 	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
-		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
+		Base:         corebase.MakeDefaultBase("ubuntu", "20.04"),
 		Risk:         "stable",
 		Architecture: "arm64",
 	})
@@ -2537,7 +2536,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallbac
 	handler := &bundleHandler{}
 
 	curl := charm.MustParseURL("ch:mysql")
-	base := series.MustParseBaseFromString("ubuntu@20.04")
+	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 	channel := "stable"
 	cons := constraints.Value{}
 
@@ -2546,7 +2545,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginUsingArchFallbac
 	c.Assert(resultChannel, gc.DeepEquals, corecharm.MustParseChannel("stable"))
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
-		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
+		Base:         corebase.MakeDefaultBase("ubuntu", "20.04"),
 		Risk:         "stable",
 		Architecture: "amd64",
 	})
@@ -2557,7 +2556,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 
 	arch := "arm64"
 	curl := charm.MustParseURL("ch:mysql")
-	base := series.MustParseBaseFromString("ubuntu@20.04")
+	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 	channel := ""
 	cons := constraints.Value{
 		Arch: &arch,
@@ -2568,7 +2567,7 @@ func (s *BundleHandlerOriginSuite) TestConstructChannelAndOriginEmptyChannel(c *
 	c.Assert(resultChannel, gc.DeepEquals, charm.Channel{})
 	c.Assert(resultOrigin, gc.DeepEquals, commoncharm.Origin{
 		Source:       "charm-hub",
-		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
+		Base:         corebase.MakeDefaultBase("ubuntu", "20.04"),
 		Architecture: "arm64",
 	})
 }
@@ -2598,14 +2597,14 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelAndRevision(c *gc.C)
 		Source:       "charm-hub",
 		Architecture: arch,
 		Risk:         charmChannel,
-		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
+		Base:         corebase.MakeDefaultBase("ubuntu", "20.04"),
 	}
 	resolvedOrigin := origin
 	resolvedOrigin.Revision = &rev
 
 	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
-	base := series.MustParseBaseFromString("ubuntu@20.04")
+	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), base, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
@@ -2630,13 +2629,13 @@ func (s *BundleHandlerResolverSuite) TestResolveCharmChannelWithoutRevision(c *g
 		Source:       "charm-hub",
 		Architecture: arch,
 		Risk:         charmChannel,
-		Base:         coreseries.MakeDefaultBase("ubuntu", "20.04"),
+		Base:         corebase.MakeDefaultBase("ubuntu", "20.04"),
 	}
 	resolvedOrigin := origin
 
 	resolver.EXPECT().ResolveCharm(charmURL, origin, false).Return(charmURL, resolvedOrigin, nil, nil)
 
-	base := series.MustParseBaseFromString("ubuntu@20.04")
+	base := corebase.MustParseBaseFromString("ubuntu@20.04")
 	channel, rev, err := handler.resolveCharmChannelAndRevision(charmURL.String(), base, charmChannel, arch, -1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(channel, gc.DeepEquals, "stable")
@@ -2650,7 +2649,7 @@ func (s *BundleHandlerResolverSuite) TestResolveLocalCharm(c *gc.C) {
 		Schema: string(charm.Local),
 		Name:   "local",
 	}
-	charmBase := series.MustParseBaseFromString("ubuntu@20.04")
+	charmBase := corebase.MustParseBaseFromString("ubuntu@20.04")
 	charmChannel := "stable"
 	arch := "amd64"
 

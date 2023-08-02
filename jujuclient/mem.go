@@ -11,7 +11,7 @@ import (
 	cookiejar "github.com/juju/persistent-cookiejar"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/series"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -476,12 +476,12 @@ func (c *MemStore) BootstrapConfigForController(controllerName string) (*Bootstr
 			if key == nil || key == "" {
 				cfg.Config[config.DefaultSeriesKey] = ""
 			} else {
-				base, err := series.ParseBaseFromString(key.(string))
+				base, err := corebase.ParseBaseFromString(key.(string))
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
 
-				s, err := series.GetSeriesFromBase(base)
+				s, err := corebase.GetSeriesFromBase(base)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}

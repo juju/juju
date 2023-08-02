@@ -2701,14 +2701,39 @@ func (s *ApplicationSuite) TestApplicationUpdateBasePermissionDenied(c *gc.C) {
 func (s *ApplicationSuite) TestRemoteRelationBadCIDR(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	s.backend.EXPECT().InferEndpoints("wordpress", "hosted-mysql:nope").Return([]state.Endpoint{{
+		ApplicationName: "wordpress",
+	}, {
+		ApplicationName: "hosted-mysql",
+	}}, nil)
 	endpoints := []string{"wordpress", "hosted-mysql:nope"}
 	_, err := s.api.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"bad.cidr"}})
 	c.Assert(err, gc.ErrorMatches, `invalid CIDR address: bad.cidr`)
 }
 
+func (s *ApplicationSuite) TestNonRemoteRelationCIDR(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.backend.EXPECT().InferEndpoints("wordpress", "mysql").Return([]state.Endpoint{{
+		ApplicationName: "wordpress",
+	}, {
+		ApplicationName: "mysql",
+	}}, nil)
+	s.backend.EXPECT().RemoteApplication("wordpress").Return(nil, errors.NotFound)
+	s.backend.EXPECT().RemoteApplication("mysql").Return(nil, errors.NotFound)
+	endpoints := []string{"wordpress", "mysql"}
+	_, err := s.api.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"10.10.0.0/16"}})
+	c.Assert(err, gc.ErrorMatches, `integration via subnets for non cross model relations not supported`)
+}
+
 func (s *ApplicationSuite) TestRemoteRelationDisAllowedCIDR(c *gc.C) {
 	defer s.setup(c).Finish()
 
+	s.backend.EXPECT().InferEndpoints("wordpress", "hosted-mysql:nope").Return([]state.Endpoint{{
+		ApplicationName: "wordpress",
+	}, {
+		ApplicationName: "hosted-mysql",
+	}}, nil)
 	endpoints := []string{"wordpress", "hosted-mysql:nope"}
 	_, err := s.api.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"0.0.0.0/0"}})
 	c.Assert(err, gc.ErrorMatches, `CIDR "0.0.0.0/0" not allowed`)

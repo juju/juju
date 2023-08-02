@@ -23,6 +23,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/core/arch"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -1887,7 +1887,7 @@ func (s *ApplicationSuite) setupMultiSeriesUnitSubordinateGivenUnit(c *gc.C, app
 func assertApplicationBaseUpdate(c *gc.C, a *state.Application, base state.Base) {
 	err := a.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	stBase, err := series.ParseBase(base.OS, base.Channel)
+	stBase, err := corebase.ParseBase(base.OS, base.Channel)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(a.Base().String(), gc.Equals, stBase.String())
 }
@@ -3395,7 +3395,7 @@ func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
 	assertLife(c, machine, state.Dying)
 }
 
-func (s *ApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
+func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesSecretPermissions(c *gc.C) {
 	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
@@ -3440,7 +3440,7 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *ApplicationSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
+func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesOwnedSecrets(c *gc.C) {
 	store := state.NewSecrets(s.State)
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
@@ -3463,6 +3463,39 @@ func (s *ApplicationSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 	// Create again, no label clash.
 	s.AddTestingApplication(c, "mysql", s.charm)
 	_, err = store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ApplicationSuite) TestDestroyNoRemoveKeepsOwnedSecrets(c *gc.C) {
+	// Create a relation so destroy does not remove.
+	_, err := s.mysql.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	mysqlep, err := s.mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	wpch := s.AddTestingCharm(c, "wordpress")
+	wp := s.AddTestingApplication(c, "wordpress", wpch)
+	wpep, err := wp.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(mysqlep, wpep)
+	c.Assert(err, jc.ErrorIsNil)
+
+	store := state.NewSecrets(s.State)
+	uri := secrets.NewURI()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.mysql.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			Label:       ptr("label"),
+			Data:        map[string]string{"foo": "bar"},
+		},
+	}
+	_, err = store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.mysql.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -12,9 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
@@ -273,7 +273,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationNoPlacement(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": failed for some reason`)
 	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
-		Base:        series.MakeDefaultBase("ubuntu", "12.10"),
+		Base:        corebase.MakeDefaultBase("ubuntu", "12.10"),
 		Constraints: constraints.MustParse("arch=amd64 root-disk=20G"),
 	})
 }
@@ -329,7 +329,7 @@ func (s *PrecheckerSuite) TestPrecheckAddApplicationMixedPlacement(c *gc.C) {
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": hey now`)
 	c.Assert(s.prechecker.precheckInstanceArgs, jc.DeepEquals, environs.PrecheckInstanceParams{
-		Base:        series.MakeDefaultBase("ubuntu", "20.04"),
+		Base:        corebase.MakeDefaultBase("ubuntu", "20.04"),
 		Placement:   "somewhere",
 		Constraints: constraints.MustParse("arch=amd64"),
 	})
