@@ -58,7 +58,7 @@ Examples:
 	return jujucmd.Info(&cmd.Info{
 		Name:    "grant-secret",
 		Args:    "<secret-uri> <application>[,<application>...]",
-		Purpose: "grant access to a secret",
+		Purpose: "Grant access to a secret.",
 		Doc:     doc,
 	})
 }
@@ -142,7 +142,7 @@ Examples:
 	return jujucmd.Info(&cmd.Info{
 		Name:    "revoke-secret",
 		Args:    "<secret-uri> <application>[,<application>...]",
-		Purpose: "revoke access to a secret",
+		Purpose: "Revoke access to a secret.",
 		Doc:     doc,
 	})
 }
