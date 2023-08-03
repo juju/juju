@@ -833,14 +833,9 @@ func (c *CharmHubRepository) selectNextBases(bases []transport.Base, origin core
 	// Serialize all the platforms into core entities.
 	results := make([]corecharm.Platform, len(compatible))
 	for k, base := range compatible {
-		track, err := corecharm.ChannelTrack(base.Channel)
+		platform, err := corecharm.ParsePlatform(fmt.Sprintf("%s/%s/%s", base.Architecture, base.Name, base.Channel))
 		if err != nil {
 			return nil, errors.Annotate(err, "base")
-		}
-		platform := corecharm.Platform{
-			Architecture: base.Architecture,
-			OS:           base.Name,
-			Channel:      track,
 		}
 		results[k] = platform
 	}
@@ -1034,6 +1029,7 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 func selectReleaseByArchAndChannel(releases []transport.Release, origin corecharm.Origin) ([]corecharm.Platform, error) {
 	var (
 		empty   = origin.Channel == nil
+		arch    = origin.Platform.Architecture
 		channel charm.Channel
 	)
 	if !empty {
@@ -1043,17 +1039,11 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 	for _, release := range releases {
 		base := release.Base
 
-		arch, os := base.Architecture, base.Name
-		track, err := corecharm.ChannelTrack(base.Channel)
+		platform, err := corecharm.ParsePlatform(fmt.Sprintf("%s/%s/%s", arch, base.Name, base.Channel))
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotate(err, "base")
 		}
-		platform := corecharm.Platform{
-			Architecture: origin.Platform.Architecture,
-			OS:           os,
-			Channel:      track,
-		}
-		if (empty || channel.String() == release.Channel) && (arch == "all" || arch == origin.Platform.Architecture) {
+		if (empty || channel.String() == release.Channel) && (base.Architecture == "all" || base.Architecture == arch) {
 			results = append(results, platform)
 		}
 	}
