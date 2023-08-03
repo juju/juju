@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/charm/v10"
 	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/charmhub"
@@ -497,13 +498,17 @@ func (c *CharmHubRepository) selectNextBases(bases []transport.Base, origin core
 	}
 
 	// Serialize all the platforms into core entities.
-	results := make([]corecharm.Platform, len(compatible))
-	for k, base := range compatible {
+	var results []corecharm.Platform
+	seen := set.NewStrings()
+	for _, base := range compatible {
 		platform, err := corecharm.ParsePlatform(fmt.Sprintf("%s/%s/%s", base.Architecture, base.Name, base.Channel))
 		if err != nil {
 			return nil, errors.Annotate(err, "base")
 		}
-		results[k] = platform
+		if !seen.Contains(platform.String()) {
+			seen.Add(platform.String())
+			results = append(results, platform)
+		}
 	}
 
 	return results, nil
@@ -702,11 +707,12 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 		empty   = origin.Channel == nil
 		arch    = origin.Platform.Architecture
 		channel charm.Channel
+		results []corecharm.Platform
 	)
 	if !empty {
 		channel = origin.Channel.Normalize()
 	}
-	var results []corecharm.Platform
+	seen := set.NewStrings()
 	for _, release := range releases {
 		base := release.Base
 
@@ -714,7 +720,8 @@ func selectReleaseByArchAndChannel(releases []transport.Release, origin corechar
 		if err != nil {
 			return nil, errors.Annotate(err, "base")
 		}
-		if (empty || channel.String() == release.Channel) && (base.Architecture == "all" || base.Architecture == arch) {
+		if !seen.Contains(platform.String()) && (empty || channel.String() == release.Channel) && (base.Architecture == "all" || base.Architecture == arch) {
+			seen.Add(platform.String())
 			results = append(results, platform)
 		}
 	}

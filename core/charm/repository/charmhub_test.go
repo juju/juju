@@ -812,6 +812,10 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithValidBasesWithSeries(c *gc.C) 
 		Architecture: "amd64",
 		Name:         "ubuntu",
 		Channel:      "focal",
+	}, {
+		Architecture: "amd64",
+		Name:         "ubuntu",
+		Channel:      "20.04",
 	}}, corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "amd64",
@@ -1095,6 +1099,13 @@ func (selectReleaseByChannelSuite) TestSelectionSeriesInRelease(c *gc.C) {
 		Base: transport.Base{
 			Name:         "ubuntu",
 			Channel:      "focal",
+			Architecture: "arch",
+		},
+		Channel: "stable",
+	}, {
+		Base: transport.Base{
+			Name:         "ubuntu",
+			Channel:      "20.04",
 			Architecture: "arch",
 		},
 		Channel: "stable",
