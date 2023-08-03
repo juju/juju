@@ -656,6 +656,9 @@ func validateSecretConfig(chCfg *charm.Config, cfg charm.Settings) error {
 			if !ok {
 				return errors.NotValidf("unexpected value type for secret option %q", name)
 			}
+			if uriStr == "" {
+				return nil
+			}
 			_, err := secrets.ParseURI(uriStr)
 			return errors.Trace(err)
 		}
