@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/charm/v10"
 	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/charmhub"
@@ -497,18 +498,17 @@ func (c *CharmHubRepository) selectNextBases(bases []transport.Base, origin core
 	}
 
 	// Serialize all the platforms into core entities.
-	results := make([]corecharm.Platform, len(compatible))
-	for k, base := range compatible {
-		track, err := corecharm.ChannelTrack(base.Channel)
+	var results []corecharm.Platform
+	seen := set.NewStrings()
+	for _, base := range compatible {
+		platform, err := corecharm.ParsePlatform(fmt.Sprintf("%s/%s/%s", base.Architecture, base.Name, base.Channel))
 		if err != nil {
 			return nil, errors.Annotate(err, "base")
 		}
-		platform := corecharm.Platform{
-			Architecture: base.Architecture,
-			OS:           base.Name,
-			Channel:      track,
+		if !seen.Contains(platform.String()) {
+			seen.Add(platform.String())
+			results = append(results, platform)
 		}
-		results[k] = platform
 	}
 
 	return results, nil
@@ -705,26 +705,23 @@ func (c *CharmHubRepository) composeSuggestions(releases []transport.Release, or
 func selectReleaseByArchAndChannel(releases []transport.Release, origin corecharm.Origin) ([]corecharm.Platform, error) {
 	var (
 		empty   = origin.Channel == nil
+		arch    = origin.Platform.Architecture
 		channel charm.Channel
+		results []corecharm.Platform
 	)
 	if !empty {
 		channel = origin.Channel.Normalize()
 	}
-	var results []corecharm.Platform
+	seen := set.NewStrings()
 	for _, release := range releases {
 		base := release.Base
 
-		arch, os := base.Architecture, base.Name
-		track, err := corecharm.ChannelTrack(base.Channel)
+		platform, err := corecharm.ParsePlatform(fmt.Sprintf("%s/%s/%s", arch, base.Name, base.Channel))
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotate(err, "base")
 		}
-		platform := corecharm.Platform{
-			Architecture: origin.Platform.Architecture,
-			OS:           os,
-			Channel:      track,
-		}
-		if (empty || channel.String() == release.Channel) && (arch == "all" || arch == origin.Platform.Architecture) {
+		if !seen.Contains(platform.String()) && (empty || channel.String() == release.Channel) && (base.Architecture == "all" || base.Architecture == arch) {
+			seen.Add(platform.String())
 			results = append(results, platform)
 		}
 	}
