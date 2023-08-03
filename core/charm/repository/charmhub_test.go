@@ -760,7 +760,7 @@ func (s *charmHubRepositorySuite) expectedRefreshRevisionNotFoundError(c *gc.C) 
 
 func (s *charmHubRepositorySuite) expectCharmRefreshInstallOneFromChannelFullBase(c *gc.C) {
 	cfg, err := charmhub.InstallOneFromChannel("wordpress", "latest/stable", charmhub.RefreshBase{
-		Architecture: arch.DefaultArchitecture, Name: "ubuntu", Channel: "20.04",
+		Architecture: arch.DefaultArchitecture, Name: "ubuntu", Channel: "20.04/stable",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectCharmRefreshFullWithResources(c, cfg)
@@ -1008,7 +1008,7 @@ func (refreshConfigSuite) TestRefreshByChannel(c *gc.C) {
 
 func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 	curl := charm.MustParseURL("ch:wordpress")
-	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.10/latest")
+	platform := corecharm.MustParsePlatform("amd64/ubuntu/20.10/stable")
 	channel := corecharm.MustParseChannel("latest/stable").Normalize()
 	origin := corecharm.Origin{
 		Platform: platform,
@@ -1031,7 +1031,7 @@ func (refreshConfigSuite) TestRefreshByChannelVersion(c *gc.C) {
 			Channel:     &ch,
 			Base: &transport.Base{
 				Name:         "ubuntu",
-				Channel:      "20.10/latest",
+				Channel:      "20.10",
 				Architecture: "amd64",
 			},
 		}},

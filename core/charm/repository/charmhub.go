@@ -953,6 +953,15 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 		method = MethodID
 	}
 
+	var track string
+	if origin.Platform.Channel != "" {
+		var err error
+		track, err = corecharm.ChannelTrack(origin.Platform.Channel)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	var (
 		cfg charmhub.RefreshConfig
 		err error
@@ -960,7 +969,7 @@ func refreshConfig(charmURL *charm.URL, origin corecharm.Origin) (charmhub.Refre
 		base = charmhub.RefreshBase{
 			Architecture: origin.Platform.Architecture,
 			Name:         origin.Platform.OS,
-			Channel:      origin.Platform.Channel,
+			Channel:      track,
 		}
 	)
 	switch method {
