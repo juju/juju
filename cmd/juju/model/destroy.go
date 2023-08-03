@@ -157,9 +157,7 @@ func (c *destroyCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.assumeYes, "y", false, "Do not prompt for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
-	// This unused var is declared to pass a valid ptr into BoolVar
-	var noPromptHolder bool
-	f.BoolVar(&noPromptHolder, "no-prompt", false, "Does nothing. Option present for forward compatibility with Juju 3")
+	f.BoolVar(&c.assumeYes, "no-prompt", false, "")
 	f.DurationVar(&c.timeout, "t", unsetTimeout, "Timeout for each step of force model destruction")
 	f.DurationVar(&c.timeout, "timeout", unsetTimeout, "")
 	f.BoolVar(&c.destroyStorage, "destroy-storage", false, "Destroy all storage instances in the model")

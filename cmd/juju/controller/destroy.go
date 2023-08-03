@@ -568,9 +568,7 @@ func (c *destroyCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
 	f.BoolVar(&c.assumeYes, "yes", false, "")
-	// This unused var is declared to pass a valid ptr into BoolVar
-	var noPromptHolder bool
-	f.BoolVar(&noPromptHolder, "no-prompt", false, "Does nothing. Option present for forward compatibility with Juju 3")
+	f.BoolVar(&c.assumeYes, "no-prompt", false, "")
 }
 
 // Init implements Command.Init.
