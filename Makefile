@@ -303,6 +303,9 @@ build: rebuild-schema go-build
 ## build builds all the targets specified by BUILD_AGENT_TARGETS and
 ## BUILD_CLIENT_TARGETS while also rebuilding a new schema.
 
+.PHONY: go-client-build
+go-client-build: $(BUILD_CLIENT_TARGETS)
+
 .PHONY: go-build
 go-build: $(BUILD_AGENT_TARGETS) $(BUILD_CLIENT_TARGETS)
 ## build builds all the targets specified by BUILD_AGENT_TARGETS and
