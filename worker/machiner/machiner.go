@@ -74,7 +74,8 @@ var NewMachiner = func(cfg Config) (worker.Worker, error) {
 	return w, nil
 }
 
-var getObservedNetworkConfig = common.GetObservedNetworkConfig
+// GetObservedNetworkConfig is patched for testing.
+var GetObservedNetworkConfig = common.GetObservedNetworkConfig
 
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
@@ -189,7 +190,7 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 
 	life := mr.machine.Life()
 	if life == corelife.Alive {
-		observedConfig, err := getObservedNetworkConfig(corenetwork.DefaultConfigSource())
+		observedConfig, err := GetObservedNetworkConfig(corenetwork.DefaultConfigSource())
 		if err != nil {
 			return errors.Annotate(err, "cannot discover observed network config")
 		} else if len(observedConfig) == 0 {

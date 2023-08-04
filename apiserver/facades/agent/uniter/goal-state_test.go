@@ -34,19 +34,22 @@ type uniterGoalStateSuite struct {
 var _ = gc.Suite(&uniterGoalStateSuite{})
 
 func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
 	s.setupState(c)
 
-	s.machine2 = s.Factory.MakeMachine(c, &factory.MachineParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	s.machine2 = f.MakeMachine(c, &factory.MachineParams{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 
-	loggingCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
+	loggingCharm := f.MakeCharm(c, &factory.CharmParams{
 		Name: "logging",
 	})
-	s.logging = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	s.logging = f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "logging",
 		Charm: loggingCharm,
 	})
@@ -62,7 +65,7 @@ func (s *uniterGoalStateSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	s.uniter = s.newUniterAPI(c, s.State, s.authorizer)
+	s.uniter = s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
 }
 
 var (
@@ -111,7 +114,10 @@ func (s *uniterGoalStateSuite) TestPeerUnitsNoRelation(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 	}}
 
-	s.Factory.MakeUnit(c, &factory.UnitParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	f.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
 	})
@@ -167,7 +173,10 @@ func (s *uniterGoalStateSuite) TestGoalStatesDeadUnitsExcluded(c *gc.C) {
 	err := s.addRelationEnterScope(c, s.wordpressUnit, "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 
-	newMysqlUnit := s.Factory.MakeUnit(c, &factory.UnitParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	newMysqlUnit := f.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
 	})
@@ -237,7 +246,10 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 
 // TestGoalStatesSingleRelationDyingUnits tests dying units showing dying status in the GoalState result.
 func (s *uniterGoalStateSuite) TestGoalStatesSingleRelationDyingUnits(c *gc.C) {
-	mysqlUnit := s.Factory.MakeUnit(c, &factory.UnitParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	mysqlUnit := f.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
 	})
@@ -313,7 +325,8 @@ func (s *uniterGoalStateSuite) TestGoalStatesCrossModelRelation(c *gc.C) {
 			},
 		},
 	}})
-	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	st := s.ControllerModel(c).State()
+	_, err = st.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "metrics-remote",
 		URL:         "ctrl1:admin/default.metrics",
 		SourceModel: coretesting.ModelTag,
@@ -325,9 +338,9 @@ func (s *uniterGoalStateSuite) TestGoalStatesCrossModelRelation(c *gc.C) {
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	eps, err := s.State.InferEndpoints("mysql", "metrics-remote")
+	eps, err := st.InferEndpoints("mysql", "metrics-remote")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddRelation(eps...)
+	_, err = st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	testGoalStates(c, s.uniter, args, params.GoalStateResults{Results: []params.GoalStateResult{
 		{
@@ -354,31 +367,34 @@ func (s *uniterGoalStateSuite) TestGoalStatesCrossModelRelation(c *gc.C) {
 // to a different application unit.
 func (s *uniterGoalStateSuite) TestGoalStatesMultipleRelations(c *gc.C) {
 
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	// Add another wordpress unit on machine 1.
-	s.Factory.MakeUnit(c, &factory.UnitParams{
+	f.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine1,
 	})
 
 	// And add another wordpress.
-	wordpress2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	wordpress2 := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress2",
 		Charm: s.wpCharm,
 	})
-	wordpressUnit2 := s.Factory.MakeUnit(c, &factory.UnitParams{
+	wordpressUnit2 := f.MakeUnit(c, &factory.UnitParams{
 		Application: wordpress2,
 		Machine:     s.machine1,
 	})
 
-	mysqlCharm1 := s.Factory.MakeCharm(c, &factory.CharmParams{
+	mysqlCharm1 := f.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql",
 	})
-	mysql1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	mysql1 := f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql1",
 		Charm: mysqlCharm1,
 	})
 
-	mysqlUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{
+	mysqlUnit1 := f.MakeUnit(c, &factory.UnitParams{
 		Application: mysql1,
 		Machine:     s.machine2,
 	})
@@ -442,9 +458,10 @@ func (s *uniterGoalStateSuite) addRelationEnterScope(c *gc.C, unit1 *state.Unit,
 }
 
 func (s *uniterGoalStateSuite) addRelation(c *gc.C, first, second string) *state.Relation {
-	eps, err := s.State.InferEndpoints(first, second)
+	st := s.ControllerModel(c).State()
+	eps, err := st.InferEndpoints(first, second)
 	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
+	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	return rel
 }

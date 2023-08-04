@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/api/base"
 	apicontroller "github.com/juju/juju/api/controller/controller"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
@@ -419,7 +418,7 @@ func (s *KillSuite) TestKillCommandConfirmation(c *gc.C) {
 
 	// Ensure confirmation is requested if "--no-prompt" is not specified.
 	stdin.WriteString("n")
-	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.newKillCommand(), "test1")
+	errc := cmdtesting.RunCommandWithContext(ctx, s.newKillCommand(), "test1")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "controller destruction: aborted")

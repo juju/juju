@@ -15,11 +15,9 @@ import (
 
 	"github.com/juju/juju/api"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/cmd/juju/machine/mocks"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -59,9 +57,9 @@ func (s *RemoveMachineSuite) run(c *gc.C, args ...string) (*cmd.Context, error) 
 	return cmdtesting.RunCommand(c, remove, args...)
 }
 
-func (s *RemoveMachineSuite) runWithContext(ctx *cmd.Context, args ...string) (chan dummy.Operation, chan error) {
+func (s *RemoveMachineSuite) runWithContext(ctx *cmd.Context, args ...string) chan error {
 	remove, _ := machine.NewRemoveCommandForTest(s.apiConnection, s.mockApi, s.mockModelConfigApi)
-	return cmdtest.RunCommandWithDummyProvider(ctx, remove, args...)
+	return cmdtesting.RunCommandWithContext(ctx, remove, args...)
 }
 
 func defaultDestroyMachineResult(_, _, _ bool, _ *time.Duration, machines ...string) ([]params.DestroyMachineResult, error) {
@@ -296,13 +294,13 @@ func (s *RemoveMachineSuite) TestRemovePromptOldFacade(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2")
 
 	stdin.WriteString("y")
-	_, errc := s.runWithContext(ctx, "1", "2")
+	errc := s.runWithContext(ctx, "1", "2")
 
 	select {
 	case err := <-errc:
@@ -319,13 +317,13 @@ func (s *RemoveMachineSuite) TestRemovePrompt(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2")
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, false, gomock.Any(), "1", "2")
 
 	stdin.WriteString("y")
-	_, errc := s.runWithContext(ctx, "1", "2")
+	errc := s.runWithContext(ctx, "1", "2")
 
 	select {
 	case err := <-errc:
@@ -343,11 +341,11 @@ func (s *RemoveMachineSuite) TestRemovePromptOldFacadeAborted(c *gc.C) {
 	var stdin bytes.Buffer
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 
 	stdin.WriteString("n")
-	_, errc := s.runWithContext(ctx, "1", "2")
+	errc := s.runWithContext(ctx, "1", "2")
 
 	select {
 	case err := <-errc:
@@ -364,12 +362,12 @@ func (s *RemoveMachineSuite) TestRemovePromptAborted(c *gc.C) {
 	var stdin bytes.Buffer
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigApi.EXPECT().ModelGet().Return(attrs, nil)
 	s.mockApi.EXPECT().DestroyMachinesWithParams(false, false, true, gomock.Any(), "1", "2")
 
 	stdin.WriteString("n")
-	_, errc := s.runWithContext(ctx, "1", "2")
+	errc := s.runWithContext(ctx, "1", "2")
 
 	select {
 	case err := <-errc:

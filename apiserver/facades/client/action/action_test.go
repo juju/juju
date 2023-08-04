@@ -30,7 +30,7 @@ func TestAll(t *testing.T) {
 }
 
 type baseSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 	commontesting.BlockHelper
 
 	action     *action.ActionAPI
@@ -54,55 +54,57 @@ type actionSuite struct {
 var _ = gc.Suite(&actionSuite{})
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.ApiServerSuite.SetUpTest(c)
+	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
+		Tag: jujutesting.AdminUser,
 	}
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	var err error
-	s.action, err = action.NewActionAPI(s.State, s.resources, s.authorizer, action.FakeLeadership{})
+	s.action, err = action.NewActionAPI(s.ControllerModel(c).State(), s.resources, s.authorizer, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.charm = s.Factory.MakeCharm(c, &factory.CharmParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	s.charm = f.MakeCharm(c, &factory.CharmParams{
 		Name: "wordpress",
 	})
 
-	s.dummy = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	s.dummy = f.MakeApplication(c, &factory.ApplicationParams{
 		Name: "dummy",
-		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
+		Charm: f.MakeCharm(c, &factory.CharmParams{
 			Name: "dummy",
 		}),
 	})
-	s.wordpress = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	s.wordpress = f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "wordpress",
 		Charm: s.charm,
 	})
-	s.machine0 = s.Factory.MakeMachine(c, &factory.MachineParams{
+	s.machine0 = f.MakeMachine(c, &factory.MachineParams{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
-	s.wordpressUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
+	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
 		Application: s.wordpress,
 		Machine:     s.machine0,
 	})
 
-	mysqlCharm := s.Factory.MakeCharm(c, &factory.CharmParams{
+	mysqlCharm := f.MakeCharm(c, &factory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	s.mysql = f.MakeApplication(c, &factory.ApplicationParams{
 		Name:  "mysql",
 		Charm: mysqlCharm,
 	})
-	s.machine1 = s.Factory.MakeMachine(c, &factory.MachineParams{
+	s.machine1 = f.MakeMachine(c, &factory.MachineParams{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
-	s.mysqlUnit = s.Factory.MakeUnit(c, &factory.UnitParams{
+	s.mysqlUnit = f.MakeUnit(c, &factory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine1,
 	})
@@ -122,7 +124,7 @@ func (s *actionSuite) TestActions(c *gc.C) {
 	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
 
 	// There's only one operation created.
-	operations, err := s.Model.AllOperations()
+	operations, err := s.ControllerModel(c).AllOperations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(operations, gc.HasLen, 1)
 	c.Assert(operations[0].Summary(), gc.Equals, "fakeaction run on unit-wordpress-0,unit-mysql-0,unit-wordpress-0,unit-mysql-0")
@@ -379,13 +381,13 @@ func assertReadyToTest(c *gc.C, receiver state.ActionReceiver) {
 }
 
 func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
-	unit, err := s.State.Unit("mysql/0")
+	unit, err := s.ControllerModel(c).State().Unit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	assertReadyToTest(c, unit)
 
-	operationID, err := s.Model.EnqueueOperation("a test", 1)
+	operationID, err := s.ControllerModel(c).EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
-	added, err := s.Model.AddAction(unit, operationID, "fakeaction", nil, nil, nil)
+	added, err := s.ControllerModel(c).AddAction(unit, operationID, "fakeaction", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.action.WatchActionsProgress(
@@ -411,7 +413,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	err = added.Log("hello")
 	c.Assert(err, jc.ErrorIsNil)
 
-	a, err := s.Model.Action("2")
+	a, err := s.ControllerModel(c).Action("2")
 	c.Assert(err, jc.ErrorIsNil)
 	logged := a.Messages()
 	c.Assert(logged, gc.HasLen, 1)

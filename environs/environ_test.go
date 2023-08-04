@@ -7,7 +7,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -43,9 +42,6 @@ func (m *mockModel) CloudCredential() (cloud.Credential, bool, error) {
 }
 
 func (s *environSuite) TestGetEnvironment(c *gc.C) {
-	unreg := environs.RegisterProvider(jujutesting.DefaultCloud.Type, apitesting.ProviderInstance)
-	defer unreg()
-
 	cfg := testing.CustomModelConfig(c, testing.Attrs{"name": "testmodel-foo"})
 	m := &mockModel{cfg: cfg}
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(m)

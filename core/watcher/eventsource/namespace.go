@@ -63,6 +63,10 @@ func (w *NamespaceWatcher) loop() error {
 	if err != nil {
 		return errors.Annotatef(err, "subscribing to namespace %q", w.namespace)
 	}
+	// TODO(wallyworld) - this is nil sometimes is cmd/jujud/agent tests.
+	if subscription == nil {
+		return errors.Errorf("nil subscription subscribing to namespace %q", w.namespace)
+	}
 	defer subscription.Unsubscribe()
 
 	changes, err := w.getInitialState()

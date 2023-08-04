@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -29,14 +28,8 @@ type URLsSuite struct {
 
 var _ = gc.Suite(&URLsSuite{})
 
-func (s *URLsSuite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
-
-	s.BaseSuite.TearDownTest(c)
-}
-
 func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
-	attrs := dummy.SampleConfig()
+	attrs := coretesting.FakeConfig()
 	if toolsMetadataURL != "" {
 		attrs = attrs.Merge(coretesting.Attrs{
 			"agent-metadata-url": toolsMetadataURL,
@@ -48,7 +41,7 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   attrs["name"].(string),
 			ModelConfig:      attrs,
-			Cloud:            dummy.SampleCloudSpec(),
+			Cloud:            coretesting.FakeCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

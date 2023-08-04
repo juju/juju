@@ -31,7 +31,7 @@ import (
 // the flags passed in to the destroy controller call.
 
 type destroyControllerSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 	commontesting.BlockHelper
 
 	authorizer apiservertesting.FakeAuthorizer
@@ -47,29 +47,31 @@ type destroyControllerSuite struct {
 var _ = gc.Suite(&destroyControllerSuite{})
 
 func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
-	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
+		Tag: jujutesting.AdminUser,
 	}
 	testController, err := controller.NewControllerAPIv11(
 		facadetest.Context{
-			State_:     s.State,
-			StatePool_: s.StatePool,
+			State_:     s.ControllerModel(c).State(),
+			StatePool_: s.StatePool(),
 			Resources_: s.resources,
 			Auth_:      s.authorizer,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = testController
 
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	s.otherModelOwner = names.NewUserTag("jess@dummy")
-	s.otherState = s.Factory.MakeModel(c, &factory.ModelParams{
+	s.otherState = f.MakeModel(c, &factory.ModelParams{
 		Name:  "dummytoo",
 		Owner: s.otherModelOwner,
 		ConfigAttrs: testing.Attrs{
@@ -94,9 +96,7 @@ func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedModelsWith
 	})
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Alive)
+	c.Assert(s.ControllerModel(c).Life(), gc.Equals, state.Alive)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *gc.C) {
@@ -110,7 +110,7 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *
 	})
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 
-	numBlocks, err := s.State.AllBlocksForController()
+	numBlocks, err := s.ControllerModel(c).State().AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 4)
 
@@ -124,9 +124,7 @@ func (s *destroyControllerSuite) TestDestroyControllerKillsHostedModels(c *gc.C)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Dying)
+	c.Assert(s.ControllerModel(c).Life(), gc.Equals, state.Dying)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c *gc.C) {
@@ -138,13 +136,13 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 	err := s.controller.DestroyController(params.DestroyControllerArgs{})
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 
-	numBlocks, err := s.State.AllBlocksForController()
+	numBlocks, err := s.ControllerModel(c).State().AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 4)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil, nil, nil, nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool()), nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.otherModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.otherModel.Life(), gc.Equals, state.Dying)
@@ -154,13 +152,11 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Dying)
+	c.Assert(s.ControllerModel(c).Life(), gc.Equals, state.Dying)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBlock(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil, nil, nil, nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool()), nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
@@ -168,13 +164,11 @@ func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBl
 
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
-	models, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(models.Life(), gc.Equals, state.Alive)
+	c.Assert(s.ControllerModel(c).Life(), gc.Equals, state.Alive)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFail(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool), nil, nil, nil, nil)
+	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool()), nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
@@ -183,13 +177,13 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFai
 	err = s.controller.DestroyController(params.DestroyControllerArgs{})
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 
-	numBlocks, err := s.State.AllBlocksForController()
+	numBlocks, err := s.ControllerModel(c).State().AllBlocksForController()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(numBlocks), gc.Equals, 2)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified(c *gc.C) {
-	f := factory.NewFactory(s.otherState, s.StatePool)
+	f := factory.NewFactory(s.otherState, s.StatePool())
 	f.MakeUnit(c, &factory.UnitParams{
 		Application: f.MakeApplication(c, &factory.ApplicationParams{
 			Charm: f.MakeCharm(c, &factory.CharmParams{
@@ -206,13 +200,11 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 	})
 	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Alive)
+	c.Assert(s.ControllerModel(c).Life(), gc.Equals, state.Alive)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c *gc.C) {
-	f := factory.NewFactory(s.otherState, s.StatePool)
+	f := factory.NewFactory(s.otherState, s.StatePool())
 	f.MakeUnit(c, &factory.UnitParams{
 		Application: f.MakeApplication(c, &factory.ApplicationParams{
 			Charm: f.MakeCharm(c, &factory.CharmParams{
@@ -231,9 +223,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.Life(), gc.Equals, state.Dying)
+	c.Assert(s.ControllerModel(c).Life(), gc.Equals, state.Dying)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerForce(c *gc.C) {
@@ -245,8 +235,6 @@ func (s *destroyControllerSuite) TestDestroyControllerForce(c *gc.C) {
 		ModelTimeout:  &timeout,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.ForceDestroyed(), jc.IsTrue)
-	c.Assert(model.DestroyTimeout().Hours(), gc.Equals, 1.0)
+	c.Assert(s.ControllerModel(c).ForceDestroyed(), jc.IsTrue)
+	c.Assert(s.ControllerModel(c).DestroyTimeout().Hours(), gc.Equals, 1.0)
 }

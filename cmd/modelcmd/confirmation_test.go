@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/modelcmd/mocks"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/testing"
 )
 
 type DestroyConfirmationCommandBaseSuite struct{}
@@ -64,7 +64,7 @@ func (*RemoveConfirmationCommandBaseSuite) getCmdBase(args []string) modelcmd.Re
 func (s *RemoveConfirmationCommandBaseSuite) TestSimpleFalse(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: ""})
+	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: ""})
 	s.modelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})
@@ -74,7 +74,7 @@ func (s *RemoveConfirmationCommandBaseSuite) TestSimpleFalse(c *gc.C) {
 func (s *RemoveConfirmationCommandBaseSuite) TestSimpleTrue(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.modelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	commandBase := s.getCmdBase([]string{"--foo", "bar"})

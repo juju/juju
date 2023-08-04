@@ -21,7 +21,7 @@ import (
 )
 
 type MetricSenderSuite struct {
-	jujujutesting.JujuConnSuite
+	jujujutesting.ApiServerSuite
 	meteredUnit *state.Unit
 	credUnit    *state.Unit
 	clock       clock.Clock
@@ -42,23 +42,29 @@ var _ metricsender.MetricSender = (*testing.MockSender)(nil)
 var _ metricsender.MetricSender = (*metricsender.NopSender)(nil)
 
 func (s *MetricSenderSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered"})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered"})
 	// Application with metrics credentials set.
-	credApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm, Name: "cred"})
+	credApp := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm, Name: "cred"})
 	err := credApp.SetMetricCredentials([]byte("something here"))
 	c.Assert(err, jc.ErrorIsNil)
-	meteredApp := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	s.meteredUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApp, SetCharmURL: true})
-	s.credUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: credApp, SetCharmURL: true})
+	meteredApp := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	s.meteredUnit = f.MakeUnit(c, &factory.UnitParams{Application: meteredApp, SetCharmURL: true})
+	s.credUnit = f.MakeUnit(c, &factory.UnitParams{Application: credApp, SetCharmURL: true})
 	s.clock = testclock.NewClock(time.Now())
 }
 
 func (s *MetricSenderSuite) TestToWire(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	now := time.Now().Round(time.Second)
-	metric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
-	result := metricsender.ToWire(metric, s.Model.Name())
+	metric := f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
+	result := metricsender.ToWire(metric, s.ControllerModel(c).Name())
 	m := metric.Metrics()[0]
 	metrics := []wireformat.Metric{
 		{
@@ -89,27 +95,32 @@ func (s *MetricSenderSuite) TestSendMetricsFromNewModel(c *gc.C) {
 	now := time.Now()
 	clock := testclock.NewClock(time.Now())
 
-	state := s.Factory.MakeModel(c, &factory.ModelParams{Name: "test-model"})
-	defer state.Close()
-	f := factory.NewFactory(state, s.StatePool)
-	model, err := state.Model()
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	st := f.MakeModel(c, &factory.ModelParams{Name: "test-model"})
+	defer st.Close()
+	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	modelName := model.Name()
 	c.Assert(modelName, gc.Equals, "test-model")
 
-	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered"})
+	f2, release := s.NewFactory(c, model.UUID())
+	defer release()
+
+	meteredCharm := f2.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:quantal/metered"})
 	// Application with metrics credentials set.
-	credApp := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm, Name: "cred"})
+	credApp := f2.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm, Name: "cred"})
 	err = credApp.SetMetricCredentials([]byte("something here"))
 	c.Assert(err, jc.ErrorIsNil)
-	meteredApp := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	meteredUnit := f.MakeUnit(c, &factory.UnitParams{Application: meteredApp, SetCharmURL: true})
-	credUnit := f.MakeUnit(c, &factory.UnitParams{Application: credApp, SetCharmURL: true})
+	meteredApp := f2.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	meteredUnit := f2.MakeUnit(c, &factory.UnitParams{Application: meteredApp, SetCharmURL: true})
+	credUnit := f2.MakeUnit(c, &factory.UnitParams{Application: credApp, SetCharmURL: true})
 
-	f.MakeMetric(c, &factory.MetricParams{Unit: credUnit, Time: &now})
-	f.MakeMetric(c, &factory.MetricParams{Unit: meteredUnit, Time: &now})
-	f.MakeMetric(c, &factory.MetricParams{Unit: credUnit, Sent: true, Time: &now})
-	err = metricsender.SendMetrics(TestSenderBackend{state, model}, &sender, clock, 10, true)
+	f2.MakeMetric(c, &factory.MetricParams{Unit: credUnit, Time: &now})
+	f2.MakeMetric(c, &factory.MetricParams{Unit: meteredUnit, Time: &now})
+	f2.MakeMetric(c, &factory.MetricParams{Unit: credUnit, Sent: true, Time: &now})
+	err = metricsender.SendMetrics(TestSenderBackend{st, model}, &sender, clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 2)
@@ -123,19 +134,25 @@ func (s *MetricSenderSuite) TestSendMetricsFromNewModel(c *gc.C) {
 func (s *MetricSenderSuite) TestSendMetrics(c *gc.C) {
 	var sender testing.MockSender
 	now := time.Now()
-	unsent1 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
-	unsent2 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, &sender, s.clock, 10, true)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	unsent1 := f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
+	unsent2 := f.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
+
+	st := s.ControllerModel(c).State()
+	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 2)
 
-	sent1, err := s.State.MetricBatch(unsent1.UUID())
+	sent1, err := st.MetricBatch(unsent1.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent1.Sent(), jc.IsTrue)
 
-	sent2, err := s.State.MetricBatch(unsent2.UUID())
+	sent2, err := st.MetricBatch(unsent2.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent2.Sent(), jc.IsTrue)
 }
@@ -144,15 +161,21 @@ func (s *MetricSenderSuite) TestSendingHandlesModelMeterStatus(c *gc.C) {
 	var sender testing.MockSender
 	sender.MeterStatusResponse = "RED"
 	now := time.Now()
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, &sender, s.clock, 10, true)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
+
+	st := s.ControllerModel(c).State()
+	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 2)
 
-	meterStatus, err := s.State.ModelMeterStatus()
+	meterStatus, err := st.ModelMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meterStatus.Code.String(), gc.Equals, "RED")
 	c.Assert(meterStatus.Info, gc.Equals, "mocked response")
@@ -162,15 +185,21 @@ func (s *MetricSenderSuite) TestSendingHandlesEmptyModelMeterStatus(c *gc.C) {
 	var sender testing.MockSender
 	sender.MeterStatusResponse = ""
 	now := time.Now()
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, &sender, s.clock, 10, true)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
+
+	st := s.ControllerModel(c).State()
+	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 2)
 
-	meterStatus, err := s.State.ModelMeterStatus()
+	meterStatus, err := st.ModelMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(meterStatus.Code.String(), gc.Equals, "NOT AVAILABLE")
 	c.Assert(meterStatus.Info, gc.Equals, "")
@@ -181,22 +210,27 @@ func (s *MetricSenderSuite) TestSendingHandlesEmptyModelMeterStatus(c *gc.C) {
 func (s *MetricSenderSuite) TestSendMetricsAbort(c *gc.C) {
 	sender := &testing.MockSender{}
 	now := time.Now()
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	metrics := make([]*state.MetricBatch, 7)
 	for i := 0; i < 7; i++ {
-		metrics[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
+		metrics[i] = f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
 	}
 
 	sender.IgnoreBatches(metrics[0:2]...)
 
 	// Send 4 batches per POST.
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, sender, s.clock, 4, true)
+	st := s.ControllerModel(c).State()
+	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 4, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 4)
 
 	unsent := 0
 	sent := 0
 	for _, batch := range metrics {
-		b, err := s.State.MetricBatch(batch.UUID())
+		b, err := st.MetricBatch(batch.UUID())
 		c.Assert(err, jc.ErrorIsNil)
 		if b.Sent() {
 			sent++
@@ -214,19 +248,25 @@ func (s *MetricSenderSuite) TestSendMetricsAbort(c *gc.C) {
 func (s *MetricSenderSuite) TestHoldMetrics(c *gc.C) {
 	var sender testing.MockSender
 	now := time.Now()
-	unsent1 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
-	unsent2 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, &sender, s.clock, 10, false)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	unsent1 := f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
+	unsent2 := f.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
+
+	st := s.ControllerModel(c).State()
+	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 1)
 	c.Assert(sender.Data[0][0].UUID, gc.Equals, unsent1.UUID())
-	sent1, err := s.State.MetricBatch(unsent1.UUID())
+	sent1, err := st.MetricBatch(unsent1.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent1.Sent(), jc.IsTrue)
 
-	sent2, err := s.State.MetricBatch(unsent2.UUID())
+	sent2, err := st.MetricBatch(unsent2.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent2.Sent(), jc.IsTrue)
 }
@@ -238,10 +278,16 @@ func (s *MetricSenderSuite) TestHoldMetricsSetsMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.meteredUnit.SetMeterStatus("GREEN", "known starting point")
 	c.Assert(err, jc.ErrorIsNil)
-	unsent1 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
-	err = metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, &sender, s.clock, 10, false)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	unsent1 := f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.meteredUnit, Time: &now})
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: true, Time: &now})
+
+	st := s.ControllerModel(c).State()
+	err = metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
 	c.Assert(sender.Data[0], gc.HasLen, 1)
@@ -263,10 +309,16 @@ func (s *MetricSenderSuite) TestHoldMetricsSetsMeterStatus(c *gc.C) {
 func (s *MetricSenderSuite) TestSendBulkMetrics(c *gc.C) {
 	var sender testing.MockSender
 	now := time.Now()
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	for i := 0; i < 100; i++ {
-		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
+		f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Time: &now})
 	}
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, &sender, s.clock, 10, true)
+
+	st := s.ControllerModel(c).State()
+	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, &sender, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(sender.Data, gc.HasLen, 10)
@@ -279,12 +331,18 @@ func (s *MetricSenderSuite) TestSendBulkMetrics(c *gc.C) {
 // is nil we don't send anything, but still mark the items as sent
 func (s *MetricSenderSuite) TestDontSendWithNopSender(c *gc.C) {
 	now := time.Now()
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	for i := 0; i < 3; i++ {
-		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
+		f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
 	}
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, metricsender.NopSender{}, s.clock, 10, true)
+
+	st := s.ControllerModel(c).State()
+	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, metricsender.NopSender{}, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
-	sent, err := s.State.CountOfSentMetrics()
+	sent, err := st.CountOfSentMetrics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sent, gc.Equals, 3)
 }
@@ -292,28 +350,39 @@ func (s *MetricSenderSuite) TestDontSendWithNopSender(c *gc.C) {
 func (s *MetricSenderSuite) TestFailureIncrementsConsecutiveFailures(c *gc.C) {
 	sender := &testing.ErrorSender{Err: errors.New("something went wrong")}
 	now := time.Now()
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	for i := 0; i < 3; i++ {
-		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
+		f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
 	}
-	err := metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, sender, s.clock, 1, true)
+
+	st := s.ControllerModel(c).State()
+	err := metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, sender, s.clock, 1, true)
 	c.Assert(err, gc.ErrorMatches, "something went wrong")
-	mm, err := s.State.MetricsManager()
+	mm, err := st.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 1)
 }
 
 func (s *MetricSenderSuite) TestFailuresResetOnSuccessfulSend(c *gc.C) {
-	mm, err := s.State.MetricsManager()
+	st := s.ControllerModel(c).State()
+	mm, err := st.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	err = mm.IncrementConsecutiveErrors()
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	for i := 0; i < 3; i++ {
-		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
+		f.MakeMetric(c, &factory.MetricParams{Unit: s.credUnit, Sent: false, Time: &now})
 	}
-	err = metricsender.SendMetrics(TestSenderBackend{s.State, s.Model}, metricsender.NopSender{}, s.clock, 10, true)
+	err = metricsender.SendMetrics(TestSenderBackend{st, s.ControllerModel(c)}, metricsender.NopSender{}, s.clock, 10, true)
 	c.Assert(err, jc.ErrorIsNil)
-	mm, err = s.State.MetricsManager()
+	mm, err = st.MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 0)
 }

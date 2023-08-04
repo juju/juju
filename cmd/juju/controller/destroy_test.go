@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apicontroller "github.com/juju/juju/api/controller/controller"
-	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujucontroller "github.com/juju/juju/controller"
@@ -27,7 +26,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -62,7 +61,6 @@ type baseDestroySuite struct {
 type fakeDestroyAPI struct {
 	jujutesting.Stub
 	cloud        environscloudspec.CloudSpec
-	env          map[string]interface{}
 	blocks       []params.ModelBlockInfo
 	envStatus    map[string]base.ModelStatus
 	allModels    []base.UserModel
@@ -87,7 +85,7 @@ func (f *fakeDestroyAPI) ModelConfig() (map[string]interface{}, error) {
 	if err := f.NextErr(); err != nil {
 		return nil, err
 	}
-	return f.env, nil
+	return testing.FakeConfig(), nil
 }
 
 func (f *fakeDestroyAPI) ControllerConfig() (jujucontroller.Config, error) {
@@ -145,7 +143,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	owner := names.NewUserTag("owner")
 	s.api = &fakeDestroyAPI{
-		cloud:     dummy.SampleCloudSpec(),
+		cloud:     testing.FakeCloudSpec(),
 		envStatus: map[string]base.ModelStatus{},
 	}
 	s.apierror = nil
@@ -474,7 +472,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 
 	// Ensure confirmation is requested if "--no-prompt" is not specified.
 	stdin.WriteString("wrong_test1_name")
-	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
+	errc := cmdtesting.RunCommandWithContext(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "controller destruction: aborted")
@@ -489,7 +487,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	stdin.Reset()
 	stdout.Reset()
 	stderr.Reset()
-	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
+	errc = cmdtesting.RunCommandWithContext(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "controller destruction: aborted")
@@ -505,7 +503,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	stdout.Reset()
 	stderr.Reset()
 	stdin.WriteString(answer)
-	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.newDestroyCommand(), "test1")
+	errc = cmdtesting.RunCommandWithContext(ctx, s.newDestroyCommand(), "test1")
 	select {
 	case err := <-errc:
 		c.Check(err, jc.ErrorIsNil)

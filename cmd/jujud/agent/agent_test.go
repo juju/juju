@@ -50,13 +50,13 @@ type AgentSuite struct {
 }
 
 func (s *AgentSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	agenttest.InstallFakeEnsureMongo(s, s.DataDir())
+	s.AgentSuite.SetUpTest(c)
+	agenttest.InstallFakeEnsureMongo(s, s.DataDir)
 	// Set API host ports so FindTools/Tools API calls succeed.
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
-	err := s.State.SetAPIHostPorts(hostPorts)
+	err := s.ControllerModel(c).State().SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&proxyupdater.NewWorker, func(proxyupdater.Config) (worker.Worker, error) {
 		return newDummyWorker(), nil

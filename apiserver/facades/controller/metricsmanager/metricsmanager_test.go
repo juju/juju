@@ -24,7 +24,7 @@ import (
 )
 
 type metricsManagerSuite struct {
-	jujujutesting.JujuConnSuite
+	jujujutesting.ApiServerSuite
 
 	clock          *testclock.Clock
 	metricsmanager *metricsmanager.MetricsManagerAPI
@@ -35,18 +35,20 @@ type metricsManagerSuite struct {
 var _ = gc.Suite(&metricsManagerSuite{})
 
 func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
 	s.clock = testclock.NewClock(time.Now())
-	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer, s.StatePool, s.clock)
+	manager, err := metricsmanager.NewMetricsManagerAPI(s.ControllerModel(c).State(), nil, s.authorizer, s.StatePool(), s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricsmanager = manager
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
-	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
+	meteredApplication := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	s.unit = f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 }
 
 func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonController(c *gc.C) {
@@ -66,8 +68,8 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonController(c *gc
 		anAuthoriser := s.authorizer
 		anAuthoriser.Controller = test.controller
 		anAuthoriser.Tag = test.tag
-		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil,
-			anAuthoriser, s.StatePool, testclock.NewClock(time.Now()))
+		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.ControllerModel(c).State(), nil,
+			anAuthoriser, s.StatePool(), testclock.NewClock(time.Now()))
 		if test.expectedError == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(endPoint, gc.NotNil)
@@ -82,18 +84,21 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	newTime := time.Now()
 	metric := state.Metric{Key: "pings", Value: "5", Time: newTime}
-	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, DeleteTime: &oldTime, Metrics: []state.Metric{metric}})
-	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, DeleteTime: &newTime, Metrics: []state.Metric{metric}})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	oldMetric := f.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, DeleteTime: &oldTime, Metrics: []state.Metric{metric}})
+	newMetric := f.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, DeleteTime: &newTime, Metrics: []state.Metric{metric}})
 	args := params.Entities{Entities: []params.Entity{
-		{s.Model.ModelTag().String()},
+		{s.ControllerModel(c).ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.CleanupOldMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
-	_, err = s.State.MetricBatch(oldMetric.UUID())
+	st := s.ControllerModel(c).State()
+	_, err = st.MetricBatch(oldMetric.UUID())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.State.MetricBatch(newMetric.UUID())
+	_, err = st.MetricBatch(newMetric.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -111,7 +116,7 @@ func (s *metricsManagerSuite) TestCleanupOldMetricsInvalidArg(c *gc.C) {
 func (s *metricsManagerSuite) TestCleanupArgsIndependent(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{"invalid"},
-		{s.Model.ModelTag().String()},
+		{s.ControllerModel(c).ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.CleanupOldMetrics(args)
 	c.Assert(result.Results, gc.HasLen, 2)
@@ -127,17 +132,20 @@ func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
 	defer cleanup()
 	now := time.Now()
 	metric := state.Metric{Key: "pings", Value: "5", Time: now}
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now, Metrics: []state.Metric{metric}})
-	unsent := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: []state.Metric{metric}})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now, Metrics: []state.Metric{metric}})
+	unsent := f.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: []state.Metric{metric}})
 	args := params.Entities{Entities: []params.Entity{
-		{s.Model.ModelTag().String()},
+		{s.ControllerModel(c).ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 	c.Assert(sender.Data, gc.HasLen, 1)
-	m, err := s.State.MetricBatch(unsent.UUID())
+	st := s.ControllerModel(c).State()
+	m, err := st.MetricBatch(unsent.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Sent(), jc.IsTrue)
 }
@@ -156,7 +164,7 @@ func (s *metricsManagerSuite) TestSendOldMetricsInvalidArg(c *gc.C) {
 func (s *metricsManagerSuite) TestSendArgsIndependent(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{"invalid"},
-		{s.Model.ModelTag().String()},
+		{s.ControllerModel(c).ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(result.Results, gc.HasLen, 2)
@@ -171,19 +179,21 @@ func (s *metricsManagerSuite) TestMeterStatusOnConsecutiveErrors(c *gc.C) {
 	sender.Err = errors.New("an error")
 	now := time.Now()
 	metric := state.Metric{Key: "pings", Value: "5", Time: now}
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: []state.Metric{metric}})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now, Metrics: []state.Metric{metric}})
 	cleanup := s.metricsmanager.PatchSender(&sender)
 	defer cleanup()
 	args := params.Entities{Entities: []params.Entity{
-		{s.Model.ModelTag().String()},
+		{s.ControllerModel(c).ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedError := params.ErrorResult{Error: apiservertesting.PrefixedError(
-		fmt.Sprintf("failed to send metrics for %s: ", s.Model.ModelTag()),
+		fmt.Sprintf("failed to send metrics for %s: ", s.ControllerModel(c).ModelTag()),
 		"an error")}
 	c.Assert(result.Results[0], jc.DeepEquals, expectedError)
-	mm, err := s.State.MetricsManager()
+	mm, err := s.ControllerModel(c).State().MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.ConsecutiveErrors(), gc.Equals, 1)
 }
@@ -192,16 +202,18 @@ func (s *metricsManagerSuite) TestMeterStatusSuccessfulSend(c *gc.C) {
 	var sender testing.MockSender
 	pastTime := s.clock.Now().Add(-time.Second)
 	metric := state.Metric{Key: "pings", Value: "5", Time: pastTime}
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &pastTime, Metrics: []state.Metric{metric}})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &pastTime, Metrics: []state.Metric{metric}})
 	cleanup := s.metricsmanager.PatchSender(&sender)
 	defer cleanup()
 	args := params.Entities{Entities: []params.Entity{
-		{s.Model.ModelTag().String()},
+		{s.ControllerModel(c).ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-	mm, err := s.State.MetricsManager()
+	mm, err := s.ControllerModel(c).State().MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.LastSuccessfulSend().After(pastTime), jc.IsTrue)
 }
@@ -211,27 +223,30 @@ func (s *metricsManagerSuite) TestLastSuccessfulNotChangedIfNothingToSend(c *gc.
 	cleanup := s.metricsmanager.PatchSender(&sender)
 	defer cleanup()
 	args := params.Entities{Entities: []params.Entity{
-		{s.Model.ModelTag().String()},
+		{s.ControllerModel(c).ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
-	mm, err := s.State.MetricsManager()
+	mm, err := s.ControllerModel(c).State().MetricsManager()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mm.LastSuccessfulSend().Equal(time.Time{}), jc.IsTrue)
 }
 
 func (s *metricsManagerSuite) TestAddJujuMachineMetrics(c *gc.C) {
-	err := s.State.SetSLA("essential", "bob", []byte("sla"))
+	st := s.ControllerModel(c).State()
+	err := st.SetSLA("essential", "bob", []byte("sla"))
 	c.Assert(err, jc.ErrorIsNil)
 	// Create two additional ubuntu machines, in addition to the one created in setup.
-	s.Factory.MakeMachine(c, &factory.MachineParams{Base: state.UbuntuBase("22.04")})
-	s.Factory.MakeMachine(c, &factory.MachineParams{Base: state.UbuntuBase("20.04")})
-	s.Factory.MakeMachine(c, &factory.MachineParams{Base: state.Base{OS: "centos", Channel: "7"}})
-	s.Factory.MakeMachine(c, &factory.MachineParams{Base: state.Base{OS: "zzzz", Channel: "redux"}})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f.MakeMachine(c, &factory.MachineParams{Base: state.UbuntuBase("22.04")})
+	f.MakeMachine(c, &factory.MachineParams{Base: state.UbuntuBase("20.04")})
+	f.MakeMachine(c, &factory.MachineParams{Base: state.Base{OS: "centos", Channel: "7"}})
+	f.MakeMachine(c, &factory.MachineParams{Base: state.Base{OS: "zzzz", Channel: "redux"}})
 	err = s.metricsmanager.AddJujuMachineMetrics()
 	c.Assert(err, jc.ErrorIsNil)
-	metrics, err := s.State.MetricsToSend(10)
+	metrics, err := st.MetricsToSend(10)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics, gc.HasLen, 1)
 	c.Assert(metrics[0].Metrics(), gc.HasLen, 4)
@@ -257,22 +272,27 @@ func (s *metricsManagerSuite) TestAddJujuMachineMetrics(c *gc.C) {
 }
 
 func (s *metricsManagerSuite) TestAddJujuMachineMetricsAddsNoMetricsWhenNoSLASet(c *gc.C) {
-	s.Factory.MakeMachine(c, nil)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f.MakeMachine(c, nil)
 	err := s.metricsmanager.AddJujuMachineMetrics()
 	c.Assert(err, jc.ErrorIsNil)
-	metrics, err := s.State.MetricsToSend(10)
+	metrics, err := s.ControllerModel(c).State().MetricsToSend(10)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics, gc.HasLen, 0)
 }
 
 func (s *metricsManagerSuite) TestAddJujuMachineMetricsDontCountContainers(c *gc.C) {
-	err := s.State.SetSLA("essential", "bob", []byte("sla"))
+	st := s.ControllerModel(c).State()
+	err := st.SetSLA("essential", "bob", []byte("sla"))
 	c.Assert(err, jc.ErrorIsNil)
-	machine := s.Factory.MakeMachine(c, nil)
-	s.Factory.MakeMachineNested(c, machine.Id(), nil)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	machine := f.MakeMachine(c, nil)
+	f.MakeMachineNested(c, machine.Id(), nil)
 	err = s.metricsmanager.AddJujuMachineMetrics()
 	c.Assert(err, jc.ErrorIsNil)
-	metrics, err := s.State.MetricsToSend(10)
+	metrics, err := st.MetricsToSend(10)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics, gc.HasLen, 1)
 	c.Assert(metrics[0].Metrics()[0].Key, gc.Equals, "juju-machines")
@@ -283,14 +303,17 @@ func (s *metricsManagerSuite) TestAddJujuMachineMetricsDontCountContainers(c *gc
 }
 
 func (s *metricsManagerSuite) TestSendMetricsMachineMetrics(c *gc.C) {
-	err := s.State.SetSLA("essential", "bob", []byte("sla"))
+	st := s.ControllerModel(c).State()
+	err := st.SetSLA("essential", "bob", []byte("sla"))
 	c.Assert(err, jc.ErrorIsNil)
-	s.Factory.MakeMachine(c, nil)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f.MakeMachine(c, nil)
 	var sender testing.MockSender
 	cleanup := s.metricsmanager.PatchSender(&sender)
 	defer cleanup()
 	args := params.Entities{Entities: []params.Entity{
-		{s.Model.ModelTag().String()},
+		{s.ControllerModel(c).ModelTag().String()},
 	}}
 	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -300,7 +323,7 @@ func (s *metricsManagerSuite) TestSendMetricsMachineMetrics(c *gc.C) {
 	c.Assert(sender.Data[0], gc.HasLen, 1)
 	c.Assert(sender.Data[0][0].Metrics[0].Key, gc.Equals, "juju-machines")
 	c.Assert(sender.Data[0][0].SLACredentials, gc.DeepEquals, []byte("sla"))
-	ms, err := s.State.AllMetricBatches()
+	ms, err := st.AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ms, gc.HasLen, 1)
 	c.Assert(ms[0].Sent(), jc.IsTrue)

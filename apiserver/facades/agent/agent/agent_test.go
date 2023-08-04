@@ -32,7 +32,7 @@ func TestPackage(t *stdtesting.T) {
 var _ = gc.Suite(&agentSuite{})
 
 type agentSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -43,20 +43,21 @@ type agentSuite struct {
 }
 
 func (s *agentSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
+	st := s.ControllerModel(c).State()
 	var err error
-	s.machine0, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
+	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
-	s.container, err = s.State.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXD)
+	s.container, err = st.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.resources = common.NewResources()
@@ -73,7 +74,7 @@ func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUserTag("admin")
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      auth,
 	})
@@ -86,7 +87,7 @@ func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUnitTag("foosball/1")
 	_, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      auth,
 	})
@@ -105,7 +106,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 		},
 	}
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
@@ -131,7 +132,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      auth,
 	})
@@ -176,7 +177,7 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
@@ -197,7 +198,7 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 
 func (s *agentSuite) TestSetPasswords(c *gc.C) {
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
@@ -225,7 +226,7 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 
 func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
@@ -243,7 +244,7 @@ func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
 
 func (s *agentSuite) TestClearReboot(c *gc.C) {
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
@@ -280,8 +281,9 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
+	st := s.ControllerModel(c).State()
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
+		State_:     st,
 		Resources_: s.resources,
 		Auth_:      authorizer,
 	})
@@ -299,7 +301,8 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, w.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
-	s.State.UpdateCloudCredential(tag, cloud.NewCredential(cloud.UserPassAuthType, nil))
+	err = st.UpdateCloudCredential(tag, cloud.NewCredential(cloud.UserPassAuthType, nil))
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 
@@ -309,7 +312,7 @@ func (s *agentSuite) TestWatchAuthError(c *gc.C) {
 		Controller: false,
 	}
 	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      authorizer,
 	})

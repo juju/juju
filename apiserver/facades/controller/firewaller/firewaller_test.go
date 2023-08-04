@@ -43,24 +43,25 @@ var _ = gc.Suite(&firewallerSuite{})
 func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.setUpTest(c)
 
-	subnet, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.20.30.0/24"})
+	st := s.ControllerModel(c).State()
+	subnet, err := st.AddSubnet(network.SubnetInfo{CIDR: "10.20.30.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 	s.subnet = subnet
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		s.resources,
-		cloudspec.MakeCloudSpecGetterForModel(s.State),
-		cloudspec.MakeCloudSpecWatcherForModel(s.State),
-		cloudspec.MakeCloudSpecCredentialWatcherForModel(s.State),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(s.State),
-		common.AuthFuncForTag(s.Model.ModelTag()),
+		cloudspec.MakeCloudSpecGetterForModel(st),
+		cloudspec.MakeCloudSpecWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
+		common.AuthFuncForTag(s.ControllerModel(c).ModelTag()),
 	)
 
 	s.ctrl = gomock.NewController(c)
 	controllerConfigAPI := mocks.NewMockControllerConfigAPI(s.ctrl)
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewStateFirewallerAPI(
-		firewaller.StateShim(s.State, s.Model),
+		firewaller.StateShim(st, s.ControllerModel(c)),
 		s.resources,
 		s.authorizer,
 		cloudSpecAPI,
@@ -69,7 +70,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI
-	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.firewaller, s.State, s.resources)
+	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.firewaller, st, s.resources)
 }
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
@@ -136,7 +137,7 @@ func (s *firewallerSuite) mustOpenPorts(c *gc.C, unit *state.Unit, endpointName 
 		unitPortRanges.Open(endpointName, pr)
 	}
 
-	c.Assert(s.State.ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
+	c.Assert(s.ControllerModel(c).State().ApplyOperation(unitPortRanges.Changes()), jc.ErrorIsNil)
 }
 
 func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
@@ -190,7 +191,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 	defer s.ctrl.Finish()
 
-	m, err := s.State.AddOneMachine(state.MachineTemplate{
+	m, err := s.ControllerModel(c).State().AddOneMachine(state.MachineTemplate{
 		Base:       state.UbuntuBase("12.10"),
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "2",
@@ -282,17 +283,18 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 	defer s.ctrl.Finish()
 
 	// Set up a spaces with two subnets
-	sp, err := s.State.AddSpace("outer-space", network.Id("outer-1"), nil, true)
+	st := s.ControllerModel(c).State()
+	sp, err := st.AddSpace("outer-space", network.Id("outer-1"), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddSubnet(network.SubnetInfo{
+	_, err = st.AddSubnet(network.SubnetInfo{
 		CIDR:      "192.168.0.0/24",
 		SpaceID:   sp.Id(),
 		SpaceName: sp.Name(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	sub2, err := s.State.AddSubnet(network.SubnetInfo{
+	sub2, err := st.AddSubnet(network.SubnetInfo{
 		CIDR:      "192.168.42.0/24",
 		SpaceID:   sp.Id(),
 		SpaceName: sp.Name(),
@@ -309,7 +311,7 @@ func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
 	// watching, but this can be *before* the change stream has sent the
 	// creation event, meaning we get another unexpected one subsequently.
 	// To work around this we drain the collection's events for a short time.
-	raw := s.State.WatchSubnets(nil)
+	raw := st.WatchSubnets(nil)
 	defer workertest.CleanKill(c, raw)
 drain:
 	for {

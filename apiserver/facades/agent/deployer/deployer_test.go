@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 func Test(t *stdtesting.T) {
@@ -40,12 +41,11 @@ func (s *mockLeadershipRevoker) RevokeLeadership(applicationId, unitId string) e
 }
 
 type deployerSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 
 	authorizer apiservertesting.FakeAuthorizer
 
 	service0     *state.Application
-	service1     *state.Application
 	machine0     *state.Machine
 	machine1     *state.Machine
 	principal0   *state.Unit
@@ -60,25 +60,31 @@ type deployerSuite struct {
 var _ = gc.Suite(&deployerSuite{})
 
 func (s *deployerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
 	// The two known machines now contain the following units:
 	// machine 0 (not authorized): mysql/1 (principal1)
 	// machine 1 (authorized): mysql/0 (principal0), logging/0 (subordinate0)
 
+	st := s.ControllerModel(c).State()
 	var err error
-	s.machine0, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
+	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.machine1, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.machine1, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.service0 = s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	s.service0 = f.MakeApplication(c, nil)
 
-	s.service1 = s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints("mysql", "logging")
+	f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "logging",
+		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
+	})
+	eps, err := st.InferEndpoints("mysql", "logging")
 	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
+	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.principal0, err = s.service0.AddUnit(state.AddUnitParams{})
@@ -95,7 +101,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = relUnit0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.subordinate0, err = s.State.Unit("logging/0")
+	s.subordinate0, err = st.Unit("logging/0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
@@ -115,8 +121,8 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 		facadetest.Context{
 			Auth_:              s.authorizer,
 			Resources_:         s.resources,
-			State_:             s.State,
-			StatePool_:         s.StatePool,
+			State_:             st,
+			StatePool_:         s.StatePool(),
 			LeadershipRevoker_: s.revoker,
 		},
 	)
@@ -126,13 +132,13 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = s.AdminUserTag(c)
+	anAuthorizer.Tag = testing.AdminUser
 	aDeployer, err := deployer.NewDeployerAPI(
 		facadetest.Context{
 			Auth_:              anAuthorizer,
 			LeadershipRevoker_: s.revoker,
 			Resources_:         s.resources,
-			State_:             s.State,
+			State_:             s.ControllerModel(c).State(),
 		},
 	)
 	c.Assert(err, gc.NotNil)
@@ -335,7 +341,8 @@ func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
 	hostPorts := network.NewSpaceHostPorts(1234, "0.1.2.3", "1.2.3.4")
 	hostPorts[1].Scope = network.ScopeCloudLocal
 
-	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{hostPorts})
+	st := s.ControllerModel(c).State()
+	err = st.SetAPIHostPorts([]network.SpaceHostPorts{hostPorts})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.DeployerConnectionValues{

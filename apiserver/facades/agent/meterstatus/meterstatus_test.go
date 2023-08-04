@@ -25,7 +25,7 @@ import (
 var _ = gc.Suite(&meterStatusSuite{})
 
 type meterStatusSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
@@ -36,8 +36,11 @@ type meterStatusSuite struct {
 }
 
 func (s *meterStatusSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.unit = s.Factory.MakeUnit(c, nil)
+	s.ApiServerSuite.SetUpTest(c)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	s.unit = f.MakeUnit(c, nil)
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming unit 0 has logged in.
@@ -50,7 +53,7 @@ func (s *meterStatusSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	status, err := meterstatus.NewMeterStatusAPI(s.State, s.resources, s.authorizer, loggo.GetLogger("juju.apiserver.meterstatus"))
+	status, err := meterstatus.NewMeterStatusAPI(s.ControllerModel(c).State(), s.resources, s.authorizer, loggo.GetLogger("juju.apiserver.meterstatus"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.status = status
 }
@@ -58,7 +61,10 @@ func (s *meterStatusSuite) SetUpTest(c *gc.C) {
 func (s *meterStatusSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
 	application, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	otherunit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{Application: application})
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	otherunit := f.MakeUnit(c, &jujufactory.UnitParams{Application: application})
 	args := params.Entities{Entities: []params.Entity{{otherunit.Tag().String()}}}
 	result, err := s.status.GetMeterStatus(args)
 	c.Assert(err, jc.ErrorIsNil)

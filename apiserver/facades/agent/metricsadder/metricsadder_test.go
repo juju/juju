@@ -25,7 +25,7 @@ import (
 var _ = gc.Suite(&metricsAdderSuite{})
 
 type metricsAdderSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
@@ -42,35 +42,39 @@ type metricsAdderSuite struct {
 }
 
 func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.machine0 = s.Factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.ApiServerSuite.SetUpTest(c)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	s.machine0 = f.MakeMachine(c, &jujuFactory.MachineParams{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageModel},
 	})
-	s.machine1 = s.Factory.MakeMachine(c, &jujuFactory.MachineParams{
+	s.machine1 = f.MakeMachine(c, &jujuFactory.MachineParams{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
-	mysqlCharm := s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
+	mysqlCharm := f.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
 	})
-	s.mysql = s.Factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+	s.mysql = f.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Name:  "mysql",
 		Charm: mysqlCharm,
 	})
-	s.mysqlUnit = s.Factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.mysqlUnit = f.MakeUnit(c, &jujuFactory.UnitParams{
 		Application: s.mysql,
 		Machine:     s.machine0,
 	})
 
-	s.meteredCharm = s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
+	s.meteredCharm = f.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "metered",
 		URL:  "ch:amd64/quantal/metered",
 	})
-	s.meteredService = s.Factory.MakeApplication(c, &jujuFactory.ApplicationParams{
+	s.meteredService = f.MakeApplication(c, &jujuFactory.ApplicationParams{
 		Charm: s.meteredCharm,
 	})
-	s.meteredUnit = s.Factory.MakeUnit(c, &jujuFactory.UnitParams{
+	s.meteredUnit = f.MakeUnit(c, &jujuFactory.UnitParams{
 		Application: s.meteredService,
 		SetCharmURL: true,
 		Machine:     s.machine1,
@@ -88,7 +92,7 @@ func (s *metricsAdderSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	adder, err := metricsadder.NewMetricsAdderAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
@@ -119,7 +123,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatch(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 
-	batches, err := s.State.AllMetricBatches()
+	batches, err := s.ControllerModel(c).State().AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 1)
 	batch := batches[0]
@@ -154,7 +158,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 
-	batches, err := s.State.AllMetricBatches()
+	batches, err := s.ControllerModel(c).State().AllMetricBatches()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 1)
 	batch := batches[0]
@@ -207,11 +211,12 @@ func (s *metricsAdderSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 			c.Assert(result.OneError(), gc.ErrorMatches, test.expect)
 		}
 
-		batches, err := s.State.AllMetricBatches()
+		st := s.ControllerModel(c).State()
+		batches, err := st.AllMetricBatches()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(batches, gc.HasLen, 0)
 
-		_, err = s.State.MetricBatch(uuid)
+		_, err = st.MetricBatch(uuid)
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
 }
@@ -237,7 +242,7 @@ func (s *metricsAdderSuite) TestNewMetricsAdderAPIRefusesNonAgent(c *gc.C) {
 		anAuthorizer.Controller = test.controller
 		anAuthorizer.Tag = test.tag
 		endPoint, err := metricsadder.NewMetricsAdderAPI(facadetest.Context{
-			State_: s.State,
+			State_: s.ControllerModel(c).State(),
 			Auth_:  anAuthorizer,
 		})
 		if test.expectedError == "" {

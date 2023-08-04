@@ -24,7 +24,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -43,7 +42,6 @@ func (s *OpenSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *OpenSuite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
@@ -51,7 +49,7 @@ func (s *OpenSuite) TearDownTest(c *gc.C) {
 func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	// matches *Settings.Map()
-	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
+	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	cache := jujuclient.NewMemStore()
@@ -60,7 +58,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
 		ModelConfig:      cfg.AllAttrs(),
-		Cloud:            dummy.SampleCloudSpec(),
+		Cloud:            testing.FakeCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -100,7 +98,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 		ControllerConfig: controllerCfg,
 		ControllerName:   "controller-name",
 		ModelConfig:      cfg.AllAttrs(),
-		Cloud:            dummy.SampleCloudSpec(),
+		Cloud:            testing.FakeCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -128,7 +126,7 @@ func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 }
 
 func (*OpenSuite) TestNew(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
+	cfg, err := config.New(config.NoDefaults, testing.FakeConfig().Merge(
 		testing.Attrs{
 			"controller": false,
 			"name":       "erewhemos",
@@ -136,7 +134,7 @@ func (*OpenSuite) TestNew(c *gc.C) {
 	))
 	c.Assert(err, jc.ErrorIsNil)
 	e, err := environs.New(stdcontext.TODO(), environs.OpenParams{
-		Cloud:  dummy.SampleCloudSpec(),
+		Cloud:  testing.FakeCloudSpec(),
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -145,7 +143,7 @@ func (*OpenSuite) TestNew(c *gc.C) {
 }
 
 func (*OpenSuite) TestDestroy(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(
+	cfg, err := config.New(config.NoDefaults, testing.FakeConfig().Merge(
 		testing.Attrs{
 			"name": "erewhemos",
 		},
@@ -161,7 +159,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 		ControllerConfig: controllerCfg,
 		ControllerName:   "controller-name",
 		ModelConfig:      cfg.AllAttrs(),
-		Cloud:            dummy.SampleCloudSpec(),
+		Cloud:            testing.FakeCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)

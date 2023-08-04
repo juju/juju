@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -277,7 +276,7 @@ func (f *fakeAddMachineAPI) ModelGet() (map[string]interface{}, error) {
 	if f.providerType != "" {
 		providerType = f.providerType
 	}
-	return dummy.SampleConfig().Merge(map[string]interface{}{
+	return testing.FakeConfig().Merge(map[string]interface{}{
 		"type": providerType,
 	}), nil
 }

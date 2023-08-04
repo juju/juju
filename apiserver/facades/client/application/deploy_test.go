@@ -25,37 +25,38 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each
 // test, because DeployApplication demands that a charm already exists in state,
 // and that is the simplest way to get one in there.
 type DeployLocalSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 	charm *state.Charm
 }
 
 var _ = gc.Suite(&DeployLocalSuite{})
 
 func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
+	s.ApiServerSuite.SetUpSuite(c)
 }
 
 func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 	curl := charm.MustParseURL("local:quantal/dummy")
 	ch := testcharms.RepoForSeries("quantal").CharmDir("dummy")
-	charm, err := testing.PutCharm(s.State, curl, ch)
+	charm, err := testing.PutCharm(s.ControllerModel(c).State(), curl, ch)
 	c.Assert(err, jc.ErrorIsNil)
 	s.charm = charm
 }
 
 func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
-	ch := s.AddTestingCharm(c, "juju-controller")
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = application.DeployApplication(stateDeployer{s.State},
-		model,
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "juju-controller"})
+	_, err := application.DeployApplication(stateDeployer{s.ControllerModel(c).State()},
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName: "my-controller",
 			Charm:           ch,
@@ -65,10 +66,8 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	app, err := application.DeployApplication(stateDeployer{s.State},
-		model,
+	app, err := application.DeployApplication(stateDeployer{s.ControllerModel(c).State()},
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -85,11 +84,8 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 	var f fakeDeployer
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = application.DeployApplication(&f,
-		model,
+	_, err := application.DeployApplication(&f,
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -106,11 +102,8 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	app, err := application.DeployApplication(stateDeployer{s.State},
-		model,
+	app, err := application.DeployApplication(stateDeployer{s.ControllerModel(c).State()},
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName:  "bob",
 			Charm:            wordpressCharm,
@@ -147,7 +140,7 @@ func (s *DeployLocalSuite) addWordpressCharmWithExtraBindings(c *gc.C) *state.Ch
 
 func (s *DeployLocalSuite) addWordpressCharmFromURL(c *gc.C, charmURL *charm.URL) *state.Charm {
 	ch := testcharms.RepoForSeries("quantal").CharmDir(charmURL.Name)
-	wordpressCharm, err := testing.PutCharm(s.State, charmURL, ch)
+	wordpressCharm, err := testing.PutCharm(s.ControllerModel(c).State(), charmURL, ch)
 	c.Assert(err, jc.ErrorIsNil)
 	return wordpressCharm
 }
@@ -163,15 +156,16 @@ func (s *DeployLocalSuite) assertBindings(c *gc.C, app application.Application, 
 
 func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	wordpressCharm := s.addWordpressCharm(c)
-	dbSpace, err := s.State.AddSpace("db", "", nil, false)
+	st := s.ControllerModel(c).State()
+	dbSpace, err := st.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	publicSpace, err := s.State.AddSpace("public", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Model()
+	publicSpace, err := st.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app, err := application.DeployApplication(stateDeployer{s.State},
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	app, err := application.DeployApplication(stateDeployer{st},
 		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -202,17 +196,18 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames(c *gc.C) {
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
-	dbSpace, err := s.State.AddSpace("db", "", nil, false)
+	st := s.ControllerModel(c).State()
+	dbSpace, err := st.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	publicSpace, err := s.State.AddSpace("public", "", nil, false)
+	publicSpace, err := st.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	internalSpace, err := s.State.AddSpace("internal", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Model()
+	internalSpace, err := st.AddSpace("internal", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app, err := application.DeployApplication(stateDeployer{s.State},
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	app, err := application.DeployApplication(stateDeployer{st},
 		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -244,15 +239,16 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 
 func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 	wordpressCharm := s.addWordpressCharm(c)
-	_, err := s.State.AddSpace("db", "", nil, false)
+	st := s.ControllerModel(c).State()
+	_, err := st.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	publicSpace, err := s.State.AddSpace("public", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	model, err := s.State.Model()
+	publicSpace, err := st.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app, err := application.DeployApplication(stateDeployer{s.State},
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	app, err := application.DeployApplication(stateDeployer{st},
 		model,
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -266,18 +262,15 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add application "bob": space not found`)
 	c.Check(app, gc.IsNil)
 	// The application should not have been added
-	_, err = s.State.Application("bob")
+	_, err = st.Application("bob")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 	var f fakeDeployer
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = application.DeployApplication(&f,
-		model,
+	_, err := application.DeployApplication(&f,
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -295,11 +288,8 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	app, err := application.DeployApplication(stateDeployer{s.State},
-		model,
+	app, err := application.DeployApplication(stateDeployer{s.ControllerModel(c).State()},
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -317,11 +307,9 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = application.DeployApplication(stateDeployer{s.State},
-		model,
+	st := s.ControllerModel(c).State()
+	_, err := application.DeployApplication(stateDeployer{st},
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -331,7 +319,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		})
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got 99.01`)
-	_, err = s.State.Application("bob")
+	_, err = st.Application("bob")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -352,11 +340,8 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 	}, sampleApplicationConfigSchema(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	app, err := application.DeployApplication(stateDeployer{s.State},
-		model,
+	app, err := application.DeployApplication(stateDeployer{s.ControllerModel(c).State()},
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName:   "bob",
 			Charm:             s.charm,
@@ -371,15 +356,13 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
-	err := s.State.SetModelConstraints(constraints.MustParse("mem=2G"))
+	st := s.ControllerModel(c).State()
+	err := st.SetModelConstraints(constraints.MustParse("mem=2G"))
 	c.Assert(err, jc.ErrorIsNil)
 	applicationCons := constraints.MustParse("cores=2")
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	app, err := application.DeployApplication(stateDeployer{s.State},
-		model,
+	app, err := application.DeployApplication(stateDeployer{st},
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -393,12 +376,9 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 	var f fakeDeployer
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	applicationCons := constraints.MustParse("cores=2")
-	_, err = application.DeployApplication(&f,
-		model,
+	_, err := application.DeployApplication(&f,
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -417,12 +397,9 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 	var f fakeDeployer
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	applicationCons := constraints.MustParse("cores=2")
-	_, err = application.DeployApplication(&f,
-		model,
+	_, err := application.DeployApplication(&f,
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -444,12 +421,9 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	var f fakeDeployer
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	applicationCons := constraints.MustParse("cores=2")
-	_, err = application.DeployApplication(&f,
-		model,
+	_, err := application.DeployApplication(&f,
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -470,18 +444,15 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 	var f fakeDeployer
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	applicationCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{
-		{Scope: s.State.ModelUUID(), Directive: "valid"},
+		{Scope: s.ControllerModelUUID(), Directive: "valid"},
 		{Scope: "#", Directive: "0"},
 		{Scope: "lxd", Directive: "1"},
 		{Scope: "lxd", Directive: ""},
 	}
-	_, err = application.DeployApplication(&f,
-		model,
+	_, err := application.DeployApplication(&f,
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -502,12 +473,13 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
 	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
-	charm, err := testing.PutCharm(s.State, curl, ch)
+	st := s.ControllerModel(c).State()
+	charm, err := testing.PutCharm(st, curl, ch)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var f = fakeDeployer{}
 
-	model, err := s.State.Model()
+	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = application.DeployApplication(&f,
@@ -524,12 +496,13 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C) {
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
 	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
-	charm, err := testing.PutCharm(s.State, curl, ch)
+	st := s.ControllerModel(c).State()
+	charm, err := testing.PutCharm(st, curl, ch)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var f = fakeDeployer{}
 
-	model, err := s.State.Model()
+	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = application.DeployApplication(&f,
@@ -547,13 +520,10 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 	var f fakeDeployer
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
 	applicationCons := constraints.MustParse("cores=2")
-	placement := []*instance.Placement{{Scope: s.State.ModelUUID(), Directive: "valid"}}
-	_, err = application.DeployApplication(&f,
-		model,
+	placement := []*instance.Placement{{Scope: s.ControllerModelUUID(), Directive: "valid"}}
+	_, err := application.DeployApplication(&f,
+		s.ControllerModel(c),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -607,9 +577,10 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, app application.Application, 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, len(expectIds))
 	// first manually tell state to assign all the units
+	st := s.ControllerModel(c).State()
 	for _, unit := range units {
 		id := unit.UnitTag().Id()
-		res, err := s.State.AssignStagedUnits([]string{id})
+		res, err := st.AssignStagedUnits([]string{id})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(res[0].Error, jc.ErrorIsNil)
 		c.Assert(res[0].Unit, gc.Equals, id)
@@ -624,7 +595,7 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, app application.Application, 
 		id, err := unit.(withAssignedMachineId).AssignedMachineId()
 		c.Assert(err, jc.ErrorIsNil)
 		unseenIds.Remove(id)
-		machine, err := s.State.Machine(id)
+		machine, err := st.Machine(id)
 		c.Assert(err, jc.ErrorIsNil)
 		cons, err := machine.Constraints()
 		c.Assert(err, jc.ErrorIsNil)

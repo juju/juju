@@ -16,14 +16,12 @@ import (
 
 	apiapplication "github.com/juju/juju/api/client/application"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/application/mocks"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -63,9 +61,9 @@ func (s *RemoveUnitSuite) runRemoveUnit(c *gc.C, args ...string) (*cmd.Context, 
 	return cmdtesting.RunCommand(c, application.NewRemoveUnitCommandForTest(s.mockApi, s.mockModelConfigAPI, s.store), args...)
 }
 
-func (s *RemoveUnitSuite) runWithContext(ctx *cmd.Context, args ...string) (chan dummy.Operation, chan error) {
+func (s *RemoveUnitSuite) runWithContext(ctx *cmd.Context, args ...string) chan error {
 	remove := application.NewRemoveUnitCommandForTest(s.mockApi, s.mockModelConfigAPI, s.store)
-	return cmdtest.RunCommandWithDummyProvider(ctx, remove, args...)
+	return cmdtesting.RunCommandWithContext(ctx, remove, args...)
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
@@ -183,7 +181,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPrompt(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
@@ -199,7 +197,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPrompt(c *gc.C) {
 	}}, nil)
 
 	stdin.WriteString("y")
-	_, errc := s.runWithContext(ctx, "unit/0")
+	errc := s.runWithContext(ctx, "unit/0")
 
 	select {
 	case err := <-errc:
@@ -221,7 +219,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPromptOldFacade(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	ctx.Stdin = &stdin
 
-	attrs := dummy.SampleConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
+	attrs := testing.FakeConfig().Merge(map[string]interface{}{config.ModeKey: config.RequiresPromptsMode})
 	s.mockModelConfigAPI.EXPECT().ModelGet().Return(attrs, nil)
 
 	s.mockApi.EXPECT().DestroyUnits(apiapplication.DestroyUnitsParams{
@@ -231,7 +229,7 @@ func (s *RemoveUnitSuite) TestRemoveUnitWithPromptOldFacade(c *gc.C) {
 	}}, nil)
 
 	stdin.WriteString("y")
-	_, errc := s.runWithContext(ctx, "unit/0")
+	errc := s.runWithContext(ctx, "unit/0")
 
 	select {
 	case err := <-errc:

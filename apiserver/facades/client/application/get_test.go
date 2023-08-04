@@ -28,7 +28,7 @@ import (
 )
 
 type getSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	applicationAPI *application.APIBase
 	authorizer     apiservertesting.FakeAuthorizer
@@ -37,18 +37,19 @@ type getSuite struct {
 var _ = gc.Suite(&getSuite{})
 
 func (s *getSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
+		Tag: jujutesting.AdminUser,
 	}
-	storageAccess, err := application.GetStorageState(s.State)
+	st := s.ControllerModel(c).State()
+	storageAccess, err := application.GetStorageState(st)
 	c.Assert(err, jc.ErrorIsNil)
-	blockChecker := common.NewBlockChecker(s.State)
-	model, err := s.State.Model()
+	blockChecker := common.NewBlockChecker(st)
+	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := application.NewAPIBase(
-		application.GetState(s.State),
+		application.GetState(st),
 		nil,
 		storageAccess,
 		s.authorizer,
@@ -69,7 +70,12 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
-	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+	})
 
 	results, err := s.applicationAPI.Get(params.ApplicationGet{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,6 +101,7 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 			}},
 		Constraints: constraints.MustParse("arch=amd64"),
 		Base:        params.Base{Name: "ubuntu", Channel: "12.10/stable"},
+		Channel:     "stable",
 		EndpointBindings: map[string]string{
 			"":                network.AlphaSpaceName,
 			"admin-api":       network.AlphaSpaceName,
@@ -111,11 +118,14 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 
 func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
-	st := s.Factory.MakeCAASModel(c, nil)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	st := f.MakeCAASModel(c, nil)
 	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{
+	f2, release := s.NewFactory(c, st.ModelUUID())
+	defer release()
+	ch := f2.MakeCharm(c, &factory.CharmParams{Name: "dashboard4miner", Series: "focal"})
+	app := f2.MakeApplication(c, &factory.ApplicationParams{
 		Name: "dashboard4miner", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
 	})
@@ -403,11 +413,17 @@ var getTests = []struct {
 }}
 
 func (s *getSuite) TestApplicationGet(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
-		ch := s.AddTestingCharm(c, t.charm)
-		app := s.AddTestingApplicationWithOrigin(c, fmt.Sprintf("test%d", i), ch, t.origin)
-
+		ch := f.MakeCharm(c, &factory.CharmParams{Name: t.charm})
+		app := f.MakeApplication(c, &factory.ApplicationParams{
+			Name:        fmt.Sprintf("test%d", i),
+			Charm:       ch,
+			CharmOrigin: t.origin,
+		})
 		var constraintsv constraints.Value
 		if t.constraints != "" {
 			constraintsv = constraints.MustParse(t.constraints)
@@ -422,7 +438,7 @@ func (s *getSuite) TestApplicationGet(c *gc.C) {
 		expect.Constraints = constraintsv
 		expect.Application = app.Name()
 		expect.Charm = ch.Meta().Name
-		client := apiapplication.NewClient(s.APIState)
+		client := apiapplication.NewClient(s.OpenControllerModelAPI(c))
 		got, err := client.Get(model.GenerationMaster, app.Name())
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(*got, jc.DeepEquals, expect)
@@ -440,12 +456,16 @@ func (s *getSuite) TestGetMaxResolutionInt(c *gc.C) {
 	c.Assert(int64(asFloat), gc.Not(gc.Equals), nonFloatInt)
 	c.Assert(int64(asFloat)+1, gc.Equals, nonFloatInt)
 
-	ch := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplication(c, "test-application", ch)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "test-application",
+		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
+	})
 
 	err := app.UpdateCharmConfig(model.GenerationMaster, map[string]interface{}{"skill-level": nonFloatInt})
 	c.Assert(err, jc.ErrorIsNil)
-	client := apiapplication.NewClient(s.APIState)
+	client := apiapplication.NewClient(s.OpenControllerModelAPI(c))
 	got, err := client.Get(model.GenerationMaster, app.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.CharmConfig["skill-level"], jc.DeepEquals, map[string]interface{}{

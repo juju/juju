@@ -5,18 +5,13 @@ package dummy_test
 
 import (
 	stdcontext "context"
-	"strings"
 	stdtesting "testing"
-	"time"
 
 	"github.com/juju/errors"
-	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/core/instance"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/context"
@@ -30,62 +25,22 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-const AdminSecret = "admin-secret"
+const adminSecret = "admin-secret"
 
 func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 func init() {
-	gc.Suite(&liveSuite{
-		LiveTests: jujutest.LiveTests{
-			TestConfig:     dummy.SampleConfig(),
-			CanOpenState:   true,
-			HasProvisioner: false,
-		},
-	})
 	gc.Suite(&suite{
 		Tests: jujutest.Tests{
-			TestConfig: dummy.SampleConfig(),
+			TestConfig: testing.FakeConfig(),
 		},
 	})
-}
-
-type liveSuite struct {
-	testing.BaseSuite
-	mgotesting.MgoSuite
-	jujutest.LiveTests
-}
-
-func (s *liveSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
-	s.LiveTests.SetUpSuite(c)
-}
-
-func (s *liveSuite) TearDownSuite(c *gc.C) {
-	s.LiveTests.TearDownSuite(c)
-	s.MgoSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *liveSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
-	s.LiveTests.SetUpTest(c)
-	s.BaseSuite.PatchValue(&dummy.LogDir, c.MkDir())
-}
-
-func (s *liveSuite) TearDownTest(c *gc.C) {
-	s.Destroy(c)
-	s.LiveTests.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
 }
 
 type suite struct {
 	testing.BaseSuite
-	mgotesting.MgoSuite
 	jujutest.Tests
 
 	callCtx context.ProviderCallContext
@@ -93,28 +48,18 @@ type suite struct {
 
 func (s *suite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-}
-
-func (s *suite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
-	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
-	s.PatchValue(&dummy.LogDir, c.MkDir())
 	s.callCtx = context.NewEmptyCloudCallContext()
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
-	dummy.Reset(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
@@ -127,8 +72,8 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 			ControllerConfig: testing.FakeControllerConfig(),
 			ModelConfig:      s.TestConfig,
 			ControllerName:   s.TestConfig["name"].(string),
-			Cloud:            dummy.SampleCloudSpec(),
-			AdminSecret:      AdminSecret,
+			Cloud:            testing.FakeCloudSpec(),
+			AdminSecret:      adminSecret,
 		},
 	)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
@@ -145,7 +90,7 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 				Type:      "dummy",
 				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 			},
-			AdminSecret:             AdminSecret,
+			AdminSecret:             adminSecret,
 			CAPrivateKey:            testing.CAKey,
 			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		})
@@ -217,173 +162,4 @@ func (s *suite) TestSupportsSpaceDiscovery(c *gc.C) {
 	ok, err = e.SupportsSpaceDiscovery(s.callCtx)
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *suite) breakMethods(c *gc.C, e environs.NetworkingEnviron, names ...string) {
-	cfg := e.Config()
-	brokenCfg, err := cfg.Apply(map[string]interface{}{
-		"broken": strings.Join(names, " "),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = e.SetConfig(brokenCfg)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *suite) TestNetworkInterfaces(c *gc.C) {
-	e := s.bootstrapTestEnviron(c)
-	defer func() {
-		err := e.Destroy(s.callCtx)
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	opc := make(chan dummy.Operation, 200)
-	dummy.Listen(opc)
-
-	expectInfo := corenetwork.InterfaceInfos{{
-		ProviderId:       "dummy-eth0",
-		ProviderSubnetId: "dummy-private",
-		DeviceIndex:      0,
-		InterfaceName:    "eth0",
-		InterfaceType:    "ethernet",
-		VLANTag:          0,
-		MACAddress:       "aa:bb:cc:dd:ee:f0",
-		Disabled:         false,
-		NoAutoStart:      false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"0.10.0.2", corenetwork.WithCIDR("0.10.0.0/24"), corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress()},
-		DNSServers:     corenetwork.NewMachineAddresses([]string{"ns1.dummy", "ns2.dummy"}).AsProviderAddresses(),
-		GatewayAddress: corenetwork.NewMachineAddress("0.10.0.1").AsProviderAddress(),
-		Origin:         corenetwork.OriginProvider,
-	}, {
-		ProviderId:       "dummy-eth1",
-		ProviderSubnetId: "dummy-public",
-		DeviceIndex:      1,
-		InterfaceName:    "eth1",
-		InterfaceType:    "ethernet",
-		VLANTag:          1,
-		MACAddress:       "aa:bb:cc:dd:ee:f1",
-		Disabled:         false,
-		NoAutoStart:      true,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"0.20.0.2", corenetwork.WithCIDR("0.20.0.0/24"), corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress()},
-		DNSServers:     corenetwork.NewMachineAddresses([]string{"ns1.dummy", "ns2.dummy"}).AsProviderAddresses(),
-		GatewayAddress: corenetwork.NewMachineAddress("0.20.0.1").AsProviderAddress(),
-		Origin:         corenetwork.OriginProvider,
-	}, {
-		ProviderId:       "dummy-eth2",
-		ProviderSubnetId: "dummy-disabled",
-		DeviceIndex:      2,
-		InterfaceName:    "eth2",
-		InterfaceType:    "ethernet",
-		VLANTag:          2,
-		MACAddress:       "aa:bb:cc:dd:ee:f2",
-		Disabled:         true,
-		NoAutoStart:      false,
-		Addresses: corenetwork.ProviderAddresses{corenetwork.NewMachineAddress(
-			"0.30.0.2", corenetwork.WithCIDR("0.30.0.0/24"), corenetwork.WithConfigType(corenetwork.ConfigDHCP),
-		).AsProviderAddress()},
-		DNSServers:     corenetwork.NewMachineAddresses([]string{"ns1.dummy", "ns2.dummy"}).AsProviderAddresses(),
-		GatewayAddress: corenetwork.NewMachineAddress("0.30.0.1").AsProviderAddress(),
-		Origin:         corenetwork.OriginProvider,
-	}}
-	infoList, err := e.NetworkInterfaces(s.callCtx, []instance.Id{"i-42"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(infoList, gc.HasLen, 1)
-	info := infoList[0]
-
-	c.Assert(info, jc.DeepEquals, expectInfo)
-	assertInterfaces(c, e, opc, "i-42", expectInfo)
-
-	// Test we can induce errors.
-	s.breakMethods(c, e, "NetworkInterfaces")
-	infoList, err = e.NetworkInterfaces(s.callCtx, []instance.Id{"i-any"})
-	c.Assert(err, gc.ErrorMatches, `dummy\.NetworkInterfaces is broken`)
-	c.Assert(infoList, gc.HasLen, 0)
-}
-
-func (s *suite) TestSubnets(c *gc.C) {
-	e := s.bootstrapTestEnviron(c)
-	defer func() {
-		err := e.Destroy(s.callCtx)
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	opc := make(chan dummy.Operation, 200)
-	dummy.Listen(opc)
-
-	expectInfo := []corenetwork.SubnetInfo{{
-		CIDR:              "0.10.0.0/24",
-		ProviderId:        "dummy-private",
-		AvailabilityZones: []string{"zone1", "zone2"},
-	}, {
-		CIDR:       "0.20.0.0/24",
-		ProviderId: "dummy-public",
-	}}
-
-	ids := []corenetwork.Id{"dummy-private", "dummy-public", "foo-bar"}
-	netInfo, err := e.Subnets(s.callCtx, "i-foo", ids)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netInfo, jc.DeepEquals, expectInfo)
-	assertSubnets(c, e, opc, "i-foo", ids, expectInfo)
-
-	// Test filtering by id(s).
-	netInfo, err = e.Subnets(s.callCtx, "i-foo", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netInfo, jc.DeepEquals, expectInfo)
-	assertSubnets(c, e, opc, "i-foo", nil, expectInfo)
-	netInfo, err = e.Subnets(s.callCtx, "i-foo", ids[0:1])
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netInfo, jc.DeepEquals, expectInfo[0:1])
-	assertSubnets(c, e, opc, "i-foo", ids[0:1], expectInfo[0:1])
-	netInfo, err = e.Subnets(s.callCtx, "i-foo", ids[1:])
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(netInfo, jc.DeepEquals, expectInfo[1:])
-	assertSubnets(c, e, opc, "i-foo", ids[1:], expectInfo[1:])
-
-	// Test we can induce errors.
-	s.breakMethods(c, e, "Subnets")
-	netInfo, err = e.Subnets(s.callCtx, "i-any", nil)
-	c.Assert(err, gc.ErrorMatches, `dummy\.Subnets is broken`)
-	c.Assert(netInfo, gc.HasLen, 0)
-}
-
-func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectInfo corenetwork.InterfaceInfos) {
-	select {
-	case op := <-opc:
-		netOp, ok := op.(dummy.OpNetworkInterfaces)
-		if !ok {
-			c.Fatalf("unexpected op: %#v", op)
-		}
-		c.Check(netOp.Env, gc.Equals, e.Config().Name())
-		c.Check(netOp.InstanceId, gc.Equals, expectInstId)
-		c.Check(netOp.Info, jc.DeepEquals, expectInfo)
-		return
-	case <-time.After(testing.LongWait):
-		c.Fatalf("time out wating for operation")
-	}
-}
-
-func assertSubnets(
-	c *gc.C,
-	_ environs.Environ,
-	opc chan dummy.Operation,
-	instId instance.Id,
-	subnetIds []corenetwork.Id,
-	expectInfo []corenetwork.SubnetInfo,
-) {
-	select {
-	case op := <-opc:
-		netOp, ok := op.(dummy.OpSubnets)
-		if !ok {
-			c.Fatalf("unexpected op: %#v", op)
-		}
-		c.Check(netOp.InstanceId, gc.Equals, instId)
-		c.Check(netOp.SubnetIds, jc.DeepEquals, subnetIds)
-		c.Check(netOp.Info, jc.DeepEquals, expectInfo)
-		return
-	case <-time.After(testing.ShortWait):
-		c.Fatalf("time out wating for operation")
-	}
 }

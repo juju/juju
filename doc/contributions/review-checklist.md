@@ -43,7 +43,7 @@ A list of common (not exhaustive) mistakes to check for when reviewing. For furt
 - Could similar tests be combined into a table based test?
 - Should a table based test be broken out in more obvious tests? (this sometimes happens when there is too much logic or too many conditionals in the actual test block of the table based test).
 - Is there repeated test boilerplate which should be extracted in functions on the testSuite?
-- Is the appropriate base test suite used? (overuse of JujuConnSuite is common).
+- Is the appropriate base test suite used? (overuse of ApiServerSuite is common).
 - Are the tests isolated from the environment? Could the test mock access to the API?
 - Is the suite registered with Gocheck? (gc.Suite(...))
 - Is setup and teardown done correctly? Do tearDown{Test,Suite} assume that their companion setUp{Test,Suite} functions completed successfully?

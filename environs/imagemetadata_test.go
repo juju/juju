@@ -17,7 +17,6 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -28,13 +27,8 @@ type ImageMetadataSuite struct {
 
 var _ = gc.Suite(&ImageMetadataSuite{})
 
-func (s *ImageMetadataSuite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
-	s.BaseSuite.TearDownTest(c)
-}
-
 func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) environs.Environ {
-	attrs := dummy.SampleConfig()
+	attrs := coretesting.FakeConfig()
 	if stream != "" {
 		attrs = attrs.Merge(testing.Attrs{
 			"image-stream": stream,
@@ -53,7 +47,7 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 			ControllerConfig: testing.FakeControllerConfig(),
 			ControllerName:   attrs["name"].(string),
 			ModelConfig:      attrs,
-			Cloud:            dummy.SampleCloudSpec(),
+			Cloud:            coretesting.FakeCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

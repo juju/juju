@@ -7,12 +7,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
+	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
+	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/voyeur"
 	"github.com/juju/version/v2"
@@ -39,14 +43,18 @@ import (
 	"github.com/juju/juju/mongo/mongometrics"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/machiner"
 )
 
 const (
@@ -61,18 +69,36 @@ var fastDialOpts = api.DialOpts{
 type commonMachineSuite struct {
 	fakeEnsureMongo *agenttest.FakeEnsureMongo
 	AgentSuite
+	// FakeJujuXDGDataHomeSuite is needed only because the
+	// authenticationworker writes to ~/.ssh.
+	coretesting.FakeJujuXDGDataHomeSuite
 
 	cmdRunner *mocks.MockCommandRunner
 }
 
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
+	// Set up FakeJujuXDGDataHomeSuite after AgentSuite since
+	// AgentSuite clears all env vars.
+	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
+
+	// Stub out executables etc used by workers.
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
+	s.PatchValue(&authenticationworker.SSHUser, "")
+	s.PatchValue(&diskmanager.DefaultListBlockDevices, func() ([]storage.BlockDevice, error) {
+		return nil, nil
+	})
+	s.PatchValue(&machiner.GetObservedNetworkConfig, func(_ network.ConfigSource) ([]params.NetworkConfig, error) {
+		return nil, nil
+	})
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
+	// Set up FakeJujuXDGDataHomeSuite after AgentSuite since
+	// AgentSuite clears all env vars.
+	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
 	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
 	s.PatchValue(&authenticationworker.SSHUser, "")
@@ -83,7 +109,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
 
-	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.DataDir())
+	s.fakeEnsureMongo = agenttest.InstallFakeEnsureMongo(s, s.DataDir)
 }
 
 func (s *commonMachineSuite) assertChannelActive(c *gc.C, aChannel chan struct{}, intent string) {
@@ -103,7 +129,33 @@ func fakeCmd(path string) {
 }
 
 func (s *commonMachineSuite) TearDownTest(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
+	// MgoServer.Reset() is done during the embedded MgoSuite TearDownSuite().
+	// But we need to do it for every test in this suite to keep
+	// the tests happy.
+	if mgotesting.MgoServer.Addr() != "" {
+		err := retry.Call(retry.CallArgs{
+			Func: mgotesting.MgoServer.Reset,
+			// Only interested in retrying the intermittent
+			// 'unexpected message'.
+			IsFatalError: func(err error) bool {
+				return !strings.HasSuffix(err.Error(), "unexpected message")
+			},
+			Delay:    time.Millisecond,
+			Clock:    clock.WallClock,
+			Attempts: 5,
+			NotifyFunc: func(lastError error, attempt int) {
+				logger.Infof("retrying MgoServer.Reset() after attempt %d: %v", attempt, lastError)
+			},
+		})
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	s.AgentSuite.TearDownTest(c)
+}
+
+func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
+	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
+	s.AgentSuite.TearDownSuite(c)
 }
 
 // primeAgent adds a new Machine to run the given jobs, and sets up the
@@ -117,7 +169,7 @@ func (s *commonMachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *s
 // primeAgentVersion is similar to primeAgent, but permits the
 // caller to specify the version.Binary to prime with.
 func (s *commonMachineSuite) primeAgentVersion(c *gc.C, vers version.Binary, jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
-	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), jobs...)
+	m, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), jobs...)
 	c.Assert(err, jc.ErrorIsNil)
 	return s.primeAgentWithMachine(c, m, vers)
 }
@@ -129,11 +181,11 @@ func (s *commonMachineSuite) primeAgentWithMachine(c *gc.C, m *state.Machine, ve
 func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers version.Binary) (
 	machine *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools,
 ) {
-	m, err := s.State.Machine(machineId)
+	m, err := s.ControllerModel(c).State().Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a machine and ensure it is provisioned.
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, context.NewEmptyCloudCallContext(), s.ControllerConfig.ControllerUUID(), machineId)
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, context.NewEmptyCloudCallContext(), s.ControllerModel(c).ControllerUUID(), machineId)
 	c.Assert(m.SetProvisioned(inst.Id(), "", agent.BootstrapNonce, md), jc.ErrorIsNil)
 
 	// Add an address for the tests in case the initiateMongoServer
@@ -152,7 +204,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 		agentConfig, tools = s.PrimeStateAgentVersion(c, tag, initialMachinePassword, vers)
 		info, ok := agentConfig.StateServingInfo()
 		c.Assert(ok, jc.IsTrue)
-		err = s.State.SetStateServingInfo(info)
+		err = s.ControllerModel(c).State().SetStateServingInfo(info)
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		agentConfig, tools = s.PrimeAgentVersion(c, tag, initialMachinePassword, vers)
@@ -208,7 +260,7 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) (*gomock.Contro
 	ctrl := gomock.NewController(c)
 	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
 
-	agentConf := agentconf.NewAgentConf(s.DataDir())
+	agentConf := agentconf.NewAgentConf(s.DataDir)
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	logger := s.newBufferedLogWriter()
 	machineAgentFactory := NewTestMachineAgentFactory(c, agentConf, logger, c.MkDir(), s.cmdRunner)

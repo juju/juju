@@ -67,8 +67,8 @@ func WithHTTPClient(value *http.Client) ClientOption {
 func newOptions() *clientOptions {
 	// In this case, use a default http.Client.
 	// Ideally we should always use the NewHTTPTLSTransport,
-	// however test suites such as JujuConnSuite and some facade
-	// tests rely on settings to the http.DefaultTransport for
+	// however some test suites and some facade tests
+	// rely on settings to the http.DefaultTransport for
 	// tests to run with different protocol scheme such as "test"
 	// and some replace the RoundTripper to answer test scenarios.
 	//

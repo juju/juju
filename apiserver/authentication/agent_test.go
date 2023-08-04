@@ -17,7 +17,7 @@ import (
 )
 
 type agentAuthenticatorSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 	machinePassword string
 	machineNonce    string
 	unitPassword    string
@@ -30,16 +30,19 @@ type agentAuthenticatorSuite struct {
 var _ = gc.Suite(&agentAuthenticatorSuite{})
 
 func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
-	s.user = s.Factory.MakeUser(c, &factory.UserParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	s.user = f.MakeUser(c, &factory.UserParams{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
 		Password:    "password",
 	})
 
 	// add machine for testing machine agent authentication
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	st := s.ControllerModel(c).State()
+	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	nonce, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -54,8 +57,10 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.machineNonce = nonce
 
 	// add a unit for testing unit agent authentication
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, jc.ErrorIsNil)
+	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+	})
 	unit, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	s.unit = unit
@@ -68,10 +73,10 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	// add relation
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := f.MakeApplication(c, nil)
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
-	s.relation, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	s.relation, err = s.ControllerModel(c).State().AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -100,10 +105,11 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 		about:       "unit login",
 	}}
 
+	st := s.ControllerModel(c).State()
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		var authenticator authentication.AgentAuthenticator
-		entity, err := authenticator.Authenticate(context.TODO(), s.State, authentication.AuthParams{
+		entity, err := authenticator.Authenticate(context.TODO(), st, authentication.AuthParams{
 			AuthTag:     t.entity.Tag(),
 			Credentials: t.credentials,
 			Nonce:       t.nonce,
@@ -137,10 +143,11 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 		errorMessage: "invalid entity name or password",
 	}}
 
+	st := s.ControllerModel(c).State()
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		var authenticator authentication.AgentAuthenticator
-		entity, err := authenticator.Authenticate(context.TODO(), s.State, authentication.AuthParams{
+		entity, err := authenticator.Authenticate(context.TODO(), st, authentication.AuthParams{
 			AuthTag:     t.entity.Tag(),
 			Credentials: t.credentials,
 			Nonce:       t.nonce,

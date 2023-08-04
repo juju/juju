@@ -19,12 +19,12 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	_ "github.com/juju/juju/provider/azure"
-	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"
 	_ "github.com/juju/juju/provider/maas"
 	_ "github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -70,7 +70,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mockModel {
-	attrs := dummy.SampleConfig()
+	attrs := testing.FakeConfig()
 	attrs["agent-version"] = jujuversion.Current.String()
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -100,7 +100,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 		Results: []params.ModelSummaryResult{
 			{
 				Result: &params.ModelSummary{
-					Name:               "only",
+					Name:               "testmodel",
 					OwnerTag:           s.adminUser.String(),
 					UUID:               s.st.ModelUUID(),
 					Type:               string(state.ModelTypeIAAS),
@@ -178,7 +178,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetail
 		Results: []params.ModelSummaryResult{
 			{
 				Result: &params.ModelSummary{
-					Name:               "only",
+					Name:               "testmodel",
 					OwnerTag:           s.adminUser.String(),
 					UUID:               s.st.ModelUUID(),
 					Type:               string(state.ModelTypeIAAS),

@@ -5,6 +5,7 @@ package upgrader_test
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,16 +18,18 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/arch"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/binarystorage"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
 type upgraderSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
@@ -35,32 +38,40 @@ type upgraderSuite struct {
 	upgrader   *upgrader.UpgraderAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
+	hosted     *state.State
 }
 
 var _ = gc.Suite(&upgraderSuite{})
 
 func (s *upgraderSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ControllerModelConfigAttrs = map[string]interface{}{
+		"agent-version": coretesting.CurrentVersion().Number.String(),
+	}
+	s.ApiServerSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+
+	// For now, test with the controller model, but
+	// we may add a different hosted model later.
+	s.hosted = s.ControllerModel(c).State()
 
 	// Create a machine to work with
 	var err error
 	// The first machine created is the only one allowed to
 	// JobManageModel
-	s.apiMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits,
+	s.apiMachine, err = s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits,
 		state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	s.rawMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = s.hosted.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.rawMachine.Tag(),
 	}
-	systemState, err := s.StatePool.SystemState()
+	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	s.upgrader, err = upgrader.NewUpgraderAPI(systemState, s.State, s.resources, s.authorizer, loggo.GetLogger("juju.apiserver.upgrader"))
+	s.upgrader, err = upgrader.NewUpgraderAPI(systemState, s.hosted, s.resources, s.authorizer, loggo.GetLogger("juju.apiserver.upgrader"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -68,7 +79,7 @@ func (s *upgraderSuite) TearDownTest(c *gc.C) {
 	if s.resources != nil {
 		s.resources.StopAll()
 	}
-	s.JujuConnSuite.TearDownTest(c)
+	s.ApiServerSuite.TearDownTest(c)
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionNothing(c *gc.C) {
@@ -94,7 +105,7 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
-	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
+	err = statetesting.SetAgentVersion(s.hosted, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	workertest.CleanKill(c, w)
@@ -102,13 +113,16 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
-	app := s.Factory.MakeApplication(c, nil)
+	f, release := s.NewFactory(c, s.hosted.ModelUUID())
+	defer release()
+
+	app := f.MakeApplication(c, nil)
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: app.Tag(),
 	}
-	systemState, err := s.StatePool.SystemState()
+	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	upgrader, err := upgrader.NewUpgraderAPI(systemState, s.State, s.resources, authorizer, loggo.GetLogger("juju.apiserver.upgrader"))
+	upgrader, err := upgrader.NewUpgraderAPI(systemState, s.hosted, s.resources, authorizer, loggo.GetLogger("juju.apiserver.upgrader"))
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: app.Tag().String()}},
@@ -125,7 +139,7 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
-	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
+	err = statetesting.SetAgentVersion(s.hosted, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	workertest.CleanKill(c, w)
@@ -133,16 +147,19 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
-	app := s.Factory.MakeApplication(c, nil)
+	f, release := s.NewFactory(c, s.hosted.ModelUUID())
+	defer release()
+
+	app := f.MakeApplication(c, nil)
 	providerId := "provider-id1"
 	unit, err := app.AddUnit(state.AddUnitParams{ProviderId: &providerId})
 	c.Assert(err, jc.ErrorIsNil)
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: unit.Tag(),
 	}
-	systemState, err := s.StatePool.SystemState()
+	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	upgrader, err := upgrader.NewUpgraderAPI(systemState, s.State, s.resources, authorizer, loggo.GetLogger("juju.apiserver.upgrader"))
+	upgrader, err := upgrader.NewUpgraderAPI(systemState, s.hosted, s.resources, authorizer, loggo.GetLogger("juju.apiserver.upgrader"))
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: unit.Tag().String()}},
@@ -159,7 +176,7 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
-	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
+	err = statetesting.SetAgentVersion(s.hosted, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	workertest.CleanKill(c, w)
@@ -167,14 +184,14 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
-	node, err := s.State.ControllerNode("0")
+	node, err := s.hosted.ControllerNode("0")
 	c.Assert(err, jc.ErrorIsNil)
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: node.Tag(),
 	}
-	systemState, err := s.StatePool.SystemState()
+	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	upgrader, err := upgrader.NewUpgraderAPI(systemState, s.State, s.resources, authorizer, loggo.GetLogger("juju.apiserver.upgrader"))
+	upgrader, err := upgrader.NewUpgraderAPI(systemState, s.hosted, s.resources, authorizer, loggo.GetLogger("juju.apiserver.upgrader"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
@@ -192,7 +209,7 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertNoChange()
 
-	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
+	err = statetesting.SetAgentVersion(s.hosted, version.MustParse("3.4.567.8"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 	workertest.CleanKill(c, w)
@@ -203,9 +220,9 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	// We are a machine agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
-	systemState, err := s.StatePool.SystemState()
+	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	anUpgrader, err := upgrader.NewUpgraderAPI(systemState, s.State, s.resources, anAuthorizer, loggo.GetLogger("juju.apiserver.upgrader"))
+	anUpgrader, err := upgrader.NewUpgraderAPI(systemState, s.hosted, s.resources, anAuthorizer, loggo.GetLogger("juju.apiserver.upgrader"))
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
@@ -228,9 +245,9 @@ func (s *upgraderSuite) TestToolsNothing(c *gc.C) {
 func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
-	systemState, err := s.StatePool.SystemState()
+	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	anUpgrader, err := upgrader.NewUpgraderAPI(systemState, s.State, s.resources, anAuthorizer, loggo.GetLogger("juju.apiserver.upgrader"))
+	anUpgrader, err := upgrader.NewUpgraderAPI(systemState, s.hosted, s.resources, anAuthorizer, loggo.GetLogger("juju.apiserver.upgrader"))
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
@@ -247,10 +264,30 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 	current := coretesting.CurrentVersion()
 	agent := params.Entity{Tag: s.rawMachine.Tag().String()}
 
+	// Seed the newer agent in storage.
+	stor, err := s.ControllerModel(c).State().ToolsStorage()
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() {
+		_ = stor.Close()
+	}()
+	content := jujuversion.Current.String()
+	hash := fmt.Sprintf("sha256(%s)", content)
+	v := version.Binary{
+		Number:  jujuversion.Current,
+		Release: "ubuntu",
+		Arch:    arch.HostArch(),
+	}
+	err = stor.Add(strings.NewReader(content), binarystorage.Metadata{
+		Version: v.String(),
+		Size:    int64(len(content)),
+		SHA256:  hash,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	// The machine must have its existing tools set before we query for the
 	// next tools. This is so that we can grab Arch and OSType without
 	// having to pass it in again
-	err := s.rawMachine.SetAgentVersion(current)
+	err = s.rawMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{agent}}
@@ -261,7 +298,7 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 		c.Assert(results.Results[0].Error, gc.IsNil)
 		agentTools := results.Results[0].ToolsList[0]
 		url := fmt.Sprintf("https://%s/model/%s/tools/%s",
-			s.APIState.Addr(), coretesting.ModelTag.Id(), current)
+			s.ControllerModelApiInfo().Addrs[0], coretesting.ModelTag.Id(), current)
 		c.Check(agentTools.URL, gc.Equals, url)
 		c.Check(agentTools.Version, gc.DeepEquals, current)
 	}
@@ -278,9 +315,9 @@ func (s *upgraderSuite) TestSetToolsNothing(c *gc.C) {
 func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
-	systemState, err := s.StatePool.SystemState()
+	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	anUpgrader, err := upgrader.NewUpgraderAPI(systemState, s.State, s.resources, anAuthorizer, loggo.GetLogger("juju.apiserver.upgrader"))
+	anUpgrader, err := upgrader.NewUpgraderAPI(systemState, s.hosted, s.resources, anAuthorizer, loggo.GetLogger("juju.apiserver.upgrader"))
 	c.Check(err, jc.ErrorIsNil)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
@@ -333,9 +370,9 @@ func (s *upgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
-	systemState, err := s.StatePool.SystemState()
+	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	anUpgrader, err := upgrader.NewUpgraderAPI(systemState, s.State, s.resources, anAuthorizer, loggo.GetLogger("juju.apiserver.upgrader"))
+	anUpgrader, err := upgrader.NewUpgraderAPI(systemState, s.hosted, s.resources, anAuthorizer, loggo.GetLogger("juju.apiserver.upgrader"))
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
@@ -387,9 +424,11 @@ func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 	c.Assert(err, jc.ErrorIsNil)
 	newer := current
 	newer.Patch++
-	err = s.State.SetModelAgentVersion(newer.Number, nil, false)
+	err = s.hosted.SetModelAgentVersion(newer.Number, nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := s.Model.ModelConfig()
+	m, err := s.hosted.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg, err := m.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -403,9 +442,9 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.apiMachine.Tag(),
 	}
-	systemState, err := s.StatePool.SystemState()
+	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	upgraderAPI, err := upgrader.NewUpgraderAPI(systemState, s.State, s.resources, authorizer, loggo.GetLogger("juju.apiserver.upgrader"))
+	upgraderAPI, err := upgrader.NewUpgraderAPI(systemState, s.hosted, s.resources, authorizer, loggo.GetLogger("juju.apiserver.upgrader"))
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag().String()}}}
 	results, err := upgraderAPI.DesiredVersion(args)

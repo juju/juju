@@ -14,7 +14,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
@@ -99,7 +98,7 @@ func (s *UnregisterSuite) unregisterCommandAborts(c *gc.C, answer string) {
 
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString(answer)
-	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, controller.NewUnregisterCommand(s.store), "fake1")
+	errc := cmdtesting.RunCommandWithContext(ctx, controller.NewUnregisterCommand(s.store), "fake1")
 	select {
 	case err, ok := <-errc:
 		c.Assert(ok, jc.IsTrue)
@@ -130,7 +129,7 @@ func (s *UnregisterSuite) unregisterCommandConfirms(c *gc.C, answer string) {
 	stdin.Reset()
 	stdout.Reset()
 	stdin.WriteString(answer)
-	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, controller.NewUnregisterCommand(s.store), "fake1")
+	errc := cmdtesting.RunCommandWithContext(ctx, controller.NewUnregisterCommand(s.store), "fake1")
 	select {
 	case err, ok := <-errc:
 		c.Assert(ok, jc.IsTrue)

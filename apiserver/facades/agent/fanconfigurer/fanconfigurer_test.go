@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -45,11 +45,6 @@ func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {
 		return nil, f.modelConfigError
 	}
 	return f.modelConfig, nil
-}
-
-func (s *fanconfigurerSuite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
-	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *fanconfigurerSuite) TestWatchSuccess(c *gc.C) {
@@ -136,8 +131,8 @@ func testingEnvConfig(c *gc.C) *config.Config {
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			ControllerName:   "dummycontroller",
-			ModelConfig:      dummy.SampleConfig().Merge(testing.Attrs{"fan-config": "10.100.0.0/16=251.0.0.0/8 192.168.0.0/16=252.0.0.0/8"}),
-			Cloud:            dummy.SampleCloudSpec(),
+			ModelConfig:      testing.FakeConfig().Merge(testing.Attrs{"fan-config": "10.100.0.0/16=251.0.0.0/8 192.168.0.0/16=252.0.0.0/8"}),
+			Cloud:            testing.FakeCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

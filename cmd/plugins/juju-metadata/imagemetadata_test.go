@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -224,6 +223,5 @@ func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *gc.C) {
 		c.Logf("test: %d", i)
 		_, err := runImageMetadata(c, s.store, t.args...)
 		c.Check(err, gc.NotNil, gc.Commentf("test %d: %s", i, t.args))
-		dummy.Reset(c)
 	}
 }

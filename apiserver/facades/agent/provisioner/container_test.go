@@ -39,17 +39,18 @@ func addContainerToMachine(c *gc.C, st *state.State, machine *state.Machine) *st
 
 func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(c *gc.C) {
 	// Login as a machine agent for machine 1, which has a container put on it
-	addContainerToMachine(c, s.State, s.machines[1])
-	addContainerToMachine(c, s.State, s.machines[1])
-	addContainerToMachine(c, s.State, s.machines[2])
+	st := s.ControllerModel(c).State()
+	addContainerToMachine(c, st, s.machines[1])
+	addContainerToMachine(c, st, s.machines[1])
+	addContainerToMachine(c, st, s.machines[2])
 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[1].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     st,
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -67,7 +68,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 		}, {
 			Tag: "unit-mysql-0", // not a valid machine tag
 		}}}
-	// Only machine 0 can have it's containers updated.
+	// Only machine 0 can have its containers updated.
 	results, err := aProvisioner.PrepareContainerInterfaceInfo(args)
 	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported")
 	c.Skip("dummy provider needs networking https://pad.lv/1651974")
@@ -92,17 +93,18 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 
 func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc.C) {
 	// Login as a machine agent for machine 1, which has a container put on it
-	addContainerToMachine(c, s.State, s.machines[1])
-	addContainerToMachine(c, s.State, s.machines[1])
-	addContainerToMachine(c, s.State, s.machines[2])
+	st := s.ControllerModel(c).State()
+	addContainerToMachine(c, st, s.machines[1])
+	addContainerToMachine(c, st, s.machines[1])
+	addContainerToMachine(c, st, s.machines[2])
 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[1].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     st,
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)

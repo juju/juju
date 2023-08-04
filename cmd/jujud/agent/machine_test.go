@@ -57,20 +57,24 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/filestorage"
+	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/rpc/params"
-	_ "github.com/juju/juju/secrets/provider/all"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -98,6 +102,8 @@ const (
 
 type MachineSuite struct {
 	commonMachineSuite
+
+	agentStorage envstorage.Storage
 }
 
 var _ = gc.Suite(&MachineSuite{})
@@ -111,11 +117,51 @@ func (noopRevisionUpdater) UpdateLatestRevisions() error {
 	return nil
 }
 
+// DefaultVersions returns a slice of unique 'versions' for the current
+// environment's host architecture. Additionally, it ensures that 'versions'
+// for amd64 are returned if that is not the current host's architecture.
+func defaultVersions(agentVersion version.Number) []version.Binary {
+	osTypes := set.NewStrings("ubuntu")
+	osTypes.Add(coreos.HostOSTypeName())
+	var versions []version.Binary
+	for _, osType := range osTypes.Values() {
+		versions = append(versions, version.Binary{
+			Number:  agentVersion,
+			Arch:    arch.HostArch(),
+			Release: osType,
+		})
+		if arch.HostArch() != "amd64" {
+			versions = append(versions, version.Binary{
+				Number:  agentVersion,
+				Arch:    "amd64",
+				Release: osType,
+			})
+
+		}
+	}
+	return versions
+}
+
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.AuditingEnabled: true,
 	}
+	s.ControllerModelConfigAttrs = map[string]interface{}{
+		"agent-version": coretesting.CurrentVersion().Number.String(),
+	}
+	s.WithLeaseManager = true
 	s.commonMachineSuite.SetUpTest(c)
+
+	storageDir := c.MkDir()
+	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, jc.ErrorIsNil)
+	// Upload tools to both release and devel streams since config will dictate that we
+	// end up looking in both places.
+	versions := defaultVersions(coretesting.CurrentVersion().Number)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", versions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "devel", "devel", versions...)
+	s.agentStorage = stor
 
 	// Restart failed workers much faster for the tests.
 	s.PatchValue(&engine.EngineErrorDelay, 100*time.Millisecond)
@@ -124,10 +170,15 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	// If any given test hits a minute, we have almost certainly become
 	// wedged, so dump the logs.
 	coretesting.DumpTestLogsAfter(time.Minute, c, s)
+
+	// Ensure the dummy provider is initialised - no need to actually bootstrap.
+	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
+	err = s.Environ.PrepareForBootstrap(ctx, "controller")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MachineSuite) TestParseNonsense(c *gc.C) {
-	aCfg := agentconf.NewAgentConf(s.DataDir())
+	aCfg := agentconf.NewAgentConf(s.DataDir)
 	err := ParseAgentCommand(&machineAgentCmd{agentInitializer: aCfg}, nil)
 	c.Assert(err, gc.ErrorMatches, "either machine-id or controller-id must be set")
 	err = ParseAgentCommand(&machineAgentCmd{agentInitializer: aCfg}, []string{"--machine-id", "-4004"})
@@ -137,7 +188,7 @@ func (s *MachineSuite) TestParseNonsense(c *gc.C) {
 }
 
 func (s *MachineSuite) TestParseUnknown(c *gc.C) {
-	aCfg := agentconf.NewAgentConf(s.DataDir())
+	aCfg := agentconf.NewAgentConf(s.DataDir)
 	a := &machineAgentCmd{agentInitializer: aCfg}
 	err := ParseAgentCommand(a, []string{"--machine-id", "42", "blistering barnacles"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blistering barnacles"\]`)
@@ -148,7 +199,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
 
 	create := func() (cmd.Command, agentconf.AgentConf) {
-		aCfg := agentconf.NewAgentConf(s.DataDir())
+		aCfg := agentconf.NewAgentConf(s.DataDir)
 		s.PrimeAgent(c, names.NewMachineTag("42"), initialMachinePassword)
 		logger := s.newBufferedLogWriter()
 		a := NewMachineAgentCmd(
@@ -159,7 +210,7 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		)
 		return a, aCfg
 	}
-	a := CheckAgentCommand(c, s.DataDir(), create, []string{"--machine-id", "42", "--log-to-stderr", "--data-dir", s.DataDir()})
+	a := CheckAgentCommand(c, s.DataDir, create, []string{"--machine-id", "42", "--log-to-stderr", "--data-dir", s.DataDir})
 	c.Assert(a.(*machineAgentCmd).machineId, gc.Equals, "42")
 }
 
@@ -285,7 +336,7 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		Arch:    arch.HostArch(),
 		Release: "ubuntu",
 	}
-	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, stream, stream, usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.agentStorage, stream, stream, usefulVersion)
 
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	ctrl, a := s.newAgent(c, m)
@@ -312,11 +363,24 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	startAddressPublisher(s, c, a)
 
 	// Add one unit to an application;
-	charm := s.AddTestingCharm(c, "dummy")
-	app := s.AddTestingApplicationWithArch(c, "test-application", charm, arch.HostArch())
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	arch := arch.HostArch()
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "test-application",
+		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-hub",
+			Platform: &state.Platform{
+				Architecture: arch,
+				OS:           "ubuntu",
+				Channel:      "22.04",
+			}},
+		Constraints: constraints.MustParse("arch=" + arch),
+	})
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	err = s.ControllerModel(c).State().AssignUnit(unit, state.AssignCleanEmpty)
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, instId := s.waitProvisioned(c, unit)
@@ -371,7 +435,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 	c.Logf("waiting for unit %q to be provisioned", unit)
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.State.Machine(machineId)
+	m, err := s.ControllerModel(c).State().Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	w := m.Watch()
 	defer worker.Stop(w)
@@ -398,15 +462,15 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 	newVers := coretesting.CurrentVersion()
 	newVers.Patch++
 	newTools := envtesting.AssertUploadFakeToolsVersions(
-		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)[0]
-	err := s.State.SetModelAgentVersion(newVers.Number, nil, true)
+		c, s.agentStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)[0]
+	err := s.ControllerModel(c).State().SetModelAgentVersion(newVers.Number, nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	err = runWithTimeout(c, agent)
 	envtesting.CheckUpgraderReadyError(c, err, &agenterrors.UpgradeReadyError{
 		AgentName: tag,
 		OldTools:  currentTools.Version,
 		NewTools:  newTools.Version,
-		DataDir:   s.DataDir(),
+		DataDir:   s.DataDir,
 	})
 }
 
@@ -608,11 +672,14 @@ func (s *MachineSuite) TestIAASControllerPatchUpdateManagerFileNonZeroExitCode(c
 
 func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 	password := "shhh..."
-	user := s.Factory.MakeUser(c, &factory.UserParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	user := f.MakeUser(c, &factory.UserParams{
 		Password: password,
 	})
 
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
+	st := s.ControllerModel(c).State()
+	err := st.UpdateControllerConfig(map[string]interface{}{
 		"audit-log-exclude-methods": "Client.FullStatus",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -662,7 +729,7 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 		c.Assert(records[1].Request.Method, gc.Equals, "AddMachines")
 
 		// Now update the controller config to remove the exclusion.
-		err := s.State.UpdateControllerConfig(map[string]interface{}{
+		err := st.UpdateControllerConfig(map[string]interface{}{
 			"audit-log-exclude-methods": "",
 		}, nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -762,7 +829,12 @@ func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *gc.C) {
 func (s *MachineSuite) TestManageModelRunsCleaner(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageModel, nil, func(conf agent.Config, agentState *state.State, a *MachineAgent) {
 		// Create an application and unit, and destroy the app.
-		app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+		f, release := s.NewFactory(c, s.ControllerModelUUID())
+		defer release()
+		app := f.MakeApplication(c, &factory.ApplicationParams{
+			Name:  "wordpress",
+			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+		})
 		unit, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		err = app.Destroy()
@@ -797,7 +869,12 @@ func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
 		// that it responds to state changes: add an application, set its minimum
 		// number of units to one, wait for the worker to add the missing unit.
-		app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+		f, release := s.NewFactory(c, s.ControllerModelUUID())
+		defer release()
+		app := f.MakeApplication(c, &factory.ApplicationParams{
+			Name:  "wordpress",
+			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+		})
 		err := app.SetMinUnits(1)
 		c.Assert(err, jc.ErrorIsNil)
 		w := app.Watch()
@@ -830,7 +907,7 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 
 	// Update the keys in the environment.
 	sshKey := sshtesting.ValidKeyOne.Key + " user@host"
-	err := s.Model.UpdateModelConfig(map[string]interface{}{"authorized-keys": sshKey}, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{"authorized-keys": sshKey}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for ssh keys file to be updated.
@@ -908,7 +985,7 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	updatedServers := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "localhost"),
 	}
-	err := s.BackingState.SetAPIHostPorts(updatedServers)
+	err := s.ControllerModel(c).State().SetAPIHostPorts(updatedServers)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for config to be updated.
@@ -956,7 +1033,7 @@ func (s *MachineSuite) TestDiskManagerWorkerUpdatesState(c *gc.C) {
 	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
 	defer func() { c.Check(a.Stop(), jc.ErrorIsNil) }()
 
-	sb, err := state.NewStorageBackend(s.BackingState)
+	sb, err := state.NewStorageBackend(s.ControllerModel(c).State())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Wait for state to be updated.
@@ -1040,7 +1117,7 @@ func (s *MachineSuite) testCertificateDNSUpdated(c *gc.C, a *MachineAgent) {
 	c.Check(expectedDnsNames.Difference(certDnsNames).IsEmpty(), jc.IsTrue)
 
 	// Check the mongo certificate file too.
-	pemContent, err := os.ReadFile(filepath.Join(s.DataDir(), "server.pem"))
+	pemContent, err := os.ReadFile(filepath.Join(s.DataDir, "server.pem"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(pemContent), gc.Equals, stateInfo.Cert+"\n"+stateInfo.PrivateKey)
 }
@@ -1059,7 +1136,7 @@ func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) c
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
-	err := s.Model.UpdateModelConfig(attrs, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return ignoreAddressCh
 }
@@ -1092,9 +1169,10 @@ func (s *MachineSuite) TestMachineAgentIgnoreAddresses(c *gc.C) {
 func (s *MachineSuite) TestMachineAgentIgnoreAddressesContainer(c *gc.C) {
 	ignoreAddressCh := s.setupIgnoreAddresses(c, true)
 
-	parent, err := s.State.AddMachine(state.UbuntuBase("20.04"), state.JobHostUnits)
+	st := s.ControllerModel(c).State()
+	parent, err := st.AddMachine(state.UbuntuBase("20.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.State.AddMachineInsideMachine(
+	m, err := st.AddMachineInsideMachine(
 		state.MachineTemplate{
 			Base: state.UbuntuBase("22.04"),
 			Jobs: []state.MachineJob{state.JobHostUnits},
@@ -1154,7 +1232,7 @@ func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
 		return noopRevisionUpdater{}, nil
 	})
 
-	uuid := s.BackingState.ModelUUID()
+	uuid := s.ControllerModelUUID()
 
 	tracker := agenttest.NewEngineTracker()
 	instrumented := TrackModels(c, tracker, iaasModelManifolds)
@@ -1207,14 +1285,16 @@ func (s *MachineSuite) TestWorkersForHostedModelWithInvalidCredential(c *gc.C) {
 		return &minModelWorkersEnviron{}, nil
 	})
 
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	st := f.MakeModel(c, &factory.ModelParams{
 		ConfigAttrs: coretesting.Attrs{
 			"max-status-history-age":  "2h",
 			"max-status-history-size": "4M",
 			"max-action-results-age":  "2h",
 			"max-action-results-size": "4M",
 		},
-		CloudCredential: names.NewCloudCredentialTag("dummy/admin/cred"),
+		CloudCredential: names.NewCloudCredentialTag("dummy/admin/default"),
 	})
 	defer func() {
 		err := st.Close()
@@ -1253,10 +1333,12 @@ func (s *MachineSuite) TestWorkersForHostedModelWithDeletedCredential(c *gc.C) {
 	})
 
 	credentialTag := names.NewCloudCredentialTag("dummy/admin/another")
-	err := s.State.UpdateCloudCredential(credentialTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
+	err := s.ControllerModel(c).State().UpdateCloudCredential(credentialTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	st := f.MakeModel(c, &factory.ModelParams{
 		ConfigAttrs: coretesting.Attrs{
 			"max-status-history-age":  "2h",
 			"max-status-history-size": "4M",
@@ -1274,7 +1356,7 @@ func (s *MachineSuite) TestWorkersForHostedModelWithDeletedCredential(c *gc.C) {
 	uuid := st.ModelUUID()
 
 	// remove cloud credential used by this model but keep model reference to it
-	err = s.State.RemoveCloudCredential(credentialTag)
+	err = s.ControllerModel(c).State().RemoveCloudCredential(credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tracker := agenttest.NewEngineTracker()
@@ -1372,7 +1454,7 @@ func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
 
 func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C) {
 	// Grab responsibility for the model on behalf of another machine.
-	uuid := s.BackingState.ModelUUID()
+	uuid := s.ControllerModelUUID()
 	s.claimSingularLease(uuid)
 
 	// Then run a normal model-tracking test, just checking for
@@ -1402,7 +1484,9 @@ VALUES (?, 0, ?, ?, 'machine-999-lxd-99', datetime('now'), datetime('now', '+100
 
 func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
 	// Create a new environment, tests can now watch if workers start for it.
-	newSt = s.Factory.MakeModel(c, &factory.ModelParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	newSt = f.MakeModel(c, &factory.ModelParams{
 		ConfigAttrs: coretesting.Attrs{
 			"max-status-history-age":  "2h",
 			"max-status-history-size": "4M",

@@ -17,10 +17,11 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type runSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 	commontesting.BlockHelper
 
 	client *action.ActionAPI
@@ -29,20 +30,20 @@ type runSuite struct {
 var _ = gc.Suite(&runSuite{})
 
 func (s *runSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.ApiServerSuite.SetUpTest(c)
+	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 
 	var err error
 	auth := apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
+		Tag: jujutesting.AdminUser,
 	}
-	s.client, err = action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
+	s.client, err = action.NewActionAPI(s.ControllerModel(c).State(), nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *runSuite) addMachine(c *gc.C) *state.Machine {
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	return machine
 }
@@ -106,8 +107,10 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	}
 	s.addMachine(c)
 
-	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddApplication(state.AddApplicationArgs{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	charm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
+	magic, err := s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
 		Name: "magic", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
 	})
@@ -157,8 +160,10 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 	}
 	s.addMachine(c)
 
-	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddApplication(state.AddApplicationArgs{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	charm := f.MakeCharm(c, &factory.CharmParams{Name: "dummy"})
+	magic, err := s.ControllerModel(c).State().AddApplication(state.AddApplicationArgs{
 		Name: "magic", Charm: charm,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "20.04/stable"}},
 	})
@@ -242,13 +247,14 @@ func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
 		Tag:         alpha,
 		HasWriteTag: alpha,
 	}
-	client, err := action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
+	st := s.ControllerModel(c).State()
+	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Run(params.RunParams{})
 	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
 
 	auth.AdminTag = alpha
-	client, err = action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
+	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Run(params.RunParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -260,13 +266,14 @@ func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
 		Tag:         alpha,
 		HasWriteTag: alpha,
 	}
-	client, err := action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
+	st := s.ControllerModel(c).State()
+	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(params.RunParams{})
 	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
 
 	auth.AdminTag = alpha
-	client, err = action.NewActionAPI(s.State, nil, auth, action.FakeLeadership{})
+	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(params.RunParams{})
 	c.Assert(err, jc.ErrorIsNil)

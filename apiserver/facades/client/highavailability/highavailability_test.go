@@ -28,7 +28,7 @@ import (
 )
 
 type clientSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 
 	authorizer apiservertesting.FakeAuthorizer
 	haServer   *highavailability.HighAvailabilityAPI
@@ -44,21 +44,22 @@ var (
 )
 
 func (s *clientSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:        s.AdminUserTag(c),
+		Tag:        testing.AdminUser,
 		Controller: true,
 	}
+	st := s.ControllerModel(c).State()
 	var err error
 	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.Context{
-		State_:        s.State,
+		State_:        st,
 		Auth_:         s.authorizer,
 		ControllerDB_: stubWatchableDB{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddMachines(state.MachineTemplate{
+	_, err = st.AddMachines(state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobManageModel},
 		Constraints: controllerCons,
@@ -72,12 +73,12 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 
 	// We have to ensure the agents are alive, or EnableHA will
 	// create more to replace them.
-	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
 func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
-	m, err := s.State.Machine(machineId)
+	m, err := s.ControllerModel(c).State().Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetMachineAddresses(
 		network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),
@@ -120,7 +121,7 @@ func enableHA(
 }
 
 func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
-	machines, err := s.State.AllMachines()
+	machines, err := s.ControllerModel(c).State().AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Base().DisplayString(), gc.Equals, "ubuntu@12.10")
@@ -138,7 +139,7 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
-	m0, err := s.State.Machine("0")
+	m0, err := s.ControllerModel(c).State().Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Base().DisplayString(), gc.Equals, "ubuntu@12.10")
 
@@ -170,7 +171,8 @@ func (s *clientSuite) TestEnableHANoErrorForNoAddresses(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
-	machines, err := s.State.AllMachines()
+	st := s.ControllerModel(c).State()
+	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Base().String(), gc.Equals, "ubuntu@12.10/stable")
@@ -181,7 +183,7 @@ func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 
 	s.setMachineAddresses(c, "1")
 
-	m, err := s.State.Machine("2")
+	m, err := st.Machine("2")
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetMachineAddresses(
 		network.NewSpaceAddress("cloud-local2.internal", network.WithScope(network.ScopeCloudLocal)),
@@ -203,7 +205,7 @@ func (s *clientSuite) TestEnableHAConstraints(c *gc.C) {
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
-	machines, err := s.State.AllMachines()
+	machines, err := s.ControllerModel(c).State().AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
@@ -226,7 +228,7 @@ func (s *clientSuite) TestEnableHAEmptyConstraints(c *gc.C) {
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
-	machines, err := s.State.AllMachines()
+	machines, err := s.ControllerModel(c).State().AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	for _, m := range machines {
@@ -237,7 +239,8 @@ func (s *clientSuite) TestEnableHAEmptyConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
-	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
+	st := s.ControllerModel(c).State()
+	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")
 	controllerSettings.Set(controller.JujuHASpace, "ha-space")
 	controllerSettings.Write()
 
@@ -248,7 +251,7 @@ func (s *clientSuite) TestEnableHAControllerConfigConstraints(c *gc.C) {
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
-	machines, err := s.State.AllMachines()
+	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
@@ -275,7 +278,7 @@ func (s *clientSuite) TestBlockMakeHA(c *gc.C) {
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
-	machines, err := s.State.AllMachines()
+	machines, err := s.ControllerModel(c).State().AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 }
@@ -289,7 +292,7 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
-	machines, err := s.State.AllMachines()
+	machines, err := s.ControllerModel(c).State().AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
@@ -307,15 +310,16 @@ func (s *clientSuite) TestEnableHAPlacement(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
+	st := s.ControllerModel(c).State()
 	machine1Cons := constraints.MustParse("mem=8G")
-	_, err := s.State.AddMachines(state.MachineTemplate{
+	_, err := st.AddMachines(state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: machine1Cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	placement := []string{"1", "2"}
@@ -326,7 +330,7 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.DeepEquals, []string{"machine-1", "machine-2"})
 
-	machines, err := s.State.AllMachines()
+	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
@@ -344,22 +348,23 @@ func (s *clientSuite) TestEnableHAPlacementTo(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
-	sp, err := s.State.AddSpace("ha-space", "", nil, true)
+	st := s.ControllerModel(c).State()
+	sp, err := st.AddSpace("ha-space", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
+	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")
 	controllerSettings.Set(controller.JujuHASpace, "ha-space")
 	_, err = controllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	m1, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	m1, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	a1 := network.NewSpaceAddress("192.168.6.6")
 	a1.SpaceID = sp.Id()
 	err = m1.SetProviderAddresses(a1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m2, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	m2, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	a2 := network.NewSpaceAddress("192.168.6.7")
 	a2.SpaceID = sp.Id()
@@ -372,15 +377,16 @@ func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAPlacementToErrorForInaccessibleSpace(c *gc.C) {
-	_, err := s.State.AddSpace("ha-space", "", nil, true)
+	st := s.ControllerModel(c).State()
+	_, err := st.AddSpace("ha-space", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerSettings, _ := s.State.ReadSettings("controllers", "controllerSettings")
+	controllerSettings, _ := st.ReadSettings("controllers", "controllerSettings")
 	controllerSettings.Set(controller.JujuHASpace, "ha-space")
 	_, err = controllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	_, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	placement := []string{"1", "2"}
@@ -398,7 +404,8 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
-	machines, err := s.State.AllMachines()
+	st := s.ControllerModel(c).State()
+	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 3)
 
@@ -409,11 +416,11 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 	// EnableHA(0) again will cause us to start another machine
 	c.Assert(machines[2].Destroy(), jc.ErrorIsNil)
 	c.Assert(machines[2].Refresh(), jc.ErrorIsNil)
-	node, err := s.State.ControllerNode(machines[2].Id())
+	node, err := st.ControllerNode(machines[2].Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
-	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
+	c.Assert(st.RemoveControllerReference(node), jc.ErrorIsNil)
 	c.Assert(machines[2].EnsureDead(), jc.ErrorIsNil)
 	enableHAResult, err = s.enableHA(c, 0, emptyCons, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -422,7 +429,7 @@ func (s *clientSuite) TestEnableHA0Preserves(c *gc.C) {
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
-	machines, err = s.State.AllMachines()
+	machines, err = st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 4)
 }
@@ -436,10 +443,11 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
-	machines, err := s.State.AllMachines()
+	st := s.ControllerModel(c).State()
+	machines, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 5)
-	nodes, err := s.State.ControllerNodes()
+	nodes, err := st.ControllerNodes()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nodes, gc.HasLen, 5)
 	for _, n := range nodes {
@@ -452,11 +460,11 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	s.setMachineAddresses(c, "4")
 	c.Assert(machines[4].Destroy(), jc.ErrorIsNil)
 	c.Assert(machines[4].Refresh(), jc.ErrorIsNil)
-	node, err := s.State.ControllerNode(machines[4].Id())
+	node, err := st.ControllerNode(machines[4].Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
-	c.Assert(s.State.RemoveControllerReference(node), jc.ErrorIsNil)
+	c.Assert(st.RemoveControllerReference(node), jc.ErrorIsNil)
 	c.Assert(machines[4].EnsureDead(), jc.ErrorIsNil)
 
 	// Keeping all alive but one, will bring up 1 more server to preserve 5
@@ -468,7 +476,7 @@ func (s *clientSuite) TestEnableHA0Preserves5(c *gc.C) {
 	c.Assert(enableHAResult.Removed, gc.HasLen, 0)
 	c.Assert(enableHAResult.Converted, gc.HasLen, 0)
 
-	machines, err = s.State.AllMachines()
+	machines, err = st.AllMachines()
 	c.Assert(machines, gc.HasLen, 6)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -492,7 +500,9 @@ func (s *clientSuite) TestEnableHAErrors(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
-	st2 := s.Factory.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	st2 := f.MakeModel(c, &factory.ModelParams{ConfigAttrs: coretesting.Attrs{"controller": false}})
 	defer st2.Close()
 
 	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
@@ -537,7 +547,7 @@ func (s *clientSuite) TestEnableHANoSpecs(c *gc.C) {
 
 func (s *clientSuite) TestEnableHABootstrap(c *gc.C) {
 	// Testing based on lp:1748275 - Juju HA fails due to demotion of Machine 0
-	machines, err := s.State.AllMachines()
+	machines, err := s.ControllerModel(c).State().AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 1)
 
@@ -550,7 +560,10 @@ func (s *clientSuite) TestEnableHABootstrap(c *gc.C) {
 }
 
 func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
-	st := s.Factory.MakeCAASModel(c, nil)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	st := f.MakeCAASModel(c, nil)
 	defer st.Close()
 
 	_, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
@@ -562,7 +575,7 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 
 // TODO (manadart 2023-06-13): This stub does no verification.
 // An alternative approach will be sought when HA enablement is modified to
-// omit Mongo concerns. This will be done with mocks rather than JujuConnSuite.
+// omit Mongo concerns. This will be done with mocks rather than ApiServerSuite.
 type stubWatchableDB struct {
 	changestream.WatchableDB
 }

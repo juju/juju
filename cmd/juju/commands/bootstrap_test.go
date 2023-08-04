@@ -31,7 +31,6 @@ import (
 	k8scmd "k8s.io/client-go/tools/clientcmd"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -55,7 +54,6 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/provider/dummy"
-	_ "github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
@@ -63,6 +61,33 @@ import (
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
+
+func runCommandWithDummyProvider(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
+	if ctx == nil {
+		panic("ctx == nil")
+	}
+	errc = make(chan error, 1)
+	opc = make(chan dummy.Operation, 200)
+	dummy.Listen(opc)
+	go func() {
+		defer func() {
+			// signal that we're done with this ops channel.
+			dummy.Listen(nil)
+			// now that dummy is no longer going to send ops on
+			// this channel, close it to signal to test cases
+			// that we are done.
+			close(opc)
+		}()
+
+		if err := cmdtesting.InitCommand(com, args); err != nil {
+			errc <- err
+			return
+		}
+
+		errc <- com.Run(ctx)
+	}()
+	return
+}
 
 type BootstrapSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
@@ -151,7 +176,6 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
-	dummy.Reset(c)
 }
 
 func (s *BootstrapSuite) newBootstrapCommand() cmd.Command {
@@ -208,7 +232,6 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	// Create home with dummy provider and remove all
 	// of its envtools.
 	s.setupAutoUploadTest(c, "1.0.0", "jammy")
-	dummy.Reset(c)
 	s.tw.Clear()
 
 	var restore testing.Restorer = func() {
@@ -240,7 +263,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		cloudName, controllerName,
 		"--config", "default-series=jammy",
 	}, test.args...)
-	opc, errc := cmdtest.RunCommandWithDummyProvider(cmdtesting.Context(c), s.newBootstrapCommand(), args...)
+	opc, errc := runCommandWithDummyProvider(cmdtesting.Context(c), s.newBootstrapCommand(), args...)
 	var err error
 	select {
 	case err = <-errc:
@@ -314,9 +337,9 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		"default-series":  "jammy",
 		"authorized-keys": "public auth key\n",
 		// Dummy provider defaults
-		"broken":     "",
-		"secret":     "pork",
-		"controller": false,
+		"broken":   "",
+		"secret":   "pork",
+		"somebool": false,
 	}
 	for k, v := range config.ConfigDefaults() {
 		if _, ok := expected[k]; !ok {
@@ -1030,12 +1053,8 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 		return nil, errors.New("mock-prepare")
 	})
 
-	ctx := cmdtesting.Context(c)
-	_, errc := cmdtest.RunCommandWithDummyProvider(
-		ctx, s.newBootstrapCommand(),
-		"dummy", "devcontroller",
-	)
-	c.Check(<-errc, gc.ErrorMatches, ".*mock-prepare$")
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller")
+	c.Check(err, gc.ErrorMatches, ".*mock-prepare$")
 	c.Check(destroyed, jc.IsFalse)
 }
 
@@ -1143,9 +1162,7 @@ func (s *BootstrapSuite) TestBootstrapAlreadyExists(c *gc.C) {
 	}
 	s.writeControllerModelAccountInfo(c, &cmaCtx)
 
-	ctx := cmdtesting.Context(c)
-	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.newBootstrapCommand(), "dummy", controllerName, "--auto-upgrade")
-	err := <-errc
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", controllerName, "--auto-upgrade")
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`controller %q already exists`, controllerName))
 	currentController := s.store.CurrentControllerName
@@ -1412,7 +1429,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "focal")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.
-	opc, errc := cmdtest.RunCommandWithDummyProvider(
+	opc, errc := runCommandWithDummyProvider(
 		cmdtesting.Context(c), s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-series=focal",
@@ -1477,7 +1494,7 @@ No packaged binary found, preparing local Juju agent binary
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "jammy")
 
-	opc, errc := cmdtest.RunCommandWithDummyProvider(
+	opc, errc := runCommandWithDummyProvider(
 		cmdtesting.Context(c), s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "broken=Bootstrap Destroy",
@@ -1517,7 +1534,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "jammy")
 
 	ctx := cmdtesting.Context(c)
-	opc, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.newBootstrapCommand(),
+	opc, errc := runCommandWithDummyProvider(ctx, s.newBootstrapCommand(),
 		"--keep-broken",
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "broken=Bootstrap Destroy",
@@ -1877,7 +1894,7 @@ func (s *BootstrapSuite) TestBootstrapProviderCaseInsensitiveRegionCheck(c *gc.C
 func (s *BootstrapSuite) TestBootstrapConfigFile(c *gc.C) {
 	tmpdir := c.MkDir()
 	configFile := filepath.Join(tmpdir, "config.yaml")
-	err := os.WriteFile(configFile, []byte("controller: not-a-bool\n"), 0644)
+	err := os.WriteFile(configFile, []byte("secret: 666\n"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.patchVersionAndSeries(c, "jammy")
@@ -1885,7 +1902,7 @@ func (s *BootstrapSuite) TestBootstrapConfigFile(c *gc.C) {
 		c, s.newBootstrapCommand(), "dummy", "ctrl",
 		"--config", configFile,
 	)
-	c.Assert(err, gc.ErrorMatches, `invalid attribute value\(s\) for dummy cloud: controller: expected bool, got string.*`)
+	c.Assert(err, gc.ErrorMatches, `invalid attribute value\(s\) for dummy cloud: secret: expected string, got int.*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapMultipleConfigFiles(c *gc.C) {
@@ -1969,9 +1986,9 @@ func (s *BootstrapSuite) TestBootstrapCloudConfigAndAdHoc(c *gc.C) {
 		"--auto-upgrade",
 		// Configuration specified on the command line overrides
 		// anything specified in files, no matter what the order.
-		"--config", "controller=not-a-bool",
+		"--config", "somebool=not-a-bool",
 	)
-	c.Assert(err, gc.ErrorMatches, `invalid attribute value\(s\) for dummy cloud: controller: expected bool, got .*`)
+	c.Assert(err, gc.ErrorMatches, `invalid attribute value\(s\) for dummy cloud: somebool: expected bool, got .*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
@@ -2332,7 +2349,7 @@ clouds:
         type: dummy
         config:
             broken: Bootstrap
-            controller: not-a-bool
+            somebool: not-a-bool
             use-default-secgroup: true
     many-credentials-no-auth-types:
         type: many-credentials

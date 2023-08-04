@@ -22,11 +22,12 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
 
 type unitUpgraderSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
@@ -40,12 +41,13 @@ type unitUpgraderSuite struct {
 var _ = gc.Suite(&unitUpgraderSuite{})
 
 func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	// Create a machine and unit to work with
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	st := s.ControllerModel(c).State()
+	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -56,7 +58,12 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	err = machine.SetProvisioned(instId, "", "fake-nonce", hwChar)
 	c.Assert(err, jc.ErrorIsNil)
 
-	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+	})
 	s.rawUnit, err = app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Assign the unit to the machine.
@@ -68,7 +75,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 		Tag: s.rawUnit.Tag(),
 	}
 	s.upgrader, err = upgrader.NewUnitUpgraderAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     st,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
@@ -79,7 +86,7 @@ func (s *unitUpgraderSuite) TearDownTest(c *gc.C) {
 	if s.resources != nil {
 		s.resources.StopAll()
 	}
-	s.JujuConnSuite.TearDownTest(c)
+	s.ApiServerSuite.TearDownTest(c)
 }
 
 func (s *unitUpgraderSuite) TestWatchAPIVersionNothing(c *gc.C) {
@@ -116,7 +123,7 @@ func (s *unitUpgraderSuite) TestUpgraderAPIRefusesNonUnitAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("7")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
 	})
@@ -130,7 +137,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
 	})
@@ -157,7 +164,7 @@ func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
 	})
@@ -207,7 +214,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
 	})
@@ -269,7 +276,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthorizer,
 	})

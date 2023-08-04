@@ -145,7 +145,7 @@ There are four main suites:
   * /testing.BaseSuite (testing/base.go)
   * /testing.FakeHomeSuite (testing/environ.go)
   * /testing.FakeJujuHomeSuite (testing/environ.go)
-  * /juju/testing.JujuConnSuite (juju/testing/conn.go)
+  * /juju/testing.ApiServerSuite (juju/testing/apiserver.go)
 
 The last three have the BaseSuite functionality included through
 composition.  The BaseSuite isolates a user's home directory from accidental
@@ -163,11 +163,11 @@ can instead embedd one of the fake home suites:
 * FakeHomeSuite: creates a fake home directory with ~/.ssh and fake ssh keys.
 * FakeJujuHomeSuite: as above but also sets up a ~/.config/juju with a fake model.
 
-The JujuConnSuite does this and more. It also sets up a controller and api
-server.  This is one problem with the JujuConnSuite, it almost always does a
+The ApiServerSuite does this and more. It also sets up a controller and api
+server.  This is one problem with the ApiServerSuite, it almost always does a
 lot more than you actually want or need.  This should really be broken into
 smaller component parts that make more sense.  If you can get away with not
-using the JujuConnSuite, you should try.
+using the ApiServerSuite, you should try.
 
 To create a new suite composed of one or more of the suites above, you can do
 something like:

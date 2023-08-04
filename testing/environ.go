@@ -14,8 +14,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
+	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -76,11 +78,11 @@ func FakeControllerConfig() controller.Config {
 	}
 }
 
-// FakeConfig returns an environment configuration for a
+// FakeConfig returns an model configuration for a
 // fake provider with all required attributes set.
 func FakeConfig() Attrs {
 	return Attrs{
-		"type":                      "someprovider",
+		"type":                      "dummy",
 		"name":                      "testmodel",
 		"uuid":                      ModelTag.Id(),
 		"authorized-keys":           FakeAuthKeys,
@@ -88,6 +90,20 @@ func FakeConfig() Attrs {
 		"ssl-hostname-verification": true,
 		"secret-backend":            "auto",
 		"development":               false,
+	}
+}
+
+// FakeCloudSpec returns a cloud spec with sample data.
+func FakeCloudSpec() environscloudspec.CloudSpec {
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"username": "dummy", "password": "secret"})
+	return environscloudspec.CloudSpec{
+		Type:             "dummy",
+		Name:             "dummy",
+		Endpoint:         "dummy-endpoint",
+		IdentityEndpoint: "dummy-identity-endpoint",
+		Region:           "dummy-region",
+		StorageEndpoint:  "dummy-storage-endpoint",
+		Credential:       &cred,
 	}
 }
 

@@ -16,7 +16,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	s.PatchValue(backups.WaitUntilReady,
 		func(*mgo.Session, int) error { return nil },
 	)
-	s.setBackups(c, s.meta, "")
+	s.setBackups(s.meta, "")
 	var args params.BackupsCreateArgs
 	result, err := s.api.Create(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -30,7 +30,7 @@ func (s *backupsSuite) TestCreateNotes(c *gc.C) {
 		func(*mgo.Session, int) error { return nil },
 	)
 	s.meta.Notes = "this backup is important"
-	s.setBackups(c, s.meta, "")
+	s.setBackups(s.meta, "")
 	args := params.BackupsCreateArgs{
 		Notes: "this backup is important",
 	}
@@ -44,7 +44,7 @@ func (s *backupsSuite) TestCreateNotes(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateError(c *gc.C) {
-	s.setBackups(c, nil, "failed!")
+	s.setBackups(nil, "failed!")
 	s.PatchValue(backups.WaitUntilReady,
 		func(*mgo.Session, int) error { return nil },
 	)
@@ -63,7 +63,7 @@ func (s *backupsSuite) TestCreateController(c *gc.C) {
 	s.meta.Controller.MachineID = "11"
 	s.meta.Controller.MachineInstanceID = "instance-12"
 	s.meta.Controller.HANodes = int64(3)
-	s.setBackups(c, s.meta, "")
+	s.setBackups(s.meta, "")
 
 	result, err := s.api.Create(params.BackupsCreateArgs{})
 	c.Assert(err, jc.ErrorIsNil)

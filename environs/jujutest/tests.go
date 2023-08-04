@@ -29,6 +29,10 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
+const (
+	AdminSecret = "admin-secret"
+)
+
 // Tests is a gocheck suite containing tests verifying juju functionality
 // against the environment with the given configuration. The
 // tests are not designed to be run against a live server - the Environ

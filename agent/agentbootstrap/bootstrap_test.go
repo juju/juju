@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -406,7 +405,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		SharedSecret:   "baz",
 		SystemIdentity: "qux",
 	})
-	modelAttrs := dummy.SampleConfig().Delete("admin-secret").Merge(testing.Attrs{
+	modelAttrs := testing.FakeConfig().Delete("admin-secret").Merge(testing.Attrs{
 		"agent-version": jujuversion.Current.String(),
 		"charmhub-url":  charmhub.DefaultServerURL,
 	})

@@ -43,7 +43,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/dummy"
 	corestorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -1433,7 +1433,7 @@ type bootstrapEnviron struct {
 }
 
 func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnviron {
-	m := dummy.SampleConfig().Merge(extraAttrs)
+	m := coretesting.FakeConfig().Merge(extraAttrs)
 	if !defaultKeys {
 		m = m.Delete(
 			"ca-cert",

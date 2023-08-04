@@ -39,12 +39,11 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	// Register.
 	s.resources = common.NewResources()
 
-	systemState, err := s.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.ControllerModel(c).State()
 	// Create a machiner API for machine 1.
 	machiner, err := machine.NewMachinerAPIForState(
-		systemState,
-		s.State,
+		st,
+		st,
 		s.resources,
 		s.authorizer,
 	)
@@ -55,11 +54,11 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
-	systemState, err := s.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
+	st := s.ControllerModel(c).State()
 	aMachiner, err := machine.NewMachinerAPIForState(
-		systemState,
-		s.State, s.resources, anAuthorizer)
+		st,
+		st,
+		s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aMachiner, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
