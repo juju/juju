@@ -1663,7 +1663,7 @@ func (s *applicationSuite) TestValidateSecretConfig(c *gc.C) {
 		"foo": "bar",
 	}
 	err := application.ValidateSecretConfig(chCfg, cfg)
-	c.Assert(err, gc.ErrorMatches, `secret URI "bar" not valid`)
+	c.Assert(err, gc.ErrorMatches, `invalid secret URI for option "foo": secret URI "bar" not valid`)
 
 	cfg = charm.Settings{"foo": "secret:cj4v5vm78ohs79o84r4g"}
 	err = application.ValidateSecretConfig(chCfg, cfg)

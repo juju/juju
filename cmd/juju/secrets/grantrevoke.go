@@ -49,8 +49,7 @@ func (c *grantSecretCommand) secretsAPI() (GrantRevokeSecretsAPI, error) {
 // Info implements cmd.Command.
 func (c *grantSecretCommand) Info() *cmd.Info {
 	doc := `
-Grant access to view the value of a specified secret.
-Access is granted in the appliation scope.
+Grant applications access to view the value of a specified secret.
 
 Examples:
     grant-secret <secret-uri> <application>[,<application>...]
@@ -134,7 +133,7 @@ func (c *revokeSecretCommand) secretsAPI() (GrantRevokeSecretsAPI, error) {
 // Info implements cmd.Command.
 func (c *revokeSecretCommand) Info() *cmd.Info {
 	doc := `
-Revoke access to view the value of a specified secret.
+Revoke applications' access to view the value of a specified secret.
 
 Examples:
     revoke-secret <secret-uri> <application>[,<application>...]

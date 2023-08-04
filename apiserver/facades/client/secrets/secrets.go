@@ -51,6 +51,10 @@ func (s *SecretsAPI) checkCanRead() error {
 	return s.authorizer.HasPermission(permission.ReadAccess, names.NewModelTag(s.modelUUID))
 }
 
+func (s *SecretsAPI) checkCanWrite() error {
+	return s.authorizer.HasPermission(permission.WriteAccess, names.NewModelTag(s.modelUUID))
+}
+
 func (s *SecretsAPI) checkCanAdmin() error {
 	_, err := common.HasModelAdmin(s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
 	return err
@@ -357,7 +361,7 @@ func (s *SecretsAPI) secretsGrantRevoke(arg params.GrantRevokeUserSecretArg, op 
 		Results: make([]params.ErrorResult, len(arg.Applications)),
 	}
 
-	if err := s.checkCanAdmin(); err != nil {
+	if err := s.checkCanWrite(); err != nil {
 		return results, errors.Trace(err)
 	}
 

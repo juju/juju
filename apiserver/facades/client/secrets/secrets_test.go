@@ -416,9 +416,7 @@ func (s *SecretsSuite) TestGrantSecret(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
 	uri := coresecrets.NewURI()
 	s.secretConsumer.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -486,10 +484,9 @@ func (s *SecretsSuite) TestGrantSecretPermissionDenied(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission),
+	)
 
 	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer, nil, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -502,9 +499,7 @@ func (s *SecretsSuite) TestRevokeSecret(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
 
 	uri := coresecrets.NewURI()
 	s.secretConsumer.EXPECT().RevokeSecretAccess(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -572,10 +567,9 @@ func (s *SecretsSuite) TestRevokeSecretPermissionDenied(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission),
+	)
 
 	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer, nil, nil, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
