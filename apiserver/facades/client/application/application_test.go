@@ -1652,3 +1652,20 @@ func (s *applicationSuite) addCharmToState(c *gc.C, charmURL string, name string
 
 	return curl, ch
 }
+
+func (s *applicationSuite) TestValidateSecretConfig(c *gc.C) {
+	chCfg := &charm.Config{
+		Options: map[string]charm.Option{
+			"foo": {Type: "secret"},
+		},
+	}
+	cfg := charm.Settings{
+		"foo": "bar",
+	}
+	err := application.ValidateSecretConfig(chCfg, cfg)
+	c.Assert(err, gc.ErrorMatches, `invalid secret URI for option "foo": secret URI "bar" not valid`)
+
+	cfg = charm.Settings{"foo": "secret:cj4v5vm78ohs79o84r4g"}
+	err = application.ValidateSecretConfig(chCfg, cfg)
+	c.Assert(err, jc.ErrorIsNil)
+}
