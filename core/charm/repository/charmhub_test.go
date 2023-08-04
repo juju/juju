@@ -12,6 +12,7 @@ import (
 	"github.com/juju/charm/v11"
 	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/collections/set"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/hash"
@@ -1143,14 +1144,53 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
 	}}, corecharm.Origin{
 		Platform: corecharm.Platform{
 			Architecture: "amd64",
+			OS:           "ubuntu",
 		},
 	})
-	c.Assert(err, gc.ErrorMatches, `base: empty channel not valid`)
+	c.Assert(errors.IsNotValid(err), jc.IsTrue)
+}
+
+func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidOS(c *gc.C) {
+	repo := new(CharmHubRepository)
+	_, err := repo.selectNextBases([]transport.Base{{
+		Architecture: "amd64",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+		},
+	})
+	c.Assert(errors.IsNotValid(err), jc.IsTrue)
 }
 
 func (*selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {
 	repo := new(CharmHubRepository)
 	platform, err := repo.selectNextBases([]transport.Base{{
+		Architecture: "amd64",
+		Name:         "ubuntu",
+		Channel:      "20.04",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "20.04",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(platform, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "amd64",
+		OS:           "ubuntu",
+		Channel:      "20.04",
+	}})
+}
+
+func (*selectNextBaseSuite) TestSelectNextBaseWithValidBasesWithSeries(c *gc.C) {
+	repo := new(CharmHubRepository)
+	platform, err := repo.selectNextBases([]transport.Base{{
+		Architecture: "amd64",
+		Name:         "ubuntu",
+		Channel:      "focal",
+	}, {
 		Architecture: "amd64",
 		Name:         "ubuntu",
 		Channel:      "20.04",
@@ -1428,6 +1468,37 @@ func (selectReleaseByChannelSuite) TestSelection(c *gc.C) {
 	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
 		Architecture: "arch",
 		OS:           "os",
+		Channel:      "20.04",
+	}})
+}
+
+func (selectReleaseByChannelSuite) TestSelectionSeriesInRelease(c *gc.C) {
+	release, err := selectReleaseByArchAndChannel([]transport.Release{{
+		Base: transport.Base{
+			Name:         "ubuntu",
+			Channel:      "focal",
+			Architecture: "arch",
+		},
+		Channel: "stable",
+	}, {
+		Base: transport.Base{
+			Name:         "ubuntu",
+			Channel:      "20.04",
+			Architecture: "arch",
+		},
+		Channel: "stable",
+	}}, corecharm.Origin{
+		Platform: corecharm.Platform{
+			Architecture: "arch",
+		},
+		Channel: &charm.Channel{
+			Risk: "stable",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(release, gc.DeepEquals, []corecharm.Platform{{
+		Architecture: "arch",
+		OS:           "ubuntu",
 		Channel:      "20.04",
 	}})
 }
