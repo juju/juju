@@ -378,6 +378,9 @@ go-agent-build-no-cgo: $(BUILD_AGENT_TARGETS)
 .PHONY: go-client-build
 go-client-build: $(BUILD_CLIENT_TARGETS)
 
+.PHONY: go-client-build
+go-client-build: $(BUILD_CLIENT_TARGETS)
+
 .PHONY: go-build
 go-build: go-agent-build go-client-build
 ## build: builds all the targets withouth rebuilding a new schema.
