@@ -303,10 +303,6 @@ const (
 	// logging.
 	LoggingOutputKey = "logging-output"
 
-	// DefaultSeriesKey is a key for determining the series a model should
-	// explicitly use for charms unless otherwise provided.
-	DefaultSeriesKey = "default-series"
-
 	// DefaultBaseKey is a key for determining the base a model should
 	// explicitly use for charms unless otherwise provided.
 	DefaultBaseKey = "default-base"

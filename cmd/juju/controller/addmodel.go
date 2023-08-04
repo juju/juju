@@ -96,9 +96,6 @@ the same cloud/region as the controller model. If a region is specified
 without a cloud qualifier, then it is assumed to be in the same cloud
 as the controller model.
 
-When adding --config, the default-series key is deprecated in favour of
-default-base, e.g. ubuntu@22.04.
-
 `
 
 const addModelHelpExamples = `
@@ -637,11 +634,6 @@ func (c *addModelCommand) getConfigValues(ctx *cmd.Context) (map[string]interfac
 	if err := common.FinalizeAuthorizedKeys(ctx, attrs); err != nil {
 		if errors.Cause(err) != common.ErrNoAuthorizedKeys {
 			return nil, errors.Trace(err)
-		}
-	}
-	if _, ok := attrs[config.DefaultSeriesKey]; ok {
-		if _, ok := attrs[config.DefaultBaseKey]; ok {
-			return nil, errors.Errorf("cannot specify both default-series and default-base")
 		}
 	}
 	return attrs, nil

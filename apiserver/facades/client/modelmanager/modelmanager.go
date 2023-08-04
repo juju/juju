@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
@@ -329,25 +328,6 @@ func (m *ModelManagerAPI) CreateModel(ctx stdcontext.Context, args params.ModelC
 			credentialValue.Revoked,
 		)
 		credential = &cloudCredential
-	}
-
-	// Swap out the config default-series for default-base if it's set.
-	// TODO(stickupkid): This can be removed once we've fully migrated to bases.
-	if s, ok := args.Config[config.DefaultSeriesKey]; ok {
-		if _, ok := args.Config[config.DefaultBaseKey]; ok {
-			return result, errors.New("default-base and default-series cannot both be set")
-		}
-		if s == "" {
-			args.Config[config.DefaultBaseKey] = ""
-		} else {
-			base, err := corebase.GetBaseFromSeries(s.(string))
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-			args.Config[config.DefaultBaseKey] = base.String()
-		}
-
-		delete(args.Config, config.DefaultSeriesKey)
 	}
 
 	cloudSpec, err := environscloudspec.MakeCloudSpec(cloud, cloudRegionName, credential)
