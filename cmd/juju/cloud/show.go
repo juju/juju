@@ -87,9 +87,10 @@ func (c *showCloudCommand) cloudAPI() (showCloudAPI, error) {
 
 func (c *showCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
-	// We only support yaml for display purposes.
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
+	c.out.AddFlags(f, "display", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"display": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.includeConfig, "include-config", false, "Print available config option details specific to the specified cloud")
 }
@@ -128,7 +129,10 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 		localCloud, localErr = c.getLocalCloud()
 	}
 
-	var displayErr error
+	var (
+		displayErr error
+		outputs    []CloudOutput
+	)
 	if c.ControllerName != "" {
 		remoteCloud, remoteErr := c.getControllerCloud()
 		showRemoteConfig := c.includeConfig
@@ -141,9 +145,18 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 			showRemoteConfig = showRemoteConfig && localCloud.CloudType != remoteCloud.CloudType
 		}
 		if remoteCloud != nil {
-			if err := c.displayCloud(ctxt, remoteCloud, fmt.Sprintf("Cloud %q from controller %q:\n", c.CloudName, c.ControllerName), showRemoteConfig, remoteErr); err != nil {
+			output, err := c.displayCloud(
+				remoteCloud,
+				c.CloudName,
+				fmt.Sprintf("Cloud %q from controller %q", c.CloudName, c.ControllerName),
+				showRemoteConfig,
+				remoteErr,
+			)
+			if err != nil {
 				ctxt.Infof("ERROR %v", err)
 				displayErr = cmd.ErrSilent
+			} else {
+				outputs = append(outputs, output)
 			}
 		} else {
 			if remoteErr != nil {
@@ -156,9 +169,18 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 	}
 	if c.Client {
 		if localCloud != nil {
-			if err := c.displayCloud(ctxt, localCloud, fmt.Sprintf("\nClient cloud %q:\n", c.CloudName), c.includeConfig, localErr); err != nil {
+			output, err := c.displayCloud(
+				localCloud,
+				c.CloudName,
+				fmt.Sprintf("Client cloud %q", c.CloudName),
+				c.includeConfig,
+				localErr,
+			)
+			if err != nil {
 				ctxt.Infof("ERROR %v", err)
 				displayErr = cmd.ErrSilent
+			} else {
+				outputs = append(outputs, output)
 			}
 		} else {
 			if localErr != nil {
@@ -173,41 +195,72 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 	// It's possible that a config was desired but was not display because the
 	// remote cloud erred out.
 	if c.includeConfig && !c.configDisplayed && localErr == nil {
-		if err := c.displayConfig(ctxt, localCloud.CloudType); err != nil {
-			return err
+		outputs = append(outputs, CloudOutput{
+			Name:    c.CloudName,
+			Summary: fmt.Sprintf("Client cloud %q", c.CloudName),
+			Config:  getCloudConfigDetails(localCloud.CloudType),
+		})
+	}
+
+	if len(outputs) == 0 {
+		return displayErr
+	}
+
+	switch c.out.Name() {
+	case "display":
+		for _, output := range outputs {
+			fmt.Fprintf(ctxt.Stdout, "%s:\n\n", output.Summary)
+
+			if err := c.out.Write(ctxt, output.CloudDetails); err != nil {
+				return errors.Trace(err)
+			}
+
+			if len(output.Config) > 0 {
+				fmt.Fprintln(ctxt.Stdout)
+				fmt.Fprintf(ctxt.Stdout, "The available config options specific to %s clouds are:\n", output.CloudType)
+
+				if err := c.out.Write(ctxt, output.Config); err != nil {
+					return errors.Trace(err)
+				}
+			}
+			if len(outputs) > 1 {
+				fmt.Fprintln(ctxt.Stdout)
+			}
+		}
+	case "yaml":
+		for _, output := range outputs {
+			if err := c.out.Write(ctxt, output); err != nil {
+				return errors.Trace(err)
+			}
+			if len(outputs) > 1 {
+				fmt.Fprintln(ctxt.Stdout, "---")
+			}
+		}
+	case "json":
+		if err := c.out.Write(ctxt, outputs); err != nil {
+			return errors.Trace(err)
 		}
 	}
 
 	return displayErr
 }
 
-func (c *showCloudCommand) displayCloud(ctxt *cmd.Context, aCloud *CloudDetails, msg string, includeConfig bool, cloudErr error) error {
+func (c *showCloudCommand) displayCloud(aCloud *CloudDetails, name, summary string, includeConfig bool, cloudErr error) (CloudOutput, error) {
 	if cloudErr != nil {
-		return cloudErr
+		return CloudOutput{}, cloudErr
 	}
-	fmt.Fprintln(ctxt.Stdout, msg)
 	aCloud.CloudType = displayCloudType(aCloud.CloudType)
-	if err := c.out.Write(ctxt, aCloud); err != nil {
-		return err
-	}
+	var config map[string]any
 	if includeConfig {
-		return c.displayConfig(ctxt, aCloud.CloudType)
-	}
-	return nil
-}
-
-func (c *showCloudCommand) displayConfig(ctxt *cmd.Context, cloudType string) error {
-	config := getCloudConfigDetails(cloudType)
-	if len(config) > 0 {
-		fmt.Fprintln(
-			ctxt.Stdout,
-			fmt.Sprintf("\nThe available config options specific to %s clouds are:", cloudType))
-		if err := c.out.Write(ctxt, config); err != nil {
-			return err
-		}
+		config = getCloudConfigDetails(aCloud.CloudType)
 		c.configDisplayed = true
 	}
-	return nil
+	return CloudOutput{
+		Name:         name,
+		Summary:      summary,
+		CloudDetails: *aCloud,
+		Config:       config,
+	}, nil
 }
 
 func (c *showCloudCommand) getControllerCloud() (*CloudDetails, error) {
@@ -234,6 +287,13 @@ func (c *showCloudCommand) getLocalCloud() (*CloudDetails, error) {
 		return nil, errors.NotFoundf("cloud %q, %v", c.CloudName, details)
 	}
 	return cloud, nil
+}
+
+type CloudOutput struct {
+	Name         string `yaml:"name,omitempty" json:"name,omitempty"`
+	Summary      string `yaml:"summary,omitempty" json:"summary,omitempty"`
+	CloudDetails `yaml:",inline" json:",inline"`
+	Config       map[string]any `yaml:"cloud-config,omitempty" json:"cloud-config,omitempty"`
 }
 
 // RegionDetails holds region details.
@@ -267,7 +327,7 @@ type CloudDetails struct {
 	Regions yaml.MapSlice `yaml:"regions,omitempty" json:"-"`
 	// Regions map is for json marshalling where format is important but not order.
 	RegionsMap    map[string]RegionDetails `yaml:"-" json:"regions,omitempty"`
-	Config        map[string]interface{}   `yaml:"config,omitempty" json:"config,omitempty"`
+	Config        map[string]any           `yaml:"config,omitempty" json:"config,omitempty"`
 	RegionConfig  jujucloud.RegionConfig   `yaml:"region-config,omitempty" json:"region-config,omitempty"`
 	CACredentials []string                 `yaml:"ca-credentials,omitempty" json:"ca-credentials,omitempty"`
 	Users         map[string]CloudUserInfo `json:"users,omitempty" yaml:"users,omitempty"`
@@ -308,7 +368,7 @@ func makeCloudDetailsForUser(store jujuclient.CredentialGetter, cloud cloudapi.C
 		if region.StorageEndpoint != result.StorageEndpoint {
 			r.StorageEndpoint = region.StorageEndpoint
 		}
-		result.Regions = append(result.Regions, yaml.MapItem{r.Name, r})
+		result.Regions = append(result.Regions, yaml.MapItem{Key: r.Name, Value: r})
 		result.RegionsMap[region.Name] = r
 	}
 	if cred, err := store.CredentialForCloud(cloud.Name); err == nil {
@@ -324,7 +384,7 @@ func makeCloudDetailsForUser(store jujuclient.CredentialGetter, cloud cloudapi.C
 	return result
 }
 
-func getCloudConfigDetails(cloudType string) map[string]interface{} {
+func getCloudConfigDetails(cloudType string) map[string]any {
 	// providerSchema has all config options, including their descriptions
 	// and types.
 	providerSchema, err := common.CloudSchemaByType(cloudType)
@@ -332,7 +392,7 @@ func getCloudConfigDetails(cloudType string) map[string]interface{} {
 		// Some providers do not implement the ProviderSchema interface.
 		return nil
 	}
-	specifics := make(map[string]interface{})
+	specifics := make(map[string]any)
 	ps, err := common.ProviderConfigSchemaSourceByType(cloudType)
 	if err != nil {
 		// Some providers do not implement the ConfigSchema interface.
@@ -346,7 +406,7 @@ func getCloudConfigDetails(cloudType string) map[string]interface{} {
 		}
 		specifics[attr] = common.PrintConfigSchema{
 			Description: providerSchema[attr].Description,
-			Type:        fmt.Sprintf("%s", providerSchema[attr].Type),
+			Type:        string(providerSchema[attr].Type),
 		}
 	}
 	return specifics
