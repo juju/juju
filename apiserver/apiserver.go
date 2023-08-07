@@ -309,6 +309,19 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	modelConfig, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	loggingOutputs, _ := modelConfig.LoggingOutput()
+
+	httpAuthenticators := []authentication.HTTPAuthenticator{cfg.LocalMacaroonAuthenticator}
+	loginAuthenticators := []authentication.LoginAuthenticator{cfg.LocalMacaroonAuthenticator}
+	// We only want to add the jwt authenticator if it's not nil
+	if cfg.JWTAuthenticator != nil {
+		httpAuthenticators = append(httpAuthenticators, cfg.JWTAuthenticator)
+		loginAuthenticators = append(loginAuthenticators, cfg.JWTAuthenticator)
+	}
 
 	shared, err := newSharedServerContext(sharedServerConfig{
 		statePool:            cfg.StatePool,
@@ -327,20 +340,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	modelConfig, err := model.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	loggingOutputs, _ := modelConfig.LoggingOutput()
-
-	httpAuthenticators := []authentication.HTTPAuthenticator{cfg.LocalMacaroonAuthenticator}
-	loginAuthenticators := []authentication.LoginAuthenticator{cfg.LocalMacaroonAuthenticator}
-	// We only want to add the jwt authenticator if it's not nil
-	if cfg.JWTAuthenticator != nil {
-		httpAuthenticators = append(httpAuthenticators, cfg.JWTAuthenticator)
-		loginAuthenticators = append(loginAuthenticators, cfg.JWTAuthenticator)
 	}
 
 	srv := &Server{
