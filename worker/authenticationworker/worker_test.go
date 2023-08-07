@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/ssh"
 	sshtesting "github.com/juju/utils/v3/ssh/testing"
-	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -51,10 +50,6 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.existingKeys = []string{sshtesting.ValidKeyTwo.Key + " existinguser@host"}
 	err := ssh.AddKeys(authenticationworker.SSHUser, s.existingKeys...)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func stop(c *gc.C, w worker.Worker) {
-	c.Assert(workertest.CheckKill(c, w), gc.IsNil)
 }
 
 type mockConfig struct {
@@ -104,7 +99,7 @@ func (s *workerSuite) TestKeyUpdateRetainsExisting(c *gc.C) {
 
 	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, names.NewMachineTag("666")))
 	c.Assert(err, jc.ErrorIsNil)
-	defer stop(c, authWorker)
+	defer workertest.CleanKill(c, authWorker)
 
 	newKeyWithCommentPrefix := sshtesting.ValidKeyThree.Key + " Juju:user@host"
 	client.EXPECT().AuthorisedKeys(tag).Return([]string{newKeyWithCommentPrefix}, nil)
@@ -130,7 +125,7 @@ func (s *workerSuite) TestNewKeysInJujuAreSavedOnStartup(c *gc.C) {
 
 	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, names.NewMachineTag("666")))
 	c.Assert(err, jc.ErrorIsNil)
-	defer stop(c, authWorker)
+	defer workertest.CleanKill(c, authWorker)
 
 	newKeyWithCommentPrefix := sshtesting.ValidKeyThree.Key + " Juju:user@host"
 	client.EXPECT().AuthorisedKeys(tag).Return([]string{newKeyWithCommentPrefix}, nil)
@@ -157,7 +152,7 @@ func (s *workerSuite) TestDeleteKey(c *gc.C) {
 
 	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, names.NewMachineTag("666")))
 	c.Assert(err, jc.ErrorIsNil)
-	defer stop(c, authWorker)
+	defer workertest.CleanKill(c, authWorker)
 
 	ch <- struct{}{}
 
@@ -185,7 +180,7 @@ func (s *workerSuite) TestMultipleChanges(c *gc.C) {
 
 	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, names.NewMachineTag("666")))
 	c.Assert(err, jc.ErrorIsNil)
-	defer stop(c, authWorker)
+	defer workertest.CleanKill(c, authWorker)
 
 	// Perform a set to add a key and delete a key.
 	// added: key 3
@@ -207,28 +202,31 @@ func (s *workerSuite) TestWorkerRestart(c *gc.C) {
 
 	tag := names.NewMachineTag("666")
 	client := mocks.NewMockClient(ctrl)
-	client.EXPECT().AuthorisedKeys(tag).Return(s.existingModelKeys, nil)
-	client.EXPECT().WatchAuthorisedKeys(tag).Return(watch, nil)
+
+	client.EXPECT().WatchAuthorisedKeys(tag).Return(watch, nil).MinTimes(1)
+
+	yetAnotherKeyWithCommentPrefix := sshtesting.ValidKeyThree.Key + " Juju:yetanother@host"
+
+	gomock.InOrder(
+		client.EXPECT().AuthorisedKeys(tag).Return(s.existingModelKeys, nil).Times(2),
+		client.EXPECT().AuthorisedKeys(tag).Return([]string{yetAnotherKeyWithCommentPrefix}, nil),
+	)
 
 	authWorker, err := authenticationworker.NewWorker(client, agentConfig(c, names.NewMachineTag("666")))
 	c.Assert(err, jc.ErrorIsNil)
-
-	client.EXPECT().AuthorisedKeys(tag).Return(s.existingModelKeys, nil)
+	defer authWorker.Kill()
 
 	// Stop the worker and delete and add keys from the environment while it is down.
 	// added: key 3
 	// deleted: key 1 (existing env key)
-	stop(c, authWorker)
-
-	yetAnotherKeyWithCommentPrefix := sshtesting.ValidKeyThree.Key + " Juju:yetanother@host"
+	workertest.CleanKill(c, authWorker)
 
 	authWorker, err = authenticationworker.NewWorker(client, agentConfig(c, names.NewMachineTag("666")))
 	c.Assert(err, jc.ErrorIsNil)
-	defer stop(c, authWorker)
-	client.EXPECT().AuthorisedKeys(tag).Return([]string{yetAnotherKeyWithCommentPrefix}, nil)
-	client.EXPECT().WatchAuthorisedKeys(tag).Return(watch, nil)
 
 	ch <- struct{}{}
 
 	s.waitSSHKeys(c, append(s.existingKeys, yetAnotherKeyWithCommentPrefix))
+
+	workertest.CleanKill(c, authWorker)
 }
