@@ -67,11 +67,11 @@ and where, depending on the type of the resource, the resource can be specified
 as follows: 
 
 (1) If the resource is type 'file', you can specify it by providing
-(a) the charm revision number or
+(a) the resource revision number or
 (b) a path to a local file.
 
 (2) If the resource is type 'oci-image', you can specify it by providing
-(a) the charm revision number,
+(a) the resource revision number,
 (b) a path to a local file = private OCI image,
 (c) a link to a public OCI image.
 
