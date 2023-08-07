@@ -464,12 +464,40 @@ media wiki' value. The same applies to single value options. For example,
 
 the value of 'my wiki' will be used.
 
-Use the '--resource' option to upload resources needed by the charm. This
-option may be repeated if multiple resources are needed:
+Use the '--resource' option to specify the resources you want to use for your charm.
+The format is
+
+    --resource <resource name>=<resource>
+
+where the resource name is the name from the metadata.yaml file of the charm
+and where, depending on the type of the resource, the resource can be specified
+as follows: 
+
+(1) If the resource is type 'file', you can specify it by providing
+(a) the charm revision number or
+(b) a path to a local file.
+
+(2) If the resource is type 'oci-image', you can specify it by providing
+(a) the charm revision number,
+(b) a path to a local file = private OCI image,
+(c) a link to a public OCI image.
+
+
+Note: If you choose (1b) or (2b-c), i.e., a resource that is not from Charmhub:
+You will not be able to go back to using a resource from Charmhub.
+
+Note: If you choose (1b) or (2b): This uploads a file from your loal disk to the juju
+controller to be streamed to the charm when "resource-get" is called by a hook.
+
+Note: If you choose (2b): You will need to specify:
+(i) the local path to the private OCI image as well as
+(ii) the username/password required to access the private OCI image.
+
+Note: If multiple resources are needed, repeat the option.
+
+For example:
 
   juju deploy foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
-
-Where 'bar' and 'baz' are named in the metadata file for charm 'foo'.
 
 Use the '--to' option to deploy to an existing machine or container by
 specifying a "placement directive". The ` + "`status`" + ` command should be used for

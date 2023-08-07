@@ -58,12 +58,34 @@ const (
 	attachDoc = `
 This command updates a resource for an application.
 
-For file resources, it uploads a file from your local disk to the juju controller to be
-streamed to the charm when "resource-get" is called by a hook.
+The format is
 
-For OCI image resources used by k8s applications, an OCI image or file path is specified.
-A file is specified when a private OCI image is needed and the username/password used to
-access the image is needed along with the image path.
+    <resource name>=<resource>
+
+where the resource name is the name from the metadata.yaml file of the charm
+and where, depending on the type of the resource, the resource can be specified
+as follows: 
+
+(1) If the resource is type 'file', you can specify it by providing
+(a) the charm revision number or
+(b) a path to a local file.
+
+(2) If the resource is type 'oci-image', you can specify it by providing
+(a) the charm revision number,
+(b) a path to a local file = private OCI image,
+(c) a link to a public OCI image.
+
+
+Note: If you choose (1b) or (2b-c), i.e., a resource that is not from Charmhub:
+You will not be able to go back to using a resource from Charmhub.
+
+Note: If you choose (1b) or (2b): This uploads a file from your loal disk to the juju
+controller to be streamed to the charm when "resource-get" is called by a hook.
+
+Note: If you choose (2b): You will need to specify:
+(i) the local path to the private OCI image as well as
+(ii) the username/password required to access the private OCI image.
+
 `
 )
 
@@ -74,6 +96,10 @@ func (c *UploadCommand) Info() *cmd.Info {
 		Args:    "application name=file|OCI image",
 		Purpose: "Update a resource for an application.",
 		Doc:     attachDoc,
+		SeeAlso: []string{
+			"resources",
+			"charm-resources",
+		},
 	})
 }
 

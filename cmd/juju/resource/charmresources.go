@@ -117,6 +117,10 @@ func (c *baseCharmResourcesCommand) baseInfo() *cmd.Info {
 		Purpose:  "Display the resources for a charm in a repository.",
 		Doc:      charmResourcesDoc,
 		Examples: charmResourcesExamples,
+		SeeAlso: []string{
+			"resources",
+			"attach-resource",
+		},
 	})
 }
 
@@ -202,12 +206,6 @@ func (c *baseCharmResourcesCommand) baseRun(ctx *cmd.Context) error {
 const charmResourcesDoc = `
 This command will report the resources and the current revision of each
 resource for a charm in a repository.
-
-<charm> can be a charm URL, or an unambiguously condensed form of it,
-just like the deploy command.
-
-Release is implied from the <charm> supplied. If not provided, the default
-series for the model is used.
 
 Channel can be specified with --channel.  If not provided, stable is used.
 
