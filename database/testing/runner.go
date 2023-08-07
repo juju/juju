@@ -82,3 +82,26 @@ type constWatchableDB struct {
 	coredatabase.TxnRunner
 	changestream.EventSource
 }
+
+// Subscribe returns a subscription that can receive events from
+// a change stream according to the input subscription options.
+func (constWatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+	return constSubscription{}, nil
+}
+
+type constSubscription struct{}
+
+// Changes returns the channel that the subscription will receive events on.
+func (constSubscription) Changes() <-chan []changestream.ChangeEvent {
+	return make(<-chan []changestream.ChangeEvent)
+}
+
+// Unsubscribe removes the subscription from the event queue.
+func (constSubscription) Unsubscribe() {}
+
+// Done provides a way to know from the consumer side if the underlying
+// subscription has been terminated. This is useful to know if the
+// event queue has been killed.
+func (constSubscription) Done() <-chan struct{} {
+	return make(<-chan struct{})
+}
