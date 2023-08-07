@@ -18,7 +18,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	apitesting "github.com/juju/juju/api/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -256,14 +255,14 @@ func (s *httpSuite) TestAuthHTTPRequest(c *gc.C) {
 	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
 	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
 
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Macaroons = []macaroon.Slice{{mac}}
 	req = s.authHTTPRequest(c, apiInfo)
 	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
 	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
 	macaroons := httpbakery.RequestMacaroons(req)
-	apitesting.MacaroonsEqual(c, macaroons, apiInfo.Macaroons)
+	jujutesting.MacaroonsEqual(c, macaroons, apiInfo.Macaroons)
 }
 
 func (s *httpSuite) authHTTPRequest(c *gc.C, info *api.Info) *http.Request {

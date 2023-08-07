@@ -65,7 +65,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			agentFacade, err := apiagent.NewState(apiCaller)
+			agentFacade, err := apiagent.NewClient(apiCaller)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

@@ -7,11 +7,8 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/proxy"
@@ -40,17 +37,17 @@ func DialAPI(info *Info, opts DialOpts) (jsoncodec.JSONConn, string, error) {
 
 // CookieURL returns the cookie URL of the connection.
 func CookieURL(c Connection) *url.URL {
-	return c.(*state).cookieURL
+	return c.(*conn).cookieURL
 }
 
 // ServerRoot is exported so that we can test the built URL.
 func ServerRoot(c Connection) string {
-	return c.(*state).serverRoot()
+	return c.(*conn).serverRoot()
 }
 
 // UnderlyingConn returns the underlying transport connection.
 func UnderlyingConn(c Connection) jsoncodec.JSONConn {
-	return c.(*state).conn
+	return c.(*conn).conn
 }
 
 // RPCConnection defines the methods that are called on the rpc.Conn instance.
@@ -83,7 +80,7 @@ func NewTestingState(params TestingStateParams) Connection {
 		}
 		modelTag = t
 	}
-	st := &state{
+	st := &conn{
 		client:            params.RPCConnection,
 		clock:             params.Clock,
 		addr:              params.Address,
@@ -97,12 +94,4 @@ func NewTestingState(params TestingStateParams) Connection {
 		proxier:           params.Proxier,
 	}
 	return st
-}
-
-func ExtractMacaroons(conn Connection) ([]macaroon.Slice, error) {
-	st, ok := conn.(*state)
-	if !ok {
-		return nil, errors.Errorf("conn must be a real connection")
-	}
-	return httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL), nil
 }

@@ -64,7 +64,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
 			}
-			// If the machine needs State, grab the state serving info
+			// If the machine needs Client, grab the state serving info
 			// over the API and write it to the agent configuration.
 			if controller, err := apiagent.IsController(apiCaller, tag); err != nil {
 				return nil, errors.Annotate(err, "checking controller status")
@@ -79,7 +79,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// but should be, the agent config will not have any state serving info
 			// but the database will think that we should be. In those situations
 			// we need to update the local config and restart.
-			apiState, err := apiagent.NewState(apiCaller)
+			apiState, err := apiagent.NewClient(apiCaller)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

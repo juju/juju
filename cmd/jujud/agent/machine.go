@@ -712,7 +712,7 @@ func (a *MachineAgent) machineStartup(apiConn api.Connection, logger machine.Log
 		return nil
 	}
 
-	apiSt, err := apiagent.NewState(apiConn)
+	apiSt, err := apiagent.NewClient(apiConn)
 	if err != nil {
 		return errors.Trace(err)
 	}

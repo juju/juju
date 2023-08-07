@@ -22,13 +22,13 @@ import (
 	"github.com/juju/juju/api/agent/storageprovisioner"
 	apimocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -289,7 +289,7 @@ func (s *watcherSuite) TestRelationStatusWatcher(c *gc.C) {
 
 	watcherID, eventCh := setupWatcher[*params.RelationLifeSuspendedStatusWatchResult](c, caller, "RelationStatusWatcher")
 
-	mac, err := apitesting.NewMacaroon("apimac")
+	mac, err := jujutesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
 	arg := params.RemoteEntityArg{
 		Token:     "token",
@@ -363,7 +363,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 
 	watcherID, eventCh := setupWatcher[*params.OfferStatusWatchResult](c, caller, "OfferStatusWatcher")
 
-	mac, err := apitesting.NewMacaroon("apimac")
+	mac, err := jujutesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
 	arg := params.OfferArg{
 		OfferUUID:     "offer-uuid",
@@ -531,7 +531,7 @@ func (s *watcherSuite) TestCrossModelSecretsRevisionWatcher(c *gc.C) {
 	caller.EXPECT().BestFacadeVersion("CrossModelRelations").Return(666).AnyTimes()
 	watcherID, eventCh := setupWatcher[*params.SecretRevisionWatchResult](c, caller, "SecretsRevisionWatcher")
 
-	mac, err := apitesting.NewMacaroon("apimac")
+	mac, err := jujutesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.WatchRemoteSecretChangesArgs{Args: []params.WatchRemoteSecretChangesArg{{
 		ApplicationToken: "app-token",

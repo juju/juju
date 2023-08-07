@@ -28,7 +28,7 @@ import (
 // AnonymousUsername is the special username to use for anonymous logins.
 const AnonymousUsername = "jujuanonymous"
 
-// Info encapsulates information about a server holding juju state and
+// Info encapsulates information about a server holding juju conn and
 // can be used to make a connection to it.
 type Info struct {
 
@@ -231,7 +231,7 @@ func WithDialOpts(newOpts DialOpts) DialOption {
 type OpenFunc func(*Info, DialOpts) (Connection, error)
 
 // Connection exists purely to make api-opening funcs mockable. It's just a
-// dumb copy of all the methods on api.state; we can and should be extracting
+// dumb copy of all the methods on api.conn; we can and should be extracting
 // smaller and more relevant interfaces (and dropping some of them too).
 
 // Connection represents a connection to a Juju API server.
@@ -298,7 +298,7 @@ type Connection interface {
 	// All the rest are strange and questionable and deserve extra attention
 	// and/or discussion.
 
-	// AuthTag returns the tag of the authorized user of the state API
+	// AuthTag returns the tag of the authorized user of the conn API
 	// connection.
 	AuthTag() names.Tag
 

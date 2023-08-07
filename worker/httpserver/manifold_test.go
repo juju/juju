@@ -17,6 +17,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
+	"golang.org/x/crypto/acme/autocert"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -59,11 +60,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Now())
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.tlsConfig = &tls.Config{}
-	s.controllerConfig = controller.Config(map[string]interface{}{
+	s.controllerConfig = map[string]interface{}{
 		"api-port":            1024,
 		"controller-api-port": 2048,
 		"api-port-open-delay": "5s",
-	})
+	}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -114,15 +115,14 @@ func (s *ManifoldSuite) getControllerConfig(st *state.State) (controller.Config,
 }
 
 func (s *ManifoldSuite) newTLSConfig(
-	st *state.State,
+	dnsName string,
+	serverURL string,
+	cache autocert.Cache,
 	_ httpserver.SNIGetterFunc,
 	_ httpserver.Logger,
-) (*tls.Config, error) {
-	s.stub.MethodCall(s, "NewTLSConfig", st)
-	if err := s.stub.NextErr(); err != nil {
-		return nil, err
-	}
-	return s.tlsConfig, nil
+) *tls.Config {
+	s.stub.MethodCall(s, "NewTLSConfig", dnsName)
+	return s.tlsConfig
 }
 
 func (s *ManifoldSuite) newWorker(config httpserver.Config) (worker.Worker, error) {
@@ -159,7 +159,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
 
-	s.stub.CheckCallNames(c, "NewTLSConfig", "GetControllerConfig", "NewWorker")
+	s.stub.CheckCallNames(c, "GetControllerConfig", "NewTLSConfig", "NewWorker")
 	newWorkerArgs := s.stub.Calls()[2].Args
 	c.Assert(newWorkerArgs, gc.HasLen, 1)
 	c.Assert(newWorkerArgs[0], gc.FitsTypeOf, httpserver.Config{})

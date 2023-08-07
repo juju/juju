@@ -19,8 +19,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiauthentication "github.com/juju/juju/api/authentication"
-	apitesting "github.com/juju/juju/api/testing"
-	servertesting "github.com/juju/juju/apiserver/testing"
+	apitesting "github.com/juju/juju/apiserver/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing/factory"
 )
@@ -64,7 +64,7 @@ func (s *toolsCommonSuite) URL(path string, queryParams url.Values) *url.URL {
 }
 
 func assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ToolsResult {
-	body := servertesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
+	body := apitesting.AssertResponse(c, resp, expStatus, params.ContentTypeJSON)
 	var toolsResponse params.ToolsResult
 	err := json.Unmarshal(body, &toolsResponse)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("body: %s", body))
@@ -73,7 +73,7 @@ func assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ToolsRes
 
 type toolsWithMacaroonsSuite struct {
 	toolsCommonSuite
-	apitesting.MacaroonSuite
+	jujutesting.MacaroonSuite
 	userTag names.Tag
 }
 
@@ -89,7 +89,7 @@ func (s *toolsWithMacaroonsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *toolsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredError(c *gc.C) {
-	resp := servertesting.SendHTTPRequest(c, servertesting.HTTPRequestParams{
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method: "POST",
 		URL:    s.toolsURI(""),
 	})
@@ -108,7 +108,7 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
 		checkCount++
 		return s.userTag.Id()
 	}
-	resp := servertesting.SendHTTPRequest(c, servertesting.HTTPRequestParams{
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Do:     s.doer(),
 		Method: "POST",
 		URL:    s.toolsURI(""),
@@ -132,7 +132,7 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
 	// bypass browser authentication.
 	var prompted bool
 	bakeryClient := httpbakery.NewClient()
-	jar := apitesting.NewClearableCookieJar()
+	jar := jujutesting.NewClearableCookieJar()
 	client := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(true),
 		jujuhttp.WithCookieJar(jar),
@@ -151,7 +151,7 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
 		return bakeryClient.DoWithCustomError(req, bakeryGetError)
 	}
 
-	resp := servertesting.SendHTTPRequest(c, servertesting.HTTPRequestParams{
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:   "POST",
 		URL:      s.toolsURI(""),
 		Tag:      user.UserTag().String(),

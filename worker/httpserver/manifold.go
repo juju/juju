@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
@@ -54,7 +55,7 @@ type ManifoldConfig struct {
 	Logger Logger
 
 	GetControllerConfig func(*state.State) (controller.Config, error)
-	NewTLSConfig        func(*state.State, SNIGetterFunc, Logger) (*tls.Config, error)
+	NewTLSConfig        func(string, string, autocert.Cache, SNIGetterFunc, Logger) *tls.Config
 	NewWorker           func(Config) (worker.Worker, error)
 }
 
@@ -162,17 +163,16 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		}
 	}()
 
-	tlsConfig, err := config.NewTLSConfig(
-		systemState,
-		pkitls.AuthoritySNITLSGetter(authority, config.Logger),
-		config.Logger)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	controllerConfig, err := config.GetControllerConfig(systemState)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
+	tlsConfig := config.NewTLSConfig(
+		controllerConfig.AutocertDNSName(),
+		controllerConfig.AutocertURL(),
+		systemState.AutocertCache(),
+		pkitls.AuthoritySNITLSGetter(authority, config.Logger),
+		config.Logger)
 
 	w, err := config.NewWorker(Config{
 		AgentName:            config.AgentName,

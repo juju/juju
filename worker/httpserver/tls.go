@@ -10,14 +10,12 @@ import (
 	"github.com/juju/http/v2"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
-
-	"github.com/juju/juju/state"
 )
 
 type SNIGetterFunc func(*tls.ClientHelloInfo) (*tls.Certificate, error)
 
 func aggregateSNIGetter(getters ...SNIGetterFunc) SNIGetterFunc {
-	return SNIGetterFunc(func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		lastErr := errors.Errorf("unable to find certificate for %s",
 			hello.ServerName)
 		for _, getter := range getters {
@@ -31,23 +29,19 @@ func aggregateSNIGetter(getters ...SNIGetterFunc) SNIGetterFunc {
 			}
 		}
 		return nil, lastErr
-	})
+	}
 }
 
 // NewTLSConfig returns the TLS configuration for the HTTP server to use
 // based on controller configuration stored in the state database.
-func NewTLSConfig(st *state.State, defaultSNI SNIGetterFunc, logger Logger) (*tls.Config, error) {
-	controllerConfig, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func NewTLSConfig(certDNSName, certURL string, certCache autocert.Cache, defaultSNI SNIGetterFunc, logger Logger) *tls.Config {
 	return newTLSConfig(
-		controllerConfig.AutocertDNSName(),
-		controllerConfig.AutocertURL(),
-		st.AutocertCache(),
+		certDNSName,
+		certURL,
+		certCache,
 		defaultSNI,
 		logger,
-	), nil
+	)
 }
 
 func newTLSConfig(

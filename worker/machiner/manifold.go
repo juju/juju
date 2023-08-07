@@ -67,7 +67,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	// have completely separate workers.
 	//
 	// (With their own facades.)
-	agentFacade, err := apiagent.NewState(apiCaller)
+	agentFacade, err := apiagent.NewClient(apiCaller)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

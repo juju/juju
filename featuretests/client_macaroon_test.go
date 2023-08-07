@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/charms"
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/permission"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -24,14 +24,14 @@ var _ = gc.Suite(&clientMacaroonSuite{})
 // independent of the RPC-based API work with
 // macaroon authentication.
 type clientMacaroonSuite struct {
-	apitesting.MacaroonSuite
+	jujutesting.MacaroonSuite
 }
 
 func (s *clientMacaroonSuite) createTestClient(c *gc.C) *charms.Client {
 	username := "testuser@somewhere"
 	s.AddModelUser(c, username)
 	s.AddControllerUser(c, username, permission.LoginAccess)
-	cookieJar := apitesting.NewClearableCookieJar()
+	cookieJar := jujutesting.NewClearableCookieJar()
 	s.DischargerLogin = func() string { return username }
 	api := s.OpenAPI(c, nil, cookieJar)
 	charmClient := charms.NewClient(api)

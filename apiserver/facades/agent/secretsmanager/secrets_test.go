@@ -18,12 +18,12 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	apitesting "github.com/juju/juju/api/testing"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
@@ -1176,7 +1176,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 
 	consumer := names.NewUnitTag("mariadb/0")
 	scopeTag := names.NewRelationTag("foo:bar baz:bar")
-	mac := apitesting.MustNewMacaroon("id")
+	mac := jujutesting.MustNewMacaroon("id")
 
 	s.remoteClient = mocks.NewMockCrossModelSecretsClient(ctrl)
 
@@ -1242,7 +1242,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 
 	consumer := names.NewUnitTag("mariadb/0")
 	scopeTag := names.NewRelationTag("foo:bar baz:bar")
-	mac := apitesting.MustNewMacaroon("id")
+	mac := jujutesting.MustNewMacaroon("id")
 
 	s.remoteClient = mocks.NewMockCrossModelSecretsClient(ctrl)
 
@@ -1313,7 +1313,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 
 	consumer := names.NewUnitTag("mariadb/0")
 	scopeTag := names.NewRelationTag("foo:bar baz:bar")
-	mac := apitesting.MustNewMacaroon("id")
+	mac := jujutesting.MustNewMacaroon("id")
 
 	s.remoteClient = mocks.NewMockCrossModelSecretsClient(ctrl)
 
@@ -1384,7 +1384,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *gc.C)
 
 	consumer := names.NewUnitTag("mariadb/0")
 	scopeTag := names.NewRelationTag("foo:bar baz:bar")
-	mac := apitesting.MustNewMacaroon("id")
+	mac := jujutesting.MustNewMacaroon("id")
 
 	s.remoteClient = mocks.NewMockCrossModelSecretsClient(ctrl)
 

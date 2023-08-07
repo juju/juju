@@ -13,13 +13,13 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
-	apitesting "github.com/juju/juju/api/testing"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -139,7 +139,7 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
 	}
-	mac, err := apitesting.NewMacaroon("test")
+	mac, err := jujutesting.NewMacaroon("test")
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func (m *mockRemoteRelationsFacade) RegisterRemoteRelations(relations ...params.
 		return nil, err
 	}
 	result := make([]params.RegisterRemoteRelationResult, len(relations))
-	mac, err := apitesting.NewMacaroon("apimac")
+	mac, err := jujutesting.NewMacaroon("apimac")
 	if err != nil {
 		return nil, err
 	}

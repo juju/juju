@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/crossmodel"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
@@ -177,7 +177,7 @@ type baseAddRemoteRelationSuite struct {
 func (s *baseAddRemoteRelationSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	var err error
-	s.mac, err = apitesting.NewMacaroon("id")
+	s.mac, err = jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockAPI = &mockAddRelationAPI{
 		addRelation: func(endpoints, viaCIDRs []string) (*params.AddRelationResults, error) {

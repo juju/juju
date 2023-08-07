@@ -1305,6 +1305,19 @@ func (s *apiclientSuite) TestConnectControllerStreamAppliesHeaders(c *gc.C) {
 	c.Assert(catcher.Headers().Get("anne"), gc.Equals, "boleyn")
 }
 
+func (s *apiclientSuite) TestConnectStreamWithoutLogin(c *gc.C) {
+	catcher := api.UrlCatcher{}
+	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
+	info := s.APIInfo(c)
+	info.Tag = nil
+	info.Password = ""
+	info.SkipLogin = true
+	conn, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = conn.ConnectStream("/path", nil)
+	c.Assert(err, gc.ErrorMatches, `cannot use ConnectStream without logging in`)
+}
+
 func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	catcher := api.UrlCatcher{}
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)

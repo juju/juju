@@ -23,41 +23,41 @@ import (
 
 // HTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
 // client pointing to the API server "/model/:uuid/" path.
-func (s *state) HTTPClient() (*httprequest.Client, error) {
-	baseURL, err := s.apiEndpoint("/", "")
+func (c *conn) HTTPClient() (*httprequest.Client, error) {
+	baseURL, err := c.apiEndpoint("/", "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return s.httpClient(baseURL)
+	return c.httpClient(baseURL)
 }
 
 // RootHTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
 // client pointing to the API server root path.
-func (s *state) RootHTTPClient() (*httprequest.Client, error) {
-	return s.httpClient(&url.URL{
-		Scheme: s.serverScheme,
-		Host:   s.Addr(),
+func (c *conn) RootHTTPClient() (*httprequest.Client, error) {
+	return c.httpClient(&url.URL{
+		Scheme: c.serverScheme,
+		Host:   c.Addr(),
 	})
 }
 
-func (s *state) httpClient(baseURL *url.URL) (*httprequest.Client, error) {
-	if !s.isLoggedIn() {
+func (c *conn) httpClient(baseURL *url.URL) (*httprequest.Client, error) {
+	if !c.isLoggedIn() {
 		return nil, errors.New("no HTTP client available without logging in")
 	}
 	return &httprequest.Client{
 		BaseURL: baseURL.String(),
 		Doer: httpRequestDoer{
-			st: s,
+			st: c,
 		},
 		UnmarshalError: unmarshalHTTPErrorResponse,
 	}, nil
 }
 
 // httpRequestDoer implements httprequest.Doer and httprequest.DoerWithBody
-// by using httpbakery and the state to make authenticated requests to
+// by using httpbakery and the conn to make authenticated requests to
 // the API server.
 type httpRequestDoer struct {
-	st *state
+	st *conn
 }
 
 var _ httprequest.Doer = httpRequestDoer{}

@@ -28,10 +28,10 @@ import (
 )
 
 // Login authenticates as the entity with the given name and password
-// or macaroons. Subsequent requests on the state will act as that entity.
+// or macaroons. Subsequent requests on the conn will act as that entity.
 // This method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
-func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaroon.Slice) error {
+func (c *conn) Login(tag names.Tag, password, nonce string, macaroons []macaroon.Slice) error {
 	var result params.LoginResult
 	request := &params.LoginRequest{
 		AuthTag:       tagToString(tag),
@@ -53,10 +53,10 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		// Add any macaroons from the cookie jar that might work for
 		// authenticating the login request.
 		request.Macaroons = append(request.Macaroons,
-			httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)...,
+			httpbakery.MacaroonsForURL(c.bakeryClient.Client.Jar, c.cookieURL)...,
 		)
 	}
-	err := st.APICall("Admin", 3, "", "Login", request, &result)
+	err := c.APICall("Admin", 3, "", "Login", request, &result)
 	if err != nil {
 		if !params.IsRedirect(err) {
 			return errors.Trace(err)
@@ -88,7 +88,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		// an error, we'd probably put this information in the Login response,
 		// but we can't do that currently.
 		var resp params.RedirectInfoResult
-		if err := st.APICall("Admin", 3, "", "RedirectInfo", nil, &resp); err != nil {
+		if err := c.APICall("Admin", 3, "", "RedirectInfo", nil, &resp); err != nil {
 			return errors.Annotatef(err, "cannot get redirect addresses")
 		}
 		return &RedirectError{
@@ -113,7 +113,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 				return errors.Trace(err)
 			}
 		}
-		if err := st.bakeryClient.HandleError(st.ctx, st.cookieURL, &httpbakery.Error{
+		if err := c.bakeryClient.HandleError(c.ctx, c.cookieURL, &httpbakery.Error{
 			Message: result.DischargeRequiredReason,
 			Code:    httpbakery.ErrDischargeRequired,
 			Info: &httpbakery.ErrorInfo{
@@ -131,9 +131,9 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 			return errors.Trace(err)
 		}
 		// Add the macaroons that have been saved by HandleError to our login request.
-		request.Macaroons = httpbakery.MacaroonsForURL(st.bakeryClient.Client.Jar, st.cookieURL)
+		request.Macaroons = httpbakery.MacaroonsForURL(c.bakeryClient.Client.Jar, c.cookieURL)
 		result = params.LoginResult{} // zero result
-		err = st.APICall("Admin", 3, "", "Login", request, &result)
+		err = c.APICall("Admin", 3, "", "Login", request, &result)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -153,7 +153,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		modelAccess = result.UserInfo.ModelAccess
 	}
 	servers := params.ToMachineHostsPorts(result.Servers)
-	if err = st.setLoginResult(loginResultParams{
+	if err = c.setLoginResult(loginResultParams{
 		tag:              tag,
 		modelTag:         result.ModelTag,
 		controllerTag:    result.ControllerTag,
@@ -165,7 +165,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 	}); err != nil {
 		return errors.Trace(err)
 	}
-	st.serverVersion, err = version.Parse(result.ServerVersion)
+	c.serverVersion, err = version.Parse(result.ServerVersion)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -183,8 +183,8 @@ type loginResultParams struct {
 	publicDNSName    string
 }
 
-func (st *state) setLoginResult(p loginResultParams) error {
-	st.authTag = p.tag
+func (c *conn) setLoginResult(p loginResultParams) error {
+	c.authTag = p.tag
 	var modelTag names.ModelTag
 	if p.modelTag != "" {
 		var err error
@@ -193,64 +193,64 @@ func (st *state) setLoginResult(p loginResultParams) error {
 			return errors.Annotatef(err, "invalid model tag in login result")
 		}
 	}
-	if modelTag.Id() != st.modelTag.Id() {
-		return errors.Errorf("mismatched model tag in login result (got %q want %q)", modelTag.Id(), st.modelTag.Id())
+	if modelTag.Id() != c.modelTag.Id() {
+		return errors.Errorf("mismatched model tag in login result (got %q want %q)", modelTag.Id(), c.modelTag.Id())
 	}
 	ctag, err := names.ParseControllerTag(p.controllerTag)
 	if err != nil {
 		return errors.Annotatef(err, "invalid controller tag %q returned from login", p.controllerTag)
 	}
-	st.controllerTag = ctag
-	st.controllerAccess = p.controllerAccess
-	st.modelAccess = p.modelAccess
+	c.controllerTag = ctag
+	c.controllerAccess = p.controllerAccess
+	c.modelAccess = p.modelAccess
 
 	hostPorts := p.servers
 	// if the connection is not proxied then we will add the connection address
 	// to host ports
-	if !st.IsProxied() {
-		hostPorts, err = addAddress(p.servers, st.addr)
+	if !c.IsProxied() {
+		hostPorts, err = addAddress(p.servers, c.addr)
 		if err != nil {
-			if clerr := st.Close(); clerr != nil {
-				err = errors.Annotatef(err, "error closing state: %v", clerr)
+			if clerr := c.Close(); clerr != nil {
+				err = errors.Annotatef(err, "error closing conn: %v", clerr)
 			}
 			return err
 		}
 	}
-	st.hostPorts = hostPorts
+	c.hostPorts = hostPorts
 
 	if err != nil {
-		if clerr := st.Close(); clerr != nil {
-			err = errors.Annotatef(err, "error closing state: %v", clerr)
+		if clerr := c.Close(); clerr != nil {
+			err = errors.Annotatef(err, "error closing conn: %v", clerr)
 		}
 		return err
 	}
-	st.hostPorts = hostPorts
+	c.hostPorts = hostPorts
 
-	st.publicDNSName = p.publicDNSName
+	c.publicDNSName = p.publicDNSName
 
-	st.facadeVersions = make(map[string][]int, len(p.facades))
+	c.facadeVersions = make(map[string][]int, len(p.facades))
 	for _, facade := range p.facades {
-		st.facadeVersions[facade.Name] = facade.Versions
+		c.facadeVersions[facade.Name] = facade.Versions
 	}
 
-	st.setLoggedIn()
+	c.setLoggedIn()
 	return nil
 }
 
-// AuthTag returns the tag of the authorized user of the state API connection.
-func (st *state) AuthTag() names.Tag {
-	return st.authTag
+// AuthTag returns the tag of the authorized user of the conn API connection.
+func (c *conn) AuthTag() names.Tag {
+	return c.authTag
 }
 
 // ControllerAccess returns the access level of authorized user to the model.
-func (st *state) ControllerAccess() string {
-	return st.controllerAccess
+func (c *conn) ControllerAccess() string {
+	return c.controllerAccess
 }
 
 // CookieURL returns the URL that HTTP cookies for the API will be
 // associated with.
-func (st *state) CookieURL() *url.URL {
-	copy := *st.cookieURL
+func (c *conn) CookieURL() *url.URL {
+	copy := *c.cookieURL
 	return &copy
 }
 
@@ -297,14 +297,14 @@ func addAddress(servers []network.MachineHostPorts, addr string) ([]network.Mach
 }
 
 // KeyUpdater returns access to the KeyUpdater API
-func (st *state) KeyUpdater() *keyupdater.Client {
-	return keyupdater.NewClient(st)
+func (c *conn) KeyUpdater() *keyupdater.Client {
+	return keyupdater.NewClient(c)
 }
 
 // ServerVersion holds the version of the API server that we are connected to.
 // It is possible that this version is Zero if the server does not report this
 // during login. The second result argument indicates if the version number is
 // set.
-func (st *state) ServerVersion() (version.Number, bool) {
-	return st.serverVersion, st.serverVersion != version.Zero
+func (c *conn) ServerVersion() (version.Number, bool) {
+	return c.serverVersion, c.serverVersion != version.Zero
 }

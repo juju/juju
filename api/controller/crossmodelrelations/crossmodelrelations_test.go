@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
-	apitesting "github.com/juju/juju/api/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -52,7 +52,7 @@ func (m *mockDischargeAcquirer) DischargeAll(ctx context.Context, b *bakery.Maca
 	if !bytes.Equal(b.M().Caveats()[0].Id, []byte("third party caveat")) {
 		return nil, errors.New("permission denied")
 	}
-	mac, err := apitesting.NewMacaroon("discharge mac")
+	mac, err := jujutesting.NewMacaroon("discharge mac")
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (m *mockDischargeAcquirer) DischargeAll(ctx context.Context, b *bakery.Maca
 }
 
 func (s *CrossModelRelationsSuite) newDischargeMacaroon(c *gc.C) *macaroon.Macaroon {
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	err = mac.AddThirdPartyCaveat(nil, []byte("third party caveat"), "third party location")
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,7 +76,7 @@ func (s *CrossModelRelationsSuite) fillResponse(c *gc.C, resp interface{}, value
 
 func (s *CrossModelRelationsSuite) TestPublishRelationChange(c *gc.C) {
 	var callCount int
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CrossModelRelations")
@@ -109,7 +109,7 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChange(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
 	// cached and override the passed in macaroon.
-	different, err := apitesting.NewMacaroon("different")
+	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
 	err = client.PublishRelationChange(params.RemoteRelationChangeEvent{
@@ -161,12 +161,12 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChangeDischargeRequired(c 
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 	var callCount int
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CrossModelRelations")
@@ -201,7 +201,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 	c.Check(result[0].Error, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
 	// cached and override the passed in macaroon.
-	different, err := apitesting.NewMacaroon("different")
+	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
 	result, err = client.RegisterRemoteRelations(params.RegisterRemoteRelationArg{
@@ -271,12 +271,12 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	remoteRelationToken := "token"
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	var callCount int
 	apiCaller := testing.BestVersionCaller{
@@ -309,7 +309,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
 	// cached and override the passed in macaroon.
-	different, err := apitesting.NewMacaroon("different")
+	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
 	_, err = client.WatchRelationChanges(
@@ -365,12 +365,12 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesDischargeRequired(c *
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 	remoteRelationToken := "token"
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -400,7 +400,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
 	// cached and override the passed in macaroon.
-	different, err := apitesting.NewMacaroon("different")
+	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
 	_, err = client.WatchRelationSuspendedStatus(params.RemoteEntityArg{
@@ -452,11 +452,11 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *g
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChange(c *gc.C) {
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -489,7 +489,7 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChange(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
 	// cached and override the passed in macaroon.
-	different, err := apitesting.NewMacaroon("different")
+	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
 	err = client.PublishIngressNetworkChange(params.IngressNetworksChangeEvent{
@@ -539,13 +539,13 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChangeDischargeRequi
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelation(c *gc.C) {
 	var callCount int
 	remoteRelationToken := "token"
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	relation := params.RemoteEntityArg{
 		Token: remoteRelationToken, Macaroons: macaroon.Slice{mac},
 		BakeryVersion: bakery.LatestVersion,
@@ -572,7 +572,7 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelation(c *gc.C) 
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
 	// cached and override the passed in macaroon.
-	different, err := apitesting.NewMacaroon("different")
+	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
 	rel2 := relation
@@ -624,12 +624,12 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeR
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	offerUUID := "offer-uuid"
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -659,7 +659,7 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
 	// cached and override the passed in macaroon.
-	different, err := apitesting.NewMacaroon("different")
+	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("offer-uuid", macaroon.Slice{mac})
 	_, err = client.WatchOfferStatus(params.OfferArg{
@@ -711,13 +711,13 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *gc.C
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("offer-uuid")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	appToken := "app-token"
 	relToken := "rel-token"
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -743,7 +743,7 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
 	// cached and override the passed in macaroon.
-	different, err := apitesting.NewMacaroon("different")
+	different, err := jujutesting.NewMacaroon("different")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert(relToken, macaroon.Slice{mac})
 	_, err = client.WatchConsumedSecretsChanges(appToken, relToken, different)
@@ -791,5 +791,5 @@ func (s *CrossModelRelationsSuite) TestWatchConsumedSecretsChangesDischargeRequi
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("rel-token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
+	jujutesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
