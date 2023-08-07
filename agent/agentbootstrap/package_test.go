@@ -6,9 +6,9 @@ package agentbootstrap_test
 import (
 	stdtesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {
-	gc.TestingT(t)
+	testing.MgoTestPackage(t)
 }

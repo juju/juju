@@ -18,23 +18,23 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// State provides access to an agent's view of the state.
-type State struct {
+// Client provides access to an agent's view of the state.
+type Client struct {
 	facade base.FacadeCaller
 	*common.ModelWatcher
 	*cloudspec.CloudSpecAPI
 	*common.ControllerConfigAPI
 }
 
-// NewState returns a version of the state that provides functionality
+// NewClient returns a version of the state that provides functionality
 // required by agent code.
-func NewState(caller base.APICaller) (*State, error) {
+func NewClient(caller base.APICaller) (*Client, error) {
 	modelTag, isModel := caller.ModelTag()
 	if !isModel {
 		return nil, errors.New("expected model specific API connection")
 	}
 	facadeCaller := base.NewFacadeCaller(caller, "Agent")
-	return &State{
+	return &Client{
 		facade:              facadeCaller,
 		ModelWatcher:        common.NewModelWatcher(facadeCaller),
 		CloudSpecAPI:        cloudspec.NewCloudSpecAPI(facadeCaller, modelTag),
@@ -42,7 +42,7 @@ func NewState(caller base.APICaller) (*State, error) {
 	}, nil
 }
 
-func (st *State) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error) {
+func (st *Client) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error) {
 	var results params.AgentGetEntitiesResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
@@ -60,7 +60,7 @@ func (st *State) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error
 	return &results.Entities[0], nil
 }
 
-func (st *State) StateServingInfo() (controller.StateServingInfo, error) {
+func (st *Client) StateServingInfo() (controller.StateServingInfo, error) {
 	var results params.StateServingInfo
 	err := st.facade.FacadeCall("StateServingInfo", nil, &results)
 	if err != nil {
@@ -79,12 +79,12 @@ func (st *State) StateServingInfo() (controller.StateServingInfo, error) {
 }
 
 type Entity struct {
-	st  *State
+	st  *Client
 	tag names.Tag
 	doc params.AgentGetEntitiesResult
 }
 
-func (st *State) Entity(tag names.Tag) (*Entity, error) {
+func (st *Client) Entity(tag names.Tag) (*Entity, error) {
 	doc, err := st.getEntity(tag)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func IsController(caller base.APICaller, tag names.Tag) (bool, error) {
 	if tag.Kind() == names.ControllerAgentTagKind {
 		return true, nil
 	}
-	apiSt, err := NewState(caller)
+	apiSt, err := NewClient(caller)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

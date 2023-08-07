@@ -4,26 +4,33 @@
 package httpserver_test
 
 import (
+	ctx "context"
 	"crypto/tls"
 	"crypto/x509"
 	"net/http"
 	"net/http/httptest"
 
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/acme"
+	"golang.org/x/crypto/acme/autocert"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/httpserver"
 )
 
 type tlsStateFixture struct {
-	stateFixture
+	testing.IsolationSuite
 	cert *tls.Certificate
+
+	dnsName   string
+	serverURL string
+	cache     autocert.DirCache
 }
 
 func (s *tlsStateFixture) SetUpTest(c *gc.C) {
-	s.stateFixture.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	s.cert = &tls.Certificate{
 		Leaf: &x509.Certificate{
 			DNSNames: []string{
@@ -42,12 +49,13 @@ type TLSStateSuite struct {
 var _ = gc.Suite(&TLSStateSuite{})
 
 func (s *TLSStateSuite) TestNewTLSConfig(c *gc.C) {
-	tlsConfig, err := httpserver.NewTLSConfig(
-		s.State,
+	tlsConfig := httpserver.NewTLSConfig(
+		s.dnsName,
+		s.serverURL,
+		s.cache,
 		testSNIGetter(s.cert),
 		loggo.GetLogger("test"),
 	)
-	c.Assert(err, jc.ErrorIsNil)
 
 	cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{
 		ServerName: "anything.invalid",
@@ -56,68 +64,71 @@ func (s *TLSStateSuite) TestNewTLSConfig(c *gc.C) {
 	c.Assert(cert, gc.Equals, s.cert)
 }
 
-type TLSStateAutocertSuite struct {
+type TLSAutocertSuite struct {
 	tlsStateFixture
 	autocertQueried bool
 }
 
-var _ = gc.Suite(&TLSStateAutocertSuite{})
+var _ = gc.Suite(&TLSAutocertSuite{})
 
-func (s *TLSStateAutocertSuite) SetUpSuite(c *gc.C) {
+func (s *TLSAutocertSuite) SetUpSuite(c *gc.C) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.autocertQueried = true
 		http.Error(w, "burp", http.StatusUnavailableForLegalReasons)
 	}))
-	s.ControllerConfig = map[string]interface{}{
-		"autocert-dns-name": "public.invalid",
-		"autocert-url":      server.URL,
-	}
+	s.dnsName = "public.invalid"
+	s.serverURL = server.URL
 	s.tlsStateFixture.SetUpSuite(c)
+	s.cache = autocert.DirCache(c.MkDir())
+	s.cache.Put(ctx.TODO(), "public.invalid", []byte("data"))
 	s.AddCleanup(func(c *gc.C) { server.Close() })
 }
 
-func (s *TLSStateAutocertSuite) SetUpTest(c *gc.C) {
+func (s *TLSAutocertSuite) SetUpTest(c *gc.C) {
 	s.tlsStateFixture.SetUpTest(c)
 	s.autocertQueried = false
 }
 
-func (s *TLSStateAutocertSuite) TestAutocertExceptions(c *gc.C) {
-	tlsConfig, err := httpserver.NewTLSConfig(
-		s.State,
+func (s *TLSAutocertSuite) TestAutocertExceptions(c *gc.C) {
+	tlsConfig := httpserver.NewTLSConfig(
+		s.dnsName,
+		s.serverURL,
+		s.cache,
 		testSNIGetter(s.cert),
 		loggo.GetLogger("test"),
 	)
-	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "127.0.0.1")
 	s.testGetCertificate(c, tlsConfig, "juju-apiserver")
 	s.testGetCertificate(c, tlsConfig, "testing1.invalid")
 	c.Assert(s.autocertQueried, jc.IsFalse)
 }
 
-func (s *TLSStateAutocertSuite) TestAutocert(c *gc.C) {
-	tlsConfig, err := httpserver.NewTLSConfig(
-		s.State,
+func (s *TLSAutocertSuite) TestAutocert(c *gc.C) {
+	tlsConfig := httpserver.NewTLSConfig(
+		s.dnsName,
+		s.serverURL,
+		s.cache,
 		testSNIGetter(s.cert),
 		loggo.GetLogger("test"),
 	)
-	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "public.invalid")
 	c.Assert(s.autocertQueried, jc.IsTrue)
 	c.Assert(tlsConfig.NextProtos, jc.DeepEquals, []string{"h2", "http/1.1", acme.ALPNProto})
 }
 
-func (s *TLSStateAutocertSuite) TestAutocertHostPolicy(c *gc.C) {
-	tlsConfig, err := httpserver.NewTLSConfig(
-		s.State,
+func (s *TLSAutocertSuite) TestAutocertHostPolicy(c *gc.C) {
+	tlsConfig := httpserver.NewTLSConfig(
+		s.dnsName,
+		s.serverURL,
+		s.cache,
 		testSNIGetter(s.cert),
 		loggo.GetLogger("test"),
 	)
-	c.Assert(err, jc.ErrorIsNil)
 	s.testGetCertificate(c, tlsConfig, "always.invalid")
 	c.Assert(s.autocertQueried, jc.IsFalse)
 }
 
-func (s *TLSStateAutocertSuite) testGetCertificate(c *gc.C, tlsConfig *tls.Config, serverName string) {
+func (s *TLSAutocertSuite) testGetCertificate(c *gc.C, tlsConfig *tls.Config, serverName string) {
 	cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{
 		ServerName: serverName,
 	})
