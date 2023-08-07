@@ -24,11 +24,11 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type stateSuite struct {
+type connectionSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = gc.Suite(&connectionSuite{})
 
 type slideSuite struct {
 	coretesting.BaseSuite
@@ -36,7 +36,7 @@ type slideSuite struct {
 
 var _ = gc.Suite(&slideSuite{})
 
-func (s *stateSuite) openAPI(c *gc.C) api.Connection {
+func (s *connectionSuite) openAPI(c *gc.C) api.Connection {
 	apiInfo := s.ControllerModelApiInfo()
 	apiInfo.Tag = jujutesting.AdminUser
 	apiInfo.Password = jujutesting.AdminSecret
@@ -45,7 +45,7 @@ func (s *stateSuite) openAPI(c *gc.C) api.Connection {
 	return conn
 }
 
-func (s *stateSuite) TestCloseMultipleOk(c *gc.C) {
+func (s *connectionSuite) TestCloseMultipleOk(c *gc.C) {
 	conn := s.openAPI(c)
 	c.Assert(conn.Close(), gc.IsNil)
 	c.Assert(conn.Close(), gc.IsNil)
@@ -54,7 +54,7 @@ func (s *stateSuite) TestCloseMultipleOk(c *gc.C) {
 
 // openAPIWithoutLogin connects to the API and returns an api.State without
 // actually calling st.Login already.
-func (s *stateSuite) openAPIWithoutLogin(c *gc.C) api.Connection {
+func (s *connectionSuite) openAPIWithoutLogin(c *gc.C) api.Connection {
 	info := s.ControllerModelApiInfo()
 	info.Tag = nil
 	info.Password = ""
@@ -65,7 +65,7 @@ func (s *stateSuite) openAPIWithoutLogin(c *gc.C) api.Connection {
 	return conn
 }
 
-func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
+func (s *connectionSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	conn := s.openAPI(c)
 	hostportslist := conn.APIHostPorts()
 	c.Check(hostportslist, gc.HasLen, 1)
@@ -90,7 +90,7 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
+func (s *connectionSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
 	conn := newRPCConnection()
 	conn.response = &params.LoginResult{
 		ControllerTag: coretesting.ControllerTag.String(),
@@ -128,7 +128,7 @@ func (s *stateSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
 	c.Assert(hostPortList[0][0].MachineAddress.Value, gc.Equals, "fe80:abcd::1")
 }
 
-func (s *stateSuite) TestTags(c *gc.C) {
+func (s *connectionSuite) TestTags(c *gc.C) {
 	conn := s.openAPIWithoutLogin(c)
 	defer conn.Close()
 	// Even though we haven't called Login, the model tag should
@@ -147,7 +147,7 @@ func (s *stateSuite) TestTags(c *gc.C) {
 	c.Check(controllerTag, gc.Equals, coretesting.ControllerTag)
 }
 
-func (s *stateSuite) TestLoginSetsControllerAccess(c *gc.C) {
+func (s *connectionSuite) TestLoginSetsControllerAccess(c *gc.C) {
 	// The default user has admin access.
 	conn := s.OpenControllerModelAPI(c)
 	c.Assert(conn.ControllerAccess(), gc.Equals, "superuser")
@@ -166,7 +166,7 @@ func (s *stateSuite) TestLoginSetsControllerAccess(c *gc.C) {
 	c.Assert(conn.ControllerAccess(), gc.Equals, "login")
 }
 
-func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
+func (s *connectionSuite) TestLoginToMigratedModel(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	modelOwner := f.MakeUser(c, &factory.UserParams{
@@ -216,7 +216,7 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 	c.Assert(redirErr.ControllerTag, gc.Equals, controllerTag)
 }
 
-func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
+func (s *connectionSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 	conn := s.openAPIWithoutLogin(c)
 	defer conn.Close()
 	mac, err := macaroon.New([]byte("root-key"), []byte("id"), "juju", macaroon.LatestVersion)
@@ -225,12 +225,12 @@ func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "interaction required but not possible")
 }
 
-func (s *stateSuite) TestBestFacadeVersion(c *gc.C) {
+func (s *connectionSuite) TestBestFacadeVersion(c *gc.C) {
 	conn := s.OpenControllerModelAPI(c)
 	c.Check(conn.BestFacadeVersion("Client"), gc.Equals, 6)
 }
 
-func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
+func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 	conn := s.OpenControllerAPI(c)
 	hostPortsList := conn.APIHostPorts()
 	c.Check(hostPortsList, gc.HasLen, 1)
