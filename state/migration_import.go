@@ -250,6 +250,8 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	return dbModel, newSt, nil
 }
 
+var defaultSeriesKey = "default-series"
+
 // modelConfig creates a config for the model being imported.
 func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 	// If the tools version is before 2.9.35, the default-series
@@ -270,10 +272,10 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 	newer := version.MustParse("2.9.35")
 	if comp := toolsVersion.Compare(newer); comp < 0 {
 		attrs[config.DefaultBaseKey] = ""
-		delete(attrs, config.DefaultSeriesKey)
+		delete(attrs, defaultSeriesKey)
 	}
 
-	if v, ok := attrs[config.DefaultSeriesKey]; ok {
+	if v, ok := attrs[defaultSeriesKey]; ok {
 		if v == "" {
 			attrs[config.DefaultBaseKey] = ""
 		} else {
@@ -283,7 +285,7 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 			}
 			attrs[config.DefaultBaseKey] = s.String()
 		}
-		delete(attrs, config.DefaultSeriesKey)
+		delete(attrs, defaultSeriesKey)
 	}
 
 	// Ensure the expected default secret-backend value is set.

@@ -1,12 +1,12 @@
 run_deploy_default_series() {
 	echo
 
-	model_name="test-deploy-default-series"
+	model_name="test-deploy-default-base"
 	file="${TEST_DIR}/${model_name}.log"
 
 	ensure "${model_name}" "${file}"
 
-	juju model-config default-series=focal
+	juju model-config default-base=ubuntu@20.04
 	juju deploy ubuntu --storage "files=tmpfs"
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
@@ -21,12 +21,12 @@ run_deploy_default_series() {
 run_deploy_not_default_series() {
 	echo
 
-	model_name="test-deploy-not-default-series"
+	model_name="test-deploy-not-default-base"
 	file="${TEST_DIR}/${model_name}.log"
 
 	ensure "${model_name}" "${file}"
 
-	juju model-config default-series=focal
+	juju model-config default-base=ubuntu@20.04
 	juju deploy ubuntu --storage "files=tmpfs" --base ubuntu@22.04
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 

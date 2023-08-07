@@ -69,11 +69,10 @@ func (s *modelconfigSuite) TestAdminModelGet(c *gc.C) {
 	result, err := s.api.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
-		"type":           {Value: "dummy", Source: "model"},
-		"ftp-proxy":      {Value: "http://proxy", Source: "model"},
-		"agent-version":  {Value: "1.2.3.4", Source: "model"},
-		"charmhub-url":   {Value: "http://meshuggah.rocks", Source: "model"},
-		"default-series": {Value: "", Source: "default"},
+		"type":          {Value: "dummy", Source: "model"},
+		"ftp-proxy":     {Value: "http://proxy", Source: "model"},
+		"agent-version": {Value: "1.2.3.4", Source: "model"},
+		"charmhub-url":  {Value: "http://meshuggah.rocks", Source: "model"},
 	})
 }
 
@@ -86,11 +85,10 @@ func (s *modelconfigSuite) TestUserModelGet(c *gc.C) {
 	result, err := s.api.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
-		"type":           {Value: "dummy", Source: "model"},
-		"ftp-proxy":      {Value: "http://proxy", Source: "model"},
-		"agent-version":  {Value: "1.2.3.4", Source: "model"},
-		"charmhub-url":   {Value: "http://meshuggah.rocks", Source: "model"},
-		"default-series": {Value: "", Source: "default"},
+		"type":          {Value: "dummy", Source: "model"},
+		"ftp-proxy":     {Value: "http://proxy", Source: "model"},
+		"agent-version": {Value: "1.2.3.4", Source: "model"},
+		"charmhub-url":  {Value: "http://meshuggah.rocks", Source: "model"},
 	})
 }
 
@@ -182,66 +180,6 @@ func (s *modelconfigSuite) TestModelSetCannotChangeCharmHubURL(c *gc.C) {
 	args.Config["charmhub-url"] = result.Config["charmhub-url"].Value
 	err = s.api.ModelSet(args)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *modelconfigSuite) TestModelSetCannotChangeBothDefaultSeriesAndDefaultBaseWithSeries(c *gc.C) {
-	old, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"default-series": "jammy",
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.backend.old = old
-	args := params.ModelSet{
-		Config: map[string]interface{}{
-			"default-series": "jammy",
-			"default-base":   "ubuntu@22.04",
-		},
-	}
-	err = s.api.ModelSet(args)
-	c.Assert(err, gc.ErrorMatches, "cannot set both default-series and default-base")
-
-	err = s.api.ModelSet(params.ModelSet{
-		Config: map[string]interface{}{
-			"default-series": "jammy",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.api.ModelGet()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config["default-series"], gc.NotNil)
-	c.Assert(result.Config["default-series"].Value, gc.Equals, "jammy")
-	c.Assert(result.Config["default-base"].Value, gc.Equals, "ubuntu@22.04/stable")
-}
-
-func (s *modelconfigSuite) TestModelSetCannotChangeBothDefaultSeriesAndDefaultBaseWithBase(c *gc.C) {
-	old, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
-		"default-base": "ubuntu@22.04",
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.backend.old = old
-	args := params.ModelSet{
-		Config: map[string]interface{}{
-			"default-series": "jammy",
-			"default-base":   "ubuntu@22.04",
-		},
-	}
-	err = s.api.ModelSet(args)
-	c.Assert(err, gc.ErrorMatches, "cannot set both default-series and default-base")
-
-	err = s.api.ModelSet(params.ModelSet{
-		Config: map[string]interface{}{
-			"default-series": "jammy",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := s.api.ModelGet()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Config["default-series"], gc.NotNil)
-	c.Assert(result.Config["default-series"].Value, gc.Equals, "jammy")
-	c.Assert(result.Config["default-base"].Value, gc.Equals, "ubuntu@22.04/stable")
 }
 
 func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *gc.C) {

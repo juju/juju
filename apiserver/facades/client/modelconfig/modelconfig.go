@@ -14,7 +14,6 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -115,26 +114,6 @@ func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 			continue
 		}
 
-		// TODO (stickupkid): Remove this when we remove series.
-		// This essentially, always ensures that we report back a default-series
-		// if we have a default-base.
-		if attr == config.DefaultBaseKey && val.Value != "" {
-			base, err := corebase.ParseBaseFromString(val.Value.(string))
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-
-			s, err := corebase.GetSeriesFromBase(base)
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-
-			result.Config[config.DefaultSeriesKey] = params.ConfigValue{
-				Source: val.Source,
-				Value:  s,
-			}
-		}
-
 		// Only admins get to see attributes marked as secret.
 		if attr, ok := defaultSchema[attr]; ok && attr.Secret && !isAdmin {
 			continue
@@ -143,15 +122,6 @@ func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 		result.Config[attr] = params.ConfigValue{
 			Value:  val.Value,
 			Source: val.Source,
-		}
-	}
-
-	// TODO (stickupkid): For backwards compatibility we need to ensure that
-	// we always report back a default-series.
-	if _, ok := result.Config[config.DefaultSeriesKey]; !ok {
-		result.Config[config.DefaultSeriesKey] = params.ConfigValue{
-			Value:  "",
-			Source: "default",
 		}
 	}
 
@@ -183,9 +153,6 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 		}
 	}
 
-	// Series to base translations.
-	checkUpdateDefaultBase := c.checkUpdateDefaultBase()
-
 	// Make sure we don't allow changing agent-version.
 	checkAgentVersion := c.checkAgentVersion()
 
@@ -210,40 +177,7 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 		checkDefaultSpace,
 		checkCharmhubURL,
 		checkSecretBackend,
-		checkUpdateDefaultBase,
 	)
-}
-
-func (c *ModelConfigAPI) checkUpdateDefaultBase() state.ValidateConfigFunc {
-	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		cfgSeries, defaultSeriesOK := updateAttrs[config.DefaultSeriesKey]
-		_, defaultBaseOK := updateAttrs[config.DefaultBaseKey]
-
-		if defaultSeriesOK && defaultBaseOK {
-			if cfgSeries != "" {
-				// If the default-series is set (and non-empty) and the default-base is set, error
-				// out, as you can't change both.
-				return errors.New("cannot set both default-series and default-base")
-			}
-		} else if defaultSeriesOK {
-			// If the default-series is set, but empty, then we need to patch the
-			// base.
-			if cfgSeries == "" {
-				updateAttrs[config.DefaultBaseKey] = ""
-			} else {
-				// Ensure that the new default-series updates the default-base.
-				base, err := corebase.GetBaseFromSeries(cfgSeries.(string))
-				if err != nil {
-					return errors.Trace(err)
-				}
-				updateAttrs[config.DefaultBaseKey] = base.String()
-			}
-		}
-
-		// Always remove the default-series.
-		delete(updateAttrs, config.DefaultSeriesKey)
-		return nil
-	}
 }
 
 func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
@@ -363,15 +297,6 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 	}
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
-	}
-
-	// If we're attempting to remove the default-series, then we need to
-	// swap that out for the default-base.
-	for i, key := range args.Keys {
-		if key == config.DefaultSeriesKey {
-			args.Keys[i] = config.DefaultBaseKey
-			break
-		}
 	}
 
 	return c.backend.UpdateModelConfig(nil, args.Keys)

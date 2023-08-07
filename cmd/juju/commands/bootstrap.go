@@ -676,12 +676,6 @@ to create a new model to deploy %sworkloads.
 		}
 	}()
 
-	// TODO(stickupkid): Once default-series has been deprecated, it's safe to
-	// remove this.
-	if err := c.warnDeprecatedModelConfig(ctx); err != nil {
-		return err
-	}
-
 	if err := c.parseConstraints(ctx); err != nil {
 		return err
 	}
@@ -1462,16 +1456,8 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		return bootstrapConfigs{}, errors.Trace(err)
 	}
 
-	if userConfigAttrs, err = ensureDefaultBase(userConfigAttrs); err != nil {
-		return bootstrapConfigs{}, errors.Trace(err)
-	}
-
 	modelDefaultConfigAttrs, err := c.modelDefaults.ReadAttrs(ctx)
 	if err != nil {
-		return bootstrapConfigs{}, errors.Trace(err)
-	}
-
-	if modelDefaultConfigAttrs, err = ensureDefaultBase(modelDefaultConfigAttrs); err != nil {
 		return bootstrapConfigs{}, errors.Trace(err)
 	}
 
@@ -1652,26 +1638,6 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	return configs, nil
 }
 
-// ensureDefaultBase ensures that the default base is set if the default series
-// is supplied. It removes the default-series, if there was one.
-func ensureDefaultBase(m map[string]interface{}) (map[string]interface{}, error) {
-	// TODO(stickupkid): Remove this once series has been deleted and the
-	// bases are the default.
-	if key, ok := m[config.DefaultSeriesKey]; ok {
-		if key == "" {
-			m[config.DefaultBaseKey] = ""
-		} else {
-			s, err := corebase.GetBaseFromSeries(key.(string))
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			m[config.DefaultBaseKey] = s.String()
-		}
-		delete(m, config.DefaultSeriesKey)
-	}
-	return m, nil
-}
-
 func (c *bootstrapCommand) InitialModelConfig(
 	initialModelUUID utils.UUID,
 	inheritedControllerAttrs,
@@ -1743,32 +1709,6 @@ func (c *bootstrapCommand) runInteractive(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return nil
-}
-
-func (c *bootstrapCommand) warnDeprecatedModelConfig(ctx *cmd.Context) error {
-	var reported bool
-	warn := func(attrs map[string]any) {
-		if _, ok := attrs["default-series"]; !reported && ok {
-			ctx.Warningf("default-series configuration option is deprecated in favour of default-base")
-			reported = true
-		}
-	}
-
-	type read func(*cmd.Context) (map[string]any, error)
-
-	for _, read := range []read{
-		c.config.ReadAttrs,
-		c.modelDefaults.ReadAttrs,
-	} {
-		attrs, err := read(ctx)
-		if err != nil {
-			return err
-		}
-
-		warn(attrs)
-	}
-
 	return nil
 }
 

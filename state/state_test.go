@@ -4345,7 +4345,7 @@ func (s *StateSuite) TestSetModelAgentVersionRetriesOnConfigChange(c *gc.C) {
 	// other than the version, and make sure it retries
 	// and passes.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		s.changeEnviron(c, modelConfig, "default-series", "focal")
+		s.changeEnviron(c, modelConfig, "default-base", "ubuntu@20.04")
 	}).Check()
 
 	// Change the agent-version and ensure it has changed.
@@ -4425,9 +4425,9 @@ func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
 	// Set a hook to change the config 3 times
 	// to test we return ErrExcessiveContention.
 	hooks := []jujutxn.TestHook{
-		{Before: func() { s.changeEnviron(c, modelConfig, "default-series", "focal") }},
-		{Before: func() { s.changeEnviron(c, modelConfig, "default-series", "jammy") }},
-		{Before: func() { s.changeEnviron(c, modelConfig, "default-series", "focal") }},
+		{Before: func() { s.changeEnviron(c, modelConfig, "default-base", "ubuntu@20.04") }},
+		{Before: func() { s.changeEnviron(c, modelConfig, "default-base", "ubuntu@22.04") }},
+		{Before: func() { s.changeEnviron(c, modelConfig, "default-base", "ubuntu@20.04") }},
 	}
 
 	state.SetMaxTxnAttempts(c, s.State, 3)

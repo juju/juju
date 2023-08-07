@@ -261,7 +261,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	// Run command and check for uploads.
 	args := append([]string{
 		cloudName, controllerName,
-		"--config", "default-series=jammy",
+		"--config", "default-base=ubuntu@22.04",
 	}, test.args...)
 	opc, errc := runCommandWithDummyProvider(cmdtesting.Context(c), s.newBootstrapCommand(), args...)
 	var err error
@@ -333,8 +333,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	expected := map[string]interface{}{
 		"name":            bootstrap.ControllerModelName,
 		"type":            "dummy",
-		"default-base":    "ubuntu@22.04/stable",
-		"default-series":  "jammy",
+		"default-base":    "ubuntu@22.04",
 		"authorized-keys": "public auth key\n",
 		// Dummy provider defaults
 		"broken":   "",
@@ -1245,7 +1244,7 @@ func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *gc.C) {
 		c, s.newBootstrapCommand(),
 		"--metadata-source", sourceDir, "--constraints", "mem=4G",
 		"dummy-cloud/region-1", "devcontroller",
-		"--config", "default-series=jammy",
+		"--config", "default-base=ubuntu@22.04",
 	)
 	c.Assert(bootstrapFuncs.args.MetadataDir, gc.Equals, sourceDir)
 }
@@ -1284,7 +1283,7 @@ func (s *BootstrapSuite) checkBootstrapWithVersion(c *gc.C, vers, expect string)
 		c, s.newBootstrapCommand(),
 		"--agent-version", vers,
 		"dummy-cloud/region-1", "devcontroller",
-		"--config", "default-series=jammy",
+		"--config", "default-base=ubuntu@22.04",
 	)
 	c.Assert(bootstrapFuncs.args.AgentVersion, gc.NotNil)
 	c.Assert(*bootstrapFuncs.args.AgentVersion, gc.Equals, version.MustParse(expect))
@@ -1354,7 +1353,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// are automatically synchronized.
 	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "--metadata-source", sourceDir,
-		"dummy-cloud/region-1", "devcontroller", "--config", "default-series=focal",
+		"dummy-cloud/region-1", "devcontroller", "--config", "default-base=ubuntu@20.04",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1432,7 +1431,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	opc, errc := runCommandWithDummyProvider(
 		cmdtesting.Context(c), s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
-		"--config", "default-series=focal",
+		"--config", "default-base=ubuntu@20.04",
 		"--auto-upgrade",
 	)
 	select {
@@ -1452,7 +1451,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
-		"--config", "default-series=jammy", "--agent-version=1.8.4",
+		"--config", "default-base=ubuntu@22.04", "--agent-version=1.8.4",
 	)
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Check(s.tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
@@ -1474,7 +1473,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"dummy-cloud/region-1", "devcontroller",
-		"--config", "default-series=jammy",
+		"--config", "default-base=ubuntu@22.04",
 		"--config", "agent-stream=proposed",
 		"--auto-upgrade", "--agent-version=1.7.3",
 	)
@@ -1583,7 +1582,7 @@ func (s *BootstrapSuite) TestBootstrapProviderNoRegions(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "focal")
 	ctx, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl",
-		"--config", "default-series=focal",
+		"--config", "default-base=ubuntu@20.04",
 	)
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on no-cloud-regions(.|\n)*")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1593,7 +1592,7 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegions(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 	ctx, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy-cloud-without-regions", "ctrl",
-		"--config", "default-series=focal",
+		"--config", "default-base=ubuntu@20.04",
 	)
 	c.Check(cmdtesting.Stderr(ctx), gc.Matches, "Creating Juju controller \"ctrl\" on dummy-cloud-without-regions(.|\n)*")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1603,7 +1602,7 @@ func (s *BootstrapSuite) TestBootstrapCloudNoRegionsOneSpecified(c *gc.C) {
 	resetJujuXDGDataHome(c)
 	ctx, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy-cloud-without-regions/my-region", "ctrl",
-		"--config", "default-series=jammy",
+		"--config", "default-base=ubuntu@22.04",
 	)
 	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, `region "my-region" for cloud "dummy-cloud-without-regions" not valid`)
@@ -1629,11 +1628,11 @@ func (s *BootstrapSuite) TestBootstrapWithBootstrapSeries(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot determine base for series "spock"`)
 }
 
-func (s *BootstrapSuite) TestBootstrapWithDeprecatedSeries(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapWithDeprecatedBase(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy-cloud-without-regions", "ctrl",
-		"--config", "default-series=bionic",
+		"--config", "default-base=ubuntu@18.04",
 	)
 	c.Assert(err, gc.ErrorMatches, `base "ubuntu@18.04" not supported`)
 }
@@ -1641,9 +1640,9 @@ func (s *BootstrapSuite) TestBootstrapWithDeprecatedSeries(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapWithNoBootstrapSeriesUsesFallbackButStillFails(c *gc.C) {
 	s.patchVersionAndSeries(c, "jammy")
 	_, err := cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl", "--config", "default-series=spock",
+		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl", "--config", "default-base=spock",
 	)
-	c.Assert(err, gc.ErrorMatches, `series "spock" not valid`)
+	c.Assert(err, gc.ErrorMatches, `invalid default base "spock".*`)
 }
 
 func (s *BootstrapSuite) TestBootstrapWithBootstrapSeriesDoesNotUseFallbackButStillFails(c *gc.C) {
@@ -1651,7 +1650,7 @@ func (s *BootstrapSuite) TestBootstrapWithBootstrapSeriesDoesNotUseFallbackButSt
 	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "no-cloud-regions", "ctrl",
 		"--bootstrap-series", "spock",
-		"--config", "default-series=kirk",
+		"--config", "default-base=kirk",
 	)
 	c.Assert(err, gc.ErrorMatches, `cannot determine base for series "spock"`)
 }
@@ -1702,7 +1701,7 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "focal")
 	_, err = cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "file-credentials", "ctrl",
-		"--config", "default-series=focal",
+		"--config", "default-base=ubuntu@20.04",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
