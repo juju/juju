@@ -62,7 +62,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/testcharms"
@@ -71,8 +70,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// We don't want to use JujuConnSuite because it gives us
-// an already-bootstrapped environment.
 type BootstrapSuite struct {
 	testing.BaseSuite
 	mgotesting.MgoSuite
@@ -110,7 +107,6 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
-	dummy.Reset(c)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
@@ -418,7 +414,7 @@ func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 	c.Assert(
 		s.fakeEnsureMongo.InitiateParams.MemberHostPort,
 		gc.Matches,
-		fmt.Sprintf("only-0.dns:%d$", expectInfo.StatePort),
+		fmt.Sprintf("testmodel-0.dns:%d$", expectInfo.StatePort),
 	)
 	c.Assert(s.fakeEnsureMongo.InitiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.InitiateParams.Password, gc.Equals, "")
@@ -805,7 +801,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 }
 
 func (s *BootstrapSuite) makeTestModel(c *gc.C) {
-	attrs := dummy.SampleConfig().Merge(
+	attrs := testing.FakeConfig().Merge(
 		testing.Attrs{
 			"agent-version": jujuversion.Current.String(),
 		},
@@ -820,7 +816,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	env, err := environs.Open(stdcontext.TODO(), provider, environs.OpenParams{
-		Cloud:  dummy.SampleCloudSpec(),
+		Cloud:  testing.FakeCloudSpec(),
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)

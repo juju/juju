@@ -17,7 +17,7 @@ import (
 )
 
 type modelSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 	*commontesting.ModelWatcherTest
 
 	authorizer apiservertesting.FakeAuthorizer
@@ -30,10 +30,11 @@ type modelSuite struct {
 var _ = gc.Suite(&modelSuite{})
 
 func (s *modelSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
+	st := s.ControllerModel(c).State()
 	var err error
-	s.machine0, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits, state.JobManageModel)
+	s.machine0, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits, state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -43,12 +44,12 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.api, err = agent.NewAgentAPIV3(facadetest.Context{
-		State_:     s.State,
+		State_:     st,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(
-		s.api, s.State, s.resources,
+		s.api, st, s.resources,
 	)
 }

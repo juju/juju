@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -44,11 +43,6 @@ func (s *controllerConfigSuite) setup(c *gc.C) *gomock.Controller {
 	s.ecService = mocks.NewMockECService(ctrl)
 	s.cc = common.NewControllerConfigAPI(s.st, s.ecService)
 	return ctrl
-}
-
-func (s *controllerConfigSuite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
-	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {

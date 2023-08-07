@@ -50,7 +50,7 @@ func (s *ControllerSuite) TestWatchModelSummaries(c *gc.C) {
 	//		Admins:     []string{"admin"},
 	//		Cloud:      "dummy",
 	//		Region:     "dummy-region",
-	//		Credential: "dummy/admin/cred",
+	//		Credential: "dummy/admin/default",
 	//		Status:     "green",
 	//	},
 	//})
@@ -76,7 +76,7 @@ func (s *ControllerSuite) TestWatchAllModelSummaries(c *gc.C) {
 	//		Admins:     []string{"admin"},
 	//		Cloud:      "dummy",
 	//		Region:     "dummy-region",
-	//		Credential: "dummy/admin/cred",
+	//		Credential: "dummy/admin/default",
 	//		Status:     "green",
 	//	},
 	//})

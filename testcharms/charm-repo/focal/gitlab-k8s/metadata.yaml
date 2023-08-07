@@ -9,6 +9,9 @@ description: |
 tags:
   - version_control
   - application
+containers:
+  gitlab:
+    resource: gitlab-image
 provides:
   website:
     interface: http
@@ -18,5 +21,7 @@ requires:
 peers:
   ring:
     interface: gitlab
-series:
-  - focal
+resources:
+  gitlab-image:
+    type: oci-image
+    description: OCI image used for gitlab

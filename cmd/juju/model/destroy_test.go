@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/modelcmd"
 	coremodel "github.com/juju/juju/core/model"
@@ -312,7 +311,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 
 	// Ensure confirmation is requested if "--no-prompt" is not specified.
 	stdin.WriteString("n")
-	_, errc := cmdtest.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
+	errc := cmdtesting.RunCommandWithContext(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "model destruction: aborted")
@@ -327,7 +326,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	stdin.Reset()
 	stdout.Reset()
 	stderr.Reset()
-	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
+	errc = cmdtesting.RunCommandWithContext(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
 		c.Check(err, gc.ErrorMatches, "model destruction: aborted")
@@ -343,7 +342,7 @@ func (s *DestroySuite) TestDestroyCommandConfirmation(c *gc.C) {
 	stdout.Reset()
 	stderr.Reset()
 	stdin.WriteString(answer)
-	_, errc = cmdtest.RunCommandWithDummyProvider(ctx, s.NewDestroyCommand(), "test2")
+	errc = cmdtesting.RunCommandWithContext(ctx, s.NewDestroyCommand(), "test2")
 	select {
 	case err := <-errc:
 		c.Check(err, jc.ErrorIsNil)

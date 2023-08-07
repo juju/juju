@@ -18,18 +18,20 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
-		dummy.StorageProviders(),
+	st := s.ControllerModel(c).State()
+	pm := poolmanager.New(state.NewStateSettings(st), storage.ChainedProviderRegistry{
+		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	})
 	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
@@ -46,7 +48,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 2000, Pool: "static-pool"}},
 		},
 	}
-	placementMachine, err := s.State.AddOneMachine(template)
+	placementMachine, err := st.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -56,7 +58,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg := s.ControllerConfig
+	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
@@ -125,8 +129,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
-		dummy.StorageProviders(),
+	st := s.ControllerModel(c).State()
+	pm := poolmanager.New(state.NewStateSettings(st), storage.ChainedProviderRegistry{
+		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	})
 	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
@@ -136,7 +141,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 		Constraints: constraints.MustParse("root-disk-source=static-pool"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 	}
-	machine, err := s.State.AddOneMachine(template)
+	machine, err := st.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -156,6 +161,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceConstraints(c *gc.C) {
 	s.addSpacesAndSubnets(c)
 
+	st := s.ControllerModel(c).State()
 	cons := constraints.MustParse("cores=123 mem=8G spaces=space1,space2")
 	template := state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
@@ -163,7 +169,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 		Constraints: cons,
 		Placement:   "valid",
 	}
-	placementMachine, err := s.State.AddOneMachine(template)
+	placementMachine, err := st.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -175,8 +181,11 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
+	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	expected := &params.ProvisioningInfo{
-		ControllerConfig: s.ControllerConfig,
+		ControllerConfig: controllerCfg,
 		Base:             params.Base{Name: "ubuntu", Channel: "12.10/stable"},
 		Constraints:      template.Constraints,
 		Placement:        template.Placement,
@@ -213,10 +222,11 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.C) {
 	s.addSpacesAndSubnets(c)
 
-	alphaSpace, err := s.State.SpaceByName("alpha")
+	st := s.ControllerModel(c).State()
+	alphaSpace, err := st.SpaceByName("alpha")
 	c.Assert(err, jc.ErrorIsNil)
 
-	testing.AddSubnetsWithTemplate(c, s.State, 1, network.SubnetInfo{
+	testing.AddSubnetsWithTemplate(c, st, 1, network.SubnetInfo{
 		CIDR:              "10.10.{{add 4 .}}.0/24",
 		ProviderId:        "subnet-alpha",
 		AvailabilityZones: []string{"zone-alpha"},
@@ -224,19 +234,25 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 		VLANTag:           43,
 	})
 
-	wordpressMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
 		"url": "space1", // has both name and provider ID
 		"db":  "space2", // has only name, no provider ID
 	}
-	wordpressCharm := s.AddTestingCharm(c, "wordpress")
-	wordpressService := s.AddTestingApplicationWithBindings(c, "wordpress", wordpressCharm, bindings)
+	wordpressService := f.MakeApplication(c, &factory.ApplicationParams{
+		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+		EndpointBindings: bindings,
+	})
+
 	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit.AssignToMachine(wordpressMachine)
@@ -248,7 +264,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg := s.ControllerConfig
+	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
@@ -298,19 +316,26 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAlphaSpace(c *gc.C) {
 	s.addSpacesAndSubnets(c)
 
-	wordpressMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+	st := s.ControllerModel(c).State()
+	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
 		"url": "space1", // has both name and provider ID
 		"db":  "space2", // has only name, no provider ID
 	}
-	wordpressCharm := s.AddTestingCharm(c, "wordpress")
-	wordpressService := s.AddTestingApplicationWithBindings(c, "wordpress", wordpressCharm, bindings)
+	wordpressService := f.MakeApplication(c, &factory.ApplicationParams{
+		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+		EndpointBindings: bindings,
+	})
+
 	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit.AssignToMachine(wordpressMachine)
@@ -334,10 +359,11 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingError(c *gc.C) {
 	s.addSpacesAndSubnets(c)
 
-	alphaSpace, err := s.State.SpaceByName("alpha")
+	st := s.ControllerModel(c).State()
+	alphaSpace, err := st.SpaceByName("alpha")
 	c.Assert(err, jc.ErrorIsNil)
 
-	testing.AddSubnetsWithTemplate(c, s.State, 1, network.SubnetInfo{
+	testing.AddSubnetsWithTemplate(c, st, 1, network.SubnetInfo{
 		CIDR:              "10.10.{{add 4 .}}.0/24",
 		ProviderId:        "subnet-alpha",
 		AvailabilityZones: []string{"zone-alpha"},
@@ -346,20 +372,25 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 	})
 
 	cons := constraints.MustParse("spaces=^space1")
-	wordpressMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+	wordpressMachine, err := st.AddOneMachine(state.MachineTemplate{
 		Base:        state.UbuntuBase("12.10"),
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	// Simulates running `juju deploy --bind "..."`.
 	bindings := map[string]string{
 		"url": "space1", // has both name and provider ID
 		"db":  "space2", // has only name, no provider ID
 	}
-	wordpressCharm := s.AddTestingCharm(c, "wordpress")
-	wordpressService := s.AddTestingApplicationWithBindings(c, "wordpress", wordpressCharm, bindings)
+	wordpressService := f.MakeApplication(c, &factory.ApplicationParams{
+		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+		EndpointBindings: bindings,
+	})
 	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpressUnit.AssignToMachine(wordpressMachine)
@@ -381,14 +412,15 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 }
 
 func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
+	st := s.ControllerModel(c).State()
 	// Add a couple of spaces.
-	space1, err := s.State.AddSpace("space1", "first space id", nil, true)
+	space1, err := st.AddSpace("space1", "first space id", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	space2, err := s.State.AddSpace("space2", "", nil, false) // no provider ID
+	space2, err := st.AddSpace("space2", "", nil, false) // no provider ID
 	c.Assert(err, jc.ErrorIsNil)
 	// Add 1 subnet into space1, and 2 into space2.
 	// Each subnet is in a matching zone (e.g "subnet-#" in "zone#").
-	testing.AddSubnetsWithTemplate(c, s.State, 3, network.SubnetInfo{
+	testing.AddSubnetsWithTemplate(c, st, 3, network.SubnetInfo{
 		CIDR:              "10.10.{{.}}.0/24",
 		ProviderId:        "subnet-{{.}}",
 		AvailabilityZones: []string{"zone{{.}}"},
@@ -398,8 +430,9 @@ func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstraints(c *gc.C) {
+	st := s.ControllerModel(c).State()
 	// Add an empty space.
-	_, err := s.State.AddSpace("empty", "", nil, true)
+	_, err := st.AddSpace("empty", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	consEmptySpace := constraints.MustParse("cores=123 mem=8G spaces=empty")
@@ -415,7 +448,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 		Constraints: consMissingSpace,
 		Placement:   "valid",
 	}}
-	placementMachines, err := s.State.AddMachines(templates...)
+	placementMachines, err := st.AddMachines(templates...)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(placementMachines, gc.HasLen, 2)
 
@@ -438,14 +471,20 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 }
 
 func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
-	profileMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+	st := s.ControllerModel(c).State()
+	profileMachine, err := st.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	profileCharm := s.AddTestingCharm(c, "lxd-profile")
-	profileService := s.AddTestingApplication(c, "lxd-profile", profileCharm)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "lxd-profile"})
+	profileService := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "lxd-profile",
+		Charm: ch,
+	})
 	profileUnit, err := profileService.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	err = profileUnit.AssignToMachine(profileMachine)
@@ -457,12 +496,13 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg := s.ControllerConfig
-
-	mod, err := s.State.Model()
+	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	pName := fmt.Sprintf("juju-%s-lxd-profile-0", mod.Name())
+	mod, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	pName := fmt.Sprintf("juju-%s-lxd-profile-%d", mod.Name(), ch.Revision())
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
@@ -496,7 +536,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 1000, Pool: "static"}},
 		},
 	}
-	placementMachine, err := s.State.AddOneMachine(template)
+	placementMachine, err := s.ControllerModel(c).State().AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -505,7 +545,8 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg := s.ControllerConfig
+	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
@@ -543,6 +584,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
+	st := s.ControllerModel(c).State()
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
@@ -551,11 +593,11 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 			{Volume: state.VolumeParams{Size: 1000, Pool: "modelscoped"}},
 		},
 	}
-	machine, err := s.State.AddOneMachine(template)
+	machine, err := st.AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Provision just one of the volumes, but neither of the attachments.
-	sb, err := state.NewStorageBackend(s.State)
+	sb, err := state.NewStorageBackend(st)
 	c.Assert(err, jc.ErrorIsNil)
 	err = sb.SetVolumeInfo(names.NewVolumeTag("1"), state.VolumeInfo{
 		Pool:       "modelscoped",
@@ -600,13 +642,13 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 
 func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *gc.C) {
 	attrs := map[string]interface{}{"cloudinit-userdata": validCloudInitUserData}
-	err := s.Model.UpdateModelConfig(attrs, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	template := state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
-	m, err := s.State.AddOneMachine(template)
+	m, err := s.ControllerModel(c).State().AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -641,8 +683,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     s.ControllerModel(c).State(),
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -659,7 +701,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	// Only machine 0 and containers therein can be accessed.
 	results, err := aProvisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
-	controllerCfg := s.ControllerConfig
+	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{

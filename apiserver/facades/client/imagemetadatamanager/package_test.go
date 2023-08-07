@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -168,7 +167,7 @@ func (e *mockEnviron) Region() (simplestreams.CloudSpec, error) {
 // mockConfig returns a configuration for the usage of the
 // mock provider below.
 func mockConfig() coretesting.Attrs {
-	return dummy.SampleConfig().Merge(coretesting.Attrs{
+	return coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"type": "mock",
 	})
 }

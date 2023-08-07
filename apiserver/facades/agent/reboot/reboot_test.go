@@ -32,7 +32,7 @@ type machines struct {
 }
 
 type rebootSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	machine         *machines
 	container       *machines
@@ -51,7 +51,7 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 	resources := common.NewResources()
 
 	rebootAPI, err := reboot.NewRebootAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: resources,
 		Auth_:      authorizer,
 	})
@@ -85,7 +85,7 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 }
 
 func (s *rebootSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 	var err error
 
 	template := state.MachineTemplate{
@@ -93,13 +93,14 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	}
 
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	st := s.ControllerModel(c).State()
+	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
+	container, err := st.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
-	nestedContainer, err := s.State.AddMachineInsideMachine(template, container.Id(), instance.KVM)
+	nestedContainer, err := st.AddMachineInsideMachine(template, container.Id(), instance.KVM)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machine = s.setUpMachine(c, machine)
@@ -131,7 +132,7 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 		workertest.CleanKill(c, s.nestedContainer.w)
 		s.nestedContainer.wc.AssertClosed()
 	}
-	s.JujuConnSuite.TearDownTest(c)
+	s.ApiServerSuite.TearDownTest(c)
 }
 
 func (s *rebootSuite) TestWatchForRebootEvent(c *gc.C) {

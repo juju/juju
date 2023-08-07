@@ -29,14 +29,14 @@ import (
 )
 
 type userAuthenticatorSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 }
 
 var _ = gc.Suite(&userAuthenticatorSuite{})
 
 func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 	// add machine for testing machine agent authentication
-	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	nonce, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,8 +59,14 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 }
 
 func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	// add a unit for testing unit agent authentication
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+	})
 	unit, err := wordpress.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	password, err := utils.RandomPassword()
@@ -79,7 +85,10 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 }
 
 func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	user := f.MakeUser(c, &factory.UserParams{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
 		Password:    "password",
@@ -87,7 +96,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err := authenticator.Authenticate(context.TODO(), s.State, authentication.AuthParams{
+	_, err := authenticator.Authenticate(context.TODO(), s.ControllerModel(c).State(), authentication.AuthParams{
 		AuthTag:     user.Tag(),
 		Credentials: "password",
 	})
@@ -95,7 +104,10 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 }
 
 func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	user := f.MakeUser(c, &factory.UserParams{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
 		Password:    "password",
@@ -103,7 +115,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.LocalUserAuthenticator{}
-	_, err := authenticator.Authenticate(context.TODO(), s.State, authentication.AuthParams{
+	_, err := authenticator.Authenticate(context.TODO(), s.ControllerModel(c).State(), authentication.AuthParams{
 		AuthTag:     user.Tag(),
 		Credentials: "wrongpassword",
 	})
@@ -112,15 +124,20 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 }
 
 func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 
 	// add relation
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+	})
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysql := f.MakeApplication(c, nil)
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, jc.ErrorIsNil)
-	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
+	relation, err := s.ControllerModel(c).State().AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Attempt relation login
@@ -133,7 +150,10 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 }
 
 func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	user := f.MakeUser(c, &factory.UserParams{
 		Name: "bob",
 	})
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
@@ -145,7 +165,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.LocalUserAuthenticator{Bakery: &service, Clock: testclock.NewClock(time.Time{})}
-	_, err = authenticator.Authenticate(context.TODO(), s.State, authentication.AuthParams{
+	_, err = authenticator.Authenticate(context.TODO(), s.ControllerModel(c).State(), authentication.AuthParams{
 		AuthTag:   user.Tag(),
 		Macaroons: macaroons,
 	})
@@ -253,7 +273,7 @@ func (mockVerifier) VerifyMacaroon(ctx context.Context, ms macaroon.Slice) ([]ba
 }
 
 type macaroonAuthenticatorSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 	// username holds the username that will be
 	// declared in the discharger's caveats.
 	username string

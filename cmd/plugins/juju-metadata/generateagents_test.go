@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -47,7 +47,6 @@ var _ = gc.Suite(&GenerateAgentsSuite{})
 
 func (s *GenerateAgentsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.AddCleanup(dummy.Reset)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
@@ -64,7 +63,7 @@ func (s *GenerateAgentsSuite) SetUpTest(c *gc.C) {
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   cfg.Name(),
 			ModelConfig:      cfg.AllAttrs(),
-			Cloud:            dummy.SampleCloudSpec(),
+			Cloud:            coretesting.FakeCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

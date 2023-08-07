@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -44,11 +43,6 @@ func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {
 		return nil, f.modelConfigError
 	}
 	return f.modelConfig, nil
-}
-
-func (s *modelWatcherSuite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
-	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *modelWatcherSuite) TestWatchSuccess(c *gc.C) {
@@ -107,8 +101,8 @@ func testingEnvConfig(c *gc.C) *config.Config {
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			ControllerName:   "dummycontroller",
-			ModelConfig:      dummy.SampleConfig(),
-			Cloud:            dummy.SampleCloudSpec(),
+			ModelConfig:      testing.FakeConfig(),
+			Cloud:            testing.FakeCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

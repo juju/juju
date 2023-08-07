@@ -25,7 +25,7 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -62,7 +62,6 @@ func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
 	jujuversion.Current = s.origCurrentVersion
 	s.ToolsFixture.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
@@ -104,15 +103,14 @@ func (s *SimpleStreamsToolsSuite) uploadStreams(c *gc.C, versions toolstesting.S
 
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
 	jujuversion.Current = s.origCurrentVersion
-	dummy.Reset(c)
-	attrs = dummy.SampleConfig().Merge(attrs)
+	attrs = coretesting.FakeConfig().Merge(attrs)
 	env, err := bootstrap.PrepareController(false, envtesting.BootstrapContext(stdcontext.TODO(), c),
 		jujuclient.NewMemStore(),
 		bootstrap.PrepareParams{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			ControllerName:   attrs["name"].(string),
 			ModelConfig:      attrs,
-			Cloud:            dummy.SampleCloudSpec(),
+			Cloud:            coretesting.FakeCloudSpec(),
 			AdminSecret:      "admin-secret",
 		},
 	)

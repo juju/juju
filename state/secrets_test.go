@@ -19,11 +19,10 @@ import (
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/storage/provider/dummy"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -601,16 +600,25 @@ func (s *SecretsSuite) newCAASState(c *gc.C) *state.State {
 		"name": "caasmodel",
 		"uuid": utils.MustNewUUID().String(),
 	})
-	_, st, err := s.Controller.NewModel(state.ModelArgs{
-		Type:        state.ModelTypeCAAS,
-		CloudName:   "dummy",
-		CloudRegion: "dummy-region",
-		Config:      cfg,
-		Owner:       s.Owner,
-		StorageProviderRegistry: storage.ChainedProviderRegistry{
-			dummy.StorageProviders(),
-			provider.CommonStorageProviders(),
+	registry := &storage.StaticProviderRegistry{
+		Providers: map[storage.ProviderType]storage.Provider{
+			"kubernetes": &dummy.StorageProvider{
+				StorageScope: storage.ScopeEnviron,
+				IsDynamic:    true,
+				IsReleasable: true,
+				SupportsFunc: func(k storage.StorageKind) bool {
+					return k == storage.StorageKindBlock
+				},
+			},
 		},
+	}
+	_, st, err := s.Controller.NewModel(state.ModelArgs{
+		Type:                    state.ModelTypeCAAS,
+		CloudName:               "dummy",
+		CloudRegion:             "dummy-region",
+		Config:                  cfg,
+		Owner:                   s.Owner,
+		StorageProviderRegistry: registry,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { st.Close() })

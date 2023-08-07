@@ -15,7 +15,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 
@@ -33,7 +32,6 @@ func (s *PrepareSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *PrepareSuite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
@@ -47,10 +45,10 @@ func (s *PrepareSuite) TestPrepareSkipVerify(c *gc.C) {
 }
 
 func (s *PrepareSuite) assertPrepare(c *gc.C, skipVerify bool) {
-	baselineAttrs := dummy.SampleConfig().Merge(testing.Attrs{
-		"controller": false,
-		"name":       "erewhemos",
-		"test-mode":  true,
+	baselineAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		"somebool":  false,
+		"name":      "erewhemos",
+		"test-mode": true,
 	}).Delete(
 		"admin-secret",
 	)
@@ -65,7 +63,7 @@ func (s *PrepareSuite) assertPrepare(c *gc.C, skipVerify bool) {
 		controller.StatePort:               1234,
 		controller.SetNUMAControlPolicyKey: true,
 	}
-	cloudSpec := dummy.SampleCloudSpec()
+	cloudSpec := testing.FakeCloudSpec()
 	cloudSpec.SkipTLSVerify = skipVerify
 	var caCerts []string
 	if !skipVerify {
@@ -102,14 +100,12 @@ func (s *PrepareSuite) assertPrepare(c *gc.C, skipVerify bool) {
 			"secret-backend":            "auto",
 			"ssl-hostname-verification": true,
 			"logging-config":            "<root>=INFO",
-			"secret":                    "pork",
 			"authorized-keys":           testing.FakeAuthKeys,
 			"type":                      "dummy",
 			"name":                      "erewhemos",
-			"controller":                false,
+			"somebool":                  false,
 			"development":               false,
 			"test-mode":                 true,
-			"default-space":             "",
 		},
 		ControllerModelUUID:   cfg.UUID(),
 		Cloud:                 "dummy",
@@ -127,7 +123,7 @@ func (s *PrepareSuite) assertPrepare(c *gc.C, skipVerify bool) {
 		ControllerConfig: controllerCfg,
 		ControllerName:   cfg.Name(),
 		ModelConfig:      cfg.AllAttrs(),
-		Cloud:            dummy.SampleCloudSpec(),
+		Cloud:            testing.FakeCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)

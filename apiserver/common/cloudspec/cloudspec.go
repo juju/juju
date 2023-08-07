@@ -10,8 +10,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
-	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -42,10 +40,6 @@ type CloudSpecAPI struct {
 
 type CloudSpecAPIV2 struct {
 	CloudSpecAPI
-}
-
-type CloudSpecAPIV1 struct {
-	CloudSpecAPIV2
 }
 
 // NewCloudSpec returns a new CloudSpecAPI.
@@ -82,44 +76,6 @@ func NewCloudSpecV2(
 		getAuthFunc,
 	)
 	return CloudSpecAPIV2{api}
-}
-
-func NewCloudSpecV1(
-	resources facade.Resources,
-	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
-	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
-	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
-	watchCloudSpecCredentialContent func(tag names.ModelTag) (state.NotifyWatcher, error),
-	getAuthFunc common.GetAuthFunc,
-) CloudSpecAPIV1 {
-	v2API := NewCloudSpecV2(
-		resources,
-		k8sCloudSpecChanger(getCloudSpec),
-		watchCloudSpec,
-		watchCloudSpecModelCredentialReference,
-		watchCloudSpecCredentialContent,
-		getAuthFunc,
-	)
-	return CloudSpecAPIV1{v2API}
-}
-
-func k8sCloudSpecChanger(
-	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
-) func(names.ModelTag) (environscloudspec.CloudSpec, error) {
-	return func(n names.ModelTag) (environscloudspec.CloudSpec, error) {
-		spec, err := getCloudSpec(n)
-		if err != nil {
-			return spec, err
-		}
-		if spec.Type == k8sconstants.CAASProviderType {
-			cred, err := k8scloud.CredentialToLegacy(spec.Credential)
-			if err != nil {
-				return spec, errors.Annotate(err, "transforming Kubernetes credential for pre 2.9")
-			}
-			spec.Credential = &cred
-		}
-		return spec, nil
-	}
 }
 
 // CloudSpec returns the model's cloud spec.

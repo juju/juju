@@ -28,7 +28,7 @@ import (
 )
 
 type userManagerSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	usermanager *usermanager.UserManagerAPI
 	authorizer  apiservertesting.FakeAuthorizer
@@ -41,24 +41,24 @@ type userManagerSuite struct {
 var _ = gc.Suite(&userManagerSuite{})
 
 func (s *userManagerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
 	s.resources = common.NewResources()
-	adminTag := s.AdminUserTag(c)
+	adminTag := jujutesting.AdminUser
 	s.adminName = adminTag.Name()
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: adminTag,
 	}
 	var err error
 	s.usermanager, err = usermanager.NewUserManagerAPI(facadetest.Context{
-		StatePool_: s.StatePool,
-		State_:     s.State,
+		StatePool_: s.StatePool(),
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
+	s.BlockHelper = commontesting.NewBlockHelper(s.OpenControllerModelAPI(c))
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
 }
 
@@ -66,7 +66,7 @@ func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = names.NewMachineTag("1")
 	endPoint, err := usermanager.NewUserManagerAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthoriser,
 	})
@@ -75,7 +75,9 @@ func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *userManagerSuite) assertAddUser(c *gc.C, access params.UserAccessPermission, sharedModelTags []string) {
-	sharedModelState := s.Factory.MakeModel(c, nil)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	sharedModelState := f.MakeModel(c, nil)
 	defer sharedModelState.Close()
 
 	args := params.AddUsers{
@@ -93,7 +95,7 @@ func (s *userManagerSuite) assertAddUser(c *gc.C, access params.UserAccessPermis
 	c.Assert(result.Results[0], gc.DeepEquals, params.AddUserResult{
 		Tag: foobarTag.String()})
 	// Check that the call results in a new user being created
-	user, err := s.State.User(foobarTag)
+	user, err := s.ControllerModel(c).State().User(foobarTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user, gc.NotNil)
 	c.Assert(user.Name(), gc.Equals, "foobar")
@@ -119,7 +121,7 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 	foobarTag := names.NewLocalUserTag("foobar")
 
 	// Check that the call results in a new user being created
-	user, err := s.State.User(foobarTag)
+	user, err := s.ControllerModel(c).State().User(foobarTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(user, gc.NotNil)
 	c.Assert(user.Name(), gc.Equals, "foobar")
@@ -152,14 +154,17 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 	//check that user is not created.
 	foobarTag := names.NewLocalUserTag("foobar")
 	// Check that the call results in a new user being created.
-	_, err = s.State.User(foobarTag)
+	_, err = s.ControllerModel(c).State().User(foobarTag)
 	c.Assert(err, gc.ErrorMatches, `user "foobar" not found`)
 }
 
 func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	st := s.ControllerModel(c).State()
 	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     st,
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
 	})
@@ -175,13 +180,15 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 	_, err = usermanager.AddUser(args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 
-	_, err = s.State.User(names.NewLocalUserTag("foobar"))
+	_, err = s.ControllerModel(c).State().User(names.NewLocalUserTag("foobar"))
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *userManagerSuite) TestDisableUser(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
-	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex"})
+	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -219,8 +226,10 @@ func (s *userManagerSuite) TestDisableUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestBlockDisableUser(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
-	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex"})
+	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -246,8 +255,10 @@ func (s *userManagerSuite) TestBlockDisableUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestEnableUser(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
-	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex"})
+	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -285,8 +296,10 @@ func (s *userManagerSuite) TestEnableUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
-	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex"})
+	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -312,15 +325,17 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb"})
+	barb := f.MakeUser(c, &factory.UserParams{Name: "barb"})
 
 	args := params.Entities{
 		[]params.Entity{{barb.Tag().String()}},
@@ -334,15 +349,17 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
 
 	args := params.Entities{
 		[]params.Entity{{barb.Tag().String()}},
@@ -356,14 +373,17 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestUserInfo(c *gc.C) {
-	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
-	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	userFoo := f.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
+	userBar := f.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
+	st := s.ControllerModel(c).State()
 	err := controller.ChangeControllerAccess(
-		s.State, s.AdminUserTag(c), names.NewUserTag("fred@external"),
+		st, jujutesting.AdminUser, names.NewUserTag("fred@external"),
 		params.GrantControllerAccess, permission.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
 	err = controller.ChangeControllerAccess(
-		s.State, s.AdminUserTag(c), names.NewUserTag("everyone@external"),
+		st, jujutesting.AdminUser, names.NewUserTag("everyone@external"),
 		params.GrantControllerAccess, permission.SuperuserAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -442,10 +462,12 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
-	admin, err := s.State.User(s.AdminUserTag(c))
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	admin, err := s.ControllerModel(c).State().User(jujutesting.AdminUser)
 	c.Assert(err, jc.ErrorIsNil)
-	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
-	userAardvark := s.Factory.MakeUser(c, &factory.UserParams{Name: "aardvark", DisplayName: "Aard Vark", Disabled: true})
+	userFoo := f.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
+	userAardvark := f.MakeUser(c, &factory.UserParams{Name: "aardvark", DisplayName: "Aard Vark", Disabled: true})
 
 	args := params.UserInfoRequest{IncludeDisabled: true}
 	results, err := s.usermanager.UserInfo(args)
@@ -492,14 +514,16 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
-	userAardvark := s.Factory.MakeUser(c, &factory.UserParams{Name: "aardvark", DisplayName: "Aard Vark"})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	f.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
+	userAardvark := f.MakeUser(c, &factory.UserParams{Name: "aardvark", DisplayName: "Aard Vark"})
 
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: userAardvark.Tag(),
 	}
 	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      authorizer,
 	})
@@ -534,16 +558,17 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
-	_, err := s.State.AddControllerUser(state.UserAccessSpec{
+	st := s.ControllerModel(c).State()
+	_, err := st.AddControllerUser(state.UserAccessSpec{
 		User:      names.NewUserTag("everyone@external"),
 		Access:    permission.SuperuserAccess,
-		CreatedBy: s.AdminUserTag(c),
+		CreatedBy: jujutesting.AdminUser,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddControllerUser(state.UserAccessSpec{
+	_, err = st.AddControllerUser(state.UserAccessSpec{
 		User:      names.NewUserTag("aardvark@external"),
 		Access:    permission.LoginAccess,
-		CreatedBy: s.AdminUserTag(c),
+		CreatedBy: jujutesting.AdminUser,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -560,25 +585,32 @@ func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
 }
 
 func (s *userManagerSuite) makeLocalModelUser(c *gc.C, username, displayname string) permission.UserAccess {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	// factory.MakeUser will create an ModelUser for a local user by default.
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
-	modelUser, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
+	user := f.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
+	modelUser, err := s.ControllerModel(c).State().UserAccess(user.UserTag(), s.ControllerModel(c).ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUser
 }
 
 func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
-	testAdmin := s.AdminUserTag(c)
-	owner, err := s.State.UserAccess(testAdmin, s.Model.ModelTag())
+	testAdmin := jujutesting.AdminUser
+	model := s.ControllerModel(c)
+	st := model.State()
+	owner, err := s.ControllerModel(c).State().UserAccess(testAdmin, model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 
 	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
 	localUser2 := s.makeLocalModelUser(c, "samsmith", "Sam Smith")
-	remoteUser1 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: permission.WriteAccess})
-	remoteUser2 := s.Factory.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: permission.WriteAccess})
+	remoteUser1 := f.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: permission.WriteAccess})
+	remoteUser2 := f.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: permission.WriteAccess})
 
 	results, err := s.usermanager.ModelUserInfo(params.Entities{Entities: []params.Entity{{
-		Tag: s.Model.ModelTag().String(),
+		Tag: model.ModelTag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	var expected params.ModelUserInfoResults
@@ -589,7 +621,7 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 		{
 			owner,
 			&params.ModelUserInfo{
-				ModelTag:    s.Model.ModelTag().String(),
+				ModelTag:    model.ModelTag().String(),
 				UserName:    owner.UserName,
 				DisplayName: owner.DisplayName,
 				Access:      "admin",
@@ -597,7 +629,7 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 		}, {
 			localUser1,
 			&params.ModelUserInfo{
-				ModelTag:    s.Model.ModelTag().String(),
+				ModelTag:    model.ModelTag().String(),
 				UserName:    "ralphdoe",
 				DisplayName: "Ralph Doe",
 				Access:      "admin",
@@ -605,7 +637,7 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 		}, {
 			localUser2,
 			&params.ModelUserInfo{
-				ModelTag:    s.Model.ModelTag().String(),
+				ModelTag:    model.ModelTag().String(),
 				UserName:    "samsmith",
 				DisplayName: "Sam Smith",
 				Access:      "admin",
@@ -613,7 +645,7 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 		}, {
 			remoteUser1,
 			&params.ModelUserInfo{
-				ModelTag:    s.Model.ModelTag().String(),
+				ModelTag:    model.ModelTag().String(),
 				UserName:    "bobjohns@ubuntuone",
 				DisplayName: "Bob Johns",
 				Access:      "write",
@@ -621,14 +653,14 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 		}, {
 			remoteUser2,
 			&params.ModelUserInfo{
-				ModelTag:    s.Model.ModelTag().String(),
+				ModelTag:    model.ModelTag().String(),
 				UserName:    "nicshaw@idprovider",
 				DisplayName: "Nic Shaw",
 				Access:      "write",
 			},
 		},
 	} {
-		r.info.LastConnection = lastConnPointer(c, r.user, s.State)
+		r.info.LastConnection = lastConnPointer(c, r.user, st)
 		expected.Results = append(expected.Results, params.ModelUserInfoResult{Result: r.info})
 	}
 
@@ -673,7 +705,9 @@ func lastLoginPointer(c *gc.C, user *state.User) *time.Time {
 }
 
 func (s *userManagerSuite) TestSetPassword(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
@@ -692,7 +726,9 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
@@ -712,9 +748,11 @@ func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
 	})
@@ -737,10 +775,12 @@ func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
-	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
 	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
 	})
@@ -790,8 +830,10 @@ func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	// Create a user to delete.
-	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
+	jjam := f.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
 
 	expectedError := fmt.Sprintf("failed to delete user %q: user %q is permanently deleted", jjam.Name(), jjam.Name())
 
@@ -820,17 +862,19 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	// Create a user to delete.
-	jjam := s.Factory.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
+	jjam := f.MakeUser(c, &factory.UserParams{Name: "jimmyjam"})
 	// Create a user to delete jjam.
-	chuck := s.Factory.MakeUser(c, &factory.UserParams{
+	chuck := f.MakeUser(c, &factory.UserParams{
 		Name:        "chuck",
 		NoModelUser: true,
 	})
 
 	// Authenticate as chuck.
 	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: chuck.Tag()},
 	})
@@ -855,13 +899,15 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	// Create a user to delete.
-	jjam := s.Factory.MakeUser(c, &factory.UserParams{
+	jjam := f.MakeUser(c, &factory.UserParams{
 		Name:        "jimmyjam",
 		NoModelUser: true,
 	})
 	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: jjam.Tag()},
 	})
@@ -891,7 +937,7 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 
 	// Remove admin as admin.
 	got, err := s.usermanager.RemoveUser(params.Entities{
-		Entities: []params.Entity{{Tag: s.AdminUserTag(c).String()}}})
+		Entities: []params.Entity{{Tag: jujutesting.AdminUser.String()}}})
 	c.Assert(got.Results, gc.HasLen, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: expectedError,
@@ -900,7 +946,7 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 
 	// Try again to see if we succeeded.
 	got, err = s.usermanager.RemoveUser(params.Entities{
-		Entities: []params.Entity{{Tag: s.AdminUserTag(c).String()}}})
+		Entities: []params.Entity{{Tag: jujutesting.AdminUser.String()}}})
 	c.Assert(got.Results, gc.HasLen, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
 		Message: expectedError,
@@ -914,21 +960,21 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 	// Create users.
-	jjam := s.Factory.MakeUser(c, &factory.UserParams{
+	jjam := f.MakeUser(c, &factory.UserParams{
 		Name: "jimmyjam",
 	})
-	alice := s.Factory.MakeUser(c, &factory.UserParams{
+	alice := f.MakeUser(c, &factory.UserParams{
 		Name: "alice",
 	})
-	bob := s.Factory.MakeUser(c, &factory.UserParams{
+	bob := f.MakeUser(c, &factory.UserParams{
 		Name: "bob",
 	})
 
 	// Get a handle on the current model.
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	users, err := model.Users()
+	users, err := s.ControllerModel(c).Users()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the users exist.
@@ -960,7 +1006,9 @@ func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestResetPassword(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
 
 	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
@@ -976,8 +1024,10 @@ func (s *userManagerSuite) TestResetPassword(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestResetPasswordMultiple(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
-	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
 	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
 	c.Assert(barb.PasswordValid("password"), jc.IsTrue)
 
@@ -1006,7 +1056,9 @@ func (s *userManagerSuite) TestResetPasswordMultiple(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestBlockResetPassword(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
 	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
 
@@ -1021,7 +1073,7 @@ func (s *userManagerSuite) TestBlockResetPassword(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestResetPasswordControllerAdminForSelf(c *gc.C) {
-	alex, err := s.State.User(s.AdminUserTag(c))
+	alex, err := s.ControllerModel(c).State().User(jujutesting.AdminUser)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
 	c.Assert(alex.PasswordValid("dummy-secret"), jc.IsTrue)
@@ -1042,12 +1094,14 @@ func (s *userManagerSuite) TestResetPasswordControllerAdminForSelf(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
-	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
+	barb := f.MakeUser(c, &factory.UserParams{Name: "barb", NoModelUser: true})
 	c.Assert(barb.PasswordValid("password"), jc.IsTrue)
 	usermanager, err := usermanager.NewUserManagerAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      apiservertesting.FakeAuthorizer{Tag: alex.Tag()},
 	})
@@ -1080,7 +1134,9 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestResetPasswordFail(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true, Disabled: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true, Disabled: true})
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "user-invalid"},
 		{Tag: alex.Tag().String()},
@@ -1101,7 +1157,9 @@ func (s *userManagerSuite) TestResetPasswordFail(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestResetPasswordMixedResult(c *gc.C) {
-	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	alex := f.MakeUser(c, &factory.UserParams{Name: "alex", NoModelUser: true})
 	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "user-invalid"},

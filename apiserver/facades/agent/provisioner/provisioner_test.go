@@ -33,13 +33,13 @@ import (
 	"github.com/juju/juju/environs/config"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
+	dummystorage "github.com/juju/juju/storage/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -49,7 +49,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type provisionerSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 
 	machines []*state.Machine
 
@@ -65,22 +65,23 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
-	if s.JujuConnSuite.ConfigAttrs == nil {
-		s.JujuConnSuite.ConfigAttrs = make(map[string]interface{})
+	if s.ApiServerSuite.ControllerModelConfigAttrs == nil {
+		s.ApiServerSuite.ControllerModelConfigAttrs = make(map[string]interface{})
 	}
-	s.JujuConnSuite.ConfigAttrs["image-stream"] = "daily"
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.ControllerModelConfigAttrs["image-stream"] = "daily"
+	s.ApiServerSuite.SetUpTest(c)
 
 	// Reset previous machines (if any) and create 3 machines
 	// for the tests, plus an optional controller machine.
 	s.machines = nil
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
+	st := s.ControllerModel(c).State()
 	if withController {
-		s.machines = append(s.machines, testing.AddControllerMachine(c, s.State))
+		s.machines = append(s.machines, testing.AddControllerMachine(c, st))
 	}
 	for i := 0; i < 5; i++ {
-		machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
@@ -98,8 +99,8 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	// Create a provisioner API for the machine.
 	provisionerAPI, err := provisioner.NewProvisionerAPIV11(facadetest.Context{
 		Auth_:      s.authorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     st,
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	},
 	)
@@ -116,17 +117,18 @@ var _ = gc.Suite(&withoutControllerSuite{})
 
 func (s *withoutControllerSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, false)
-	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.provisioner, s.State, s.resources)
+	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.provisioner, s.ControllerModel(c).State(), s.resources)
 }
 
 func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = true
 	// Works with a controller, which is not a machine agent.
+	st := s.ControllerModel(c).State()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     st,
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,8 +138,8 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 	anAuthorizer.Controller = false
 	aProvisioner, err = provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     st,
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Assert(err, gc.NotNil)
@@ -210,10 +212,11 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
+	st := s.ControllerModel(c).State()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     st,
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -230,7 +233,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	}
 	var containers []*state.Machine
 	for i := 0; i < 3; i++ {
-		container, err := s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXD)
+		container, err := st.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXD)
 		c.Check(err, jc.ErrorIsNil)
 		containers = append(containers, container)
 	}
@@ -571,8 +574,8 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     s.ControllerModel(c).State(),
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	},
 	)
@@ -773,8 +776,8 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 	anAuthorizer.Controller = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     s.ControllerModel(c).State(),
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -900,16 +903,19 @@ func (s *withoutControllerSuite) TestAvailabilityZone(c *gc.C) {
 	hcWithEmptyAZ := instance.HardwareCharacteristics{AvailabilityZone: &emptyAz}
 	hcWithNilAz := instance.HardwareCharacteristics{AvailabilityZone: nil}
 
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	// add machines with different availability zones: string, empty string, nil
-	azMachine, _ := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+	azMachine, _ := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Characteristics: &hcWithAZ,
 	})
 
-	emptyAzMachine, _ := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+	emptyAzMachine, _ := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Characteristics: &hcWithEmptyAZ,
 	})
 
-	nilAzMachine, _ := s.Factory.MakeMachineReturningPassword(c, &factory.MachineParams{
+	nilAzMachine, _ := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Characteristics: &hcWithNilAz,
 	})
 	args := params.Entities{Entities: []params.Entity{
@@ -929,8 +935,11 @@ func (s *withoutControllerSuite) TestAvailabilityZone(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	// Add a machine with keep-instance = true.
-	foobarMachine := s.Factory.MakeMachine(c, &factory.MachineParams{InstanceId: "1234"})
+	foobarMachine := f.MakeMachine(c, &factory.MachineParams{InstanceId: "1234"})
 	err := foobarMachine.SetKeepInstance(true)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -957,8 +966,14 @@ func (s *withoutControllerSuite) TestKeepInstance(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
-		app := s.AddTestingApplication(c, name, s.AddTestingCharm(c, name))
+		app := f.MakeApplication(c, &factory.ApplicationParams{
+			Name:  name,
+			Charm: f.MakeCharm(c, &factory.CharmParams{Name: name}),
+		})
 		for _, m := range machines {
 			unit, err := app.AddUnit(state.AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
@@ -969,7 +984,7 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 		return units
 	}
 	setProvisioned := func(id string) {
-		m, err := s.State.Machine(id)
+		m, err := s.ControllerModel(c).State().Machine(id)
 		c.Assert(err, jc.ErrorIsNil)
 		err = m.SetProvisioned(instance.Id("machine-"+id+"-inst"), "", "nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -991,16 +1006,20 @@ func (s *withoutControllerSuite) TestDistributionGroup(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	st := s.ControllerModel(c).State()
+	_, err = st.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
 
 	// Create a logging service, subordinate to mysql.
-	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints("mysql", "logging")
+	f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "logging",
+		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
+	})
+	eps, err := st.InferEndpoints("mysql", "logging")
 	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
+	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	ru, err := rel.Unit(mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1058,8 +1077,8 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 	anAuthorizer.Controller = false
 	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     s.ControllerModel(c).State(),
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -1088,8 +1107,14 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 }
 
 func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	addUnits := func(name string, machines ...*state.Machine) (units []*state.Unit) {
-		app := s.AddTestingApplication(c, name, s.AddTestingCharm(c, name))
+		app := f.MakeApplication(c, &factory.ApplicationParams{
+			Name:  name,
+			Charm: f.MakeCharm(c, &factory.CharmParams{Name: name}),
+		})
 		for _, m := range machines {
 			unit, err := app.AddUnit(state.AddUnitParams{})
 			c.Assert(err, jc.ErrorIsNil)
@@ -1100,7 +1125,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 		return units
 	}
 	setProvisioned := func(id string) {
-		m, err := s.State.Machine(id)
+		m, err := s.ControllerModel(c).State().Machine(id)
 		c.Assert(err, jc.ErrorIsNil)
 		err = m.SetProvisioned(instance.Id("machine-"+id+"-inst"), "", "nonce", nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1121,7 +1146,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few controllers, provision two of them.
-	_, err = s.State.EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
+	_, err = s.ControllerModel(c).State().EnableHA(3, constraints.Value{}, state.UbuntuBase("12.10"), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	setProvisioned("5")
 	setProvisioned("7")
@@ -1177,8 +1202,8 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 	anAuthorizer.Controller = false
 	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     s.ControllerModel(c).State(),
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -1214,7 +1239,7 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,
 	}
-	consMachine, err := s.State.AddOneMachine(template)
+	consMachine, err := s.ControllerModel(c).State().AddOneMachine(template)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine0Constraints, err := s.machines[0].Constraints()
@@ -1241,13 +1266,14 @@ func (s *withoutControllerSuite) TestConstraints(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
-	pm := poolmanager.New(state.NewStateSettings(s.State), storage.ChainedProviderRegistry{
-		dummy.StorageProviders(),
+	st := s.ControllerModel(c).State()
+	pm := poolmanager.New(state.NewStateSettings(st), storage.ChainedProviderRegistry{
+		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	})
 	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.Model.UpdateModelConfig(map[string]interface{}{
+	err = s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{
 		"storage-default-block-source": "static-pool",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1257,7 +1283,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	err = s.machines[0].SetInstanceInfo("i-am", "", "fake_nonce", &hwChars, nil, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	volumesMachine, err := s.State.AddOneMachine(state.MachineTemplate{
+	volumesMachine, err := st.AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 		Volumes: []state.HostVolumeParams{{
@@ -1335,7 +1361,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 
 	// Verify the machine with requested volumes was provisioned, and the
 	// volume information recorded in state.
-	sb, err := state.NewStorageBackend(s.State)
+	sb, err := state.NewStorageBackend(st)
 	c.Assert(err, jc.ErrorIsNil)
 	volumeAttachments, err := sb.MachineVolumeAttachments(volumesMachine.MachineTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1414,8 +1440,8 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	anAuthorizer.Controller = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     s.ControllerModel(c).State(),
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1467,8 +1493,8 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	anAuthorizer.Controller = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     s.ControllerModel(c).State(),
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1508,7 +1534,7 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 	c.Check(*results[5].Error, jc.DeepEquals,
 		*apiservererrors.ServerError(errors.New(`"application-thing" is not a valid machine tag`)))
 
-	removals, err := s.State.AllMachineRemovals()
+	removals, err := s.ControllerModel(c).State().AllMachineRemovals()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(removals, jc.SameContents, []string{"0", "2"})
 }
@@ -1525,7 +1551,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		"cloudinit-userdata":           validCloudInitUserData,
 		"container-inherit-properties": "ca-certs,apt-primary",
 	}
-	err := s.Model.UpdateModelConfig(attrs, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAPTProxy := proxy.Settings{
 		Http:    "http://proxy.example.com:9000",
@@ -1542,11 +1568,13 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		Https: "https://snap-proxy.example.com:9000",
 	}
 
+	cfg, err := s.ControllerModel(c).ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.provisioner.ContainerConfig()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
 	c.Check(results.ProviderType, gc.Equals, "dummy")
-	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
+	c.Check(results.AuthorizedKeys, gc.Equals, cfg.AuthorizedKeys())
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.LegacyProxy.HasProxySet(), jc.IsFalse)
 	c.Check(results.JujuProxy, gc.DeepEquals, expectedProxy)
@@ -1572,7 +1600,7 @@ func (s *withoutControllerSuite) TestContainerConfigLegacy(c *gc.C) {
 		"cloudinit-userdata":           validCloudInitUserData,
 		"container-inherit-properties": "ca-certs,apt-primary",
 	}
-	err := s.Model.UpdateModelConfig(attrs, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAPTProxy := proxy.Settings{
 		Http:    "http://proxy.example.com:9000",
@@ -1585,11 +1613,13 @@ func (s *withoutControllerSuite) TestContainerConfigLegacy(c *gc.C) {
 		NoProxy: "127.0.0.1,localhost,::1",
 	}
 
+	cfg, err := s.ControllerModel(c).ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.provisioner.ContainerConfig()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
 	c.Check(results.ProviderType, gc.Equals, "dummy")
-	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
+	c.Check(results.AuthorizedKeys, gc.Equals, cfg.AuthorizedKeys())
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.LegacyProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.JujuProxy.HasProxySet(), jc.IsFalse)
@@ -1617,12 +1647,13 @@ func (s *withoutControllerSuite) TestSetSupportedContainers(c *gc.C) {
 	for _, result := range results.Results {
 		c.Assert(result.Error, gc.IsNil)
 	}
-	m0, err := s.State.Machine("0")
+	st := s.ControllerModel(c).State()
+	m0, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok := m0.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{instance.LXD})
-	m1, err := s.State.Machine("1")
+	m1, err := st.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok = m1.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
@@ -1636,8 +1667,8 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      anAuthorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     s.ControllerModel(c).State(),
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1690,12 +1721,13 @@ func (s *withoutControllerSuite) TestSupportedContainers(c *gc.C) {
 	for _, result := range results.Results {
 		c.Assert(result.Error, gc.IsNil)
 	}
-	m0, err := s.State.Machine("0")
+	st := s.ControllerModel(c).State()
+	m0, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok := m0.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(containers, gc.DeepEquals, results.Results[0].ContainerTypes)
-	m1, err := s.State.Machine("1")
+	m1, err := st.Machine("1")
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok = m1.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
@@ -1741,7 +1773,7 @@ func (s *withoutControllerSuite) TestSupportsNoContainers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	m0, err := s.State.Machine("0")
+	m0, err := s.ControllerModel(c).State().Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
 	containers, ok := m0.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
@@ -1762,7 +1794,7 @@ func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
-	err := s.State.SetAPIHostPorts(hostPorts)
+	err := s.ControllerModel(c).State().SetAPIHostPorts(hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.provisioner.APIAddresses()
@@ -1787,7 +1819,7 @@ type withImageMetadataSuite struct {
 var _ = gc.Suite(&withImageMetadataSuite{})
 
 func (s *withImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.ConfigAttrs = map[string]interface{}{
+	s.ControllerModelConfigAttrs = map[string]interface{}{
 		config.ContainerImageStreamKey:      "daily",
 		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
 	}

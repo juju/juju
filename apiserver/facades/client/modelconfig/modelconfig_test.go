@@ -19,7 +19,6 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state"
@@ -144,7 +143,7 @@ func (s *modelconfigSuite) TestBlockChangesModelSet(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestModelSetCannotChangeAgentVersion(c *gc.C) {
-	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+	old, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version": "1.2.3.4",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
@@ -165,7 +164,7 @@ func (s *modelconfigSuite) TestModelSetCannotChangeAgentVersion(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestModelSetCannotChangeCharmHubURL(c *gc.C) {
-	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+	old, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"charmhub-url": "http://meshuggah.rocks",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
@@ -186,7 +185,7 @@ func (s *modelconfigSuite) TestModelSetCannotChangeCharmHubURL(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestModelSetCannotChangeBothDefaultSeriesAndDefaultBaseWithSeries(c *gc.C) {
-	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+	old, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"default-series": "jammy",
 	}))
 	c.Assert(err, jc.ErrorIsNil)
@@ -216,7 +215,7 @@ func (s *modelconfigSuite) TestModelSetCannotChangeBothDefaultSeriesAndDefaultBa
 }
 
 func (s *modelconfigSuite) TestModelSetCannotChangeBothDefaultSeriesAndDefaultBaseWithBase(c *gc.C) {
-	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+	old, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"default-base": "ubuntu@22.04",
 	}))
 	c.Assert(err, jc.ErrorIsNil)

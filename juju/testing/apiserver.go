@@ -47,8 +47,10 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
+	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/lease"
@@ -67,15 +69,18 @@ var (
 	// DefaultCloud is the default cloud for a controller model.
 	DefaultCloud = cloud.Cloud{
 		Name:      "dummy",
-		Type:      "ec2",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.AccessKeyAuthType},
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 		Regions:   []cloud.Region{{Name: DefaultCloudRegion}},
 	}
 
 	// DefaultCredentialTag is the default credential for all models.
 	DefaultCredentialTag = names.NewCloudCredentialTag("dummy/admin/default")
 
-	defaultCredential = cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{})
+	defaultCredential = cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"username": "dummy",
+		"password": "secret",
+	})
 )
 
 // ApiServerSuite is a text fixture which spins up an apiserver on top of a controller model.
@@ -101,6 +106,11 @@ type ApiServerSuite struct {
 	// is invoked. Any attributes set here will be added to
 	// the suite's controller configuration.
 	ControllerConfigAttrs map[string]interface{}
+
+	// ControllerModelConfigAttrs can be set up before SetUpTest
+	// is invoked. Any attributes set here will be added to
+	// the suite's controller model configuration.
+	ControllerModelConfigAttrs map[string]interface{}
 
 	// These are exposed for the tests to use.
 
@@ -216,9 +226,15 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	apiPort := s.httpServer.Listener.Addr().(*net.TCPAddr).Port
 	controllerCfg[controller.APIPort] = apiPort
 
-	controllerModelCfg := coretesting.CustomModelConfig(c, coretesting.Attrs{
+	modelAttrs := coretesting.Attrs{
 		"name": "controller",
-	})
+		"type": DefaultCloud.Type,
+	}
+	for k, v := range s.ControllerModelConfigAttrs {
+		modelAttrs[k] = v
+	}
+	controllerModelCfg := coretesting.CustomModelConfig(c, modelAttrs)
+
 	modelType := state.ModelTypeIAAS
 	if s.WithControllerModelType == state.ModelTypeCAAS {
 		modelType = s.WithControllerModelType
@@ -240,6 +256,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		},
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
+		NewPolicy:     stateenvirons.GetNewPolicyFunc(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl

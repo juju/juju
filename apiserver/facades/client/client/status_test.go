@@ -20,6 +20,8 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
+	"github.com/juju/juju/caas/kubernetes/provider"
+	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
@@ -1128,29 +1130,31 @@ var _ = gc.Suite(&CAASStatusSuite{})
 
 func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
+	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
 	// Set up a CAAS model to replace the IAAS one.
 	st := f.MakeCAASModel(c, nil)
 	s.CleanupSuite.AddCleanup(func(*gc.C) { st.Close() })
-	f = factory.NewFactory(st, nil)
+	f2, release := s.NewFactory(c, st.ModelUUID())
+	defer release()
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	s.model = m
 
-	ch := f.MakeCharm(c, &factory.CharmParams{
+	ch := f2.MakeCharm(c, &factory.CharmParams{
 		Name:   "mysql-k8s",
 		Series: "focal",
 	})
-	s.app = f.MakeApplication(c, &factory.ApplicationParams{
+	s.app = f2.MakeApplication(c, &factory.ApplicationParams{
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      "ubuntu",
 			Channel: "20.04/stable",
 		}},
 		Charm: ch,
 	})
-	f.MakeUnit(c, &factory.UnitParams{Application: s.app})
+	f2.MakeUnit(c, &factory.UnitParams{Application: s.app})
 }
 
 func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {

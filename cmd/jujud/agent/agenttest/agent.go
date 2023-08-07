@@ -26,6 +26,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/database"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -36,6 +37,7 @@ import (
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/peergrouper"
@@ -114,7 +116,11 @@ func (f *FakeEnsureMongo) InitiateMongo(p peergrouper.InitiateMongoParams) error
 
 // AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
+
+	Environ environs.Environ
+	DataDir string
+	LogDir  string
 
 	// InitialDBOps can be set prior to calling PrimeStateAgentVersion,
 	// ensuring that the functions are executed against the controller database
@@ -123,9 +129,26 @@ type AgentSuite struct {
 }
 
 func (s *AgentSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
+	s.ApiServerSuite.SetUpSuite(c)
 
 	s.InitialDBOps = make([]func(context.Context, coredatabase.TxnRunner) error, 0)
+}
+
+func (s *AgentSuite) SetUpTest(c *gc.C) {
+	s.ApiServerSuite.SetUpTest(c)
+
+	var err error
+	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c))
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.DataDir = c.MkDir()
+	s.LogDir = c.MkDir()
+}
+
+func mongoInfo() *mongo.MongoInfo {
+	info := statetesting.NewMongoInfo()
+	info.Password = testing.AdminSecret
+	return info
 }
 
 // PrimeAgent writes the configuration file and tools for an agent
@@ -145,21 +168,21 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	store, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 
-	agentTools := envtesting.PrimeTools(c, store, s.DataDir(), "released", vers)
+	agentTools := envtesting.PrimeTools(c, store, s.DataDir, "released", vers)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	err = envtools.MergeAndWriteMetadata(ss, store, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, jc.ErrorIsNil)
 
-	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir, tag.String(), vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	stateInfo := s.MongoInfo()
-	apiInfo := s.APIInfo(c)
+	stateInfo := mongoInfo()
+	apiInfo := s.ControllerModelApiInfo()
 
 	paths := agent.DefaultPaths
-	paths.DataDir = s.DataDir()
-	paths.TransientDataDir = s.TransientDataDir()
+	paths.DataDir = s.DataDir
+	paths.TransientDataDir = c.MkDir()
 	paths.LogDir = s.LogDir
 	paths.MetricsSpoolDir = c.MkDir()
 
@@ -204,15 +227,12 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, jc.ErrorIsNil)
 
-	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), "released", vers)
-	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
+	agentTools := envtesting.PrimeTools(c, stor, s.DataDir, "released", vers)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir, tag.String(), vers)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	conf := s.WriteStateAgentConfig(c, tag, password, vers, model.ModelTag())
+	conf := s.WriteStateAgentConfig(c, tag, password, vers, s.ControllerModel(c).ModelTag())
 	s.primeAPIHostPorts(c)
 
 	err = database.BootstrapDqlite(
@@ -230,14 +250,14 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	vers version.Binary,
 	modelTag names.ModelTag,
 ) agent.ConfigSetterWriter {
-	stateInfo := s.MongoInfo()
+	stateInfo := mongoInfo()
 	apiPort := mgotesting.FindTCPPort()
 	s.SetControllerConfigAPIPort(c, apiPort)
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
 			Paths: agent.NewPathsWithDefaults(agent.Paths{
-				DataDir: s.DataDir(),
+				DataDir: s.DataDir,
 				LogDir:  s.LogDir,
 			}),
 			Tag:                   tag,
@@ -246,7 +266,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			Nonce:                 agent.BootstrapNonce,
 			APIAddresses:          apiAddr,
 			CACert:                stateInfo.CACert,
-			Controller:            s.State.ControllerTag(),
+			Controller:            s.ControllerModel(c).ControllerTag(),
 			Model:                 modelTag,
 			MongoMemoryProfile:    controller.DefaultMongoMemoryProfile,
 			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
@@ -278,16 +298,16 @@ func (s *AgentSuite) SetControllerConfigAPIPort(c *gc.C, apiPort int) {
 	defer func() {
 		controller.AllowedUpdateConfigAttributes.Remove("api-port")
 	}()
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
+	err := s.ControllerModel(c).State().UpdateControllerConfig(map[string]interface{}{
 		"api-port": apiPort,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure that the local controller config is also up-to-date.
-	s.ControllerConfig["api-port"] = apiPort
+	s.ControllerConfigAttrs["api-port"] = apiPort
 }
 
 func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
-	apiInfo := s.APIInfo(c)
+	apiInfo := s.ControllerModelApiInfo()
 
 	c.Assert(apiInfo.Addrs, gc.HasLen, 1)
 	mHP, err := network.ParseMachineHostPort(apiInfo.Addrs[0])
@@ -296,7 +316,7 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 	hostPorts := network.SpaceHostPorts{
 		{SpaceAddress: network.SpaceAddress{MachineAddress: mHP.MachineAddress}, NetPort: mHP.NetPort}}
 
-	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{hostPorts})
+	err = s.ControllerModel(c).State().SetAPIHostPorts([]network.SpaceHostPorts{hostPorts})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("api host ports primed %#v", hostPorts)
@@ -305,7 +325,7 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 // InitAgent initialises the given agent command with additional
 // arguments as provided.
 func (s *AgentSuite) InitAgent(c *gc.C, a cmd.Command, args ...string) {
-	args = append([]string{"--data-dir", s.DataDir()}, args...)
+	args = append([]string{"--data-dir", s.DataDir}, args...)
 	err := cmdtesting.InitCommand(a, args)
 	c.Assert(err, jc.ErrorIsNil)
 }

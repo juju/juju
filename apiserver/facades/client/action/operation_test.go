@@ -43,19 +43,19 @@ func (s *operationSuite) setupOperations(c *gc.C) {
 	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
 
 	// There's only one operation created.
-	ops, err := s.Model.AllOperations()
+	ops, err := s.ControllerModel(c).AllOperations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, 1)
 	operationID, err := strconv.Atoi(ops[0].Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	a, err := s.Model.Action(strconv.Itoa(operationID + 1))
+	a, err := s.ControllerModel(c).Action(strconv.Itoa(operationID + 1))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(a.Parallel(), jc.IsTrue)
 	c.Assert(a.ExecutionGroup(), gc.Equals, "group")
 	_, err = a.Begin()
 	c.Assert(err, jc.ErrorIsNil)
-	a, err = s.Model.Action(strconv.Itoa(operationID + 2))
+	a, err = s.ControllerModel(c).Action(strconv.Itoa(operationID + 2))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = a.Finish(state.ActionResults{Status: state.ActionCompleted})
 	c.Assert(err, jc.ErrorIsNil)

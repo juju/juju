@@ -457,9 +457,6 @@ func (s *toolsSuite) TestDownloadMissingConcurrent(c *gc.C) {
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
 
-	unreg := environs.RegisterProvider(jujutesting.DefaultCloud.Type, apitesting.ProviderInstance)
-	defer unreg()
-
 	toolsBinaries := []version.Binary{
 		version.MustParseBinary("2.9.98-ubuntu-amd64"),
 		version.MustParseBinary("2.9.99-ubuntu-amd64"),
@@ -520,9 +517,6 @@ func (s *caasToolsSuite) TestToolDownloadNotSharedCAASController(c *gc.C) {
 		return storage.NewStorageSimpleStreamsDataSource("test datasource", testStorage, "tools", simplestreams.CUSTOM_CLOUD_DATA, false), nil
 	})
 	defer envtools.UnregisterToolsDataSourceFunc("local storage")
-
-	unreg := environs.RegisterProvider(jujutesting.DefaultCloud.Type, apitesting.ProviderInstance)
-	defer unreg()
 
 	tool := version.MustParseBinary("2.9.99-ubuntu-amd64")
 	stream := "released"

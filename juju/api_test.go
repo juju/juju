@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -60,11 +59,9 @@ func (s *NewAPIClientSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.PatchValue(&dummy.LogDir, c.MkDir())
 }
 
 func (s *NewAPIClientSuite) TearDownTest(c *gc.C) {
-	dummy.Reset(c)
 	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)

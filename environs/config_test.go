@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/manual"
 	"github.com/juju/juju/testing"
 )
@@ -19,21 +18,6 @@ type suite struct {
 }
 
 var _ = gc.Suite(&suite{})
-
-func (s *suite) SetUpTest(c *gc.C) {
-	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.AddCleanup(dummy.Reset)
-}
-
-// dummySampleConfig returns the dummy sample config without
-// the controller configured.
-// This function also exists in cloudconfig/userdata_test
-// Maybe place it in dummy and export it?
-func dummySampleConfig() testing.Attrs {
-	return dummy.SampleConfig().Merge(testing.Attrs{
-		"controller": false,
-	})
-}
 
 type dummyProvider struct {
 	environs.CloudEnvironProvider

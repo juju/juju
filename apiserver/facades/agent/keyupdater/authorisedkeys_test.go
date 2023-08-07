@@ -20,7 +20,7 @@ import (
 )
 
 type authorisedKeysSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
@@ -34,15 +34,16 @@ type authorisedKeysSuite struct {
 var _ = gc.Suite(&authorisedKeysSuite{})
 
 func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
+	st := s.ControllerModel(c).State()
 	// Create machines to work with
 	var err error
-	s.rawMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.rawMachine, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	s.unrelatedMachine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+	s.unrelatedMachine, err = st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The default auth is as a controller
@@ -50,7 +51,7 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 		Tag: s.rawMachine.Tag(),
 	}
 	s.keyupdater, err = keyupdater.NewKeyUpdaterAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     st,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
@@ -59,7 +60,7 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 
 func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIAcceptsController(c *gc.C) {
 	endPoint, err := keyupdater.NewKeyUpdaterAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
@@ -71,7 +72,7 @@ func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIRefusesNonMachineAgent(c *gc.C
 	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = names.NewUnitTag("ubuntu/1")
 	endPoint, err := keyupdater.NewKeyUpdaterAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      anAuthoriser,
 	})
@@ -87,9 +88,9 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
 }
 
 func (s *authorisedKeysSuite) setAuthorizedKeys(c *gc.C, keys string) {
-	err := s.Model.UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{"authorized-keys": keys}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := s.Model.ModelConfig()
+	modelConfig, err := s.ControllerModel(c).ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelConfig.AuthorizedKeys(), gc.Equals, keys)
 }

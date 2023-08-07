@@ -213,7 +213,7 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 		ControllerUUID:     "deadbeef-1bad-500d-9000-4b1d0d06f00d",
 		IsController:       false,
 		OwnerTag:           "user-bob",
-		ProviderType:       "someprovider",
+		ProviderType:       "dummy",
 		CloudTag:           "cloud-some-cloud",
 		CloudRegion:        "some-region",
 		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",

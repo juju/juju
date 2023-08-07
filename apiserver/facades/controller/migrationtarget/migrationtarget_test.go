@@ -15,7 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/manual"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -62,7 +61,7 @@ func (s *Suite) SetUpTest(c *gc.C) {
 
 	// Set up InitialConfig with a dummy provider configuration. This
 	// is required to allow model import test to work.
-	s.InitialConfig = jujutesting.CustomModelConfig(c, dummy.SampleConfig())
+	s.InitialConfig = jujutesting.CustomModelConfig(c, jujutesting.FakeConfig())
 
 	// The call to StateSuite's SetUpTest uses s.InitialConfig so
 	// it has to happen here.

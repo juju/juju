@@ -19,13 +19,14 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 // firewallerBaseSuite implements common testing suite for all API
 // versions. It's not intended to be used directly or registered as a
 // suite, but embedded.
 type firewallerBaseSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 
 	machines    []*state.Machine
 	application *state.Application
@@ -38,7 +39,7 @@ type firewallerBaseSuite struct {
 }
 
 func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
 	// Reset previous machines and units (if any) and create 3
 	// machines for the tests.
@@ -47,13 +48,19 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
 	for i := 0; i <= 2; i++ {
-		machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
+		machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
 		s.machines = append(s.machines, machine)
 	}
 	// Create an application and three units for these machines.
-	s.charm = s.AddTestingCharm(c, "wordpress")
-	s.application = s.AddTestingApplication(c, "wordpress", s.charm)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	s.charm = f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	s.application = f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: s.charm,
+	})
 	// Add the rest of the units and assign them.
 	for i := 0; i <= 2; i++ {
 		unit, err := s.application.AddUnit(state.AddUnitParams{})
@@ -64,12 +71,13 @@ func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	}
 
 	// Create a relation.
-	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	eps, err := s.State.InferEndpoints("wordpress", "mysql")
+	f.MakeApplication(c, nil)
+	st := s.ControllerModel(c).State()
+	eps, err := st.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.relations = make([]*state.Relation, 1)
-	s.relations[0], err = s.State.AddRelation(eps...)
+	s.relations[0], err = st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
@@ -92,7 +100,7 @@ func (s *firewallerBaseSuite) testFirewallerFailsWithNonControllerUser(
 	ctx := facadetest.Context{
 		Auth_:      anAuthorizer,
 		Resources_: s.resources,
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 	}
 	err := factory(ctx)
 	c.Assert(err, gc.NotNil)

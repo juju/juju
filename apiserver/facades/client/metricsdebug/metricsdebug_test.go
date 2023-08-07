@@ -19,7 +19,7 @@ import (
 )
 
 type metricsDebugSuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	metricsdebug *metricsdebug.MetricsDebugAPI
 	authorizer   apiservertesting.FakeAuthorizer
@@ -28,12 +28,12 @@ type metricsDebugSuite struct {
 var _ = gc.Suite(&metricsDebugSuite{})
 
 func (s *metricsDebugSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
+		Tag: jujutesting.AdminUser,
 	}
 	debug, err := metricsdebug.NewMetricsDebugAPI(facadetest.Context{
-		State_: s.State,
+		State_: s.ControllerModel(c).State(),
 		Auth_:  s.authorizer,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -41,14 +41,17 @@ func (s *metricsDebugSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
-	testCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	testApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: testCharm})
-	testUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: testApplication, SetCharmURL: true})
-	testUnit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: testApplication, SetCharmURL: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
 
-	csCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-1"})
-	csApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "cs-application", Charm: csCharm})
-	csUnit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: csApplication, SetCharmURL: true})
+	testCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
+	testApplication := f.MakeApplication(c, &factory.ApplicationParams{Charm: testCharm})
+	testUnit1 := f.MakeUnit(c, &factory.UnitParams{Application: testApplication, SetCharmURL: true})
+	testUnit2 := f.MakeUnit(c, &factory.UnitParams{Application: testApplication, SetCharmURL: true})
+
+	csCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered-1"})
+	csApplication := f.MakeApplication(c, &factory.ApplicationParams{Name: "cs-application", Charm: csCharm})
+	csUnit1 := f.MakeUnit(c, &factory.UnitParams{Application: csApplication, SetCharmURL: true})
 
 	tests := []struct {
 		about  string
@@ -173,15 +176,18 @@ func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
 }
 
 func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
+	meteredApplication := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
 	t1 := t0.Add(time.Second)
 	metricA := state.Metric{Key: "pings", Value: "5", Time: t0}
 	metricB := state.Metric{Key: "pings", Value: "10.5", Time: t1}
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA, metricB}})
+	f.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA}})
+	f.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{metricA, metricB}})
 	args := params.Entities{Entities: []params.Entity{
 		{"unit-metered/0"},
 	}}
@@ -203,11 +209,14 @@ func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 }
 
 func (s *metricsDebugSuite) TestGetMetricsLabelOrdering(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
+	meteredApplication := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{{
+	f.MakeMetric(c, &factory.MetricParams{Unit: unit, Metrics: []state.Metric{{
 		Key: "pings", Value: "6", Time: t0,
 	}, {
 		Key: "pings", Value: "2", Time: t0, Labels: map[string]string{"quux": "baz"},
@@ -238,17 +247,20 @@ func (s *metricsDebugSuite) TestGetMetricsLabelOrdering(c *gc.C) {
 }
 
 func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
+	meteredApplication := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit0 := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit1 := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
 	t1 := t0.Add(time.Second)
 	metricA := state.Metric{Key: "pings", Value: "5", Time: t1}
 	metricB := state.Metric{Key: "pings", Value: "10.5", Time: t0}
 	metricC := state.Metric{Key: "juju-units", Value: "8", Time: t1}
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB, metricC}})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB, metricC}})
+	f.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB, metricC}})
+	f.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB, metricC}})
 	args := params.Entities{}
 	result, err := s.metricsdebug.GetMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -279,17 +291,20 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
 }
 
 func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWhenNotAllMetricsInEachBatch(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
+	meteredApplication := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit0 := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit1 := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
 	t1 := t0.Add(time.Second)
 	metricA := state.Metric{Key: "pings", Value: "5", Time: t1}
 	metricB := state.Metric{Key: "pings", Value: "10.5", Time: t0}
 	metricC := state.Metric{Key: "juju-units", Value: "8", Time: t1}
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB, metricC}})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB}})
+	f.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB, metricC}})
+	f.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB}})
 	args := params.Entities{}
 	result, err := s.metricsdebug.GetMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -315,18 +330,21 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWhenNotAllMetricsInEac
 }
 
 func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWithMultipleBatchesPerUnit(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
-	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
+	meteredApplication := f.MakeApplication(c, &factory.ApplicationParams{Charm: meteredCharm})
+	unit0 := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit1 := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 	t0 := time.Now().Round(time.Second)
 	t1 := t0.Add(time.Second)
 	metricA := state.Metric{Key: "pings", Value: "5", Time: t1}
 	metricB := state.Metric{Key: "pings", Value: "10.5", Time: t0}
 	metricC := state.Metric{Key: "juju-units", Value: "8", Time: t1}
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB}})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricC}})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB}})
+	f.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB}})
+	f.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricC}})
+	f.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB}})
 	args := params.Entities{}
 	result, err := s.metricsdebug.GetMetrics(args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -352,17 +370,20 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWithMultipleBatchesPer
 }
 
 func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocks(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
+	meteredApplication := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
 	})
-	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit0 := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit1 := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 
-	metricUnit0 := s.Factory.MakeMetric(c, &factory.MetricParams{
+	metricUnit0 := f.MakeMetric(c, &factory.MetricParams{
 		Unit: unit0,
 	})
-	metricUnit1 := s.Factory.MakeMetric(c, &factory.MetricParams{
+	metricUnit1 := f.MakeMetric(c, &factory.MetricParams{
 		Unit: unit1,
 	})
 
@@ -389,17 +410,20 @@ func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocks(c *gc.C) {
 }
 
 func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocksWithApplication(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
+	meteredApplication := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
 	})
-	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit0 := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit1 := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 
-	metricUnit0 := s.Factory.MakeMetric(c, &factory.MetricParams{
+	metricUnit0 := f.MakeMetric(c, &factory.MetricParams{
 		Unit: unit0,
 	})
-	metricUnit1 := s.Factory.MakeMetric(c, &factory.MetricParams{
+	metricUnit1 := f.MakeMetric(c, &factory.MetricParams{
 		Unit: unit1,
 	})
 
@@ -421,17 +445,20 @@ func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocksWithApplication(c *gc.C
 }
 
 func (s *metricsDebugSuite) TestGetModelNoMocks(c *gc.C) {
-	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
-	meteredApplication := s.Factory.MakeApplication(c, &factory.ApplicationParams{
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "local:quantal/metered-1"})
+	meteredApplication := f.MakeApplication(c, &factory.ApplicationParams{
 		Charm: meteredCharm,
 	})
-	unit0 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit0 := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
+	unit1 := f.MakeUnit(c, &factory.UnitParams{Application: meteredApplication, SetCharmURL: true})
 
-	metricUnit0 := s.Factory.MakeMetric(c, &factory.MetricParams{
+	metricUnit0 := f.MakeMetric(c, &factory.MetricParams{
 		Unit: unit0,
 	})
-	metricUnit1 := s.Factory.MakeMetric(c, &factory.MetricParams{
+	metricUnit1 := f.MakeMetric(c, &factory.MetricParams{
 		Unit: unit1,
 	})
 

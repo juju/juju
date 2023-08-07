@@ -23,7 +23,7 @@ import (
 var _ = gc.Suite(&retryStrategySuite{})
 
 type retryStrategySuite struct {
-	jujutesting.JujuConnSuite
+	jujutesting.ApiServerSuite
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
@@ -44,8 +44,11 @@ var tagsTests = []struct {
 }
 
 func (s *retryStrategySuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.unit = s.Factory.MakeUnit(c, nil)
+	s.ApiServerSuite.SetUpTest(c)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	s.unit = f.MakeUnit(c, nil)
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming unit 0 has logged in.
@@ -59,7 +62,7 @@ func (s *retryStrategySuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	strategy, err := retrystrategy.NewRetryStrategyAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
@@ -68,9 +71,12 @@ func (s *retryStrategySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *retryStrategySuite) TestRetryStrategyUnauthenticated(c *gc.C) {
-	svc, err := s.unit.Application()
+	app, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	otherUnit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{Application: svc})
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	otherUnit := f.MakeUnit(c, &jujufactory.UnitParams{Application: app})
 	args := params.Entities{Entities: []params.Entity{{otherUnit.Tag().String()}}}
 
 	res, err := s.strategy.RetryStrategy(args)
@@ -100,13 +106,16 @@ func (s *retryStrategySuite) TestRetryStrategyUnit(c *gc.C) {
 }
 
 func (s *retryStrategySuite) TestRetryStrategyApplication(c *gc.C) {
-	app := s.Factory.MakeApplication(c, &jujufactory.ApplicationParams{Name: "app"})
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	app := f.MakeApplication(c, &jujufactory.ApplicationParams{Name: "app"})
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: app.Tag(),
 	}
 
 	strategy, err := retrystrategy.NewRetryStrategyAPI(facadetest.Context{
-		State_:     s.State,
+		State_:     s.ControllerModel(c).State(),
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})
@@ -142,17 +151,20 @@ func (s *retryStrategySuite) assertRetryStrategy(c *gc.C, tag string) {
 }
 
 func (s *retryStrategySuite) setRetryStrategy(c *gc.C, automaticallyRetryHooks bool) {
-	err := s.Model.UpdateModelConfig(map[string]interface{}{"automatically-retry-hooks": automaticallyRetryHooks}, nil)
+	err := s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{"automatically-retry-hooks": automaticallyRetryHooks}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := s.Model.ModelConfig()
+	modelConfig, err := s.ControllerModel(c).ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelConfig.AutomaticallyRetryHooks(), gc.Equals, automaticallyRetryHooks)
 }
 
 func (s *retryStrategySuite) TestWatchRetryStrategyUnauthenticated(c *gc.C) {
-	svc, err := s.unit.Application()
+	app, err := s.unit.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	otherUnit := s.Factory.MakeUnit(c, &jujufactory.UnitParams{Application: svc})
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	otherUnit := f.MakeUnit(c, &jujufactory.UnitParams{Application: app})
 	args := params.Entities{Entities: []params.Entity{{otherUnit.Tag().String()}}}
 
 	res, err := s.strategy.WatchRetryStrategy(args)

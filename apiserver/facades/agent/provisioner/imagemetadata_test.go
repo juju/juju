@@ -55,8 +55,8 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 	api, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      s.authorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     s.ControllerModel(c).State(),
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,10 +72,11 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
+	st := s.ControllerModel(c).State()
 	api, err := provisioner.NewProvisionerAPI(facadetest.Context{
 		Auth_:      s.authorizer,
-		State_:     s.State,
-		StatePool_: s.StatePool,
+		State_:     st,
+		StatePool_: s.StatePool(),
 		Resources_: s.resources,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -85,7 +86,7 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 	// Write metadata to state.
 	metadata := s.convertCloudImageMetadata(expected[0])
 	for _, m := range metadata {
-		err := s.State.CloudImageMetadataStorage.SaveMetadata(
+		err := st.CloudImageMetadataStorage.SaveMetadata(
 			[]cloudimagemetadata.Metadata{m},
 		)
 		c.Assert(err, jc.ErrorIsNil)

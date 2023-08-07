@@ -44,7 +44,7 @@ type RemoteProReqRelation struct {
 }
 
 type networkInfoSuite struct {
-	testing.JujuConnSuite
+	testing.ApiServerSuite
 }
 
 var _ = gc.Suite(&networkInfoSuite{})
@@ -55,7 +55,7 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
+	machine, err := s.ControllerModel(c).State().Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
@@ -102,23 +102,29 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 	// Add subnets for the addresses that the machine will have.
 	// We are testing a space-less deployment here.
-	_, err := s.State.AddSubnet(network.SubnetInfo{
+	st := s.ControllerModel(c).State()
+	_, err := st.AddSubnet(network.SubnetInfo{
 		CIDR:    "10.2.0.0/16",
 		SpaceID: network.AlphaSpaceId,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddSubnet(network.SubnetInfo{
+	_, err = st.AddSubnet(network.SubnetInfo{
 		CIDR:    "100.2.3.0/24",
 		SpaceID: network.AlphaSpaceId,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	bindings := map[string]string{
 		"":             network.AlphaSpaceName,
 		"server-admin": network.AlphaSpaceName,
 	}
-	app := s.AddTestingApplicationWithBindings(c, "mysql", s.AddTestingCharm(c, "mysql"), bindings)
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		EndpointBindings: bindings,
+	})
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,7 +132,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
+	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We need at least one address on the machine itself, because these are
@@ -159,17 +165,23 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 
 func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C) {
 	// Add a single subnet in the alpha space.
-	_, err := s.State.AddSubnet(network.SubnetInfo{
+	st := s.ControllerModel(c).State()
+	_, err := st.AddSubnet(network.SubnetInfo{
 		CIDR:    "10.2.0.0/16",
 		SpaceID: network.AlphaSpaceId,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	bindings := map[string]string{
 		"":             network.AlphaSpaceName,
 		"server-admin": network.AlphaSpaceName,
 	}
-	app := s.AddTestingApplicationWithBindings(c, "mysql", s.AddTestingCharm(c, "mysql"), bindings)
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		EndpointBindings: bindings,
+	})
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -177,7 +189,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 
 	id, err := unit.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
+	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ip := "10.2.3.4/16"
@@ -225,7 +237,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
+	machine, err := s.ControllerModel(c).State().Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The only address is a host-name, resolvable to the IP below.
@@ -273,13 +285,19 @@ func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(
 
 func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
-	st := s.Factory.MakeCAASModel(c, nil)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	st := f.MakeCAASModel(c, nil)
 	defer func() { _ = st.Close() }()
 
-	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
-	u := f.MakeUnit(c, &factory.UnitParams{Application: app})
+	f2, release := s.NewFactory(c, st.ModelUUID())
+	defer release()
+
+	ch := f2.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
+	app := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
+	u := f2.MakeUnit(c, &factory.UnitParams{Application: app})
 
 	// The only address is a host-name, resolvable to the IP below.
 	host := "host.at.somewhere"
@@ -338,7 +356,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.pu0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
+	machine, err := s.ControllerModel(c).State().Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	addresses := []network.SpaceAddress{
@@ -375,7 +393,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
+	machine, err := s.ControllerModel(c).State().Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
@@ -400,7 +418,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
+	machine, err := s.ControllerModel(c).State().Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = machine.SetProviderAddresses(
@@ -424,7 +442,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
+	machine, err := s.ControllerModel(c).State().Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	retryFactory := func() retry.CallArgs {
@@ -459,7 +477,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 	c.Assert(err, jc.ErrorIsNil)
 	id, err := prr.ru0.AssignedMachineId()
 	c.Assert(err, jc.ErrorIsNil)
-	machine, err := s.State.Machine(id)
+	machine, err := s.ControllerModel(c).State().Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The first attempt is for the public address.
@@ -503,14 +521,20 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 
 func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
-	st := s.Factory.MakeCAASModel(c, nil)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	st := f.MakeCAASModel(c, nil)
 	defer func() { _ = st.Close() }()
 
-	f := factory.NewFactory(st, s.StatePool)
-	gitlabch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	mysqlch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
-	gitlab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitlabch})
-	mysql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlch})
+	f2, release := s.NewFactory(c, st.ModelUUID())
+	defer release()
+
+	gitlabch := f2.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
+	mysqlch := f2.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
+	gitlab := f2.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitlabch})
+	mysql := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mysqlch})
 
 	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
@@ -548,14 +572,20 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
-	st := s.Factory.MakeCAASModel(c, nil)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	st := f.MakeCAASModel(c, nil)
 	defer func() { _ = st.Close() }()
 
-	f := factory.NewFactory(st, s.StatePool)
-	gitLabCh := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	mySqlCh := f.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
-	gitLab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
-	mySql := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mySqlCh})
+	f2, release := s.NewFactory(c, st.ModelUUID())
+	defer release()
+
+	gitLabCh := f2.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
+	mySqlCh := f2.MakeCharm(c, &factory.CharmParams{Name: "mysql-k8s", Series: "focal"})
+	gitLab := f2.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
+	mySql := f2.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: mySqlCh})
 
 	prr := newProReqRelationForApps(c, st, mySql, gitLab)
 
@@ -569,12 +599,18 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 
 func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
-	st := s.Factory.MakeCAASModel(c, nil)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	st := f.MakeCAASModel(c, nil)
 	defer func() { _ = st.Close() }()
 
-	f := factory.NewFactory(st, s.StatePool)
-	gitLabCh := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	gitLab := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
+	f2, release := s.NewFactory(c, st.ModelUUID())
+	defer release()
+
+	gitLabCh := f2.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
+	gitLab := f2.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: gitLabCh})
 
 	// Add a local-machine address.
 	// Adding it to the service instead of the container is OK here,
@@ -662,16 +698,21 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	spaceIDPublic := s.setupSpace(c, "public", "10.10.0.0/24")
 	_ = s.setupSpace(c, "private", "10.20.0.0/24")
 
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
 	bindings := map[string]string{
 		"":             "default",
 		"server-admin": "public",
 	}
-	app := s.AddTestingApplicationWithBindings(c, "wordpress", s.AddTestingCharm(c, "mysql"), bindings)
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		EndpointBindings: bindings,
+	})
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+	machine, err := s.ControllerModel(c).State().AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
@@ -725,12 +766,18 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 // TODO (manadart 2020-02-21): This test can be removed after universal subnet
 // discovery is implemented.
 func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
-	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+	})
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+	machine, err := s.ControllerModel(c).State().AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("12.10"),
 		Jobs: []state.MachineJob{state.JobHostUnits},
 	})
@@ -765,10 +812,11 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 }
 
 func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) string {
-	space, err := s.State.AddSpace(spaceName, network.Id(spaceName), nil, true)
+	st := s.ControllerModel(c).State()
+	space, err := st.AddSpace(spaceName, network.Id(spaceName), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.State.AddSubnet(network.SubnetInfo{
+	_, err = st.AddSubnet(network.SubnetInfo{
 		CIDR:    cidr,
 		SpaceID: space.Id(),
 	})
@@ -832,7 +880,7 @@ func (s *networkInfoSuite) newNetworkInfo(
 		}
 	}
 
-	ni, err := uniter.NewNetworkInfoForStrategy(s.State, tag, retryFactory, lookupHost, loggo.GetLogger("juju.apiserver.uniter"))
+	ni, err := uniter.NewNetworkInfoForStrategy(s.ControllerModel(c).State(), tag, retryFactory, lookupHost, loggo.GetLogger("juju.apiserver.uniter"))
 	c.Assert(err, jc.ErrorIsNil)
 	return ni
 }
@@ -840,31 +888,54 @@ func (s *networkInfoSuite) newNetworkInfo(
 func (s *networkInfoSuite) newProReqRelationWithBindings(
 	c *gc.C, scope charm.RelationScope, pBindings, rBindings map[string]string,
 ) *ProReqRelation {
-	papp := s.AddTestingApplicationWithBindings(c, "mysql", s.AddTestingCharm(c, "mysql"), pBindings)
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	papp := f.MakeApplication(c, &factory.ApplicationParams{
+		EndpointBindings: pBindings,
+	})
 	var rapp *state.Application
 	if scope == charm.ScopeGlobal {
-		rapp = s.AddTestingApplicationWithBindings(c, "wordpress", s.AddTestingCharm(c, "wordpress"), rBindings)
+		rapp = f.MakeApplication(c, &factory.ApplicationParams{
+			Name:             "wordpress",
+			Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+			EndpointBindings: rBindings,
+		})
 	} else {
-		rapp = s.AddTestingApplicationWithBindings(c, "logging", s.AddTestingCharm(c, "logging"), rBindings)
+		rapp = f.MakeApplication(c, &factory.ApplicationParams{
+			Name:             "logging",
+			Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
+			EndpointBindings: rBindings,
+		})
 	}
-	return newProReqRelationForApps(c, s.State, papp, rapp)
+	return newProReqRelationForApps(c, s.ControllerModel(c).State(), papp, rapp)
 }
 
 func (s *networkInfoSuite) newProReqRelation(c *gc.C, scope charm.RelationScope) *ProReqRelation {
-	pApp := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	pApp := f.MakeApplication(c, nil)
 
 	var rApp *state.Application
 	if scope == charm.ScopeGlobal {
-		rApp = s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+		rApp = f.MakeApplication(c, &factory.ApplicationParams{
+			Name:  "wordpress",
+			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+		})
 	} else {
-		rApp = s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+		rApp = f.MakeApplication(c, &factory.ApplicationParams{
+			Name:  "wordpress",
+			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+		})
 	}
 
-	return newProReqRelationForApps(c, s.State, pApp, rApp)
+	return newProReqRelationForApps(c, s.ControllerModel(c).State(), pApp, rApp)
 }
 
 func (s *networkInfoSuite) newRemoteProReqRelation(c *gc.C) *RemoteProReqRelation {
-	papp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+	st := s.ControllerModel(c).State()
+	papp, err := st.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
 		SourceModel: coretesting.ModelTag,
 		Endpoints: []charm.Relation{{
@@ -874,11 +945,18 @@ func (s *networkInfoSuite) newRemoteProReqRelation(c *gc.C) *RemoteProReqRelatio
 			Scope:     charm.ScopeGlobal,
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
-	rapp := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
-	eps, err := s.State.InferEndpoints("mysql", "wordpress")
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	rapp := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "wordpress",
+		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+	})
+
+	eps, err := st.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
+	rel, err := st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	prr := &RemoteProReqRelation{rel: rel, papp: papp, rapp: rapp}

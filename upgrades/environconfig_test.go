@@ -58,18 +58,18 @@ func (s *upgradeModelConfigSuite) TestUpgradeModelConfigModelConfigError(c *gc.C
 }
 
 func (s *upgradeModelConfigSuite) TestUpgradeModelConfigProviderNotRegistered(c *gc.C) {
-	s.registry.SetErrors(errors.New(`no registered provider for "someprovider"`))
+	s.registry.SetErrors(errors.New(`no registered provider for "dummy"`))
 	err := upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
-	c.Assert(err, gc.ErrorMatches, `getting provider: no registered provider for "someprovider"`)
+	c.Assert(err, gc.ErrorMatches, `getting provider: no registered provider for "dummy"`)
 	s.stub.CheckCallNames(c, "ModelConfig")
 }
 
 func (s *upgradeModelConfigSuite) TestUpgradeModelConfigProviderNotConfigUpgrader(c *gc.C) {
-	s.registry.providers["someprovider"] = &mockEnvironProvider{}
+	s.registry.providers["dummy"] = &mockEnvironProvider{}
 	err := upgrades.UpgradeModelConfig(s.reader, s.updater, s.registry)
 	c.Assert(err, jc.ErrorIsNil)
 	s.registry.CheckCalls(c, []testing.StubCall{{
-		FuncName: "Provider", Args: []interface{}{"someprovider"},
+		FuncName: "Provider", Args: []interface{}{"dummy"},
 	}})
 	s.stub.CheckCallNames(c, "ModelConfig")
 }
@@ -79,7 +79,7 @@ func (s *upgradeModelConfigSuite) TestUpgradeModelConfigProviderConfigUpgrader(c
 	s.cfg, err = s.cfg.Apply(map[string]interface{}{"test-key": "test-value"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.registry.providers["someprovider"] = &mockModelConfigUpgrader{
+	s.registry.providers["dummy"] = &mockModelConfigUpgrader{
 		upgradeConfig: func(cfg *config.Config) (*config.Config, error) {
 			return cfg.Remove([]string{"test-key"})
 		},
@@ -98,7 +98,7 @@ func (s *upgradeModelConfigSuite) TestUpgradeModelConfigProviderConfigUpgrader(c
 }
 
 func (s *upgradeModelConfigSuite) TestUpgradeModelConfigUpgradeConfigError(c *gc.C) {
-	s.registry.providers["someprovider"] = &mockModelConfigUpgrader{
+	s.registry.providers["dummy"] = &mockModelConfigUpgrader{
 		upgradeConfig: func(cfg *config.Config) (*config.Config, error) {
 			return nil, errors.New("cannot upgrade config")
 		},
@@ -110,7 +110,7 @@ func (s *upgradeModelConfigSuite) TestUpgradeModelConfigUpgradeConfigError(c *gc
 
 func (s *upgradeModelConfigSuite) TestUpgradeModelConfigUpdateConfigError(c *gc.C) {
 	s.stub.SetErrors(nil, errors.New("cannot update environ config"))
-	s.registry.providers["someprovider"] = &mockModelConfigUpgrader{
+	s.registry.providers["dummy"] = &mockModelConfigUpgrader{
 		upgradeConfig: func(cfg *config.Config) (*config.Config, error) {
 			return cfg, nil
 		},

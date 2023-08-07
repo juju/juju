@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	coretesting "github.com/juju/juju/testing"
@@ -47,7 +46,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.st.EXPECT().Model().Return(s.model, nil)
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
+	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"agent-version":            "2.6.6",
 		"enable-os-upgrade":        true,
 		"enable-os-refresh-update": true,

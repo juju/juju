@@ -24,21 +24,10 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
-
-// dummySampleConfig returns the dummy sample config without
-// the controller configured.
-// This function also exists in environs/config_test
-// Maybe place it in dummy and export it?
-func dummySampleConfig() testing.Attrs {
-	return dummy.SampleConfig().Merge(testing.Attrs{
-		"controller": false,
-	})
-}
 
 type CloudInitSuite struct {
 	testing.FakeJujuXDGDataHomeSuite
@@ -63,7 +52,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		CloudInitUserData:              cloudInitUserDataMap,
 	}
 
-	cfg, err := config.New(config.NoDefaults, dummySampleConfig().Merge(testing.Attrs{
+	cfg, err := config.New(config.NoDefaults, testing.FakeConfig().Merge(testing.Attrs{
 		"authorized-keys":    "we-are-the-keys",
 		"cloudinit-userdata": validCloudInitUserData,
 	}))
@@ -78,7 +67,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	c.Assert(icfg, jc.DeepEquals, expectedMcfg)
 
 	// Test when updates/upgrades are set to false.
-	cfg, err = config.New(config.NoDefaults, dummySampleConfig().Merge(testing.Attrs{
+	cfg, err = config.New(config.NoDefaults, testing.FakeConfig().Merge(testing.Attrs{
 		"authorized-keys":          "we-are-the-keys",
 		"enable-os-refresh-update": false,
 		"enable-os-upgrade":        false,
@@ -94,7 +83,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 
 func (s *CloudInitSuite) TestFinishInstanceConfigNonDefault(c *gc.C) {
 	userTag := names.NewLocalUserTag("not-touched")
-	attrs := dummySampleConfig().Merge(testing.Attrs{
+	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,
 	})
@@ -137,7 +126,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, base corebase.Base, bootstrap bool)
 			Version: version.Binary{version.MustParse("1.2.3"), "jammy", "amd64"},
 		},
 	}
-	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
+	envConfig, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
 
 	allJobs := []model.MachineJob{
