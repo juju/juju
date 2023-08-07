@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -29,7 +28,7 @@ import (
 // MacaroonSuite wraps a ApiServerSuite with macaroon authentication
 // enabled.
 type MacaroonSuite struct {
-	jujutesting.ApiServerSuite
+	ApiServerSuite
 
 	// discharger holds the third-party discharger used
 	// for authentication.
@@ -99,7 +98,7 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 func (s *MacaroonSuite) AddControllerUser(c *gc.C, username string, access permission.Access) {
 	_, err := s.ControllerModel(c).State().AddControllerUser(state.UserAccessSpec{
 		User:      names.NewUserTag(username),
-		CreatedBy: jujutesting.AdminUser,
+		CreatedBy: AdminUser,
 		Access:    access,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -171,7 +170,7 @@ func (jar *ClearableCookieJar) Cookies(u *url.URL) []*http.Cookie {
 	return jar.jar.Cookies(u)
 }
 
-// Cookies implements http.CookieJar.SetCookies.
+// SetCookies implements http.CookieJar.SetCookies.
 func (jar *ClearableCookieJar) SetCookies(u *url.URL, cookies []*http.Cookie) {
 	jar.jar.SetCookies(u, cookies)
 }

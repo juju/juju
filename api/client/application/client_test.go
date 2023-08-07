@@ -17,11 +17,11 @@ import (
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/application"
 	apicharm "github.com/juju/juju/api/common/charm"
-	apitesting "github.com/juju/juju/api/testing"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -524,7 +524,7 @@ func (s *applicationSuite) TestConsume(c *gc.C) {
 		ApplicationDescription: "description",
 		Endpoints:              []params.RemoteEndpoint{{Name: "endpoint"}},
 	}
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	controllerInfo := &params.ExternalControllerInfo{
 		ControllerTag: coretesting.ControllerTag.String(),

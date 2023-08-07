@@ -24,7 +24,6 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/firewaller"
@@ -1142,7 +1142,7 @@ func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
 }
 
 func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *gc.C) (chan []string, *macaroon.Macaroon) {
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	s.remoteRelations.EXPECT().Relations([]string{"wordpress:db remote-mysql:server"}).Return(
 		[]params.RemoteRelationResult{{
@@ -1305,7 +1305,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 	app := s.addApplication(ctrl, "mysql", true)
 	s.addUnit(c, ctrl, app)
 
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	s.remoteRelations.EXPECT().Relations([]string{"remote-wordpress:db mysql:server"}).Return(
 		[]params.RemoteRelationResult{{
@@ -1382,7 +1382,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	app := s.addApplication(ctrl, "mysql", true)
 	s.addUnit(c, ctrl, app)
 
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	s.remoteRelations.EXPECT().Relations([]string{"wordpress:db remote-mysql:server"}).Return(
 		[]params.RemoteRelationResult{{
@@ -1474,7 +1474,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ctrl *gomock.Controller,
 	})
 
 	// Set up the offering model - create the remote app.
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	remoteRelParams := params.RemoteRelation{
 		Life:            "alive",

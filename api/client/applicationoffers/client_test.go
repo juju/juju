@@ -17,9 +17,9 @@ import (
 
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/applicationoffers"
-	apitesting "github.com/juju/juju/api/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -478,7 +478,7 @@ func (s *crossmodelMockSuite) TestGetConsumeDetails(c *gc.C) {
 	controllerInfo := &params.ExternalControllerInfo{
 		Addrs: []string{"1.2.3.4"},
 	}
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.ConsumeOfferDetailsArg{

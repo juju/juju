@@ -21,12 +21,12 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/rpc/params"
@@ -344,7 +344,7 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncWithNoMacaroons(c *gc.C) {
 }
 
 func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStore(c *gc.C) {
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	jar, err := cookiejar.New(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -372,7 +372,7 @@ func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStore(c *gc.C) {
 }
 
 func (s *OpenAPIFuncSuite) TestOpenAPIFuncUsesStoreWithSNIHost(c *gc.C) {
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	jar, err := cookiejar.New(nil)
 	c.Assert(err, jc.ErrorIsNil)

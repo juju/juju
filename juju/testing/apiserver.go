@@ -95,8 +95,8 @@ type ApiServerSuite struct {
 	controller          *state.Controller
 	controllerModelUUID string
 
-	// apiStates are opened api.Connections to close on teardown
-	apiStates []api.Connection
+	// apiConns are opened api.Connections to close on teardown
+	apiConns []api.Connection
 
 	baseURL    *url.URL
 	httpServer *httptest.Server
@@ -385,11 +385,11 @@ func (s *ApiServerSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce strin
 	if modelUUID != "" {
 		apiInfo.ModelTag = names.NewModelTag(modelUUID)
 	}
-	apiState, err := api.Open(&apiInfo, api.DialOpts{})
+	conn, err := api.Open(&apiInfo, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiState, gc.NotNil)
-	s.apiStates = append(s.apiStates, apiState)
-	return apiState
+	c.Assert(conn, gc.NotNil)
+	s.apiConns = append(s.apiConns, conn)
+	return conn
 }
 
 // ControllerModelApiInfo returns the api address and ca cert needed to
@@ -496,13 +496,13 @@ func (s *ApiServerSuite) tearDownConn(c *gc.C) {
 	serverAlive := testServer != ""
 
 	// Close any api connections we know about first.
-	for _, st := range s.apiStates {
+	for _, st := range s.apiConns {
 		err := st.Close()
 		if serverAlive {
 			c.Check(err, jc.ErrorIsNil)
 		}
 	}
-	s.apiStates = nil
+	s.apiConns = nil
 	if s.controller != nil {
 		err := s.controller.Close()
 		c.Check(err, jc.ErrorIsNil)

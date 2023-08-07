@@ -11,10 +11,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -104,7 +104,7 @@ func (s *ConsumeSuite) assertSuccessModelDotApplication(c *gc.C, alias string) {
 		ctx, err = s.runConsume(c, "ctrl:booster.uke")
 	}
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	s.mockAPI.CheckCalls(c, []testing.StubCall{
 		{"GetConsumeDetails", []interface{}{"bob/booster.uke"}},
@@ -152,7 +152,7 @@ func (a *mockConsumeAPI) Consume(arg crossmodel.ConsumeApplicationArgs) (string,
 
 func (a *mockConsumeAPI) GetConsumeDetails(url string) (params.ConsumeOfferDetails, error) {
 	a.MethodCall(a, "GetConsumeDetails", url)
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	if err != nil {
 		return params.ConsumeOfferDetails{}, err
 	}

@@ -10,7 +10,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller/mocks"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -86,7 +86,7 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
 func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	mac, err := apitesting.NewMacaroon("apimac")
+	mac, err := jujutesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
 	entity := names.NewRelationTag("mysql:db wordpress:db")
 	s.st.EXPECT().GetMacaroon(entity).Return(mac, nil)

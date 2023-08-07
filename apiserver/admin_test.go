@@ -5,17 +5,13 @@ package apiserver_test
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -29,8 +25,6 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	machineclient "github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
-	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	corecontroller "github.com/juju/juju/controller"
@@ -870,251 +864,6 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	when, err := model.LastModelConnection(modelUser.UserTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when, jc.Almost, now)
-}
-
-var _ = gc.Suite(&macaroonLoginSuite{})
-
-type macaroonLoginSuite struct {
-	apitesting.MacaroonSuite
-}
-
-func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
-	const remoteUser = "test@somewhere"
-	s.AddModelUser(c, remoteUser)
-	s.AddControllerUser(c, remoteUser, permission.LoginAccess)
-	s.DischargerLogin = func() string {
-		return "test@somewhere"
-	}
-	workingTransport := http.DefaultTransport
-	failingTransport := errorTransport{
-		fallback: workingTransport,
-		location: s.DischargerLocation(),
-		err:      errors.New("some error"),
-	}
-	s.PatchValue(&http.DefaultTransport, failingTransport)
-	info := s.ControllerModelApiInfo()
-	_, err := s.login(c, info)
-	c.Assert(err, gc.ErrorMatches, `.*: some error .*`)
-
-	http.DefaultTransport = workingTransport
-
-	// The error doesn't stick around.
-	_, err = s.login(c, info)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Once we've succeeded, we shouldn't try again.
-	http.DefaultTransport = failingTransport
-
-	_, err = s.login(c, info)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult, error) {
-	cookieJar := apitesting.NewClearableCookieJar()
-
-	infoSkipLogin := *info
-	infoSkipLogin.SkipLogin = true
-	infoSkipLogin.Macaroons = nil
-	client := s.OpenAPI(c, &infoSkipLogin, cookieJar)
-	defer client.Close()
-
-	var (
-		request params.LoginRequest
-		result  params.LoginResult
-	)
-	err := client.APICall("Admin", 3, "", "Login", &request, &result)
-	if err != nil {
-		return params.LoginResult{}, errors.Annotatef(err, "cannot log in")
-	}
-
-	cookieURL := &url.URL{
-		Scheme: "https",
-		Host:   "localhost",
-		Path:   "/",
-	}
-
-	bakeryClient := httpbakery.NewClient()
-
-	mac := result.BakeryDischargeRequired
-	if mac == nil {
-		var err error
-		mac, err = bakery.NewLegacyMacaroon(result.DischargeRequired)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-	err = bakeryClient.HandleError(context.Background(), cookieURL, &httpbakery.Error{
-		Message: result.DischargeRequiredReason,
-		Code:    httpbakery.ErrDischargeRequired,
-		Info: &httpbakery.ErrorInfo{
-			Macaroon:     mac,
-			MacaroonPath: "/",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	// Add the macaroons that have been saved by HandleError to our login request.
-	request.Macaroons = httpbakery.MacaroonsForURL(bakeryClient.Client.Jar, cookieURL)
-
-	err = client.APICall("Admin", 3, "", "Login", &request, &result)
-	return result, err
-}
-
-func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerNoAccess(c *gc.C) {
-	s.DischargerLogin = func() string {
-		return "test@somewhere"
-	}
-	info := s.APIInfo(c)
-	// Log in to the controller, not the model.
-	info.ModelTag = names.ModelTag{}
-
-	_, err := s.login(c, info)
-	assertPermissionDenied(c, err)
-}
-
-func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C) {
-	setEveryoneAccess(c, s.ControllerModel(c).State(), jujutesting.AdminUser, permission.LoginAccess)
-	const remoteUser = "test@somewhere"
-	var remoteUserTag = names.NewUserTag(remoteUser)
-
-	s.DischargerLogin = func() string {
-		return remoteUser
-	}
-	info := s.APIInfo(c)
-	// Log in to the controller, not the model.
-	info.ModelTag = names.ModelTag{}
-
-	result, err := s.login(c, info)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(result.UserInfo, gc.NotNil)
-	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
-	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
-	c.Check(result.UserInfo.ModelAccess, gc.Equals, "")
-	c.Check(result.Servers, gc.DeepEquals, params.FromProviderHostsPorts(parseHostPortsFromAddress(c, info.Addrs...)))
-}
-
-func parseHostPortsFromAddress(c *gc.C, addresses ...string) []network.ProviderHostPorts {
-	hps := make([]network.ProviderHostPorts, len(addresses))
-	for i, add := range addresses {
-		hp, err := network.ParseProviderHostPorts(add)
-		c.Assert(err, jc.ErrorIsNil)
-		hps[i] = hp
-	}
-	return hps
-}
-
-func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerSuperuserAccess(c *gc.C) {
-	setEveryoneAccess(c, s.ControllerModel(c).State(), jujutesting.AdminUser, permission.SuperuserAccess)
-	const remoteUser = "test@somewhere"
-	var remoteUserTag = names.NewUserTag(remoteUser)
-
-	s.DischargerLogin = func() string {
-		return remoteUser
-	}
-	info := s.APIInfo(c)
-	// Log in to the controller, not the model.
-	info.ModelTag = names.ModelTag{}
-
-	result, err := s.login(c, info)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(result.UserInfo, gc.NotNil)
-	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
-	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "superuser")
-	c.Check(result.UserInfo.ModelAccess, gc.Equals, "")
-}
-
-func (s *macaroonLoginSuite) TestRemoteUserLoginToModelNoExplicitAccess(c *gc.C) {
-	// If we have a remote user which the controller knows nothing about,
-	// and the macaroon is discharged successfully, and the user is attempting
-	// to log into a model, that is permission denied.
-	setEveryoneAccess(c, s.ControllerModel(c).State(), jujutesting.AdminUser, permission.LoginAccess)
-	s.DischargerLogin = func() string {
-		return "test@somewhere"
-	}
-	info := s.APIInfo(c)
-
-	_, err := s.login(c, info)
-	assertPermissionDenied(c, err)
-}
-
-func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccess(c *gc.C) {
-	s.testRemoteUserLoginToModelWithExplicitAccess(c, false)
-}
-
-func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccessAndAllowModelAccess(c *gc.C) {
-	s.testRemoteUserLoginToModelWithExplicitAccess(c, true)
-}
-
-func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.C, allowModelAccess bool) {
-	apiserver.SetAllowModelAccess(s.Server, allowModelAccess)
-
-	// If we have a remote user which has explicit model access, but neither
-	// controller access nor 'everyone' access, the user will have access
-	// only if the AllowModelAccess configuration flag is true.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	const remoteUser = "test@somewhere"
-	f.MakeModelUser(c, &factory.ModelUserParams{
-		User: remoteUser,
-
-		Access: permission.WriteAccess,
-	})
-	s.DischargerLogin = func() string {
-		return remoteUser
-	}
-
-	_, err := s.login(c, s.ControllerModelApiInfo())
-	if allowModelAccess {
-		c.Assert(err, jc.ErrorIsNil)
-	} else {
-		assertPermissionDenied(c, err)
-	}
-}
-
-func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	const remoteUser = "test@somewhere"
-	var remoteUserTag = names.NewUserTag(remoteUser)
-	f.MakeModelUser(c, &factory.ModelUserParams{
-		User:   remoteUser,
-		Access: permission.WriteAccess,
-	})
-	s.AddControllerUser(c, remoteUser, permission.SuperuserAccess)
-
-	s.DischargerLogin = func() string {
-		return remoteUser
-	}
-	info := s.APIInfo(c)
-
-	result, err := s.login(c, info)
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(result.UserInfo, gc.NotNil)
-	c.Check(result.UserInfo.Identity, gc.Equals, remoteUserTag.String())
-	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "superuser")
-	c.Check(result.UserInfo.ModelAccess, gc.Equals, "write")
-}
-
-func (s *macaroonLoginSuite) TestLoginToModelSuccess(c *gc.C) {
-	const remoteUser = "test@somewhere"
-	s.AddModelUser(c, remoteUser)
-	s.AddControllerUser(c, remoteUser, permission.LoginAccess)
-	s.DischargerLogin = func() string {
-		return "test@somewhere"
-	}
-	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	defer client.Close()
-
-	// The auth tag has been correctly returned by the server.
-	c.Assert(client.AuthTag(), gc.Equals, names.NewUserTag(remoteUser))
-}
-
-func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
-	s.DischargerLogin = func() string {
-		return ""
-	}
-	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, `cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
-	c.Assert(client, gc.Equals, nil)
 }
 
 func assertInvalidEntityPassword(c *gc.C, err error) {

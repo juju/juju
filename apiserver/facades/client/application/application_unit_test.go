@@ -22,7 +22,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/application"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -122,7 +122,7 @@ func (s *ApplicationSuite) SetUpTest(c *gc.C) {
 
 	s.allSpaceInfos = network.SpaceInfos{}
 
-	testMac := apitesting.MustNewMacaroon("test")
+	testMac := jujutesting.MustNewMacaroon("test")
 	s.addRemoteApplicationParams = state.AddRemoteApplicationParams{
 		Name:        "hosted-mysql",
 		OfferUUID:   "hosted-mysql-uuid",

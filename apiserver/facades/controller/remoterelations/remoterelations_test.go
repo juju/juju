@@ -15,7 +15,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations/mocks"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -294,7 +294,7 @@ func (s *remoteRelationsSuite) TestGetTokens(c *gc.C) {
 func (s *remoteRelationsSuite) TestSaveMacaroons(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	relTag := names.NewRelationTag("mysql:db wordpress:db")
 	s.st.EXPECT().SaveMacaroon(relTag, mac).Return(nil)
@@ -313,7 +313,7 @@ func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
 
 	result, err := s.api.RemoteApplications(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := apitesting.NewMacaroon("test")
+	mac, err := jujutesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.RemoteApplicationResult{{
 		Result: &params.RemoteApplication{

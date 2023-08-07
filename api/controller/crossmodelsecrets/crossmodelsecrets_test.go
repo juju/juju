@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/crossmodelsecrets"
-	apitesting "github.com/juju/juju/api/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
+	jujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
 	secretsprovider "github.com/juju/juju/secrets/provider"
@@ -41,7 +41,7 @@ func ptr[T any](v T) *T {
 
 func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *gc.C) {
 	uri := coresecrets.NewURI()
-	macs := macaroon.Slice{apitesting.MustNewMacaroon("test")}
+	macs := macaroon.Slice{jujujutesting.MustNewMacaroon("test")}
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CrossModelSecrets")
 		c.Check(version, gc.Equals, 0)

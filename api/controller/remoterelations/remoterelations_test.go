@@ -10,11 +10,11 @@ import (
 
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/remoterelations"
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -375,7 +375,7 @@ func (s *remoteRelationsSuite) TestControllerAPIInfoForModel(c *gc.C) {
 
 func (s *remoteRelationsSuite) TestSaveMacaroon(c *gc.C) {
 	rel := names.NewRelationTag("mysql:db wordpress:db")
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Check(err, jc.ErrorIsNil)
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {

@@ -7,11 +7,8 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/proxy"
@@ -97,12 +94,4 @@ func NewTestingState(params TestingStateParams) Connection {
 		proxier:           params.Proxier,
 	}
 	return st
-}
-
-func ExtractMacaroons(c Connection) ([]macaroon.Slice, error) {
-	conn, ok := c.(*conn)
-	if !ok {
-		return nil, errors.Errorf("c must be a real connection")
-	}
-	return httpbakery.MacaroonsForURL(conn.bakeryClient.Client.Jar, conn.cookieURL), nil
 }

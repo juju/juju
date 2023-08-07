@@ -26,10 +26,10 @@ import (
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/migrationmaster"
-	macapitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -109,7 +109,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 	// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
 	statusMacs := status.TargetInfo.Macaroons
 	status.TargetInfo.Macaroons = nil
-	macapitesting.MacaroonEquals(c, statusMacs[0][0], mac)
+	testing.MacaroonEquals(c, statusMacs[0][0], mac)
 	c.Assert(status, gc.DeepEquals, migration.MigrationStatus{
 		MigrationId:      "id",
 		ModelUUID:        modelUUID,

@@ -26,6 +26,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/keys"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -167,7 +168,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 
 func (s *NewAPIClientSuite) TestWithMacaroons(c *gc.C) {
 	store := newClientStore(c, "withmac")
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	err = store.UpdateAccount("withmac", jujuclient.AccountDetails{
 		User:      "admin",

@@ -18,13 +18,13 @@ import (
 	"github.com/juju/juju/api/client/application"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cmd/juju/application/deployer"
 	apputils "github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/crossmodel"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -780,7 +780,7 @@ func (s *BundleDeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 		nil, false, 0, nil, nil,
 	)
 
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.fakeAPI.Call("AddUnits", application.AddUnitsParams{
