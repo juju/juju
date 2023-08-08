@@ -5,6 +5,8 @@ package cloud
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
@@ -121,18 +123,17 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 	if err := c.MaybePrompt(ctxt, fmt.Sprintf("show cloud %q from", c.CloudName)); err != nil {
 		return errors.Trace(err)
 	}
+
 	var (
 		localCloud *CloudDetails
 		localErr   error
-	)
-	if c.Client {
-		localCloud, localErr = c.getLocalCloud()
-	}
-
-	var (
 		displayErr error
 		outputs    []CloudOutput
 	)
+
+	if c.Client {
+		localCloud, localErr = c.getLocalCloud()
+	}
 	if c.ControllerName != "" {
 		remoteCloud, remoteErr := c.getControllerCloud()
 		showRemoteConfig := c.includeConfig
@@ -144,57 +145,40 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 			// config once after the local cloud information.
 			showRemoteConfig = showRemoteConfig && localCloud.CloudType != remoteCloud.CloudType
 		}
-		if remoteCloud != nil {
-			output, err := c.displayCloud(
+
+		if remoteErr != nil {
+			ctxt.Infof("ERROR %v", remoteErr)
+			displayErr = cmd.ErrSilent
+		} else if remoteCloud != nil {
+			outputs = append(outputs, c.displayCloud(
 				remoteCloud,
 				c.CloudName,
 				fmt.Sprintf("Cloud %q from controller %q", c.CloudName, c.ControllerName),
 				showRemoteConfig,
-				remoteErr,
-			)
-			if err != nil {
-				ctxt.Infof("ERROR %v", err)
-				displayErr = cmd.ErrSilent
-			} else {
-				outputs = append(outputs, output)
-			}
+			))
 		} else {
-			if remoteErr != nil {
-				ctxt.Infof("ERROR %v", remoteErr)
-				displayErr = cmd.ErrSilent
-			} else {
-				ctxt.Infof("No cloud %q exists on the controller.", c.CloudName)
-			}
+			ctxt.Infof("No cloud %q exists on the controller.", c.CloudName)
 		}
 	}
 	if c.Client {
-		if localCloud != nil {
-			output, err := c.displayCloud(
+		if localErr != nil {
+			ctxt.Infof("ERROR %v", localErr)
+			displayErr = cmd.ErrSilent
+		} else if localCloud != nil {
+			outputs = append(outputs, c.displayCloud(
 				localCloud,
 				c.CloudName,
 				fmt.Sprintf("Client cloud %q", c.CloudName),
 				c.includeConfig,
-				localErr,
-			)
-			if err != nil {
-				ctxt.Infof("ERROR %v", err)
-				displayErr = cmd.ErrSilent
-			} else {
-				outputs = append(outputs, output)
-			}
+			))
 		} else {
-			if localErr != nil {
-				ctxt.Infof("ERROR %v", localErr)
-				displayErr = cmd.ErrSilent
-			} else {
-				ctxt.Infof("No cloud %q exists on this client.", c.CloudName)
-			}
+			ctxt.Infof("No cloud %q exists on this client.", c.CloudName)
 		}
 	}
 
 	// It's possible that a config was desired but was not display because the
 	// remote cloud erred out.
-	if c.includeConfig && !c.configDisplayed && localErr == nil {
+	if c.includeConfig && !c.configDisplayed && localCloud != nil && localErr == nil {
 		outputs = append(outputs, CloudOutput{
 			Name:    c.CloudName,
 			Summary: fmt.Sprintf("Client cloud %q", c.CloudName),
@@ -209,10 +193,14 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 	switch c.out.Name() {
 	case "display":
 		for _, output := range outputs {
-			fmt.Fprintf(ctxt.Stdout, "%s:\n\n", output.Summary)
+			var written bool
+			if output.CloudDetails != nil {
+				fmt.Fprintf(ctxt.Stdout, "%s:\n\n", output.Summary)
 
-			if err := c.out.Write(ctxt, output.CloudDetails); err != nil {
-				return errors.Trace(err)
+				if err := c.out.Write(ctxt, output.CloudDetails); err != nil {
+					return errors.Trace(err)
+				}
+				written = true
 			}
 
 			if len(output.Config) > 0 {
@@ -222,8 +210,9 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 				if err := c.out.Write(ctxt, output.Config); err != nil {
 					return errors.Trace(err)
 				}
+				written = true
 			}
-			if len(outputs) > 1 {
+			if written && len(outputs) > 1 {
 				fmt.Fprintln(ctxt.Stdout)
 			}
 		}
@@ -245,10 +234,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 	return displayErr
 }
 
-func (c *showCloudCommand) displayCloud(aCloud *CloudDetails, name, summary string, includeConfig bool, cloudErr error) (CloudOutput, error) {
-	if cloudErr != nil {
-		return CloudOutput{}, cloudErr
-	}
+func (c *showCloudCommand) displayCloud(aCloud *CloudDetails, name, summary string, includeConfig bool) CloudOutput {
 	aCloud.CloudType = displayCloudType(aCloud.CloudType)
 	var config map[string]any
 	if includeConfig {
@@ -258,9 +244,9 @@ func (c *showCloudCommand) displayCloud(aCloud *CloudDetails, name, summary stri
 	return CloudOutput{
 		Name:         name,
 		Summary:      summary,
-		CloudDetails: *aCloud,
+		CloudDetails: aCloud,
 		Config:       config,
-	}, nil
+	}
 }
 
 func (c *showCloudCommand) getControllerCloud() (*CloudDetails, error) {
@@ -284,16 +270,25 @@ func (c *showCloudCommand) getLocalCloud() (*CloudDetails, error) {
 	}
 	cloud, ok := details[c.CloudName]
 	if !ok {
-		return nil, errors.NotFoundf("cloud %q, %v", c.CloudName, details)
+		alternatives := make([]string, 0, len(details))
+		for name := range details {
+			alternatives = append(alternatives, name)
+		}
+		if len(alternatives) == 0 {
+			return nil, errors.NotFoundf("cloud %s", c.CloudName)
+		}
+		sort.Strings(alternatives)
+		names := strings.Join(alternatives, "\n  - ")
+		return nil, errors.NewNotFound(nil, fmt.Sprintf("cloud %s not found, possible alternative clouds:\n\n  - %s", c.CloudName, names))
 	}
 	return cloud, nil
 }
 
 type CloudOutput struct {
-	Name         string `yaml:"name,omitempty" json:"name,omitempty"`
-	Summary      string `yaml:"summary,omitempty" json:"summary,omitempty"`
-	CloudDetails `yaml:",inline" json:",inline"`
-	Config       map[string]any `yaml:"cloud-config,omitempty" json:"cloud-config,omitempty"`
+	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
+	Summary       string `yaml:"summary,omitempty" json:"summary,omitempty"`
+	*CloudDetails `yaml:",inline" json:",inline"`
+	Config        map[string]any `yaml:"cloud-config,omitempty" json:"cloud-config,omitempty"`
 }
 
 // RegionDetails holds region details.
