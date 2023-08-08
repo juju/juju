@@ -30,17 +30,16 @@ type Context struct {
 	RequestRecorder_     facade.RequestRecorder
 	Cancel_              <-chan struct{}
 
-	LeadershipClaimer_      leadership.Claimer
-	LeadershipRevoker_      leadership.Revoker
-	LeadershipChecker_      leadership.Checker
-	LeadershipPinner_       leadership.Pinner
-	LeadershipReader_       leadership.Reader
-	SingularClaimer_        lease.Claimer
-	CharmhubHTTPClient_     facade.HTTPClient
-	ServiceFactory_         servicefactory.ServiceFactory
-	ServiceFactoryForModel_ servicefactory.ServiceFactory
-	ControllerDB_           changestream.WatchableDB
-	Logger_                 loggo.Logger
+	LeadershipClaimer_  leadership.Claimer
+	LeadershipRevoker_  leadership.Revoker
+	LeadershipChecker_  leadership.Checker
+	LeadershipPinner_   leadership.Pinner
+	LeadershipReader_   leadership.Reader
+	SingularClaimer_    lease.Claimer
+	CharmhubHTTPClient_ facade.HTTPClient
+	ServiceFactory_     servicefactory.ServiceFactory
+	ControllerDB_       changestream.WatchableDB
+	Logger_             loggo.Logger
 
 	MachineTag_ names.Tag
 	DataDir_    string
@@ -163,11 +162,6 @@ func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPC
 // ServiceFactory implements facade.Context.
 func (context Context) ServiceFactory() servicefactory.ServiceFactory {
 	return context.ServiceFactory_
-}
-
-// ServiceFactoryForModel implements facade.Context.
-func (context Context) ServiceFactoryForModel(modelUUID string) servicefactory.ServiceFactory {
-	return context.ServiceFactoryForModel_
 }
 
 // ControllerDB implements facade.Context.

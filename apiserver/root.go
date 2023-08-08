@@ -760,11 +760,6 @@ func (ctx *facadeContext) ServiceFactory() servicefactory.ServiceFactory {
 	return ctx.r.serviceFactory
 }
 
-// ServiceFactoryForModel returns the services factory for the given model.
-func (ctx *facadeContext) ServiceFactoryForModel(uuid string) servicefactory.ServiceFactory {
-	return ctx.r.shared.serviceFactoryGetter.FactoryForModel(uuid)
-}
-
 // MachineTag returns the current machine tag.
 func (ctx *facadeContext) MachineTag() names.Tag {
 	return ctx.r.shared.machineTag

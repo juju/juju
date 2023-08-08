@@ -340,20 +340,6 @@ func (mr *MockContextMockRecorder) ServiceFactory() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceFactory", reflect.TypeOf((*MockContext)(nil).ServiceFactory))
 }
 
-// ServiceFactoryForModel mocks base method.
-func (m *MockContext) ServiceFactoryForModel(arg0 string) servicefactory.ServiceFactory {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ServiceFactoryForModel", arg0)
-	ret0, _ := ret[0].(servicefactory.ServiceFactory)
-	return ret0
-}
-
-// ServiceFactoryForModel indicates an expected call of ServiceFactoryForModel.
-func (mr *MockContextMockRecorder) ServiceFactoryForModel(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceFactoryForModel", reflect.TypeOf((*MockContext)(nil).ServiceFactoryForModel), arg0)
-}
-
 // SingularClaimer mocks base method.
 func (m *MockContext) SingularClaimer() (lease.Claimer, error) {
 	m.ctrl.T.Helper()

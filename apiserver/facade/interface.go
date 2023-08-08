@@ -165,8 +165,6 @@ type ControllerDBGetter interface {
 type ServiceFactory interface {
 	// ServiceFactory returns the services factory for the current model.
 	ServiceFactory() servicefactory.ServiceFactory
-	// ServiceFactoryForModel returns the services factory for the given model.
-	ServiceFactoryForModel(uuid string) servicefactory.ServiceFactory
 }
 
 // Logger defines an interface for getting the apiserver logger instance.
