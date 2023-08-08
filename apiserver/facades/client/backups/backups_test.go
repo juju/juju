@@ -15,6 +15,8 @@ import (
 	backupsAPI "github.com/juju/juju/apiserver/facades/client/backups"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	corebackups "github.com/juju/juju/core/backups"
+	corebackupstesting "github.com/juju/juju/core/backups/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
@@ -27,7 +29,7 @@ type backupsSuite struct {
 	testing.ApiServerSuite
 	authorizer *apiservertesting.FakeAuthorizer
 	api        *backupsAPI.API
-	meta       *backups.Metadata
+	meta       *corebackups.Metadata
 	machineTag names.MachineTag
 
 	dataDir string
@@ -87,10 +89,10 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	}
 	s.api, err = backupsAPI.NewAPI(shim, s.authorizer, s.machineTag, s.dataDir, "")
 	c.Assert(err, jc.ErrorIsNil)
-	s.meta = backupstesting.NewMetadataStarted()
+	s.meta = corebackupstesting.NewMetadataStarted()
 }
 
-func (s *backupsSuite) setBackups(meta *backups.Metadata, err string) *backupstesting.FakeBackups {
+func (s *backupsSuite) setBackups(meta *corebackups.Metadata, err string) *backupstesting.FakeBackups {
 	fake := backupstesting.FakeBackups{
 		Meta:     meta,
 		Filename: "test-filename",
@@ -102,7 +104,7 @@ func (s *backupsSuite) setBackups(meta *backups.Metadata, err string) *backupste
 		fake.Error = errors.Errorf(err)
 	}
 	s.PatchValue(backupsAPI.NewBackups,
-		func(paths *backups.Paths) backups.Backups {
+		func(paths *corebackups.Paths) backups.Backups {
 			return &fake
 		},
 	)

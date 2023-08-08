@@ -220,13 +220,6 @@ func DefaultDialOpts() DialOpts {
 // DialOption is the type of functions that mutate DialOpts
 type DialOption func(*DialOpts)
 
-// WithDialOpts sets the DialOpts to the one specified
-func WithDialOpts(newOpts DialOpts) DialOption {
-	return func(opts *DialOpts) {
-		*opts = newOpts
-	}
-}
-
 // OpenFunc is the usual form of a function that opens an API connection.
 type OpenFunc func(*Info, DialOpts) (Connection, error)
 

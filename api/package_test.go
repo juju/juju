@@ -13,7 +13,7 @@ import (
 )
 
 func TestPackage(t *testing.T) {
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }
 
 type ImportSuite struct{}
@@ -28,6 +28,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"api/base",
 		"api/watcher",
 		"core/arch",
+		"core/backups",
 		"core/constraints",
 		"core/devices",
 		"core/instance",

@@ -7,7 +7,8 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/core/backups"
+	backupstesting "github.com/juju/juju/core/backups/testing"
 )
 
 // BaseSuite is the  base suite for backups testing.
@@ -19,5 +20,5 @@ type BaseSuite struct {
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.Meta = NewMetadata()
+	s.Meta = backupstesting.NewMetadata()
 }

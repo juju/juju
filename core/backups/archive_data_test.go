@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/backups"
-	bt "github.com/juju/juju/state/backups/testing"
+	"github.com/juju/juju/core/backups"
+	bt "github.com/juju/juju/core/backups/testing"
 )
 
 type archiveDataSuiteV0 struct {
@@ -26,7 +26,7 @@ var _ = gc.Suite(&archiveDataSuite{})
 
 func (s *archiveDataSuiteV0) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV0)
+	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV1)
 }
 
 func newArchiveFile(c *gc.C, meta *backups.Metadata) io.Reader {
@@ -120,17 +120,6 @@ func (s *archiveDataSuiteV0) TestVersionFound(c *gc.C) {
 	c.Check(version, jc.DeepEquals, &s.meta.Origin.Version)
 }
 
-func (s *archiveDataSuiteV0) TestVersionNotFound(c *gc.C) {
-	archiveFile := newArchiveFile(c, nil)
-	ad, err := backups.NewArchiveDataReader(archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
-
-	version, err := ad.Version()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(version.String(), jc.DeepEquals, "1.20.0")
-}
-
 type baseArchiveDataSuite struct {
 	archiveFile *bytes.Buffer
 	data        []byte
@@ -138,21 +127,6 @@ type baseArchiveDataSuite struct {
 }
 
 const (
-	testMetadataV0 = `{` +
-		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
-		`"Checksum":"123af2cef",` +
-		`"ChecksumFormat":"SHA-1, base64 encoded",` +
-		`"Size":10,` +
-		`"Stored":"0001-01-01T00:00:00Z",` +
-		`"Started":"2014-09-09T11:59:34Z",` +
-		`"Finished":"2014-09-09T12:00:34Z",` +
-		`"Notes":"",` +
-		`"Environment":"asdf-zxcv-qwe",` +
-		`"Machine":"0",` +
-		`"Hostname":"myhost",` +
-		`"Version":"1.21-alpha3"` +
-		`}` + "\n"
-
 	testMetadataV1 = `{` +
 		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
 		`"FormatVersion":1,` +

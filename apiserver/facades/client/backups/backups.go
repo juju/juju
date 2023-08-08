@@ -12,10 +12,10 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	corebackups "github.com/juju/juju/core/backups"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
@@ -38,7 +38,7 @@ type Backend interface {
 // API provides backup-specific API methods.
 type API struct {
 	backend Backend
-	paths   *backups.Paths
+	paths   *corebackups.Paths
 
 	// machineID is the ID of the machine where the API server is running.
 	machineID string
@@ -72,7 +72,7 @@ func NewAPI(backend Backend, authorizer facade.Authorizer, machineTag names.Tag,
 		return nil, errors.Trace(err)
 	}
 	backupDir := backups.BackupDirToUse(modelConfig.BackupDir())
-	paths := backups.Paths{
+	paths := corebackups.Paths{
 		BackupDir: backupDir,
 		DataDir:   dataDir,
 		LogsDir:   logDir,
@@ -87,39 +87,3 @@ func NewAPI(backend Backend, authorizer facade.Authorizer, machineTag names.Tag,
 }
 
 var newBackups = backups.NewBackups
-
-// CreateResult updates the result with the information in the
-// metadata value.
-func CreateResult(meta *backups.Metadata, filename string) params.BackupsMetadataResult {
-	var result params.BackupsMetadataResult
-
-	result.ID = meta.ID()
-
-	result.Checksum = meta.Checksum()
-	result.ChecksumFormat = meta.ChecksumFormat()
-	result.Size = meta.Size()
-	if meta.Stored() != nil {
-		result.Stored = *(meta.Stored())
-	}
-
-	result.Started = meta.Started
-	if meta.Finished != nil {
-		result.Finished = *meta.Finished
-	}
-	result.Notes = meta.Notes
-
-	result.Model = meta.Origin.Model
-	result.Machine = meta.Origin.Machine
-	result.Hostname = meta.Origin.Hostname
-	result.Version = meta.Origin.Version
-	result.Base = meta.Origin.Base
-
-	result.ControllerUUID = meta.Controller.UUID
-	result.FormatVersion = meta.FormatVersion
-	result.HANodes = meta.Controller.HANodes
-	result.ControllerMachineID = meta.Controller.MachineID
-	result.ControllerMachineInstanceID = meta.Controller.MachineInstanceID
-	result.Filename = filename
-
-	return result
-}

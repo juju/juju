@@ -6,7 +6,7 @@ package testing
 import (
 	"time"
 
-	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/core/backups"
 )
 
 const (

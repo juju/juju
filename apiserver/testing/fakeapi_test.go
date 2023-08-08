@@ -26,9 +26,9 @@ const fakeUUID = "f47ac10b-58cc-dead-beef-0e02b2c3d479"
 
 func (*fakeAPISuite) TestFakeAPI(c *gc.C) {
 	var r root
-	srv := apiservertesting.NewAPIServer(func(modelUUID string) interface{} {
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
 		c.Check(modelUUID, gc.Equals, fakeUUID)
-		return &r
+		return &r, nil
 	})
 	defer srv.Close()
 	info := &api.Info{

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/api/controller/logfwd"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type LastSentSuite struct {
@@ -35,7 +34,7 @@ func (s *LastSentSuite) TestGetLastSent(c *gc.C) {
 			RecordID:        20,
 			RecordTimestamp: 200,
 		}, {
-			Error: apiservererrors.ServerError(errors.NewNotFound(state.ErrNeverForwarded, "")),
+			Error: apiservererrors.ServerError(errors.NewNotFound(nil, "cannot find ID of the last forwarded record")),
 		}},
 	}
 	client := logfwd.NewLastSentClient(caller.newFacadeCaller)

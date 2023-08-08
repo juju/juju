@@ -6,6 +6,7 @@ package testing
 import (
 	"io"
 
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state/backups"
 )
@@ -19,9 +20,9 @@ type FakeBackups struct {
 	Calls []string
 
 	// Meta holds the Metadata to return.
-	Meta *backups.Metadata
+	Meta *corebackups.Metadata
 	// MetaList holds the Metadata list to return.
-	MetaList []*backups.Metadata
+	MetaList []*corebackups.Metadata
 	// Archive holds the archive file to return.
 	Archive io.ReadCloser
 	// Error holds the error to return.
@@ -34,7 +35,7 @@ type FakeBackups struct {
 	// DBInfoArg holds the ConnInfo that was passed in.
 	DBInfoArg *backups.DBInfo
 	// MetaArg holds the backup metadata that was passed in.
-	MetaArg *backups.Metadata
+	MetaArg *corebackups.Metadata
 	// PrivateAddr Holds the address for the internal network of the machine.
 	PrivateAddr string
 	// InstanceId is the id of the machine to be restored.
@@ -48,7 +49,7 @@ var _ backups.Backups = (*FakeBackups)(nil)
 // Create creates and stores a new juju backup archive and returns
 // its associated metadata.
 func (b *FakeBackups) Create(
-	meta *backups.Metadata,
+	meta *corebackups.Metadata,
 	dbInfo *backups.DBInfo,
 ) (string, error) {
 	b.Calls = append(b.Calls, "Create")
@@ -64,7 +65,7 @@ func (b *FakeBackups) Create(
 }
 
 // Get returns the metadata and archive file associated with the ID.
-func (b *FakeBackups) Get(id string) (*backups.Metadata, io.ReadCloser, error) {
+func (b *FakeBackups) Get(id string) (*corebackups.Metadata, io.ReadCloser, error) {
 	b.Calls = append(b.Calls, "Get")
 	b.IDArg = id
 	return b.Meta, b.Archive, b.Error

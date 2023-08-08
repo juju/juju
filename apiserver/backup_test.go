@@ -18,6 +18,8 @@ import (
 
 	"github.com/juju/juju/apiserver"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	corebackups "github.com/juju/juju/core/backups"
+	corebackupstesting "github.com/juju/juju/core/backups/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -39,7 +41,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.backupURL = s.URL(fmt.Sprintf("/model/%s/backups", s.ControllerModelUUID()), url.Values{}).String()
 	s.fake = &backupstesting.FakeBackups{}
 	s.PatchValue(apiserver.NewBackups,
-		func(path *backups.Paths) backups.Backups {
+		func(path *corebackups.Paths) backups.Backups {
 			return s.fake
 		},
 	)
@@ -114,8 +116,8 @@ func (s *backupsSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 // and returns the response and the expected contents of the
 // archive if the request succeeds.
 func (s *backupsSuite) sendValidGet(c *gc.C) (resp *http.Response, archiveBytes []byte) {
-	meta := backupstesting.NewMetadata()
-	archive, err := backupstesting.NewArchiveBasic(meta)
+	meta := corebackupstesting.NewMetadata()
+	archive, err := corebackupstesting.NewArchiveBasic(meta)
 	c.Assert(err, jc.ErrorIsNil)
 	archiveBytes = archive.Bytes()
 	s.fake.Meta = meta

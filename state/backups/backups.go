@@ -16,6 +16,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/du"
+
+	corebackups "github.com/juju/juju/core/backups"
 )
 
 const (
@@ -32,7 +34,7 @@ var (
 	getFilesToBackUp = GetFilesToBackUp
 	getDBDumper      = NewDBDumper
 	runCreate        = create
-	finishMeta       = func(meta *Metadata, result *createResult) error {
+	finishMeta       = func(meta *corebackups.Metadata, result *createResult) error {
 		return meta.MarkComplete(result.size, result.checksum)
 	}
 	availableDisk = func(path string) uint64 {
@@ -48,18 +50,18 @@ var (
 type Backups interface {
 	// Create creates a new juju backup archive. It updates
 	// the provided metadata.
-	Create(meta *Metadata, dbInfo *DBInfo) (string, error)
+	Create(meta *corebackups.Metadata, dbInfo *DBInfo) (string, error)
 
 	// Get returns the metadata and specified archive file.
-	Get(fileName string) (*Metadata, io.ReadCloser, error)
+	Get(fileName string) (*corebackups.Metadata, io.ReadCloser, error)
 }
 
 type backups struct {
-	paths *Paths
+	paths *corebackups.Paths
 }
 
 // NewBackups creates a new Backups value using the FileStorage provided.
-func NewBackups(paths *Paths) Backups {
+func NewBackups(paths *corebackups.Paths) Backups {
 	return &backups{
 		paths: paths,
 	}
@@ -81,7 +83,7 @@ func totalDirSize(path string) (int64, error) {
 
 // Create creates and stores a new juju backup archive (based on arguments)
 // and updates the provided metadata.  A filename to download the backup is provided.
-func (b *backups) Create(meta *Metadata, dbInfo *DBInfo) (string, error) {
+func (b *backups) Create(meta *corebackups.Metadata, dbInfo *DBInfo) (string, error) {
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	meta.Started = time.Now().UTC()
 
@@ -195,7 +197,7 @@ func isValidFilepath(root string, filePath string) (bool, error) {
 }
 
 // Get retrieves the associated metadata and archive file a file on the machine.
-func (b *backups) Get(fileName string) (_ *Metadata, _ io.ReadCloser, err error) {
+func (b *backups) Get(fileName string) (_ *corebackups.Metadata, _ io.ReadCloser, err error) {
 	valid, err := isValidFilepath(b.paths.BackupDir, fileName)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -218,7 +220,7 @@ func (b *backups) Get(fileName string) (_ *Metadata, _ io.ReadCloser, err error)
 		return nil, nil, errors.Annotate(err, "while opening archive file for download")
 	}
 
-	meta, err := BuildMetadata(readCloser)
+	meta, err := corebackups.BuildMetadata(readCloser)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "while creating metadata for archive file to download")
 	}

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/version/v2"
+
+	corebackups "github.com/juju/juju/core/backups"
 )
 
 // BackupsCreateArgs holds the args for the API Create method.
@@ -57,4 +59,40 @@ type BackupsMetadataResult struct {
 
 	// HANodes reflects HA configuration: number of controller nodes in HA.
 	HANodes int64 `json:"ha-nodes"`
+}
+
+// CreateResult updates the result with the information in the
+// metadata value.
+func CreateResult(meta *corebackups.Metadata, filename string) BackupsMetadataResult {
+	var result BackupsMetadataResult
+
+	result.ID = meta.ID()
+
+	result.Checksum = meta.Checksum()
+	result.ChecksumFormat = meta.ChecksumFormat()
+	result.Size = meta.Size()
+	if meta.Stored() != nil {
+		result.Stored = *(meta.Stored())
+	}
+
+	result.Started = meta.Started
+	if meta.Finished != nil {
+		result.Finished = *meta.Finished
+	}
+	result.Notes = meta.Notes
+
+	result.Model = meta.Origin.Model
+	result.Machine = meta.Origin.Machine
+	result.Hostname = meta.Origin.Hostname
+	result.Version = meta.Origin.Version
+	result.Base = meta.Origin.Base
+
+	result.ControllerUUID = meta.Controller.UUID
+	result.FormatVersion = meta.FormatVersion
+	result.HANodes = meta.Controller.HANodes
+	result.ControllerMachineID = meta.Controller.MachineID
+	result.ControllerMachineInstanceID = meta.Controller.MachineInstanceID
+	result.Filename = filename
+
+	return result
 }

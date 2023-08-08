@@ -247,7 +247,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		host = dialResult.addr
 	}
 
-	st := &conn{
+	c := &conn{
 		ctx:                 context.Background(),
 		client:              client,
 		conn:                dialResult.conn,
@@ -255,7 +255,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		addr:                dialResult.addr,
 		ipAddr:              dialResult.ipAddr,
 		cookieURL:           CookieURLFromHost(host),
-		pingerFacadeVersion: facadeVersions["Pinger"],
+		pingerFacadeVersion: FacadeVersions["Pinger"],
 		serverScheme:        "https",
 		serverRootAddress:   dialResult.addr,
 		// We populate the username and password before
@@ -272,25 +272,25 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		proxier:      dialResult.proxier,
 	}
 	if !info.SkipLogin {
-		if err := loginWithContext(dialCtx, st, info); err != nil {
+		if err := loginWithContext(dialCtx, c, info); err != nil {
 			dialResult.conn.Close()
 			return nil, errors.Trace(err)
 		}
 	}
 
-	st.broken = make(chan struct{})
-	st.closed = make(chan struct{})
+	c.broken = make(chan struct{})
+	c.closed = make(chan struct{})
 
 	go (&monitor{
 		clock:       opts.Clock,
-		ping:        st.ping,
+		ping:        c.ping,
 		pingPeriod:  PingPeriod,
 		pingTimeout: pingTimeout,
-		closed:      st.closed,
+		closed:      c.closed,
 		dead:        client.Dead(),
-		broken:      st.broken,
+		broken:      c.broken,
 	}).run()
-	return st, nil
+	return c, nil
 }
 
 // CookieURLFromHost creates a url.URL from a given host.
@@ -316,7 +316,7 @@ func PerferredHost(info *Info) string {
 	return host
 }
 
-// loginWithContext wraps st.Login with code that terminates
+// loginWithContext wraps conn.Login with code that terminates
 // if the context is cancelled.
 // TODO(rogpeppe) pass Context into Login (and all API calls) so
 // that this becomes unnecessary.
@@ -1375,7 +1375,7 @@ func (c *conn) PublicDNSName() string {
 // Facade we will want to use. It needs to line up the versions that the server
 // reports to us, with the versions that our client knows how to use.
 func (c *conn) BestFacadeVersion(facade string) int {
-	return bestVersion(facadeVersions[facade], c.facadeVersions[facade])
+	return bestVersion(FacadeVersions[facade], c.facadeVersions[facade])
 }
 
 // serverRoot returns the cached API server address and port used

@@ -11,8 +11,8 @@ import (
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/block"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type blockMockSuite struct{}
@@ -23,7 +23,7 @@ func (s *blockMockSuite) TestSwitchBlockOn(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	blockType := state.DestroyBlock.String()
+	blockType := string(model.BlockDestroy)
 	msg := "for test switch block on"
 
 	args := params.BlockSwitchParams{
@@ -67,7 +67,7 @@ func (s *blockMockSuite) TestSwitchBlockOff(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	blockType := state.DestroyBlock.String()
+	blockType := string(model.BlockDestroy)
 
 	args := params.BlockSwitchParams{
 		Type:    blockType,
@@ -113,7 +113,7 @@ func (s *blockMockSuite) TestList(c *gc.C) {
 	one := params.BlockResult{
 		Result: params.Block{
 			Id:      "-42",
-			Type:    state.DestroyBlock.String(),
+			Type:    string(model.BlockDestroy),
 			Message: "for test switch on",
 			Tag:     "some valid tag, right?",
 		},

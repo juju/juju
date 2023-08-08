@@ -11,8 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	backupstesting "github.com/juju/juju/core/backups/testing"
 	"github.com/juju/juju/state/backups"
-	backupstesting "github.com/juju/juju/state/backups/testing"
 )
 
 type createSuite struct {

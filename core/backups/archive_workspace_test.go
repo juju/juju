@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/core/backups"
 )
 
 type workspaceSuiteV0 struct {
@@ -24,7 +24,7 @@ var _ = gc.Suite(&workspaceSuiteV1{})
 
 func (s *workspaceSuiteV0) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV0)
+	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV1)
 }
 
 func (s *workspaceSuiteV0) TestNewArchiveWorkspaceReader(c *gc.C) {

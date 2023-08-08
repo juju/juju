@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type mockAPIState struct {
+type mockAPIConnection struct {
 	api.Connection
 
 	// If non-nil, close is called when the Close method is called.
@@ -38,7 +38,7 @@ const (
 // of api.Connection. The logical OR of the flags specifies
 // whether to include a fake host port and model tag
 // in the result.
-func mockedAPIState(flags mockedStateFlags) *mockAPIState {
+func mockedAPIState(flags mockedStateFlags) *mockAPIConnection {
 	hasHostPort := flags&mockedHostPort == mockedHostPort
 	hasModelTag := flags&mockedModelTag == mockedModelTag
 	addr := ""
@@ -54,7 +54,7 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 	if hasModelTag {
 		modelTag = "model-df136476-12e9-11e4-8a70-b2227cce2b54"
 	}
-	return &mockAPIState{
+	return &mockAPIConnection{
 		apiHostPorts:  apiHostPorts,
 		modelTag:      modelTag,
 		controllerTag: testing.ControllerTag.Id(),
@@ -62,34 +62,34 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 	}
 }
 
-func (s *mockAPIState) Close() error {
+func (s *mockAPIConnection) Close() error {
 	if s.close != nil {
 		return s.close(s)
 	}
 	return nil
 }
 
-func (s *mockAPIState) ServerVersion() (version.Number, bool) {
+func (s *mockAPIConnection) ServerVersion() (version.Number, bool) {
 	return version.MustParse("1.2.3"), true
 }
 
-func (s *mockAPIState) IPAddr() string {
+func (s *mockAPIConnection) IPAddr() string {
 	return s.ipAddr
 }
 
-func (s *mockAPIState) Addr() string {
+func (s *mockAPIConnection) Addr() string {
 	return s.addr
 }
 
-func (s *mockAPIState) PublicDNSName() string {
+func (s *mockAPIConnection) PublicDNSName() string {
 	return s.publicDNSName
 }
 
-func (s *mockAPIState) APIHostPorts() []network.MachineHostPorts {
+func (s *mockAPIConnection) APIHostPorts() []network.MachineHostPorts {
 	return s.apiHostPorts
 }
 
-func (s *mockAPIState) ModelTag() (names.ModelTag, bool) {
+func (s *mockAPIConnection) ModelTag() (names.ModelTag, bool) {
 	if s.modelTag == "" {
 		return names.ModelTag{}, false
 	}
@@ -100,7 +100,7 @@ func (s *mockAPIState) ModelTag() (names.ModelTag, bool) {
 	return t, true
 }
 
-func (s *mockAPIState) ControllerTag() names.ControllerTag {
+func (s *mockAPIConnection) ControllerTag() names.ControllerTag {
 	t, err := names.ParseControllerTag(s.controllerTag)
 	if err != nil {
 		panic("bad controller tag")
@@ -108,11 +108,11 @@ func (s *mockAPIState) ControllerTag() names.ControllerTag {
 	return t
 }
 
-func (s *mockAPIState) AuthTag() names.Tag {
+func (s *mockAPIConnection) AuthTag() names.Tag {
 	return names.NewUserTag("admin")
 }
 
-func (s *mockAPIState) ControllerAccess() string {
+func (s *mockAPIConnection) ControllerAccess() string {
 	return "superuser"
 }
 
