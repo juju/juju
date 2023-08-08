@@ -100,7 +100,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHan
 		offerAuthCtxt:       offerAuthCtxt,
 		shared: &sharedServerContext{
 			statePool:            pool,
-			serviceFactoryGetter: &stubServiceFactoryGetter{},
+			serviceFactoryGetter: &StubServiceFactoryGetter{},
 		},
 		tag: names.NewMachineTag("0"),
 	}
@@ -109,9 +109,9 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHan
 	return h, h.Resources()
 }
 
-type stubServiceFactoryGetter struct{}
+type StubServiceFactoryGetter struct{}
 
-func (s *stubServiceFactoryGetter) FactoryForModel(string) servicefactory.ServiceFactory {
+func (s *StubServiceFactoryGetter) FactoryForModel(string) servicefactory.ServiceFactory {
 	return nil
 }
 

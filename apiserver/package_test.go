@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/servicefactory"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/deltatranslater_mock.go github.com/juju/juju/apiserver DeltaTranslater
@@ -29,8 +28,4 @@ func (s StubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
 	return nil, nil
-}
-
-type StubServiceFactoryGetter struct {
-	servicefactory.ServiceFactoryGetter
 }
