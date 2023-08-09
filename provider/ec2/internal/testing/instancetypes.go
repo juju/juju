@@ -33,6 +33,9 @@ func (*Server) DescribeInstanceTypes(_ context.Context, _ *ec2.DescribeInstanceT
 			InstanceType: "t3a.micro",
 			VCpuInfo:     &types.VCpuInfo{DefaultVCpus: aws.Int32(2)},
 			MemoryInfo:   &types.MemoryInfo{SizeInMiB: aws.Int64(1024)},
+			NetworkInfo: &types.NetworkInfo{
+				Ipv6Supported: aws.Bool(true),
+			},
 			ProcessorInfo: &types.ProcessorInfo{
 				SupportedArchitectures:   []types.ArchitectureType{"x86_64"},
 				SustainedClockSpeedInGhz: aws.Float64(2.5),
@@ -42,6 +45,9 @@ func (*Server) DescribeInstanceTypes(_ context.Context, _ *ec2.DescribeInstanceT
 			InstanceType: "t3a.medium",
 			VCpuInfo:     &types.VCpuInfo{DefaultVCpus: aws.Int32(2)},
 			MemoryInfo:   &types.MemoryInfo{SizeInMiB: aws.Int64(4096)},
+			NetworkInfo: &types.NetworkInfo{
+				Ipv6Supported: aws.Bool(true),
+			},
 			ProcessorInfo: &types.ProcessorInfo{
 				SupportedArchitectures:   []types.ArchitectureType{"x86_64"},
 				SustainedClockSpeedInGhz: aws.Float64(2.5),
@@ -51,6 +57,9 @@ func (*Server) DescribeInstanceTypes(_ context.Context, _ *ec2.DescribeInstanceT
 			InstanceType: "t2.medium",
 			VCpuInfo:     &types.VCpuInfo{DefaultVCpus: aws.Int32(2)},
 			MemoryInfo:   &types.MemoryInfo{SizeInMiB: aws.Int64(1024)},
+			NetworkInfo: &types.NetworkInfo{
+				Ipv6Supported: aws.Bool(true),
+			},
 			ProcessorInfo: &types.ProcessorInfo{
 				SupportedArchitectures:   []types.ArchitectureType{"x86_64"},
 				SustainedClockSpeedInGhz: aws.Float64(2.5),
@@ -60,6 +69,15 @@ func (*Server) DescribeInstanceTypes(_ context.Context, _ *ec2.DescribeInstanceT
 			InstanceType:      "m1.small",
 			MemoryInfo:        &types.MemoryInfo{SizeInMiB: aws.Int64(1024)},
 			ProcessorInfo:     &types.ProcessorInfo{SupportedArchitectures: []types.ArchitectureType{"x86_64"}},
+			CurrentGeneration: aws.Bool(true),
+		}, {
+			InstanceType: "m6i.large",
+			VCpuInfo:     &types.VCpuInfo{DefaultVCpus: aws.Int32(2)},
+			MemoryInfo:   &types.MemoryInfo{SizeInMiB: aws.Int64(8192)},
+			ProcessorInfo: &types.ProcessorInfo{
+				SupportedArchitectures:   []types.ArchitectureType{"x86_64"},
+				SustainedClockSpeedInGhz: aws.Float64(2.5),
+			},
 			CurrentGeneration: aws.Bool(true),
 		}},
 	}, nil

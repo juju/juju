@@ -14,13 +14,13 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys v1.0.0
 	github.com/EvilSuperstars/go-cidrman v0.0.0-20170211231153-4e5a4a63d9b7
 	github.com/armon/go-metrics v0.4.0
-	github.com/aws/aws-sdk-go-v2 v1.9.1
-	github.com/aws/aws-sdk-go-v2/config v1.3.0
-	github.com/aws/aws-sdk-go-v2/credentials v1.2.1
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.9.0
-	github.com/aws/aws-sdk-go-v2/service/ecr v1.6.0
-	github.com/aws/aws-sdk-go-v2/service/iam v1.9.0
-	github.com/aws/smithy-go v1.8.0
+	github.com/aws/aws-sdk-go-v2 v1.21.0
+	github.com/aws/aws-sdk-go-v2/config v1.18.35
+	github.com/aws/aws-sdk-go-v2/credentials v1.13.35
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.113.0
+	github.com/aws/aws-sdk-go-v2/service/ecr v1.19.2
+	github.com/aws/aws-sdk-go-v2/service/iam v1.22.2
+	github.com/aws/smithy-go v1.14.2
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
 	github.com/canonical/lxd v0.0.0-20230712132802-8d2a42545fd0
 	github.com/canonical/pebble v0.0.0-20230808003337-02ad28a16a35
@@ -79,7 +79,7 @@ require (
 	github.com/juju/rpcreflect v1.0.0
 	github.com/juju/schema v1.0.1
 	github.com/juju/terms-client/v2 v2.0.0
-	github.com/juju/testing v1.0.3
+	github.com/juju/testing v1.1.0
 	github.com/juju/txn/v3 v3.0.2
 	github.com/juju/utils/v3 v3.0.2
 	github.com/juju/version/v2 v2.0.1
@@ -90,6 +90,7 @@ require (
 	github.com/kr/pretty v0.3.1
 	github.com/mattn/go-isatty v0.0.19
 	github.com/microsoft/kiota-abstractions-go v1.2.0
+	github.com/microsoft/kiota-http-go v1.0.1
 	github.com/microsoftgraph/msgraph-sdk-go v1.14.0
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/mitchellh/mapstructure v1.5.0
@@ -137,11 +138,14 @@ require (
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.0.0 // indirect
 	github.com/adrg/xdg v0.3.3 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.1.1 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.0.0 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.1.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.2.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.4.1 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.11 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.41 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.35 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.42 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.35 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.13.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.15.5 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.21.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8 // indirect
 	github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b // indirect
@@ -216,7 +220,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/microsoft/kiota-authentication-azure-go v1.0.0 // indirect
-	github.com/microsoft/kiota-http-go v1.0.1 // indirect
 	github.com/microsoft/kiota-serialization-form-go v1.0.0 // indirect
 	github.com/microsoft/kiota-serialization-json-go v1.0.4 // indirect
 	github.com/microsoft/kiota-serialization-text-go v1.0.0 // indirect
@@ -248,7 +251,7 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect

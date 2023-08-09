@@ -102,22 +102,6 @@ var instanceTypes = []InstanceType{
 		Mem:      61952,
 		Cost:     2400,
 		VirtType: &hvm,
-	}, {
-		Name:       "dep.small",
-		Arch:       "amd64",
-		CpuCores:   1,
-		CpuPower:   CpuPower(100),
-		Mem:        1740,
-		Cost:       60,
-		Deprecated: true,
-	}, {
-		Name:       "dep.medium",
-		Arch:       "amd64",
-		CpuCores:   2,
-		CpuPower:   CpuPower(200),
-		Mem:        4096,
-		Cost:       80,
-		Deprecated: true,
 	},
 }
 
@@ -226,14 +210,6 @@ var getInstanceTypesTest = []struct {
 		cons:           "virt-type=hvm",
 		expectedItypes: []string{"cc1.4xlarge", "cc2.8xlarge"},
 		itypesToUse:    nil,
-	}, {
-		about:          "deprecated image type requested by name",
-		cons:           "instance-type=dep.small",
-		expectedItypes: []string{"dep.small"},
-	}, {
-		about:          "deprecated image type requested by name with constraints",
-		cons:           "instance-type=dep.small cpu-power=100",
-		expectedItypes: []string{"dep.small"},
 	},
 }
 

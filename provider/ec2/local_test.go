@@ -298,16 +298,16 @@ func (t *localServerSuite) TestPrepareForBootstrapWithUnknownVPCID(c *gc.C) {
 
 	expectedError := `Juju cannot use the given vpc-id for bootstrapping(.|\n)*Error details: VPC "vpc-unknown" not found`
 	err := t.AssertPrepareFailsWithConfig(c, unknownVPCIDConfig, expectedError)
-	c.Check(err, jc.Satisfies, ec2.IsVPCNotUsableError)
+	c.Check(err, jc.ErrorIs, ec2.ErrorVPCNotUsable)
 }
 
 func (t *localServerSuite) TestPrepareForBootstrapWithNotRecommendedVPCID(c *gc.C) {
 	t.makeTestingDefaultVPCUnavailable(c)
 	notRecommendedVPCIDConfig := coretesting.Attrs{"vpc-id": aws.ToString(t.srv.defaultVPC.VpcId)}
 
-	expectedError := `The given vpc-id does not meet one or more(.|\n)*Error details: VPC has unexpected state "unavailable"`
+	expectedError := `The given vpc-id does not meet one or more(.|\n)*Error details: VPC ".*" has unexpected state "unavailable"`
 	err := t.AssertPrepareFailsWithConfig(c, notRecommendedVPCIDConfig, expectedError)
-	c.Check(err, jc.Satisfies, ec2.IsVPCNotRecommendedError)
+	c.Check(err, jc.ErrorIs, ec2.ErrorVPCNotRecommended)
 }
 
 func (t *localServerSuite) makeTestingDefaultVPCUnavailable(c *gc.C) {
@@ -422,7 +422,7 @@ func (t *localServerSuite) TestSystemdBootstrapInstanceUserDataAndState(c *gc.C)
 	// check that a new instance will be started with a machine agent
 	inst1, hc := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(1024))
+	c.Check(*hc.Mem, gc.Equals, uint64(8192))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(2))
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
@@ -730,7 +730,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 	_, hc := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
-	c.Check(*hc.Mem, gc.Equals, uint64(1024))
+	c.Check(*hc.Mem, gc.Equals, uint64(8192))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(2))
 }
 
@@ -842,7 +842,7 @@ func (t *localServerSuite) TestStartInstanceSubnetUnavailable(c *gc.C) {
 	// See addTestingSubnets, 10.1.3.0/24 is in state "unavailable", but is in
 	// an AZ that would otherwise be available
 	_, err := t.testStartInstanceSubnet(c, "10.1.3.0/24")
-	c.Assert(err, gc.ErrorMatches, `subnet "10.1.3.0/24" is "unavailable"`)
+	c.Assert(err, gc.ErrorMatches, `subnet "10.1.3.0/24" is "pending"`)
 }
 
 func (t *localServerSuite) TestStartInstanceSubnetAZUnavailable(c *gc.C) {
@@ -894,7 +894,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *gc.C) {
 	}
 	zonedEnviron := env.(common.ZonedEnviron)
 	_, err := zonedEnviron.DeriveAvailabilityZones(t.callCtx, params)
-	c.Assert(err, gc.ErrorMatches, `unknown placement directive: subnet=10.1.2.0/24`)
+	c.Assert(err, gc.ErrorMatches, `unable to find subnet "10.1.2.0/24" in .* for vpi-id "vpc-0"`)
 }
 
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
@@ -1137,15 +1137,22 @@ func (t *localServerSuite) addTestingNetworkInterfaceToInstance(c *gc.C, instId 
 func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]corenetwork.Id, string) {
 	vpc := t.srv.ec2srv.AddVpc(types.Vpc{
 		CidrBlock: aws.String("10.1.0.0/16"),
+		Ipv6CidrBlockAssociationSet: []types.VpcIpv6CidrBlockAssociation{
+			{
+				AssociationId: aws.String("123"),
+				Ipv6CidrBlock: aws.String("fdef:265c:1fdd::/48"),
+			},
+		},
 		IsDefault: aws.Bool(true),
 	})
 	results := make([]corenetwork.Id, 3)
 	sub1, err := t.srv.ec2srv.AddSubnet(types.Subnet{
-		VpcId:            vpc.VpcId,
-		CidrBlock:        aws.String("10.1.2.0/24"),
-		AvailabilityZone: aws.String("test-available"),
-		State:            "available",
-		DefaultForAz:     aws.Bool(true),
+		VpcId:                       vpc.VpcId,
+		AssignIpv6AddressOnCreation: aws.Bool(true),
+		CidrBlock:                   aws.String("10.1.2.0/24"),
+		AvailabilityZone:            aws.String("test-available"),
+		State:                       types.SubnetStateAvailable,
+		DefaultForAz:                aws.Bool(true),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results[0] = corenetwork.Id(aws.ToString(sub1.SubnetId))
@@ -1153,7 +1160,7 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]corenetwork.Id, string)
 		VpcId:            vpc.VpcId,
 		CidrBlock:        aws.String("10.1.3.0/24"),
 		AvailabilityZone: aws.String("test-available"),
-		State:            "unavailable",
+		State:            types.SubnetStatePending,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results[1] = corenetwork.Id(aws.ToString(sub2.SubnetId))
@@ -1162,10 +1169,197 @@ func (t *localServerSuite) addTestingSubnets(c *gc.C) ([]corenetwork.Id, string)
 		CidrBlock:        aws.String("10.1.4.0/24"),
 		AvailabilityZone: aws.String("test-unavailable"),
 		DefaultForAz:     aws.Bool(true),
-		State:            "unavailable",
+		State:            types.SubnetStatePending,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	results[2] = corenetwork.Id(aws.ToString(sub3.SubnetId))
+
+	return results, aws.ToString(vpc.VpcId)
+}
+
+func (t *localServerSuite) addDualStackNetwork(c *gc.C) ([]corenetwork.Id, string) {
+	vpc := t.srv.ec2srv.AddVpc(types.Vpc{
+		CidrBlock: aws.String("10.1.0.0/16"),
+		Ipv6CidrBlockAssociationSet: []types.VpcIpv6CidrBlockAssociation{
+			{
+				AssociationId: aws.String("123"),
+				Ipv6CidrBlock: aws.String("fdef:265c:1fdd::/48"),
+			},
+		},
+		IsDefault: aws.Bool(true),
+		State:     types.VpcStateAvailable,
+	})
+	results := make([]corenetwork.Id, 3)
+	sub1, err := t.srv.ec2srv.AddSubnet(types.Subnet{
+		VpcId:                       vpc.VpcId,
+		AssignIpv6AddressOnCreation: aws.Bool(true),
+		CidrBlock:                   aws.String("10.1.2.0/24"),
+		AvailabilityZone:            aws.String("test-available"),
+		State:                       types.SubnetStateAvailable,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	results[0] = corenetwork.Id(aws.ToString(sub1.SubnetId))
+	sub2, err := t.srv.ec2srv.AddSubnet(types.Subnet{
+		VpcId:                       vpc.VpcId,
+		AssignIpv6AddressOnCreation: aws.Bool(true),
+		CidrBlock:                   aws.String("10.1.3.0/24"),
+		AvailabilityZone:            aws.String("test-available"),
+		State:                       types.SubnetStateAvailable,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	results[1] = corenetwork.Id(aws.ToString(sub2.SubnetId))
+	sub3, err := t.srv.ec2srv.AddSubnet(types.Subnet{
+		VpcId:                       vpc.VpcId,
+		AssignIpv6AddressOnCreation: aws.Bool(true),
+		CidrBlock:                   aws.String("10.1.4.0/24"),
+		AvailabilityZone:            aws.String("test-available2"),
+		DefaultForAz:                aws.Bool(true),
+		State:                       types.SubnetStateAvailable,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	results[2] = corenetwork.Id(aws.ToString(sub3.SubnetId))
+
+	igw, err := t.srv.ec2srv.AddInternetGateway(types.InternetGateway{
+		Attachments: []types.InternetGatewayAttachment{{
+			VpcId: vpc.VpcId,
+			State: "available",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	routes := []types.Route{{
+		DestinationCidrBlock: vpc.CidrBlock, // default Vpc internal traffic
+		GatewayId:            aws.String("local"),
+		State:                types.RouteStateActive,
+	}, {
+		DestinationCidrBlock: aws.String("0.0.0.0/0"), // default Vpc default egress route.
+		GatewayId:            igw.InternetGatewayId,
+		State:                types.RouteStateActive,
+	}, {
+		DestinationIpv6CidrBlock: aws.String("::/0"),
+		GatewayId:                igw.InternetGatewayId,
+		State:                    types.RouteStateActive,
+	}}
+
+	for _, ipv6Assoc := range vpc.Ipv6CidrBlockAssociationSet {
+		routes = append(routes, types.Route{
+			DestinationIpv6CidrBlock: ipv6Assoc.Ipv6CidrBlock,
+			GatewayId:                aws.String("local"),
+			State:                    types.RouteStateActive,
+		})
+	}
+
+	_, err = t.srv.ec2srv.AddRouteTable(types.RouteTable{
+		VpcId: vpc.VpcId,
+		Associations: []types.RouteTableAssociation{{
+			Main: aws.Bool(true),
+		}},
+		Routes: routes,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	return results, aws.ToString(vpc.VpcId)
+}
+
+func (t *localServerSuite) addSingleStackIpv6Network(c *gc.C) ([]corenetwork.Id, string) {
+	vpc := t.srv.ec2srv.AddVpc(types.Vpc{
+		CidrBlock: aws.String("10.1.0.0/16"),
+		Ipv6CidrBlockAssociationSet: []types.VpcIpv6CidrBlockAssociation{
+			{
+				AssociationId: aws.String("123"),
+				Ipv6CidrBlock: aws.String("fdef:265c:1fdd::/48"),
+			},
+		},
+		IsDefault: aws.Bool(true),
+		State:     types.VpcStateAvailable,
+	})
+	results := make([]corenetwork.Id, 3)
+	sub1, err := t.srv.ec2srv.AddSubnet(types.Subnet{
+		VpcId:                       vpc.VpcId,
+		AssignIpv6AddressOnCreation: aws.Bool(true),
+		Ipv6CidrBlockAssociationSet: []types.SubnetIpv6CidrBlockAssociation{
+			{
+				AssociationId: aws.String("123"),
+				Ipv6CidrBlock: aws.String("fdef:265c:1fdd:0001::/64"),
+			},
+		},
+		AvailabilityZone: aws.String("test-available"),
+		Ipv6Native:       aws.Bool(true),
+		State:            types.SubnetStateAvailable,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	results[0] = corenetwork.Id(aws.ToString(sub1.SubnetId))
+	sub2, err := t.srv.ec2srv.AddSubnet(types.Subnet{
+		VpcId:                       vpc.VpcId,
+		AssignIpv6AddressOnCreation: aws.Bool(true),
+		Ipv6CidrBlockAssociationSet: []types.SubnetIpv6CidrBlockAssociation{
+			{
+				AssociationId: aws.String("123"),
+				Ipv6CidrBlock: aws.String("fdef:265c:1fdd:0002::/64"),
+			},
+		},
+		AvailabilityZone: aws.String("test-available"),
+		Ipv6Native:       aws.Bool(true),
+		State:            types.SubnetStateAvailable,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	results[1] = corenetwork.Id(aws.ToString(sub2.SubnetId))
+	sub3, err := t.srv.ec2srv.AddSubnet(types.Subnet{
+		VpcId:                       vpc.VpcId,
+		AssignIpv6AddressOnCreation: aws.Bool(true),
+		Ipv6CidrBlockAssociationSet: []types.SubnetIpv6CidrBlockAssociation{
+			{
+				AssociationId: aws.String("123"),
+				Ipv6CidrBlock: aws.String("fdef:265c:1fdd:0003::/64"),
+			},
+		},
+		AvailabilityZone: aws.String("test-available2"),
+		Ipv6Native:       aws.Bool(true),
+		DefaultForAz:     aws.Bool(true),
+		State:            types.SubnetStateAvailable,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	results[2] = corenetwork.Id(aws.ToString(sub3.SubnetId))
+
+	igw, err := t.srv.ec2srv.AddInternetGateway(types.InternetGateway{
+		Attachments: []types.InternetGatewayAttachment{{
+			VpcId: vpc.VpcId,
+			State: "available",
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	routes := []types.Route{{
+		DestinationCidrBlock: vpc.CidrBlock, // default Vpc internal traffic
+		GatewayId:            aws.String("local"),
+		State:                types.RouteStateActive,
+	}, {
+		DestinationCidrBlock: aws.String("0.0.0.0/0"), // default Vpc default egress route.
+		GatewayId:            igw.InternetGatewayId,
+		State:                types.RouteStateActive,
+	}, {
+		DestinationIpv6CidrBlock: aws.String("::/0"),
+		GatewayId:                igw.InternetGatewayId,
+		State:                    types.RouteStateActive,
+	}}
+
+	for _, ipv6Assoc := range vpc.Ipv6CidrBlockAssociationSet {
+		routes = append(routes, types.Route{
+			DestinationIpv6CidrBlock: ipv6Assoc.Ipv6CidrBlock,
+			GatewayId:                aws.String("local"),
+			State:                    types.RouteStateActive,
+		})
+	}
+
+	_, err = t.srv.ec2srv.AddRouteTable(types.RouteTable{
+		VpcId: vpc.VpcId,
+		Associations: []types.RouteTableAssociation{{
+			Main: aws.Bool(true),
+		}},
+		Routes: routes,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	return results, aws.ToString(vpc.VpcId)
 }
 
@@ -1235,8 +1429,105 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 		}},
 		StatusCallback: fakeCallback,
 	}
-	_, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
+	res, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
+
+	// Here we're asserting that the placement happened in the backend.
+	// The post condition.
+	instances, err := t.client.DescribeInstances(stdcontext.Background(), &awsec2.DescribeInstancesInput{
+		InstanceIds: []string{string(res.Instance.Id())},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(instances.Reservations), gc.Equals, 1)
+	c.Assert(len(instances.Reservations[0].Instances), gc.Equals, 1)
+
+	instance := instances.Reservations[0].Instances[0]
+	c.Assert(*instance.SubnetId, gc.Equals, string(subIDs[0]))
+}
+
+func (t *localServerSuite) TestIPv6SubnetSelectionWithVPC(c *gc.C) {
+	subIDs, vpcId := t.addDualStackNetwork(c)
+
+	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId})
+
+	instances, err := t.client.DescribeInstances(stdcontext.Background(), &awsec2.DescribeInstancesInput{
+		Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, t.ControllerUUID)},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(instances.Reservations), gc.Equals, 1)
+	c.Assert(len(instances.Reservations[0].Instances), gc.Equals, 1)
+	instance := instances.Reservations[0].Instances[0]
+
+	inSubnet := false
+	for _, subID := range subIDs {
+		if inSubnet = subID == network.Id(*instance.SubnetId); inSubnet {
+			break
+		}
+	}
+	c.Assert(inSubnet, jc.IsTrue)
+
+	// Should work - test-available is in SubnetsToZones and in myspace.
+	params := environs.StartInstanceParams{
+		AvailabilityZone: "test-available2",
+		ControllerUUID:   t.ControllerUUID,
+		StatusCallback:   fakeCallback,
+	}
+	res, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Here we're asserting that the placement happened in the backend.
+	// The post condition.
+	instances, err = t.client.DescribeInstances(stdcontext.Background(), &awsec2.DescribeInstancesInput{
+		InstanceIds: []string{string(res.Instance.Id())},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(instances.Reservations), gc.Equals, 1)
+	c.Assert(len(instances.Reservations[0].Instances), gc.Equals, 1)
+
+	instance = instances.Reservations[0].Instances[0]
+	c.Assert(*instance.SubnetId, gc.Equals, string(subIDs[2]))
+}
+
+func (t *localServerSuite) TestSingleStackIPv6(c *gc.C) {
+	subIDs, vpcId := t.addSingleStackIpv6Network(c)
+
+	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId})
+
+	instances, err := t.client.DescribeInstances(stdcontext.Background(), &awsec2.DescribeInstancesInput{
+		Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, t.ControllerUUID)},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(instances.Reservations), gc.Equals, 1)
+	c.Assert(len(instances.Reservations[0].Instances), gc.Equals, 1)
+	instance := instances.Reservations[0].Instances[0]
+
+	inSubnet := false
+	for _, subID := range subIDs {
+		if inSubnet = subID == network.Id(*instance.SubnetId); inSubnet {
+			break
+		}
+	}
+	c.Assert(inSubnet, jc.IsTrue)
+	c.Assert(instance.Ipv6Address, gc.NotNil)
+	c.Check(*instance.Ipv6Address != "", jc.IsTrue)
+
+	params := environs.StartInstanceParams{
+		AvailabilityZone: "test-available2",
+		ControllerUUID:   t.ControllerUUID,
+		StatusCallback:   fakeCallback,
+	}
+	res, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
+	c.Assert(err, jc.ErrorIsNil)
+
+	addresses, err := res.Instance.Addresses(t.callCtx)
+	hasV6Address := false
+	for _, address := range addresses {
+		if hasV6Address = address.MachineAddress.Type == network.IPv6Address; hasV6Address {
+			break
+		}
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hasV6Address, jc.IsTrue)
 }
 
 func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
@@ -1253,6 +1544,10 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 		StatusCallback: fakeCallback,
 	}
 	t.assertStartInstanceWithParamsFindAZ(c, env, "1", params)
+}
+
+func (t *localServerSuite) TestIPv6Subnet(c *gc.C) {
+
 }
 
 func (t *localServerSuite) assertStartInstanceWithParamsFindAZ(
@@ -1302,7 +1597,7 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 		}},
 		StatusCallback: fakeCallback,
 	}
-	//_, err := testing.StartInstanceWithParams(env, "1", params)
+	// _, err := testing.StartInstanceWithParams(env, "1", params)
 	zonedEnviron := env.(common.ZonedEnviron)
 	_, err := zonedEnviron.DeriveAvailabilityZones(t.callCtx, params)
 	c.Assert(err, gc.ErrorMatches, `unable to resolve constraints: space and/or subnet unavailable in zones \[test-available\]`)
@@ -1399,15 +1694,6 @@ func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 }
 
-func (t *localServerSuite) TestConstraintsValidatorVocabNoDefaultOrSpecifiedVPC(c *gc.C) {
-	t.srv.defaultVPC.IsDefault = aws.Bool(false)
-	err := t.srv.ec2srv.UpdateVpc(*t.srv.defaultVPC)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env := t.Prepare(c)
-	assertVPCInstanceTypeNotAvailable(c, env, t.callCtx)
-}
-
 func (t *localServerSuite) TestConstraintsValidatorVocabDefaultVPC(c *gc.C) {
 	env := t.Prepare(c)
 	assertVPCInstanceTypeAvailable(c, env, t.callCtx)
@@ -1430,13 +1716,6 @@ func assertVPCInstanceTypeAvailable(c *gc.C, env environs.Environ, ctx context.P
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t2.medium"))
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func assertVPCInstanceTypeNotAvailable(c *gc.C, env environs.Environ, ctx context.ProviderCallContext) {
-	validator, err := env.ConstraintsValidator(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = validator.Validate(constraints.MustParse("instance-type=t2.medium"))
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=t2.medium\n.*")
 }
 
 func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
@@ -1575,9 +1854,9 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneVolumeConflict(c *gc.C) 
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	//region := t.srv.region
-	//aws.Regions[region.Name] = t.srv.region
-	//defer delete(aws.Regions, region.Name)
+	// region := t.srv.region
+	// aws.Regions[region.Name] = t.srv.region
+	// defer delete(aws.Regions, region.Name)
 
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 
@@ -1934,7 +2213,7 @@ func (s *localServerSuite) TestBootstrapInstanceConstraints(c *gc.C) {
 	ec2inst := ec2.InstanceSDKEC2(inst[0])
 	// Controllers should be started with a burstable
 	// instance if possible, and a 32 GiB disk.
-	c.Assert(string(ec2inst.InstanceType), gc.Equals, "t3a.medium")
+	c.Assert(string(ec2inst.InstanceType), gc.Equals, "m6i.large")
 }
 
 func makeFilter(key string, values ...string) types.Filter {
@@ -2153,7 +2432,7 @@ func (t *localServerSuite) TestInstanceAttributes(c *gc.C) {
 
 	ec2inst := ec2.InstanceSDKEC2(insts[0])
 	c.Assert(*ec2inst.PublicIpAddress, gc.Equals, addresses[0].Value)
-	c.Assert(ec2inst.InstanceType, gc.Equals, types.InstanceType("t3a.micro"))
+	c.Assert(ec2inst.InstanceType, gc.Equals, types.InstanceType("m6i.large"))
 }
 
 func (t *localServerSuite) TestStartInstanceConstraints(c *gc.C) {
@@ -2162,9 +2441,9 @@ func (t *localServerSuite) TestStartInstanceConstraints(c *gc.C) {
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, t.callCtx, t.ControllerUUID, "30", cons)
 	defer t.Env.StopInstances(t.callCtx, inst.Id())
 	ec2inst := ec2.InstanceSDKEC2(inst)
-	c.Assert(ec2inst.InstanceType, gc.Equals, types.InstanceType("t3a.medium"))
+	c.Assert(ec2inst.InstanceType, gc.Equals, types.InstanceType("m6i.large"))
 	c.Assert(*hc.Arch, gc.Equals, "amd64")
-	c.Assert(*hc.Mem, gc.Equals, uint64(4*1024))
+	c.Assert(*hc.Mem, gc.Equals, uint64(8*1024))
 	c.Assert(*hc.RootDisk, gc.Equals, uint64(8*1024))
 	c.Assert(*hc.CpuCores, gc.Equals, uint64(2))
 }
