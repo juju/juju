@@ -30,6 +30,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	databasetesting "github.com/juju/juju/database/testing"
+	"github.com/juju/juju/domain/servicefactory"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs/config"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/testing"
@@ -102,6 +105,11 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 		State_:     st,
 		StatePool_: s.StatePool(),
 		Resources_: s.resources,
+		ServiceFactory_: servicefactory.NewServiceFactory(
+			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
+			nil, nil,
+			servicefactorytesting.NewCheckLogger(c),
+		),
 	},
 	)
 	c.Assert(err, jc.ErrorIsNil)

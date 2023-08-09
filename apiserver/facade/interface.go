@@ -158,6 +158,7 @@ type Context interface {
 // ControllerDBGetter defines an interface for getting the controller DB.
 type ControllerDBGetter interface {
 	// ControllerDB returns a transaction runner for the controller database.
+	// Deprecated: Use this for only model import/export otherwise use the service factory.
 	ControllerDB() (changestream.WatchableDB, error)
 }
 
