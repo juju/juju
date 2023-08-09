@@ -4,96 +4,108 @@
 package api_test
 
 import (
+	"encoding/json"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/client/modelmanager"
-	"github.com/juju/juju/api/client/usermanager"
-	"github.com/juju/juju/core/migration"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	proxytest "github.com/juju/juju/proxy/testing"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type connectionSuite struct {
-	jujutesting.ApiServerSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&connectionSuite{})
 
-type slideSuite struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(&slideSuite{})
-
-func (s *connectionSuite) openAPI(c *gc.C) api.Connection {
-	apiInfo := s.ControllerModelApiInfo()
-	apiInfo.Tag = jujutesting.AdminUser
-	apiInfo.Password = jujutesting.AdminSecret
-	conn, err := api.Open(apiInfo, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
-	return conn
-}
-
 func (s *connectionSuite) TestCloseMultipleOk(c *gc.C) {
-	conn := s.openAPI(c)
-	c.Assert(conn.Close(), gc.IsNil)
-	c.Assert(conn.Close(), gc.IsNil)
-	c.Assert(conn.Close(), gc.IsNil)
+	conn := newRPCConnection()
+	broken := make(chan struct{})
+	close(broken)
+	apiConn := api.NewTestingConnection(api.TestingConnectionParams{
+		RPCConnection: conn,
+		Clock:         &fakeClock{},
+		Address:       "localhost:1234",
+		Broken:        broken,
+		Closed:        make(chan struct{}),
+	})
+	c.Assert(apiConn.Close(), gc.IsNil)
+	c.Assert(apiConn.Close(), gc.IsNil)
+	c.Assert(apiConn.Close(), gc.IsNil)
 }
 
-// openAPIWithoutLogin connects to the API and returns an api.State without
-// actually calling st.Login already.
-func (s *connectionSuite) openAPIWithoutLogin(c *gc.C) api.Connection {
-	info := s.ControllerModelApiInfo()
-	info.Tag = nil
-	info.Password = ""
-	info.Macaroons = nil
-	info.SkipLogin = true
-	conn, err := api.Open(info, api.DialOpts{})
-	c.Assert(err, jc.ErrorIsNil)
-	return conn
+func (s *connectionSuite) apiConnection() api.Connection {
+	conn := newRPCConnection()
+	conn.response = &params.LoginResult{
+		ControllerTag: coretesting.ControllerTag.String(),
+		ModelTag:      coretesting.ModelTag.String(),
+		ServerVersion: "2.3-rc2",
+		Servers: [][]params.HostPort{
+			{
+				params.HostPort{
+					Address: params.Address{
+						Value: "fe80:abcd::1",
+						CIDR:  "128",
+					},
+					Port: 1234,
+				},
+			},
+		},
+		UserInfo: &params.AuthUserInfo{
+			Identity:         names.NewUserTag("fred").String(),
+			ControllerAccess: "superuser",
+		},
+		Facades: []params.FacadeVersions{{
+			Name:     "Client",
+			Versions: []int{1, 2, 3, 4, 5, 6},
+		}},
+	}
+
+	broken := make(chan struct{})
+	close(broken)
+	apiConn := api.NewTestingConnection(api.TestingConnectionParams{
+		RPCConnection: conn,
+		ModelTag:      coretesting.ModelTag.String(),
+		Clock:         &fakeClock{},
+		Address:       "localhost:1234",
+		Broken:        broken,
+		Closed:        make(chan struct{}),
+	})
+	s.AddCleanup(func(c *gc.C) {
+		c.Assert(apiConn.Close(), jc.ErrorIsNil)
+	})
+	return apiConn
 }
 
 func (s *connectionSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
-	conn := s.openAPI(c)
-	hostportslist := conn.APIHostPorts()
-	c.Check(hostportslist, gc.HasLen, 1)
-	serverhostports := hostportslist[0]
-	c.Check(serverhostports, gc.HasLen, 1)
-
-	// We intentionally set this to invalid values
-	badServers := network.NewSpaceHostPorts(1234, "0.1.2.3")
-	badServers[0].Scope = network.ScopeMachineLocal
-	err := s.ControllerModel(c).State().SetAPIHostPorts([]network.SpaceHostPorts{badServers})
+	apiConn := s.apiConnection()
+	err := apiConn.Login(names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	conn2 := s.openAPI(c)
-	hp, err := network.ParseMachineHostPort(badServers[0].String())
-	c.Assert(err, jc.ErrorIsNil)
-	hp.Scope = badServers[0].Scope
-
-	hostports := conn2.APIHostPorts()
-	c.Check(hostports, gc.DeepEquals, []network.MachineHostPorts{
-		serverhostports,
-		{*hp},
-	})
+	hostPortList := apiConn.APIHostPorts()
+	c.Assert(len(hostPortList), gc.Equals, 2)
+	c.Assert(len(hostPortList[0]), gc.Equals, 1)
+	c.Assert(hostPortList[0][0].NetPort, gc.Equals, network.NetPort(1234))
+	c.Assert(hostPortList[0][0].MachineAddress.Value, gc.Equals, "localhost")
+	c.Assert(len(hostPortList[1]), gc.Equals, 1)
+	c.Assert(hostPortList[1][0].NetPort, gc.Equals, network.NetPort(1234))
+	c.Assert(hostPortList[1][0].MachineAddress.Value, gc.Equals, "fe80:abcd::1")
 }
 
 func (s *connectionSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C) {
 	conn := newRPCConnection()
 	conn.response = &params.LoginResult{
 		ControllerTag: coretesting.ControllerTag.String(),
+		ModelTag:      coretesting.ModelTag.String(),
 		ServerVersion: "2.3-rc2",
 		Servers: [][]params.HostPort{
 			{
@@ -110,18 +122,19 @@ func (s *connectionSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C)
 
 	broken := make(chan struct{})
 	close(broken)
-	testState := api.NewTestingState(api.TestingStateParams{
+	apiConn := api.NewTestingConnection(api.TestingConnectionParams{
 		RPCConnection: conn,
+		ModelTag:      coretesting.ModelTag.String(),
 		Clock:         &fakeClock{},
 		Address:       "localhost:1234",
 		Broken:        broken,
 		Closed:        make(chan struct{}),
 		Proxier:       proxytest.NewMockTunnelProxier(),
 	})
-	err := testState.Login(names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
+	err := apiConn.Login(names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	hostPortList := testState.APIHostPorts()
+	hostPortList := apiConn.APIHostPorts()
 	c.Assert(len(hostPortList), gc.Equals, 1)
 	c.Assert(len(hostPortList[0]), gc.Equals, 1)
 	c.Assert(hostPortList[0][0].NetPort, gc.Equals, network.NetPort(1234))
@@ -129,115 +142,91 @@ func (s *connectionSuite) TestAPIHostPortsDoesNotIncludeConnectionProxy(c *gc.C)
 }
 
 func (s *connectionSuite) TestTags(c *gc.C) {
-	conn := s.openAPIWithoutLogin(c)
-	defer conn.Close()
+	apiConn := s.apiConnection()
 	// Even though we haven't called Login, the model tag should
 	// still be set.
-	modelTag, ok := conn.ModelTag()
+	modelTag, ok := apiConn.ModelTag()
 	c.Check(ok, jc.IsTrue)
-	model := s.ControllerModel(c)
-	c.Check(modelTag, gc.Equals, model.ModelTag())
-	err := conn.Login(jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
+	c.Assert(modelTag, jc.DeepEquals, coretesting.ModelTag)
+	err := apiConn.Login(jujutesting.AdminUser, jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Now that we've logged in, ModelTag should still be the same.
-	modelTag, ok = conn.ModelTag()
+	modelTag, ok = apiConn.ModelTag()
 	c.Check(ok, jc.IsTrue)
-	c.Check(modelTag, gc.Equals, model.ModelTag())
-	controllerTag := conn.ControllerTag()
+	c.Check(modelTag, jc.DeepEquals, coretesting.ModelTag)
+	controllerTag := apiConn.ControllerTag()
 	c.Check(controllerTag, gc.Equals, coretesting.ControllerTag)
 }
 
 func (s *connectionSuite) TestLoginSetsControllerAccess(c *gc.C) {
-	// The default user has admin access.
-	conn := s.OpenControllerModelAPI(c)
-	c.Assert(conn.ControllerAccess(), gc.Equals, "superuser")
-
-	manager := usermanager.NewClient(s.OpenControllerAPI(c))
-	defer manager.Close()
-	usertag, _, err := manager.AddUser("ro", "ro", "ro-password")
+	apiConn := s.apiConnection()
+	err := apiConn.Login(names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	mmanager := modelmanager.NewClient(s.OpenControllerAPI(c))
-	defer mmanager.Close()
-	modeltag, ok := conn.ModelTag()
-	c.Assert(ok, jc.IsTrue)
-	err = mmanager.GrantModel(usertag.Id(), "read", modeltag.Id())
-	c.Assert(err, jc.ErrorIsNil)
-	conn = s.OpenControllerAPIAs(c, usertag, "ro-password")
-	c.Assert(conn.ControllerAccess(), gc.Equals, "login")
+	c.Assert(apiConn.ControllerAccess(), gc.Equals, "superuser")
 }
 
-func (s *connectionSuite) TestLoginToMigratedModel(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	modelOwner := f.MakeUser(c, &factory.UserParams{
-		Password: "secret",
-	})
-	modelState := f.MakeModel(c, &factory.ModelParams{
-		Owner: modelOwner.UserTag(),
-	})
-	defer modelState.Close()
-	model, err := modelState.Model()
-	c.Assert(err, jc.ErrorIsNil)
+func asMap(v interface{}) map[string]interface{} {
+	var m map[string]interface{}
+	d, _ := json.Marshal(v)
+	_ = json.Unmarshal(d, &m)
 
-	controllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+	return m
+}
 
-	// Migrate the model and delete it from the state
-	mig, err := modelState.CreateMigration(state.MigrationSpec{
-		InitiatedBy: names.NewUserTag("admin"),
-		TargetInfo: migration.TargetInfo{
-			ControllerTag: controllerTag,
-			Addrs:         []string{"1.2.3.4:5555"},
-			CACert:        coretesting.CACert,
-			AuthTag:       names.NewUserTag("user2"),
-			Password:      "secret",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	for _, phase := range migration.SuccessfulMigrationPhases() {
-		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+var sampleRedirectError = func() *apiservererrors.RedirectError {
+	hps, _ := network.ParseProviderHostPorts("1.1.1.1:12345", "2.2.2.2:7337")
+	return &apiservererrors.RedirectError{
+		Servers: []network.ProviderHostPorts{hps},
+		CACert:  coretesting.ServerCert,
 	}
-	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
-	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
+}()
 
-	// Attempt to open an API connection to the migrated model as a user
-	// that had access to the model before it got migrated.
-	info := s.ModelApiInfo(model.UUID())
-	info.Tag = modelOwner.Tag()
-	info.Password = "secret"
-	_, err = api.Open(info, api.DialOpts{})
+func (s *connectionSuite) TestLoginToMigratedModel(c *gc.C) {
+	conn := newRPCConnection()
+	conn.stub.SetErrors(&rpc.RequestError{
+		Code: params.CodeRedirect,
+		Info: asMap(params.RedirectErrorInfo{
+			ControllerTag: coretesting.ControllerTag.String(),
+			Servers:       params.FromProviderHostsPorts(sampleRedirectError.Servers),
+			CACert:        sampleRedirectError.CACert,
+		}),
+	})
+	broken := make(chan struct{})
+	close(broken)
+	apiConn := api.NewTestingConnection(api.TestingConnectionParams{
+		RPCConnection: conn,
+		ModelTag:      coretesting.ModelTag.String(),
+		Clock:         &fakeClock{},
+		Address:       "localhost:1234",
+		Broken:        broken,
+		Closed:        make(chan struct{}),
+	})
+	err := apiConn.Login(names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
 
 	redirErr, ok := errors.Cause(err).(*api.RedirectError)
 	c.Assert(ok, gc.Equals, true)
 
-	nhp := network.NewMachineHostPorts(5555, "1.2.3.4")
-	c.Assert(redirErr.Servers, jc.DeepEquals, []network.MachineHostPorts{nhp})
-	c.Assert(redirErr.CACert, gc.Equals, coretesting.CACert)
+	c.Assert(redirErr.Servers, jc.DeepEquals, []network.MachineHostPorts{{
+		network.NewMachineHostPorts(12345, "1.1.1.1")[0],
+		network.NewMachineHostPorts(7337, "2.2.2.2")[0],
+	}})
+	c.Assert(redirErr.CACert, gc.Equals, coretesting.ServerCert)
 	c.Assert(redirErr.FollowRedirect, gc.Equals, false)
-	c.Assert(redirErr.ControllerTag, gc.Equals, controllerTag)
-}
-
-func (s *connectionSuite) TestLoginMacaroonInvalidId(c *gc.C) {
-	conn := s.openAPIWithoutLogin(c)
-	defer conn.Close()
-	mac, err := macaroon.New([]byte("root-key"), []byte("id"), "juju", macaroon.LatestVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	err = conn.Login(jujutesting.AdminUser, "", "", []macaroon.Slice{{mac}})
-	c.Assert(err, gc.ErrorMatches, "interaction required but not possible")
+	c.Assert(redirErr.ControllerTag.String(), gc.Equals, coretesting.ControllerTag.String())
 }
 
 func (s *connectionSuite) TestBestFacadeVersion(c *gc.C) {
-	conn := s.OpenControllerModelAPI(c)
-	c.Check(conn.BestFacadeVersion("Client"), gc.Equals, 6)
+	apiConn := s.apiConnection()
+	err := apiConn.Login(names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(apiConn.BestFacadeVersion("Client"), gc.Equals, 6)
 }
 
 func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
-	conn := s.OpenControllerAPI(c)
-	hostPortsList := conn.APIHostPorts()
-	c.Check(hostPortsList, gc.HasLen, 1)
-	serverHostPorts := hostPortsList[0]
-	c.Check(serverHostPorts, gc.HasLen, 1)
-	goodAddress := serverHostPorts[0]
-
+	goodAddress := network.MachineHostPort{
+		MachineAddress: network.NewMachineAddress("localhost", network.WithScope(network.ScopeMachineLocal)),
+		NetPort:        1234,
+	}
 	// We intentionally set this to invalid values
 	badValue := network.MachineHostPort{
 		MachineAddress: network.NewMachineAddress("0.1.2.3", network.WithScope(network.ScopeMachineLocal)),
@@ -254,7 +243,7 @@ func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 		NetPort:        9012,
 	}
 
-	current := []network.SpaceHostPorts{
+	current := []network.HostPorts{
 		{
 			network.SpaceHostPort{
 				SpaceAddress: network.SpaceAddress{MachineAddress: badValue.MachineAddress},
@@ -276,11 +265,37 @@ func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 			},
 		},
 	}
-	err := s.ControllerModel(c).State().SetAPIHostPorts(current)
-	c.Assert(err, jc.ErrorIsNil)
 
-	conn2 := s.OpenControllerAPI(c)
-	hostPorts := conn2.APIHostPorts()
+	conn := newRPCConnection()
+	conn.response = &params.LoginResult{
+		ControllerTag: coretesting.ControllerTag.String(),
+		ModelTag:      coretesting.ModelTag.String(),
+		ServerVersion: "2.3-rc2",
+		Servers:       params.FromHostsPorts(current),
+		UserInfo: &params.AuthUserInfo{
+			Identity:         names.NewUserTag("fred").String(),
+			ControllerAccess: "superuser",
+		},
+		Facades: []params.FacadeVersions{{
+			Name:     "Client",
+			Versions: []int{1, 2, 3, 4, 5, 6},
+		}},
+	}
+
+	broken := make(chan struct{})
+	close(broken)
+
+	apiConn := api.NewTestingConnection(api.TestingConnectionParams{
+		RPCConnection: conn,
+		ModelTag:      coretesting.ModelTag.String(),
+		Clock:         &fakeClock{},
+		Address:       "localhost:1234",
+		Broken:        broken,
+		Closed:        make(chan struct{}),
+	})
+	err := apiConn.Login(names.NewUserTag("admin"), jujutesting.AdminSecret, "", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	hostPorts := apiConn.APIHostPorts()
 	// We should have rotate the server we connected to as the first item,
 	// and the address of that server as the first address
 	sortedServer := []network.MachineHostPort{
@@ -289,6 +304,12 @@ func (s *connectionSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 	expected := []network.MachineHostPorts{sortedServer, badServer}
 	c.Check(hostPorts, gc.DeepEquals, expected)
 }
+
+type slideSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&slideSuite{})
 
 var exampleHostPorts = []network.MachineHostPort{
 	{MachineAddress: network.NewMachineAddress("0.1.2.3"), NetPort: 1234},

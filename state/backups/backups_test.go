@@ -17,6 +17,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corebackups "github.com/juju/juju/core/backups"
+	corebackupstesting "github.com/juju/juju/core/backups/testing"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
 )
@@ -24,7 +26,7 @@ import (
 type backupsSuite struct {
 	backupstesting.BaseSuite
 
-	paths *backups.Paths
+	paths *corebackups.Paths
 	api   backups.Backups
 
 	totalDiskMiB     uint64
@@ -38,7 +40,7 @@ var _ = gc.Suite(&backupsSuite{}) // Register the suite.
 func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.paths = &backups.Paths{
+	s.paths = &corebackups.Paths{
 		BackupDir: c.MkDir(),
 		DataDir:   c.MkDir(),
 	}
@@ -74,7 +76,7 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 		Address: "a", Username: "b", Password: "c",
 		Targets:      targets,
 		ApproxSizeMB: s.dbSizeMiB}
-	meta := backupstesting.NewMetadataStarted()
+	meta := corebackupstesting.NewMetadataStarted()
 	meta.Notes = "some notes"
 
 	_, err := s.api.Create(meta, &dbInfo)
@@ -93,7 +95,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	s.PatchValue(backups.RunCreate, testCreate)
 
 	rootDir := "<was never set>"
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *corebackups.Paths) ([]string, error) {
 		rootDir = root
 		return []string{"<some file>"}, nil
 	})
@@ -110,8 +112,8 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 		Address: "a", Username: "b", Password: "c",
 		Targets:      targets,
 		ApproxSizeMB: s.dbSizeMiB}
-	meta := backupstesting.NewMetadataStarted()
-	backupstesting.SetOrigin(meta, "<model ID>", "<machine ID>", "<hostname>")
+	meta := corebackupstesting.NewMetadataStarted()
+	corebackupstesting.SetOrigin(meta, "<model ID>", "<machine ID>", "<hostname>")
 	meta.Notes = "some notes"
 	resultFilename, err := s.api.Create(meta, &dbInfo)
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,7 +141,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToListFiles(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *corebackups.Paths) ([]string, error) {
 		return nil, errors.New("failed!")
 	})
 
@@ -147,7 +149,7 @@ func (s *backupsSuite) TestCreateFailToListFiles(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToCreate(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *corebackups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
 	s.PatchValue(backups.RunCreate, backups.NewTestCreateFailure("failed!"))
@@ -156,7 +158,7 @@ func (s *backupsSuite) TestCreateFailToCreate(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToFinishMeta(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *corebackups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
 	_, testCreate := backups.NewTestCreate(nil)
@@ -167,7 +169,7 @@ func (s *backupsSuite) TestCreateFailToFinishMeta(c *gc.C) {
 }
 
 func (s *backupsSuite) TestNotEnoughDiskSpaceSmallBackup(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *corebackups.Paths) ([]string, error) {
 		return []string{"file1"}, nil
 	})
 	s.dbSizeMiB = 6
@@ -179,7 +181,7 @@ func (s *backupsSuite) TestNotEnoughDiskSpaceSmallBackup(c *gc.C) {
 }
 
 func (s *backupsSuite) TestNotEnoughDiskSpaceLargeBackup(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *corebackups.Paths) ([]string, error) {
 		return []string{"file1"}, nil
 	})
 	s.dbSizeMiB = 100
@@ -191,7 +193,7 @@ func (s *backupsSuite) TestNotEnoughDiskSpaceLargeBackup(c *gc.C) {
 }
 
 func (s *backupsSuite) TestNotEnoughDiskSpaceSmallDisk(c *gc.C) {
-	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *backups.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths *corebackups.Paths) ([]string, error) {
 		return []string{"file1"}, nil
 	})
 	s.dbSizeMiB = 6

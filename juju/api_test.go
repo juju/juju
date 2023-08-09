@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -37,7 +36,6 @@ import (
 
 type NewAPIClientSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	mgotesting.MgoSuite
 	envtesting.ToolsFixture
 }
 
@@ -47,24 +45,20 @@ var _ = gc.Suite(&NewAPIClientSuite{})
 
 func (s *NewAPIClientSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *NewAPIClientSuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
 func (s *NewAPIClientSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
 }
 
 func (s *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
@@ -234,7 +228,7 @@ func (s *NewAPIClientSuite) TestWithRedirect(c *gc.C) {
 	st0, err := newAPIConnectionFromNames(c, "ctl", "admin/admin", store, redirOpen)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(openCount, gc.Equals, 2)
-	st := st0.(*mockAPIState)
+	st := st0.(*mockAPIConnection)
 	c.Assert(st.modelTag, gc.Equals, fakeUUID)
 
 	// Check that the addresses of the original controller

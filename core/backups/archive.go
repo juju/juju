@@ -23,8 +23,6 @@ const (
 	metadataFile = "metadata.json"
 )
 
-var legacyVersion = version.Number{Major: 1, Minor: 20}
-
 // ArchivePaths holds the paths to the files and directories in a
 // backup archive.
 type ArchivePaths struct {
@@ -35,12 +33,12 @@ type ArchivePaths struct {
 	ContentDir string
 
 	// FilesBundle is the path to the tar file inside the archive
-	// containing all the state-related files (with the exception of the
+	// containing all the database related files (with the exception of the
 	// DB dump files) gathered in by the backup machinery.
 	FilesBundle string
 
 	// DBDumpDir is the path to the directory within the archive
-	// contents that contains all the files dumped from the juju state
+	// contents that contains all the files dumped from the juju
 	// database.
 	DBDumpDir string
 
@@ -231,12 +229,8 @@ func (ad *ArchiveData) Metadata() (*Metadata, error) {
 // return version 1.20.
 func (ad *ArchiveData) Version() (*version.Number, error) {
 	meta, err := ad.Metadata()
-	if errors.IsNotFound(err) {
-		return &legacyVersion, nil
-	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	return &meta.Origin.Version, nil
 }

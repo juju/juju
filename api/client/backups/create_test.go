@@ -8,9 +8,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
+	backupstesting "github.com/juju/juju/core/backups/testing"
 	"github.com/juju/juju/rpc/params"
-	backupstesting "github.com/juju/juju/state/backups/testing"
 )
 
 type createSuite struct {
@@ -27,7 +26,7 @@ func (s *createSuite) TestCreate(c *gc.C) {
 		NoDownload: true,
 	}
 	meta := backupstesting.NewMetadata()
-	result := apiserverbackups.CreateResult(meta, "test-filename")
+	result := params.CreateResult(meta, "test-filename")
 	result.Notes = arg.Notes
 
 	s.facade.EXPECT().FacadeCall("Create", arg, gomock.Any()).SetArg(2, result)

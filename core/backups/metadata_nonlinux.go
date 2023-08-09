@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// Backups only runs on state machines which only run Ubuntu.
+// Backups only runs on controller machines which only run Ubuntu.
 // creationTime is stubbed out here so that the test suite will pass
 // on non-linux (e.g. windows, darwin).
 

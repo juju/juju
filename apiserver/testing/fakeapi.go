@@ -16,8 +16,10 @@ import (
 	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/rpcreflect"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
+	apiwebsocket "github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/testing"
@@ -31,7 +33,7 @@ type Server struct {
 	Addrs []string
 
 	*httptest.Server
-	newRoot func(modelUUID string) interface{}
+	newRoot func(modelUUID string) (interface{}, error)
 }
 
 // NewAPIServer serves RPC methods on a localhost HTTP server.
@@ -47,7 +49,7 @@ type Server struct {
 // to host the server.
 //
 // The returned server must be closed after use.
-func NewAPIServer(newRoot func(modelUUID string) interface{}) *Server {
+func NewAPIServer(newRoot func(modelUUID string) (interface{}, error)) *Server {
 	tlsCert, err := tls.X509KeyPair([]byte(testing.ServerCert), []byte(testing.ServerKey))
 	if err != nil {
 		panic("bad key pair")
@@ -58,6 +60,20 @@ func NewAPIServer(newRoot func(modelUUID string) interface{}) *Server {
 	}
 	pmux := pat.New()
 	pmux.Get("/model/:modeluuid/api", http.HandlerFunc(srv.serveAPI))
+	pmux.Get("/model/:modeluuid/log", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Dummy debug log handler - wait forever.
+		apiwebsocket.Serve(w, r, func(conn *apiwebsocket.Conn) {
+			defer conn.Close()
+			_ = conn.SendInitialErrorV0(err)
+			var ch chan bool
+			for {
+				select {
+				case <-ch:
+				}
+			}
+		})
+	}))
+	pmux.Get("/api", http.HandlerFunc(srv.serveAPI))
 
 	srv.Server = httptest.NewUnstartedServer(pmux)
 
@@ -85,21 +101,31 @@ func (srv *Server) serveConn(ctx context.Context, wsConn *websocket.Conn, modelU
 	conn := rpc.NewConn(codec, observer.NewRecorderFactory(
 		&fakeobserver.Instance{}, nil, observer.NoCaptureArgs))
 
+	r, rootErr := srv.newRoot(modelUUID)
 	root := allVersions{
-		rpcreflect.ValueOf(reflect.ValueOf(srv.newRoot(modelUUID))),
+		Value: rpcreflect.ValueOf(reflect.ValueOf(r)),
+		err:   rootErr,
 	}
-	conn.ServeRoot(root, nil, nil)
+	conn.ServeRoot(root, nil, serverError)
 	conn.Start(ctx)
 	<-conn.Dead()
 	conn.Close()
 }
 
+func serverError(err error) error {
+	return apiservererrors.ServerError(err)
+}
+
 // allVersions serves the same methods as would be served
 // by rpc.Conn.Serve except that the facade version is ignored.
 type allVersions struct {
+	err error
 	rpcreflect.Value
 }
 
 func (av allVersions) FindMethod(rootMethodName string, version int, objMethodName string) (rpcreflect.MethodCaller, error) {
+	if av.err != nil {
+		return nil, av.err
+	}
 	return av.Value.FindMethod(rootMethodName, 0, objMethodName)
 }

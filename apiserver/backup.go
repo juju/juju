@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/backups"
 )
@@ -51,7 +52,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			return
 		}
 		backupDir := backups.BackupDirToUse(modelConfig.BackupDir())
-		paths := &backups.Paths{
+		paths := &corebackups.Paths{
 			BackupDir: backupDir,
 		}
 		id, err := h.download(newBackups(paths), resp, req)

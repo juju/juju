@@ -4,6 +4,8 @@
 package params
 
 import (
+	"net"
+
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 )
@@ -1375,4 +1377,31 @@ func ToNetworkSpaceInfos(allInfos SpaceInfos) network.SpaceInfos {
 	}
 
 	return res
+}
+
+// FanConfigResultToFanConfig converts fan config params into a network.FanConfig instance.
+func FanConfigResultToFanConfig(config FanConfigResult) (network.FanConfig, error) {
+	rv := make(network.FanConfig, len(config.Fans))
+	for i, entry := range config.Fans {
+		_, ipNet, err := net.ParseCIDR(entry.Underlay)
+		if err != nil {
+			return nil, err
+		}
+		rv[i].Underlay = ipNet
+		_, ipNet, err = net.ParseCIDR(entry.Overlay)
+		if err != nil {
+			return nil, err
+		}
+		rv[i].Overlay = ipNet
+	}
+	return rv, nil
+}
+
+// FanConfigToFanConfigResult converts a network.FanConfig instance to a params struct.
+func FanConfigToFanConfigResult(config network.FanConfig) FanConfigResult {
+	result := FanConfigResult{Fans: make([]FanConfigEntry, len(config))}
+	for i, entry := range config {
+		result.Fans[i] = FanConfigEntry{Underlay: entry.Underlay.String(), Overlay: entry.Overlay.String()}
+	}
+	return result
 }

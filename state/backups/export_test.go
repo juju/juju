@@ -8,11 +8,12 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+
+	corebackups "github.com/juju/juju/core/backups"
 )
 
 var (
-	Create        = create
-	FileTimestamp = fileTimestamp
+	Create = create
 
 	TestGetFilesToBackUp = &getFilesToBackUp
 	GetDBDumper          = &getDBDumper
@@ -83,8 +84,8 @@ func NewTestCreateFailure(failure string) func(*createArgs) (*createResult, erro
 
 // NewTestMetaFinisher builds a new replacement for finishMetadata with
 // the given failure.
-func NewTestMetaFinisher(failure string) func(*Metadata, *createResult) error {
-	return func(*Metadata, *createResult) error {
+func NewTestMetaFinisher(failure string) func(*corebackups.Metadata, *createResult) error {
+	return func(*corebackups.Metadata, *createResult) error {
 		if failure == "" {
 			return nil
 		}

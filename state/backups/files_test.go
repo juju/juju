@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 )
@@ -45,7 +46,7 @@ func (s *filesSuite) TearDownTest(c *gc.C) {
 
 // createFiles preps the fake FS. The files are all created relative to
 // the given root.
-func (s *filesSuite) createFiles(c *gc.C, paths backups.Paths, root, machineID string, snapPaths bool) {
+func (s *filesSuite) createFiles(c *gc.C, paths corebackups.Paths, root, machineID string, snapPaths bool) {
 	mkdir := func(path string) string {
 		dirname := filepath.Join(root, path)
 		os.MkdirAll(dirname, 0777)
@@ -110,7 +111,7 @@ func (s *filesSuite) checkSameStrings(c *gc.C, actual, expected []string) {
 }
 
 func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
-	paths := backups.Paths{
+	paths := corebackups.Paths{
 		DataDir: "/var/lib/juju",
 		LogsDir: "/var/log/juju",
 	}
@@ -136,7 +137,7 @@ func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
 }
 
 func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
-	paths := backups.Paths{
+	paths := corebackups.Paths{
 		DataDir: "/var/lib/juju",
 		LogsDir: "/var/log/juju",
 	}
@@ -169,7 +170,7 @@ func (s *filesSuite) TestGetFilesToBackUpMissing(c *gc.C) {
 }
 
 func (s *filesSuite) TestGetFilesToBackUpSnap(c *gc.C) {
-	paths := backups.Paths{
+	paths := corebackups.Paths{
 		DataDir: "/var/lib/juju",
 		LogsDir: "/var/log/juju",
 	}

@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base/mocks"
+	"github.com/juju/juju/core/backups"
 	"github.com/juju/juju/rpc/params"
-	stbackups "github.com/juju/juju/state/backups"
 )
 
 type baseSuite struct {
@@ -38,7 +38,7 @@ func (s *baseSuite) newClient() *Client {
 	}
 }
 
-func (s *baseSuite) checkMetadataResult(c *gc.C, result *params.BackupsMetadataResult, meta *stbackups.Metadata) {
+func (s *baseSuite) checkMetadataResult(c *gc.C, result *params.BackupsMetadataResult, meta *backups.Metadata) {
 	var finished, stored time.Time
 	if meta.Finished != nil {
 		finished = *meta.Finished

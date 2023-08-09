@@ -16,6 +16,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3/hash"
 	"github.com/juju/utils/v3/tar"
+
+	corebackups "github.com/juju/juju/core/backups"
 )
 
 // TODO(ericsnow) One concern is files that get out of date by the time
@@ -92,7 +94,7 @@ type builder struct {
 	// stagingDir is the root of the archive workspace.
 	stagingDir string
 	// archivePaths is the backups archive summary.
-	archivePaths ArchivePaths
+	archivePaths corebackups.ArchivePaths
 	// filename is the path to the archive file.
 	filename string
 	// filesToBackUp is the paths to every file to include in the archive.
@@ -132,7 +134,7 @@ func newBuilder(destinationDir string, filesToBackUp []string, db DBDumper) (b *
 	b = &builder{
 		destinationDir: destinationDir,
 		stagingDir:     stagingDir,
-		archivePaths:   NewNonCanonicalArchivePaths(stagingDir),
+		archivePaths:   corebackups.NewNonCanonicalArchivePaths(stagingDir),
 		filename:       filepath.Join(destinationDir, finalFilename),
 		filesToBackUp:  filesToBackUp,
 		db:             db,

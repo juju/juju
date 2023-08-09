@@ -1,14 +1,14 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package juju_test
+package backups
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	gc "gopkg.in/check.v1"
 )
 
-func Test(t *stdtesting.T) {
+func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

@@ -71,6 +71,6 @@ func (a *API) Create(args params.BackupsCreateArgs) (params.BackupsMetadataResul
 		return result, errors.Trace(err)
 	}
 
-	result = CreateResult(meta, fileName)
+	result = params.CreateResult(meta, fileName)
 	return result, nil
 }

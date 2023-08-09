@@ -47,7 +47,7 @@ func (c *conn) httpClient(baseURL *url.URL) (*httprequest.Client, error) {
 	return &httprequest.Client{
 		BaseURL: baseURL.String(),
 		Doer: httpRequestDoer{
-			st: c,
+			c: c,
 		},
 		UnmarshalError: unmarshalHTTPErrorResponse,
 	}, nil
@@ -57,7 +57,7 @@ func (c *conn) httpClient(baseURL *url.URL) (*httprequest.Client, error) {
 // by using httpbakery and the conn to make authenticated requests to
 // the API server.
 type httpRequestDoer struct {
-	st *conn
+	c *conn
 }
 
 var _ httprequest.Doer = httpRequestDoer{}
@@ -66,14 +66,14 @@ var _ httprequest.Doer = httpRequestDoer{}
 func (doer httpRequestDoer) Do(req *http.Request) (*http.Response, error) {
 	if err := authHTTPRequest(
 		req,
-		doer.st.tag,
-		doer.st.password,
-		doer.st.nonce,
-		doer.st.macaroons,
+		doer.c.tag,
+		doer.c.password,
+		doer.c.nonce,
+		doer.c.macaroons,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return doer.st.bakeryClient.DoWithCustomError(req, func(resp *http.Response) error {
+	return doer.c.bakeryClient.DoWithCustomError(req, func(resp *http.Response) error {
 		// At this point we are only interested in errors that
 		// the bakery cares about, and the CodeDischargeRequired
 		// error is the only one, and that always comes with a

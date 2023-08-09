@@ -4,7 +4,6 @@
 package fanconfigurer
 
 import (
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
@@ -67,5 +66,5 @@ func (m *FanConfigurerAPI) FanConfig() (params.FanConfigResult, error) {
 	if err != nil {
 		return result, err
 	}
-	return networkingcommon.FanConfigToFanConfigResult(fanConfig), nil
+	return params.FanConfigToFanConfigResult(fanConfig), nil
 }

@@ -20,7 +20,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	var args params.BackupsCreateArgs
 	result, err := s.api.Create(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := backups.CreateResult(s.meta, "test-filename")
+	expected := params.CreateResult(s.meta, "test-filename")
 
 	c.Check(result, gc.DeepEquals, expected)
 }
@@ -37,7 +37,7 @@ func (s *backupsSuite) TestCreateNotes(c *gc.C) {
 
 	result, err := s.api.Create(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := backups.CreateResult(s.meta, "test-filename")
+	expected := params.CreateResult(s.meta, "test-filename")
 	expected.Notes = "this backup is important"
 
 	c.Check(result, gc.DeepEquals, expected)
@@ -67,6 +67,6 @@ func (s *backupsSuite) TestCreateController(c *gc.C) {
 
 	result, err := s.api.Create(params.BackupsCreateArgs{})
 	c.Assert(err, jc.ErrorIsNil)
-	expected := backups.CreateResult(s.meta, "test-filename")
+	expected := params.CreateResult(s.meta, "test-filename")
 	c.Check(result, gc.DeepEquals, expected)
 }

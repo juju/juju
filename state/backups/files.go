@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	corebackups "github.com/juju/juju/core/backups"
 	"github.com/juju/juju/mongo"
 )
 
@@ -40,13 +41,6 @@ func BackupDirToUse(configuredDir string) string {
 	return os.TempDir()
 }
 
-// Paths holds the paths that backups needs.
-type Paths struct {
-	BackupDir string
-	DataDir   string
-	LogsDir   string
-}
-
 // DiskUsage instances are used to find disk usage for a path.
 type DiskUsage interface {
 	Available(path string) uint64
@@ -54,7 +48,7 @@ type DiskUsage interface {
 
 // GetFilesToBackUp returns the paths that should be included in the
 // backup archive.
-func GetFilesToBackUp(rootDir string, paths *Paths) ([]string, error) {
+func GetFilesToBackUp(rootDir string, paths *corebackups.Paths) ([]string, error) {
 	var glob string
 
 	glob = filepath.Join(rootDir, paths.DataDir, agentsDir, agentsConfs)

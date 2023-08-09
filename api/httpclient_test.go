@@ -18,26 +18,40 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
 type httpSuite struct {
-	jujutesting.ApiServerSuite
+	testing.BaseSuite
 
 	client *httprequest.Client
+	conn   api.Connection
 }
 
 var _ = gc.Suite(&httpSuite{})
 
 func (s *httpSuite) SetUpTest(c *gc.C) {
-	s.ApiServerSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 
-	conn := s.OpenControllerAPI(c)
-	client, err := conn.HTTPClient()
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
+		return &testRootAPI{}, nil
+	})
+	s.AddCleanup(func(_ *gc.C) { srv.Close() })
+	info := &api.Info{
+		Addrs:          srv.Addrs,
+		CACert:         testing.CACert,
+		ControllerUUID: testing.ControllerTag.Id(),
+		ModelTag:       testing.ModelTag,
+	}
+	var err error
+	s.conn, err = api.Open(info, api.DialOpts{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { c.Assert(s.conn.Close(), jc.ErrorIsNil) })
+	client, err := s.conn.HTTPClient()
 	c.Assert(err, gc.IsNil)
 	s.client = client
 }
@@ -176,34 +190,29 @@ func (s *httpSuite) TestHTTPClient(c *gc.C) {
 }
 
 func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
-	// Create a controller machine & hosted model.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
 	const nonce = "gary"
-	m, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{
-		Jobs:  []state.MachineJob{state.JobManageModel},
-		Nonce: nonce,
-	})
-	hostedState := f.MakeModel(c, nil)
-	defer hostedState.Close()
 
-	// Connect to the hosted model using the credentials of the
-	// controller machine.
-	apiInfo := s.ControllerModelApiInfo()
-	apiInfo.Tag = m.Tag()
-	apiInfo.Password = password
-	hostedModel, err := hostedState.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	apiInfo.ModelTag = hostedModel.ModelTag()
-	apiInfo.Nonce = nonce
-	conn, err := api.Open(apiInfo, api.DialOpts{})
+	srv := apiservertesting.NewAPIServer(func(modelUUID string) (interface{}, error) {
+		return &testRootAPI{}, nil
+	})
+	s.AddCleanup(func(_ *gc.C) { srv.Close() })
+	info := &api.Info{
+		Addrs:          srv.Addrs,
+		CACert:         testing.CACert,
+		ControllerUUID: testing.ControllerTag.Id(),
+		ModelTag:       testing.ModelTag,
+		Tag:            names.NewMachineTag("1"),
+		Password:       "password",
+		Nonce:          nonce,
+	}
+
+	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	httpClient, err := conn.HTTPClient()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Test with a dummy HTTP server returns the auth related headers used.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	httpSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		username, password, ok := req.BasicAuth()
 		if ok {
 			httprequest.WriteJSON(w, http.StatusOK, map[string]string{
@@ -217,13 +226,13 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
 			})
 		}
 	}))
-	defer srv.Close()
-	httpClient.BaseURL = srv.URL
+	defer httpSrv.Close()
+	httpClient.BaseURL = httpSrv.URL
 	var out map[string]string
 	c.Assert(httpClient.Get(context.Background(), "/", &out), jc.ErrorIsNil)
 	c.Assert(out, gc.DeepEquals, map[string]string{
-		"username": m.Tag().String(),
-		"password": password,
+		"username": "machine-1",
+		"password": "password",
 		"nonce":    nonce,
 	})
 }
