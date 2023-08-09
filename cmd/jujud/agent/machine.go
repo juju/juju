@@ -4,6 +4,7 @@
 package agent
 
 import (
+	stdcontext "context"
 	"fmt"
 	"io"
 	"net/http"
@@ -831,11 +832,6 @@ func (a *MachineAgent) Restart() error {
 // in use. Why can't upgradesteps depend on the main state connection?
 func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
 	agentConfig := a.CurrentConfig()
-	if !a.isCaasAgent {
-		if err := cmdutil.EnsureMongoServerStarted(agentConfig.JujuDBSnapChannel()); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
 		return nil, errors.New("no state info available")
@@ -959,9 +955,9 @@ func mongoDialOptions(
 	return dialOpts, nil
 }
 
-func (a *MachineAgent) initState(agentConfig agent.Config) (*state.StatePool, error) {
+func (a *MachineAgent) initState(ctx stdcontext.Context, agentConfig agent.Config) (*state.StatePool, error) {
 	// Start MongoDB server and dial.
-	if err := a.ensureMongoServer(agentConfig); err != nil {
+	if err := a.ensureMongoServer(ctx, agentConfig); err != nil {
 		return nil, err
 	}
 
@@ -1146,7 +1142,7 @@ var stateWorkerDialOpts mongo.DialOpts
 
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.
-func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
+func (a *MachineAgent) ensureMongoServer(ctx stdcontext.Context, agentConfig agent.Config) (err error) {
 	a.mongoInitMutex.Lock()
 	defer a.mongoInitMutex.Unlock()
 	if a.mongoInitialized {
@@ -1167,7 +1163,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	if err != nil {
 		return err
 	}
-	if err := cmdutil.EnsureMongoServerInstalled(ensureServerParams); err != nil {
+	if err := cmdutil.EnsureMongoServerInstalled(ctx, ensureServerParams); err != nil {
 		return err
 	}
 	logger.Debugf("mongodb service is installed")

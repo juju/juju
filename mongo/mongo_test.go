@@ -4,6 +4,7 @@
 package mongo_test
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -99,22 +100,13 @@ func (s *MongoSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *MongoSuite) expectMongoSnapInstalled() {
-	mExp := s.mongoSnapService.EXPECT()
-	mExp.Installed().Return(true, nil)
-	mExp.Running().Return(true, nil)
-
-	s.PatchValue(mongo.NewSnapService, func(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy snap.ConfinementPolicy, backgroundServices []snap.BackgroundService, prerequisites []snap.Installable) (mongo.MongoSnapService, error) {
-		return s.mongoSnapService, nil
-	})
-}
-
 func (s *MongoSuite) expectInstallMongoSnap() {
 	mExp := s.mongoSnapService.EXPECT()
 	mExp.Name().Return("not-juju-db")
 	mExp.Install().Return(nil)
 	mExp.ConfigOverride().Return(nil)
-	mExp.Restart().Return(nil)
+	mExp.Start().Return(nil).AnyTimes()
+	mExp.Running().Return(true, nil).AnyTimes()
 
 	s.PatchValue(mongo.NewSnapService, func(mainSnap, serviceName string, conf common.Conf, snapPath, configDir, channel string, confinementPolicy snap.ConfinementPolicy, backgroundServices []snap.BackgroundService, prerequisites []snap.Installable) (mongo.MongoSnapService, error) {
 		return s.mongoSnapService, nil
@@ -183,21 +175,10 @@ func (s *MongoSuite) TestEnsureServerInstalled(c *gc.C) {
 	c.Assert(tlog, gc.Matches, start+`using mongod: .*mongod --version:\sdb version v\d\.\d\.\d`+tail)
 }
 
-func (s *MongoSuite) TestEnsureServerStarted(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectMongoSnapInstalled()
-
-	dataDir := c.MkDir()
-	s.mongodConfigPath = filepath.Join(dataDir, "juju-db.config")
-
-	testing.PatchExecutableAsEchoArgs(c, s, "snap")
-
-	err := mongo.EnsureServerStartedForTest(dataDir, "stable")
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *MongoSuite) TestEnsureServerInstalledNoIPv6(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.expectInstallMongoSnap()
+
 	dataDir := s.assertEnsureServerIPv6(c, false)
 
 	s.assertTLSKeyFile(c, dataDir)
@@ -207,6 +188,8 @@ func (s *MongoSuite) TestEnsureServerInstalledNoIPv6(c *gc.C) {
 
 func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.expectInstallMongoSnap()
+
 	dataDir := c.MkDir()
 	dataFilePath := filepath.Join(dataDir, "mongoKernelTweaks")
 	dataFile, err := os.Create(dataFilePath)
@@ -222,8 +205,11 @@ func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *gc.C) {
 	c.Assert(string(contents), gc.Equals, "original value")
 
 	configDir := c.MkDir()
-	err = mongo.SysctlEditableEnsureServer(makeEnsureServerParams(dataDir, configDir),
-		map[string]string{dataFilePath: "new value"})
+	err = mongo.SysctlEditableEnsureServer(
+		context.Background(),
+		makeEnsureServerParams(dataDir, configDir),
+		map[string]string{dataFilePath: "new value"},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	contents, err = os.ReadFile(dataFilePath)
@@ -233,6 +219,7 @@ func (s *MongoSuite) TestEnsureServerInstalledSetsSysctlValues(c *gc.C) {
 
 func (s *MongoSuite) TestEnsureServerInstalledError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
 	dataDir := c.MkDir()
 	configDir := c.MkDir()
 
@@ -242,7 +229,8 @@ func (s *MongoSuite) TestEnsureServerInstalledError(c *gc.C) {
 	s.PatchValue(mongo.InstallMongo, func(dep packaging.Dependency, series string) error {
 		return failure
 	})
-	err := mongo.EnsureServerInstalled(makeEnsureServerParams(dataDir, configDir))
+
+	err := mongo.EnsureServerInstalled(context.Background(), makeEnsureServerParams(dataDir, configDir))
 	c.Assert(errors.Cause(err), gc.Equals, failure)
 }
 
@@ -257,19 +245,22 @@ func (s *MongoSuite) assertEnsureServerIPv6(c *gc.C, ipv6 bool) string {
 		return ipv6
 	})
 	testParams := makeEnsureServerParams(dataDir, configDir)
-	err := mongo.EnsureServerInstalled(testParams)
+	err := mongo.EnsureServerInstalled(context.Background(), testParams)
 	c.Assert(err, jc.ErrorIsNil)
 	return dataDir
 }
 
 func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectInstallMongoSnap()
+
 	// Make a non-existent directory that can nonetheless be
 	// created.
 	testing.PatchExecutableAsEchoArgs(c, s, "snap")
 
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
 	configDir := c.MkDir()
-	err := mongo.EnsureServerInstalled(makeEnsureServerParams(dataDir, configDir))
+	err := mongo.EnsureServerInstalled(context.Background(), makeEnsureServerParams(dataDir, configDir))
 	c.Check(err, jc.ErrorIsNil)
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))

@@ -16,11 +16,8 @@ import (
 	jworker "github.com/juju/juju/worker"
 )
 
-var (
-	// EnsureMongoServerInstalled is patched for testing.
-	EnsureMongoServerInstalled = mongo.EnsureServerInstalled
-	EnsureMongoServerStarted   = mongo.EnsureServerStarted
-)
+// EnsureMongoServerInstalled is patched for testing.
+var EnsureMongoServerInstalled = mongo.EnsureServerInstalled
 
 // AgentDone processes the error returned by an exiting agent.
 func AgentDone(logger loggo.Logger, err error) error {
