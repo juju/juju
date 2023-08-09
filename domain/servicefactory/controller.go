@@ -26,7 +26,7 @@ type Logger interface {
 // ControllerFactory provides access to the services required by the apiserver.
 type ControllerFactory struct {
 	controllerDB changestream.WatchableDBFactory
-	deleterDB    database.DBDeleter
+	dbDeleter    database.DBDeleter
 	logger       Logger
 }
 
@@ -34,12 +34,12 @@ type ControllerFactory struct {
 // function to obtain a controller database.
 func NewControllerFactory(
 	controllerDB changestream.WatchableDBFactory,
-	deleterDB database.DBDeleter,
+	dbDeleter database.DBDeleter,
 	logger Logger,
 ) *ControllerFactory {
 	return &ControllerFactory{
 		controllerDB: controllerDB,
-		deleterDB:    deleterDB,
+		dbDeleter:    dbDeleter,
 		logger:       logger,
 	}
 }
@@ -66,7 +66,7 @@ func (s *ControllerFactory) ControllerNode() *controllernodeservice.Service {
 func (s *ControllerFactory) ModelManager() *modelmanagerservice.Service {
 	return modelmanagerservice.NewService(
 		modelmanagerstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		s.deleterDB,
+		s.dbDeleter,
 	)
 }
 

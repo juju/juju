@@ -14,7 +14,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type ECService interface {
+// ExternalControllerService defines the methods that the controller
+// facade needs from the controller state.
+type ExternalControllerService interface {
 	// ControllerForModel returns the controller record that's associated
 	// with the modelUUID.
 	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
@@ -27,18 +29,18 @@ type ECService interface {
 // ControllerConfigAPI implements two common methods for use by various
 // facades - eg Provisioner and ControllerConfig.
 type ControllerConfigAPI struct {
-	ecService ECService
-	st        ControllerConfigState
+	externalCtrlService ExternalControllerService
+	st                  ControllerConfigState
 }
 
 // NewControllerConfigAPI returns a new ControllerConfigAPI.
 func NewControllerConfigAPI(
 	st ControllerConfigState,
-	ecService ECService,
+	externalCtrlService ExternalControllerService,
 ) *ControllerConfigAPI {
 	return &ControllerConfigAPI{
-		st:        st,
-		ecService: ecService,
+		st:                  st,
+		externalCtrlService: externalCtrlService,
 	}
 }
 
@@ -90,7 +92,7 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 		}, nil
 	}
 
-	ctrl, err := s.ecService.ControllerForModel(ctx, modelTag.Id())
+	ctrl, err := s.externalCtrlService.ControllerForModel(ctx, modelTag.Id())
 	if err == nil {
 		return params.ControllerAPIInfoResult{
 			Addresses: ctrl.Addrs,
@@ -117,7 +119,7 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 	}
 
 	logger.Debugf("found migrated model on another controller, saving the information")
-	err = s.ecService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
+	err = s.externalCtrlService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
 		ControllerTag: target.ControllerTag,
 		Alias:         target.ControllerAlias,
 		Addrs:         target.Addrs,

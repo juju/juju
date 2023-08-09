@@ -624,7 +624,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            peergrouper.New,
 		})),
 
-		serviceFactoryName: ifController(servicefactory.Manifold(servicefactory.ManifoldConfig{
+		serviceFactoryName: servicefactory.Manifold(servicefactory.ManifoldConfig{
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
 			Logger:                      servicefactory.NewLogger("juju.worker.servicefactory"),
@@ -632,7 +632,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewServiceFactoryGetter:     servicefactory.NewServiceFactoryGetter,
 			NewControllerServiceFactory: servicefactory.NewControllerServiceFactory,
 			NewModelServiceFactory:      servicefactory.NewModelServiceFactory,
-		})),
+		}),
 
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
 			AgentName:            agentName,

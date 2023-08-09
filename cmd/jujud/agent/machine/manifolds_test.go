@@ -284,7 +284,6 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"query-logger",
 		"change-stream",
 		"file-notify-watcher",
-		"service-factory",
 	)
 
 	// Explicitly guarded by ifPrimaryController.

@@ -18,17 +18,19 @@ func Register(registry facade.FacadeRegistry) {
 
 // newControllerAPIv11 creates a new ControllerAPIv11
 func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
-	st := ctx.State()
-	authorizer := ctx.Auth()
-	pool := ctx.StatePool()
-	resources := ctx.Resources()
-	presence := ctx.Presence()
-	hub := ctx.Hub()
-	factory := ctx.MultiwatcherFactory()
+	var (
+		st             = ctx.State()
+		authorizer     = ctx.Auth()
+		pool           = ctx.StatePool()
+		resources      = ctx.Resources()
+		presence       = ctx.Presence()
+		hub            = ctx.Hub()
+		factory        = ctx.MultiwatcherFactory()
+		serviceFactory = ctx.ServiceFactory()
+	)
 
 	return NewControllerAPI(
 		st,
-		ctx.ControllerDB,
 		pool,
 		authorizer,
 		resources,
@@ -36,6 +38,7 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 		hub,
 		factory,
 		ctx.Logger().Child("controller"),
-		ctx.ServiceFactory().ControllerConfig(),
+		serviceFactory.ControllerConfig(),
+		serviceFactory.ExternalController(),
 	)
 }
