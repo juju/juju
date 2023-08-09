@@ -70,8 +70,8 @@ Initially, the tmux session will take you to '/var/lib/juju' or '/home/ubuntu'.
 As soon as a matching hook or action is fired, the tmux session will 
 automatically navigate you to '/var/lib/juju/agents/<unit-id>/charm' with a 
 properly configured environment. Unlike the 'juju debug-code' command, 
-the hooks and/or actions are not executed directly; instead, the user needs to
-manually run the dispatch script inside the charm's directory.
+the fired hooks and/or actions are not executed directly; instead, the user 
+needs to manually run the dispatch script inside the charm's directory.
 
 For more details on debugging charm code, see the charm SDK documentation.
 
