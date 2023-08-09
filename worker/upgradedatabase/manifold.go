@@ -4,6 +4,7 @@
 package upgradedatabase
 
 import (
+	stdcontext "context"
 	"time"
 
 	"github.com/juju/errors"
@@ -23,7 +24,7 @@ type ManifoldConfig struct {
 	AgentName         string
 	UpgradeDBGateName string
 	Logger            Logger
-	OpenState         func() (*state.StatePool, error)
+	OpenState         func(stdcontext.Context) (*state.StatePool, error)
 	Clock             Clock
 }
 
@@ -68,11 +69,11 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 
 			// Wrap the state pool factory to return our implementation.
 			openState := func() (Pool, error) {
-				p, err := cfg.OpenState()
+				p, err := cfg.OpenState(stdcontext.Background())
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				return &pool{p}, nil
+				return &pool{StatePool: p}, nil
 			}
 
 			// Wrap the upgrade steps execution so that we can generate a context lazily.

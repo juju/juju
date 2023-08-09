@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"context"
 	"net/http"
 	"runtime"
 	"time"
@@ -156,7 +157,7 @@ type ManifoldsConfig struct {
 
 	// OpenStateForUpgrade is a function the upgradesteps worker can
 	// use to establish a connection to state.
-	OpenStateForUpgrade func() (*state.StatePool, error)
+	OpenStateForUpgrade func(context.Context) (*state.StatePool, error)
 
 	// MachineStartup is passed to the machine manifold. It does
 	// machine setup work which relies on an API connection.

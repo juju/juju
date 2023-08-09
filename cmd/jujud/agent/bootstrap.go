@@ -146,7 +146,7 @@ var (
 )
 
 // Run initializes state for an environment.
-func (c *BootstrapCommand) Run(_ *cmd.Context) error {
+func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	bootstrapParamsData, err := os.ReadFile(c.BootstrapParamsFile)
 	if err != nil {
 		return errors.Annotate(err, "reading bootstrap params file")
@@ -182,8 +182,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		Cloud:          cloudSpec,
 		Config:         args.ControllerModelConfig,
 	}
-
-	ctx := stdcontext.TODO()
 
 	var env environs.BootstrapEnviron
 	if isCAAS {
@@ -291,7 +289,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.startMongo(isCAAS, addrs, agentConfig); err != nil {
+	if err := c.startMongo(ctx, isCAAS, addrs, agentConfig); err != nil {
 		return errors.Annotate(err, "failed to start mongo")
 	}
 
@@ -440,7 +438,7 @@ func ensureKeys(
 	return nil
 }
 
-func (c *BootstrapCommand) startMongo(isCAAS bool, addrs network.ProviderAddresses, agentConfig agent.Config) error {
+func (c *BootstrapCommand) startMongo(ctx stdcontext.Context, isCAAS bool, addrs network.ProviderAddresses, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
 	info, ok := agentConfig.MongoInfo()
@@ -478,7 +476,7 @@ func (c *BootstrapCommand) startMongo(isCAAS bool, addrs network.ProviderAddress
 		if err := cmdutil.EnsureMongoServerInstalled(ensureServerParams); err != nil {
 			return err
 		}
-		if err := cmdutil.EnsureMongoServerStarted(ensureServerParams.JujuDBSnapChannel); err != nil {
+		if err := cmdutil.EnsureMongoServerStarted(ctx, ensureServerParams.JujuDBSnapChannel); err != nil {
 			return err
 		}
 	}

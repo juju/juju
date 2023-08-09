@@ -4,6 +4,7 @@
 package upgradesteps
 
 import (
+	stdcontext "context"
 	"fmt"
 	"time"
 
@@ -117,7 +118,7 @@ func (s *UpgradeSuite) TestNoUpgradeNecessary(c *gc.C) {
 	s.captureLogs(c)
 	s.oldVersion.Number = jujuversion.Current // nothing to do
 
-	workerErr, config, _, doneLock := s.runUpgradeWorker(c, false)
+	config, _, doneLock, workerErr := s.runUpgradeWorker(c, false)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
@@ -131,7 +132,7 @@ func (s *UpgradeSuite) TestNoUpgradeNecessaryIgnoresBuildNumbers(c *gc.C) {
 	s.oldVersion.Number = jujuversion.Current
 	s.oldVersion.Build = 1 // Ensure there's a build number mismatch.
 
-	workerErr, config, _, doneLock := s.runUpgradeWorker(c, false)
+	config, _, doneLock, workerErr := s.runUpgradeWorker(c, false)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
@@ -150,7 +151,7 @@ func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 	attemptsP := s.countUpgradeAttempts(errors.New("boom"))
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, false)
+	config, statusCalls, doneLock, workerErr := s.runUpgradeWorker(c, false)
 
 	// The worker shouldn't return an error so that the worker and
 	// agent keep running.
@@ -183,7 +184,7 @@ func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
 	s.PatchValue(&PerformUpgrade, fakePerformUpgrade)
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, false)
+	config, statusCalls, doneLock, workerErr := s.runUpgradeWorker(c, false)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(attempts, gc.Equals, 2)
@@ -221,7 +222,7 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 	}
 	s.PatchValue(&PerformUpgrade, fakePerformUpgrade)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
+	config, statusCalls, doneLock, workerErr := s.runUpgradeWorker(c, true)
 	c.Check(workerErr, gc.IsNil)
 
 	c.Check(config.Version, gc.Equals, jujuversion.Current) // Upgrade almost finished
@@ -243,7 +244,7 @@ func (s *UpgradeSuite) TestAPIConnectionFailure(c *gc.C) {
 	s.connectionDead = true // Make the connection to state appear to be dead
 	s.captureLogs(c)
 
-	workerErr, config, _, doneLock := s.runUpgradeWorker(c, false)
+	config, _, doneLock, workerErr := s.runUpgradeWorker(c, false)
 
 	c.Check(workerErr, gc.ErrorMatches, "API connection lost during upgrade: boom")
 	c.Check(*attemptsP, gc.Equals, 1)
@@ -262,7 +263,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) 
 	s.captureLogs(c)
 	attemptsP := s.countUpgradeAttempts(nil)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
+	config, statusCalls, doneLock, workerErr := s.runUpgradeWorker(c, true)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
@@ -275,9 +276,9 @@ func (s *UpgradeSuite) TestAbortWhenOtherControllerDoesNotStartUpgrade(c *gc.C) 
 
 	causeMsg := " timed out after 50ms"
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.INFO, "waiting for other controllers to be ready for upgrade"},
-		{loggo.ERROR, "aborted wait for other controllers: timed out after 50ms"},
-		{loggo.ERROR, `upgrade from .+ to .+ for "machine-0" failed \(giving up\): ` +
+		{Level: loggo.INFO, Message: "waiting for other controllers to be ready for upgrade"},
+		{Level: loggo.ERROR, Message: "aborted wait for other controllers: timed out after 50ms"},
+		{Level: loggo.ERROR, Message: `upgrade from .+ to .+ for "machine-0" failed \(giving up\): ` +
 			"aborted wait for other controllers:" + causeMsg},
 	})
 	c.Assert(statusCalls, jc.DeepEquals, []StatusCall{{
@@ -326,7 +327,7 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 	attemptsP := s.countUpgradeAttempts(nil)
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
+	config, statusCalls, doneLock, workerErr := s.runUpgradeWorker(c, true)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 1)
@@ -350,7 +351,7 @@ func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
 	s.preUpgradeError = true
 	s.captureLogs(c)
 
-	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, false)
+	config, statusCalls, doneLock, workerErr := s.runUpgradeWorker(c, false)
 
 	c.Check(workerErr, jc.ErrorIsNil)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
@@ -361,8 +362,8 @@ func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
 		`upgrade from %s to %s for "machine-0" failed \(giving up\): %s`,
 		s.oldVersion.Number, jujuversion.Current, causeMessage)
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.INFO, "checking that upgrade can proceed"},
-		{loggo.ERROR, failMessage},
+		{Level: loggo.INFO, Message: "checking that upgrade can proceed"},
+		{Level: loggo.ERROR, Message: failMessage},
 	})
 
 	statusMessage := fmt.Sprintf(
@@ -375,7 +376,7 @@ func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {
 // Run just the upgradeSteps worker with a fake machine agent and
 // fake agent config.
 func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, isController bool) (
-	error, *fakeConfigSetter, []StatusCall, gate.Lock,
+	*fakeConfigSetter, []StatusCall, gate.Lock, error,
 ) {
 	config := s.makeFakeConfig()
 	agent := NewFakeAgent(config)
@@ -398,10 +399,10 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, isController bool) (
 		false,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return worker.Wait(), config, machineStatus.Calls, doneLock
+	return config, machineStatus.Calls, doneLock, worker.Wait()
 }
 
-func (s *UpgradeSuite) openStateForUpgrade() (*state.StatePool, error) {
+func (s *UpgradeSuite) openStateForUpgrade(stdcontext.Context) (*state.StatePool, error) {
 	newPolicy := stateenvirons.GetNewPolicyFunc()
 	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:              clock.WallClock,

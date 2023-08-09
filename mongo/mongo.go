@@ -4,6 +4,7 @@
 package mongo
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -13,12 +14,15 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/replicaset/v3"
+	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/network"
@@ -213,11 +217,11 @@ type EnsureServerParams struct {
 
 // EnsureServerStarted ensures that the MongoDB server is installed,
 // configured, and ready to run.
-func EnsureServerStarted(snapChannel string) error {
-	return ensureServerStarted(dataPathForJujuDbSnap, snapChannel)
+func EnsureServerStarted(ctx context.Context, snapChannel string) error {
+	return ensureServerStarted(ctx, dataPathForJujuDbSnap, snapChannel)
 }
 
-func ensureServerStarted(dataDir, snapChannel string) error {
+func ensureServerStarted(ctx context.Context, dataDir, snapChannel string) error {
 	svc, err := mongoSnapService(dataDir, systemd.EtcSystemdDir, snapChannel)
 	if err != nil {
 		return errors.Trace(err)
@@ -234,16 +238,36 @@ func ensureServerStarted(dataDir, snapChannel string) error {
 	if !installed {
 		return errors.NotFoundf("mongo service %q", svc.Name())
 	}
-	running, err := svc.Running()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !running {
-		if err = svc.Start(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
+
+	// Ensure that the mongo service is actually running. It's possible for the
+	// underlying start request to fail because there is a change request
+	// occurring. When this is happening, you can't actually start the service
+	// until the change request is complete. So we retry until we can start the
+	// service.
+	return retry.Call(retry.CallArgs{
+		Func: func() error {
+			running, err := svc.Running()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !running {
+				if err = svc.Start(); err != nil {
+					return fmt.Errorf("cannot start mongo service%w", errors.Hide(err))
+				}
+			}
+			return nil
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("attempt %d to start mongo service: %v", attempt, err)
+		},
+		Stop:        ctx.Done(),
+		Attempts:    -1,
+		Delay:       1 * time.Second,
+		MaxDelay:    10 * time.Second,
+		MaxDuration: time.Minute * 5,
+		BackoffFunc: retry.DoubleDelay,
+		Clock:       clock.WallClock,
+	})
 }
 
 // EnsureServerInstalled ensures that the MongoDB server is installed,

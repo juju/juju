@@ -4,6 +4,8 @@
 package upgradedatabase_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -48,7 +50,7 @@ func (s *manifoldSuite) getConfig() upgradedatabase.ManifoldConfig {
 		AgentName:         "agent-name",
 		UpgradeDBGateName: "upgrade-database-lock",
 		Logger:            s.logger,
-		OpenState:         func() (*state.StatePool, error) { return nil, nil },
+		OpenState:         func(context.Context) (*state.StatePool, error) { return nil, nil },
 		Clock:             clock.WallClock,
 	}
 }

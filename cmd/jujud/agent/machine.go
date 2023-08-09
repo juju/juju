@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -829,10 +830,10 @@ func (a *MachineAgent) Restart() error {
 //
 // TODO(mjs)- review the need for this once the dependency engine is
 // in use. Why can't upgradesteps depend on the main state connection?
-func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, error) {
+func (a *MachineAgent) openStateForUpgrade(ctx context.Context) (*state.StatePool, error) {
 	agentConfig := a.CurrentConfig()
 	if !a.isCaasAgent {
-		if err := cmdutil.EnsureMongoServerStarted(agentConfig.JujuDBSnapChannel()); err != nil {
+		if err := cmdutil.EnsureMongoServerStarted(ctx, agentConfig.JujuDBSnapChannel()); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

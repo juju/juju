@@ -4,6 +4,7 @@
 package unit
 
 import (
+	stdcontext "context"
 	"os"
 	"time"
 
@@ -245,7 +246,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			// Realistically,  operators should not open state for any reason.
-			OpenStateForUpgrade: func() (*state.StatePool, error) {
+			OpenStateForUpgrade: func(stdcontext.Context) (*state.StatePool, error) {
 				return nil, errors.New("operator cannot open state")
 			},
 			PreUpgradeSteps: config.PreUpgradeSteps,

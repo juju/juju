@@ -4,6 +4,7 @@
 package upgradesteps
 
 import (
+	stdcontext "context"
 	"time"
 
 	"github.com/juju/clock"
@@ -27,7 +28,7 @@ type ManifoldConfig struct {
 	AgentName            string
 	APICallerName        string
 	UpgradeStepsGateName string
-	OpenStateForUpgrade  func() (*state.StatePool, error)
+	OpenStateForUpgrade  func(stdcontext.Context) (*state.StatePool, error)
 	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
 	NewAgentStatusSetter func(apiConn api.Connection) (StatusSetter, error)
 }

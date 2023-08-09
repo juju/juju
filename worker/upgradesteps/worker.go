@@ -4,6 +4,7 @@
 package upgradesteps
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -81,7 +82,7 @@ func NewWorker(
 	agent agent.Agent,
 	apiConn api.Connection,
 	isController bool,
-	openState func() (*state.StatePool, error),
+	openState func(context.Context) (*state.StatePool, error),
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	retryStrategy retry.CallArgs,
 	entity StatusSetter,
@@ -108,7 +109,7 @@ type upgradeSteps struct {
 	upgradeComplete gate.Lock
 	agent           agent.Agent
 	apiConn         api.Connection
-	openState       func() (*state.StatePool, error)
+	openState       func(context.Context) (*state.StatePool, error)
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc
 	entity          StatusSetter
 	retryStrategy   retry.CallArgs
@@ -178,7 +179,7 @@ func (w *upgradeSteps) run() error {
 	// and how often StateWorker might run.
 	if w.isController {
 		var err error
-		if w.pool, err = w.openState(); err != nil {
+		if w.pool, err = w.openState(w.tomb.Context(context.Background())); err != nil {
 			return err
 		}
 		defer func() { _ = w.pool.Close() }()

@@ -4,6 +4,7 @@
 package mongo_test
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -192,7 +193,7 @@ func (s *MongoSuite) TestEnsureServerStarted(c *gc.C) {
 
 	testing.PatchExecutableAsEchoArgs(c, s, "snap")
 
-	err := mongo.EnsureServerStartedForTest(dataDir, "stable")
+	err := mongo.EnsureServerStartedForTest(context.Background(), dataDir, "stable")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

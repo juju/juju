@@ -4,6 +4,7 @@
 package caasoperator
 
 import (
+	stdcontext "context"
 	"time"
 
 	"github.com/juju/clock"
@@ -185,7 +186,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			// Realistically,  operators should not open state for any reason.
-			OpenStateForUpgrade: func() (*state.StatePool, error) {
+			OpenStateForUpgrade: func(stdcontext.Context) (*state.StatePool, error) {
 				return nil, errors.New("operator cannot open state")
 			},
 			PreUpgradeSteps: config.PreUpgradeSteps,
