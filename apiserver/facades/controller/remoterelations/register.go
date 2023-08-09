@@ -11,10 +11,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/domain"
-	ecservice "github.com/juju/juju/domain/externalcontroller/service"
-	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -30,17 +26,11 @@ func newAPI(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ecService := ecservice.NewService(
-		ecstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
-		domain.NewWatcherFactory(
-			ctx.ControllerDB,
-			ctx.Logger().Child("remoterelations"),
-		),
-	)
+	service := ctx.ServiceFactory().ExternalController()
 	return NewRemoteRelationsAPI(
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
-		ecService,
-		common.NewControllerConfigAPI(systemState, ecService),
+		service,
+		common.NewControllerConfigAPI(systemState, service),
 		ctx.Resources(), ctx.Auth(),
 	)
 }

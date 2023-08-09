@@ -18,16 +18,12 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain"
-	ecservice "github.com/juju/juju/domain/externalcontroller/service"
-	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -156,13 +152,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			ecservice.NewService(
-				ecstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
-				domain.NewWatcherFactory(
-					ctx.ControllerDB,
-					ctx.Logger().Child("provisioner"),
-				),
-			),
+			ctx.ServiceFactory().ExternalController(),
 		),
 		NetworkConfigAPI:        netConfigAPI,
 		st:                      st,

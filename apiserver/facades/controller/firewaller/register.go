@@ -12,10 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/domain"
-	ecservice "github.com/juju/juju/domain/externalcontroller/service"
-	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -26,14 +22,14 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 // newFirewallerAPIV7 creates a new server-side FirewallerAPIv7 facade.
-func newFirewallerAPIV7(context facade.Context) (*FirewallerAPI, error) {
-	st := context.State()
+func newFirewallerAPIV7(ctx facade.Context) (*FirewallerAPI, error) {
+	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cloudSpecAPI := cloudspec.NewCloudSpecV2(
-		context.Resources(),
+		ctx.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
@@ -42,22 +38,16 @@ func newFirewallerAPIV7(context facade.Context) (*FirewallerAPI, error) {
 	)
 	controllerConfigAPI := common.NewControllerConfigAPI(
 		st,
-		ecservice.NewService(
-			ecstate.NewState(changestream.NewTxnRunnerFactory(context.ControllerDB)),
-			domain.NewWatcherFactory(
-				context.ControllerDB,
-				context.Logger().Child("firewaller"),
-			),
-		),
+		ctx.ServiceFactory().ExternalController(),
 	)
 
 	stShim := stateShim{st: st, State: firewall.StateShim(st, m)}
 	return NewStateFirewallerAPI(
 		stShim,
-		context.Resources(),
-		context.Auth(),
+		ctx.Resources(),
+		ctx.Auth(),
 		cloudSpecAPI,
 		controllerConfigAPI,
-		context.Logger().Child("firewaller"),
+		ctx.Logger().Child("firewaller"),
 	)
 }
