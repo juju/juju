@@ -10,6 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/domain"
 )
@@ -25,14 +27,22 @@ type State interface {
 	ActiveUpgrade(context.Context) (string, error)
 }
 
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNamespaceWatcher returns a new namespace watcher
+	// for events based on the input change mask.
+	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
+}
+
 // Service provides the API for working with upgrade info
 type Service struct {
-	st State
+	st             State
+	watcherFactory WatcherFactory
 }
 
 // NewService returns a new Service for interacting with the underlying state.
-func NewService(st State) *Service {
-	return &Service{st: st}
+func NewService(st State, wf WatcherFactory) *Service {
+	return &Service{st: st, watcherFactory: wf}
 }
 
 // CreateUpgrade creates an upgrade to and from specified versions
@@ -59,13 +69,6 @@ func (s *Service) SetControllerReady(ctx context.Context, upgradeUUID, controlle
 	return domain.CoerceError(err)
 }
 
-// AllProvisionedControllersReady returns true if and only if all controllers
-// that have been started by the provisioner have been set ready.
-func (s *Service) AllProvisionedControllersReady(ctx context.Context, upgradeUUID string) (bool, error) {
-	allProvisioned, err := s.st.AllProvisionedControllersReady(ctx, upgradeUUID)
-	return allProvisioned, domain.CoerceError(err)
-}
-
 // StartUpgrade starts the current upgrade if it exists
 func (s *Service) StartUpgrade(ctx context.Context, upgradeUUID string) error {
 	err := s.st.StartUpgrade(ctx, upgradeUUID)
@@ -90,4 +93,10 @@ func (s *Service) ActiveUpgrade(ctx context.Context) (string, error) {
 		return "", errors.NotFoundf("active upgrade")
 	}
 	return activeUpgrades, domain.CoerceError(err)
+}
+
+// WatchForUpgradeReady creates a watcher which notifies when all controller
+// nodes have been registered, meaning the upgrade is ready to start
+func (s *Service) WatchForUpgradeReady(ctx context.Context, upgradeUUID string) (watcher.NotifyWatcher, error) {
+	return NewUpgradeReadyWatcher(ctx, s.st, s.watcherFactory, upgradeUUID)
 }
