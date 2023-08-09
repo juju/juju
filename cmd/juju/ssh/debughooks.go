@@ -28,9 +28,20 @@ import (
 )
 
 const usageDebugHooksExamples = `
+Debug all hooks and actions of unit '0':
+
     juju debug-hooks mysql/0
+
+Debug all hooks and actions of the leader:
+
     juju debug-hooks mysql/leader
+
+Debug the 'config-changed' hook of unit '1':
+
     juju debug-hooks mysql/1 config-changed
+
+Debug the 'pull-site' action and 'update-status' hook of unit '0':
+
     juju debug-hooks hello-kubecon/0 pull-site update-status
 `
 
