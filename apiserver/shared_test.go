@@ -56,18 +56,18 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.config = sharedServerConfig{
-		statePool:           s.StatePool,
-		multiwatcherFactory: multiWatcherWorker,
-		centralHub:          s.hub,
-		presence:            presence.New(clock.WallClock),
-		leaseManager:        &lease.Manager{},
-		controllerConfig:    controllerConfig,
-		logger:              loggo.GetLogger("test"),
-		dbGetter:            StubDBGetter{},
-		dbDeleter:           StubDBDeleter{},
-		machineTag:          names.NewMachineTag("0"),
-		dataDir:             c.MkDir(),
-		logDir:              c.MkDir(),
+		statePool:            s.StatePool,
+		multiwatcherFactory:  multiWatcherWorker,
+		centralHub:           s.hub,
+		presence:             presence.New(clock.WallClock),
+		leaseManager:         &lease.Manager{},
+		controllerConfig:     controllerConfig,
+		logger:               loggo.GetLogger("test"),
+		dbGetter:             StubDBGetter{},
+		serviceFactoryGetter: &StubServiceFactoryGetter{},
+		machineTag:           names.NewMachineTag("0"),
+		dataDir:              c.MkDir(),
+		logDir:               c.MkDir(),
 	}
 }
 

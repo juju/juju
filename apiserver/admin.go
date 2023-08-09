@@ -126,13 +126,13 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 	// apiRoot is the API root exposed to the client after login.
 	var apiRoot rpc.Root
 	apiRoot, err = newAPIRoot(
-		a.srv.clock,
-		a.srv.facades,
 		a.root,
+		a.srv.facades,
 		httpRequestRecorderWrapper{
 			collector: a.srv.metricsCollector,
 			modelUUID: a.root.model.UUID(),
 		},
+		a.srv.clock,
 	)
 	if err != nil {
 		return fail, errors.Trace(err)

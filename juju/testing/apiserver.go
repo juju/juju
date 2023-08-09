@@ -5,6 +5,7 @@ package testing
 
 import (
 	"crypto/tls"
+	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
@@ -42,8 +43,10 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/database/testing"
+	databasetesting "github.com/juju/juju/database/testing"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
+	domainservicefactory "github.com/juju/juju/domain/servicefactory"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -55,6 +58,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/lease"
 	wmultiwatcher "github.com/juju/juju/worker/multiwatcher"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 const AdminSecret = "dummy-secret"
@@ -282,8 +286,12 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config) {
 	cfg := DefaultServerConfig(c, s.Clock)
 	cfg.Mux = s.mux
-	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{s.TxnRunner()}}
-	cfg.DBDeleter = stubDBDeleter{}
+	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
+	cfg.ServiceFactoryGetter = &stubServiceFactoryGetter{
+		ctrlDB:    stubWatchableDB{TxnRunner: s.TxnRunner()},
+		dbDeleter: stubDBDeleter{DB: s.DB()},
+		logger:    servicefactorytesting.NewCheckLogger(c),
+	}
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
@@ -297,7 +305,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 		return auditlog.Config{Enabled: false}
 	}
 	if s.WithLeaseManager {
-		leaseManager, err := leaseManager(coretesting.ControllerTag.Id(), testing.SingularDBGetter(s.TxnRunner()), s.Clock)
+		leaseManager, err := leaseManager(coretesting.ControllerTag.Id(), databasetesting.SingularDBGetter(s.TxnRunner()), s.Clock)
 		c.Assert(err, jc.ErrorIsNil)
 		cfg.LeaseManager = leaseManager
 		s.LeaseManager = leaseManager
@@ -531,7 +539,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		SysLogger:                  noopSysLogger{},
 		CharmhubHTTPClient:         &http.Client{},
 		DBGetter:                   stubDBGetter{},
-		DBDeleter:                  stubDBDeleter{},
+		ServiceFactoryGetter:       &stubServiceFactoryGetter{},
 		StatePool:                  &state.StatePool{},
 		Mux:                        &apiserverhttp.Mux{},
 		LocalMacaroonAuthenticator: &mockAuthenticator{},
@@ -550,12 +558,26 @@ func (s stubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB
 	return s.db, nil
 }
 
-type stubDBDeleter struct{}
+type stubServiceFactoryGetter struct {
+	ctrlDB    changestream.WatchableDB
+	dbDeleter coredatabase.DBDeleter
+	logger    domainservicefactory.Logger
+}
+
+func (s *stubServiceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+	return domainservicefactory.NewServiceFactory(
+		databasetesting.ConstFactory(s.ctrlDB),
+		nil, // TODO (stickupkid): Wire up modelDB when ready,
+		s.dbDeleter,
+		s.logger,
+	)
+}
+
+type stubDBDeleter struct {
+	DB *sql.DB
+}
 
 func (s stubDBDeleter) DeleteDB(namespace string) error {
-	if namespace == "controller" {
-		return errors.Forbiddenf(`cannot delete "controller" DB`)
-	}
 	return nil
 }
 

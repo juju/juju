@@ -83,6 +83,7 @@ import (
 	"github.com/juju/juju/worker/querylogger"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/secretbackendrotate"
+	"github.com/juju/juju/worker/servicefactory"
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
@@ -583,8 +584,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability
 			// to remove databases corresponding to destroyed/migrated models.
-			DBAccessorName:   dbAccessorName,
-			ChangeStreamName: changeStreamName,
+			ServiceFactoryName: serviceFactoryName,
+			ChangeStreamName:   changeStreamName,
 
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
@@ -622,6 +623,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            peergrouper.New,
 		})),
+
+		serviceFactoryName: servicefactory.Manifold(servicefactory.ManifoldConfig{
+			DBAccessorName:              dbAccessorName,
+			ChangeStreamName:            changeStreamName,
+			Logger:                      servicefactory.NewLogger("juju.worker.servicefactory"),
+			NewWorker:                   servicefactory.NewWorker,
+			NewServiceFactoryGetter:     servicefactory.NewServiceFactoryGetter,
+			NewControllerServiceFactory: servicefactory.NewControllerServiceFactory,
+			NewModelServiceFactory:      servicefactory.NewModelServiceFactory,
+		}),
 
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{
 			AgentName:            agentName,
@@ -1058,6 +1069,7 @@ const (
 	leaseExpiryName               = "lease-expiry"
 	leaseManagerName              = "lease-manager"
 	stateConverterName            = "state-converter"
+	serviceFactoryName            = "service-factory"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	kvmContainerProvisioner       = "kvm-container-provisioner"
 

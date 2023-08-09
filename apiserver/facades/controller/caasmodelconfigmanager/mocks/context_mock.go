@@ -9,11 +9,11 @@ import (
 
 	facade "github.com/juju/juju/apiserver/facade"
 	changestream "github.com/juju/juju/core/changestream"
-	database "github.com/juju/juju/core/database"
 	leadership "github.com/juju/juju/core/leadership"
 	lease "github.com/juju/juju/core/lease"
 	multiwatcher "github.com/juju/juju/core/multiwatcher"
 	state "github.com/juju/juju/state"
+	servicefactory "github.com/juju/juju/worker/servicefactory"
 	loggo "github.com/juju/loggo"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
@@ -83,20 +83,6 @@ func (m *MockContext) ControllerDB() (changestream.WatchableDB, error) {
 func (mr *MockContextMockRecorder) ControllerDB() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerDB", reflect.TypeOf((*MockContext)(nil).ControllerDB))
-}
-
-// DBDeleter mocks base method.
-func (m *MockContext) DBDeleter() database.DBDeleter {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DBDeleter")
-	ret0, _ := ret[0].(database.DBDeleter)
-	return ret0
-}
-
-// DBDeleter indicates an expected call of DBDeleter.
-func (mr *MockContextMockRecorder) DBDeleter() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DBDeleter", reflect.TypeOf((*MockContext)(nil).DBDeleter))
 }
 
 // DataDir mocks base method.
@@ -338,6 +324,20 @@ func (m *MockContext) Resources() facade.Resources {
 func (mr *MockContextMockRecorder) Resources() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resources", reflect.TypeOf((*MockContext)(nil).Resources))
+}
+
+// ServiceFactory mocks base method.
+func (m *MockContext) ServiceFactory() servicefactory.ServiceFactory {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ServiceFactory")
+	ret0, _ := ret[0].(servicefactory.ServiceFactory)
+	return ret0
+}
+
+// ServiceFactory indicates an expected call of ServiceFactory.
+func (mr *MockContextMockRecorder) ServiceFactory() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServiceFactory", reflect.TypeOf((*MockContext)(nil).ServiceFactory))
 }
 
 // SingularClaimer mocks base method.

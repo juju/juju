@@ -15,12 +15,12 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 // SharedHub represents the methods of the pubsub.StructuredHub
@@ -39,16 +39,16 @@ type SharedHub interface {
 // All attributes in the context should be goroutine aware themselves, like the state pool, hub, and
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
-	statePool           *state.StatePool
-	multiwatcherFactory multiwatcher.Factory
-	centralHub          SharedHub
-	presence            presence.Recorder
-	leaseManager        lease.Manager
-	logger              loggo.Logger
-	cancel              <-chan struct{}
-	charmhubHTTPClient  facade.HTTPClient
-	dbGetter            changestream.WatchableDBGetter
-	dbDeleter           database.DBDeleter
+	statePool            *state.StatePool
+	multiwatcherFactory  multiwatcher.Factory
+	centralHub           SharedHub
+	presence             presence.Recorder
+	leaseManager         lease.Manager
+	logger               loggo.Logger
+	cancel               <-chan struct{}
+	charmhubHTTPClient   facade.HTTPClient
+	dbGetter             changestream.WatchableDBGetter
+	serviceFactoryGetter servicefactory.ServiceFactoryGetter
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
@@ -62,19 +62,19 @@ type sharedServerContext struct {
 }
 
 type sharedServerConfig struct {
-	statePool           *state.StatePool
-	multiwatcherFactory multiwatcher.Factory
-	centralHub          SharedHub
-	presence            presence.Recorder
-	leaseManager        lease.Manager
-	controllerConfig    jujucontroller.Config
-	logger              loggo.Logger
-	charmhubHTTPClient  facade.HTTPClient
-	dbGetter            changestream.WatchableDBGetter
-	dbDeleter           database.DBDeleter
-	machineTag          names.Tag
-	dataDir             string
-	logDir              string
+	statePool            *state.StatePool
+	multiwatcherFactory  multiwatcher.Factory
+	centralHub           SharedHub
+	presence             presence.Recorder
+	leaseManager         lease.Manager
+	controllerConfig     jujucontroller.Config
+	logger               loggo.Logger
+	charmhubHTTPClient   facade.HTTPClient
+	dbGetter             changestream.WatchableDBGetter
+	serviceFactoryGetter servicefactory.ServiceFactoryGetter
+	machineTag           names.Tag
+	dataDir              string
+	logDir               string
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -99,8 +99,8 @@ func (c *sharedServerConfig) validate() error {
 	if c.dbGetter == nil {
 		return errors.NotValidf("nil dbGetter")
 	}
-	if c.dbDeleter == nil {
-		return errors.NotValidf("nil dbDeleter")
+	if c.serviceFactoryGetter == nil {
+		return errors.NotValidf("nil serviceFactoryGetter")
 	}
 	if c.machineTag == nil {
 		return errors.NotValidf("empty machineTag")
@@ -113,19 +113,19 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		return nil, errors.Trace(err)
 	}
 	ctx := &sharedServerContext{
-		statePool:           config.statePool,
-		multiwatcherFactory: config.multiwatcherFactory,
-		centralHub:          config.centralHub,
-		presence:            config.presence,
-		leaseManager:        config.leaseManager,
-		logger:              config.logger,
-		controllerConfig:    config.controllerConfig,
-		charmhubHTTPClient:  config.charmhubHTTPClient,
-		dbGetter:            config.dbGetter,
-		dbDeleter:           config.dbDeleter,
-		machineTag:          config.machineTag,
-		dataDir:             config.dataDir,
-		logDir:              config.logDir,
+		statePool:            config.statePool,
+		multiwatcherFactory:  config.multiwatcherFactory,
+		centralHub:           config.centralHub,
+		presence:             config.presence,
+		leaseManager:         config.leaseManager,
+		logger:               config.logger,
+		controllerConfig:     config.controllerConfig,
+		charmhubHTTPClient:   config.charmhubHTTPClient,
+		dbGetter:             config.dbGetter,
+		serviceFactoryGetter: config.serviceFactoryGetter,
+		machineTag:           config.machineTag,
+		dataDir:              config.dataDir,
+		logDir:               config.logDir,
 	}
 	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes
@@ -164,12 +164,6 @@ func (c *sharedServerContext) onConfigChanged(topic string, data controller.Conf
 	if removed.Size() != 0 || added.Size() != 0 {
 		c.logger.Infof("updating features to %v", values)
 	}
-}
-
-func (c *sharedServerContext) featureEnabled(flag string) bool {
-	c.configMutex.RLock()
-	defer c.configMutex.RUnlock()
-	return c.features.Contains(flag)
 }
 
 func (c *sharedServerContext) maxDebugLogDuration() time.Duration {

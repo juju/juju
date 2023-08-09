@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 type objectKey struct {
@@ -45,11 +46,10 @@ type objectKey struct {
 // after it has logged in. It contains an rpc.Root which it
 // uses to dispatch API calls appropriately.
 type apiHandler struct {
-	state   *state.State
-	model   *state.Model
-	rpcConn *rpc.Conn
-	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-	resources       *common.Resources
+	state           *state.State
+	model           *state.Model
+	rpcConn         *rpc.Conn
+	serviceFactory  servicefactory.ServiceFactory
 	watcherRegistry facade.WatcherRegistry
 	shared          *sharedServerContext
 
@@ -70,6 +70,9 @@ type apiHandler struct {
 	// serverHost is the host:port of the API server that the client
 	// connected to.
 	serverHost string
+
+	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
+	resources *common.Resources
 }
 
 var _ = (*apiHandler)(nil)
@@ -104,8 +107,11 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		return nil, errors.Trace(err)
 	}
 
+	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(modelUUID)
+
 	r := &apiHandler{
 		state:           st,
+		serviceFactory:  serviceFactory,
 		model:           m,
 		resources:       common.NewResources(),
 		watcherRegistry: registry,
@@ -148,6 +154,11 @@ func (r *apiHandler) WatcherRegistry() facade.WatcherRegistry {
 // State returns the underlying state.
 func (r *apiHandler) State() *state.State {
 	return r.state
+}
+
+// ServiceFactory returns the service factory.
+func (r *apiHandler) ServiceFactory() servicefactory.ServiceFactory {
+	return r.serviceFactory
 }
 
 // SharedContext returns the server shared context.
@@ -315,6 +326,7 @@ type apiRoot struct {
 	rpc.Killer
 	clock           clock.Clock
 	state           *state.State
+	serviceFactory  servicefactory.ServiceFactory
 	shared          *sharedServerContext
 	facades         *facade.Registry
 	watcherRegistry facade.WatcherRegistry
@@ -331,6 +343,8 @@ type apiRootHandler interface {
 	rpc.Killer
 	// State returns the underlying state.
 	State() *state.State
+	// ServiceFactory returns the service factory.
+	ServiceFactory() servicefactory.ServiceFactory
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext
 	// Resources returns the common resources.
@@ -345,15 +359,16 @@ type apiRootHandler interface {
 
 // newAPIRoot returns a new apiRoot.
 func newAPIRoot(
-	clock clock.Clock,
-	facades *facade.Registry,
 	root apiRootHandler,
+	facades *facade.Registry,
 	requestRecorder facade.RequestRecorder,
+	clock clock.Clock,
 ) (*apiRoot, error) {
 	return &apiRoot{
 		Killer:          root,
 		clock:           clock,
 		state:           root.State(),
+		serviceFactory:  root.ServiceFactory(),
 		shared:          root.SharedContext(),
 		facades:         facades,
 		resources:       root.Resources(),
@@ -740,9 +755,9 @@ func (ctx *facadeContext) ControllerDB() (changestream.WatchableDB, error) {
 	return db, errors.Trace(err)
 }
 
-// DBDeleter returns a database deleter.
-func (ctx *facadeContext) DBDeleter() coredatabase.DBDeleter {
-	return ctx.r.shared.dbDeleter
+// ServiceFactory returns the services factory for the current model.
+func (ctx *facadeContext) ServiceFactory() servicefactory.ServiceFactory {
+	return ctx.r.serviceFactory
 }
 
 // MachineTag returns the current machine tag.

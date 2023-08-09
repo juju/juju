@@ -42,7 +42,7 @@ type workerFixture struct {
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
 	dbGetter             stubWatchableDBGetter
-	dbDeleter            stubDBDeleter
+	serviceFactoryGetter stubServiceFactoryGetter
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -83,7 +83,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		SysLogger:                         s.sysLogger,
 		CharmhubHTTPClient:                s.charmhubHTTPClient,
 		DBGetter:                          s.dbGetter,
-		DBDeleter:                         s.dbDeleter,
+		ServiceFactoryGetter:              s.serviceFactoryGetter,
 	}
 }
 
@@ -151,8 +151,8 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *apiserver.Config) { cfg.DBGetter = nil },
 		"nil DBGetter not valid",
 	}, {
-		func(cfg *apiserver.Config) { cfg.DBDeleter = nil },
-		"nil DBDeleter not valid",
+		func(cfg *apiserver.Config) { cfg.ServiceFactoryGetter = nil },
+		"nil ServiceFactoryGetter not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

@@ -9,11 +9,11 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 // Context implements facade.Context in the simplest possible way.
@@ -37,8 +37,8 @@ type Context struct {
 	LeadershipReader_   leadership.Reader
 	SingularClaimer_    lease.Claimer
 	CharmhubHTTPClient_ facade.HTTPClient
+	ServiceFactory_     servicefactory.ServiceFactory
 	ControllerDB_       changestream.WatchableDB
-	DBDeleter_          database.DBDeleter
 	Logger_             loggo.Logger
 
 	MachineTag_ names.Tag
@@ -149,6 +149,7 @@ func (context Context) SingularClaimer() (lease.Claimer, error) {
 	return context.SingularClaimer_, nil
 }
 
+// HTTPClient implements facade.Context.
 func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {
 	switch purpose {
 	case facade.CharmhubHTTPClient:
@@ -158,12 +159,14 @@ func (context Context) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPC
 	}
 }
 
-func (context Context) ControllerDB() (changestream.WatchableDB, error) {
-	return context.ControllerDB_, nil
+// ServiceFactory implements facade.Context.
+func (context Context) ServiceFactory() servicefactory.ServiceFactory {
+	return context.ServiceFactory_
 }
 
-func (context Context) DBDeleter() database.DBDeleter {
-	return context.DBDeleter_
+// ControllerDB implements facade.Context.
+func (context Context) ControllerDB() (changestream.WatchableDB, error) {
+	return context.ControllerDB_, nil
 }
 
 // MachineTag returns the current machine tag.

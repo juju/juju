@@ -31,12 +31,13 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
+	databasetesting "github.com/juju/juju/database/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/domain/servicefactory"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -47,6 +48,7 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/multiwatcher"
+	workerservicefactory "github.com/juju/juju/worker/servicefactory"
 )
 
 type controllerSuite struct {
@@ -56,6 +58,7 @@ type controllerSuite struct {
 	controller      *controller.ControllerAPI
 	resources       *common.Resources
 	watcherRegistry facade.WatcherRegistry
+	serviceFactory  workerservicefactory.ServiceFactory
 	authorizer      apiservertesting.FakeAuthorizer
 	hub             *pubsub.StructuredHub
 	context         facadetest.Context
@@ -98,6 +101,10 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
+	// This factory is purely for tests that don't actually require the
+	// real factory.
+	s.serviceFactory = servicefactorytesting.NewTestingServiceFactory()
+
 	s.context = facadetest.Context{
 		State_:               s.State,
 		StatePool_:           s.StatePool,
@@ -106,9 +113,11 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Auth_:                s.authorizer,
 		Hub_:                 s.hub,
 		MultiwatcherFactory_: multiWatcherWorker,
-		ControllerDB_: shimWatchableDB{
-			TxnRunner: s.ControllerSuite.TxnRunner(),
-		},
+		ServiceFactory_: servicefactory.NewServiceFactory(
+			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
+			nil, nil,
+			servicefactorytesting.NewCheckLogger(c),
+		),
 	}
 	controller, err := controller.LatestAPI(s.context)
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,25 +126,16 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
 }
 
-type shimWatchableDB struct {
-	database.TxnRunner
-	changestream.EventSource
-}
-
-func (shimWatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
-	return nil, errors.New("not implemented")
-}
-
 func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
 	}
-	endPoint, err := controller.LatestAPI(
-		facadetest.Context{
-			State_:     s.State,
-			Resources_: s.resources,
-			Auth_:      anAuthoriser,
-		})
+	endPoint, err := controller.LatestAPI(facadetest.Context{
+		State_:          s.State,
+		Resources_:      s.resources,
+		Auth_:           anAuthoriser,
+		ServiceFactory_: s.serviceFactory,
+	})
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -313,10 +313,11 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 	}
 	controller, err := controller.NewControllerAPIv11(
 		facadetest.Context{
-			State_:     st,
-			StatePool_: s.StatePool,
-			Resources_: common.NewResources(),
-			Auth_:      authorizer,
+			State_:          st,
+			StatePool_:      s.StatePool,
+			Resources_:      common.NewResources(),
+			Auth_:           authorizer,
+			ServiceFactory_: s.serviceFactory,
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -343,9 +344,10 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: s.Owner}
 	controller, err := controller.NewControllerAPIv11(
 		facadetest.Context{
-			State_:     st,
-			Resources_: common.NewResources(),
-			Auth_:      authorizer,
+			State_:          st,
+			Resources_:      common.NewResources(),
+			Auth_:           authorizer,
+			ServiceFactory_: s.serviceFactory,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ControllerConfig()
@@ -389,6 +391,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 		State_:           s.State,
 		Resources_:       s.resources,
 		WatcherRegistry_: s.watcherRegistry,
+		ServiceFactory_:  s.serviceFactory,
 		Auth_:            s.authorizer,
 		ID_:              watcherId.AllWatcherId,
 		Dispose_:         func() { disposed = true },
@@ -891,12 +894,12 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPIv11(
-		facadetest.Context{
-			State_:     s.State,
-			Resources_: s.resources,
-			Auth_:      anAuthoriser,
-		})
+	endpoint, err := controller.NewControllerAPIv11(facadetest.Context{
+		State_:          s.State,
+		Resources_:      s.resources,
+		Auth_:           anAuthoriser,
+		ServiceFactory_: s.serviceFactory,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.ModifyControllerAccessRequest{
 		Changes: []params.ModifyControllerAccess{{
@@ -927,7 +930,7 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	// Check that we don't err out immediately if a model errs.
-	results, err := s.controller.ModelStatus(params.Entities{[]params.Entity{{
+	results, err := s.controller.ModelStatus(params.Entities{Entities: []params.Entity{{
 		Tag: "bad-tag",
 	}, {
 		Tag: s.Model.ModelTag().String(),
@@ -937,7 +940,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
 	// Check that we don't err out if a model errs even if some firsts in collection pass.
-	results, err = s.controller.ModelStatus(params.Entities{[]params.Entity{{
+	results, err = s.controller.ModelStatus(params.Entities{Entities: []params.Entity{{
 		Tag: s.Model.ModelTag().String(),
 	}, {
 		Tag: "bad-tag",
@@ -947,7 +950,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
 	// Check that we return successfully if no errors.
-	results, err = s.controller.ModelStatus(params.Entities{[]params.Entity{{
+	results, err = s.controller.ModelStatus(params.Entities{Entities: []params.Entity{{
 		Tag: s.Model.ModelTag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -977,12 +980,12 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: user.Tag(),
 	}
-	endpoint, err := controller.NewControllerAPIv11(
-		facadetest.Context{
-			State_:     s.State,
-			Resources_: s.resources,
-			Auth_:      anAuthoriser,
-		})
+	endpoint, err := controller.NewControllerAPIv11(facadetest.Context{
+		State_:          s.State,
+		Resources_:      s.resources,
+		Auth_:           anAuthoriser,
+		ServiceFactory_: s.serviceFactory,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = endpoint.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
@@ -1100,12 +1103,12 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewLocalUserTag("bob"),
 	}
-	endPoint, err := controller.LatestAPI(
-		facadetest.Context{
-			State_:     s.State,
-			Resources_: s.resources,
-			Auth_:      anAuthoriser,
-		})
+	endPoint, err := controller.LatestAPI(facadetest.Context{
+		State_:          s.State,
+		Resources_:      s.resources,
+		Auth_:           anAuthoriser,
+		ServiceFactory_: s.serviceFactory,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = endPoint.WatchAllModelSummaries()

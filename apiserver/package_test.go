@@ -29,12 +29,3 @@ func (s StubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB
 	}
 	return nil, nil
 }
-
-type StubDBDeleter struct{}
-
-func (s StubDBDeleter) DeleteDB(namespace string) error {
-	if namespace == "controller" {
-		return errors.Forbiddenf(`cannot delete "controller" DB`)
-	}
-	return nil
-}

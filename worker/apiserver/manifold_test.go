@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
+	"github.com/juju/juju/worker/servicefactory"
 	"github.com/juju/juju/worker/syslogger"
 )
 
@@ -59,7 +60,7 @@ type ManifoldSuite struct {
 	sysLogger            syslogger.SysLogger
 	charmhubHTTPClient   *http.Client
 	dbGetter             stubWatchableDBGetter
-	dbDeleter            stubDBDeleter
+	serviceFactoryGetter stubServiceFactoryGetter
 
 	stub testing.Stub
 }
@@ -96,7 +97,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		LeaseManagerName:                  "lease-manager",
 		SyslogName:                        "syslog",
 		CharmhubHTTPClientName:            "charmhub-http-client",
-		DBAccessorName:                    "db-accessor",
+		ServiceFactoryName:                "service-factory",
 		ChangeStreamName:                  "change-stream",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
@@ -121,7 +122,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"syslog":               s.sysLogger,
 		"charmhub-http-client": s.charmhubHTTPClient,
 		"change-stream":        s.dbGetter,
-		"db-accessor":          s.dbDeleter,
+		"service-factory":      s.serviceFactoryGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -152,7 +153,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
-	"syslog", "charmhub-http-client", "change-stream", "db-accessor",
+	"syslog", "charmhub-http-client", "change-stream", "service-factory",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -221,7 +222,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		SysLogger:                  s.sysLogger,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,
-		DBDeleter:                  s.dbDeleter,
+		ServiceFactoryGetter:       s.serviceFactoryGetter,
 	})
 }
 
@@ -372,15 +373,6 @@ type fakeMultiwatcherFactory struct {
 	multiwatcher.Factory
 }
 
-type stubDBDeleter struct{}
-
-func (s stubDBDeleter) DeleteDB(namespace string) error {
-	if namespace == "controller" {
-		return errors.Forbiddenf(`cannot delete "controller" DB`)
-	}
-	return nil
-}
-
 type stubWatchableDBGetter struct{}
 
 func (s stubWatchableDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
@@ -388,4 +380,8 @@ func (s stubWatchableDBGetter) GetWatchableDB(namespace string) (changestream.Wa
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
 	return nil, nil
+}
+
+type stubServiceFactoryGetter struct {
+	servicefactory.ServiceFactoryGetter
 }

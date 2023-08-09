@@ -12,13 +12,13 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/changestream"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 // Facade could be anything; it will be interpreted by the apiserver
@@ -67,7 +67,7 @@ type Context interface {
 	// types/objects.
 	LeadershipContext
 	ControllerDBGetter
-	DBManager
+	ServiceFactory
 	Logger
 
 	// Cancel channel represents an indication from the API server that
@@ -161,10 +161,10 @@ type ControllerDBGetter interface {
 	ControllerDB() (changestream.WatchableDB, error)
 }
 
-// DBManager describes the ability to acquire a database deleter.
-type DBManager interface {
-	// DBDeleter returns an a deleter for databases based on namespace.
-	DBDeleter() coredatabase.DBDeleter
+// ServiceFactory defines an interface for accessing all the services.
+type ServiceFactory interface {
+	// ServiceFactory returns the services factory for the current model.
+	ServiceFactory() servicefactory.ServiceFactory
 }
 
 // Logger defines an interface for getting the apiserver logger instance.

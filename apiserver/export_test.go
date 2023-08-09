@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 var (
@@ -46,6 +47,10 @@ func NewErrRoot(err error) *errRoot {
 type testingAPIRootHandler struct{}
 
 func (testingAPIRootHandler) State() *state.State {
+	return nil
+}
+
+func (testingAPIRootHandler) ServiceFactory() servicefactory.ServiceFactory {
 	return nil
 }
 
@@ -73,7 +78,7 @@ func (testingAPIRootHandler) Kill() {}
 // *barely* connected to anything.  Just enough to let you probe some
 // of the interfaces, but not enough to actually do any RPC calls.
 func TestingAPIRoot(facades *facade.Registry) rpc.Root {
-	root, err := newAPIRoot(clock.WallClock, facades, testingAPIRootHandler{}, nil)
+	root, err := newAPIRoot(testingAPIRootHandler{}, facades, nil, clock.WallClock)
 	if err != nil {
 		// While not ideal, this is only in test code, and there are a bunch of other functions
 		// that depend on this one that don't return errors either.
@@ -93,12 +98,21 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHan
 		httpAuthenticators:  []authentication.HTTPAuthenticator{authenticator},
 		loginAuthenticators: []authentication.LoginAuthenticator{authenticator},
 		offerAuthCtxt:       offerAuthCtxt,
-		shared:              &sharedServerContext{statePool: pool},
-		tag:                 names.NewMachineTag("0"),
+		shared: &sharedServerContext{
+			statePool:            pool,
+			serviceFactoryGetter: &StubServiceFactoryGetter{},
+		},
+		tag: names.NewMachineTag("0"),
 	}
 	h, err := newAPIHandler(srv, st, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.Resources()
+}
+
+type StubServiceFactoryGetter struct{}
+
+func (s *StubServiceFactoryGetter) FactoryForModel(string) servicefactory.ServiceFactory {
+	return nil
 }
 
 // TestingAPIHandlerWithEntity gives you the sane kind of APIHandler as
@@ -253,4 +267,11 @@ func CheckHasPermission(st *state.State, entity names.Tag, operation permission.
 		return false, errors.Errorf("%s is not a controller admin", names.ReadableString(entity))
 	}
 	return true, nil
+}
+
+// TODO (stickupkid): This purely used for testing and should be removed.
+func (c *sharedServerContext) featureEnabled(flag string) bool {
+	c.configMutex.RLock()
+	defer c.configMutex.RUnlock()
+	return c.features.Contains(flag)
 }

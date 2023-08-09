@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -60,10 +61,11 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	}
 	testController, err := controller.NewControllerAPIv11(
 		facadetest.Context{
-			State_:     s.ControllerModel(c).State(),
-			StatePool_: s.StatePool(),
-			Resources_: s.resources,
-			Auth_:      s.authorizer,
+			State_:          s.ControllerModel(c).State(),
+			StatePool_:      s.StatePool(),
+			Resources_:      s.resources,
+			Auth_:           s.authorizer,
+			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = testController

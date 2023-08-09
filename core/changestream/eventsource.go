@@ -42,3 +42,16 @@ func NewTxnRunnerFactory(f func() (WatchableDB, error)) database.TxnRunnerFactor
 		return r, errors.Trace(err)
 	}
 }
+
+// WatchableDBFactory aliases a function that
+// returns a database.TxnRunner or an error.
+type WatchableDBFactory = func() (WatchableDB, error)
+
+// NewWatchableDBFactoryForNamespace returns a WatchableDBFactory
+// for the input namespaced factory function and namespace.
+func NewWatchableDBFactoryForNamespace[T WatchableDB](f func(string) (T, error), ns string) WatchableDBFactory {
+	return func() (WatchableDB, error) {
+		r, err := f(ns)
+		return r, errors.Trace(err)
+	}
+}

@@ -28,14 +28,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	corecontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/changestream"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain"
-	ecservice "github.com/juju/juju/domain/externalcontroller/service"
-	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/pubsub/controller"
@@ -74,16 +70,10 @@ type ControllerAPI struct {
 // controller API.
 var LatestAPI = newControllerAPIv11
 
-// TestingAPI is an escape hatch for requesting a controller API that won't
-// allow auth to correctly happen for ModelStatus. I'm not convicned this
-// should exist at all.
-var TestingAPI = LatestAPI
-
 // NewControllerAPI creates a new api server endpoint for operations
 // on a controller.
 func NewControllerAPI(
 	st *state.State,
-	controllerDB domain.WatchableDBFactory,
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	resources facade.Resources,
@@ -92,6 +82,7 @@ func NewControllerAPI(
 	factory multiwatcher.Factory,
 	logger loggo.Logger,
 	ctrlConfigService ControllerConfiger,
+	externalCtrlService common.ExternalControllerService,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -108,13 +99,7 @@ func NewControllerAPI(
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			ecservice.NewService(
-				ecstate.NewState(changestream.NewTxnRunnerFactory(controllerDB)),
-				domain.NewWatcherFactory(
-					controllerDB,
-					logger.Child("clientcontroller"),
-				),
-			),
+			externalCtrlService,
 		),
 		ModelStatusAPI: common.NewModelStatusAPI(
 			common.NewModelManagerBackend(model, pool),

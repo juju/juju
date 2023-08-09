@@ -10,7 +10,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/authorizer_mock.go github.com/juju/juju/apiserver/common Authorizer
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/controllerconfig_mock.go github.com/juju/juju/apiserver/common ControllerConfigState,ECService
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/controllerconfig_mock.go github.com/juju/juju/apiserver/common ControllerConfigState,ExternalControllerService
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/tools_mock.go github.com/juju/juju/apiserver/common ToolsFinder,ToolsFindEntity,ToolsURLGetter,APIHostPortsForAgentsGetter,ToolsStorageGetter,AgentTooler
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/storage.go github.com/juju/juju/state/binarystorage StorageCloser
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/environs.go github.com/juju/juju/environs EnvironConfigGetter,BootstrapEnviron
