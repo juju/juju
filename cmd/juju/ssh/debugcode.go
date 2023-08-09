@@ -37,16 +37,14 @@ type debugCodeCommand struct {
 }
 
 const debugCodeDoc = `
-The command launches a tmux session that will intercept matching events and/or 
-actions. It is similar to 'juju debug-hooks' but instead of dropping you into a
-shell prompt, it automatically executes the hooks and/or actions and sets the
-JUJU_DEBUG_AT environment variable. Charms implementing support for this
+The command launches a tmux session that will intercept matching hooks and/or 
+actions. 
+
+Initially, the tmux session will take you to '/var/lib/juju' or '/home/ubuntu'.
+As soon as a matching hook or action is fired, the hook or action is executed
+and the JUJU_DEBUG_AT variable is set. Charms implementing support for this
 should set debug breakpoints based on the environment variable. Charms written
 with the Charmed Operator Framework Ops automatically provide support for this.
-
-Initially, the tmux session will take you to '/var/lib/juju'. As soon as a
-matching event or action is fired, the hook or action is executed and the
-JUJU_DEBUG_AT variable is set.
 
 For more details on debugging charm code, see the charm SDK documentation.
 
@@ -54,7 +52,7 @@ Valid unit identifiers are:
   a standard unit ID, such as mysql/0 or;
   leader syntax of the form <application>/leader, such as mysql/leader.
 
-If no event or action is specified, all events and actions will be intercepted.
+If no hook or action is specified, all hooks and actions will be intercepted.
 
 See the "juju help ssh" for information about SSH related options
 accepted by the debug-code command.
@@ -63,7 +61,7 @@ accepted by the debug-code command.
 func (c *debugCodeCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "debug-code",
-		Args:     "<unit name> [event or action names]",
+		Args:     "<unit name> [hook or action names]",
 		Purpose:  "Launch a tmux session to debug hooks and/or actions.",
 		Doc:      debugCodeDoc,
 		Examples: usageDebugCodeExamples,
