@@ -126,6 +126,7 @@ type upgradeDB struct {
 	agent          agent.Agent
 	logger         Logger
 	pool           Pool
+	openStateFn    func() (Pool, error)
 	performUpgrade func(version.Number, []upgrades.Target, func() upgrades.Context) error
 	upgradeInfo    UpgradeInfo
 	retryStrategy  retry.CallArgs
@@ -152,9 +153,7 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 		performUpgrade:  cfg.PerformUpgrade,
 		retryStrategy:   cfg.RetryStrategy,
 		clock:           cfg.Clock,
-	}
-	if w.pool, err = cfg.OpenState(); err != nil {
-		return nil, err
+		openStateFn:     cfg.OpenState,
 	}
 
 	w.tomb.Go(w.run)
@@ -162,6 +161,13 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 }
 
 func (w *upgradeDB) run() error {
+	// Open the state pool in the run loop, so we can bounce the worker if it's
+	// not available.
+	var err error
+	if w.pool, err = w.openStateFn(); err != nil {
+		return err
+	}
+
 	defer func() {
 		if err := w.pool.Close(); err != nil {
 			w.logger.Errorf("failed closing state pool: %v", err)
