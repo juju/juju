@@ -706,11 +706,11 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				Life:             life.Dying,
-				ApplicationToken: "token-django",
-				RelationToken:    "token-db2:db django:db",
-				Macaroons:        macaroon.Slice{apiMac},
-				BakeryVersion:    bakery.LatestVersion,
+				Life:                    life.Dying,
+				ApplicationOrOfferToken: "token-django",
+				RelationToken:           "token-db2:db django:db",
+				Macaroons:               macaroon.Slice{apiMac},
+				BakeryVersion:           bakery.LatestVersion,
 			},
 		}},
 	}
@@ -729,8 +729,8 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 
 	unitsWatcher, _ := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
-		RelationToken:    "token-db2:db django:db",
-		ApplicationToken: "token-django",
+		RelationToken:           "token-db2:db django:db",
+		ApplicationOrOfferToken: "token-django",
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId:   1,
 			Settings: map[string]interface{}{"foo": "bar"},
@@ -746,8 +746,8 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 	expected := []jujutesting.StubCall{
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				ApplicationToken: "token-django",
-				RelationToken:    "token-db2:db django:db",
+				ApplicationOrOfferToken: "token-django",
+				RelationToken:           "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{
 					UnitId:   1,
 					Settings: map[string]interface{}{"foo": "bar"},
@@ -766,21 +766,21 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 
 	unitsWatcher, _ = s.relationsFacade.removeRelation("db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
-		RelationToken:    "token-db2:db django:db",
-		ApplicationToken: "token-django",
-		DepartedUnits:    []int{1},
-		UnitCount:        intPtr(1),
+		RelationToken:           "token-db2:db django:db",
+		ApplicationOrOfferToken: "token-django",
+		DepartedUnits:           []int{1},
+		UnitCount:               intPtr(1),
 	}
 
 	expected = []jujutesting.StubCall{
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				ApplicationToken: "token-django",
-				RelationToken:    "token-db2:db django:db",
-				DepartedUnits:    []int{1},
-				UnitCount:        intPtr(1),
-				Macaroons:        macaroon.Slice{mac},
-				BakeryVersion:    bakery.LatestVersion,
+				ApplicationOrOfferToken: "token-django",
+				RelationToken:           "token-db2:db django:db",
+				DepartedUnits:           []int{1},
+				UnitCount:               intPtr(1),
+				Macaroons:               macaroon.Slice{mac},
+				BakeryVersion:           bakery.LatestVersion,
 			},
 		}},
 	}
@@ -790,21 +790,21 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 	// Remove relation before we receive the final unit change event.
 	unitsWatcher, _ = s.relationsFacade.removeRelation("db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
-		RelationToken:    "token-db2:db django:db",
-		ApplicationToken: "token-django",
-		DepartedUnits:    []int{2},
-		UnitCount:        intPtr(0),
+		RelationToken:           "token-db2:db django:db",
+		ApplicationOrOfferToken: "token-django",
+		DepartedUnits:           []int{2},
+		UnitCount:               intPtr(0),
 	}
 
 	expected = []jujutesting.StubCall{
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				ApplicationToken: "token-django",
-				RelationToken:    "token-db2:db django:db",
-				DepartedUnits:    []int{2},
-				UnitCount:        intPtr(0),
-				Macaroons:        macaroon.Slice{mac},
-				BakeryVersion:    bakery.LatestVersion,
+				ApplicationOrOfferToken: "token-django",
+				RelationToken:           "token-db2:db django:db",
+				DepartedUnits:           []int{2},
+				UnitCount:               intPtr(0),
+				Macaroons:               macaroon.Slice{mac},
+				BakeryVersion:           bakery.LatestVersion,
 			},
 		}},
 	}
@@ -820,9 +820,9 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 		}
 	}
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
-		RelationToken:    "token-db2:db django:db",
-		ApplicationToken: "token-django",
-		DepartedUnits:    []int{2},
+		RelationToken:           "token-db2:db django:db",
+		ApplicationOrOfferToken: "token-django",
+		DepartedUnits:           []int{2},
 	}
 	c.Assert(unitsWatcher.killed(), jc.IsTrue)
 	expected = []jujutesting.StubCall{
@@ -838,8 +838,8 @@ func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
 
 	unitsWatcher, _ := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
-		RelationToken:    "token-db2:db django:db",
-		ApplicationToken: "token-django",
+		RelationToken:           "token-db2:db django:db",
+		ApplicationOrOfferToken: "token-django",
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId:   1,
 			Settings: map[string]interface{}{"foo": "bar"},
@@ -852,8 +852,8 @@ func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
 	expected := []jujutesting.StubCall{
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				ApplicationToken: "token-django",
-				RelationToken:    "token-db2:db django:db",
+				ApplicationOrOfferToken: "token-django",
+				RelationToken:           "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{
 					UnitId:   1,
 					Settings: map[string]interface{}{"foo": "bar"},
@@ -876,8 +876,8 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnPublish(c *gc.C) {
 
 	unitsWatcher, _ := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
-		ApplicationToken: "token-django",
-		RelationToken:    "token-db2:db django:db",
+		ApplicationOrOfferToken: "token-django",
+		RelationToken:           "token-db2:db django:db",
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId:   1,
 			Settings: map[string]interface{}{"foo": "bar"},
@@ -890,8 +890,8 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnPublish(c *gc.C) {
 	expected := []jujutesting.StubCall{
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				ApplicationToken: "token-django",
-				RelationToken:    "token-db2:db django:db",
+				ApplicationOrOfferToken: "token-django",
+				RelationToken:           "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{
 					UnitId:   1,
 					Settings: map[string]interface{}{"foo": "bar"},
@@ -912,8 +912,8 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
 
 	unitsWatcher, _ := s.remoteRelationsFacade.remoteRelationWatcher("token-db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
-		ApplicationToken: "token-offer-db2-uuid",
-		RelationToken:    "token-db2:db django:db",
+		ApplicationOrOfferToken: "token-offer-db2-uuid",
+		RelationToken:           "token-db2:db django:db",
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId:   1,
 			Settings: map[string]interface{}{"foo": "bar"},
@@ -926,8 +926,8 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
 	expected := []jujutesting.StubCall{
 		{"ConsumeRemoteRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				ApplicationToken: "token-offer-db2-uuid",
-				RelationToken:    "token-db2:db django:db",
+				ApplicationOrOfferToken: "token-offer-db2-uuid",
+				RelationToken:           "token-db2:db django:db",
 				ChangedUnits: []params.RemoteRelationUnitChange{{
 					UnitId:   1,
 					Settings: map[string]interface{}{"foo": "bar"},
@@ -955,10 +955,10 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDyingConsumes(c *gc.C) {
 	expected := []jujutesting.StubCall{
 		{"ConsumeRemoteRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				Life:             life.Dying,
-				ApplicationToken: "token-offer-db2-uuid",
-				RelationToken:    "token-db2:db django:db",
-				Suspended:        &suspended,
+				Life:                    life.Dying,
+				ApplicationOrOfferToken: "token-offer-db2-uuid",
+				RelationToken:           "token-db2:db django:db",
+				Suspended:               &suspended,
 			},
 		}},
 	}
@@ -981,9 +981,9 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 	s.stub.SetErrors(errors.New("failed"))
 	unitsWatcher, _ := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
 	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
-		ApplicationToken: "token-django",
-		RelationToken:    "token-db2:db django:db",
-		DepartedUnits:    []int{1},
+		ApplicationOrOfferToken: "token-django",
+		RelationToken:           "token-db2:db django:db",
+		DepartedUnits:           []int{1},
 	}
 
 	// The error causes relation change publication to fail.
@@ -992,11 +992,11 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 	expected := []jujutesting.StubCall{
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				ApplicationToken: "token-django",
-				RelationToken:    "token-db2:db django:db",
-				DepartedUnits:    []int{1},
-				Macaroons:        macaroon.Slice{apiMac},
-				BakeryVersion:    bakery.LatestVersion,
+				ApplicationOrOfferToken: "token-django",
+				RelationToken:           "token-db2:db django:db",
+				DepartedUnits:           []int{1},
+				Macaroons:               macaroon.Slice{apiMac},
+				BakeryVersion:           bakery.LatestVersion,
 			},
 		}},
 		{"Close", nil},
@@ -1061,12 +1061,12 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 			FuncName: "PublishRelationChange",
 			Args: []interface{}{
 				params.RemoteRelationChangeEvent{
-					ApplicationToken: "token-django",
-					RelationToken:    "token-db2:db django:db",
-					Life:             life.Dying,
-					Macaroons:        macaroon.Slice{apiMac},
-					BakeryVersion:    bakery.LatestVersion,
-					ForceCleanup:     &forceCleanup,
+					ApplicationOrOfferToken: "token-django",
+					RelationToken:           "token-db2:db django:db",
+					Life:                    life.Dying,
+					Macaroons:               macaroon.Slice{apiMac},
+					BakeryVersion:           bakery.LatestVersion,
+					ForceCleanup:            &forceCleanup,
 				},
 			}},
 		)

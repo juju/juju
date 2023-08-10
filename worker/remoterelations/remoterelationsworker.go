@@ -73,10 +73,6 @@ func (w *remoteRelationsWorker) Wait() error {
 }
 
 func (w *remoteRelationsWorker) loop() error {
-	var (
-		changes chan<- RelationUnitChangeEvent
-		event   RelationUnitChangeEvent
-	)
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -99,20 +95,21 @@ func (w *remoteRelationsWorker) loop() error {
 			w.mostRecentEvent = RelationUnitChangeEvent{
 				Tag: w.relationTag,
 				RemoteRelationChangeEvent: params.RemoteRelationChangeEvent{
-					RelationToken:    w.remoteRelationToken,
-					ApplicationToken: w.applicationToken,
-					Life:             change.Life,
-					Suspended:        &suspended,
-					SuspendedReason:  change.SuspendedReason,
+					RelationToken:           w.remoteRelationToken,
+					ApplicationOrOfferToken: w.applicationToken,
+					Life:                    change.Life,
+					Suspended:               &suspended,
+					SuspendedReason:         change.SuspendedReason,
 				},
 			}
 			w.changeSince = time.Now()
-			event = w.mostRecentEvent
+			event := w.mostRecentEvent
 			w.mu.Unlock()
-			changes = w.changes
-
-		case changes <- event:
-			changes = nil
+			select {
+			case <-w.catacomb.Dying():
+				return w.catacomb.ErrDying()
+			case w.changes <- event:
+			}
 		}
 	}
 }

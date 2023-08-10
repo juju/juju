@@ -734,7 +734,7 @@ func (w *srvRemoteRelationWatcher) Next() (params.RemoteRelationWatchResult, err
 	expanded, err := crossmodel.ExpandChange(
 		w.backend,
 		w.watcher.RelationToken,
-		w.watcher.ApplicationToken,
+		w.watcher.ApplicationOrOfferToken,
 		changes,
 	)
 	if err != nil {
@@ -1257,7 +1257,7 @@ func newSecretsTriggerWatcher(context facade.Context) (facade.Facade, error) {
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	w, err := context.WatcherRegistry().Get(context.ID())
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1311,7 +1311,7 @@ func newSecretBackendsRotateWatcher(context facade.Context) (facade.Facade, erro
 	if !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	w, err := context.WatcherRegistry().Get(context.ID())
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1368,7 +1368,7 @@ func newSecretsRevisionWatcher(context facade.Context) (facade.Facade, error) {
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, apiservererrors.ErrPerm
 	}
-	w, err := context.WatcherRegistry().Get(context.ID())
+	w, err := GetWatcherByID(context.WatcherRegistry(), context.Resources(), context.ID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -82,7 +82,7 @@ func PublishRelationChange(auth authoriser, backend Backend, relationTag, applic
 
 	// TODO(wallyworld) - deal with remote application being removed
 	if applicationTag == nil {
-		logger.Infof("no remote application found for %v", relationTag.Id())
+		logger.Warningf("no remote application found for %v", relationTag.Id())
 		return nil
 	}
 	logger.Debugf("remote application for changed relation %v is %v in model %v",
@@ -244,11 +244,11 @@ func GetOfferingRelationTokens(backend Backend, tag names.RelationTag) (string, 
 	if err != nil {
 		return "", "", errors.Annotatef(err, "getting token for relation %q", tag.Id())
 	}
-	appToken, err := backend.GetToken(names.NewApplicationOfferTag(offerName))
+	offerToken, err := backend.GetToken(names.NewApplicationOfferTag(offerName))
 	if err != nil {
 		return "", "", errors.Annotatef(err, "getting token for application offer %q", offerName)
 	}
-	return relationToken, appToken, nil
+	return relationToken, offerToken, nil
 }
 
 // GetConsumingRelationTokens returns the tokens for the relation and the local
@@ -316,7 +316,7 @@ func WatchRelationUnits(backend Backend, tag names.RelationTag) (common.Relation
 func ExpandChange(
 	backend Backend,
 	relationToken string,
-	appToken string,
+	appOrOfferToken string,
 	change params.RelationUnitsChange,
 ) (params.RemoteRelationChangeEvent, error) {
 	var empty params.RemoteRelationChangeEvent
@@ -338,9 +338,9 @@ func ExpandChange(
 		// just send the departed units so they can leave scope on
 		// the other side of a cross-model relation.
 		return params.RemoteRelationChangeEvent{
-			RelationToken:    relationToken,
-			ApplicationToken: appToken,
-			DepartedUnits:    departed,
+			RelationToken:           relationToken,
+			ApplicationOrOfferToken: appOrOfferToken,
+			DepartedUnits:           departed,
 		}, nil
 
 	} else if err != nil {
@@ -386,12 +386,12 @@ func ExpandChange(
 
 	uc := relation.UnitCount()
 	result := params.RemoteRelationChangeEvent{
-		RelationToken:       relationToken,
-		ApplicationToken:    appToken,
-		ApplicationSettings: appSettings,
-		ChangedUnits:        unitChanges,
-		DepartedUnits:       departed,
-		UnitCount:           &uc,
+		RelationToken:           relationToken,
+		ApplicationOrOfferToken: appOrOfferToken,
+		ApplicationSettings:     appSettings,
+		ChangedUnits:            unitChanges,
+		DepartedUnits:           departed,
+		UnitCount:               &uc,
 	}
 
 	return result, nil
@@ -402,8 +402,8 @@ func ExpandChange(
 // for sending outside this model.
 type WrappedUnitsWatcher struct {
 	common.RelationUnitsWatcher
-	RelationToken    string
-	ApplicationToken string
+	RelationToken           string
+	ApplicationOrOfferToken string
 }
 
 // RelationUnitSettings returns the unit settings for the specified relation unit.

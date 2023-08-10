@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -36,6 +37,7 @@ type API struct {
 	ecService  ECService
 	resources  facade.Resources
 	authorizer facade.Authorizer
+	logger     loggo.Logger
 }
 
 // NewRemoteRelationsAPI returns a new server-side API facade.
@@ -45,6 +47,7 @@ func NewRemoteRelationsAPI(
 	controllerCfgAPI ControllerConfigAPI,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	logger loggo.Logger,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -55,6 +58,7 @@ func NewRemoteRelationsAPI(
 		ControllerConfigAPI: controllerCfgAPI,
 		resources:           resources,
 		authorizer:          authorizer,
+		logger:              logger,
 	}, nil
 }
 
@@ -287,9 +291,9 @@ func (api *API) WatchLocalRelationChanges(args params.Entities) (params.RemoteRe
 			return nil, empty, errors.Trace(err)
 		}
 		wrapped := &commoncrossmodel.WrappedUnitsWatcher{
-			RelationUnitsWatcher: w,
-			RelationToken:        relationToken,
-			ApplicationToken:     appToken,
+			RelationUnitsWatcher:    w,
+			RelationToken:           relationToken,
+			ApplicationOrOfferToken: appToken,
 		}
 		return wrapped, fullChange, nil
 	}
@@ -358,6 +362,7 @@ func (api *API) WatchRemoteRelations() (params.StringsWatchResult, error) {
 // ConsumeRemoteRelationChanges consumes changes to settings originating
 // from the remote/offering side of relations.
 func (api *API) ConsumeRemoteRelationChanges(changes params.RemoteRelationsChanges) (params.ErrorResults, error) {
+	api.logger.Debugf("ConsumeRemoteRelationChanges: %+v", changes)
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
@@ -370,11 +375,12 @@ func (api *API) ConsumeRemoteRelationChanges(changes params.RemoteRelationsChang
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		applicationTag, err := api.st.GetRemoteEntity(change.ApplicationToken)
+		applicationTag, err := api.st.GetRemoteEntity(change.ApplicationOrOfferToken)
 		if err != nil && !errors.IsNotFound(err) {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		api.logger.Debugf("ConsumeRemoteRelationChanges: rel tag %v; app tag: %v", relationTag, applicationTag)
 		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, applicationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

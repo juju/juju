@@ -39,9 +39,9 @@ func (s *crossmodelSuite) TestExpandChangeWhenRelationHasGone(c *gc.C) {
 		&mockBackend{}, "some-relation", "some-app", change)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RemoteRelationChangeEvent{
-		RelationToken:    "some-relation",
-		ApplicationToken: "some-app",
-		DepartedUnits:    []int{2, 3},
+		RelationToken:           "some-relation",
+		ApplicationOrOfferToken: "some-app",
+		DepartedUnits:           []int{2, 3},
 	})
 }
 

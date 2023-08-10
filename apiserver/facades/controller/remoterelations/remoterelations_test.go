@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -61,7 +62,10 @@ func (s *remoteRelationsSuite) setup(c *gc.C) *gomock.Controller {
 	s.st = mocks.NewMockRemoteRelationsState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
 	s.ecService = mocks.NewMockECService(ctrl)
-	api, err := remoterelations.NewRemoteRelationsAPI(s.st, s.ecService, s.cc, s.resources, s.authorizer)
+	api, err := remoterelations.NewRemoteRelationsAPI(
+		s.st, s.ecService, s.cc, s.resources, s.authorizer,
+		loggo.GetLogger("test"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl
@@ -176,10 +180,10 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 	c.Assert(results.Results, jc.DeepEquals, []params.RemoteRelationWatchResult{{
 		RemoteRelationWatcherId: "1",
 		Changes: params.RemoteRelationChangeEvent{
-			RelationToken:    "token-relation-django.db#db2.db",
-			ApplicationToken: "token-application-django",
-			Macaroons:        nil,
-			UnitCount:        &uc,
+			RelationToken:           "token-relation-django.db#db2.db",
+			ApplicationOrOfferToken: "token-application-django",
+			Macaroons:               nil,
+			UnitCount:               &uc,
 			ApplicationSettings: map[string]interface{}{
 				"sunday": "roast",
 			},
@@ -395,9 +399,9 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 	db2Relation.remoteUnits["django/0"] = djangoRelationUnit
 
 	change := params.RemoteRelationChangeEvent{
-		RelationToken:    "rel-token",
-		ApplicationToken: "app-token",
-		Life:             life.Alive,
+		RelationToken:           "rel-token",
+		ApplicationOrOfferToken: "app-token",
+		Life:                    life.Alive,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId:   0,
 			Settings: map[string]interface{}{"foo": "bar"},
@@ -437,10 +441,10 @@ func (s *remoteRelationsSuite) TestConsumeRelationResumePermission(c *gc.C) {
 	offerConn := &mockOfferConnection{offerUUID: "offer-uuid", username: "fred"}
 
 	change := params.RemoteRelationChangeEvent{
-		RelationToken:    "rel-token",
-		ApplicationToken: "app-token",
-		Life:             life.Alive,
-		Suspended:        ptr(false),
+		RelationToken:           "rel-token",
+		ApplicationOrOfferToken: "app-token",
+		Life:                    life.Alive,
+		Suspended:               ptr(false),
 	}
 	changes := params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{change},

@@ -109,10 +109,10 @@ func (w *remoteApplicationWorker) checkOfferPermissionDenied(err error, appToken
 		if relationToken != "" {
 			suspended := true
 			event := params.RemoteRelationChangeEvent{
-				RelationToken:    relationToken,
-				ApplicationToken: appToken,
-				Suspended:        &suspended,
-				SuspendedReason:  "offer permission revoked",
+				RelationToken:           relationToken,
+				ApplicationOrOfferToken: appToken,
+				Suspended:               &suspended,
+				SuspendedReason:         "offer permission revoked",
 			}
 			if err := w.localModelFacade.ConsumeRemoteRelationChange(event); err != nil {
 				w.logger.Errorf("updating relation status: %v", err)
@@ -229,7 +229,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			// TODO(babbageclunk): add macaroons to event here instead
 			// of in the relation units worker.
 			if err := w.remoteModelFacade.PublishRelationChange(change.RemoteRelationChangeEvent); err != nil {
-				w.checkOfferPermissionDenied(err, change.ApplicationToken, change.RelationToken)
+				w.checkOfferPermissionDenied(err, change.ApplicationOrOfferToken, change.RelationToken)
 				if isNotFound(err) || params.IsCodeCannotEnterScope(err) {
 					w.logger.Debugf("relation %v changed but remote side already removed", change.Tag.Id())
 					continue
@@ -299,7 +299,8 @@ func (w *remoteApplicationWorker) newRemoteRelationsFacadeWithRedirect() error {
 	w.logger.Debugf("remote controller API addresses: %v", apiInfo.Addrs)
 
 	w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo)
-	if redirectErr, ok := errors.Cause(err).(*api.RedirectError); ok {
+	var redirectErr *api.RedirectError
+	if errors.As(errors.Cause(err), &redirectErr) {
 		apiInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
 		apiInfo.CACert = redirectErr.CACert
 
@@ -332,11 +333,11 @@ func (w *remoteApplicationWorker) processRelationDying(key string, r *relation, 
 	// it is suspended).
 	if !w.isConsumerProxy {
 		change := params.RemoteRelationChangeEvent{
-			RelationToken:    r.relationToken,
-			Life:             life.Dying,
-			ApplicationToken: r.applicationToken,
-			Macaroons:        macaroon.Slice{r.macaroon},
-			BakeryVersion:    bakery.LatestVersion,
+			RelationToken:           r.relationToken,
+			Life:                    life.Dying,
+			ApplicationOrOfferToken: r.applicationToken,
+			Macaroons:               macaroon.Slice{r.macaroon},
+			BakeryVersion:           bakery.LatestVersion,
 		}
 		// forceCleanup will be true if the worker has restarted and because the relation had
 		// already been removed, we won't get any more unit departed events.
