@@ -495,9 +495,6 @@ Note: If you choose (2b): You will need to specify:
 
 Note: If multiple resources are needed, repeat the option.
 
-For example:
-
-  juju deploy foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
 
 Use the '--to' option to deploy to an existing machine or container by
 specifying a "placement directive". The ` + "`status`" + ` command should be used for
@@ -596,6 +593,10 @@ attribute of 'gpu=nvidia-tesla-p100':
 
     juju deploy mycharm --device \
        twingpu=2,nvidia.com/gpu,gpu=nvidia-tesla-p100
+
+Deploy with specific resources:
+
+    juju deploy foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
 `
 
 func (c *DeployCommand) Info() *cmd.Info {
@@ -614,6 +615,7 @@ func (c *DeployCommand) Info() *cmd.Info {
 			"refresh",
 			"set-constraints",
 			"spaces",
+			"charm-resources",
 		},
 	})
 }

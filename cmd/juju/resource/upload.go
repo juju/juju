@@ -93,7 +93,7 @@ Note: If you choose (2b): You will need to specify:
 func (c *UploadCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "attach-resource",
-		Args:    "application name=file|OCI image",
+		Args:    "application <resource name>=<resource>",
 		Purpose: "Update a resource for an application.",
 		Doc:     attachDoc,
 		SeeAlso: []string{
