@@ -3012,7 +3012,7 @@ func (api *APIBase) Leader(entity params.Entity) (params.StringResult, error) {
 	}
 	leaders, err := api.leadershipReader.Leaders()
 	if err != nil {
-		return result, errors.Annotate(err, "could not fetch leaders")
+		return result, errors.Annotate(err, "querying leaders")
 	}
 	var ok bool
 	result.Result, ok = leaders[application.Name]
