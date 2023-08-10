@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -98,9 +99,10 @@ func (s *firewallerBaseSuite) testFirewallerFailsWithNonControllerUser(
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	ctx := facadetest.Context{
-		Auth_:      anAuthorizer,
-		Resources_: s.resources,
-		State_:     s.ControllerModel(c).State(),
+		Auth_:           anAuthorizer,
+		Resources_:      s.resources,
+		State_:          s.ControllerModel(c).State(),
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	}
 	err := factory(ctx)
 	c.Assert(err, gc.NotNil)

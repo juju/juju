@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -42,10 +43,10 @@ type Suite struct {
 	statetesting.StateSuite
 	authorizer *apiservertesting.FakeAuthorizer
 
-	ecService     *MockECService
-	facadeContext facadetest.Context
-	callContext   environscontext.ProviderCallContext
-	leaders       map[string]string
+	externalControllerService *MockExternalControllerService
+	facadeContext             facadetest.Context
+	callContext               environscontext.ProviderCallContext
+	leaders                   map[string]string
 }
 
 var _ = gc.Suite(&Suite{})
@@ -53,12 +54,11 @@ var _ = gc.Suite(&Suite{})
 func (s *Suite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.ecService = NewMockECService(ctrl)
+	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	return ctrl
 }
 
 func (s *Suite) SetUpTest(c *gc.C) {
-
 	// Set up InitialConfig with a dummy provider configuration. This
 	// is required to allow model import test to work.
 	s.InitialConfig = jujutesting.CustomModelConfig(c, jujutesting.FakeConfig())
@@ -86,8 +86,9 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := aFactory(&facadetest.Context{
-		State_: s.State,
-		Auth_:  s.authorizer,
+		State_:          s.State,
+		Auth_:           s.authorizer,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
@@ -202,11 +203,11 @@ func (s *Suite) TestActivate(c *gc.C) {
 		CACert:        jujutesting.CACert,
 		ModelUUIDs:    []string{sourceModel},
 	}
-	s.ecService.EXPECT().UpdateExternalController(
+	s.externalControllerService.EXPECT().UpdateExternalController(
 		gomock.Any(),
 		expectedCI,
 	).Times(1)
-	s.ecService.EXPECT().ControllerForModel(
+	s.externalControllerService.EXPECT().ControllerForModel(
 		gomock.Any(),
 		sourceModel,
 	).Times(1).Return(&expectedCI, nil)
@@ -467,7 +468,7 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 }
 
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc) (*migrationtarget.API, error) {
-	api, err := migrationtarget.NewAPI(&s.facadeContext, s.authorizer, s.ecService, environFunc, brokerFunc)
+	api, err := migrationtarget.NewAPI(&s.facadeContext, s.authorizer, s.externalControllerService, environFunc, brokerFunc)
 	return api, err
 }
 

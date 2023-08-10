@@ -31,7 +31,6 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/charmhub"
 	corebase "github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/changestream"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -44,9 +43,6 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain"
-	ecservice "github.com/juju/juju/domain/externalcontroller/service"
-	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
@@ -173,16 +169,9 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	}
 	repoDeploy := NewDeployFromRepositoryAPI(state, makeDeployFromRepositoryValidator(validatorCfg))
 
-	ecService := ecservice.NewService(
-		ecstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
-		domain.NewWatcherFactory(
-			ctx.ControllerDB,
-			ctx.Logger().Child("externalcontrollerupdater"),
-		),
-	)
 	return NewAPIBase(
 		state,
-		ecService,
+		ctx.ServiceFactory().ExternalController(),
 		storageAccess,
 		ctx.Auth(),
 		updateBase,

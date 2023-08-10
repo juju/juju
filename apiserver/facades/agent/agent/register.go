@@ -12,10 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/domain"
-	ecservice "github.com/juju/juju/domain/externalcontroller/service"
-	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -50,13 +46,7 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 		ModelWatcher:      common.NewModelWatcher(model, resources, auth),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			ecservice.NewService(
-				ecstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
-				domain.NewWatcherFactory(
-					ctx.ControllerDB,
-					ctx.Logger().Child("agent"),
-				),
-			),
+			ctx.ServiceFactory().ExternalController(),
 		),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,

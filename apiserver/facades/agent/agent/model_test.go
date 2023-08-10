@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/agent"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -44,9 +45,10 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.api, err = agent.NewAgentAPIV3(facadetest.Context{
-		State_:     st,
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
+		State_:          st,
+		Resources_:      s.resources,
+		Auth_:           s.authorizer,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.ModelWatcherTest = commontesting.NewModelWatcherTest(

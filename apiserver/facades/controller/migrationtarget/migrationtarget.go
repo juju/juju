@@ -31,8 +31,8 @@ type ModelImporter interface {
 	ImportModel(ctx context.Context, bytes []byte) (*state.Model, *state.State, error)
 }
 
-// ECService provides a subset of the external controller domain service methods.
-type ECService interface {
+// ExternalControllerService provides a subset of the external controller domain service methods.
+type ExternalControllerService interface {
 	// ControllerForModel returns the controller record that's associated
 	// with the modelUUID.
 	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
@@ -45,14 +45,14 @@ type ECService interface {
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state         *state.State
-	modelImporter ModelImporter
-	ecService     ECService
-	pool          *state.StatePool
-	authorizer    facade.Authorizer
-	presence      facade.Presence
-	getEnviron    stateenvirons.NewEnvironFunc
-	getCAASBroker stateenvirons.NewCAASBrokerFunc
+	state                     *state.State
+	modelImporter             ModelImporter
+	externalControllerService ExternalControllerService
+	pool                      *state.StatePool
+	authorizer                facade.Authorizer
+	presence                  facade.Presence
+	getEnviron                stateenvirons.NewEnvironFunc
+	getCAASBroker             stateenvirons.NewCAASBrokerFunc
 }
 
 // APIV1 implements the V1 version of the API facade.
@@ -62,7 +62,13 @@ type APIV1 struct {
 
 // NewAPI returns a new APIV1. Accepts a NewEnvironFunc and context.ProviderCallContext
 // for testing purposes.
-func NewAPI(ctx facade.Context, authorizer facade.Authorizer, ecService ECService, getEnviron stateenvirons.NewEnvironFunc, getCAASBroker stateenvirons.NewCAASBrokerFunc) (*API, error) {
+func NewAPI(
+	ctx facade.Context,
+	authorizer facade.Authorizer,
+	externalControllerService ExternalControllerService,
+	getEnviron stateenvirons.NewEnvironFunc,
+	getCAASBroker stateenvirons.NewCAASBrokerFunc,
+) (*API, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()
 
@@ -71,14 +77,14 @@ func NewAPI(ctx facade.Context, authorizer facade.Authorizer, ecService ECServic
 	modelImporter := migration.NewModelImporter(controller, scope)
 
 	return &API{
-		state:         st,
-		modelImporter: modelImporter,
-		pool:          pool,
-		ecService:     ecService,
-		authorizer:    authorizer,
-		presence:      ctx.Presence(),
-		getEnviron:    getEnviron,
-		getCAASBroker: getCAASBroker,
+		state:                     st,
+		modelImporter:             modelImporter,
+		pool:                      pool,
+		externalControllerService: externalControllerService,
+		authorizer:                authorizer,
+		presence:                  ctx.Presence(),
+		getEnviron:                getEnviron,
+		getCAASBroker:             getCAASBroker,
 	}, nil
 }
 
@@ -216,7 +222,7 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 		if err != nil {
 			return errors.Trace(err)
 		}
-		err = api.ecService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
+		err = api.externalControllerService.UpdateExternalController(ctx, crossmodel.ControllerInfo{
 			ControllerTag: cTag,
 			Alias:         args.ControllerAlias,
 			Addrs:         args.SourceAPIAddrs,
@@ -236,7 +242,7 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 	}
 	for _, app := range remoteApps {
 		var sourceControllerUUID string
-		extInfo, err := api.ecService.ControllerForModel(ctx, app.SourceModel().Id())
+		extInfo, err := api.externalControllerService.ControllerForModel(ctx, app.SourceModel().Id())
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}

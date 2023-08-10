@@ -10,10 +10,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/domain"
-	ecservice "github.com/juju/juju/domain/externalcontroller/service"
-	ecstate "github.com/juju/juju/domain/externalcontroller/state"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -30,24 +26,7 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacadeV1 is used for APIV1 registration.
 func newFacadeV1(ctx facade.Context) (*APIV1, error) {
-	auth := ctx.Auth()
-	st := ctx.State()
-	if err := checkAuth(auth, st); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	api, err := NewAPI(
-		ctx,
-		auth,
-		ecservice.NewService(
-			ecstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
-			domain.NewWatcherFactory(
-				ctx.ControllerDB,
-				ctx.Logger().Child("migrationtarget"),
-			),
-		),
-		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New))
+	api, err := newFacade(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -65,13 +44,7 @@ func newFacade(ctx facade.Context) (*API, error) {
 	return NewAPI(
 		ctx,
 		auth,
-		ecservice.NewService(
-			ecstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
-			domain.NewWatcherFactory(
-				ctx.ControllerDB,
-				ctx.Logger().Child("migrationtarget"),
-			),
-		),
+		ctx.ServiceFactory().ExternalController(),
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New))
 }
