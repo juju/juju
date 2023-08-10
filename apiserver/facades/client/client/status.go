@@ -289,7 +289,12 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	}
 	if len(context.allAppsUnitsCharmBindings.applications) > 0 {
 		if context.leaders, err = c.api.leadershipReader.Leaders(); err != nil {
-			return noStatus, errors.Annotate(err, "could not fetch leaders")
+			// Leader information is additive for status.
+			// Given that it comes from Dqlite, which may be subject to
+			// reconfiguration when mutating the control plane, we would
+			// rather return as much status as possible over an error.
+			logger.Warningf("could not determine application leaders: %v", err)
+			context.leaders = make(map[string]string)
 		}
 	}
 	if context.controllerTimestamp, err = c.api.stateAccessor.ControllerTimestamp(); err != nil {
