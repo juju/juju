@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -58,7 +59,6 @@ func (s *Suite) setUpMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *Suite) SetUpTest(c *gc.C) {
-
 	// Set up InitialConfig with a dummy provider configuration. This
 	// is required to allow model import test to work.
 	s.InitialConfig = jujutesting.CustomModelConfig(c, jujutesting.FakeConfig())
@@ -86,8 +86,9 @@ func (s *Suite) TestFacadeRegistered(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api, err := aFactory(&facadetest.Context{
-		State_: s.State,
-		Auth_:  s.authorizer,
+		State_:          s.State,
+		Auth_:           s.authorizer,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.FitsTypeOf, new(migrationtarget.API))
