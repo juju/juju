@@ -43,10 +43,10 @@ type Suite struct {
 	statetesting.StateSuite
 	authorizer *apiservertesting.FakeAuthorizer
 
-	ecService     *MockECService
-	facadeContext facadetest.Context
-	callContext   environscontext.ProviderCallContext
-	leaders       map[string]string
+	externalControllerService *MockExternalControllerService
+	facadeContext             facadetest.Context
+	callContext               environscontext.ProviderCallContext
+	leaders                   map[string]string
 }
 
 var _ = gc.Suite(&Suite{})
@@ -54,7 +54,7 @@ var _ = gc.Suite(&Suite{})
 func (s *Suite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.ecService = NewMockECService(ctrl)
+	s.externalControllerService = NewMockExternalControllerService(ctrl)
 	return ctrl
 }
 
@@ -203,11 +203,11 @@ func (s *Suite) TestActivate(c *gc.C) {
 		CACert:        jujutesting.CACert,
 		ModelUUIDs:    []string{sourceModel},
 	}
-	s.ecService.EXPECT().UpdateExternalController(
+	s.externalControllerService.EXPECT().UpdateExternalController(
 		gomock.Any(),
 		expectedCI,
 	).Times(1)
-	s.ecService.EXPECT().ControllerForModel(
+	s.externalControllerService.EXPECT().ControllerForModel(
 		gomock.Any(),
 		sourceModel,
 	).Times(1).Return(&expectedCI, nil)
@@ -468,7 +468,7 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 }
 
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc) (*migrationtarget.API, error) {
-	api, err := migrationtarget.NewAPI(&s.facadeContext, s.authorizer, s.ecService, environFunc, brokerFunc)
+	api, err := migrationtarget.NewAPI(&s.facadeContext, s.authorizer, s.externalControllerService, environFunc, brokerFunc)
 	return api, err
 }
 

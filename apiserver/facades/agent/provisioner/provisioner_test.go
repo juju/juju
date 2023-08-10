@@ -134,10 +134,11 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 	// Works with a controller, which is not a machine agent.
 	st := s.ControllerModel(c).State()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     st,
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
+		Auth_:           anAuthorizer,
+		State_:          st,
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -145,10 +146,11 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 	// But fails with neither a machine agent or a controller.
 	anAuthorizer.Controller = false
 	aProvisioner, err = provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     st,
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
+		Auth_:           anAuthorizer,
+		State_:          st,
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, gc.NotNil)
 	c.Assert(aProvisioner, gc.IsNil)
@@ -222,10 +224,11 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	anAuthorizer.Tag = s.machines[0].Tag()
 	st := s.ControllerModel(c).State()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     st,
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
+		Auth_:           anAuthorizer,
+		State_:          st,
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -581,10 +584,11 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.ControllerModel(c).State(),
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
+		Auth_:           anAuthorizer,
+		State_:          s.ControllerModel(c).State(),
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -783,10 +787,11 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.ControllerModel(c).State(),
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
+		Auth_:           anAuthorizer,
+		State_:          s.ControllerModel(c).State(),
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertModelConfig(c, aProvisioner)
@@ -1084,10 +1089,11 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
 	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.ControllerModel(c).State(),
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
+		Auth_:           anAuthorizer,
+		State_:          s.ControllerModel(c).State(),
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -1209,10 +1215,11 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
 	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.ControllerModel(c).State(),
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
+		Auth_:           anAuthorizer,
+		State_:          s.ControllerModel(c).State(),
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -1447,10 +1454,11 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.ControllerModel(c).State(),
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
+		Auth_:           anAuthorizer,
+		State_:          s.ControllerModel(c).State(),
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1500,10 +1508,11 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.ControllerModel(c).State(),
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
+		Auth_:           anAuthorizer,
+		State_:          s.ControllerModel(c).State(),
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1674,10 +1683,11 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      anAuthorizer,
-		State_:     s.ControllerModel(c).State(),
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
+		Auth_:           anAuthorizer,
+		State_:          s.ControllerModel(c).State(),
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)

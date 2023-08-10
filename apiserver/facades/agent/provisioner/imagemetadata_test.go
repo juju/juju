@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -54,10 +55,11 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 	api, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      s.authorizer,
-		State_:     s.ControllerModel(c).State(),
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
+		Auth_:           s.authorizer,
+		State_:          s.ControllerModel(c).State(),
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -74,10 +76,11 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	api, err := provisioner.NewProvisionerAPI(facadetest.Context{
-		Auth_:      s.authorizer,
-		State_:     st,
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
+		Auth_:           s.authorizer,
+		State_:          st,
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
