@@ -174,3 +174,65 @@ func (s *SecretsSuite) TestCreateSecret(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, uri.String())
 }
+
+func (s *SecretsSuite) TestGrantSecretError(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 1}
+	client := apisecrets.NewClient(caller)
+	uri := secrets.NewURI()
+	_, err := client.GrantSecret(uri, []string{"gitlab"})
+	c.Assert(err, gc.ErrorMatches, "user secrets not supported")
+}
+
+func (s *SecretsSuite) TestGrantSecret(c *gc.C) {
+	uri := secrets.NewURI()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Secrets")
+		c.Assert(request, gc.Equals, "GrantSecret")
+		c.Assert(arg, gc.DeepEquals, params.GrantRevokeUserSecretArg{
+			URI: uri.String(), Applications: []string{"gitlab"},
+		})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{nil}},
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	client := apisecrets.NewClient(caller)
+	result, err := client.GrantSecret(uri, []string{"gitlab"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []error{nil})
+}
+
+func (s *SecretsSuite) TestRevokeSecretError(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 1}
+	client := apisecrets.NewClient(caller)
+	uri := secrets.NewURI()
+	_, err := client.RevokeSecret(uri, []string{"gitlab"})
+	c.Assert(err, gc.ErrorMatches, "user secrets not supported")
+}
+
+func (s *SecretsSuite) TestRevokeSecret(c *gc.C) {
+	uri := secrets.NewURI()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Secrets")
+		c.Assert(request, gc.Equals, "RevokeSecret")
+		c.Assert(arg, gc.DeepEquals, params.GrantRevokeUserSecretArg{
+			URI: uri.String(), Applications: []string{"gitlab"},
+		})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{nil}},
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	client := apisecrets.NewClient(caller)
+	result, err := client.RevokeSecret(uri, []string{"gitlab"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []error{nil})
+}

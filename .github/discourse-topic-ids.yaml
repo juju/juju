@@ -62,6 +62,7 @@ find-offers: 10097
 firewall-rules: 10061
 grant: 10196
 grant-cloud: 10164
+grant-secret: 11290
 help: 10185
 help-tool: 10050
 import-filesystem: 10047
@@ -136,6 +137,7 @@ resume-relation: 10123
 retry-provisioning: 10209
 revoke: 10077
 revoke-cloud: 10104
+revoke-secret: 11291
 run: 10052
 scale-application: 10171
 scp: 10128

@@ -671,7 +671,7 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	metadata := strings.Join(
 		[]string{
 			`name: multi-series`,
-			`summary: "That's a dummy charm with series."`,
+			`summary: "That's a dummy charm with multi-series."`,
 			`description: |`,
 			`    This is a longer description which`,
 			`    potentially contains multiple lines.`,

@@ -35547,6 +35547,18 @@
                     },
                     "description": "CreateSecrets creates new secrets."
                 },
+                "GrantSecret": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GrantRevokeUserSecretArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "GrantSecret grants access to a user secret."
+                },
                 "ListSecrets": {
                     "type": "object",
                     "properties": {
@@ -35558,6 +35570,18 @@
                         }
                     },
                     "description": "ListSecrets lists available secrets."
+                },
+                "RevokeSecret": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GrantRevokeUserSecretArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "RevokeSecret revokes access to a user secret."
                 }
             },
             "definitions": {
@@ -35643,6 +35667,49 @@
                     "required": [
                         "message",
                         "code"
+                    ]
+                },
+                "ErrorResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ErrorResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "GrantRevokeUserSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "applications": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "applications"
                     ]
                 },
                 "ListSecretResult": {
