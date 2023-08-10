@@ -1475,7 +1475,7 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 
 	agentConfig := a.CurrentConfig()
 
-	err := a.ensureMongoServer(agentConfig)
+	err := a.ensureMongoServer(stdcontext.Background(), agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.fakeEnsureMongo.EnsureCount, gc.Equals, 1)
