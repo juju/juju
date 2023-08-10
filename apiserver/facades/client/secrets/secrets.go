@@ -32,9 +32,11 @@ type SecretsAPI struct {
 	modelUUID      string
 	modelName      string
 
-	state           SecretsState
 	activeBackendID string
 	backends        map[string]provider.SecretsBackend
+
+	secretsState    SecretsState
+	secretsConsumer SecretsConsumer
 
 	backendConfigGetter func() (*provider.ModelBackendConfigInfo, error)
 	backendGetter       func(*provider.ModelBackendConfig) (provider.SecretsBackend, error)
@@ -47,6 +49,10 @@ type SecretsAPIV1 struct {
 
 func (s *SecretsAPI) checkCanRead() error {
 	return s.authorizer.HasPermission(permission.ReadAccess, names.NewModelTag(s.modelUUID))
+}
+
+func (s *SecretsAPI) checkCanWrite() error {
+	return s.authorizer.HasPermission(permission.WriteAccess, names.NewModelTag(s.modelUUID))
 }
 
 func (s *SecretsAPI) checkCanAdmin() error {
@@ -84,21 +90,21 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 		}
 		filter.OwnerTags = []names.Tag{tag}
 	}
-	metadata, err := s.state.ListSecrets(filter)
+	metadata, err := s.secretsState.ListSecrets(filter)
 	if err != nil {
 		return params.ListSecretResults{}, errors.Trace(err)
 	}
 	revisionMetadata := make(map[string][]*coresecrets.SecretRevisionMetadata)
 	for _, md := range metadata {
 		if arg.Filter.Revision == nil {
-			revs, err := s.state.ListSecretRevisions(md.URI)
+			revs, err := s.secretsState.ListSecretRevisions(md.URI)
 			if err != nil {
 				return params.ListSecretResults{}, errors.Trace(err)
 			}
 			revisionMetadata[md.URI.ID] = revs
 			continue
 		}
-		rev, err := s.state.GetSecretRevision(md.URI, *arg.Filter.Revision)
+		rev, err := s.secretsState.GetSecretRevision(md.URI, *arg.Filter.Revision)
 		if err != nil {
 			return params.ListSecretResults{}, errors.Trace(err)
 		}
@@ -183,7 +189,7 @@ func (s *SecretsAPI) secretContentFromBackend(uri *coresecrets.URI, rev int) (co
 	}
 	lastBackendID := ""
 	for {
-		val, ref, err := s.state.GetSecretValue(uri, rev)
+		val, ref, err := s.secretsState.GetSecretValue(uri, rev)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -303,7 +309,7 @@ func (s *SecretsAPI) createSecret(backend provider.SecretsBackend, arg params.Cr
 		}
 	}
 
-	md, err := s.state.CreateSecret(uri, state.CreateSecretParams{
+	md, err := s.secretsState.CreateSecret(uri, state.CreateSecretParams{
 		Version:            secrets.Version,
 		Owner:              secretOwner,
 		UpdateSecretParams: fromUpsertParams(arg.UpsertSecretArg),
@@ -330,4 +336,54 @@ func fromUpsertParams(p params.UpsertSecretArg) state.UpdateSecretParams {
 		Data:        p.Content.Data,
 		ValueRef:    valueRef,
 	}
+}
+
+// CreateSecrets isn't on the v1 API.
+func (s *SecretsAPIV1) GrantSecret(_ struct{}) {}
+
+// GrantSecret grants access to a user secret.
+func (s *SecretsAPI) GrantSecret(arg params.GrantRevokeUserSecretArg) (params.ErrorResults, error) {
+	return s.secretsGrantRevoke(arg, s.secretsConsumer.GrantSecretAccess)
+}
+
+// RevokeSecret isn't on the v1 API.
+func (s *SecretsAPIV1) RevokeSecret(_ struct{}) {}
+
+// RevokeSecret revokes access to a user secret.
+func (s *SecretsAPI) RevokeSecret(arg params.GrantRevokeUserSecretArg) (params.ErrorResults, error) {
+	return s.secretsGrantRevoke(arg, s.secretsConsumer.RevokeSecretAccess)
+}
+
+type grantRevokeFunc func(*coresecrets.URI, state.SecretAccessParams) error
+
+func (s *SecretsAPI) secretsGrantRevoke(arg params.GrantRevokeUserSecretArg, op grantRevokeFunc) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(arg.Applications)),
+	}
+
+	if err := s.checkCanWrite(); err != nil {
+		return results, errors.Trace(err)
+	}
+
+	uri, err := coresecrets.ParseURI(arg.URI)
+	if err != nil {
+		return results, errors.Trace(err)
+	}
+	scopeTag := names.NewModelTag(s.modelUUID)
+	one := func(appName string) error {
+		subjectTag := names.NewApplicationTag(appName)
+		if err := op(uri, state.SecretAccessParams{
+			LeaderToken: successfulToken{},
+			Scope:       scopeTag,
+			Subject:     subjectTag,
+			Role:        coresecrets.RoleView,
+		}); err != nil {
+			return errors.Annotatef(err, "cannot change access to %q for %q", uri, appName)
+		}
+		return nil
+	}
+	for i, appName := range arg.Applications {
+		results.Results[i].Error = apiservererrors.ServerError(one(appName))
+	}
+	return results, nil
 }

@@ -291,6 +291,14 @@ type GrantRevokeSecretArg struct {
 	Role string `json:"role"`
 }
 
+// GrantRevokeUserSecretArg holds the args for changing access to a user secret.
+type GrantRevokeUserSecretArg struct {
+	// URI identifies the secret to grant.
+	URI string `json:"uri"`
+
+	Applications []string `json:"applications"`
+}
+
 // ListSecretBackendsResults holds secret backend results.
 type ListSecretBackendsResults struct {
 	Results []SecretBackendResult `json:"results"`
