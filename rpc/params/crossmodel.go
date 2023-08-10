@@ -365,8 +365,9 @@ type RemoteRelationChangeEvent struct {
 	// RelationToken is the token of the relation.
 	RelationToken string `json:"relation-token"`
 
-	// ApplicationToken is the token of the application.
-	ApplicationToken string `json:"application-token"`
+	// ApplicationOrOfferToken is the token of the application or offer.
+	// Note we can't easily change the json tag for compatibility reasons.
+	ApplicationOrOfferToken string `json:"application-token"`
 
 	// Life is the current lifecycle state of the relation.
 	Life life.Value `json:"life"`

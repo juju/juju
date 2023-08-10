@@ -92,21 +92,6 @@ func (mr *MockRemoteRelationsStateMockRecorder) AllModelUUIDs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelUUIDs", reflect.TypeOf((*MockRemoteRelationsState)(nil).AllModelUUIDs))
 }
 
-// AppNameForOffer mocks base method.
-func (m *MockRemoteRelationsState) AppNameForOffer(arg0 string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AppNameForOffer", arg0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AppNameForOffer indicates an expected call of AppNameForOffer.
-func (mr *MockRemoteRelationsStateMockRecorder) AppNameForOffer(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppNameForOffer", reflect.TypeOf((*MockRemoteRelationsState)(nil).AppNameForOffer), arg0)
-}
-
 // Application mocks base method.
 func (m *MockRemoteRelationsState) Application(arg0 string) (crossmodel.Application, error) {
 	m.ctrl.T.Helper()

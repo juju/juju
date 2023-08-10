@@ -533,10 +533,10 @@ func (w *remoteRelationCompatWatcher) expandChange(change params.RelationUnitsCh
 	}
 
 	expanded := params.RemoteRelationChangeEvent{
-		RelationToken:    w.relationToken,
-		ApplicationToken: w.appToken,
-		ChangedUnits:     changedUnits,
-		DepartedUnits:    departedUnits,
+		RelationToken:           w.relationToken,
+		ApplicationOrOfferToken: w.appToken,
+		ChangedUnits:            changedUnits,
+		DepartedUnits:           departedUnits,
 	}
 	// No need to handle AppChanged here - the v1 API can't tell us
 	// app settings.

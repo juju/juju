@@ -16,7 +16,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/kr/pretty"
 	"gopkg.in/macaroon.v2"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
@@ -106,6 +105,7 @@ func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.T
 func (api *CrossModelRelationsAPI) PublishRelationChanges(
 	changes params.RemoteRelationsChanges,
 ) (params.ErrorResults, error) {
+	api.logger.Debugf("PublishRelationChanges: %+v", changes)
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(changes.Changes)),
 	}
@@ -126,23 +126,12 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 		}
 		// Look up the application on the remote side of this relation
 		// ie from the model which published this change.
-		offerTag, err := api.st.GetRemoteEntity(change.ApplicationToken)
+		remoteAppTag, err := api.st.GetRemoteEntity(change.ApplicationOrOfferToken)
 		if err != nil && !errors.IsNotFound(err) {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		// For an offer tag, load the offer and get the offered app from that.
-		appName, err := api.st.AppNameForOffer(offerTag.Id())
-		if err != nil && !errors.IsNotFound(err) {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		var applicationTag names.Tag
-		if err == nil {
-			applicationTag = names.NewApplicationTag(appName)
-		}
-		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, applicationTag, change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, remoteAppTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -349,7 +338,7 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 		if !ok {
 			return nil, empty, apiservererrors.ErrPerm
 		}
-		relationToken, appToken, err := commoncrossmodel.GetOfferingRelationTokens(api.st, relationTag)
+		relationToken, offerToken, err := commoncrossmodel.GetOfferingRelationTokens(api.st, relationTag)
 		if err != nil {
 			return nil, empty, errors.Annotatef(err, "getting offering relation tokens")
 		}
@@ -361,15 +350,15 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 		if !ok {
 			return nil, empty, watcher.EnsureErr(w)
 		}
-		fullChange, err := commoncrossmodel.ExpandChange(api.st, relationToken, appToken, change)
+		fullChange, err := commoncrossmodel.ExpandChange(api.st, relationToken, offerToken, change)
 		if err != nil {
 			w.Kill()
 			return nil, empty, errors.Annotatef(err, "expanding relation unit change %# v", pretty.Formatter(change))
 		}
 		wrapped := &commoncrossmodel.WrappedUnitsWatcher{
-			RelationUnitsWatcher: w,
-			RelationToken:        relationToken,
-			ApplicationToken:     appToken,
+			RelationUnitsWatcher:    w,
+			RelationToken:           relationToken,
+			ApplicationOrOfferToken: offerToken,
 		}
 		return wrapped, fullChange, nil
 	}
@@ -448,13 +437,14 @@ func (api *CrossModelRelationsAPI) WatchRelationsSuspendedStatus(
 
 // OfferWatcher instances track changes to a specified offer.
 type OfferWatcher interface {
+	Err() error
 	corewatcher.NotifyWatcher
 	OfferUUID() string
 	OfferName() string
 }
 
 type offerWatcher struct {
-	corewatcher.NotifyWatcher
+	*common.MultiNotifyWatcher
 	offerUUID string
 	offerName string
 }
@@ -510,14 +500,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 		}
 		_, ok := <-w.Changes()
 		if !ok {
-			w.Kill()
-			err := w.Wait()
-			if err == nil {
-				err = errors.Errorf("expected an error from %v, got nil", w)
-			} else if errors.Is(err, tomb.ErrStillAlive) {
-				err = errors.Annotatef(err, "expected %v to be stopped", w)
-			}
-			results.Results[i].Error = apiservererrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(watcher.EnsureErr(w))
 			continue
 		}
 		change, err := commoncrossmodel.GetOfferStatusChange(api.st, arg.OfferUUID, w.OfferName())

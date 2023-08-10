@@ -69,9 +69,6 @@ type Backend interface {
 	// specified cross-model relation key.
 	OfferNameForRelation(string) (string, error)
 
-	// AppNameForOffer returns the application for an offer.
-	AppNameForOffer(offerName string) (string, error)
-
 	// GetRemoteEntity returns the tag of the entity associated with the given token.
 	GetRemoteEntity(string) (names.Tag, error)
 

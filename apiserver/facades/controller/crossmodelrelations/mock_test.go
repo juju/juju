@@ -178,18 +178,6 @@ func (st *mockState) OfferNameForRelation(key string) (string, error) {
 	return st.offerNames[key], nil
 }
 
-func (st *mockState) AppNameForOffer(offerName string) (string, error) {
-	st.MethodCall(st, "AppNameForOffer", offerName)
-	if err := st.NextErr(); err != nil {
-		return "", err
-	}
-	offer, ok := st.offers[offerName]
-	if !ok {
-		return "", errors.NotFoundf("offer %q", offerName)
-	}
-	return offer.ApplicationName, nil
-}
-
 func (st *mockState) ImportRemoteEntity(entity names.Tag, token string) error {
 	st.MethodCall(st, "ImportRemoteEntity", entity, token)
 	if err := st.NextErr(); err != nil {

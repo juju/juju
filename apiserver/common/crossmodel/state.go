@@ -138,15 +138,6 @@ func (st stateShim) OfferNameForRelation(key string) (string, error) {
 	return offer.OfferName, nil
 }
 
-func (st stateShim) AppNameForOffer(offerName string) (string, error) {
-	offers := state.NewApplicationOffers(st.State)
-	offer, err := offers.ApplicationOffer(offerName)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return offer.ApplicationName, nil
-}
-
 func (st stateShim) GetRemoteEntity(token string) (names.Tag, error) {
 	r := st.State.RemoteEntities()
 	return r.GetRemoteEntity(token)

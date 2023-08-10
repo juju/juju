@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -32,5 +33,6 @@ func newAPI(ctx facade.Context) (*API, error) {
 		service,
 		common.NewControllerConfigAPI(systemState, service),
 		ctx.Resources(), ctx.Auth(),
+		ctx.Logger().ChildWithLabels("remoterelations", corelogger.CMR),
 	)
 }
