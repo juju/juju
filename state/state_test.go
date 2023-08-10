@@ -4747,13 +4747,13 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) 
 }
 
 func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.SetJujuManagementSpace(c, "mgmt01")
+
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)

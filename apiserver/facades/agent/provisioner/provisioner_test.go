@@ -1818,7 +1818,7 @@ func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
 	err = st.SetAPIHostPorts(controllerConfig, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.provisioner.APIAddresses(controllerConfig)
+	result, err := s.provisioner.APIAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
 		Result: []string{"0.1.2.3:1234"},

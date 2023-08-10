@@ -174,3 +174,23 @@ func (api *MachinerAPI) RecordAgentStartInformation(args params.RecordAgentStart
 	}
 	return results, nil
 }
+
+// APIHostPorts returns the API server addresses.
+func (api *MachinerAPI) APIHostPorts() (result params.APIHostPortsResult, err error) {
+	controllerConfig, err := api.st.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	return api.APIAddresser.APIHostPorts(controllerConfig)
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (api *MachinerAPI) APIAddresses() (result params.StringsResult, err error) {
+	controllerConfig, err := api.st.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	return api.APIAddresser.APIAddresses(controllerConfig)
+}

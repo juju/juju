@@ -212,13 +212,13 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDiffe
 }
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.SetJujuManagementSpace(c, "mgmt01")
+
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -343,9 +343,6 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
 }
 
 func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -369,6 +366,9 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 		},
 		NetPort: 2,
 	}
+
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetAPIHostPorts(cfg, []network.SpaceHostPorts{{mgmtHP}})
 	c.Assert(err, jc.ErrorIsNil)

@@ -50,6 +50,7 @@ type UniterAPI struct {
 	*leadershipapiserver.LeadershipSettingsAccessor
 	*secretsmanager.SecretsManagerAPI
 	meterstatus.MeterStatus
+
 	lxdProfileAPI       *LXDProfileAPIv2
 	m                   *state.Model
 	st                  *state.State
@@ -2708,4 +2709,24 @@ func (u *UniterAPI) LXDProfileRequired(args params.CharmURLs) (params.BoolResult
 // CanApplyLXDProfile is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) CanApplyLXDProfile(args params.Entities) (params.BoolResults, error) {
 	return u.lxdProfileAPI.CanApplyLXDProfile(args)
+}
+
+// APIHostPorts returns the API server addresses.
+func (u *UniterAPI) APIHostPorts() (result params.APIHostPortsResult, err error) {
+	controllerConfig, err := u.st.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	return u.APIAddresser.APIHostPorts(controllerConfig)
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (u *UniterAPI) APIAddresses() (result params.StringsResult, err error) {
+	controllerConfig, err := u.st.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	return u.APIAddresser.APIAddresses(controllerConfig)
 }

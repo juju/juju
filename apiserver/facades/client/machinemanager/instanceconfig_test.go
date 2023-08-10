@@ -71,7 +71,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 		SpaceAddress: network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}}}, nil).MinTimes(1)
-	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil)
+	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil).MinTimes(1)
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
 	icfg, err := machinemanager.InstanceConfig(s.ctrlSt, s.st, "0", "nonce", "")

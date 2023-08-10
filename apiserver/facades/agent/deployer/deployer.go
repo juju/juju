@@ -86,12 +86,7 @@ func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 // ConnectionInfo returns all the address information that the
 // deployer task needs in one call.
 func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	controllerConfig, err := d.st.ControllerConfig()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	apiAddrs, err := d.APIAddresses(controllerConfig)
+	apiAddrs, err := d.APIAddresses()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -112,6 +107,26 @@ func (d *DeployerAPI) SetStatus(args params.SetStatus) (params.ErrorResults, err
 // It should be blanked when this facade version is next incremented.
 func (d *DeployerAPI) ModelUUID() params.StringResult {
 	return params.StringResult{Result: d.st.ModelUUID()}
+}
+
+// APIHostPorts returns the API server addresses.
+func (d *DeployerAPI) APIHostPorts() (result params.APIHostPortsResult, err error) {
+	controllerConfig, err := d.st.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	return d.APIAddresser.APIHostPorts(controllerConfig)
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (d *DeployerAPI) APIAddresses() (result params.StringsResult, err error) {
+	controllerConfig, err := d.st.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	return d.APIAddresser.APIAddresses(controllerConfig)
 }
 
 // getAllUnits returns a list of all principal and subordinate units
