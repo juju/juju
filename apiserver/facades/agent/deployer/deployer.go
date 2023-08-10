@@ -4,8 +4,6 @@
 package deployer
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -88,14 +86,19 @@ func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 // ConnectionInfo returns all the address information that the
 // deployer task needs in one call.
 func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	apiAddrs, err := d.APIAddresses()
+	controllerConfig, err := d.st.ControllerConfig()
 	if err != nil {
-		return result, err
+		return result, errors.Trace(err)
+	}
+
+	apiAddrs, err := d.APIAddresses(controllerConfig)
+	if err != nil {
+		return result, errors.Trace(err)
 	}
 	result = params.DeployerConnectionValues{
 		APIAddresses: apiAddrs.Result,
 	}
-	return result, err
+	return result, nil
 }
 
 // SetStatus sets the status of the specified entities.
@@ -116,7 +119,7 @@ func (d *DeployerAPI) ModelUUID() params.StringResult {
 func getAllUnits(st *state.State, tag names.Tag) ([]string, error) {
 	machine, err := st.Machine(tag.Id())
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// Start a watcher on machine's units, read the initial event and stop it.
 	watch := machine.WatchUnits()
@@ -124,5 +127,5 @@ func getAllUnits(st *state.State, tag names.Tag) ([]string, error) {
 	if units, ok := <-watch.Changes(); ok {
 		return units, nil
 	}
-	return nil, fmt.Errorf("cannot obtain units of machine %q: %v", tag, watch.Err())
+	return nil, errors.Errorf("cannot obtain units of machine %q: %v", tag, watch.Err())
 }

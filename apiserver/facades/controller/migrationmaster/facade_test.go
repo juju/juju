@@ -185,20 +185,22 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 func (s *Suite) TestSourceControllerInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	exp := s.backend.EXPECT()
-	exp.AllLocalRelatedModels().Return([]string{"related-model-uuid"}, nil)
-	s.backend.EXPECT().ControllerConfig().Return(controller.Config{
+	cfg := controller.Config{
 		controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
 		controller.ControllerName:    "mycontroller",
 		controller.CACertKey:         "cacert",
-	}, nil)
+	}
+
+	exp := s.backend.EXPECT()
+	exp.AllLocalRelatedModels().Return([]string{"related-model-uuid"}, nil)
+	s.backend.EXPECT().ControllerConfig().Return(cfg, nil)
 	apiAddr := []network.SpaceHostPorts{{{
 		SpaceAddress: network.SpaceAddress{
 			MachineAddress: network.MachineAddress{Value: "10.0.0.1"},
 		},
 		NetPort: 666,
 	}}}
-	s.controllerBackend.EXPECT().APIHostPortsForClients().Return(apiAddr, nil)
+	s.controllerBackend.EXPECT().APIHostPortsForClients(cfg).Return(apiAddr, nil)
 
 	info, err := s.mustMakeAPI(c).SourceControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)

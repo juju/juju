@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/pki"
@@ -26,7 +26,7 @@ func TestPackage(t *stdtesting.T) {
 
 type CertUpdaterSuite struct {
 	coretesting.BaseSuite
-	stateServingInfo jujucontroller.StateServingInfo
+	stateServingInfo controller.StateServingInfo
 }
 
 var _ = gc.Suite(&CertUpdaterSuite{})
@@ -34,7 +34,7 @@ var _ = gc.Suite(&CertUpdaterSuite{})
 func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.stateServingInfo = jujucontroller.StateServingInfo{
+	s.stateServingInfo = controller.StateServingInfo{
 		Cert:         coretesting.ServerCert,
 		PrivateKey:   coretesting.ServerKey,
 		CAPrivateKey: coretesting.CAKey,
@@ -81,13 +81,17 @@ func (m *mockMachine) Addresses() (addresses network.SpaceAddresses) {
 	return network.NewSpaceAddresses("0.1.2.3")
 }
 
-func (s *CertUpdaterSuite) StateServingInfo() (jujucontroller.StateServingInfo, bool) {
+func (s *CertUpdaterSuite) StateServingInfo() (controller.StateServingInfo, bool) {
 	return s.stateServingInfo, true
 }
 
 type mockAPIHostGetter struct{}
 
-func (g *mockAPIHostGetter) APIHostPortsForClients() ([]network.SpaceHostPorts, error) {
+func (g *mockAPIHostGetter) ControllerConfig() (controller.Config, error) {
+	return coretesting.FakeControllerConfig(), nil
+}
+
+func (g *mockAPIHostGetter) APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error) {
 	return []network.SpaceHostPorts{{
 		{SpaceAddress: network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal)), NetPort: 17070},
 		{SpaceAddress: network.NewSpaceAddress("10.1.1.1", network.WithScope(network.ScopeMachineLocal)), NetPort: 17070},

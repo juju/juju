@@ -39,18 +39,18 @@ func (m *MockControllerConfigState) EXPECT() *MockControllerConfigStateMockRecor
 }
 
 // APIHostPortsForAgents mocks base method.
-func (m *MockControllerConfigState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+func (m *MockControllerConfigState) APIHostPortsForAgents(arg0 controller.Config) ([]network.SpaceHostPorts, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIHostPortsForAgents")
+	ret := m.ctrl.Call(m, "APIHostPortsForAgents", arg0)
 	ret0, _ := ret[0].([]network.SpaceHostPorts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // APIHostPortsForAgents indicates an expected call of APIHostPortsForAgents.
-func (mr *MockControllerConfigStateMockRecorder) APIHostPortsForAgents() *gomock.Call {
+func (mr *MockControllerConfigStateMockRecorder) APIHostPortsForAgents(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForAgents", reflect.TypeOf((*MockControllerConfigState)(nil).APIHostPortsForAgents))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForAgents", reflect.TypeOf((*MockControllerConfigState)(nil).APIHostPortsForAgents), arg0)
 }
 
 // CompletedMigrationForModel mocks base method.

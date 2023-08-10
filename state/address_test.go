@@ -68,7 +68,10 @@ func (s *ControllerAddressesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
-	addrs, err := s.State.APIHostPortsForClients()
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
@@ -82,16 +85,16 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 		SpaceAddress: network.NewSpaceAddress("0.6.1.2", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      5,
 	}}}
-	err = s.State.SetAPIHostPorts(newHostPorts)
+	err = s.State.SetAPIHostPorts(cfg, newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlSt, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	gotHostPorts, err := ctrlSt.APIHostPortsForClients()
+	gotHostPorts, err := ctrlSt.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	gotHostPorts, err = ctrlSt.APIHostPortsForAgents()
+	gotHostPorts, err = ctrlSt.APIHostPortsForAgents(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
@@ -99,19 +102,22 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      13,
 	}}}
-	err = s.State.SetAPIHostPorts(newHostPorts)
+	err = s.State.SetAPIHostPorts(cfg, newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	gotHostPorts, err = s.State.APIHostPortsForClients()
+	gotHostPorts, err = s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	gotHostPorts, err = ctrlSt.APIHostPortsForAgents()
+	gotHostPorts, err = ctrlSt.APIHostPortsForAgents(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	hostPorts := []network.SpaceHostPorts{{{
 		SpaceAddress: network.NewSpaceAddress("0.4.8.16", network.WithScope(network.ScopePublic)),
 		NetPort:      2,
@@ -128,7 +134,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(
 	var prevRevno int64
 	var prevAgentsRevno int64
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.SetAPIHostPorts(hostPorts)
+		err := s.State.SetAPIHostPorts(cfg, hostPorts)
 		c.Assert(err, jc.ErrorIsNil)
 		revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
 		c.Assert(err, jc.ErrorIsNil)
@@ -138,7 +144,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(
 		prevAgentsRevno = revno
 	}).Check()
 
-	err := s.State.SetAPIHostPorts(hostPorts)
+	err = s.State.SetAPIHostPorts(cfg, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
 
@@ -152,6 +158,9 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(
 }
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) {
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	hostPorts0 := []network.SpaceHostPort{{
 		SpaceAddress: network.NewSpaceAddress("0.4.8.16", network.WithScope(network.ScopePublic)),
 		NetPort:      2,
@@ -169,7 +178,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDiffe
 	var prevRevno int64
 	var prevAgentsRevno int64
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.SetAPIHostPorts([]network.SpaceHostPorts{hostPorts0})
+		err := s.State.SetAPIHostPorts(cfg, []network.SpaceHostPorts{hostPorts0})
 		c.Assert(err, jc.ErrorIsNil)
 		revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
 		c.Assert(err, jc.ErrorIsNil)
@@ -179,7 +188,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDiffe
 		prevAgentsRevno = revno
 	}).Check()
 
-	err := s.State.SetAPIHostPorts([]network.SpaceHostPorts{hostPorts1})
+	err = s.State.SetAPIHostPorts(cfg, []network.SpaceHostPorts{hostPorts1})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
 
@@ -193,22 +202,25 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDiffe
 
 	ctrlSt, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	hostPorts, err := ctrlSt.APIHostPortsForClients()
+	hostPorts, err := ctrlSt.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
 
-	hostPorts, err = ctrlSt.APIHostPortsForAgents()
+	hostPorts, err = ctrlSt.APIHostPortsForAgents(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
 }
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.SetJujuManagementSpace(c, "mgmt01")
 
-	addrs, err := s.State.APIHostPortsForClients()
+	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
@@ -233,16 +245,16 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	}
 	newHostPorts := []network.SpaceHostPorts{{hostPort1, hostPort2}, {hostPort3}}
 
-	err = s.State.SetAPIHostPorts(newHostPorts)
+	err = s.State.SetAPIHostPorts(cfg, newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlSt, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	gotHostPorts, err := ctrlSt.APIHostPortsForClients()
+	gotHostPorts, err := ctrlSt.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	gotHostPorts, err = ctrlSt.APIHostPortsForAgents()
+	gotHostPorts, err = ctrlSt.APIHostPortsForAgents(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	// First slice filtered down to the address in the management space.
 	// Second filtered to zero elements, so retains the supplied slice.
@@ -250,7 +262,10 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 }
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
-	addrs, err := s.State.APIHostPortsForClients()
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
@@ -266,18 +281,21 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(col.FindId(key).One(&bson.D{}), gc.Equals, mgo.ErrNotFound)
 
-	err = s.State.SetAPIHostPorts(newHostPorts)
+	err = s.State.SetAPIHostPorts(cfg, newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctrlSt, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	gotHostPorts, err := ctrlSt.APIHostPortsForAgents()
+	gotHostPorts, err := ctrlSt.APIHostPortsForAgents(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
 
 func (s *ControllerAddressesSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
-	addrs, err := s.State.APIHostPortsForClients()
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
@@ -286,7 +304,7 @@ func (s *ControllerAddressesSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) 
 		NetPort:      1,
 	}}}
 
-	err = s.State.SetAPIHostPorts(newHostPorts)
+	err = s.State.SetAPIHostPorts(cfg, newHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Delete the addresses for agents document after setting.
@@ -298,12 +316,15 @@ func (s *ControllerAddressesSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) 
 
 	ctrlSt, err := s.StatePool.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	gotHostPorts, err := ctrlSt.APIHostPortsForAgents()
+	gotHostPorts, err := ctrlSt.APIHostPortsForAgents(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
 
 func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	w := s.State.WatchAPIHostPortsForClients()
 	defer workertest.CleanKill(c, w)
 
@@ -311,7 +332,7 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
-	err := s.State.SetAPIHostPorts([]network.SpaceHostPorts{network.NewSpaceHostPorts(99, "0.1.2.3")})
+	err = s.State.SetAPIHostPorts(cfg, []network.SpaceHostPorts{network.NewSpaceHostPorts(99, "0.1.2.3")})
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertOneChange()
@@ -322,6 +343,9 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
 }
 
 func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -346,13 +370,13 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 		NetPort: 2,
 	}
 
-	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{{mgmtHP}})
+	err = s.State.SetAPIHostPorts(cfg, []network.SpaceHostPorts{{mgmtHP}})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// This should cause no change to APIHostPortsForAgents.
 	// We expect only one watcher notification.
-	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{{
+	err = s.State.SetAPIHostPorts(cfg, []network.SpaceHostPorts{{
 		mgmtHP,
 		network.SpaceHostPort{
 			SpaceAddress: network.NewSpaceAddress("0.1.2.3", network.WithScope(network.ScopeCloudLocal)),
@@ -382,6 +406,9 @@ func (s *CAASAddressesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CAASAddressesSuite) TestAPIHostPortsCloudLocalOnly(c *gc.C) {
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	machineAddr := network.MachineAddress{
 		Value: "10.10.10.10",
 		Type:  network.IPv4Address,
@@ -410,7 +437,7 @@ func (s *CAASAddressesSuite) TestAPIHostPortsCloudLocalOnly(c *gc.C) {
 		NetPort:      17777,
 	}}}
 
-	addrs, err := ctrlSt.APIHostPortsForAgents()
+	addrs, err := ctrlSt.APIHostPortsForAgents(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 
@@ -418,12 +445,15 @@ func (s *CAASAddressesSuite) TestAPIHostPortsCloudLocalOnly(c *gc.C) {
 		SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr},
 		NetPort:      17777,
 	}}}
-	addrs, err = ctrlSt.APIHostPortsForClients()
+	addrs, err = ctrlSt.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 }
 
 func (s *CAASAddressesSuite) TestAPIHostPortsPublicOnly(c *gc.C) {
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	machineAddr := network.MachineAddress{
 		Value: "10.10.10.10",
 		Type:  network.IPv4Address,
@@ -452,7 +482,7 @@ func (s *CAASAddressesSuite) TestAPIHostPortsPublicOnly(c *gc.C) {
 		NetPort:      17777,
 	}}}
 
-	addrs, err := ctrlSt.APIHostPortsForAgents()
+	addrs, err := ctrlSt.APIHostPortsForAgents(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 
@@ -460,12 +490,15 @@ func (s *CAASAddressesSuite) TestAPIHostPortsPublicOnly(c *gc.C) {
 		SpaceAddress: network.SpaceAddress{MachineAddress: machineAddr},
 		NetPort:      17777,
 	}}}
-	addrs, err = ctrlSt.APIHostPortsForClients()
+	addrs, err = ctrlSt.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, exp)
 }
 
 func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
+	cfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	machineAddr1 := network.MachineAddress{
 		Value: "10.10.10.1",
 		Type:  network.IPv4Address,
@@ -506,7 +539,7 @@ func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	addrs, err := ctrlSt.APIHostPortsForAgents()
+	addrs, err := ctrlSt.APIHostPortsForAgents(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Local-cloud addresses must come first.
@@ -540,7 +573,7 @@ func (s *CAASAddressesSuite) TestAPIHostPortsMultiple(c *gc.C) {
 	c.Assert(addrs[0][3:], jc.SameContents, exp)
 
 	// Only the public ones should be returned.
-	addrs, err = ctrlSt.APIHostPortsForClients()
+	addrs, err = ctrlSt.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.DeepEquals, []network.SpaceHostPorts{exp})
 }

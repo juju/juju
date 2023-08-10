@@ -57,7 +57,11 @@ func NewUpgraderAPI(
 	if err != nil {
 		return nil, err
 	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
+	controllerConfig, err := ctrlSt.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	urlGetter := common.NewToolsURLGetter(model.UUID(), controllerConfig, ctrlSt)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 	newEnviron := common.EnvironFuncForModel(model, configGetter)
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)

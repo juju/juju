@@ -554,9 +554,9 @@ func (s *getUrlSuite) setup(c *gc.C) *gomock.Controller {
 func (s *getUrlSuite) TestToolsURLGetterNoAPIHostPorts(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents().Return(nil, nil)
+	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return(nil, nil)
 
-	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
+	g := common.NewToolsURLGetter("my-uuid", coretesting.FakeControllerConfig(), s.apiHostPortsGetter)
 	_, err := g.ToolsURLs(coretesting.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "no suitable API server address to pick from")
 }
@@ -564,9 +564,9 @@ func (s *getUrlSuite) TestToolsURLGetterNoAPIHostPorts(c *gc.C) {
 func (s *getUrlSuite) TestToolsURLGetterAPIHostPortsError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents().Return(nil, errors.New("oh noes"))
+	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return(nil, errors.New("oh noes"))
 
-	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
+	g := common.NewToolsURLGetter("my-uuid", coretesting.FakeControllerConfig(), s.apiHostPortsGetter)
 	_, err := g.ToolsURLs(coretesting.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "oh noes")
 }
@@ -574,11 +574,11 @@ func (s *getUrlSuite) TestToolsURLGetterAPIHostPortsError(c *gc.C) {
 func (s *getUrlSuite) TestToolsURLGetter(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents().Return([]network.SpaceHostPorts{
+	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}, nil)
 
-	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
+	g := common.NewToolsURLGetter("my-uuid", coretesting.FakeControllerConfig(), s.apiHostPortsGetter)
 	current := coretesting.CurrentVersion()
 	urls, err := g.ToolsURLs(current)
 	c.Assert(err, jc.ErrorIsNil)

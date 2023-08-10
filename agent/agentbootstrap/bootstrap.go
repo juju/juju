@@ -529,12 +529,16 @@ func initControllerCloudService(
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
 func initAPIHostPorts(st *state.State, pAddrs corenetwork.ProviderAddresses, apiPort int) error {
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	addrs, err := pAddrs.ToSpaceAddresses(st)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	hostPorts := corenetwork.SpaceAddressesWithPort(addrs, apiPort)
-	return st.SetAPIHostPorts([]corenetwork.SpaceHostPorts{hostPorts})
+	return st.SetAPIHostPorts(controllerConfig, []corenetwork.SpaceHostPorts{hostPorts})
 }
 
 // machineJobFromParams returns the job corresponding to model.MachineJob.

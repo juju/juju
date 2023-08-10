@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	common "github.com/juju/juju/apiserver/common"
+	controller "github.com/juju/juju/controller"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
 	binarystorage "github.com/juju/juju/state/binarystorage"
@@ -155,18 +156,18 @@ func (m *MockAPIHostPortsForAgentsGetter) EXPECT() *MockAPIHostPortsForAgentsGet
 }
 
 // APIHostPortsForAgents mocks base method.
-func (m *MockAPIHostPortsForAgentsGetter) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+func (m *MockAPIHostPortsForAgentsGetter) APIHostPortsForAgents(arg0 controller.Config) ([]network.SpaceHostPorts, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIHostPortsForAgents")
+	ret := m.ctrl.Call(m, "APIHostPortsForAgents", arg0)
 	ret0, _ := ret[0].([]network.SpaceHostPorts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // APIHostPortsForAgents indicates an expected call of APIHostPortsForAgents.
-func (mr *MockAPIHostPortsForAgentsGetterMockRecorder) APIHostPortsForAgents() *gomock.Call {
+func (mr *MockAPIHostPortsForAgentsGetterMockRecorder) APIHostPortsForAgents(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForAgents", reflect.TypeOf((*MockAPIHostPortsForAgentsGetter)(nil).APIHostPortsForAgents))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForAgents", reflect.TypeOf((*MockAPIHostPortsForAgentsGetter)(nil).APIHostPortsForAgents), arg0)
 }
 
 // MockToolsStorageGetter is a mock of ToolsStorageGetter interface.

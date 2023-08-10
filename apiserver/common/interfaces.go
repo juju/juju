@@ -137,11 +137,11 @@ type ControllerConfigState interface {
 	ControllerConfig() (controller.Config, error)
 
 	ModelExists(string) (bool, error)
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	CompletedMigrationForModel(string) (state.ModelMigration, error)
 }
 
 type controllerInfoState interface {
 	ControllerConfig() (controller.Config, error)
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }

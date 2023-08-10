@@ -45,7 +45,7 @@ type Backend interface {
 	AllRelations() ([]*state.Relation, error)
 	AllSubnets() ([]*state.Subnet, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
-	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
+	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 	Application(string) (Application, error)
 	Charm(*charm.URL) (*state.Charm, error)
 	ControllerConfig() (controller.Config, error)

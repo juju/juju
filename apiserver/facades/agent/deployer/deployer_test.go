@@ -190,10 +190,10 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 	err = s.principal0.Refresh()
@@ -289,10 +289,10 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{&params.Error{Message: `cannot remove entity "unit-mysql-0": still alive`}},
-			{apiservertesting.ErrUnauthorized},
-			{&params.Error{Message: `cannot remove entity "unit-logging-0": still alive`}},
-			{apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `cannot remove entity "unit-mysql-0": still alive`}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `cannot remove entity "unit-logging-0": still alive`}},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 	c.Assert(s.revoker.revoked.IsEmpty(), jc.IsTrue)
@@ -317,7 +317,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	result, err = s.deployer.Remove(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
+		Results: []params.ErrorResult{{Error: nil}},
 	})
 	c.Assert(s.revoker.revoked.Contains("logging/0"), jc.IsTrue)
 
@@ -328,7 +328,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	result, err = s.deployer.Remove(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{apiservertesting.ErrUnauthorized}},
+		Results: []params.ErrorResult{{Error: apiservertesting.ErrUnauthorized}},
 	})
 }
 
@@ -342,7 +342,9 @@ func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
 	hostPorts[1].Scope = network.ScopeCloudLocal
 
 	st := s.ControllerModel(c).State()
-	err = st.SetAPIHostPorts([]network.SpaceHostPorts{hostPorts})
+	controllerConfig, err := st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.SetAPIHostPorts(controllerConfig, []network.SpaceHostPorts{hostPorts})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.DeployerConnectionValues{
@@ -366,9 +368,9 @@ func (s *deployerSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 	sInfo, err := s.principal0.Status()

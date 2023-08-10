@@ -45,7 +45,12 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 	newEnviron := common.EnvironFuncForModel(model, configGetter)
 
-	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
+	controllerConfig, err := systemState.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	urlGetter := common.NewToolsURLGetter(modelUUID, controllerConfig, systemState)
 	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool)
 

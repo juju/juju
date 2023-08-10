@@ -137,7 +137,11 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
+	controllerConfig, err := systemState.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	urlGetter := common.NewToolsURLGetter(model.UUID(), controllerConfig, systemState)
 	callCtx := context.CallContext(st)
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{

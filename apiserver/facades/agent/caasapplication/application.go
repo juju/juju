@@ -162,7 +162,7 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 	if err != nil {
 		return errResp(err)
 	}
-	apiHostPorts, err := f.ctrlSt.APIHostPortsForAgents()
+	apiHostPorts, err := f.ctrlSt.APIHostPortsForAgents(controllerConfig)
 	if err != nil {
 		return errResp(err)
 	}

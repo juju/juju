@@ -175,7 +175,7 @@ func (api *API) SourceControllerInfo() (params.MigrationSourceInfo, error) {
 	}
 	cacert, _ := cfg.CACert()
 
-	hostports, err := api.controllerState.APIHostPortsForClients()
+	hostports, err := api.controllerState.APIHostPortsForClients(cfg)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}

@@ -887,7 +887,10 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	st := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
 	ctlrSt := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
-	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
+
+	controllerConfig, err := s.ControllerModel(c).State().ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), controllerConfig, ctlrSt)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: s.ControllerModel(c)}

@@ -79,7 +79,7 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 				modelConfig.Name()))
 	}
 
-	apiAddresses, err := a.APIAddresses()
+	apiAddresses, err := a.APIAddresses(controllerConf)
 	if err != nil && apiAddresses.Error != nil {
 		err = apiAddresses.Error
 	}

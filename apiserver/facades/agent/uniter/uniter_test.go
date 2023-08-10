@@ -2971,10 +2971,13 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
-	err := s.ControllerModel(c).State().SetAPIHostPorts(hostPorts)
+	st := s.ControllerModel(c).State()
+	controllerConfig, err := st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.SetAPIHostPorts(controllerConfig, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.uniter.APIAddresses()
+	result, err := s.uniter.APIAddresses(controllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
 		Result: []string{"0.1.2.3:1234"},

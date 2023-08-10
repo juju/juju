@@ -288,7 +288,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(*gotHW, gc.DeepEquals, expectHW)
 
 	// Check that the API host ports are initialised correctly.
-	apiHostPorts, err := st.APIHostPortsForClients()
+	apiHostPorts, err := st.APIHostPortsForClients(controllerCfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiHostPorts, jc.DeepEquals, []corenetwork.SpaceHostPorts{
 		corenetwork.SpaceAddressesWithPort(filteredAddrs, 1234),

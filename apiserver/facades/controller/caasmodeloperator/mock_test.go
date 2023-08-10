@@ -33,7 +33,7 @@ func newMockState() *mockState {
 	}
 }
 
-func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+func (st *mockState) APIHostPortsForAgents(controllerConf controller.Config) ([]network.SpaceHostPorts, error) {
 	return []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1, "10.0.0.1"),
 	}, nil

@@ -5,6 +5,7 @@ package common
 
 import (
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -14,7 +15,7 @@ import (
 // APIAddressAccessor describes methods that allow agents to maintain
 // up-to-date information on how to connect to the Juju API server.
 type APIAddressAccessor interface {
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 
@@ -37,8 +38,8 @@ func NewAPIAddresser(getter APIAddressAccessor, resources facade.Resources) *API
 }
 
 // APIHostPorts returns the API server addresses.
-func (a *APIAddresser) APIHostPorts() (params.APIHostPortsResult, error) {
-	sSvrs, err := a.getter.APIHostPortsForAgents()
+func (a *APIAddresser) APIHostPorts(controllerConfig controller.Config) (params.APIHostPortsResult, error) {
+	sSvrs, err := a.getter.APIHostPortsForAgents(controllerConfig)
 	if err != nil {
 		return params.APIHostPortsResult{}, err
 	}
@@ -66,8 +67,8 @@ func (a *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
-	addrs, err := apiAddresses(a.getter)
+func (a *APIAddresser) APIAddresses(controllerConfig controller.Config) (params.StringsResult, error) {
+	addrs, err := apiAddresses(controllerConfig, a.getter)
 	if err != nil {
 		return params.StringsResult{}, err
 	}
@@ -76,8 +77,8 @@ func (a *APIAddresser) APIAddresses() (params.StringsResult, error) {
 	}, nil
 }
 
-func apiAddresses(getter APIHostPortsForAgentsGetter) ([]string, error) {
-	apiHostPorts, err := getter.APIHostPortsForAgents()
+func apiAddresses(controllerConfig controller.Config, getter APIHostPortsForAgentsGetter) ([]string, error) {
+	apiHostPorts, err := getter.APIHostPortsForAgents(controllerConfig)
 	if err != nil {
 		return nil, err
 	}

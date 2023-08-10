@@ -1013,8 +1013,8 @@ type migrationBackend interface {
 // migrationBackend defines controller State functionality required by the
 // migration watchers.
 type controllerBackend interface {
-	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
 	ControllerConfig() (controller.Config, error)
+	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
 func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
@@ -1076,7 +1076,11 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving migration phase")
 	}
 
-	sourceAddrs, err := w.getLocalHostPorts()
+	cfg, err := w.ctrlSt.ControllerConfig()
+	if err != nil {
+		return params.MigrationStatus{}, errors.Annotate(err, "retrieving controller config")
+	}
+	sourceAddrs, err := w.getLocalHostPorts(cfg)
 	if err != nil {
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving source addresses")
 	}
@@ -1102,8 +1106,8 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 	}, nil
 }
 
-func (w *srvMigrationStatusWatcher) getLocalHostPorts() ([]string, error) {
-	hostports, err := w.ctrlSt.APIHostPortsForClients()
+func (w *srvMigrationStatusWatcher) getLocalHostPorts(cfg controller.Config) ([]string, error) {
+	hostports, err := w.ctrlSt.APIHostPortsForClients(cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
