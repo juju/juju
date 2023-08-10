@@ -4,6 +4,7 @@
 package machine
 
 import (
+	stdcontext "context"
 	"net/http"
 	"runtime"
 	"time"
@@ -141,7 +142,7 @@ type ManifoldsConfig struct {
 
 	// OpenStatePool is function used by the state manifold to create a
 	// *state.StatePool.
-	OpenStatePool func(coreagent.Config) (*state.StatePool, error)
+	OpenStatePool func(stdcontext.Context, coreagent.Config) (*state.StatePool, error)
 
 	// OpenStateForUpgrade is a function the upgradesteps worker can
 	// use to establish a connection to state.
