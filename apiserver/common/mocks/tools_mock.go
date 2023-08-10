@@ -118,18 +118,18 @@ func (m *MockToolsURLGetter) EXPECT() *MockToolsURLGetterMockRecorder {
 }
 
 // ToolsURLs mocks base method.
-func (m *MockToolsURLGetter) ToolsURLs(arg0 version.Binary) ([]string, error) {
+func (m *MockToolsURLGetter) ToolsURLs(arg0 controller.Config, arg1 version.Binary) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ToolsURLs", arg0)
+	ret := m.ctrl.Call(m, "ToolsURLs", arg0, arg1)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ToolsURLs indicates an expected call of ToolsURLs.
-func (mr *MockToolsURLGetterMockRecorder) ToolsURLs(arg0 interface{}) *gomock.Call {
+func (mr *MockToolsURLGetterMockRecorder) ToolsURLs(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolsURLs", reflect.TypeOf((*MockToolsURLGetter)(nil).ToolsURLs), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolsURLs", reflect.TypeOf((*MockToolsURLGetter)(nil).ToolsURLs), arg0, arg1)
 }
 
 // MockAPIHostPortsForAgentsGetter is a mock of APIHostPortsForAgentsGetter interface.

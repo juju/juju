@@ -64,12 +64,12 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 	if !ok {
 		return nil, errors.New("no agent version set in model configuration")
 	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), controllerConfig, ctrlSt)
+	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 	newEnviron := func() (environs.BootstrapEnviron, error) {
 		return environs.GetEnviron(configGetter, environs.New)
 	}
-	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
+	toolsFinder := common.NewToolsFinder(ctrlSt, configGetter, st, urlGetter, newEnviron)
 	toolsList, err := toolsFinder.FindAgents(common.FindAgentsParams{
 		Number: agentVersion,
 		OSType: machine.Base().OS,

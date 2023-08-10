@@ -137,11 +137,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerConfig, err := systemState.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), controllerConfig, systemState)
+	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
 	callCtx := context.CallContext(st)
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
@@ -179,7 +175,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		return environs.GetEnviron(configGetter, environs.New)
 	}
 	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
-	api.toolsFinder = common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
+	api.toolsFinder = common.NewToolsFinder(st, configGetter, st, urlGetter, newEnviron)
 	api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
 }

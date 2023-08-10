@@ -33,7 +33,7 @@ type ToolsFindEntity interface {
 type ToolsURLGetter interface {
 	// ToolsURLs returns URLs for the tools with
 	// the specified binary version.
-	ToolsURLs(v version.Binary) ([]string, error)
+	ToolsURLs(controller.Config, version.Binary) ([]string, error)
 }
 
 // APIHostPortsForAgentsGetter is an interface providing
@@ -246,22 +246,35 @@ type ToolsFinder interface {
 	FindAgents(args FindAgentsParams) (coretools.List, error)
 }
 
+// ControllerConfigGetter defines a method for getting the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig() (controller.Config, error)
+}
+
 type toolsFinder struct {
-	configGetter       environs.EnvironConfigGetter
-	toolsStorageGetter ToolsStorageGetter
-	urlGetter          ToolsURLGetter
-	newEnviron         NewEnvironFunc
+	controllerConfigGetter ControllerConfigGetter
+	configGetter           environs.EnvironConfigGetter
+	toolsStorageGetter     ToolsStorageGetter
+	urlGetter              ToolsURLGetter
+	newEnviron             NewEnvironFunc
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
 func NewToolsFinder(
+	controllerConfigGetter ControllerConfigGetter,
 	configGetter environs.EnvironConfigGetter,
 	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
 	newEnviron NewEnvironFunc,
 ) *toolsFinder {
-	return &toolsFinder{configGetter, toolsStorageGetter, urlGetter, newEnviron}
+	return &toolsFinder{
+		controllerConfigGetter: controllerConfigGetter,
+		configGetter:           configGetter,
+		toolsStorageGetter:     toolsStorageGetter,
+		urlGetter:              urlGetter,
+		newEnviron:             newEnviron,
+	}
 }
 
 // FindAgents calls findMatchingTools and then rewrites the URLs
@@ -272,12 +285,17 @@ func (f *toolsFinder) FindAgents(args FindAgentsParams) (coretools.List, error) 
 		return nil, err
 	}
 
+	controllerConfig, err := f.controllerConfigGetter.ControllerConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	// Rewrite the URLs so they point at the API servers. If the
 	// tools are not in tools storage, then the API server will
 	// download and cache them if the client requests that version.
 	var fullList coretools.List
 	for _, baseTools := range list {
-		urls, err := f.urlGetter.ToolsURLs(baseTools.Version)
+		urls, err := f.urlGetter.ToolsURLs(controllerConfig, baseTools.Version)
 		if err != nil {
 			return nil, err
 		}
@@ -411,23 +429,21 @@ func toolsFilter(args FindAgentsParams) coretools.Filter {
 
 type toolsURLGetter struct {
 	modelUUID          string
-	controllerConfig   controller.Config
 	apiHostPortsGetter APIHostPortsForAgentsGetter
 }
 
 // NewToolsURLGetter creates a new ToolsURLGetter that
 // returns tools URLs pointing at an API server.
-func NewToolsURLGetter(modelUUID string, controllerConfig controller.Config, a APIHostPortsForAgentsGetter) *toolsURLGetter {
+func NewToolsURLGetter(modelUUID string, a APIHostPortsForAgentsGetter) *toolsURLGetter {
 	return &toolsURLGetter{
 		modelUUID:          modelUUID,
-		controllerConfig:   controllerConfig,
 		apiHostPortsGetter: a,
 	}
 }
 
 // ToolsURLs returns a list of tools URLs pointing at an API server.
-func (t *toolsURLGetter) ToolsURLs(v version.Binary) ([]string, error) {
-	addrs, err := apiAddresses(t.controllerConfig, t.apiHostPortsGetter)
+func (t *toolsURLGetter) ToolsURLs(controllerConfig controller.Config, v version.Binary) ([]string, error) {
+	addrs, err := apiAddresses(controllerConfig, t.apiHostPortsGetter)
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
@@ -290,7 +291,7 @@ func (s *findToolsSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.toolsStorageGetter = mocks.NewMockToolsStorageGetter(ctrl)
 	s.urlGetter = mocks.NewMockToolsURLGetter(ctrl)
-	s.urlGetter.EXPECT().ToolsURLs(gomock.Any()).DoAndReturn(func(arg version.Binary) ([]string, error) {
+	s.urlGetter.EXPECT().ToolsURLs(gomock.Any(), gomock.Any()).DoAndReturn(func(_ controller.Config, arg version.Binary) ([]string, error) {
 		return []string{fmt.Sprintf("tools:%v", arg)}, nil
 	}).AnyTimes()
 
@@ -358,6 +359,7 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(
+		controllerConfigGetter{},
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
 	)
 
@@ -414,6 +416,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 	s.expectBootstrapEnvironConfig(c)
 
 	toolsFinder := common.NewToolsFinder(
+		controllerConfigGetter{},
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
 	)
 	result, err := toolsFinder.FindAgents(common.FindAgentsParams{
@@ -448,7 +451,10 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
 	s.expectMatchingStorageTools([]binarystorage.Metadata{}, nil)
 	s.expectBootstrapEnvironConfig(c)
 
-	toolsFinder := common.NewToolsFinder(nil, s.toolsStorageGetter, nil, s.newEnviron)
+	toolsFinder := common.NewToolsFinder(
+		controllerConfigGetter{},
+		nil, s.toolsStorageGetter, nil, s.newEnviron,
+	)
 	_, err := toolsFinder.FindAgents(common.FindAgentsParams{})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -501,7 +507,10 @@ func (s *findToolsSuite) testFindToolsExact(c *gc.C, inStorage bool, develVersio
 		}
 		return nil, errors.NotFoundf("tools")
 	})
-	toolsFinder := common.NewToolsFinder(nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron)
+	toolsFinder := common.NewToolsFinder(
+		controllerConfigGetter{},
+		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
+	)
 	_, err := toolsFinder.FindAgents(common.FindAgentsParams{
 		Number: jujuversion.Current,
 		OSType: current.Release,
@@ -527,7 +536,10 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 
 	s.expectMatchingStorageTools(nil, errors.New("AllMetadata failed"))
 
-	toolsFinder := common.NewToolsFinder(nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron)
+	toolsFinder := common.NewToolsFinder(
+		controllerConfigGetter{},
+		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
+	)
 	_, err := toolsFinder.FindAgents(common.FindAgentsParams{})
 	// ToolsStorage errors always cause FindAgents to bail. Only
 	// if AllMetadata succeeds but returns nothing that matches
@@ -556,8 +568,8 @@ func (s *getUrlSuite) TestToolsURLGetterNoAPIHostPorts(c *gc.C) {
 
 	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return(nil, nil)
 
-	g := common.NewToolsURLGetter("my-uuid", coretesting.FakeControllerConfig(), s.apiHostPortsGetter)
-	_, err := g.ToolsURLs(coretesting.CurrentVersion())
+	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
+	_, err := g.ToolsURLs(coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "no suitable API server address to pick from")
 }
 
@@ -566,8 +578,8 @@ func (s *getUrlSuite) TestToolsURLGetterAPIHostPortsError(c *gc.C) {
 
 	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return(nil, errors.New("oh noes"))
 
-	g := common.NewToolsURLGetter("my-uuid", coretesting.FakeControllerConfig(), s.apiHostPortsGetter)
-	_, err := g.ToolsURLs(coretesting.CurrentVersion())
+	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
+	_, err := g.ToolsURLs(coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "oh noes")
 }
 
@@ -578,11 +590,17 @@ func (s *getUrlSuite) TestToolsURLGetter(c *gc.C) {
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}, nil)
 
-	g := common.NewToolsURLGetter("my-uuid", coretesting.FakeControllerConfig(), s.apiHostPortsGetter)
+	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
 	current := coretesting.CurrentVersion()
-	urls, err := g.ToolsURLs(current)
+	urls, err := g.ToolsURLs(coretesting.FakeControllerConfig(), current)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urls, jc.DeepEquals, []string{
 		"https://0.1.2.3:1234/model/my-uuid/tools/" + current.String(),
 	})
+}
+
+type controllerConfigGetter struct{}
+
+func (controllerConfigGetter) ControllerConfig() (controller.Config, error) {
+	return coretesting.FakeControllerConfig(), nil
 }
