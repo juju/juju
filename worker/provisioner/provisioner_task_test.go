@@ -1008,15 +1008,13 @@ func (s *ProvisionerTaskSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
 	broker := environmocks.NewMockEnviron(ctrl)
 	exp := broker.EXPECT()
 	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(1)
+	// Only stop the unknown instance.
+	exp.StopInstances(s.callCtx, []instance.Id{"unknown"}).Return(nil)
 
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, config.HarvestUnknown)
 	defer workertest.CleanKill(c, task)
 
-	s.sendModelMachinesChange(c, "0")
-
 	m0.SetLife(life.Dead)
-	// Only stop the unknown instance.
-	exp.StopInstances(s.callCtx, []instance.Id{"unknown"}).Return(nil)
 	s.sendModelMachinesChange(c, "0")
 	s.waitForRemovalMark(c, m0)
 }
@@ -1035,15 +1033,16 @@ func (s *ProvisionerTaskSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
 	broker := environmocks.NewMockEnviron(ctrl)
 	exp := broker.EXPECT()
 	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(1)
+	// Only stop the dead instance.
+	exp.StopInstances(s.callCtx, []instance.Id{"0"}).Return(nil)
 
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, config.HarvestDestroyed)
 	defer workertest.CleanKill(c, task)
 
+	// This results in no action.
 	s.sendModelMachinesChange(c, "0")
 
 	m0.SetLife(life.Dead)
-	// Only stop the dead instance.
-	exp.StopInstances(s.callCtx, []instance.Id{"0"}).Return(nil)
 	s.sendModelMachinesChange(c, "0")
 	s.waitForRemovalMark(c, m0)
 }
@@ -1062,15 +1061,13 @@ func (s *ProvisionerTaskSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 	broker := environmocks.NewMockEnviron(ctrl)
 	exp := broker.EXPECT()
 	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(1)
+	// Stop both instances.
+	exp.StopInstances(s.callCtx, []instance.Id{"0", "unknown"}).Return(nil)
 
 	task := s.newProvisionerTaskWithBroker(c, broker, nil, numProvisionWorkersForTesting, config.HarvestAll)
 	defer workertest.CleanKill(c, task)
 
-	s.sendModelMachinesChange(c, "0")
-
 	m0.SetLife(life.Dead)
-	// Only stop the dead instance.
-	exp.StopInstances(s.callCtx, []instance.Id{"0", "unknown"}).Return(nil)
 	s.sendModelMachinesChange(c, "0")
 	s.waitForRemovalMark(c, m0)
 }
