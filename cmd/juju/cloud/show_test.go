@@ -58,7 +58,6 @@ func (s *showSuite) assertShowLocal(c *gc.C, expectedOutput string) {
 
 func (s *showSuite) TestShowLocal(c *gc.C) {
 	s.assertShowLocal(c, `
-
 Client cloud "aws-china":
 
 defined: public
@@ -76,7 +75,6 @@ regions:
 func (s *showSuite) TestShowLocalWithDefaultCloud(c *gc.C) {
 	s.store.Credentials["aws-china"] = jujucloud.CloudCredential{DefaultRegion: "cn-north-1"}
 	s.assertShowLocal(c, `
-
 Client cloud "aws-china":
 
 defined: public
@@ -221,6 +219,7 @@ regions:
     endpoint: https://ec2.cn-north-1.amazonaws.com.cn
   cn-northwest-1:
     endpoint: https://ec2.cn-northwest-1.amazonaws.com.cn
+
 `[1:])
 }
 
@@ -245,7 +244,6 @@ clouds:
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
-
 Client cloud "homestack":
 
 defined: local
@@ -308,7 +306,6 @@ clouds:
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, strings.Join([]string{`
-
 Client cloud "homestack":
 
 defined: local
@@ -360,7 +357,6 @@ clouds:
 `[1:]
 
 var resultWithCert = `
-
 Client cloud "homestack":
 
 defined: local
