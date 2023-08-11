@@ -6,7 +6,6 @@ package modelworkermanager
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/state"
 )
@@ -44,18 +43,6 @@ func (g StatePoolController) RecordLogger(modelUUID string) (RecordLogger, error
 	}
 	loggingOutputs, _ := config.LoggingOutput()
 	return g.getLoggers(loggingOutputs, ps), nil
-}
-
-// Config is part of the Controller interface.
-func (g StatePoolController) Config() (controller.Config, error) {
-	sys, err := g.StatePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if sys == nil {
-		return nil, errors.New("state pool closed")
-	}
-	return sys.ControllerConfig()
 }
 
 func (g StatePoolController) getLoggers(loggingOutputs []string, st state.ModelSessioner) corelogger.LoggerCloser {
