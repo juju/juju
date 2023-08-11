@@ -4,6 +4,7 @@
 package secrets
 
 import (
+	"context"
 	"sort"
 
 	"github.com/juju/collections/set"
@@ -12,9 +13,11 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/cloudspec"
@@ -532,6 +535,105 @@ func GetSecretMetadata(
 			continue
 		}
 		result.Results = append(result.Results, secretResult)
+	}
+	return result, nil
+}
+
+// RemoveSecrets removes the specified secrets.
+// If removeFromBackend is false, the secrets are only removed from the state and
+// the caller must have permission to manage the secret(secret owners remove secrets from the backend on uniter side).
+// If removeFromBackend is true, the secrets are removed from the state and
+// backend and the caller must have model admin access.
+func RemoveSecrets(
+	secretsState SecretsMetaState,
+	removeState SecretsRemoveState,
+	secretsConsumer SecretsConsumer,
+	adminConfigGetter BackendAdminConfigGetter,
+	modelTag names.ModelTag, authorizer facade.Authorizer, authTag names.Tag, leadershipChecker leadership.Checker,
+	args params.DeleteSecretArgs, removeFromBackend bool,
+) (params.ErrorResults, error) {
+	removeSecret := func(uri *coresecrets.URI, revisions ...int) ([]coresecrets.ValueRef, error) {
+		if _, err := removeState.GetSecret(uri); err != nil {
+			// Check if the uri exists or not.
+			return nil, errors.Trace(err)
+		}
+		if removeFromBackend {
+			if err := authorizer.HasPermission(permission.AdminAccess, modelTag); err != nil {
+				return nil, errors.Trace(err)
+			}
+			// Admins can delete any secret in the model.
+			return removeState.DeleteSecret(uri, revisions...)
+		}
+		_, err := CanManage(secretsConsumer, leadershipChecker, authTag, uri)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return removeState.DeleteSecret(uri, revisions...)
+	}
+
+	type deleteInfo struct {
+		uri       *coresecrets.URI
+		revisions []int
+	}
+	toDelete := make([]deleteInfo, len(args.Args))
+	for i, arg := range args.Args {
+		uri, err := coresecrets.ParseURI(arg.URI)
+		if err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
+		toDelete[i] = deleteInfo{uri: uri, revisions: arg.Revisions}
+	}
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	externalRevisions := make(map[string]provider.SecretRevisions)
+	for i, d := range toDelete {
+		external, err := removeSecret(d.uri, d.revisions...)
+		result.Results[i].Error = apiservererrors.ServerError(err)
+		if err == nil {
+			for _, rev := range external {
+				if _, ok := externalRevisions[rev.BackendID]; !ok {
+					externalRevisions[rev.BackendID] = provider.SecretRevisions{}
+				}
+				externalRevisions[rev.BackendID].Add(d.uri, rev.RevisionID)
+			}
+		}
+	}
+	logger.Criticalf("externalRevisions: %#v", externalRevisions)
+	if len(externalRevisions) == 0 {
+		return result, nil
+	}
+
+	cfgInfo, err := adminConfigGetter()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	for backendID, r := range externalRevisions {
+		// TODO: include unitTag in params.DeleteSecretArgs for operator uniters?
+		// This should be resolved once lp:1991213 and lp:1991854 are fixed.
+		backendCfg, ok := cfgInfo.Configs[backendID]
+		logger.Criticalf("backendID %q, cfgInfo.Configs: %#v", backendID, cfgInfo.Configs)
+		if !ok {
+			return params.ErrorResults{}, errors.NotFoundf("secret backend %q", backendID)
+		}
+		provider, err := GetProvider(backendCfg.BackendType)
+		if err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
+		if removeFromBackend {
+			backend, err := provider.NewBackend(&backendCfg)
+			if err != nil {
+				return params.ErrorResults{}, errors.Trace(err)
+			}
+			for _, revId := range r.RevisionIDs() {
+				if err = backend.DeleteContent(context.TODO(), revId); err != nil {
+					return params.ErrorResults{}, errors.Trace(err)
+				}
+			}
+		}
+		if err := provider.CleanupSecrets(&backendCfg, authTag, r); err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
 	}
 	return result, nil
 }

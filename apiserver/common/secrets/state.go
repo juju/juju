@@ -52,6 +52,12 @@ type SecretsMetaState interface {
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
 }
 
+// SecretsRemoveState instances provide secret removal apis.
+type SecretsRemoveState interface {
+	DeleteSecret(*secrets.URI, ...int) ([]secrets.ValueRef, error)
+	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
+}
+
 // Credential represents a cloud credential.
 type Credential interface {
 	AuthType() string
