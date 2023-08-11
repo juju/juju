@@ -20,21 +20,25 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 type ManifoldSuite struct {
 	statetesting.StateSuite
 
-	manifold     dependency.Manifold
-	context      dependency.Context
-	clock        *testclock.Clock
-	agent        *mockAgent
-	hub          *mockHub
-	registerer   *fakeRegisterer
-	stateTracker stubStateTracker
+	manifold               dependency.Manifold
+	context                dependency.Context
+	clock                  *testclock.Clock
+	agent                  *mockAgent
+	hub                    *mockHub
+	registerer             *fakeRegisterer
+	stateTracker           stubStateTracker
+	serviceFactory         servicefactory.ServiceFactory
+	controllerConfigGetter *controllerconfigservice.Service
 
 	stub testing.Stub
 }
@@ -54,6 +58,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.hub = &mockHub{}
 	s.registerer = &fakeRegisterer{}
 	s.stateTracker = stubStateTracker{pool: s.StatePool, state: s.State}
+	s.controllerConfigGetter = &controllerconfigservice.Service{}
+	s.serviceFactory = stubServiceFactory{
+		controllerConfigGetter: s.controllerConfigGetter,
+	}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -61,6 +69,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:            "agent",
 		ClockName:            "clock",
 		StateName:            "state",
+		ServiceFactoryName:   "service-factory",
 		Hub:                  s.hub,
 		NewWorker:            s.newWorker,
 		PrometheusRegisterer: s.registerer,
@@ -69,9 +78,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent": s.agent,
-		"clock": s.clock,
-		"state": &s.stateTracker,
+		"agent":           s.agent,
+		"clock":           s.clock,
+		"state":           &s.stateTracker,
+		"service-factory": s.serviceFactory,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -89,7 +99,7 @@ func (s *ManifoldSuite) newWorker(config peergrouper.Config) (worker.Worker, err
 	return w, nil
 }
 
-var expectedInputs = []string{"agent", "clock", "state"}
+var expectedInputs = []string{"agent", "clock", "state", "service-factory"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -123,12 +133,13 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		APIHostPortsSetter: &peergrouper.CachingAPIHostPortsSetter{
 			APIHostPortsSetter: s.State,
 		},
-		Clock:                s.clock,
-		Hub:                  s.hub,
-		MongoPort:            1234,
-		APIPort:              5678,
-		SupportsHA:           true,
-		PrometheusRegisterer: s.registerer,
+		Clock:                  s.clock,
+		Hub:                    s.hub,
+		MongoPort:              1234,
+		APIPort:                5678,
+		SupportsHA:             true,
+		PrometheusRegisterer:   s.registerer,
+		ControllerConfigGetter: s.controllerConfigGetter,
 	})
 }
 
@@ -210,4 +221,13 @@ type mockHub struct {
 
 type fakeRegisterer struct {
 	prometheus.Registerer
+}
+
+type stubServiceFactory struct {
+	servicefactory.ServiceFactory
+	controllerConfigGetter *controllerconfigservice.Service
+}
+
+func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {
+	return s.controllerConfigGetter
 }

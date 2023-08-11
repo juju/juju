@@ -4,6 +4,7 @@
 package peergrouper
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -56,10 +57,11 @@ var (
 
 type workerSuite struct {
 	coretesting.BaseSuite
-	clock *testclock.Clock
-	hub   Hub
-	idle  chan struct{}
-	mu    sync.Mutex
+	clock                  *testclock.Clock
+	controllerConfigGetter *stubControllerConfigGetter
+	hub                    Hub
+	idle                   chan struct{}
+	mu                     sync.Mutex
 
 	memberUpdates [][]replicaset.Member
 }
@@ -70,6 +72,9 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Now())
 	s.hub = nopHub{}
+	s.controllerConfigGetter = &stubControllerConfigGetter{
+		controllerConfig: coretesting.FakeControllerConfig(),
+	}
 	logger.SetLogLevel(loggo.TRACE)
 	s.PatchValue(&IdleFunc, s.idleNotify)
 }
@@ -592,6 +597,9 @@ func (s *workerSuite) TestControllersPublishedWithControllerAPIPort(c *gc.C) {
 		Hub:                  s.hub,
 		SupportsHA:           true,
 		PrometheusRegisterer: noopRegisterer{},
+		ControllerConfigGetter: &stubControllerConfigGetter{
+			controllerConfig: coretesting.FakeControllerConfig(),
+		},
 	})
 	defer workertest.CleanKill(c, w)
 
@@ -736,7 +744,7 @@ func (s *workerSuite) doTestUsesConfiguredHASpace(c *gc.C, ipVersion TestIPVersi
 	})
 	c.Assert(err, gc.IsNil)
 
-	st.setHASpace("two")
+	st.setHASpace(s.controllerConfigGetter.setHASpace("two"))
 	s.runUntilPublish(c, st, "")
 	assertMemberAddresses(c, st, ipVersion.formatHost, 2)
 
@@ -787,7 +795,7 @@ func (s *workerSuite) TestDetectsAndUsesHASpaceChangeIPv6(c *gc.C) {
 
 func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *gc.C, ipVersion TestIPVersion) {
 	st := haSpaceTestCommonSetup(c, ipVersion, "0v 1v 2v")
-	st.setHASpace("one")
+	st.setHASpace(s.controllerConfigGetter.setHASpace("one"))
 
 	// Set up a hub and channel on which to receive notifications.
 	hub := pubsub.NewStructuredHub(nil)
@@ -820,7 +828,7 @@ func (s *workerSuite) doTestDetectsAndUsesHASpaceChange(c *gc.C, ipVersion TestI
 
 	// HA space config change should invoke the worker.
 	// Replica set addresses should change to the new space.
-	st.setHASpace("three")
+	st.setHASpace(s.controllerConfigGetter.setHASpace("three"))
 	s.mustNext(c, "waiting for members to be updated for space change")
 	assertMemberAddresses(c, st, ipVersion.formatHost, 3)
 }
@@ -879,7 +887,7 @@ func (s *workerSuite) doTestErrorAndStatusForHASpaceWithNoAddresses(
 	c *gc.C, ipVersion TestIPVersion,
 ) {
 	st := haSpaceTestCommonSetup(c, ipVersion, "0v")
-	st.setHASpace("nope")
+	st.setHASpace(s.controllerConfigGetter.setHASpace("nope"))
 
 	err := s.newWorker(c, st, st.session, nopAPIHostPortsSetter{}, true).Wait()
 	errMsg := `computing desired peer group: updating member addresses: ` +
@@ -1199,16 +1207,17 @@ func (s *workerSuite) newWorker(
 	supportsHA bool,
 ) worker.Worker {
 	return s.newWorkerWithConfig(c, Config{
-		Clock:                s.clock,
-		State:                st,
-		MongoSession:         session,
-		APIHostPortsSetter:   apiHostPortsSetter,
-		ControllerId:         session.currentPrimary,
-		MongoPort:            mongoPort,
-		APIPort:              apiPort,
-		Hub:                  s.hub,
-		SupportsHA:           supportsHA,
-		PrometheusRegisterer: noopRegisterer{},
+		Clock:                  s.clock,
+		State:                  st,
+		MongoSession:           session,
+		APIHostPortsSetter:     apiHostPortsSetter,
+		ControllerId:           session.currentPrimary,
+		MongoPort:              mongoPort,
+		APIPort:                apiPort,
+		Hub:                    s.hub,
+		SupportsHA:             supportsHA,
+		PrometheusRegisterer:   noopRegisterer{},
+		ControllerConfigGetter: s.controllerConfigGetter,
 	})
 }
 
@@ -1245,4 +1254,25 @@ func (s *workerSuite) waitUntilIdle(c *gc.C) {
 	s.mu.Lock()
 	s.idle = nil
 	s.mu.Unlock()
+}
+
+type stubControllerConfigGetter struct {
+	mutex            sync.Mutex
+	controllerConfig controller.Config
+}
+
+func (s *stubControllerConfigGetter) ControllerConfig(context.Context) (controller.Config, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.controllerConfig, nil
+}
+
+func (s *stubControllerConfigGetter) setHASpace(spaceName string) controller.Config {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.controllerConfig[controller.JujuHASpace] = spaceName
+
+	return s.controllerConfig
 }

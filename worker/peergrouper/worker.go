@@ -4,6 +4,7 @@
 package peergrouper
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"reflect"
@@ -33,7 +34,6 @@ var logger = loggo.GetLogger("juju.worker.peergrouper")
 
 type State interface {
 	RemoveControllerReference(m ControllerNode) error
-	ControllerConfig() (controller.Config, error)
 	ControllerIds() ([]string, error)
 	ControllerNode(id string) (ControllerNode, error)
 	ControllerHost(id string) (ControllerHost, error)
@@ -141,15 +141,21 @@ type pgWorker struct {
 	idleFunc func()
 }
 
+// ControllerConfigGetter is an interface that returns the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // Config holds the configuration for a peergrouper worker.
 type Config struct {
-	State              State
-	APIHostPortsSetter APIHostPortsSetter
-	MongoSession       MongoSession
-	Clock              clock.Clock
-	MongoPort          int
-	APIPort            int
-	ControllerAPIPort  int
+	State                  State
+	ControllerConfigGetter ControllerConfigGetter
+	APIHostPortsSetter     APIHostPortsSetter
+	MongoSession           MongoSession
+	Clock                  clock.Clock
+	MongoPort              int
+	APIPort                int
+	ControllerAPIPort      int
 
 	// ControllerId is the id of the controller running this worker.
 	// It is used in checking if this working is running on the
@@ -175,6 +181,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.State == nil {
 		return errors.NotValidf("nil State")
+	}
+	if config.ControllerConfigGetter == nil {
+		return errors.NotValidf("nil ControllerConfigGetter")
 	}
 	if config.APIHostPortsSetter == nil {
 		return errors.NotValidf("nil APIHostPortsSetter")
@@ -333,7 +342,7 @@ func (w *pgWorker) loop() error {
 		}
 
 		var failed bool
-		cfg, err := w.config.State.ControllerConfig()
+		cfg, err := w.config.ControllerConfigGetter.ControllerConfig(w.catacomb.Context(context.Background()))
 		if err != nil {
 			logger.Errorf("cannot read controller config: %v", err)
 			failed = true
@@ -785,7 +794,7 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 // getHASpaceFromConfig returns a space based on the controller's
 // configuration for the HA space.
 func (w *pgWorker) getHASpaceFromConfig() (network.SpaceInfo, error) {
-	config, err := w.config.State.ControllerConfig()
+	config, err := w.config.ControllerConfigGetter.ControllerConfig(w.catacomb.Context(context.Background()))
 	if err != nil {
 		return network.SpaceInfo{}, errors.Trace(err)
 	}

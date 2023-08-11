@@ -807,7 +807,13 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"peer-grouper": {
 		"agent",
+		"change-stream",
 		"clock",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 		"upgrade-check-flag",
@@ -1234,7 +1240,13 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"peer-grouper": {
 		"agent",
+		"change-stream",
 		"clock",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 		"upgrade-check-flag",

@@ -272,16 +272,6 @@ func (st *fakeState) ModelConfig() (*config.Config, error) {
 	return cfg, err
 }
 
-func (st *fakeState) ControllerConfig() (controller.Config, error) {
-	st.mu.Lock()
-	defer st.mu.Unlock()
-
-	if err := st.errors.errorFor("State.ControllerConfig"); err != nil {
-		return nil, err
-	}
-	return deepCopy(st.controllerConfig.Get()).(controller.Config), nil
-}
-
 func (st *fakeState) RemoveControllerReference(c ControllerNode) error {
 	st.mu.Lock()
 	defer st.mu.Unlock()
@@ -299,21 +289,24 @@ func (st *fakeState) RemoveControllerReference(c ControllerNode) error {
 	return nil
 }
 
-func (st *fakeState) setHASpace(spaceName string) {
+func (st *fakeState) setHASpace(controllerConfig controller.Config) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 
 	// Ensure the configured space always exists in state.
-	if spaceName != network.AlphaSpaceName {
+	if spaceName := controllerConfig.JujuHASpace(); spaceName != network.AlphaSpaceName {
 		if st.spaces == nil {
 			st.spaces = make(map[string]*fakeSpace)
 		}
-		st.spaces[spaceName] = &fakeSpace{network.SpaceInfo{ID: spaceName, Name: network.SpaceName(spaceName)}}
+		st.spaces[spaceName] = &fakeSpace{
+			SpaceInfo: network.SpaceInfo{
+				ID:   spaceName,
+				Name: network.SpaceName(spaceName),
+			},
+		}
 	}
 
-	cfg := st.controllerConfig.Get().(controller.Config)
-	cfg[controller.JujuHASpace] = spaceName
-	st.controllerConfig.Set(cfg)
+	st.controllerConfig.Set(controllerConfig)
 }
 
 func (st *fakeState) Space(name string) (Space, error) {

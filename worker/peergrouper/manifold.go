@@ -13,16 +13,19 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
 // ManifoldConfig holds the information necessary to run a peergrouper
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName string
-	ClockName string
-	StateName string
-	Hub       Hub
+	AgentName          string
+	ClockName          string
+	StateName          string
+	ServiceFactoryName string
+
+	Hub Hub
 
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(Config) (worker.Worker, error)
@@ -38,6 +41,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
+	}
+	if config.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
@@ -58,6 +64,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.ClockName,
 			config.StateName,
+			config.ServiceFactoryName,
 		},
 		Start: config.start,
 	}
@@ -88,6 +95,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var controllerServiceFactory servicefactory.ControllerServiceFactory
+	if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	mongoSession := st.MongoSession()
 	agentConfig := agent.CurrentConfig()
 	stateServingInfo, ok := agentConfig.StateServingInfo()
@@ -103,16 +115,17 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	supportsHA := model.Type() != state.ModelTypeCAAS
 
 	w, err := config.NewWorker(Config{
-		State:                StateShim{st},
-		MongoSession:         MongoSessionShim{mongoSession},
-		APIHostPortsSetter:   &CachingAPIHostPortsSetter{APIHostPortsSetter: st},
-		Clock:                clock,
-		Hub:                  config.Hub,
-		MongoPort:            stateServingInfo.StatePort,
-		APIPort:              stateServingInfo.APIPort,
-		ControllerAPIPort:    stateServingInfo.ControllerAPIPort,
-		SupportsHA:           supportsHA,
-		PrometheusRegisterer: config.PrometheusRegisterer,
+		State:                  StateShim{State: st},
+		ControllerConfigGetter: controllerServiceFactory.ControllerConfig(),
+		MongoSession:           MongoSessionShim{Session: mongoSession},
+		APIHostPortsSetter:     &CachingAPIHostPortsSetter{APIHostPortsSetter: st},
+		Clock:                  clock,
+		Hub:                    config.Hub,
+		MongoPort:              stateServingInfo.StatePort,
+		APIPort:                stateServingInfo.APIPort,
+		ControllerAPIPort:      stateServingInfo.ControllerAPIPort,
+		SupportsHA:             supportsHA,
+		PrometheusRegisterer:   config.PrometheusRegisterer,
 		// On machine models, the controller id is the same as the machine/agent id.
 		// TODO(wallyworld) - revisit when we add HA to k8s.
 		ControllerId: agentConfig.Tag().Id,
