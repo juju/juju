@@ -112,11 +112,6 @@ func SyncTools(syncContext *SyncContext) error {
 	}
 
 	logger.Infof("found %d agent binaries", len(sourceTools))
-	if !syncContext.AllVersions {
-		var latest version.Number
-		latest, sourceTools = sourceTools.Newest()
-		logger.Infof("found %d recent agent binaries (version %s)", len(sourceTools), latest)
-	}
 	for _, tool := range sourceTools {
 		logger.Debugf("found source agent binary: %v", tool)
 	}
