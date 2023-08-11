@@ -357,13 +357,13 @@ func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
-	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "dummy-no-series")
+	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "dummy-fail-no-os")
 	err := s.runDeploy(c, path, "--base", "ubuntu@20.04")
 	c.Assert(err, gc.ErrorMatches, "charm does not define any bases, not valid")
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesNoBase(c *gc.C) {
-	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "dummy-no-series")
+	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "dummy-fail-no-os")
 	err := s.runDeploy(c, path)
 	c.Assert(err, gc.ErrorMatches, "charm does not define any bases, not valid")
 }
