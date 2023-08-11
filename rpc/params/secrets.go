@@ -111,6 +111,22 @@ type UpdateSecretArg struct {
 	URI string `json:"uri"`
 }
 
+// UpdateUserSecretArgs holds args for updating user secrets.
+type UpdateUserSecretArgs struct {
+	Args []UpdateUserSecretArg `json:"args"`
+}
+
+// UpdateUserSecretArg holds the args for updating a user secret.
+type UpdateUserSecretArg struct {
+	UpsertSecretArg
+
+	// URI identifies the secret to update.
+	URI string `json:"uri"`
+
+	// AutoPrune indicates whether the staled secret revisions should be pruned automatically.
+	AutoPrune *bool `json:"auto-prune,omitempty"`
+}
+
 // DeleteSecretArgs holds args for deleting secrets.
 type DeleteSecretArgs struct {
 	Args []DeleteSecretArg `json:"args"`
