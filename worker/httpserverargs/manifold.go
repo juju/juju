@@ -10,18 +10,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
+	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
 // ManifoldConfig holds the resources needed to run an httpserverargs
 // worker.
 type ManifoldConfig struct {
-	ClockName string
-	StateName string
+	ClockName          string
+	StateName          string
+	ServiceFactoryName string
 
 	NewStateAuthenticator NewStateAuthenticatorFunc
 }
@@ -33,6 +35,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
+	}
+	if config.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if config.NewStateAuthenticator == nil {
 		return errors.NotValidf("nil NewStateAuthenticator")
@@ -50,6 +55,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var controllerServiceFactory servicefactory.ControllerServiceFactory
+	if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var stTracker workerstate.StateTracker
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
@@ -59,18 +69,18 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	mux := apiserverhttp.NewMux()
-	abort := make(chan struct{})
-	authenticator, err := config.NewStateAuthenticator(statePool, mux, clock, abort)
+	w, err := newWorker(workerConfig{
+		statePool:               statePool,
+		controllerConfigGetter:  controllerServiceFactory.ControllerConfig(),
+		mux:                     apiserverhttp.NewMux(),
+		clock:                   clock,
+		newStateAuthenticatorFn: config.NewStateAuthenticator,
+	})
 	if err != nil {
 		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
-	w := newWorker(mux, authenticator, func() {
-		close(abort)
-		_ = stTracker.Done()
-	})
-	return w, nil
+	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }
 
 // Manifold returns a dependency.Manifold to run a worker to hold the
@@ -82,6 +92,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.ClockName,
 			config.StateName,
+			config.ServiceFactoryName,
 		},
 		Start:  config.start,
 		Output: manifoldOutput,
@@ -93,7 +104,10 @@ var (
 	authenticatorType = reflect.TypeOf((*macaroon.LocalMacaroonAuthenticator)(nil)).Elem()
 )
 
-func manifoldOutput(in worker.Worker, out interface{}) error {
+func manifoldOutput(in worker.Worker, out any) error {
+	if w, ok := in.(*common.CleanupWorker); ok {
+		in = w.Worker
+	}
 	w, ok := in.(*argsWorker)
 	if !ok {
 		return errors.Errorf("expected worker of type *argsWorker, got %T", in)
@@ -103,7 +117,7 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 		elemType := rt.Elem()
 		switch {
 		case muxType.AssignableTo(elemType):
-			rv.Elem().Set(reflect.ValueOf(w.mux))
+			rv.Elem().Set(reflect.ValueOf(w.cfg.mux))
 			return nil
 		case authenticatorType.AssignableTo(elemType):
 			rv.Elem().Set(reflect.ValueOf(w.authenticator))
@@ -111,35 +125,4 @@ func manifoldOutput(in worker.Worker, out interface{}) error {
 		}
 	}
 	return errors.Errorf("unexpected output type %T", out)
-}
-
-func newWorker(
-	mux *apiserverhttp.Mux,
-	authenticator macaroon.LocalMacaroonAuthenticator,
-	cleanup func(),
-) worker.Worker {
-	w := argsWorker{
-		mux:           mux,
-		authenticator: authenticator,
-	}
-	w.tomb.Go(func() error {
-		<-w.tomb.Dying()
-		cleanup()
-		return nil
-	})
-	return &w
-}
-
-type argsWorker struct {
-	mux           *apiserverhttp.Mux
-	authenticator macaroon.LocalMacaroonAuthenticator
-	tomb          tomb.Tomb
-}
-
-func (w *argsWorker) Kill() {
-	w.tomb.Kill(nil)
-}
-
-func (w *argsWorker) Wait() error {
-	return w.tomb.Wait()
 }

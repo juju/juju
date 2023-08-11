@@ -15,6 +15,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
@@ -30,17 +31,15 @@ import (
 
 type macaroonCommonSuite struct {
 	statetesting.StateSuite
-	discharger    *bakerytest.Discharger
-	authenticator *stateauthenticator.Authenticator
-	clock         *testclock.Clock
+	discharger             *bakerytest.Discharger
+	authenticator          *stateauthenticator.Authenticator
+	clock                  *testclock.Clock
+	controllerConfigGetter *MockControllerConfigGetter
 }
 
 func (s *macaroonCommonSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Now())
-	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.clock)
-	c.Assert(err, jc.ErrorIsNil)
-	s.authenticator = authenticator
 }
 
 func (s *macaroonCommonSuite) TearDownTest(c *gc.C) {
@@ -48,6 +47,19 @@ func (s *macaroonCommonSuite) TearDownTest(c *gc.C) {
 		s.discharger.Close()
 	}
 	s.StateSuite.TearDownTest(c)
+}
+
+func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
+	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
+
+	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.controllerConfigGetter, s.clock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.authenticator = authenticator
+
+	return ctrl
 }
 
 type macaroonAuthSuite struct {
@@ -78,6 +90,8 @@ func (alwaysIdent) DeclaredIdentity(ctx context.Context, declared map[string]str
 }
 
 func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// TODO - remove when we use bakeryv2 everywhere
 	discharger := bakerytest.NewDischarger(nil)
 	defer discharger.Close()
@@ -90,7 +104,7 @@ func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
 		return nil, errors.New("unexpected caveat")
 	})
 
-	bsvc, err := stateauthenticator.ServerBakery(s.authenticator, &alwaysIdent{discharger.Location()})
+	bsvc, err := stateauthenticator.ServerBakery(context.Background(), s.authenticator, &alwaysIdent{IdentityLocation: discharger.Location()})
 	c.Assert(err, gc.IsNil)
 
 	cav := []checkers.Caveat{
@@ -119,7 +133,9 @@ func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
 }
 
 func (s *macaroonAuthSuite) TestExpiredKey(c *gc.C) {
-	bsvc, err := stateauthenticator.ServerBakeryExpiresImmediately(s.authenticator, &alwaysIdent{})
+	defer s.setupMocks(c).Finish()
+
+	bsvc, err := stateauthenticator.ServerBakeryExpiresImmediately(context.Background(), s.authenticator, &alwaysIdent{})
 	c.Assert(err, gc.IsNil)
 
 	cav := []checkers.Caveat{
@@ -164,6 +180,8 @@ func (s *macaroonAuthWrongPublicKeySuite) TearDownTest(c *gc.C) {
 }
 
 func (s *macaroonAuthWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	ctx := context.Background()
 	client := httpbakery.NewClient()
 
@@ -192,7 +210,9 @@ type macaroonNoURLSuite struct {
 var _ = gc.Suite(&macaroonNoURLSuite{})
 
 func (s *macaroonNoURLSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// By default, when there is no identity location, no bakery is created.
-	_, err := stateauthenticator.ServerBakery(s.authenticator, nil)
+	_, err := stateauthenticator.ServerBakery(context.Background(), s.authenticator, nil)
 	c.Assert(err, gc.ErrorMatches, "macaroon authentication is not configured")
 }

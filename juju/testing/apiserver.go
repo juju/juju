@@ -118,9 +118,10 @@ type ApiServerSuite struct {
 
 	// These are exposed for the tests to use.
 
-	Server       *apiserver.Server
-	LeaseManager *lease.Manager
-	Clock        testclock.AdvanceableClock
+	Server                   *apiserver.Server
+	LeaseManager             *lease.Manager
+	Clock                    testclock.AdvanceableClock
+	ControllerServiceFactory servicefactory.ControllerServiceFactory
 
 	// These attributes are set before SetUpTest to indicate we want to
 	// set up the api server with real components instead of stubs.
@@ -320,8 +321,11 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 		cfg.ExecEmbeddedCommand = s.WithEmbeddedCLICommand
 	}
 
+	s.ControllerServiceFactory = cfg.ServiceFactoryGetter.FactoryForModel(coredatabase.ControllerNS)
+	ctrlConfigGetter := s.ControllerServiceFactory.ControllerConfig()
+
 	// Set up auth handler.
-	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, cfg.Clock)
+	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, ctrlConfigGetter, cfg.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)

@@ -549,6 +549,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		httpServerArgsName: httpserverargs.Manifold(httpserverargs.ManifoldConfig{
 			ClockName:             clockName,
 			StateName:             stateName,
+			ServiceFactoryName:    serviceFactoryName,
 			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
 		}),
 
