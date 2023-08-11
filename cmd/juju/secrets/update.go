@@ -76,7 +76,7 @@ Examples:
 	return jujucmd.Info(&cmd.Info{
 		Name:    "update-secret",
 		Args:    "<ID> [key[#base64|#file]=value...]",
-		Purpose: "Update an exisitng secret.",
+		Purpose: "Update an existing secret.",
 		Doc:     doc,
 	})
 }

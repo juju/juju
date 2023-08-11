@@ -5,6 +5,7 @@ package secrets
 
 import (
 	"fmt"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
