@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/api/controller/crossmodelsecrets"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/secrets"
-	// apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"

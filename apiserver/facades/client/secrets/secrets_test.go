@@ -6,6 +6,7 @@ package secrets_test
 import (
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -14,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apisecrets "github.com/juju/juju/apiserver/facades/client/secrets"
@@ -30,6 +32,9 @@ type SecretsSuite struct {
 	testing.IsolationSuite
 
 	authorizer     *facademocks.MockAuthorizer
+	authTag        names.Tag
+	provider       *mocks.MockSecretBackendProvider
+	backend        *mocks.MockSecretsBackend
 	secretsState   *mocks.MockSecretsState
 	secretConsumer *mocks.MockSecretsConsumer
 	secretsBackend *mocks.MockSecretsBackend
@@ -39,6 +44,8 @@ var _ = gc.Suite(&SecretsSuite{})
 
 func (s *SecretsSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+
+	s.authTag = names.NewUserTag("foo")
 }
 
 func (s *SecretsSuite) setup(c *gc.C) *gomock.Controller {
@@ -48,7 +55,9 @@ func (s *SecretsSuite) setup(c *gc.C) *gomock.Controller {
 	s.secretsState = mocks.NewMockSecretsState(ctrl)
 	s.secretConsumer = mocks.NewMockSecretsConsumer(ctrl)
 	s.secretsBackend = mocks.NewMockSecretsBackend(ctrl)
-
+	s.provider = mocks.NewMockSecretBackendProvider(ctrl)
+	s.backend = mocks.NewMockSecretsBackend(ctrl)
+	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.provider, nil })
 	return ctrl
 }
 
@@ -111,7 +120,7 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
 			return s.secretsBackend, nil
-		}, s.authorizer)
+		}, s.authorizer, s.authTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	now := time.Now()
@@ -210,7 +219,7 @@ func (s *SecretsSuite) TestListSecretsPermissionDenied(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, coretesting.ModelTag).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
-	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer, nil, nil, s.authorizer)
+	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer, nil, nil, s.authorizer, s.authTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.ListSecrets(params.ListSecretsArgs{})
@@ -226,7 +235,7 @@ func (s *SecretsSuite) TestListSecretsPermissionDeniedShow(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
-	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer, nil, nil, s.authorizer)
+	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer, nil, nil, s.authorizer, s.authTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.ListSecrets(params.ListSecretsArgs{ShowSecrets: true})
@@ -242,7 +251,7 @@ func (s *SecretsSuite) TestCreateSecretsPermissionDenied(c *gc.C) {
 	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
-	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer, nil, nil, s.authorizer)
+	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer, nil, nil, s.authorizer, s.authTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.CreateSecrets(params.CreateSecretArgs{})
@@ -289,7 +298,7 @@ func (s *SecretsSuite) TestCreateSecretsEmptyData(c *gc.C) {
 		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
 			return s.secretsBackend, nil
-		}, s.authorizer)
+		}, s.authorizer, s.authTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := facade.CreateSecrets(params.CreateSecretArgs{
@@ -374,7 +383,7 @@ func (s *SecretsSuite) assertCreateSecrets(c *gc.C, isInternal bool, finalStepFa
 		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
 			return s.secretsBackend, nil
-		}, s.authorizer)
+		}, s.authorizer, s.authTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := facade.CreateSecrets(params.CreateSecretArgs{
@@ -410,6 +419,289 @@ func (s *SecretsSuite) TestCreateSecretsExternalBackendFailedAndCleanup(c *gc.C)
 
 func (s *SecretsSuite) TestCreateSecretsInternalBackend(c *gc.C) {
 	s.assertCreateSecrets(c, true, false)
+}
+
+func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, isInternal bool, finalStepFailed bool) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
+	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+
+	uri := coresecrets.NewURI()
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
+		URI:            uri,
+		LatestRevision: 2,
+	}, nil)
+	if isInternal {
+		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 3, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+			Return("", errors.NotSupportedf("not supported"))
+	} else {
+		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 3, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+			Return("rev-id", nil)
+	}
+	s.secretsState.EXPECT().UpdateSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(arg1 *coresecrets.URI, params state.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
+		c.Assert(arg1, gc.DeepEquals, uri)
+		c.Assert(params.Description, gc.DeepEquals, ptr("this is a user secret."))
+		c.Assert(params.Label, gc.DeepEquals, ptr("label"))
+		if isInternal {
+			c.Assert(params.ValueRef, gc.IsNil)
+			c.Assert(params.Data, gc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
+		} else {
+			c.Assert(params.ValueRef, gc.DeepEquals, &coresecrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "rev-id",
+			})
+			c.Assert(params.Data, gc.IsNil)
+		}
+		if finalStepFailed {
+			return nil, errors.New("some error")
+		}
+		return &coresecrets.SecretMetadata{URI: uri}, nil
+	})
+	if finalStepFailed && !isInternal {
+		s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
+	}
+	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer,
+		func() (*provider.ModelBackendConfigInfo, error) {
+			return &provider.ModelBackendConfigInfo{
+				ActiveID: "backend-id",
+				Configs: map[string]provider.ModelBackendConfig{
+					"backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "active-type",
+							Config:      map[string]interface{}{"foo": "active-type"},
+						},
+					},
+					"other-backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "other-type",
+							Config:      map[string]interface{}{"foo": "other-type"},
+						},
+					},
+				},
+			}, nil
+		},
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
+			return s.secretsBackend, nil
+		}, s.authorizer, s.authTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := facade.UpdateSecrets(params.UpdateUserSecretArgs{
+		Args: []params.UpdateUserSecretArg{
+			{
+				AutoPrune: ptr(true),
+				URI:       uri.String(),
+				UpsertSecretArg: params.UpsertSecretArg{
+					Description: ptr("this is a user secret."),
+					Label:       ptr("label"),
+					Content: params.SecretContentParams{
+						Data: map[string]string{"foo": "bar"},
+					},
+				},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	if finalStepFailed {
+		c.Assert(result.Results[0].Error.Message, gc.DeepEquals, "some error")
+	} else {
+		c.Assert(result.Results[0].Error, gc.IsNil)
+	}
+}
+
+func (s *SecretsSuite) TestUpdateSecretsExternalBackend(c *gc.C) {
+	s.assertUpdateSecrets(c, false, false)
+}
+
+func (s *SecretsSuite) TestUpdateSecretsExternalBackendFailedAndCleanup(c *gc.C) {
+	s.assertUpdateSecrets(c, false, true)
+}
+
+func (s *SecretsSuite) TestUpdateSecretsInternalBackend(c *gc.C) {
+	s.assertUpdateSecrets(c, true, false)
+}
+
+func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectAuthClient()
+
+	uri := coresecrets.NewURI()
+	expectURI := *uri
+	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
+	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return([]coresecrets.ValueRef{{
+		BackendID:  "backend-id",
+		RevisionID: "rev-666",
+	}}, nil)
+
+	cfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "some-model",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "active-type",
+			Config:      map[string]interface{}{"foo": "active-type"},
+		},
+	}
+	s.provider.EXPECT().NewBackend(cfg).Return(s.backend, nil)
+	s.backend.EXPECT().DeleteContent(gomock.Any(), "rev-666").Return(nil)
+	s.provider.EXPECT().CleanupSecrets(
+		cfg, names.NewUserTag("foo"),
+		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
+	).Return(nil)
+
+	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer,
+		func() (*provider.ModelBackendConfigInfo, error) {
+			return &provider.ModelBackendConfigInfo{
+				ActiveID: "backend-id",
+				Configs: map[string]provider.ModelBackendConfig{
+					"backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "active-type",
+							Config:      map[string]interface{}{"foo": "active-type"},
+						},
+					},
+					"other-backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "other-type",
+							Config:      map[string]interface{}{"foo": "other-type"},
+						},
+					},
+				},
+			}, nil
+		},
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
+			return s.secretsBackend, nil
+		}, s.authorizer, s.authTag)
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := facade.RemoveSecrets(params.DeleteSecretArgs{
+		Args: []params.DeleteSecretArg{{
+			URI:       expectURI.String(),
+			Revisions: []int{666},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *SecretsSuite) TestRemoveSecretRevision(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectAuthClient()
+
+	uri := coresecrets.NewURI()
+	expectURI := *uri
+	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
+	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(nil, nil)
+
+	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer,
+		func() (*provider.ModelBackendConfigInfo, error) {
+			return &provider.ModelBackendConfigInfo{
+				ActiveID: "backend-id",
+				Configs: map[string]provider.ModelBackendConfig{
+					"backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "active-type",
+							Config:      map[string]interface{}{"foo": "active-type"},
+						},
+					},
+					"other-backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "other-type",
+							Config:      map[string]interface{}{"foo": "other-type"},
+						},
+					},
+				},
+			}, nil
+		},
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
+			return s.secretsBackend, nil
+		}, s.authorizer, s.authTag)
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := facade.RemoveSecrets(params.DeleteSecretArgs{
+		Args: []params.DeleteSecretArg{{
+			URI:       expectURI.String(),
+			Revisions: []int{666},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{{}},
+	})
+}
+
+func (s *SecretsSuite) TestRemoveSecretNotFound(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectAuthClient()
+
+	uri := coresecrets.NewURI()
+	expectURI := *uri
+	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, errors.NotFoundf("not found"))
+
+	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer,
+		func() (*provider.ModelBackendConfigInfo, error) {
+			return &provider.ModelBackendConfigInfo{
+				ActiveID: "backend-id",
+				Configs: map[string]provider.ModelBackendConfig{
+					"backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "active-type",
+							Config:      map[string]interface{}{"foo": "active-type"},
+						},
+					},
+					"other-backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "other-type",
+							Config:      map[string]interface{}{"foo": "other-type"},
+						},
+					},
+				},
+			}, nil
+		},
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
+			return s.secretsBackend, nil
+		}, s.authorizer, s.authTag)
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := facade.RemoveSecrets(params.DeleteSecretArgs{
+		Args: []params.DeleteSecretArg{{
+			URI:       expectURI.String(),
+			Revisions: []int{666},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
 func (s *SecretsSuite) TestGrantSecret(c *gc.C) {
@@ -467,7 +759,7 @@ func (s *SecretsSuite) TestGrantSecret(c *gc.C) {
 		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
 			return s.secretsBackend, nil
-		}, s.authorizer)
+		}, s.authorizer, s.authTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := facade.GrantSecret(params.GrantRevokeUserSecretArg{
@@ -488,7 +780,7 @@ func (s *SecretsSuite) TestGrantSecretPermissionDenied(c *gc.C) {
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission),
 	)
 
-	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer, nil, nil, s.authorizer)
+	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer, nil, nil, s.authorizer, s.authTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.GrantSecret(params.GrantRevokeUserSecretArg{})
@@ -550,7 +842,7 @@ func (s *SecretsSuite) TestRevokeSecret(c *gc.C) {
 		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
 			return s.secretsBackend, nil
-		}, s.authorizer)
+		}, s.authorizer, s.authTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := facade.RevokeSecret(params.GrantRevokeUserSecretArg{
@@ -571,7 +863,7 @@ func (s *SecretsSuite) TestRevokeSecretPermissionDenied(c *gc.C) {
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission),
 	)
 
-	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer, nil, nil, s.authorizer)
+	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer, nil, nil, s.authorizer, s.authTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = facade.RevokeSecret(params.GrantRevokeUserSecretArg{})

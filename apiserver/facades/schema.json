@@ -39889,6 +39889,18 @@
         "Schema": {
             "type": "object",
             "properties": {
+                "CreateSecretURIs": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CreateSecretURIsArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    },
+                    "description": "CreateSecretURIs creates new secret URIs."
+                },
                 "CreateSecrets": {
                     "type": "object",
                     "properties": {
@@ -39900,6 +39912,63 @@
                         }
                     },
                     "description": "CreateSecrets creates new secrets."
+                },
+                "GetConsumerSecretsRevisionInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GetSecretConsumerInfoArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretConsumerInfoResults"
+                        }
+                    },
+                    "description": "GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets.\nThis facade method is used for remote watcher to get the latest secret revisions and labels for a secret changed hook."
+                },
+                "GetSecretBackendConfigs": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SecretBackendArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretBackendConfigResults"
+                        }
+                    },
+                    "description": "GetSecretBackendConfigs gets the config needed to create a client to secret backends."
+                },
+                "GetSecretContentInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GetSecretContentArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretContentResults"
+                        }
+                    },
+                    "description": "GetSecretContentInfo returns the secret values for the specified secrets."
+                },
+                "GetSecretMetadata": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/ListSecretResults"
+                        }
+                    },
+                    "description": "GetSecretMetadata returns metadata for the caller's secrets."
+                },
+                "GetSecretRevisionContentInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SecretRevisionArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretContentResults"
+                        }
+                    },
+                    "description": "GetSecretRevisionContentInfo returns the secret values for the specified secret revisions."
                 },
                 "GrantSecret": {
                     "type": "object",
@@ -39925,6 +39994,18 @@
                     },
                     "description": "ListSecrets lists available secrets."
                 },
+                "RemoveSecrets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/DeleteSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "RemoveSecrets remove user secret."
+                },
                 "RevokeSecret": {
                     "type": "object",
                     "properties": {
@@ -39936,6 +40017,102 @@
                         }
                     },
                     "description": "RevokeSecret revokes access to a user secret."
+                },
+                "SecretsGrant": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GrantRevokeSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "SecretsGrant grants access to a secret for the specified subjects."
+                },
+                "SecretsRevoke": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GrantRevokeSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "SecretsRevoke revokes access to a secret for the specified subjects."
+                },
+                "SecretsRotated": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SecretRotatedArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "SecretsRotated records when secrets were last rotated."
+                },
+                "UpdateSecrets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/UpdateUserSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "UpdateSecrets creates new secrets."
+                },
+                "WatchConsumedSecretsChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    },
+                    "description": "WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers."
+                },
+                "WatchObsolete": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
+                        }
+                    },
+                    "description": "WatchObsolete returns a watcher for notifying when:\n  - a secret owned by the entity is deleted\n  - a secret revision owed by the entity no longer\n    has any consumers\n\nObsolete revisions results are \"uri/revno\" and deleted\nsecret results are \"uri\"."
+                },
+                "WatchSecretRevisionsExpiryChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretTriggerWatchResult"
+                        }
+                    },
+                    "description": "WatchSecretRevisionsExpiryChanges sets up a watcher to notify of changes to secret revision expiry config."
+                },
+                "WatchSecretsRotationChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SecretTriggerWatchResult"
+                        }
+                    },
+                    "description": "WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config."
                 }
             },
             "definitions": {
@@ -39998,6 +40175,78 @@
                         "args"
                     ]
                 },
+                "CreateSecretURIsArg": {
+                    "type": "object",
+                    "properties": {
+                        "count": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "count"
+                    ]
+                },
+                "DeleteSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri"
+                    ]
+                },
+                "DeleteSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DeleteSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
+                "Entities": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
+                },
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
                 "Error": {
                     "type": "object",
                     "properties": {
@@ -40045,6 +40294,103 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "GetSecretConsumerInfoArgs": {
+                    "type": "object",
+                    "properties": {
+                        "consumer-tag": {
+                            "type": "string"
+                        },
+                        "uris": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "consumer-tag",
+                        "uris"
+                    ]
+                },
+                "GetSecretContentArg": {
+                    "type": "object",
+                    "properties": {
+                        "label": {
+                            "type": "string"
+                        },
+                        "peek": {
+                            "type": "boolean"
+                        },
+                        "refresh": {
+                            "type": "boolean"
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri"
+                    ]
+                },
+                "GetSecretContentArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GetSecretContentArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
+                "GrantRevokeSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "role": {
+                            "type": "string"
+                        },
+                        "scope-tag": {
+                            "type": "string"
+                        },
+                        "subject-tags": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "scope-tag",
+                        "subject-tags",
+                        "role"
+                    ]
+                },
+                "GrantRevokeSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GrantRevokeSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 },
                 "GrantRevokeUserSecretArg": {
@@ -40158,6 +40504,127 @@
                         "filter"
                     ]
                 },
+                "SecretBackendArgs": {
+                    "type": "object",
+                    "properties": {
+                        "backend-ids": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "for-drain": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "for-drain",
+                        "backend-ids"
+                    ]
+                },
+                "SecretBackendConfig": {
+                    "type": "object",
+                    "properties": {
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "type"
+                    ]
+                },
+                "SecretBackendConfigResult": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "$ref": "#/definitions/SecretBackendConfig"
+                        },
+                        "draining": {
+                            "type": "boolean"
+                        },
+                        "model-controller": {
+                            "type": "string"
+                        },
+                        "model-name": {
+                            "type": "string"
+                        },
+                        "model-uuid": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-controller",
+                        "model-uuid",
+                        "model-name",
+                        "draining"
+                    ]
+                },
+                "SecretBackendConfigResults": {
+                    "type": "object",
+                    "properties": {
+                        "active-id": {
+                            "type": "string"
+                        },
+                        "results": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/SecretBackendConfigResult"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "active-id"
+                    ]
+                },
+                "SecretConsumerInfoResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "revision",
+                        "label"
+                    ]
+                },
+                "SecretConsumerInfoResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretConsumerInfoResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
@@ -40174,6 +40641,42 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "SecretContentResult": {
+                    "type": "object",
+                    "properties": {
+                        "backend-config": {
+                            "$ref": "#/definitions/SecretBackendConfigResult"
+                        },
+                        "content": {
+                            "$ref": "#/definitions/SecretContentParams"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "latest-revision": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "content"
+                    ]
+                },
+                "SecretContentResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretContentResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
                 },
                 "SecretRevision": {
                     "type": "object",
@@ -40203,6 +40706,106 @@
                     "additionalProperties": false,
                     "required": [
                         "revision"
+                    ]
+                },
+                "SecretRevisionArg": {
+                    "type": "object",
+                    "properties": {
+                        "pending-delete": {
+                            "type": "boolean"
+                        },
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "revisions",
+                        "pending-delete"
+                    ]
+                },
+                "SecretRotatedArg": {
+                    "type": "object",
+                    "properties": {
+                        "original-revision": {
+                            "type": "integer"
+                        },
+                        "skip": {
+                            "type": "boolean"
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "original-revision",
+                        "skip"
+                    ]
+                },
+                "SecretRotatedArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRotatedArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
+                "SecretTriggerChange": {
+                    "type": "object",
+                    "properties": {
+                        "next-trigger-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "next-trigger-time"
+                    ]
+                },
+                "SecretTriggerWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretTriggerChange"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id",
+                        "changes"
                     ]
                 },
                 "SecretValueRef": {
@@ -40281,6 +40884,101 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "StringsWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id"
+                    ]
+                },
+                "StringsWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StringsWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "UpdateUserSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "UpsertSecretArg": {
+                            "$ref": "#/definitions/UpsertSecretArg"
+                        },
+                        "auto-prune": {
+                            "type": "boolean"
+                        },
+                        "content": {
+                            "$ref": "#/definitions/SecretContentParams"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "expire-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "rotate-policy": {
+                            "type": "string"
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "UpsertSecretArg",
+                        "uri"
+                    ]
+                },
+                "UpdateUserSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UpdateUserSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 },
                 "UpsertSecretArg": {
