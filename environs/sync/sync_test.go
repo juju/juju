@@ -177,6 +177,25 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 	}
 }
 
+// regression test for https://pad.lv/2029881
+func (s *syncSuite) TestSyncToolsOldPatchVersion(c *gc.C) {
+	s.setUpTest(c)
+	defer s.tearDownTest(c)
+
+	// Add some extra tools for the newer patch versions
+	toolstesting.MakeTools(c, s.localStorage, "released", []string{"1.8.3-ubuntu-amd64"})
+
+	err := sync.SyncTools(&sync.SyncContext{
+		Source: s.localStorage,
+		// Request an older patch version of the current series (1.8.x)
+		ChosenVersion: version.MustParse("1.8.0"),
+		TargetToolsUploader: &fakeToolsUploader{
+			uploaded: make(map[version.Binary]bool),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 type fakeToolsUploader struct {
 	uploaded map[version.Binary]bool
 }
