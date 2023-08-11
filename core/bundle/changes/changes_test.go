@@ -3756,6 +3756,17 @@ func (s *changesSuite) TestLocalCharmWithExplicitSeries(c *gc.C) {
                 charm: %s
                 series: xenial
     `, charmDir)
+	charmMeta := `
+name: multi-series
+summary: That's a dummy charm with multi-series.
+description: A dummy charm.
+series:
+    - jammy
+    - focal
+    - bionic
+`[1:]
+	err := os.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalBundleChanges(c, charmDir, bundleContent, "xenial")
 	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "xenial")
 }

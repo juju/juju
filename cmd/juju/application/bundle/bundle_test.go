@@ -263,6 +263,30 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnmarshallEr
 	c.Assert(unmarshallErrors[0], gc.Equals, expectedError)
 }
 
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleMixingBaseAndSeries(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	bundleData, err := charm.ReadBundleData(strings.NewReader(mixedSeriesBaseBundle))
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectParts(&charm.BundleDataPart{Data: bundleData})
+	s.expectBasePath()
+
+	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, bundleData)
+}
+
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleMixingBaseAndSeriesMisMatch(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	bundleData, err := charm.ReadBundleData(strings.NewReader(mixedSeriesBaseBundleMismatch))
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectParts(&charm.BundleDataPart{Data: bundleData})
+	s.expectBasePath()
+
+	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	c.Assert(err, gc.ErrorMatches, `application "wordpress" series "jammy" and base "ubuntu@20.04" must match if supplied`)
+	c.Assert(obtained, gc.IsNil)
+}
+
 func (s *composeAndVerifyRepSuite) setupOverlayFile(c *gc.C) {
 	s.overlayDir = c.MkDir()
 	s.overlayFile = filepath.Join(s.overlayDir, "config.yaml")
@@ -375,13 +399,13 @@ func (m stringSliceMatcher) String() string {
 }
 
 const wordpressBundle = `
-series: bionic
+default-base: ubuntu@22.04
 applications:
   mysql:
     charm: ch:mysql
     revision: 42
     channel: stable
-    series: xenial
+    base: ubuntu@20.04
     num_units: 1
     to:
     - "0"
@@ -389,28 +413,27 @@ applications:
     charm: ch:wordpress
     channel: stable
     revision: 47
-    series: xenial
+    base: ubuntu@20.04
     num_units: 1
     to:
     - "1"
 machines:
   "0":
-    series: xenial
+    base: ubuntu@20.04
   "1":
-    series: xenial
+    base: ubuntu@20.04
 relations:
 - - wordpress:db
   - mysql:db
 `
 
 const typoBundle = `
-sries: bionic
+sries: jammy
 applications:
   mysql:
     charm: ch:mysql
     revision: 42
     channel: stable
-    series: xenial
     num_units: 1
     to:
     - "0"
@@ -418,16 +441,78 @@ applications:
     charm: ch:wordpress
     channel: stable
     revision: 47
-    series: xenial
     num_units: 1
     to:
     - "1"
 machines:
   "0":
-    series: xenial
     constrai: arch=arm64
   "1":
-    series: xenial
+relations:
+- - wordpress:db
+  - mysql:db
+`
+
+const mixedSeriesBaseBundle = `
+series: jammy
+default-base: ubuntu@22.04
+applications:
+  mysql:
+    charm: ch:mysql
+    revision: 42
+    channel: stable
+    series: focal
+    base: ubuntu@20.04
+    num_units: 1
+    to:
+    - "0"
+  wordpress:
+    charm: ch:wordpress
+    channel: stable
+    revision: 47
+    series: jammy
+    num_units: 1
+    to:
+    - "1"
+machines:
+  "0":
+    series: focal
+    base: ubuntu@20.04
+  "1":
+    series: jammy
+relations:
+- - wordpress:db
+  - mysql:db
+`
+
+const mixedSeriesBaseBundleMismatch = `
+series: jammy
+default-base: ubuntu@22.04
+applications:
+  mysql:
+    charm: ch:mysql
+    revision: 42
+    channel: stable
+    series: focal
+    base: ubuntu@20.04
+    num_units: 1
+    to:
+    - "0"
+  wordpress:
+    charm: ch:wordpress
+    channel: stable
+    revision: 47
+    series: jammy
+    base: ubuntu@20.04
+    num_units: 1
+    to:
+    - "1"
+machines:
+  "0":
+    series: focal
+    base: ubuntu@20.04
+  "1":
+    series: jammy
 relations:
 - - wordpress:db
   - mysql:db
