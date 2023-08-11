@@ -4,6 +4,8 @@
 package mongo
 
 import (
+	"context"
+
 	"go.uber.org/mock/gomock"
 )
 
@@ -21,12 +23,11 @@ var (
 	DefaultOplogSize = defaultOplogSize
 	FsAvailSpace     = fsAvailSpace
 
-	EnsureServerStartedForTest = ensureServerStarted
-	NewSnapService             = &newSnapService
+	NewSnapService = &newSnapService
 )
 
-func SysctlEditableEnsureServer(args EnsureServerParams, sysctlFiles map[string]string) error {
-	return ensureServer(args, sysctlFiles)
+func SysctlEditableEnsureServer(ctx context.Context, args EnsureServerParams, sysctlFiles map[string]string) error {
+	return ensureServer(ctx, args, sysctlFiles)
 }
 
 func NewMongodFinderWithMockSearch(ctrl *gomock.Controller) (*MongodFinder, *MockSearchTools) {
