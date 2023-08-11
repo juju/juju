@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -57,7 +58,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) fakeOpenState(coreagent.Config) (*state.StatePool, error) {
+func (s *ManifoldSuite) fakeOpenState(context.Context, coreagent.Config) (*state.StatePool, error) {
 	s.openStateCalled = true
 	if s.openStateErr != nil {
 		return nil, s.openStateErr
