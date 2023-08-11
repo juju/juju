@@ -33,6 +33,7 @@ type resolver struct {
 func (r *resolver) handleApplications() (map[string]string, error) {
 	add := r.changes.add
 	applications := r.bundle.Applications
+	existing := r.model
 
 	var defaultSeries string
 	if r.bundle.Series != "" {
@@ -43,7 +44,6 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 			return nil, errors.Trace(err)
 		}
 	}
-	existing := r.model
 
 	charms := make(map[string]string, len(applications))
 	addedApplications := make(map[string]string, len(applications))
@@ -1286,7 +1286,7 @@ func applicationKey(charm, arch, series, channel string, revision int) string {
 }
 
 // getSeries retrieves the series of a application from the ApplicationSpec or from the
-// charm path or URL if provided, otherwise falling back on a default series.
+// charm path or URL if provided.
 //
 // DEPRECATED: This should be all about bases.
 func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string, error) {
@@ -1297,7 +1297,6 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 		return baseToSeries(application.Base)
 	}
 
-	// Handle local charm paths.
 	if charm.IsValidLocalCharmOrBundlePath(application.Charm) {
 		_, charmURL, err := corecharm.NewCharmAtPath(application.Charm, defaultSeries)
 		if corecharm.IsMissingSeriesError(err) {
@@ -1315,8 +1314,6 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 		return charmURL.Series, nil
 	}
 
-	// The following is safe because the bundle data is assumed to be already
-	// verified, and therefore this must be a valid charm URL.
 	charmURL, err := charm.ParseURL(application.Charm)
 	if err != nil {
 		return "", errors.Trace(err)
