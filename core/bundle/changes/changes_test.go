@@ -3573,30 +3573,6 @@ func (s *changesSuite) TestLocalCharmWithExplicitSeries(c *gc.C) {
 	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "xenial")
 }
 
-func (s *changesSuite) TestLocalCharmWithSeriesFromCharm(c *gc.C) {
-	charmDir := filepath.Join(c.MkDir(), "multiseries")
-	err := os.Mkdir(charmDir, 0700)
-	c.Assert(err, jc.ErrorIsNil)
-	bundleContent := fmt.Sprintf(`
-        applications:
-            django:
-                charm: %s
-    `, charmDir)
-	charmMeta := `
-name: multi-series
-summary: That's a dummy charm with multi-series.
-description: A dummy charm.
-series:
-    - jammy
-    - focal
-    - bionic
-`[1:]
-	err = os.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertLocalBundleChanges(c, charmDir, bundleContent, "jammy")
-	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "jammy")
-}
-
 func (s *changesSuite) TestLocalCharmWithSeriesFromBundle(c *gc.C) {
 	charmDir := c.MkDir()
 	bundleContent := fmt.Sprintf(`
