@@ -56,7 +56,6 @@ func InstallFakeEnsureMongo(suite patchingSuite, dataDir string) *FakeEnsureMong
 	f := &FakeEnsureMongo{}
 	suite.PatchValue(&mongo.CurrentReplicasetConfig, f.CurrentConfig)
 	suite.PatchValue(&cmdutil.EnsureMongoServerInstalled, f.EnsureMongo)
-	suite.PatchValue(&cmdutil.EnsureMongoServerStarted, f.EnsureMongoStarted)
 	ensureParams := cmdutil.NewEnsureMongoParams
 	suite.PatchValue(&cmdutil.NewEnsureMongoParams, func(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
 		params, err := ensureParams(agentConfig)
@@ -88,7 +87,7 @@ func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error
 	}, nil
 }
 
-func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
+func (f *FakeEnsureMongo) EnsureMongo(ctx context.Context, args mongo.EnsureServerParams) error {
 	f.EnsureCount++
 	f.DataDir, f.OplogSize = args.DataDir, args.OplogSize
 	f.Info = controller.StateServingInfo{
@@ -100,10 +99,6 @@ func (f *FakeEnsureMongo) EnsureMongo(args mongo.EnsureServerParams) error {
 		SharedSecret:   args.SharedSecret,
 		SystemIdentity: args.SystemIdentity,
 	}
-	return f.Err
-}
-
-func (f *FakeEnsureMongo) EnsureMongoStarted(snapChannel string) error {
 	return f.Err
 }
 

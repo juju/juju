@@ -4,6 +4,7 @@
 package mongo
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -13,12 +14,15 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/replicaset/v3"
+	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/network"
@@ -211,53 +215,18 @@ type EnsureServerParams struct {
 	JujuDBSnapChannel string
 }
 
-// EnsureServerStarted ensures that the MongoDB server is installed,
-// configured, and ready to run.
-func EnsureServerStarted(snapChannel string) error {
-	return ensureServerStarted(dataPathForJujuDbSnap, snapChannel)
-}
-
-func ensureServerStarted(dataDir, snapChannel string) error {
-	svc, err := mongoSnapService(dataDir, systemd.EtcSystemdDir, snapChannel)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	installed, err := svc.Installed()
-	if err != nil {
-		// If not installed, returns error "exit status 1"
-		// When run on the cli and not installed:
-		//    error: snap "juju-db" not found
-		// However juju doesn't get a typed error in return.
-		// Log it and continue.
-		logger.Debugf("installed returned %s", err)
-	}
-	if !installed {
-		return errors.NotFoundf("mongo service %q", svc.Name())
-	}
-	running, err := svc.Running()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !running {
-		if err = svc.Start(); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 // EnsureServerInstalled ensures that the MongoDB server is installed,
 // configured, and ready to run.
-func EnsureServerInstalled(args EnsureServerParams) error {
-	return ensureServer(args, mongoKernelTweaks)
+func EnsureServerInstalled(ctx context.Context, args EnsureServerParams) error {
+	return ensureServer(ctx, args, mongoKernelTweaks)
 }
 
-func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) (err error) {
+func ensureServer(ctx context.Context, args EnsureServerParams, mongoKernelTweaks map[string]string) (err error) {
 	tweakSysctlForMongo(mongoKernelTweaks)
 
 	hostSeries, err := series.HostSeries()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot get host series")
 	}
 
 	mongoDep := dependency.Mongo(args.JujuDBSnapChannel)
@@ -274,37 +243,23 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	)
 
 	if err := setupDataDirectory(args); err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot set up data directory")
 	}
 
 	// TODO(wallyworld) - set up Numactl if requested in args.SetNUMAControlPolicy
 	svc, err := mongoSnapService(args.DataDir, args.ConfigDir, args.JujuDBSnapChannel)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot create mongo snap service")
 	}
 
-	// Ensure the snap service is refreshed since operations
-	// like upgrading the snap require a manual restart before
-	// connectivity can be re-established.
-	defer func(svc MongoSnapService) {
-		if svc == nil || err != nil {
-			return
-		}
-		err = svc.Restart()
-		if err != nil {
-			err = errors.Annotate(err, "cannot restart mongo service")
-			return
-		}
-	}(svc)
-
 	if err := installMongod(mongoDep, hostSeries, svc); err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot install mongod")
 	}
 
 	finder := NewMongodFinder()
 	mongoPath, err := finder.InstalledAt()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "unable to find mongod install path")
 	}
 	logVersion(mongoPath)
 
@@ -312,7 +267,7 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	if oplogSizeMB == 0 {
 		oplogSizeMB, err = defaultOplogSize(dbDir(args.DataDir))
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "unable to calculate default oplog size")
 		}
 	}
 
@@ -322,14 +277,81 @@ func ensureServer(args EnsureServerParams, mongoKernelTweaks map[string]string) 
 	// TODO(tsm): refactor out to service.Configure
 	err = mongoArgs.writeConfig(configPath(args.DataDir))
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "unable to write config")
 	}
 	if err := snap.SetSnapConfig(ServiceName, "configpath", configPath(args.DataDir)); err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "unable to set snap config")
 	}
 
 	// Update the systemd service configuration.
-	return svc.ConfigOverride()
+	if err := svc.ConfigOverride(); err != nil {
+		return errors.Annotatef(err, "unable to update systemd service configuration")
+	}
+
+	// Ensure the mongo service is running, after we've installed and
+	// configured it.
+	// We do this in two retry loops. The outer loop, will try and start
+	// the service repeatedly over the span of 5 minutes. The inner loop will
+	// try and ensure that the service is running over the span of 10 seconds.
+	// If the service is running, then it will return nil, causing the outer
+	// loop to complete. If the service is not running, and the inner retry loop
+	// has been exhausted, then the outer loop will attempt to start the service
+	// again after a delay.
+	// If the mongo service is not installed, then nothing we do here, will
+	// cause the service to start. So we will just return the error.
+	return retry.Call(retry.CallArgs{
+		Func: func() error {
+			if err := svc.Start(); err != nil {
+				logger.Debugf("cannot start mongo service: %v", err)
+			}
+			return ensureMongoServiceRunning(ctx, svc)
+		},
+		IsFatalError: func(err error) bool {
+			// If the service is not installed, then we should attempt
+			// to install it again, by bouncing.
+			return errors.Cause(err) == ErrMongoServiceNotInstalled
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("attempt %d to start mongo service: %v", attempt, err)
+		},
+		Stop:        ctx.Done(),
+		Attempts:    -1,
+		Delay:       10 * time.Second,
+		MaxDelay:    1 * time.Minute,
+		MaxDuration: time.Minute * 5,
+		BackoffFunc: retry.DoubleDelay,
+		Clock:       clock.WallClock,
+	})
+}
+
+const (
+	// ErrMongoServiceNotInstalled is returned when the mongo service is not
+	// installed.
+	ErrMongoServiceNotInstalled = errors.ConstError("mongo service not installed")
+	// ErrMongoServiceNotRunning is returned when the mongo service is not
+	// running.
+	ErrMongoServiceNotRunning = errors.ConstError("mongo service not running")
+)
+
+func ensureMongoServiceRunning(ctx context.Context, svc MongoSnapService) error {
+	return retry.Call(retry.CallArgs{
+		Func: func() error {
+			running, err := svc.Running()
+			if err != nil {
+				// If the service is not installed, then we should attempt
+				// to install it.
+				return errors.Annotatef(ErrMongoServiceNotInstalled, err.Error())
+			}
+			if running {
+				return nil
+			}
+			return ErrMongoServiceNotRunning
+		},
+		Stop:     ctx.Done(),
+		Attempts: 10,
+		Delay:    1 * time.Second,
+		Clock:    clock.WallClock,
+	})
 }
 
 func setupDataDirectory(args EnsureServerParams) error {
