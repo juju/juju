@@ -4,6 +4,8 @@
 package modelworkermanager_test
 
 import (
+	"context"
+	"sync"
 	"time"
 
 	"github.com/juju/clock"
@@ -31,15 +33,19 @@ var _ = gc.Suite(&suite{})
 type suite struct {
 	authority pki.Authority
 	testing.IsolationSuite
-	workerC chan *mockWorker
+	workerC                chan *mockWorker
+	controllerConfigGetter *stubControllerConfigGetter
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 	authority, err := pkitest.NewTestAuthority()
 	c.Assert(err, jc.ErrorIsNil)
 	s.authority = authority
-	s.IsolationSuite.SetUpTest(c)
 	s.workerC = make(chan *mockWorker, 100)
+	s.controllerConfigGetter = &stubControllerConfigGetter{
+		controllerConfig: coretesting.FakeControllerConfig(),
+	}
 }
 
 func (s *suite) TestStartEmpty(c *gc.C) {
@@ -167,8 +173,8 @@ func (s *suite) TestReport(c *gc.C) {
 		// TODO: pass a clock through in the worker config so it can be passed
 		// to the worker.Runner used in the model to control time.
 		// For now, we just look at the started state.
-		workers := report["workers"].(map[string]interface{})
-		modelWorker := workers["uuid"].(map[string]interface{})
+		workers := report["workers"].(map[string]any)
+		modelWorker := workers["uuid"].(map[string]any)
 		c.Assert(modelWorker["state"], gc.Equals, "started")
 	})
 }
@@ -188,15 +194,16 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	watcher := newMockModelWatcher()
 	controller := newMockController()
 	config := modelworkermanager.Config{
-		Authority:      s.authority,
-		Clock:          clock.WallClock,
-		Logger:         loggo.GetLogger("test"),
-		MachineID:      "1",
-		ModelWatcher:   watcher,
-		Controller:     controller,
-		NewModelWorker: s.startModelWorker,
-		ModelMetrics:   dummyModelMetrics{},
-		ErrorDelay:     time.Millisecond,
+		Authority:              s.authority,
+		Clock:                  clock.WallClock,
+		Logger:                 loggo.GetLogger("test"),
+		MachineID:              "1",
+		ModelWatcher:           watcher,
+		Controller:             controller,
+		ControllerConfigGetter: s.controllerConfigGetter,
+		NewModelWorker:         s.startModelWorker,
+		ModelMetrics:           dummyModelMetrics{},
+		ErrorDelay:             time.Millisecond,
 	}
 	w, err := modelworkermanager.New(config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -382,4 +389,16 @@ func (w *mockEnvWatcher) Stop() error {
 
 func (w *mockEnvWatcher) Changes() <-chan []string {
 	return w.changes
+}
+
+type stubControllerConfigGetter struct {
+	mutex            sync.Mutex
+	controllerConfig controller.Config
+}
+
+func (s *stubControllerConfigGetter) ControllerConfig(context.Context) (controller.Config, error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.controllerConfig, nil
 }

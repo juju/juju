@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/pki"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/syslogger"
 )
@@ -29,11 +30,13 @@ type Logger interface {
 // ManifoldConfig holds the information necessary to run a model worker manager
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AgentName      string
-	AuthorityName  string
-	StateName      string
-	MuxName        string
-	SyslogName     string
+	AgentName          string
+	AuthorityName      string
+	StateName          string
+	ServiceFactoryName string
+	MuxName            string
+	SyslogName         string
+
 	Clock          clock.Clock
 	NewWorker      func(Config) (worker.Worker, error)
 	NewModelWorker NewModelWorkerFunc
@@ -51,6 +54,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
+	}
+	if config.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
@@ -82,6 +88,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.MuxName,
 			config.StateName,
 			config.SyslogName,
+			config.ServiceFactoryName,
 		},
 		Start: config.start,
 	}
@@ -112,6 +119,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var controllerServiceFactory servicefactory.ControllerServiceFactory
+	if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var stTracker workerstate.StateTracker
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
@@ -135,8 +147,9 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 			StatePool: statePool,
 			SysLogger: sysLogger,
 		},
-		NewModelWorker: config.NewModelWorker,
-		ErrorDelay:     jworker.RestartDelay,
+		ControllerConfigGetter: controllerServiceFactory.ControllerConfig(),
+		NewModelWorker:         config.NewModelWorker,
+		ErrorDelay:             jworker.RestartDelay,
 	})
 	if err != nil {
 		_ = stTracker.Done()

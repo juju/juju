@@ -18,22 +18,27 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	corelogger "github.com/juju/juju/core/logger"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/modelworkermanager"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 type ManifoldSuite struct {
 	jujutesting.BaseSuite
 
-	authority    pki.Authority
-	manifold     dependency.Manifold
-	context      dependency.Context
-	stateTracker stubStateTracker
-	sysLogger    stubLogger
+	authority              pki.Authority
+	manifold               dependency.Manifold
+	context                dependency.Context
+	stateTracker           stubStateTracker
+	sysLogger              stubLogger
+	serviceFactory         servicefactory.ServiceFactory
+	controllerConfigGetter *controllerconfigservice.Service
+	mux                    *apiserverhttp.Mux
 
 	state *state.State
 	pool  *state.StatePool
@@ -53,33 +58,38 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.state = &state.State{}
 	s.pool = &state.StatePool{}
 	s.stateTracker = stubStateTracker{pool: s.pool, state: s.state}
+	s.controllerConfigGetter = &controllerconfigservice.Service{}
+	s.serviceFactory = stubServiceFactory{
+		controllerConfigGetter: s.controllerConfigGetter,
+	}
+	s.mux = apiserverhttp.NewMux()
 	s.stub.ResetCalls()
 
 	s.sysLogger = stubLogger{}
 
 	s.context = s.newContext(nil)
 	s.manifold = modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
-		AgentName:      "agent",
-		AuthorityName:  "authority",
-		StateName:      "state",
-		MuxName:        "mux",
-		SyslogName:     "syslog",
-		NewWorker:      s.newWorker,
-		NewModelWorker: s.newModelWorker,
-		ModelMetrics:   dummyModelMetrics{},
-		Logger:         loggo.GetLogger("test"),
+		AgentName:          "agent",
+		AuthorityName:      "authority",
+		StateName:          "state",
+		MuxName:            "mux",
+		SyslogName:         "syslog",
+		ServiceFactoryName: "service-factory",
+		NewWorker:          s.newWorker,
+		NewModelWorker:     s.newModelWorker,
+		ModelMetrics:       dummyModelMetrics{},
+		Logger:             loggo.GetLogger("test"),
 	})
 }
 
-var mux = apiserverhttp.NewMux()
-
-func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
-	resources := map[string]interface{}{
-		"agent":     &fakeAgent{},
-		"authority": s.authority,
-		"mux":       mux,
-		"state":     &s.stateTracker,
-		"syslog":    s.sysLogger,
+func (s *ManifoldSuite) newContext(overlay map[string]any) dependency.Context {
+	resources := map[string]any{
+		"agent":           &fakeAgent{},
+		"authority":       s.authority,
+		"mux":             s.mux,
+		"state":           &s.stateTracker,
+		"syslog":          s.sysLogger,
+		"service-factory": s.serviceFactory,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -103,7 +113,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"agent", "authority", "mux", "state", "syslog"}
+var expectedInputs = []string{"agent", "authority", "mux", "state", "syslog", "service-factory"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -111,7 +121,7 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 	for _, input := range expectedInputs {
-		context := s.newContext(map[string]interface{}{
+		context := s.newContext(map[string]any{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context)
@@ -148,14 +158,15 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Authority:    s.authority,
 		ModelWatcher: s.state,
 		ModelMetrics: dummyModelMetrics{},
-		Mux:          mux,
+		Mux:          s.mux,
 		Controller: modelworkermanager.StatePoolController{
 			StatePool: s.pool,
 			SysLogger: s.sysLogger,
 		},
-		ErrorDelay: jworker.RestartDelay,
-		Logger:     loggo.GetLogger("test"),
-		MachineID:  "1",
+		ControllerConfigGetter: s.controllerConfigGetter,
+		ErrorDelay:             jworker.RestartDelay,
+		Logger:                 loggo.GetLogger("test"),
+		MachineID:              "1",
 	})
 }
 
@@ -192,7 +203,7 @@ func (s *stubStateTracker) Done() error {
 	return s.NextErr()
 }
 
-func (s *stubStateTracker) Report() map[string]interface{} {
+func (s *stubStateTracker) Report() map[string]any {
 	s.MethodCall(s, "Report")
 	return nil
 }
@@ -212,4 +223,13 @@ func (f *fakeAgent) Tag() names.Tag {
 
 type stubLogger struct {
 	corelogger.LoggerCloser
+}
+
+type stubServiceFactory struct {
+	servicefactory.ServiceFactory
+	controllerConfigGetter *controllerconfigservice.Service
+}
+
+func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {
+	return s.controllerConfigGetter
 }
