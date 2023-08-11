@@ -4,6 +4,7 @@
 package state
 
 import (
+	stdcontext "context"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,7 +23,7 @@ var logger = loggo.GetLogger("juju.worker.state")
 type ManifoldConfig struct {
 	AgentName              string
 	StateConfigWatcherName string
-	OpenStatePool          func(coreagent.Config) (*state.StatePool, error)
+	OpenStatePool          func(stdcontext.Context, coreagent.Config) (*state.StatePool, error)
 	PingInterval           time.Duration
 
 	// SetStatePool is called with the state pool when it is created,
@@ -82,7 +83,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotate(dependency.ErrMissing, "no StateServingInfo in config")
 			}
 
-			pool, err := config.OpenStatePool(agent.CurrentConfig())
+			pool, err := config.OpenStatePool(stdcontext.Background(), agent.CurrentConfig())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
