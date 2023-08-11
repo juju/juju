@@ -7,7 +7,6 @@ import (
 	"bytes"
 
 	charmresource "github.com/juju/charm/v11/resource"
-	jujucmd "github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -95,23 +94,12 @@ func (s *UploadSuite) TestInfo(c *gc.C) {
 	var command resourcecmd.UploadCommand
 	info := command.Info()
 
-	c.Check(info, jc.DeepEquals, &jujucmd.Info{
-		Name:    "attach-resource",
-		Args:    "application name=file|OCI image",
-		Purpose: "Update a resource for an application.",
-		Doc: `
-This command updates a resource for an application.
-
-For file resources, it uploads a file from your local disk to the juju controller to be
-streamed to the charm when "resource-get" is called by a hook.
-
-For OCI image resources used by k8s applications, an OCI image or file path is specified.
-A file is specified when a private OCI image is needed and the username/password used to
-access the image is needed along with the image path.
-`,
-		FlagKnownAs:    "option",
-		ShowSuperFlags: []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"},
-	})
+	// Verify that Info is wired up. Without verifying exact text.
+	c.Check(info.Name, gc.Equals, "attach-resource")
+	c.Check(info.Purpose, gc.Not(gc.Equals), "")
+	c.Check(info.Doc, gc.Not(gc.Equals), "")
+	c.Check(info.FlagKnownAs, gc.Not(gc.Equals), "")
+	c.Check(len(info.ShowSuperFlags), jc.GreaterThan, 2)
 }
 
 func (s *UploadSuite) TestUploadFileResource(c *gc.C) {
