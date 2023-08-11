@@ -37,15 +37,24 @@ func newUnitCommand() cmd.Command {
 }
 
 const unitCommandDoc = `
-Waits for a unit to reach a specified state.
+The wait-for unit command waits for the unit to reach a goal state. The goal
+state can be defined programmatically using the query DSL (domain specific
+language). The default query for a unit just waits for the unit to be created 
+and active.
 
-arguments:
-name
-   unit name identifier
+The unit query DSL can be used to programmatically define the goal state
+for machine within the scope of the unit. This can be achieved by using lambda
+expressions to iterate over the machines associated with the unit. Combining
+multiple expressions can be used to define a complex goal state.
 
-options:
---query (= 'life=="alive" && status=="active"')
-   query represents the sought state of the specified unit
+Examples:
+    juju wait-for unit ubuntu/0 --query='len(machines) == 1'
+    juju wait-for unit ubuntu/0 --query='life=="alive" && workload-status=="active"'
+
+See also:
+    wait-for model
+    wait-for application
+    wait-for machine
 `
 
 // unitCommand defines a command for waiting for units.

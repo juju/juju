@@ -38,13 +38,25 @@ func newApplicationCommand() cmd.Command {
 }
 
 const applicationCommandDoc = `
-Waits for an application to reach a specified state.
-arguments:
-name
-   application name identifier
-options:
---query (= 'life=="alive" && status=="active"')
-   query represents the sought state of the specified application
+The wait-for application command waits for the application to reach a goal
+state. The goal state can be defined programmatically using the query DSL
+(domain specific language). The default query for an application just waits
+for the application to be created and active.
+
+The application query DSL can be used to programmatically define the goal state
+for machines and units within the scope of the application. This can
+be achieved by using lambda expressions to iterate over the machines and units
+associated with the application. Combining multiple expressions can be
+used to define a complex goal state.
+
+Examples:
+    juju wait-for application ubuntu --query='len(units) == 4'
+    juju wait-for application ubuntu --query='forEach(units, unit => unit.life=="alive" && unit.status=="available" && startsWith(unit.name, "ubuntu"))'
+
+See also:
+    wait-for model
+    wait-for machine
+    wait-for unit
 `
 
 // applicationCommand defines a command for waiting for applications.

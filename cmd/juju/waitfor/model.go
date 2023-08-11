@@ -45,15 +45,26 @@ func newModelCommand() cmd.Command {
 }
 
 const modelCommandDoc = `
-Waits for a model to reach a specified state.
+The wait-for model command waits for the model to reach a goal state. The goal
+state can be defined programmatically using the query DSL (domain specific
+language). The default query for a model just waits for the model to be
+created and available.
 
-arguments:
-name
-   model name identifier
+The model query DSL can be used to programmatically define the goal state
+for applications, machines and units within the scope of the model. This can
+be achieved by using lambda expressions to iterate over the applications,
+machines and units within the model. Combining multiple expressions can be
+used to define a complex goal state.
 
-options:
---query (= 'life=="alive" && status=="available"')
-   query represents the sought state of the specified model
+Examples:
+    juju wait-for model default --query='forEach(units, unit => startsWith(unit.name, "ubuntu"))'
+    juju wait-for model default --query='forEach(applications, app => app.status == "active")'
+    juju wait-for model default --query='life=="alive" && status=="available" && forEach(applications, app => app.status == "active")'
+
+See also:
+    wait-for application
+    wait-for machine
+    wait-for unit
 `
 
 // modelCommand defines a command for waiting for models.

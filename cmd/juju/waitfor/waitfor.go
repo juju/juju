@@ -16,14 +16,29 @@ type Logger interface {
 }
 
 var waitForDoc = `
-Waits for a specified model, machine, application or unit to reach a state
-defined by the supplied query.
+The wait-for set of commands (model, application, machine and unit) represents 
+a way to wait for a goal state to be reached. The goal state can be defined
+programmatically using the query DSL (domain specific language).
+
+The query DSL is a simple language that can be comprised of expressions to
+produce a boolean result. The result of the query is used to determine if the
+goal state has been reached. The query DSL is evaluated against the scope of
+the command.
+
+Built-in functions are provided to help define the goal state. The built-in
+functions are defined in the query package. Examples of built-in functions
+include len, print, forEach (lambda), startsWith and endsWith.
 
 Examples:
-	juju wait-for unit mysql/0
-	juju wait-for application mysql --query='name=="mysql" && (status=="active" || status=="idle")'
-	juju wait-for model default --query='forEach(units, unit => startsWith(unit.name, "ubuntu"))'
+    juju wait-for unit mysql/0
+    juju wait-for application mysql --query='name=="mysql" && (status=="active" || status=="idle")'
+    juju wait-for model default --query='forEach(units, unit => startsWith(unit.name, "ubuntu"))'
 
+See also:
+    wait-for model
+    wait-for application
+    wait-for machine
+    wait-for unit
 `
 
 // NewWaitForCommand creates the wait-for supercommand and registers the
