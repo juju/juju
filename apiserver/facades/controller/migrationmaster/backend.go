@@ -31,5 +31,5 @@ type Backend interface {
 
 // ControllerState defines the state functionality for controller model.
 type ControllerState interface {
-	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
+	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/proxyupdater"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -281,7 +282,11 @@ func (sb *stubBackend) ModelConfig() (*config.Config, error) {
 	return coretesting.CustomModelConfig(sb.c, sb.configAttrs), nil
 }
 
-func (sb *stubBackend) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+func (sb *stubBackend) ControllerConfig() (controller.Config, error) {
+	return coretesting.FakeControllerConfig(), nil
+}
+
+func (sb *stubBackend) APIHostPortsForAgents(_ controller.Config) ([]network.SpaceHostPorts, error) {
 	sb.MethodCall(sb, "APIHostPortsForAgents")
 	if err := sb.NextErr(); err != nil {
 		return nil, err

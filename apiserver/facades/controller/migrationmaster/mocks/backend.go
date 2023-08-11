@@ -226,18 +226,18 @@ func (m *MockControllerState) EXPECT() *MockControllerStateMockRecorder {
 }
 
 // APIHostPortsForClients mocks base method.
-func (m *MockControllerState) APIHostPortsForClients() ([]network.SpaceHostPorts, error) {
+func (m *MockControllerState) APIHostPortsForClients(arg0 controller.Config) ([]network.SpaceHostPorts, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIHostPortsForClients")
+	ret := m.ctrl.Call(m, "APIHostPortsForClients", arg0)
 	ret0, _ := ret[0].([]network.SpaceHostPorts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // APIHostPortsForClients indicates an expected call of APIHostPortsForClients.
-func (mr *MockControllerStateMockRecorder) APIHostPortsForClients() *gomock.Call {
+func (mr *MockControllerStateMockRecorder) APIHostPortsForClients(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForClients", reflect.TypeOf((*MockControllerState)(nil).APIHostPortsForClients))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPortsForClients", reflect.TypeOf((*MockControllerState)(nil).APIHostPortsForClients), arg0)
 }
 
 // MockModelExporter is a mock of ModelExporter interface.

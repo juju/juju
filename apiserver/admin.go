@@ -110,11 +110,17 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
+
+	controllerConfig, err := ctrlSt.ControllerConfig()
+	if err != nil {
+		return fail, errors.Trace(err)
+	}
+
 	getHostPorts := ctrlSt.APIHostPortsForAgents
 	if k, _ := names.TagKind(req.AuthTag); k == names.UserTagKind {
 		getHostPorts = ctrlSt.APIHostPortsForClients
 	}
-	hostPorts, err := getHostPorts()
+	hostPorts, err := getHostPorts(controllerConfig)
 	if err != nil {
 		return fail, errors.Trace(err)
 	}

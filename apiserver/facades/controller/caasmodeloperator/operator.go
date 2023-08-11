@@ -109,3 +109,23 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 func (a *API) ModelUUID() params.StringResult {
 	return params.StringResult{Result: a.state.ModelUUID()}
 }
+
+// APIHostPorts returns the API server addresses.
+func (u *API) APIHostPorts() (result params.APIHostPortsResult, err error) {
+	controllerConfig, err := u.ctrlState.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	return u.APIAddresser.APIHostPorts(controllerConfig)
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (u *API) APIAddresses() (result params.StringsResult, err error) {
+	controllerConfig, err := u.ctrlState.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	return u.APIAddresser.APIAddresses(controllerConfig)
+}

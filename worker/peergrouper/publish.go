@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 )
 
@@ -23,7 +24,7 @@ type CachingAPIHostPortsSetter struct {
 	last []network.SpaceHostPorts
 }
 
-func (s *CachingAPIHostPortsSetter) SetAPIHostPorts(apiServers []network.SpaceHostPorts) error {
+func (s *CachingAPIHostPortsSetter) SetAPIHostPorts(controllerConfig controller.Config, apiServers []network.SpaceHostPorts) error {
 	if len(apiServers) == 0 {
 		return errors.Errorf("no API servers specified")
 	}
@@ -41,7 +42,7 @@ func (s *CachingAPIHostPortsSetter) SetAPIHostPorts(apiServers []network.SpaceHo
 		return nil
 	}
 
-	if err := s.APIHostPortsSetter.SetAPIHostPorts(sorted); err != nil {
+	if err := s.APIHostPortsSetter.SetAPIHostPorts(controllerConfig, sorted); err != nil {
 		return errors.Annotate(err, "setting API host ports")
 	}
 	s.last = sorted

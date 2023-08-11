@@ -15,6 +15,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/mongo"
 )
@@ -37,7 +38,7 @@ type apiHostPortsDoc struct {
 //     to the controller management space configuration.
 //
 // Each server is represented by one element in the top level slice.
-func (st *State) SetAPIHostPorts(newHostPorts []network.SpaceHostPorts) error {
+func (st *State) SetAPIHostPorts(controllerConfig controller.Config, newHostPorts []network.SpaceHostPorts) error {
 	controllers, closer := st.db().GetCollection(controllersC)
 	defer closer()
 
@@ -47,7 +48,7 @@ func (st *State) SetAPIHostPorts(newHostPorts []network.SpaceHostPorts) error {
 			return nil, errors.Trace(err)
 		}
 
-		newHostPortsForAgents, err := st.filterHostPortsForManagementSpace(newHostPorts)
+		newHostPortsForAgents, err := st.filterHostPortsForManagementSpace(controllerConfig, newHostPorts)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -116,15 +117,11 @@ func (st *State) getOpsForHostPortsChange(
 // to zero elements, just use the unfiltered slice for safety - we do not
 // want to cut off communication to the controller based on erroneous config.
 func (st *State) filterHostPortsForManagementSpace(
+	controllerConfig controller.Config,
 	apiHostPorts []network.SpaceHostPorts,
 ) ([]network.SpaceHostPorts, error) {
-	config, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	var hostPortsForAgents []network.SpaceHostPorts
-	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != "" {
+	if mgmtSpace := controllerConfig.JujuManagementSpace(); mgmtSpace != "" {
 		sp, err := st.SpaceByName(mgmtSpace)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -150,14 +147,14 @@ func (st *State) filterHostPortsForManagementSpace(
 }
 
 // APIHostPortsForClients returns the collection of *all* known API addresses.
-func (st *State) APIHostPortsForClients() ([]network.SpaceHostPorts, error) {
+func (st *State) APIHostPortsForClients(controllerConfig controller.Config) ([]network.SpaceHostPorts, error) {
 	isCAASCtrl, err := st.isCAASController()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if isCAASCtrl {
 		// TODO(caas): add test for this once we have the replacement for Jujuconnsuite.
-		return st.apiHostPortsForCAAS(true)
+		return st.apiHostPortsForCAAS(controllerConfig, true)
 	}
 
 	hp, err := st.apiHostPortsForKey(apiHostPortsKey)
@@ -176,21 +173,21 @@ func (st *State) APIHostPortsForClients() ([]network.SpaceHostPorts, error) {
 // APIHostPortsForClients.
 // Otherwise the returned addresses will correspond with the management net space.
 // If there is no document at all, we simply fall back to APIHostPortsForClients.
-func (st *State) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+func (st *State) APIHostPortsForAgents(controllerConfig controller.Config) ([]network.SpaceHostPorts, error) {
 	isCAASCtrl, err := st.isCAASController()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	if isCAASCtrl {
 		// TODO(caas): add test for this once we have the replacement for Jujuconnsuite.
-		return st.apiHostPortsForCAAS(false)
+		return st.apiHostPortsForCAAS(controllerConfig, false)
 	}
 
 	hps, err := st.apiHostPortsForKey(apiHostPortsForAgentsKey)
 	if err != nil {
 		if err == mgo.ErrNotFound {
 			logger.Debugf("No document for %s; using %s", apiHostPortsForAgentsKey, apiHostPortsKey)
-			return st.APIHostPortsForClients()
+			return st.APIHostPortsForClients(controllerConfig)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -205,18 +202,13 @@ func (st *State) isCAASController() (bool, error) {
 	return m.IsControllerModel() && m.Type() == ModelTypeCAAS, nil
 }
 
-func (st *State) apiHostPortsForCAAS(public bool) (addresses []network.SpaceHostPorts, err error) {
+func (st *State) apiHostPortsForCAAS(controllerConfig controller.Config, public bool) (addresses []network.SpaceHostPorts, err error) {
 	defer func() {
 		logger.Debugf("getting api hostports for CAAS: public %t, addresses %v", public, addresses)
 	}()
 
 	if st.ModelUUID() != st.controllerModelTag.Id() {
 		return nil, errors.Errorf("CAAS API host ports only available on the controller model, not %q", st.ModelUUID())
-	}
-
-	controllerConfig, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
 	}
 
 	apiPort := controllerConfig.APIPort()

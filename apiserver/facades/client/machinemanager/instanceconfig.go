@@ -54,6 +54,10 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 	if hc.Arch == nil {
 		return nil, fmt.Errorf("arch is not set for %q", machine.Tag())
 	}
+	controllerConfig, err := ctrlSt.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Find the appropriate tools information.
 	agentVersion, ok := modelConfig.AgentVersion()
@@ -65,7 +69,7 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 	newEnviron := func() (environs.BootstrapEnviron, error) {
 		return environs.GetEnviron(configGetter, environs.New)
 	}
-	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
+	toolsFinder := common.NewToolsFinder(ctrlSt, configGetter, st, urlGetter, newEnviron)
 	toolsList, err := toolsFinder.FindAgents(common.FindAgentsParams{
 		Number: agentVersion,
 		OSType: machine.Base().OS,
@@ -75,14 +79,8 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 		return nil, errors.Annotate(err, "finding agent binaries")
 	}
 
-	controllerConfig, err := ctrlSt.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	caCert, _ := controllerConfig.CACert()
-
 	// Get the API connection info; attempt all API addresses.
-	apiHostPorts, err := ctrlSt.APIHostPortsForAgents()
+	apiHostPorts, err := ctrlSt.APIHostPortsForAgents(controllerConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting API addresses")
 	}
@@ -100,6 +98,7 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 	if err := machine.SetPassword(password); err != nil {
 		return nil, fmt.Errorf("cannot set API password for machine %v: %v", machine, err)
 	}
+	caCert, _ := controllerConfig.CACert()
 	apiInfo := &api.Info{
 		Addrs:    apiAddrs.SortedValues(),
 		CACert:   caCert,

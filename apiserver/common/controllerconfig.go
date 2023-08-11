@@ -137,11 +137,12 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 
 // StateControllerInfo returns the local controller details for the given State.
 func StateControllerInfo(st controllerInfoState) (addrs []string, caCert string, _ error) {
-	addr, err := apiAddresses(st)
+	controllerConfig, err := st.ControllerConfig()
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	controllerConfig, err := st.ControllerConfig()
+
+	addr, err := apiAddresses(controllerConfig, st)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}

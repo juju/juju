@@ -67,11 +67,11 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	storageCloser.EXPECT().Close().Return(nil)
 	s.st.EXPECT().ToolsStorage().Return(storageCloser, nil)
 
-	s.ctrlSt.EXPECT().APIHostPortsForAgents().Return([]network.SpaceHostPorts{{{
+	s.ctrlSt.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{{{
 		SpaceAddress: network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 		NetPort:      1,
 	}}}, nil).MinTimes(1)
-	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil)
+	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil).MinTimes(1)
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
 	icfg, err := machinemanager.InstanceConfig(s.ctrlSt, s.st, "0", "nonce", "")

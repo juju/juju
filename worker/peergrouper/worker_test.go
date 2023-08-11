@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/pubsub/apiserver"
@@ -487,7 +488,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 
 type SetAPIHostPortsFunc func(apiServers []network.SpaceHostPorts) error
 
-func (f SetAPIHostPortsFunc) SetAPIHostPorts(apiServers []network.SpaceHostPorts) error {
+func (f SetAPIHostPortsFunc) SetAPIHostPorts(_ controller.Config, apiServers []network.SpaceHostPorts) error {
 	return f(apiServers)
 }
 
@@ -1150,7 +1151,7 @@ func mustNextStatus(c *gc.C, w *voyeur.Watcher, context string) *replicaset.Stat
 
 type nopAPIHostPortsSetter struct{}
 
-func (nopAPIHostPortsSetter) SetAPIHostPorts(apiServers []network.SpaceHostPorts) error {
+func (nopAPIHostPortsSetter) SetAPIHostPorts(controller.Config, []network.SpaceHostPorts) error {
 	return nil
 }
 

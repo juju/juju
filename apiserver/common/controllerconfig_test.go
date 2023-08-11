@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -77,7 +78,7 @@ func (s *controllerConfigSuite) TestControllerConfigFetchError(c *gc.C) {
 }
 
 func (s *controllerConfigSuite) expectStateControllerInfo(c *gc.C) {
-	s.st.EXPECT().APIHostPortsForAgents().Return([]network.SpaceHostPorts{
+	s.st.EXPECT().APIHostPortsForAgents(gomock.Any()).Return([]network.SpaceHostPorts{
 		network.NewSpaceHostPorts(17070, "192.168.1.1"),
 	}, nil)
 	s.st.EXPECT().ControllerConfig().Return(map[string]interface{}{
@@ -136,7 +137,7 @@ func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	systemState := s.ControllerModel(c).State()
-	apiAddr, err := systemState.APIHostPortsForClients()
+	apiAddr, err := systemState.APIHostPortsForClients(coretesting.FakeControllerConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Addresses, gc.HasLen, 1)
 	c.Assert(results.Results[0].Addresses[0], gc.Equals, apiAddr[0][0].String())

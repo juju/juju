@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -64,7 +65,8 @@ type Backend interface {
 // ControllerBackend defines the controller state methods this facade needs,
 // so they can be mocked for testing.
 type ControllerBackend interface {
-	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
+	ControllerConfig() (controller.Config, error)
+	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 
@@ -156,7 +158,13 @@ func (api *API) proxyConfig() params.ProxyConfigResult {
 		return result
 	}
 
-	apiHostPorts, err := api.controller.APIHostPortsForAgents()
+	controllerConfig, err := api.controller.ControllerConfig()
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
+	}
+
+	apiHostPorts, err := api.controller.APIHostPortsForAgents(controllerConfig)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result

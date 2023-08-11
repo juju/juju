@@ -46,7 +46,7 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 	newEnviron := common.EnvironFuncForModel(model, configGetter)
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
-	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
+	toolsFinder := common.NewToolsFinder(systemState, configGetter, st, urlGetter, newEnviron)
 	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool)
 
 	// Since we know this is a user tag (because AuthClient is true),

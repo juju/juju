@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	"github.com/juju/juju/caas"
 	_ "github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/controller"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -82,7 +83,7 @@ func (st *mockState) ControllerConfig() (jujucontroller.Config, error) {
 	return st.controllerConfig, nil
 }
 
-func (st *mockState) APIHostPortsForAgents() ([]network.SpaceHostPorts, error) {
+func (st *mockState) APIHostPortsForAgents(_ controller.Config) ([]network.SpaceHostPorts, error) {
 	st.MethodCall(st, "APIHostPortsForAgents")
 	addrs := network.NewSpaceAddresses("52.7.1.1", "10.0.2.1")
 	ctlr1 := network.SpaceAddressesWithPort(addrs, 17070)

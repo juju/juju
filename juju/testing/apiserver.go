@@ -277,7 +277,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	}}
 	st, err := ctrl.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.SetAPIHostPorts(sHsPs)
+	err = st.SetAPIHostPorts(controllerCfg, sHsPs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.controllerModelUUID = st.ControllerModelUUID()

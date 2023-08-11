@@ -193,7 +193,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 
-	addrs, err := s.State.APIHostPortsForClients()
+	addrs, err := s.State.APIHostPortsForClients(controllerCfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 

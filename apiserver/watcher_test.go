@@ -197,7 +197,7 @@ func (b *fakeMigrationBackend) LatestMigration() (state.ModelMigration, error) {
 	return new(fakeModelMigration), nil
 }
 
-func (b *fakeMigrationBackend) APIHostPortsForClients() ([]network.SpaceHostPorts, error) {
+func (b *fakeMigrationBackend) APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error) {
 	return []network.SpaceHostPorts{
 		{
 			network.SpaceHostPort{SpaceAddress: network.NewSpaceAddress("1.2.3.4"), NetPort: 5},

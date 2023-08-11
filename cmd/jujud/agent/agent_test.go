@@ -56,7 +56,10 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
-	err := s.ControllerModel(c).State().SetAPIHostPorts(hostPorts)
+	st := s.ControllerModel(c).State()
+	controllerConfig, err := st.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.SetAPIHostPorts(controllerConfig, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&proxyupdater.NewWorker, func(proxyupdater.Config) (worker.Worker, error) {
 		return newDummyWorker(), nil

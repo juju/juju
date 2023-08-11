@@ -887,12 +887,13 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	st := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
 	ctlrSt := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
+
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: s.ControllerModel(c)}
 	newEnviron := common.EnvironFuncForModel(model, configGetter)
-	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
+	toolsFinder := common.NewToolsFinder(st, configGetter, st, urlGetter, newEnviron)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		st, nil, ctlrSt,
 		&mockModelManagerService{},

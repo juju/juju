@@ -335,7 +335,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting juju oci image path")
 	}
-	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents()
+	apiHostPorts, err := a.ctrlSt.APIHostPortsForAgents(cfg)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting api addresses")
 	}

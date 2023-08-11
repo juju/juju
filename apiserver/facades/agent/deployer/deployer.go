@@ -4,8 +4,6 @@
 package deployer
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -90,12 +88,12 @@ func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
 	apiAddrs, err := d.APIAddresses()
 	if err != nil {
-		return result, err
+		return result, errors.Trace(err)
 	}
 	result = params.DeployerConnectionValues{
 		APIAddresses: apiAddrs.Result,
 	}
-	return result, err
+	return result, nil
 }
 
 // SetStatus sets the status of the specified entities.
@@ -111,12 +109,32 @@ func (d *DeployerAPI) ModelUUID() params.StringResult {
 	return params.StringResult{Result: d.st.ModelUUID()}
 }
 
+// APIHostPorts returns the API server addresses.
+func (d *DeployerAPI) APIHostPorts() (result params.APIHostPortsResult, err error) {
+	controllerConfig, err := d.st.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	return d.APIAddresser.APIHostPorts(controllerConfig)
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (d *DeployerAPI) APIAddresses() (result params.StringsResult, err error) {
+	controllerConfig, err := d.st.ControllerConfig()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	return d.APIAddresser.APIAddresses(controllerConfig)
+}
+
 // getAllUnits returns a list of all principal and subordinate units
 // assigned to the given machine.
 func getAllUnits(st *state.State, tag names.Tag) ([]string, error) {
 	machine, err := st.Machine(tag.Id())
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// Start a watcher on machine's units, read the initial event and stop it.
 	watch := machine.WatchUnits()
@@ -124,5 +142,5 @@ func getAllUnits(st *state.State, tag names.Tag) ([]string, error) {
 	if units, ok := <-watch.Changes(); ok {
 		return units, nil
 	}
-	return nil, fmt.Errorf("cannot obtain units of machine %q: %v", tag, watch.Err())
+	return nil, errors.Errorf("cannot obtain units of machine %q: %v", tag, watch.Err())
 }

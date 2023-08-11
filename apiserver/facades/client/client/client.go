@@ -124,8 +124,9 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
-	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
+	toolsFinder := common.NewToolsFinder(st, configGetter, st, urlGetter, newEnviron)
 	blockChecker := common.NewBlockChecker(st)
 	leadershipReader, err := ctx.LeadershipReader(modelUUID)
 	if err != nil {
@@ -133,8 +134,8 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	}
 
 	return NewClient(
-		&stateShim{st, model, nil},
-		&poolShim{ctx.StatePool()},
+		&stateShim{State: st, model: model, session: nil},
+		&poolShim{pool: ctx.StatePool()},
 		resources,
 		authorizer,
 		presence,
