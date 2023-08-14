@@ -44,12 +44,18 @@ and active.
 
 The unit query DSL can be used to programmatically define the goal state
 for machine within the scope of the unit. This can be achieved by using lambda
-expressions to iterate over the machines associated with the unit. Combining
-multiple expressions can be used to define a complex goal state.
+expressions to iterate over the machines associated with the unit. Multiple
+expressions can be combined to define a complex goal state.
 
 Examples:
-    juju wait-for unit ubuntu/0 --query='len(machines) == 1'
-    juju wait-for unit ubuntu/0 --query='life=="alive" && workload-status=="active"'
+
+    Waits for a units to be machines to be length of 1.
+
+        juju wait-for unit ubuntu/0 --query='len(machines) == 1'
+
+    Waits for the unit to be created and active.
+
+        juju wait-for unit ubuntu/0 --query='life=="alive" && workload-status=="active"'
 
 See also:
     wait-for model

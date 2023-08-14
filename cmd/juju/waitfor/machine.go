@@ -41,11 +41,13 @@ The goal state can be defined programmatically using the query DSL
 (domain specific language). The default query for a machine just waits for the
 machine to be created and started.
 
-Using the machine query DSL it can combine multiple expressions to define a 
-complex goal state.
+Multiple expressions can be combined to define a complex goal state.
 
 Examples:
-    juju wait-for machine 0 --query='life=="alive" && status=="started"'
+
+    Waits for a machine to be created and started.
+
+        juju wait-for machine 0 --query='life=="alive" && status=="started"'
 
 See also:
     wait-for model

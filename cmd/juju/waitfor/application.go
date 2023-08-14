@@ -46,12 +46,19 @@ for the application to be created and active.
 The application query DSL can be used to programmatically define the goal state
 for machines and units within the scope of the application. This can
 be achieved by using lambda expressions to iterate over the machines and units
-associated with the application. Combining multiple expressions can be
-used to define a complex goal state.
+associated with the application. Multiple expressions can be combined to define 
+a complex goal state.
 
 Examples:
-    juju wait-for application ubuntu --query='len(units) == 4'
-    juju wait-for application ubuntu --query='forEach(units, unit => unit.life=="alive" && unit.status=="available" && startsWith(unit.name, "ubuntu"))'
+
+    Waits for 4 units to be present.
+
+        juju wait-for application ubuntu --query='len(units) == 4'
+
+    Waits for all the application units to start with ubuntu and to be created 
+    and available.
+
+        juju wait-for application ubuntu --query='forEach(units, unit => unit.life=="alive" && unit.status=="available" && startsWith(unit.name, "ubuntu"))'
 
 See also:
     wait-for model

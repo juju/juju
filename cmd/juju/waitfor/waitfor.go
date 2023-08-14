@@ -30,9 +30,18 @@ functions are defined in the query package. Examples of built-in functions
 include len, print, forEach (lambda), startsWith and endsWith.
 
 Examples:
-    juju wait-for unit mysql/0
-    juju wait-for application mysql --query='name=="mysql" && (status=="active" || status=="idle")'
-    juju wait-for model default --query='forEach(units, unit => startsWith(unit.name, "ubuntu"))'
+
+    Waits for the mysql/0 unit to be created and active.
+
+        juju wait-for unit mysql/0
+
+    Waits for the mysql application to be active or idle.
+
+        juju wait-for application mysql --query='name=="mysql" && (status=="active" || status=="idle")'
+
+    Waits for the model units to all start with ubuntu.
+
+        juju wait-for model default --query='forEach(units, unit => startsWith(unit.name, "ubuntu"))'
 
 See also:
     wait-for model
