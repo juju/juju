@@ -42,17 +42,12 @@ The goal state can be defined programmatically using the query DSL
 machine to be created and started.
 
 Multiple expressions can be combined to define a complex goal state.
+`
 
-Examples:
-
+const machineCommandExamples = `
     Waits for a machine to be created and started.
 
         juju wait-for machine 0 --query='life=="alive" && status=="started"'
-
-See also:
-    wait-for model
-    wait-for application
-    wait-for unit
 `
 
 // machineCommand defines a command for waiting for models.
@@ -70,10 +65,16 @@ type machineCommand struct {
 // Info implements Command.Info.
 func (c *machineCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "machine",
-		Args:    "[<id>]",
-		Purpose: "Wait for a machine to reach a specified state.",
-		Doc:     machineCommandDoc,
+		Name:     "machine",
+		Args:     "[<id>]",
+		Purpose:  "Wait for a machine to reach a specified state.",
+		Doc:      machineCommandDoc,
+		Examples: machineCommandExamples,
+		SeeAlso: []string{
+			"wait-for model",
+			"wait-for application",
+			"wait-for unit",
+		},
 	})
 }
 

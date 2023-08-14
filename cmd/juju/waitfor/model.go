@@ -55,9 +55,9 @@ for applications, machines and units within the scope of the model. This can
 be achieved by using lambda expressions to iterate over the applications,
 machines and units within the model. Multiple expressions can be combined to 
 define a complex goal state.
+`
 
-Examples:
-
+const modelCommandExamples = `
     Waits for all the model units to start with ubuntu.
 
         juju wait-for model default --query='forEach(units, unit => startsWith(unit.name, "ubuntu"))'
@@ -70,11 +70,6 @@ Examples:
     applications to be active.
 
         juju wait-for model default --query='life=="alive" && status=="available" && forEach(applications, app => app.status == "active")'
-
-See also:
-    wait-for application
-    wait-for machine
-    wait-for unit
 `
 
 // modelCommand defines a command for waiting for models.
@@ -96,10 +91,16 @@ type modelCommand struct {
 // Info implements Command.Info.
 func (c *modelCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "model",
-		Args:    "[<name>]",
-		Purpose: "Wait for a model to reach a specified state.",
-		Doc:     modelCommandDoc,
+		Name:     "model",
+		Args:     "[<name>]",
+		Purpose:  "Wait for a model to reach a specified state.",
+		Doc:      modelCommandDoc,
+		Examples: modelCommandExamples,
+		SeeAlso: []string{
+			"wait-for application",
+			"wait-for machine",
+			"wait-for unit",
+		},
 	})
 }
 

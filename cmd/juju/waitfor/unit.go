@@ -46,9 +46,9 @@ The unit query DSL can be used to programmatically define the goal state
 for machine within the scope of the unit. This can be achieved by using lambda
 expressions to iterate over the machines associated with the unit. Multiple
 expressions can be combined to define a complex goal state.
+`
 
-Examples:
-
+const unitCommandExamples = `
     Waits for a units to be machines to be length of 1.
 
         juju wait-for unit ubuntu/0 --query='len(machines) == 1'
@@ -56,11 +56,6 @@ Examples:
     Waits for the unit to be created and active.
 
         juju wait-for unit ubuntu/0 --query='life=="alive" && workload-status=="active"'
-
-See also:
-    wait-for model
-    wait-for application
-    wait-for machine
 `
 
 // unitCommand defines a command for waiting for units.
@@ -79,10 +74,16 @@ type unitCommand struct {
 // Info implements Command.Info.
 func (c *unitCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "unit",
-		Args:    "[<name>]",
-		Purpose: "Wait for a unit to reach a specified state.",
-		Doc:     unitCommandDoc,
+		Name:     "unit",
+		Args:     "[<name>]",
+		Purpose:  "Wait for a unit to reach a specified state.",
+		Doc:      unitCommandDoc,
+		Examples: unitCommandExamples,
+		SeeAlso: []string{
+			"wait-for model",
+			"wait-for application",
+			"wait-for machine",
+		},
 	})
 }
 
