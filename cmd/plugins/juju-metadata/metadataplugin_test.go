@@ -11,7 +11,6 @@ import (
 	"strings"
 	stdtesting "testing"
 
-	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -31,10 +30,8 @@ var _ = gc.Suite(&MetadataSuite{})
 var metadataCommandNames = []string{
 	"add-image",
 	"delete-image",
-	"documentation",
 	"generate-agent-binaries",
 	"generate-image",
-	"help",
 	"images",
 	"list-images",
 	"sign",
@@ -81,11 +78,7 @@ func getHelpCommandNames(c *gc.C) []string {
 func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
 	// Check that we have correctly registered all the sub commands
 	// by checking the help output.
-
-	cmdSet := set.NewStrings(metadataCommandNames...)
-
-	// The names should be output in alphabetical order, so don't sort.
-	c.Assert(getHelpCommandNames(c), jc.SameContents, cmdSet.Values())
+	c.Assert(getHelpCommandNames(c), jc.SameContents, metadataCommandNames)
 }
 
 func (s *MetadataSuite) assertHelpOutput(c *gc.C, cmd string) {
