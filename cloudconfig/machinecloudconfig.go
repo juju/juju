@@ -81,7 +81,7 @@ func NewMachineInitReaderFromConfig(cfg MachineInitReaderConfig) InitReader {
 // machine. It is sourced from both Cloud-Init and Curtin data.
 func (r *MachineInitReader) GetInitConfig() (map[string]interface{}, error) {
 	switch utilsos.OSTypeForName(r.config.Base.OS) {
-	case utilsos.Ubuntu, utilsos.CentOS, utilsos.OpenSUSE:
+	case utilsos.Ubuntu, utilsos.CentOS:
 		hostSeries, err := osseries.HostSeries()
 		series, err2 := corebase.GetSeriesFromBase(r.config.Base)
 		if err != nil || err2 != nil || series != hostSeries {

@@ -18,7 +18,6 @@ const (
 	OSX
 	CentOS
 	GenericLinux
-	OpenSUSE
 	Kubernetes
 )
 
@@ -34,8 +33,6 @@ func (t OSType) String() string {
 		return "CentOS"
 	case GenericLinux:
 		return "GenericLinux"
-	case OpenSUSE:
-		return "OpenSUSE"
 	case Kubernetes:
 		return "Kubernetes"
 	}
@@ -49,10 +46,8 @@ func init() {
 		Unknown,
 		Ubuntu,
 		Windows,
-		OSX,
 		CentOS,
 		GenericLinux,
-		OpenSUSE,
 		Kubernetes,
 	}
 	validOSTypeNames = make(map[string]OSType)
@@ -103,7 +98,7 @@ func (t OSType) EquivalentTo(t2 OSType) bool {
 // IsLinux returns true if the OS type is a Linux variant.
 func (t OSType) IsLinux() bool {
 	switch t {
-	case Ubuntu, CentOS, GenericLinux, OpenSUSE:
+	case Ubuntu, CentOS, GenericLinux:
 		return true
 	}
 	return false

@@ -608,8 +608,14 @@ func (v *deployFromRepositoryValidator) deducePlatform(arg params.DeployFromRepo
 		}
 	}
 	if argBase != nil {
-		platform.OS = argBase.Name
-		platform.Channel = argBase.Channel
+		base, err := corebase.ParseBase(argBase.Name, argBase.Channel)
+		if err != nil {
+			return corecharm.Platform{}, usedModelDefaultBase, err
+		}
+		platform.OS = base.OS
+		// platform channels don't model the concept of a risk
+		// so ensure that only the track is included
+		platform.Channel = base.Channel.Track
 	}
 
 	// Initial validation of platform from known data.
@@ -642,7 +648,9 @@ func (v *deployFromRepositoryValidator) deducePlatform(arg params.DeployFromRepo
 				return corecharm.Platform{}, usedModelDefaultBase, err
 			}
 			platform.OS = defaultBase.OS
-			platform.Channel = defaultBase.Channel.String()
+			// platform channels don't model the concept of a risk
+			// so ensure that only the track is included
+			platform.Channel = defaultBase.Channel.Track
 			usedModelDefaultBase = true
 		}
 	}

@@ -152,7 +152,7 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	s.PatchValue(&deployer.SupportedJujuSeries,
 		func(time.Time, string, string) (set.Strings, error) {
 			return set.NewStrings(
-				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"centos7", "centos9", "genericlinux", "kubernetes",
 				"jammy", "focal", "jammy", "xenial",
 			), nil
 		},
@@ -1042,7 +1042,7 @@ func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
 	s.PatchValue(&deployer.SupportedJujuSeries,
 		func(time.Time, string, string) (set.Strings, error) {
 			return set.NewStrings(
-				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"centos7", "centos9", "genericlinux", "kubernetes",
 				"jammy", "focal", "jammy", "xenial",
 			), nil
 		},
@@ -1483,7 +1483,7 @@ func (s *DeploySuite) setupNonESMBase(c *gc.C) (corebase.Base, string) {
 	s.PatchValue(&deployer.SupportedJujuSeries,
 		func(time.Time, string, string) (set.Strings, error) {
 			return set.NewStrings(
-				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"centos7", "centos9", "genericlinux", "kubernetes",
 				"jammy", "focal", "jammy", "xenial",
 			), nil
 		},
@@ -1911,7 +1911,7 @@ func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&deployer.SupportedJujuSeries,
 		func(time.Time, string, string) (set.Strings, error) {
 			return set.NewStrings(
-				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"centos7", "centos9", "genericlinux", "kubernetes",
 				"jammy", "focal", "jammy", "xenial",
 			), nil
 		},

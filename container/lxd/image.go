@@ -221,10 +221,6 @@ func constructBaseRemoteAlias(base jujubase.Base, arch string) (string, error) {
 				return "centos/9-Stream/cloud/amd64", nil
 			}
 		}
-	case jujuos.OpenSUSE:
-		if base.Channel.Track == "opensuse42" && arch == jujuarch.AMD64 {
-			return "opensuse/42.2/amd64", nil
-		}
 	}
 	return "", errors.NotSupportedf("base %q", base.DisplayString())
 }
