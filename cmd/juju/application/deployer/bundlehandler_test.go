@@ -66,7 +66,7 @@ func (s *BundleDeployRepositorySuite) SetUpTest(_ *gc.C) {
 	s.PatchValue(&SupportedJujuSeries,
 		func(time.Time, string, string) (set.Strings, error) {
 			return set.NewStrings(
-				"centos7", "centos8", "centos9", "genericlinux", "kubernetes", "opensuseleap",
+				"centos7", "centos9", "genericlinux", "kubernetes",
 				"jammy", "focal", "bionic", "xenial",
 			), nil
 		},

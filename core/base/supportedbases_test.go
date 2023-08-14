@@ -30,11 +30,9 @@ func (s *BasesSuite) TestWorkloadBases(c *gc.C) {
 		imageStream:   Daily,
 		expectedBase: []Base{
 			MustParseBaseFromString("centos@7/stable"),
-			MustParseBaseFromString("centos@8/stable"),
 			MustParseBaseFromString("centos@9/stable"),
 			MustParseBaseFromString("genericlinux@genericlinux/stable"),
 			MustParseBaseFromString("kubernetes@kubernetes"),
-			MustParseBaseFromString("opensuse@opensuse42/stable"),
 			MustParseBaseFromString("ubuntu@20.04/stable"),
 			MustParseBaseFromString("ubuntu@22.04/stable"),
 		},
@@ -44,11 +42,9 @@ func (s *BasesSuite) TestWorkloadBases(c *gc.C) {
 		imageStream:   Daily,
 		expectedBase: []Base{
 			MustParseBaseFromString("centos@7/stable"),
-			MustParseBaseFromString("centos@8/stable"),
 			MustParseBaseFromString("centos@9/stable"),
 			MustParseBaseFromString("genericlinux@genericlinux/stable"),
 			MustParseBaseFromString("kubernetes@kubernetes"),
-			MustParseBaseFromString("opensuse@opensuse42/stable"),
 			MustParseBaseFromString("ubuntu@20.04/stable"),
 			MustParseBaseFromString("ubuntu@22.04/stable"),
 		},

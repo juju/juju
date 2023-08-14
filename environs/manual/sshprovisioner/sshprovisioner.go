@@ -202,11 +202,6 @@ os_id=$(grep '^ID=' /etc/os-release | tr -d '"' | cut -d= -f2)
 if [ "$os_id" = 'centos' ]; then
   os_version=$(grep '^VERSION_ID=' /etc/os-release | tr -d '"' | cut -d= -f2)
   echo "centos$os_version"
-elif [ "$os_id" = 'opensuse' ]; then
-  os_version=$(grep '^VERSION_ID=' /etc/os-release | tr -d '"' | cut -d= -f2 | cut -d. -f1)
-  if [ $os_version -eq 42 ]; then
-    echo "opensuseleap"
-  fi
 else
   lsb_release -cs
 fi

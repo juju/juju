@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/packaging"
 )
 
@@ -30,9 +31,9 @@ func (dep lxdDependency) PackageList(series string) ([]packaging.Package, error)
 	var pkg packaging.Package
 
 	switch series {
-	case "centos7", "centos8", "centos9", "opensuseleap":
+	case base.Centos7.String(), base.Centos9.String():
 		return nil, errors.NotSupportedf("LXD containers on series %q", series)
-	case "bionic", blankSeries:
+	case base.Bionic.String(), blankSeries:
 		pkg.Name = "lxd"
 		pkg.PackageManager = packaging.AptPackageManager
 	default: // Use snaps for cosmic and beyond

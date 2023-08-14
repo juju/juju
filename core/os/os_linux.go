@@ -39,8 +39,6 @@ func updateOS(f string) (OSType, error) {
 		return Ubuntu, nil
 	case strings.ToLower(CentOS.String()):
 		return CentOS, nil
-	case strings.ToLower(OpenSUSE.String()):
-		return OpenSUSE, nil
 	default:
 		return GenericLinux, nil
 	}

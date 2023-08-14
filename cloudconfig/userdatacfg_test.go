@@ -429,18 +429,6 @@ systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true
 sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
 `,
 	},
-	// OpenSUSE non controller
-	{
-		cfg:               makeNormalConfig(corebase.MakeDefaultBase("opensuse", "opensuse42"), 0),
-		inexactMatch:      true,
-		upgradedToVersion: "1.2.3",
-		expectScripts: `
-systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true
-systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true
-sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
-`,
-	},
-
 	// check that it works ok with compound machine ids.
 	{
 		cfg: makeNormalConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
@@ -1417,15 +1405,4 @@ func (*cloudinitSuite) TestCloudInitBootstrapInitialSSHKeys(c *gc.C) {
 		`ssh-keygen -t ecdsa -N "" -f /etc/ssh/ssh_host_ecdsa_key`,
 		`ssh-keygen -t ed25519 -N "" -f /etc/ssh/ssh_host_ed25519_key || true`,
 	})
-}
-
-func (*cloudinitSuite) TestSetUbuntuUserOpenSUSE(c *gc.C) {
-	ci, err := cloudinit.New("opensuse")
-	c.Assert(err, jc.ErrorIsNil)
-	cloudconfig.SetUbuntuUser(ci, "akey\n#also\nbkey")
-	data, err := ci.RenderYAML()
-	c.Assert(err, jc.ErrorIsNil)
-	keys := []string{"akey", "bkey"}
-	expected := expectedUbuntuUser(cloudconfig.OpenSUSEGroups, keys)
-	c.Assert(string(data), jc.YAMLEquals, expected)
 }
