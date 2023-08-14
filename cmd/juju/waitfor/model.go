@@ -50,6 +50,11 @@ state can be defined programmatically using the query DSL (domain specific
 language). The default query for a model just waits for the model to be
 created and available.
 
+The wait-for command is an optimized alternative to the status command for 
+determining programmatically if a goal state has been reached. The wait-for
+command streams delta changes from the underlying database, unlike the status
+command which performs a full query of the database.
+
 The model query DSL can be used to programmatically define the goal state
 for applications, machines and units within the scope of the model. This can
 be achieved by using lambda expressions to iterate over the applications,

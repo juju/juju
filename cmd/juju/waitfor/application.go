@@ -43,6 +43,11 @@ state. The goal state can be defined programmatically using the query DSL
 (domain specific language). The default query for an application just waits
 for the application to be created and active.
 
+The wait-for command is an optimized alternative to the status command for 
+determining programmatically if a goal state has been reached. The wait-for
+command streams delta changes from the underlying database, unlike the status
+command which performs a full query of the database.
+
 The application query DSL can be used to programmatically define the goal state
 for machines and units within the scope of the application. This can
 be achieved by using lambda expressions to iterate over the machines and units

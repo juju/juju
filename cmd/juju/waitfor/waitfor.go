@@ -20,6 +20,11 @@ The wait-for set of commands (model, application, machine and unit) defines
 a way to wait for a goal state to be reached. The goal state can be defined
 programmatically using the query DSL (domain specific language).
 
+The wait-for command is an optimized alternative to the status command for 
+determining programmatically if a goal state has been reached. The wait-for
+command streams delta changes from the underlying database, unlike the status
+command which performs a full query of the database.
+
 The query DSL is a simple language that can be comprised of expressions to
 produce a boolean result. The result of the query is used to determine if the
 goal state has been reached. The query DSL is evaluated against the scope of

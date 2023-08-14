@@ -42,6 +42,11 @@ state can be defined programmatically using the query DSL (domain specific
 language). The default query for a unit just waits for the unit to be created 
 and active.
 
+The wait-for command is an optimized alternative to the status command for 
+determining programmatically if a goal state has been reached. The wait-for
+command streams delta changes from the underlying database, unlike the status
+command which performs a full query of the database.
+
 The unit query DSL can be used to programmatically define the goal state
 for machine within the scope of the unit. This can be achieved by using lambda
 expressions to iterate over the machines associated with the unit. Multiple
