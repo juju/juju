@@ -20,10 +20,9 @@ type PackageManagerName string
 
 // The list of supported package managers.
 const (
-	AptPackageManager    PackageManagerName = "apt"
-	YumPackageManager    PackageManagerName = "yum"
-	ZypperPackageManager PackageManagerName = "zypper"
-	SnapPackageManager   PackageManagerName = "snap"
+	AptPackageManager  PackageManagerName = "apt"
+	YumPackageManager  PackageManagerName = "yum"
+	SnapPackageManager PackageManagerName = "snap"
 )
 
 // Dependency is implemented by objects that can provide a series-specific
@@ -117,8 +116,6 @@ func newPackageManager(name PackageManagerName) (manager.PackageManager, error) 
 		return manager.NewAptPackageManager(), nil
 	case YumPackageManager:
 		return manager.NewYumPackageManager(), nil
-	case ZypperPackageManager:
-		return manager.NewZypperPackageManager(), nil
 	case SnapPackageManager:
 		return manager.NewSnapPackageManager(), nil
 	default:
@@ -132,8 +129,6 @@ func newPackageConfigurer(name PackageManagerName, series string) (config.Packag
 		return config.NewAptPackagingConfigurer(series), nil
 	case YumPackageManager:
 		return config.NewYumPackagingConfigurer(series), nil
-	case ZypperPackageManager:
-		return config.NewZypperPackagingConfigurer(series), nil
 	case SnapPackageManager:
 		return nil, nil
 	default:

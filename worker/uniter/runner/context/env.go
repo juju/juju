@@ -111,8 +111,6 @@ func OSDependentEnvVars(paths Paths, env Environmenter) []string {
 		return ubuntuEnv(paths, env)
 	case jujuos.CentOS:
 		return centosEnv(paths, env)
-	case jujuos.OpenSUSE:
-		return opensuseEnv(paths, env)
 	case jujuos.GenericLinux:
 		return genericLinuxEnv(paths, env)
 	}
@@ -149,27 +147,6 @@ func centosEnv(paths Paths, envVars Environmenter) []string {
 	// with terminal definitions for "tmux" and "tmux-256color"
 	hostSeries, err := series.HostSeries()
 	if err == nil && hostSeries == "centos7" {
-		env = append(env, "TERM=screen-256color")
-	} else {
-		env = append(env, "TERM=tmux-256color")
-	}
-
-	return env
-}
-
-func opensuseEnv(paths Paths, envVars Environmenter) []string {
-	path := appendPath(paths, envVars)
-
-	env := []string{
-		"LANG=C.UTF-8",
-	}
-
-	env = append(env, path...)
-
-	// OpenSUSE 42 does not include patch 20150502 for ncurses 5.9 with
-	// with terminal definitions for "tmux" and "tmux-256color"
-	hostSeries, err := series.HostSeries()
-	if err == nil && hostSeries == "opensuseleap" {
 		env = append(env, "TERM=screen-256color")
 	} else {
 		env = append(env, "TERM=tmux-256color")

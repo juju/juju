@@ -83,12 +83,6 @@ var cloudinitDataVerifyTests = []cloudinitDataVerifyTest{
 		containerBase: corebase.MakeDefaultBase("centos", "7"),
 		result:        expectedResult,
 	},
-	{
-		description:   "centos8 on centos8",
-		machineBase:   corebase.MakeDefaultBase("centos", "8"),
-		containerBase: corebase.MakeDefaultBase("centos", "8"),
-		result:        expectedResult,
-	},
 }
 
 func (s *fromHostSuite) TestGetMachineCloudInitDataVerifySeries(c *gc.C) {
