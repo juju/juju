@@ -7,7 +7,6 @@ import (
 	"time"
 
 	charmresource "github.com/juju/charm/v11/resource"
-	jujucmd "github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -61,19 +60,13 @@ func (s *ShowApplicationSuite) TestInfo(c *gc.C) {
 	var command resourcecmd.ListCommand
 	info := command.Info()
 
-	c.Check(info, jc.DeepEquals, &jujucmd.Info{
-		Name:    "resources",
-		Aliases: []string{"list-resources"},
-		Args:    "<application or unit>",
-		Purpose: "Show the resources for an application or unit.",
-		Doc: `
-This command shows the resources required by and those in use by an existing
-application or unit in your model.  When run for an application, it will also show any
-updates available for resources from a store.
-`,
-		FlagKnownAs:    "option",
-		ShowSuperFlags: []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"},
-	})
+	// Verify that Info is wired up. Without verifying exact text.
+	c.Check(info.Name, gc.Equals, "resources")
+	c.Check(info.Args, gc.Not(gc.Equals), "")
+	c.Check(info.Purpose, gc.Not(gc.Equals), "")
+	c.Check(info.Doc, gc.Not(gc.Equals), "")
+	c.Check(info.FlagKnownAs, gc.Not(gc.Equals), "")
+	c.Check(len(info.ShowSuperFlags), jc.GreaterThan, 2)
 }
 
 func (s *ShowApplicationSuite) TestRunNoResourcesForApplication(c *gc.C) {

@@ -57,6 +57,10 @@ func (c *ListCommand) Info() *cmd.Info {
 		Aliases: []string{"list-resources"},
 		Args:    "<application or unit>",
 		Purpose: "Show the resources for an application or unit.",
+		SeeAlso: []string{
+			"attach-resource",
+			"charm-resources",
+		},
 		Doc: `
 This command shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any

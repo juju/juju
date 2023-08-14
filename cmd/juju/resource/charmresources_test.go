@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/charm/v11"
 	charmresource "github.com/juju/charm/v11/resource"
-	jujucmd "github.com/juju/cmd/v3"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -38,38 +37,14 @@ func (s *CharmResourcesSuite) TestInfo(c *gc.C) {
 	var command resourcecmd.CharmResourcesCommand
 	info := command.Info()
 
-	c.Check(info, jc.DeepEquals, &jujucmd.Info{
-		Name:    "charm-resources",
-		Args:    "<charm>",
-		Purpose: "Display the resources for a charm in a repository.",
-		Aliases: []string{"list-charm-resources"},
-		Doc: `
-This command will report the resources and the current revision of each
-resource for a charm in a repository.
-
-<charm> can be a charm URL, or an unambiguously condensed form of it,
-just like the deploy command.
-
-Release is implied from the <charm> supplied. If not provided, the default
-series for the model is used.
-
-Channel can be specified with --channel.  If not provided, stable is used.
-
-Where a channel is not supplied, stable is used.
-`,
-		Examples: `
-Display charm resources for the postgresql charm:
-
-    juju charm-resources postgresql
-
-Display charm resources for mycharm in the 2.0/edge channel:
-
-    juju charm-resources mycharm --channel 2.0/edge
-
-`,
-		FlagKnownAs:    "option",
-		ShowSuperFlags: []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"},
-	})
+	// Verify that Info is wired up. Without verifying exact text.
+	c.Check(info.Name, gc.Equals, "charm-resources")
+	c.Check(info.Aliases, gc.Not(gc.Equals), "")
+	c.Check(info.Purpose, gc.Not(gc.Equals), "")
+	c.Check(info.Doc, gc.Not(gc.Equals), "")
+	c.Check(info.Examples, gc.Not(gc.Equals), "")
+	c.Check(info.FlagKnownAs, gc.Not(gc.Equals), "")
+	c.Check(len(info.ShowSuperFlags), jc.GreaterThan, 2)
 }
 
 func (s *CharmResourcesSuite) TestOkay(c *gc.C) {
