@@ -45,15 +45,36 @@ func newModelCommand() cmd.Command {
 }
 
 const modelCommandDoc = `
-Waits for a model to reach a specified state.
+The wait-for model command waits for the model to reach a goal state. The goal
+state can be defined programmatically using the query DSL (domain specific
+language). The default query for a model just waits for the model to be
+created and available.
 
-arguments:
-name
-   model name identifier
+The wait-for command is an optimized alternative to the status command for 
+determining programmatically if a goal state has been reached. The wait-for
+command streams delta changes from the underlying database, unlike the status
+command which performs a full query of the database.
 
-options:
---query (= 'life=="alive" && status=="available"')
-   query represents the sought state of the specified model
+The model query DSL can be used to programmatically define the goal state
+for applications, machines and units within the scope of the model. This can
+be achieved by using lambda expressions to iterate over the applications,
+machines and units within the model. Multiple expressions can be combined to 
+define a complex goal state.
+`
+
+const modelCommandExamples = `
+Waits for all the model units to start with ubuntu.
+
+    juju wait-for model default --query='forEach(units, unit => startsWith(unit.name, "ubuntu"))'
+
+Waits for all the model applications to be active.
+
+    juju wait-for model default --query='forEach(applications, app => app.status == "active")'
+
+Waits for the model to be created and available and for all the model
+applications to be active.
+
+    juju wait-for model default --query='life=="alive" && status=="available" && forEach(applications, app => app.status == "active")'
 `
 
 // modelCommand defines a command for waiting for models.
@@ -75,10 +96,16 @@ type modelCommand struct {
 // Info implements Command.Info.
 func (c *modelCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "model",
-		Args:    "[<name>]",
-		Purpose: "Wait for a model to reach a specified state.",
-		Doc:     modelCommandDoc,
+		Name:     "model",
+		Args:     "[<name>]",
+		Purpose:  "Wait for a model to reach a specified state.",
+		Doc:      modelCommandDoc,
+		Examples: modelCommandExamples,
+		SeeAlso: []string{
+			"wait-for application",
+			"wait-for machine",
+			"wait-for unit",
+		},
 	})
 }
 
