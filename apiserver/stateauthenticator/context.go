@@ -263,7 +263,7 @@ func (ctxt *authContext) externalMacaroonAuth(ctx context.Context, identClient i
 func newExternalMacaroonAuth(ctx context.Context, st *state.State, controllerConfigGetter ControllerConfigGetter, clock clock.Clock, expiryTime time.Duration, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
 	controllerCfg, err := controllerConfigGetter.ControllerConfig(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot get model config")
+		return nil, errors.Annotate(err, "cannot get controller config")
 	}
 	idURL := controllerCfg.IdentityURL()
 	if idURL == "" {

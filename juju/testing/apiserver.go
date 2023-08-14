@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"crypto/tls"
 	"database/sql"
 	"fmt"
@@ -121,6 +122,7 @@ type ApiServerSuite struct {
 	Server                   *apiserver.Server
 	LeaseManager             *lease.Manager
 	Clock                    testclock.AdvanceableClock
+	ServiceFactoryGetter     *stubServiceFactoryGetter
 	ControllerServiceFactory servicefactory.ControllerServiceFactory
 
 	// These attributes are set before SetUpTest to indicate we want to
@@ -245,7 +247,10 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		modelType = s.WithControllerModelType
 	}
 	ctrl, err := state.Initialize(state.InitializeParams{
-		Clock:            clock.WallClock,
+		Clock: clock.WallClock,
+		// TODO (stickupkid): Remove controller config from the state
+		// InitializeParams once we have removed the controller config
+		// from the state.
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			Type:            modelType,
@@ -282,17 +287,16 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.controllerModelUUID = st.ControllerModelUUID()
+
+	err = s.ControllerServiceFactory.ControllerConfig().SeedControllerConfig(context.Background(), controllerCfg)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config) {
 	cfg := DefaultServerConfig(c, s.Clock)
 	cfg.Mux = s.mux
 	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
-	cfg.ServiceFactoryGetter = &stubServiceFactoryGetter{
-		ctrlDB:    stubWatchableDB{TxnRunner: s.TxnRunner()},
-		dbDeleter: stubDBDeleter{DB: s.DB()},
-		logger:    servicefactorytesting.NewCheckLogger(c),
-	}
+	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
@@ -321,10 +325,8 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 		cfg.ExecEmbeddedCommand = s.WithEmbeddedCLICommand
 	}
 
-	s.ControllerServiceFactory = cfg.ServiceFactoryGetter.FactoryForModel(coredatabase.ControllerNS)
-	ctrlConfigGetter := s.ControllerServiceFactory.ControllerConfig()
-
 	// Set up auth handler.
+	ctrlConfigGetter := s.ControllerServiceFactory.ControllerConfig()
 	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, ctrlConfigGetter, cfg.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
@@ -342,6 +344,13 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.ControllerSuite.SetUpTest(c)
+
+	s.ServiceFactoryGetter = &stubServiceFactoryGetter{
+		ctrlDB:    stubWatchableDB{TxnRunner: s.TxnRunner()},
+		dbDeleter: stubDBDeleter{DB: s.DB()},
+		logger:    servicefactorytesting.NewCheckLogger(c),
+	}
+	s.ControllerServiceFactory = s.ServiceFactoryGetter.FactoryForModel(coredatabase.ControllerNS)
 
 	if s.Clock == nil {
 		s.Clock = testclock.NewClock(time.Now())

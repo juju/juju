@@ -71,6 +71,18 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
+	authenticator, err := w.cfg.newStateAuthenticatorFn(
+		w.cfg.statePool,
+		w.managedCtrlConfigGetter,
+		w.cfg.mux,
+		w.cfg.clock,
+		w.catacomb.Dying(),
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	w.authenticator = authenticator
+
 	return &w, nil
 }
 
@@ -85,18 +97,6 @@ func (w *argsWorker) Wait() error {
 }
 
 func (w *argsWorker) loop() error {
-	authenticator, err := w.cfg.newStateAuthenticatorFn(
-		w.cfg.statePool,
-		w.managedCtrlConfigGetter,
-		w.cfg.mux,
-		w.cfg.clock,
-		w.catacomb.Dying(),
-	)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	w.authenticator = authenticator
-
 	<-w.catacomb.Dying()
 	return w.catacomb.ErrDying()
 }
