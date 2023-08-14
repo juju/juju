@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/packaging"
 )
 
@@ -21,7 +22,7 @@ type kvmDependency struct {
 
 // PackageList implements packaging.Dependency.
 func (dep kvmDependency) PackageList(series string) ([]packaging.Package, error) {
-	if series == "centos7" || series == "centos8" || series == "centos9" || series == "opensuseleap" {
+	if series == base.Centos7.String() || series == base.Centos9.String() {
 		return nil, errors.NotSupportedf("installing kvm on series %q", series)
 	}
 
