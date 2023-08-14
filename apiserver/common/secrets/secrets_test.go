@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
@@ -730,11 +729,7 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	secretsMetaState := mocks.NewMockSecretsMetaState(ctrl)
 	removeState := mocks.NewMockSecretsRemoveState(ctrl)
-	secretsConsumer := mocks.NewMockSecretsConsumer(ctrl)
-	authorizer := mocks.NewMockAuthorizer(ctrl)
-	leadershipChecker := mocks.NewMockChecker(ctrl)
 	mockprovider := mocks.NewMockSecretBackendProvider(ctrl)
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return mockprovider, nil })
 
@@ -743,8 +738,6 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
 		BackendID:  "backend-id",
 		RevisionID: "rev-666",
 	}}, nil)
-
-	secretsConsumer.EXPECT().SecretAccess(uri, names.NewUnitTag("mariadb/0")).Return(coresecrets.RoleManage, nil)
 
 	cfg := &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
@@ -777,16 +770,16 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
 		}, nil
 	}
 
-	results, err := secrets.RemoveSecrets(
-		secretsMetaState, removeState, secretsConsumer, adminConfigGetter, coretesting.ModelTag,
-		authorizer, names.NewUnitTag("mariadb/0"),
-		leadershipChecker,
+	results, err := secrets.RemoveSecretsForAgent(
+		removeState, adminConfigGetter,
+		names.NewUnitTag("mariadb/0"),
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
 				URI:       expectURI.String(),
 				Revisions: []int{666},
 			}},
-		}, false,
+		},
+		func(*coresecrets.URI) error { return nil },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
@@ -800,16 +793,11 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	secretsMetaState := mocks.NewMockSecretsMetaState(ctrl)
 	removeState := mocks.NewMockSecretsRemoveState(ctrl)
-	secretsConsumer := mocks.NewMockSecretsConsumer(ctrl)
-	authorizer := mocks.NewMockAuthorizer(ctrl)
-	leadershipChecker := mocks.NewMockChecker(ctrl)
 	mockprovider := mocks.NewMockSecretBackendProvider(ctrl)
 	backend := mocks.NewMockSecretsBackend(ctrl)
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return mockprovider, nil })
 
-	authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
 	removeState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
 	removeState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return([]coresecrets.ValueRef{{
 		BackendID:  "backend-id",
@@ -849,16 +837,16 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 		}, nil
 	}
 
-	results, err := secrets.RemoveSecrets(
-		secretsMetaState, removeState, secretsConsumer, adminConfigGetter, coretesting.ModelTag,
-		authorizer, names.NewUserTag("foo"),
-		leadershipChecker,
+	results, err := secrets.RemoveSecretsForClient(
+		removeState, adminConfigGetter,
+		names.NewUserTag("foo"),
 		params.DeleteSecretArgs{
 			Args: []params.DeleteSecretArg{{
 				URI:       expectURI.String(),
 				Revisions: []int{666},
 			}},
-		}, true,
+		},
+		func(*coresecrets.URI) error { return nil },
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{

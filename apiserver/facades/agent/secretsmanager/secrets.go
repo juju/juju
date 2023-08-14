@@ -354,10 +354,13 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 
 // RemoveSecrets removes the specified secrets.
 func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorResults, error) {
-	return commonsecrets.RemoveSecrets(
-		s.secretsState, s.secretsState, s.secretsConsumer, s.adminConfigGetter,
-		names.NewModelTag(s.modelUUID), s.authorizer, s.authTag, s.leadershipChecker,
-		args, false,
+	return commonsecrets.RemoveSecretsForAgent(
+		s.secretsState, s.adminConfigGetter,
+		s.authTag, args,
+		func(uri *coresecrets.URI) error {
+			_, err := s.canManage(uri)
+			return errors.Trace(err)
+		},
 	)
 }
 

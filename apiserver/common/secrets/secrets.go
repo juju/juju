@@ -13,11 +13,9 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/cloudspec"
@@ -539,33 +537,57 @@ func GetSecretMetadata(
 	return result, nil
 }
 
-// RemoveSecrets removes the specified secrets.
-// If removeFromBackend is false, the secrets are only removed from the state and
+// RemoveSecretsForAgent removes the specified secrets for agent.
+// The secrets are only removed from the state and
 // the caller must have permission to manage the secret(secret owners remove secrets from the backend on uniter side).
-// If removeFromBackend is true, the secrets are removed from the state and
+func RemoveSecretsForAgent(
+	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
+	authTag names.Tag, args params.DeleteSecretArgs,
+	canDelete func(*coresecrets.URI) error,
+) (params.ErrorResults, error) {
+	return removeSecrets(
+		removeState, adminConfigGetter, authTag, args, canDelete,
+		func(provider.SecretBackendProvider, provider.ModelBackendConfig, []string) error { return nil },
+	)
+}
+
+// RemoveSecretsForClient removes the specified secrets for client.
+// The secrets are removed from the state and
 // backend and the caller must have model admin access.
-func RemoveSecrets(
-	secretsState SecretsMetaState,
-	removeState SecretsRemoveState,
-	secretsConsumer SecretsConsumer,
-	adminConfigGetter BackendAdminConfigGetter,
-	modelTag names.ModelTag, authorizer facade.Authorizer, authTag names.Tag, leadershipChecker leadership.Checker,
-	args params.DeleteSecretArgs, removeFromBackend bool,
+func RemoveSecretsForClient(
+	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
+	authTag names.Tag, args params.DeleteSecretArgs,
+	canDelete func(*coresecrets.URI) error,
+) (params.ErrorResults, error) {
+	return removeSecrets(
+		removeState, adminConfigGetter, authTag, args, canDelete,
+		func(p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revisions []string) error {
+			backend, err := p.NewBackend(&cfg)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			for _, revId := range revisions {
+				if err = backend.DeleteContent(context.TODO(), revId); err != nil {
+					return errors.Trace(err)
+				}
+			}
+			return nil
+		},
+	)
+}
+
+func removeSecrets(
+	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
+	authTag names.Tag, args params.DeleteSecretArgs,
+	canDelete func(*coresecrets.URI) error,
+	removeSecretsFromBackend func(provider.SecretBackendProvider, provider.ModelBackendConfig, []string) error,
 ) (params.ErrorResults, error) {
 	removeSecret := func(uri *coresecrets.URI, revisions ...int) ([]coresecrets.ValueRef, error) {
 		if _, err := removeState.GetSecret(uri); err != nil {
 			// Check if the uri exists or not.
 			return nil, errors.Trace(err)
 		}
-		if removeFromBackend {
-			if err := authorizer.HasPermission(permission.AdminAccess, modelTag); err != nil {
-				return nil, errors.Trace(err)
-			}
-			// Admins can delete any secret in the model.
-			return removeState.DeleteSecret(uri, revisions...)
-		}
-		_, err := CanManage(secretsConsumer, leadershipChecker, authTag, uri)
-		if err != nil {
+		if err := canDelete(uri); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return removeState.DeleteSecret(uri, revisions...)
@@ -611,7 +633,6 @@ func RemoveSecrets(
 		// TODO: include unitTag in params.DeleteSecretArgs for operator uniters?
 		// This should be resolved once lp:1991213 and lp:1991854 are fixed.
 		backendCfg, ok := cfgInfo.Configs[backendID]
-		logger.Criticalf("backendID %q, cfgInfo.Configs: %#v", backendID, cfgInfo.Configs)
 		if !ok {
 			return params.ErrorResults{}, errors.NotFoundf("secret backend %q", backendID)
 		}
@@ -619,16 +640,8 @@ func RemoveSecrets(
 		if err != nil {
 			return params.ErrorResults{}, errors.Trace(err)
 		}
-		if removeFromBackend {
-			backend, err := provider.NewBackend(&backendCfg)
-			if err != nil {
-				return params.ErrorResults{}, errors.Trace(err)
-			}
-			for _, revId := range r.RevisionIDs() {
-				if err = backend.DeleteContent(context.TODO(), revId); err != nil {
-					return params.ErrorResults{}, errors.Trace(err)
-				}
-			}
+		if err := removeSecretsFromBackend(provider, backendCfg, r.RevisionIDs()); err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
 		}
 		if err := provider.CleanupSecrets(&backendCfg, authTag, r); err != nil {
 			return params.ErrorResults{}, errors.Trace(err)

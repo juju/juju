@@ -536,8 +536,10 @@ func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
-	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
+	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: coretesting.ModelTag.String()}, nil).Times(2)
 	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return([]coresecrets.ValueRef{{
 		BackendID:  "backend-id",
 		RevisionID: "rev-666",
@@ -602,14 +604,120 @@ func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {
 	})
 }
 
+func (s *SecretsSuite) TestRemoveSecretsFailedNotModelAdmin(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectAuthClient()
+
+	uri := coresecrets.NewURI()
+	expectURI := *uri
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
+	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(apiservererrors.ErrPerm)
+	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: names.NewModelTag("1cfde5b3-663d-47bf-8799-71b84fa2df3f").String()}, nil).Times(1)
+
+	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer,
+		func() (*provider.ModelBackendConfigInfo, error) {
+			return &provider.ModelBackendConfigInfo{
+				ActiveID: "backend-id",
+				Configs: map[string]provider.ModelBackendConfig{
+					"backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "active-type",
+							Config:      map[string]interface{}{"foo": "active-type"},
+						},
+					},
+					"other-backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "other-type",
+							Config:      map[string]interface{}{"foo": "other-type"},
+						},
+					},
+				},
+			}, nil
+		},
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
+			return s.secretsBackend, nil
+		}, s.authorizer, s.authTag)
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := facade.RemoveSecrets(params.DeleteSecretArgs{
+		Args: []params.DeleteSecretArg{{
+			URI:       expectURI.String(),
+			Revisions: []int{666},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error.Message, jc.DeepEquals, "permission denied")
+}
+
+func (s *SecretsSuite) TestRemoveSecretsFailedNotModelOwned(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectAuthClient()
+
+	uri := coresecrets.NewURI()
+	expectURI := *uri
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
+	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: names.NewModelTag("1cfde5b3-663d-47bf-8799-71b84fa2df3f").String()}, nil).Times(2)
+
+	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer,
+		func() (*provider.ModelBackendConfigInfo, error) {
+			return &provider.ModelBackendConfigInfo{
+				ActiveID: "backend-id",
+				Configs: map[string]provider.ModelBackendConfig{
+					"backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "active-type",
+							Config:      map[string]interface{}{"foo": "active-type"},
+						},
+					},
+					"other-backend-id": {
+						ControllerUUID: coretesting.ControllerTag.Id(),
+						ModelUUID:      coretesting.ModelTag.Id(),
+						ModelName:      "some-model",
+						BackendConfig: provider.BackendConfig{
+							BackendType: "other-type",
+							Config:      map[string]interface{}{"foo": "other-type"},
+						},
+					},
+				},
+			}, nil
+		},
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
+			return s.secretsBackend, nil
+		}, s.authorizer, s.authTag)
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := facade.RemoveSecrets(params.DeleteSecretArgs{
+		Args: []params.DeleteSecretArg{{
+			URI:       expectURI.String(),
+			Revisions: []int{666},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results[0].Error.Message, jc.DeepEquals, "permission denied")
+}
+
 func (s *SecretsSuite) TestRemoveSecretRevision(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.expectAuthClient()
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
+	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
-	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
+	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: coretesting.ModelTag.String()}, nil).Times(2)
 	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(nil, nil)
 
 	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer,

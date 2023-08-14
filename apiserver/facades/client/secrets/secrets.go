@@ -14,7 +14,6 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
@@ -266,15 +265,10 @@ func (s *SecretsAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringR
 	return result, nil
 }
 
-type token struct {
-	disallow bool
-}
+type successfulToken struct{}
 
 // Check implements lease.Token.
-func (t token) Check() error {
-	if t.disallow {
-		return apiservererrors.ErrPerm
-	}
+func (t successfulToken) Check() error {
 	return nil
 }
 
@@ -340,7 +334,7 @@ func fromUpsertParams(p params.UpsertSecretArg) state.UpdateSecretParams {
 		}
 	}
 	return state.UpdateSecretParams{
-		LeaderToken: token{},
+		LeaderToken: successfulToken{},
 		Description: p.Description,
 		Label:       p.Label,
 		Params:      p.Params,
@@ -416,22 +410,29 @@ func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.Up
 	return errors.Trace(err)
 }
 
-type leadershipChecker struct{}
-
-// Check implements lease.Token.
-func (t leadershipChecker) LeadershipCheck(applicationId, unitId string) leadership.Token {
-	return &token{disallow: true}
-}
-
 // RemoveSecrets isn't on the v1 API.
 func (s *SecretsAPIV1) RemoveSecrets(_ struct{}) {}
 
 // RemoveSecrets remove user secret.
 func (s *SecretsAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorResults, error) {
-	return commonsecrets.RemoveSecrets(
-		s.secretsState, s.secretsState, s.secretsConsumer, s.backendConfigGetter,
-		names.NewModelTag(s.modelUUID), s.authorizer, s.authTag, &leadershipChecker{},
-		args, true,
+	return commonsecrets.RemoveSecretsForClient(
+		s.secretsState, s.backendConfigGetter,
+		s.authTag, args,
+		func(uri *coresecrets.URI) error {
+			// Only admin can delete user secrets.
+			if err := s.checkCanAdmin(); err != nil {
+				return errors.Trace(err)
+			}
+			md, err := s.secretsState.GetSecret(uri)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			// Can only delete model owned(user supplied) secrets.
+			if md.OwnerTag != names.NewModelTag(s.modelUUID).String() {
+				return apiservererrors.ErrPerm
+			}
+			return nil
+		},
 	)
 }
 
@@ -470,7 +471,7 @@ func (s *SecretsAPI) secretsGrantRevoke(arg params.GrantRevokeUserSecretArg, op 
 	one := func(appName string) error {
 		subjectTag := names.NewApplicationTag(appName)
 		if err := op(uri, state.SecretAccessParams{
-			LeaderToken: token{},
+			LeaderToken: successfulToken{},
 			Scope:       scopeTag,
 			Subject:     subjectTag,
 			Role:        coresecrets.RoleView,
