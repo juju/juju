@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/api/controller/crossmodelsecrets"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/secrets"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
@@ -43,17 +43,10 @@ func NewSecretManagerAPIV1(context facade.Context) (*SecretsManagerAPIV1, error)
 	return &SecretsManagerAPIV1{SecretsManagerAPI: api}, nil
 }
 
-func checkPermission(context facade.Context) error {
-	if context.Auth().AuthUnitAgent() || context.Auth().AuthApplicationAgent() {
-		return nil
-	}
-	return context.Auth().HasPermission(permission.WriteAccess, names.NewModelTag(context.State().ModelUUID()))
-}
-
 // NewSecretManagerAPI creates a SecretsManagerAPI.
 func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
-	if err := checkPermission(context); err != nil {
-		return nil, errors.Trace(err)
+	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
+		return nil, apiservererrors.ErrPerm
 	}
 	model, err := context.State().Model()
 	if err != nil {

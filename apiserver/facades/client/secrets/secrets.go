@@ -375,14 +375,14 @@ func (s *SecretsAPI) UpdateSecrets(args params.UpdateUserSecretArgs) (params.Err
 }
 
 func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.UpdateUserSecretArg) (errOut error) {
+	if err := arg.Validate(); err != nil {
+		return errors.Trace(err)
+	}
 	uri, err := coresecrets.ParseURI(arg.URI)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if arg.AutoPrune == nil && arg.Description == nil && arg.Label == nil && len(arg.Content.Data) == 0 {
-		return errors.New("at least one attribute to update must be specified")
-	}
 	md, err := s.secretsState.GetSecret(uri)
 	if err != nil {
 		// Check if the uri exists or not.

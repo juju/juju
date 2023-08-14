@@ -20,11 +20,9 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
-	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
@@ -468,7 +466,6 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(apiservererrors.ErrPerm)
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
 	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return([]coresecrets.ValueRef{{
 		BackendID:  "backend-id",
@@ -508,7 +505,6 @@ func (s *SecretsManagerSuite) TestRemoveSecretRevision(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	expectURI := *uri
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(apiservererrors.ErrPerm)
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
 	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(nil, nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)

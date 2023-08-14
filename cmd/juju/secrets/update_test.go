@@ -41,11 +41,25 @@ func (s *updateSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *updateSuite) TestUpdateMissArg(c *gc.C) {
+func (s *updateSuite) TestUpdateMissingArg(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(s.store, s.secretsAPI), "--label", "label", "--info", "this is a secret.")
 	c.Assert(err, gc.ErrorMatches, `missing secret URI`)
+}
+
+func (s *updateSuite) TestUpdateWithoutContent(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	s.secretsAPI.EXPECT().UpdateSecret(uri, ptr(true), "label", "this is a secret.", map[string]string{}).Return(nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
+		s.store, s.secretsAPI), uri.String(),
+		"--auto-prune", "--label", "label", "--info", "this is a secret.",
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *updateSuite) TestUpdateFromArg(c *gc.C) {

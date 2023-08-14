@@ -186,6 +186,32 @@ func (s *SecretsSuite) TestUpdateSecretError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "user secrets not supported")
 }
 
+func (s *SecretsSuite) TestUpdateSecretWithoutContent(c *gc.C) {
+	uri := secrets.NewURI()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Secrets")
+		c.Assert(request, gc.Equals, "UpdateSecrets")
+		c.Assert(arg, gc.DeepEquals, params.UpdateUserSecretArgs{
+			Args: []params.UpdateUserSecretArg{
+				{
+					URI:       uri.String(),
+					AutoPrune: ptr(true),
+					UpsertSecretArg: params.UpsertSecretArg{
+						Label:       ptr("label"),
+						Description: ptr("this is a secret."),
+					},
+				},
+			},
+		})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{Results: []params.ErrorResult{{}}}
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	client := apisecrets.NewClient(caller)
+	err := client.UpdateSecret(uri, ptr(true), "label", "this is a secret.", nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *SecretsSuite) TestUpdateSecret(c *gc.C) {
 	uri := secrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -225,6 +251,27 @@ func (s *SecretsSuite) TestRemoveSecretError(c *gc.C) {
 }
 
 func (s *SecretsSuite) TestRemoveSecret(c *gc.C) {
+	uri := secrets.NewURI()
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Secrets")
+		c.Assert(request, gc.Equals, "RemoveSecrets")
+		c.Assert(arg, gc.DeepEquals, params.DeleteSecretArgs{
+			Args: []params.DeleteSecretArg{
+				{URI: uri.String()},
+			},
+		})
+		*(result.(*params.ErrorResults)) = params.ErrorResults{
+			Results: []params.ErrorResult{{}},
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	client := apisecrets.NewClient(caller)
+	err := client.RemoveSecret(uri, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SecretsSuite) TestRemoveSecretWithRevision(c *gc.C) {
 	uri := secrets.NewURI()
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Secrets")

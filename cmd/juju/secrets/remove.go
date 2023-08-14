@@ -51,7 +51,8 @@ Remove all the revisions of a secret with the specified URI or remove the provid
 
 Examples:
     remove-secret secret:9m4e2mr0ui3e8a215n4g
-	remove-secret secret:9m4e2mr0ui3e8a215n4g --revision 4
+
+    remove-secret secret:9m4e2mr0ui3e8a215n4g --revision 4
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-secret",

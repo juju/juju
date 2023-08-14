@@ -38,14 +38,14 @@ func (s *removeSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *removeSuite) TestRemoveMissArg(c *gc.C) {
+func (s *removeSuite) TestRemoveMissingArg(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewRemoveCommandForTest(s.store, s.secretsAPI), "--revision", "4")
 	c.Assert(err, gc.ErrorMatches, `missing secret URI`)
 }
 
-func (s *removeSuite) TestRemove(c *gc.C) {
+func (s *removeSuite) TestRemoveWithRevision(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -53,5 +53,16 @@ func (s *removeSuite) TestRemove(c *gc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secrets.NewRemoveCommandForTest(s.store, s.secretsAPI), uri.String(), "--revision", "4")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *removeSuite) TestRemove(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	s.secretsAPI.EXPECT().RemoveSecret(uri, nil).Return(nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	_, err := cmdtesting.RunCommand(c, secrets.NewRemoveCommandForTest(s.store, s.secretsAPI), uri.String())
 	c.Assert(err, jc.ErrorIsNil)
 }

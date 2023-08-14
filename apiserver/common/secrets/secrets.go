@@ -599,7 +599,6 @@ func RemoveSecrets(
 			}
 		}
 	}
-	logger.Criticalf("externalRevisions: %#v", externalRevisions)
 	if len(externalRevisions) == 0 {
 		return result, nil
 	}

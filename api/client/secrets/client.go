@@ -4,8 +4,6 @@
 package secrets
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -128,6 +126,7 @@ func (c *Client) CreateSecret(label, description string, data map[string]string)
 	return result.Result, nil
 }
 
+// UpdateSecret updates an existing secret.
 func (c *Client) UpdateSecret(
 	uri *secrets.URI, autoPrune *bool,
 	label, description string, data map[string]string,
@@ -149,7 +148,6 @@ func (c *Client) UpdateSecret(
 	if description != "" {
 		arg.UpsertSecretArg.Description = &description
 	}
-	fmt.Println(arg)
 	err := c.facade.FacadeCall("UpdateSecrets", params.UpdateUserSecretArgs{Args: []params.UpdateUserSecretArg{arg}}, &results)
 	if err != nil {
 		return errors.Trace(err)

@@ -62,13 +62,18 @@ automatically removing secret content might result in data loss.
 
 Examples:
     update-secret secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4
-	update-secret secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4 --auto-prune
+
     update-secret secret:9m4e2mr0ui3e8a215n4g key#base64 AA==
+
+    update-secret secret:9m4e2mr0ui3e8a215n4g token=34ae35facd4 --auto-prune
+
     update-secret secret:9m4e2mr0ui3e8a215n4g --label db-password \
         --info "my database password" \
         data#base64 s3cret== 
+
     update-secret secret:9m4e2mr0ui3e8a215n4g --label db-password \
         --info "my database password"
+
     update-secret secret:9m4e2mr0ui3e8a215n4g --label db-password \
         --info "my database password" \
         --file=/path/to/file
