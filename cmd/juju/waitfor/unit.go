@@ -54,13 +54,13 @@ expressions can be combined to define a complex goal state.
 `
 
 const unitCommandExamples = `
-    Waits for a units to be machines to be length of 1.
+Waits for a units to be machines to be length of 1.
 
-        juju wait-for unit ubuntu/0 --query='len(machines) == 1'
+    juju wait-for unit ubuntu/0 --query='len(machines) == 1'
 
-    Waits for the unit to be created and active.
+Waits for the unit to be created and active.
 
-        juju wait-for unit ubuntu/0 --query='life=="alive" && workload-status=="active"'
+    juju wait-for unit ubuntu/0 --query='life=="alive" && workload-status=="active"'
 `
 
 // unitCommand defines a command for waiting for units.

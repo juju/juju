@@ -63,18 +63,18 @@ define a complex goal state.
 `
 
 const modelCommandExamples = `
-    Waits for all the model units to start with ubuntu.
+Waits for all the model units to start with ubuntu.
 
-        juju wait-for model default --query='forEach(units, unit => startsWith(unit.name, "ubuntu"))'
+    juju wait-for model default --query='forEach(units, unit => startsWith(unit.name, "ubuntu"))'
 
-    Waits for all the model applications to be active.
+Waits for all the model applications to be active.
 
-        juju wait-for model default --query='forEach(applications, app => app.status == "active")'
+    juju wait-for model default --query='forEach(applications, app => app.status == "active")'
 
-    Waits for the model to be created and available and for all the model
-    applications to be active.
+Waits for the model to be created and available and for all the model
+applications to be active.
 
-        juju wait-for model default --query='life=="alive" && status=="available" && forEach(applications, app => app.status == "active")'
+    juju wait-for model default --query='life=="alive" && status=="available" && forEach(applications, app => app.status == "active")'
 `
 
 // modelCommand defines a command for waiting for models.

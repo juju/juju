@@ -50,9 +50,9 @@ Multiple expressions can be combined to define a complex goal state.
 `
 
 const machineCommandExamples = `
-    Waits for a machine to be created and started.
+Waits for a machine to be created and started.
 
-        juju wait-for machine 0 --query='life=="alive" && status=="started"'
+    juju wait-for machine 0 --query='life=="alive" && status=="started"'
 `
 
 // machineCommand defines a command for waiting for models.

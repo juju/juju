@@ -55,14 +55,14 @@ associated with the application. Multiple expressions can be combined to define
 a complex goal state.
 `
 const applicationCommandExamples = `
-    Waits for 4 units to be present.
+Waits for 4 units to be present.
 
-        juju wait-for application ubuntu --query='len(units) == 4'
+    juju wait-for application ubuntu --query='len(units) == 4'
 
-    Waits for all the application units to start with ubuntu and to be created 
-    and available.
+Waits for all the application units to start with ubuntu and to be created 
+and available.
 
-        juju wait-for application ubuntu --query='forEach(units, unit => unit.life=="alive" && unit.status=="available" && startsWith(unit.name, "ubuntu"))'
+    juju wait-for application ubuntu --query='forEach(units, unit => unit.life=="alive" && unit.status=="available" && startsWith(unit.name, "ubuntu"))'
 `
 
 // applicationCommand defines a command for waiting for applications.
