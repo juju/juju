@@ -13,7 +13,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/Azure/go-autorest/autorest/mocks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -463,9 +462,9 @@ func (s *instanceSuite) TestInstanceClosePorts(c *gc.C) {
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	sender := mocks.NewSender()
-	notFoundSender := mocks.NewSender()
-	notFoundSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
+	sender := &azuretesting.MockSender{}
+	notFoundSender := &azuretesting.MockSender{}
+	notFoundSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus(
 		"rule not found", http.StatusNotFound,
 	), 2)
 	s.sender = azuretesting.Senders{nsgSender, sender, notFoundSender, notFoundSender, notFoundSender}
@@ -496,8 +495,8 @@ func (s *instanceSuite) TestInstanceOpenPorts(c *gc.C) {
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	okSender := mocks.NewSender()
-	okSender.AppendResponse(mocks.NewResponseWithContent("{}"))
+	okSender := &azuretesting.MockSender{}
+	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}"))
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender, okSender, okSender}
 
 	err := fwInst.OpenPorts(s.callCtx, "0", firewall.IngressRules{
@@ -588,8 +587,8 @@ func (s *instanceSuite) TestInstanceOpenPortsAlreadyOpen(c *gc.C) {
 	fwInst, ok := inst.(instances.InstanceFirewaller)
 	c.Assert(ok, gc.Equals, true)
 
-	okSender := mocks.NewSender()
-	okSender.AppendResponse(mocks.NewResponseWithContent("{}"))
+	okSender := &azuretesting.MockSender{}
+	okSender.AppendResponse(azuretesting.NewResponseWithContent("{}"))
 	s.sender = azuretesting.Senders{nsgSender, okSender, okSender}
 
 	err := fwInst.OpenPorts(s.callCtx, "0", firewall.IngressRules{

@@ -165,7 +165,7 @@ func (env *azureEnviron) initEnviron(ctx stdcontext.Context) error {
 	}
 
 	env.clientOptions = azcore.ClientOptions{
-		Cloud: azureCloud(env.cloud.Endpoint, env.cloud.IdentityEndpoint),
+		Cloud: azureCloud(env.cloud.Name, env.cloud.Endpoint, env.cloud.IdentityEndpoint),
 		PerCallPolicies: []policy.Policy{
 			&tracing.LoggingPolicy{
 				Logger: logger.Child("azureapi"),

@@ -434,6 +434,7 @@ func finalizeProvider(ctxt *cmd.Context, cloud *jujucloud.Cloud, regionName, def
 	newCredential, err := credentialsProvider.FinalizeCredential(
 		ctxt, environs.FinalizeCredentialParams{
 			Credential:            jujucloud.NewCredential(authType, attrs),
+			CloudName:             cloud.Name,
 			CloudEndpoint:         cloudEndpoint,
 			CloudStorageEndpoint:  cloudStorageEndpoint,
 			CloudIdentityEndpoint: cloudIdentityEndpoint,
