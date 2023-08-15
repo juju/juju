@@ -380,22 +380,15 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 }
 
 const (
-	Centos7      SeriesName = "centos7"
-	Centos8      SeriesName = "centos8"
-	Centos9      SeriesName = "centos9"
-	OpenSUSELeap SeriesName = "opensuseleap"
-	Kubernetes   SeriesName = "kubernetes"
+	Centos7    SeriesName = "centos7"
+	Centos9    SeriesName = "centos9"
+	Kubernetes SeriesName = "kubernetes"
 )
 
 var centosSeries = map[SeriesName]seriesVersion{
 	Centos7: {
 		WorkloadType: OtherWorkloadType,
 		Version:      "7",
-		Supported:    true,
-	},
-	Centos8: {
-		WorkloadType: OtherWorkloadType,
-		Version:      "8",
 		Supported:    true,
 	},
 	Centos9: {
@@ -405,96 +398,10 @@ var centosSeries = map[SeriesName]seriesVersion{
 	},
 }
 
-var opensuseSeries = map[SeriesName]seriesVersion{
-	OpenSUSELeap: {
-		WorkloadType: OtherWorkloadType,
-		Version:      "opensuse42",
-		Supported:    true,
-	},
-}
-
 var kubernetesSeries = map[SeriesName]seriesVersion{
 	Kubernetes: {
 		WorkloadType: OtherWorkloadType,
 		Version:      "kubernetes",
-		Supported:    true,
-	},
-}
-
-var macOSXSeries = map[SeriesName]seriesVersion{
-	"catalina": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "19",
-		Supported:    true,
-	},
-	"mojave": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "18",
-		Supported:    true,
-	},
-	"highsierra": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "17",
-		Supported:    true,
-	},
-	"sierra": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "16",
-		Supported:    true,
-	},
-	"elcapitan": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "15",
-		Supported:    true,
-	},
-	"yosemite": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "14",
-		Supported:    true,
-	},
-	"mavericks": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "13",
-		Supported:    true,
-	},
-	"mountainlion": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "12",
-		Supported:    true,
-	},
-	"lion": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "11",
-		Supported:    true,
-	},
-	"snowleopard": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "10",
-		Supported:    true,
-	},
-	"leopard": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "9",
-		Supported:    true,
-	},
-	"tiger": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "8",
-		Supported:    true,
-	},
-	"panther": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "7",
-		Supported:    true,
-	},
-	"jaguar": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "6",
-		Supported:    true,
-	},
-	"puma": {
-		WorkloadType: UnsupportedWorkloadType,
-		Version:      "5",
 		Supported:    true,
 	},
 }

@@ -447,17 +447,6 @@ func New(osname string, opts ...func(*cloudConfig)) (CloudConfig, error) {
 			cloudConfig: cfg,
 			helper:      centOSHelper{},
 		}, nil
-	case os.OpenSUSE:
-		cfg.paccmder = map[jujupackaging.PackageManagerName]commands.PackageCommander{
-			jujupackaging.ZypperPackageManager: commands.NewZypperPackageCommander(),
-		}
-		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-			jujupackaging.ZypperPackageManager: config.NewZypperPackagingConfigurer(osname),
-		}
-		return &centOSCloudConfig{
-			cloudConfig: cfg,
-			helper:      openSUSEHelper{paccmder: commands.NewZypperPackageCommander()},
-		}, nil
 	default:
 		return nil, errors.NotFoundf("cloudconfig for os %q", osname)
 	}

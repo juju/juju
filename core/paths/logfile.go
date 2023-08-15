@@ -64,8 +64,6 @@ func SyslogUserGroup() (string, string) {
 	switch jujuos.HostOS() {
 	case jujuos.CentOS:
 		return "root", "adm"
-	case jujuos.OpenSUSE:
-		return "root", "root"
 	default:
 		return "syslog", "adm"
 	}

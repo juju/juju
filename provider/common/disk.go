@@ -11,15 +11,8 @@ import (
 // instance, in Gigabytes. This value accommodates the anticipated
 // size of the initial image, any updates, and future application
 // data.
-func MinRootDiskSizeGiB(os jujuos.OSType) uint64 {
-	switch os {
-	case jujuos.Ubuntu, jujuos.CentOS, jujuos.OpenSUSE:
-		return 8
-	// By default we just return a "sane" default, since the error will just
-	// be returned by the api and seen in juju status
-	default:
-		return 8
-	}
+func MinRootDiskSizeGiB(_ jujuos.OSType) uint64 {
+	return 8
 }
 
 // MiBToGiB converts the provided megabytes (base-2) into the nearest

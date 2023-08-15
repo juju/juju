@@ -175,13 +175,7 @@ func composeSeriesVersions() {
 	for k, v := range ubuntuSeries {
 		allSeriesVersions[k] = v
 	}
-	for k, v := range macOSXSeries {
-		allSeriesVersions[k] = v
-	}
 	for k, v := range centosSeries {
-		allSeriesVersions[k] = v
-	}
-	for k, v := range opensuseSeries {
 		allSeriesVersions[k] = v
 	}
 	for k, v := range kubernetesSeries {
@@ -261,14 +255,8 @@ func getOSFromSeries(series SeriesName) (coreos.OSType, error) {
 	if _, ok := ubuntuSeries[series]; ok {
 		return coreos.Ubuntu, nil
 	}
-	if _, ok := macOSXSeries[series]; ok {
-		return coreos.OSX, nil
-	}
 	if _, ok := centosSeries[series]; ok {
 		return coreos.CentOS, nil
-	}
-	if _, ok := opensuseSeries[series]; ok {
-		return coreos.OpenSUSE, nil
 	}
 	if _, ok := kubernetesSeries[series]; ok {
 		return coreos.Kubernetes, nil
