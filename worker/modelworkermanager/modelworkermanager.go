@@ -4,6 +4,7 @@
 package modelworkermanager
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"time"
@@ -29,12 +30,16 @@ type ModelWatcher interface {
 	WatchModels() state.StringsWatcher
 }
 
+// ControllerConfigGetter is an interface that returns the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // Controller provides an interface for getting models by UUID,
 // and other details needed to pass into the function to start workers for a model.
 // Once a model is no longer required, the returned function must
 // be called to dispose of the model.
 type Controller interface {
-	Config() (controller.Config, error)
 	Model(modelUUID string) (Model, func(), error)
 	RecordLogger(modelUUID string) (RecordLogger, error)
 }
@@ -90,16 +95,17 @@ type NewModelWorkerFunc func(config NewModelConfig) (worker.Worker, error)
 // Config holds the dependencies and configuration necessary to run
 // a model worker manager.
 type Config struct {
-	Authority      pki.Authority
-	Clock          clock.Clock
-	Logger         Logger
-	MachineID      string
-	ModelWatcher   ModelWatcher
-	ModelMetrics   ModelMetrics
-	Mux            *apiserverhttp.Mux
-	Controller     Controller
-	NewModelWorker NewModelWorkerFunc
-	ErrorDelay     time.Duration
+	Authority              pki.Authority
+	Clock                  clock.Clock
+	Logger                 Logger
+	MachineID              string
+	ModelWatcher           ModelWatcher
+	ModelMetrics           ModelMetrics
+	Mux                    *apiserverhttp.Mux
+	Controller             Controller
+	ControllerConfigGetter ControllerConfigGetter
+	NewModelWorker         NewModelWorkerFunc
+	ErrorDelay             time.Duration
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -125,6 +131,9 @@ func (config Config) Validate() error {
 	}
 	if config.Controller == nil {
 		return errors.NotValidf("nil Controller")
+	}
+	if config.ControllerConfigGetter == nil {
+		return errors.NotValidf("nil ControllerConfigGetter")
 	}
 	if config.NewModelWorker == nil {
 		return errors.NotValidf("nil NewModelWorker")
@@ -171,10 +180,6 @@ func (m *modelWorkerManager) Wait() error {
 }
 
 func (m *modelWorkerManager) loop() error {
-	controllerConfig, err := m.config.Controller.Config()
-	if err != nil {
-		return errors.Annotate(err, "unable to get controller config")
-	}
 	m.runner = worker.NewRunner(worker.RunnerParams{
 		IsFatal:       neverFatal,
 		MoreImportant: neverImportant,
@@ -215,13 +220,12 @@ func (m *modelWorkerManager) loop() error {
 		}
 
 		cfg := NewModelConfig{
-			Authority:        m.config.Authority,
-			ModelName:        fmt.Sprintf("%s-%s", model.Owner().Id(), model.Name()),
-			ModelUUID:        modelUUID,
-			ModelType:        model.Type(),
-			ModelMetrics:     m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
-			Mux:              m.config.Mux,
-			ControllerConfig: controllerConfig,
+			Authority:    m.config.Authority,
+			ModelName:    fmt.Sprintf("%s-%s", model.Owner().Id(), model.Name()),
+			ModelUUID:    modelUUID,
+			ModelType:    model.Type(),
+			ModelMetrics: m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
+			Mux:          m.config.Mux,
 		}
 		return errors.Trace(m.ensure(cfg))
 	}
@@ -257,6 +261,16 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		modelName := fmt.Sprintf("%q (%s)", cfg.ModelName, cfg.ModelUUID)
 		m.config.Logger.Debugf("starting workers for model %s", modelName)
 
+		// Get the controller config for the model worker so that we correctly
+		// handle the case where the controller config changes between model
+		// worker restarts.
+		ctx := m.catacomb.Context(context.Background())
+		controllerConfig, err := m.config.ControllerConfigGetter.ControllerConfig(ctx)
+		if err != nil {
+			return nil, errors.Annotate(err, "unable to get controller config")
+		}
+		cfg.ControllerConfig = controllerConfig
+
 		recordLogger, err := m.config.Controller.RecordLogger(modelUUID)
 		if err != nil {
 			return nil, errors.Annotatef(err, "unable to create db logger for %s", modelName)
@@ -291,7 +305,7 @@ func isModelActive(m Model) bool {
 }
 
 // Report shows up in the dependency engine report.
-func (m *modelWorkerManager) Report() map[string]interface{} {
+func (m *modelWorkerManager) Report() map[string]any {
 	if m.runner == nil {
 		return nil
 	}
