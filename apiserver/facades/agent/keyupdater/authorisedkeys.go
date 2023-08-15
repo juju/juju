@@ -4,6 +4,8 @@
 package keyupdater
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/ssh"
@@ -18,8 +20,8 @@ import (
 
 // KeyUpdater defines the methods on the keyupdater API end point.
 type KeyUpdater interface {
-	AuthorisedKeys(args params.Entities) (params.StringsResults, error)
-	WatchAuthorisedKeys(args params.Entities) (params.NotifyWatchResults, error)
+	AuthorisedKeys(ctx context.Context, args params.Entities) (params.StringsResults, error)
+	WatchAuthorisedKeys(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error)
 }
 
 // KeyUpdaterAPI implements the KeyUpdater interface and is the concrete
@@ -38,7 +40,7 @@ var _ KeyUpdater = (*KeyUpdaterAPI)(nil)
 // for the specified machines.
 // The current implementation relies on global authorised keys being stored in the model config.
 // This will change as new user management and authorisation functionality is added.
-func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.NotifyWatchResults, error) {
+func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.Entities) (params.NotifyWatchResults, error) {
 	results := make([]params.NotifyWatchResult, len(arg.Entities))
 
 	canRead, err := api.getCanRead()
@@ -81,7 +83,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 // AuthorisedKeys reports the authorised ssh keys for the specified machines.
 // The current implementation relies on global authorised keys being stored in the model config.
 // This will change as new user management and authorisation functionality is added.
-func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsResults, error) {
+func (api *KeyUpdaterAPI) AuthorisedKeys(ctx context.Context, arg params.Entities) (params.StringsResults, error) {
 	if len(arg.Entities) == 0 {
 		return params.StringsResults{}, nil
 	}

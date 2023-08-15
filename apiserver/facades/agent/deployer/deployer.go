@@ -4,6 +4,8 @@
 package deployer
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -85,8 +87,8 @@ func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 
 // ConnectionInfo returns all the address information that the
 // deployer task needs in one call.
-func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	apiAddrs, err := d.APIAddresses()
+func (d *DeployerAPI) ConnectionInfo(ctx context.Context) (result params.DeployerConnectionValues, err error) {
+	apiAddrs, err := d.APIAddresses(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -97,7 +99,7 @@ func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, 
 }
 
 // SetStatus sets the status of the specified entities.
-func (d *DeployerAPI) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (d *DeployerAPI) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	return d.StatusSetter.SetStatus(args)
 }
 
@@ -110,7 +112,7 @@ func (d *DeployerAPI) ModelUUID() params.StringResult {
 }
 
 // APIHostPorts returns the API server addresses.
-func (d *DeployerAPI) APIHostPorts() (result params.APIHostPortsResult, err error) {
+func (d *DeployerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
 	controllerConfig, err := d.st.ControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -120,7 +122,7 @@ func (d *DeployerAPI) APIHostPorts() (result params.APIHostPortsResult, err erro
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-func (d *DeployerAPI) APIAddresses() (result params.StringsResult, err error) {
+func (d *DeployerAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
 	controllerConfig, err := d.st.ControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
