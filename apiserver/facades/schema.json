@@ -35571,6 +35571,18 @@
                     },
                     "description": "ListSecrets lists available secrets."
                 },
+                "RemoveSecrets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/DeleteSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "RemoveSecrets remove user secret."
+                },
                 "RevokeSecret": {
                     "type": "object",
                     "properties": {
@@ -35582,6 +35594,18 @@
                         }
                     },
                     "description": "RevokeSecret revokes access to a user secret."
+                },
+                "UpdateSecrets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/UpdateUserSecretArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "UpdateSecrets creates new secrets."
                 }
             },
             "definitions": {
@@ -35636,6 +35660,39 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/CreateSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
+                "DeleteSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri"
+                    ]
+                },
+                "DeleteSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/DeleteSecretArg"
                             }
                         }
                     },
@@ -35927,6 +35984,65 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "UpdateUserSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "UpsertSecretArg": {
+                            "$ref": "#/definitions/UpsertSecretArg"
+                        },
+                        "auto-prune": {
+                            "type": "boolean"
+                        },
+                        "content": {
+                            "$ref": "#/definitions/SecretContentParams"
+                        },
+                        "description": {
+                            "type": "string"
+                        },
+                        "expire-time": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "label": {
+                            "type": "string"
+                        },
+                        "params": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "rotate-policy": {
+                            "type": "string"
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "UpsertSecretArg",
+                        "uri"
+                    ]
+                },
+                "UpdateUserSecretArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UpdateUserSecretArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 },
                 "UpsertSecretArg": {

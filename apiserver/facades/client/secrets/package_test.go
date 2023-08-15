@@ -6,6 +6,7 @@ package secrets
 import (
 	"testing"
 
+	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -15,7 +16,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsstate.go github.com/juju/juju/apiserver/facades/client/secrets SecretsState,SecretsConsumer
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsbackend.go github.com/juju/juju/secrets/provider SecretsBackend
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsbackend.go github.com/juju/juju/secrets/provider SecretsBackend,SecretBackendProvider
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
@@ -25,13 +26,14 @@ func NewTestAPI(
 	secretsConsumer SecretsConsumer,
 	backendConfigGetter func() (*provider.ModelBackendConfigInfo, error),
 	backendGetter func(*provider.ModelBackendConfig) (provider.SecretsBackend, error),
-	authorizer facade.Authorizer,
+	authorizer facade.Authorizer, authTag names.Tag,
 ) (*SecretsAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &SecretsAPI{
+		authTag:             authTag,
 		authorizer:          authorizer,
 		controllerUUID:      coretesting.ControllerTag.Id(),
 		modelUUID:           coretesting.ModelTag.Id(),

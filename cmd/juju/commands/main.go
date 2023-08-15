@@ -579,6 +579,8 @@ func registerCommands(r commandRegistry) {
 	r.Register(secrets.NewListSecretsCommand())
 	r.Register(secrets.NewShowSecretsCommand())
 	r.Register(secrets.NewAddSecretCommand())
+	r.Register(secrets.NewUpdateSecretCommand())
+	r.Register(secrets.NewRemoveSecretCommand())
 	r.Register(secrets.NewGrantSecretCommand())
 	r.Register(secrets.NewRevokeSecretCommand())
 

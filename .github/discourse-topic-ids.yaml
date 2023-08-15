@@ -122,6 +122,7 @@ remove-machine: 10163
 remove-offer: 10235
 remove-relation: 10110
 remove-saas: 10087
+remove-secret: 11414
 remove-secret-backend: 10194
 remove-space: 10084
 remove-ssh-key: 10119
@@ -187,6 +188,7 @@ update-credential: 10065
 update-credentials: 10231
 update-k8s: 10155
 update-public-clouds: 10115
+update-secret: 11413
 update-secret-backend: 10176
 update-storage-pool: 10217
 upgrade-controller: 10058

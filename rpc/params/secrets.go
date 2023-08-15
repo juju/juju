@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/secrets"
@@ -109,6 +110,30 @@ type UpdateSecretArg struct {
 
 	// URI identifies the secret to update.
 	URI string `json:"uri"`
+}
+
+// UpdateUserSecretArgs holds args for updating user secrets.
+type UpdateUserSecretArgs struct {
+	Args []UpdateUserSecretArg `json:"args"`
+}
+
+// UpdateUserSecretArg holds the args for updating a user secret.
+type UpdateUserSecretArg struct {
+	UpsertSecretArg
+
+	// URI identifies the secret to update.
+	URI string `json:"uri"`
+
+	// AutoPrune indicates whether the staled secret revisions should be pruned automatically.
+	AutoPrune *bool `json:"auto-prune,omitempty"`
+}
+
+// Validate validates the UpdateUserSecretArg.
+func (arg UpdateUserSecretArg) Validate() error {
+	if arg.AutoPrune == nil && arg.Description == nil && arg.Label == nil && len(arg.Content.Data) == 0 {
+		return errors.New("at least one attribute to update must be specified")
+	}
+	return nil
 }
 
 // DeleteSecretArgs holds args for deleting secrets.

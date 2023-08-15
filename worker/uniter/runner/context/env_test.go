@@ -296,67 +296,6 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 	}
 }
 
-func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	state := api.NewMockUniterClient(ctrl)
-	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
-		Kind:     params.StorageKindBlock,
-		Location: "/dev/sdb",
-	}, nil).AnyTimes()
-	unit := api.NewMockUnit(ctrl)
-	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
-
-	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.OpenSUSE })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
-
-	// TERM is different for opensuseleap.
-	for _, testSeries := range []string{"opensuseleap", "opensuse"} {
-		s.PatchValue(&osseries.HostSeries, func() (string, error) { return testSeries, nil })
-		openSUSEVars := []string{
-			"LANG=C.UTF-8",
-			"PATH=path-to-tools:foo:bar",
-		}
-
-		if testSeries == "opensuseleap" {
-			openSUSEVars = append(openSUSEVars, "TERM=screen-256color")
-		} else {
-			openSUSEVars = append(openSUSEVars, "TERM=tmux-256color")
-		}
-
-		environmenter := context.NewRemoteEnvironmenter(
-			func() []string { return []string{} },
-			func(k string) string {
-				switch k {
-				case "PATH":
-					return "foo:bar"
-				}
-				return ""
-			},
-			func(k string) (string, bool) {
-				switch k {
-				case "PATH":
-					return "foo:bar", true
-				}
-				return "", false
-			},
-		)
-
-		ctx, contextVars := s.getContext(false, state, unit)
-		paths, pathsVars := s.getPaths()
-		actualVars, err := ctx.HookVars(paths, false, environmenter)
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars)
-
-		relationVars := s.setRelation(ctx)
-		secretVars := s.setSecret(ctx)
-		actualVars, err = ctx.HookVars(paths, false, environmenter)
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars, relationVars, secretVars)
-	}
-}
-
 func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

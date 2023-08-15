@@ -9,6 +9,7 @@ import (
 
 	secrets "github.com/juju/juju/core/secrets"
 	state "github.com/juju/juju/state"
+	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -48,6 +49,41 @@ func (m *MockSecretsState) CreateSecret(arg0 *secrets.URI, arg1 state.CreateSecr
 func (mr *MockSecretsStateMockRecorder) CreateSecret(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSecret", reflect.TypeOf((*MockSecretsState)(nil).CreateSecret), arg0, arg1)
+}
+
+// DeleteSecret mocks base method.
+func (m *MockSecretsState) DeleteSecret(arg0 *secrets.URI, arg1 ...int) ([]secrets.ValueRef, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DeleteSecret", varargs...)
+	ret0, _ := ret[0].([]secrets.ValueRef)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteSecret indicates an expected call of DeleteSecret.
+func (mr *MockSecretsStateMockRecorder) DeleteSecret(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSecret", reflect.TypeOf((*MockSecretsState)(nil).DeleteSecret), varargs...)
+}
+
+// GetSecret mocks base method.
+func (m *MockSecretsState) GetSecret(arg0 *secrets.URI) (*secrets.SecretMetadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSecret", arg0)
+	ret0, _ := ret[0].(*secrets.SecretMetadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecret indicates an expected call of GetSecret.
+func (mr *MockSecretsStateMockRecorder) GetSecret(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecret", reflect.TypeOf((*MockSecretsState)(nil).GetSecret), arg0)
 }
 
 // GetSecretRevision mocks base method.
@@ -111,6 +147,21 @@ func (mr *MockSecretsStateMockRecorder) ListSecrets(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockSecretsState)(nil).ListSecrets), arg0)
 }
 
+// UpdateSecret mocks base method.
+func (m *MockSecretsState) UpdateSecret(arg0 *secrets.URI, arg1 state.UpdateSecretParams) (*secrets.SecretMetadata, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateSecret", arg0, arg1)
+	ret0, _ := ret[0].(*secrets.SecretMetadata)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateSecret indicates an expected call of UpdateSecret.
+func (mr *MockSecretsStateMockRecorder) UpdateSecret(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecret", reflect.TypeOf((*MockSecretsState)(nil).UpdateSecret), arg0, arg1)
+}
+
 // MockSecretsConsumer is a mock of SecretsConsumer interface.
 type MockSecretsConsumer struct {
 	ctrl     *gomock.Controller
@@ -160,4 +211,19 @@ func (m *MockSecretsConsumer) RevokeSecretAccess(arg0 *secrets.URI, arg1 state.S
 func (mr *MockSecretsConsumerMockRecorder) RevokeSecretAccess(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecretAccess", reflect.TypeOf((*MockSecretsConsumer)(nil).RevokeSecretAccess), arg0, arg1)
+}
+
+// SecretAccess mocks base method.
+func (m *MockSecretsConsumer) SecretAccess(arg0 *secrets.URI, arg1 names.Tag) (secrets.SecretRole, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SecretAccess", arg0, arg1)
+	ret0, _ := ret[0].(secrets.SecretRole)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SecretAccess indicates an expected call of SecretAccess.
+func (mr *MockSecretsConsumerMockRecorder) SecretAccess(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretAccess", reflect.TypeOf((*MockSecretsConsumer)(nil).SecretAccess), arg0, arg1)
 }
