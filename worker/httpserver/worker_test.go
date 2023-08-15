@@ -83,17 +83,17 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		expect string
 	}
 	tests := []test{{
-		func(cfg *httpserver.Config) { cfg.AgentName = "" },
-		"empty AgentName not valid",
+		f:      func(cfg *httpserver.Config) { cfg.AgentName = "" },
+		expect: "empty AgentName not valid",
 	}, {
-		func(cfg *httpserver.Config) { cfg.TLSConfig = nil },
-		"nil TLSConfig not valid",
+		f:      func(cfg *httpserver.Config) { cfg.TLSConfig = nil },
+		expect: "nil TLSConfig not valid",
 	}, {
-		func(cfg *httpserver.Config) { cfg.Mux = nil },
-		"nil Mux not valid",
+		f:      func(cfg *httpserver.Config) { cfg.Mux = nil },
+		expect: "nil Mux not valid",
 	}, {
-		func(cfg *httpserver.Config) { cfg.PrometheusRegisterer = nil },
-		"nil PrometheusRegisterer not valid",
+		f:      func(cfg *httpserver.Config) { cfg.PrometheusRegisterer = nil },
+		expect: "nil PrometheusRegisterer not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

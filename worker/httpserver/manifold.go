@@ -4,6 +4,7 @@
 package httpserver
 
 import (
+	stdcontext "context"
 	"crypto/tls"
 	"time"
 
@@ -20,8 +21,8 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/pki"
 	pkitls "github.com/juju/juju/pki/tls"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -36,10 +37,11 @@ type Logger interface {
 // ManifoldConfig holds the information necessary to run an HTTP server
 // in a dependency.Engine.
 type ManifoldConfig struct {
-	AuthorityName string
-	HubName       string
-	MuxName       string
-	StateName     string
+	AuthorityName      string
+	HubName            string
+	MuxName            string
+	StateName          string
+	ServiceFactoryName string
 
 	// We don't use these in the worker, but we want to prevent the
 	// httpserver from starting until they're running so that all of
@@ -54,7 +56,7 @@ type ManifoldConfig struct {
 
 	Logger Logger
 
-	GetControllerConfig func(*state.State) (controller.Config, error)
+	GetControllerConfig func(stdcontext.Context, ControllerConfigGetter) (controller.Config, error)
 	NewTLSConfig        func(string, string, autocert.Cache, SNIGetterFunc, Logger) *tls.Config
 	NewWorker           func(Config) (worker.Worker, error)
 }
@@ -69,6 +71,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
+	}
+	if config.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
@@ -115,6 +120,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuthorityName,
 			config.HubName,
 			config.StateName,
+			config.ServiceFactoryName,
 			config.MuxName,
 			config.APIServerName,
 		},
@@ -123,7 +129,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // start is a method on ManifoldConfig because it's more readable than a closure.
-func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker, err error) {
+func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -149,22 +155,27 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		return nil, errors.Trace(err)
 	}
 
+	var controllerServiceFactory servicefactory.ControllerServiceFactory
+	if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var stTracker workerstate.StateTracker
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
 	_, systemState, err := stTracker.Use()
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
-	defer func() {
-		if err != nil {
-			_ = stTracker.Done()
-		}
-	}()
 
-	controllerConfig, err := config.GetControllerConfig(systemState)
+	ctx, cancel := stdcontext.WithCancel(stdcontext.Background())
+	defer cancel()
+
+	controllerConfig, err := config.GetControllerConfig(ctx, controllerServiceFactory.ControllerConfig())
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
 	tlsConfig := config.NewTLSConfig(
@@ -172,7 +183,8 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		controllerConfig.AutocertURL(),
 		systemState.AutocertCache(),
 		pkitls.AuthoritySNITLSGetter(authority, config.Logger),
-		config.Logger)
+		config.Logger,
+	)
 
 	w, err := config.NewWorker(Config{
 		AgentName:            config.AgentName,
@@ -189,6 +201,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		ControllerAPIPort:    controllerConfig.ControllerAPIPort(),
 	})
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil

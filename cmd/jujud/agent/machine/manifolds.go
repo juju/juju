@@ -557,6 +557,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuthorityName:        certificateWatcherName,
 			HubName:              centralHubName,
 			StateName:            stateName,
+			ServiceFactoryName:   serviceFactoryName,
 			MuxName:              httpServerArgsName,
 			APIServerName:        apiServerName,
 			PrometheusRegisterer: config.PrometheusRegisterer,
