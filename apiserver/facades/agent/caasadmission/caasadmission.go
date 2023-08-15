@@ -5,10 +5,8 @@ package caasadmission
 
 import (
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
 )
 
 type Facade struct {
-	auth facade.Authorizer
 	*common.ControllerConfigAPI
 }

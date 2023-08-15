@@ -49,7 +49,5 @@ func newStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 			ctx.State(),
 			ctx.ServiceFactory().ExternalController(),
 		),
-		auth:      authorizer,
-		resources: resources,
 	}, nil
 }
