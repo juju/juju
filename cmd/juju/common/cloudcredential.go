@@ -120,6 +120,7 @@ func GetOrDetectCredential(
 	credential, err = provider.FinalizeCredential(
 		ctx, environs.FinalizeCredentialParams{
 			Credential:            *credential,
+			CloudName:             args.Cloud.Name,
 			CloudEndpoint:         region.Endpoint,
 			CloudStorageEndpoint:  region.StorageEndpoint,
 			CloudIdentityEndpoint: region.IdentityEndpoint,

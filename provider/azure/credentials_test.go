@@ -5,7 +5,6 @@ package azure_test
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -78,15 +77,6 @@ func (s *credentialsSuite) TestDetectCredentialsListError(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-const (
-	expectedToken        = "tenant-id|https://graph.invalid/|access-token"
-	expectedToken2       = "tenant-id2|https://graph.invalid/|access-token"
-	expectedHomeToken    = "home-tenant-id|https://graph.invalid/|access-token"
-	expectedArmToken     = "tenant-id|https://arm.invalid/|access-token"
-	expectedArmToken2    = "tenant-id2|https://arm.invalid/|access-token"
-	expectedHomeArmToken = "home-tenant-id|https://arm.invalid/|access-token"
-)
-
 func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *gc.C) {
 	s.azureCLI.Accounts = []azurecli.Account{{
 		CloudName:    "AzureCloud",
@@ -98,10 +88,6 @@ func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *gc.C) {
 		HomeTenantId: "home-tenant-id",
 	}}
 	s.azureCLI.Clouds = []azurecli.Cloud{{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectoryGraphResourceID: "https://graph.invalid/",
-			ResourceManager:                "https://arm.invalid/",
-		},
 		IsActive: true,
 		Name:     "AzureCloud",
 	}}
@@ -114,30 +100,19 @@ func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *gc.C) {
 	c.Assert(cred.AuthCredentials["test-account"].Label, gc.Equals, "AzureCloud subscription test-account")
 
 	calls := s.azureCLI.Calls()
-	c.Assert(calls, gc.HasLen, 4)
+	c.Assert(calls, gc.HasLen, 2)
 	c.Assert(calls[0].FuncName, gc.Equals, "ListAccounts")
 	c.Assert(calls[1].FuncName, gc.Equals, "ListClouds")
-	c.Assert(calls[2].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{"home-tenant-id", "https://graph.invalid/"})
-	c.Assert(calls[3].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[3].Args, jc.DeepEquals, []interface{}{"home-tenant-id", "https://arm.invalid/"})
 
 	calls = s.servicePrincipalCreator.Calls()
 	c.Assert(calls, gc.HasLen, 1)
 	c.Assert(calls[0].FuncName, gc.Equals, "Create")
 	params, ok := calls[0].Args[1].(azureauth.ServicePrincipalParams)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(params.GraphTokenProvider.OAuthToken(), gc.Equals, expectedHomeToken)
-	c.Assert(params.ResourceManagerTokenProvider.OAuthToken(), gc.Equals, expectedHomeArmToken)
-	params.GraphTokenProvider = nil
-	params.ResourceManagerTokenProvider = nil
+	params.Credential = nil
 	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
-		GraphEndpoint:             "https://graph.invalid/",
-		GraphResourceId:           "https://graph.invalid/",
-		ResourceManagerEndpoint:   "https://arm.invalid/",
-		ResourceManagerResourceId: "https://arm.invalid/",
-		SubscriptionId:            "test-account-id",
-		TenantId:                  "tenant-id",
+		SubscriptionId: "test-account-id",
+		TenantId:       "tenant-id",
 	})
 }
 
@@ -151,10 +126,6 @@ func (s *credentialsSuite) TestDetectCredentialsCloudError(c *gc.C) {
 		TenantId:  "tenant-id",
 	}}
 	s.azureCLI.Clouds = []azurecli.Cloud{{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectoryGraphResourceID: "https://graph.invalid",
-			ResourceManager:                "https://arm.invalid",
-		},
 		IsActive: true,
 		Name:     "AzureCloud",
 	}}
@@ -189,10 +160,6 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *gc.C) {
 		TenantId:  "tenant-id2",
 	}}
 	s.azureCLI.Clouds = []azurecli.Cloud{{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectoryGraphResourceID: "https://graph.invalid/",
-			ResourceManager:                "https://arm.invalid/",
-		},
 		IsActive: true,
 		Name:     "AzureCloud",
 	}}
@@ -206,49 +173,27 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccounts(c *gc.C) {
 	c.Assert(cred.AuthCredentials["test-account2"].Label, gc.Equals, "AzureCloud subscription test-account2")
 
 	calls := s.azureCLI.Calls()
-	c.Assert(calls, gc.HasLen, 6)
+	c.Assert(calls, gc.HasLen, 2)
 	c.Assert(calls[0].FuncName, gc.Equals, "ListAccounts")
 	c.Assert(calls[1].FuncName, gc.Equals, "ListClouds")
-	c.Assert(calls[2].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{"tenant-id", "https://graph.invalid/"})
-	c.Assert(calls[3].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[3].Args, jc.DeepEquals, []interface{}{"tenant-id", "https://arm.invalid/"})
-	c.Assert(calls[4].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[4].Args, jc.DeepEquals, []interface{}{"tenant-id2", "https://graph.invalid/"})
-	c.Assert(calls[5].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[5].Args, jc.DeepEquals, []interface{}{"tenant-id2", "https://arm.invalid/"})
 
 	calls = s.servicePrincipalCreator.Calls()
 	c.Assert(calls, gc.HasLen, 2)
 	c.Assert(calls[0].FuncName, gc.Equals, "Create")
 	params, ok := calls[0].Args[1].(azureauth.ServicePrincipalParams)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(params.GraphTokenProvider.OAuthToken(), gc.Equals, expectedToken)
-	c.Assert(params.ResourceManagerTokenProvider.OAuthToken(), gc.Equals, expectedArmToken)
-	params.GraphTokenProvider = nil
-	params.ResourceManagerTokenProvider = nil
+	params.Credential = nil
 	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
-		GraphEndpoint:             "https://graph.invalid/",
-		GraphResourceId:           "https://graph.invalid/",
-		ResourceManagerEndpoint:   "https://arm.invalid/",
-		ResourceManagerResourceId: "https://arm.invalid/",
-		SubscriptionId:            "test-account1-id",
-		TenantId:                  "tenant-id",
+		SubscriptionId: "test-account1-id",
+		TenantId:       "tenant-id",
 	})
 	c.Assert(calls[1].FuncName, gc.Equals, "Create")
 	params, ok = calls[1].Args[1].(azureauth.ServicePrincipalParams)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(params.GraphTokenProvider.OAuthToken(), gc.Equals, expectedToken2)
-	c.Assert(params.ResourceManagerTokenProvider.OAuthToken(), gc.Equals, expectedArmToken2)
-	params.GraphTokenProvider = nil
-	params.ResourceManagerTokenProvider = nil
+	params.Credential = nil
 	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
-		GraphEndpoint:             "https://graph.invalid/",
-		GraphResourceId:           "https://graph.invalid/",
-		ResourceManagerEndpoint:   "https://arm.invalid/",
-		ResourceManagerResourceId: "https://arm.invalid/",
-		SubscriptionId:            "test-account2-id",
-		TenantId:                  "tenant-id2",
+		SubscriptionId: "test-account2-id",
+		TenantId:       "tenant-id2",
 	})
 }
 
@@ -269,14 +214,10 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccountsOneError(c *gc.C) {
 		TenantId:  "tenant-id2",
 	}}
 	s.azureCLI.Clouds = []azurecli.Cloud{{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectoryGraphResourceID: "https://graph.invalid/",
-			ResourceManager:                "https://arm.invalid/",
-		},
 		IsActive: true,
 		Name:     "AzureCloud",
 	}}
-	s.azureCLI.SetErrors(nil, nil, nil, nil, errors.New("test error"))
+	s.servicePrincipalCreator.SetErrors(nil, errors.New("test error"))
 	cred, err := s.provider.DetectCredentials("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cred, gc.Not(gc.IsNil))
@@ -286,32 +227,27 @@ func (s *credentialsSuite) TestDetectCredentialsTwoAccountsOneError(c *gc.C) {
 	c.Assert(cred.AuthCredentials["test-account1"].Label, gc.Equals, "AzureCloud subscription test-account1")
 
 	calls := s.azureCLI.Calls()
-	c.Assert(calls, gc.HasLen, 5)
+	c.Assert(calls, gc.HasLen, 2)
 	c.Assert(calls[0].FuncName, gc.Equals, "ListAccounts")
 	c.Assert(calls[1].FuncName, gc.Equals, "ListClouds")
-	c.Assert(calls[2].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{"tenant-id", "https://graph.invalid/"})
-	c.Assert(calls[3].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[3].Args, jc.DeepEquals, []interface{}{"tenant-id", "https://arm.invalid/"})
-	c.Assert(calls[4].FuncName, gc.Equals, "GetAccessToken")
-	c.Assert(calls[4].Args, jc.DeepEquals, []interface{}{"tenant-id2", "https://graph.invalid/"})
 
 	calls = s.servicePrincipalCreator.Calls()
-	c.Assert(calls, gc.HasLen, 1)
+	c.Assert(calls, gc.HasLen, 2)
 	c.Assert(calls[0].FuncName, gc.Equals, "Create")
 	params, ok := calls[0].Args[1].(azureauth.ServicePrincipalParams)
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(params.GraphTokenProvider.OAuthToken(), gc.Equals, expectedToken)
-	c.Assert(params.ResourceManagerTokenProvider.OAuthToken(), gc.Equals, expectedArmToken)
-	params.GraphTokenProvider = nil
-	params.ResourceManagerTokenProvider = nil
+	params.Credential = nil
 	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
-		GraphEndpoint:             "https://graph.invalid/",
-		GraphResourceId:           "https://graph.invalid/",
-		ResourceManagerEndpoint:   "https://arm.invalid/",
-		ResourceManagerResourceId: "https://arm.invalid/",
-		SubscriptionId:            "test-account1-id",
-		TenantId:                  "tenant-id",
+		SubscriptionId: "test-account1-id",
+		TenantId:       "tenant-id",
+	})
+	c.Assert(calls[1].FuncName, gc.Equals, "Create")
+	params, ok = calls[1].Args[1].(azureauth.ServicePrincipalParams)
+	c.Assert(ok, jc.IsTrue)
+	params.Credential = nil
+	c.Assert(params, jc.DeepEquals, azureauth.ServicePrincipalParams{
+		SubscriptionId: "test-account2-id",
+		TenantId:       "tenant-id2",
 	})
 }
 
@@ -338,12 +274,8 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *gc.C) {
 	s.servicePrincipalCreator.CheckCallNames(c, "InteractiveCreate")
 	args := s.servicePrincipalCreator.Calls()[0].Args
 	c.Assert(args[2], jc.DeepEquals, azureauth.ServicePrincipalParams{
-		GraphEndpoint:             "https://graph.invalid",
-		GraphResourceId:           "https://graph.invalid/",
-		ResourceManagerEndpoint:   "https://arm.invalid",
-		ResourceManagerResourceId: "https://management.core.invalid/",
-		SubscriptionId:            fakeSubscriptionId,
-		TenantId:                  fakeTenantId,
+		SubscriptionId: fakeSubscriptionId,
+		TenantId:       fakeTenantId,
 	})
 }
 
@@ -377,19 +309,14 @@ func (s *credentialsSuite) TestFinalizeCredentialAzureCLI(c *gc.C) {
 		TenantId:  "tenant-id",
 	}}
 	s.azureCLI.Clouds = []azurecli.Cloud{{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectoryGraphResourceID: "https://graph.invalid/",
-			ResourceManager:                "https://arm.invalid/",
-		},
 		IsActive: true,
 		Name:     "AzureCloud",
 	}}
 	in := cloud.NewCredential("interactive", nil)
 	ctx := cmdtesting.Context(c)
 	cred, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
-		Credential:            in,
-		CloudEndpoint:         "https://arm.invalid",
-		CloudIdentityEndpoint: "https://graph.invalid",
+		Credential: in,
+		CloudName:  "azure",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cred, gc.Not(gc.IsNil))
@@ -418,20 +345,15 @@ func (s *credentialsSuite) TestFinalizeCredentialAzureCLIShowAccountError(c *gc.
 		TenantId:  "tenant-id",
 	}}
 	s.azureCLI.Clouds = []azurecli.Cloud{{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectoryGraphResourceID: "https://graph.invalid/",
-			ResourceManager:                "https://arm.invalid/",
-		},
 		IsActive: true,
 		Name:     "AzureCloud",
 	}}
-	s.azureCLI.SetErrors(nil, errors.New("test error"))
+	s.azureCLI.SetErrors(errors.New("test error"))
 	in := cloud.NewCredential("interactive", nil)
 	ctx := cmdtesting.Context(c)
 	cred, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
-		Credential:            in,
-		CloudEndpoint:         "https://arm.invalid",
-		CloudIdentityEndpoint: "https://graph.invalid",
+		Credential: in,
+		CloudName:  "azure",
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot get accounts: test error`)
 	c.Assert(cred, gc.IsNil)
@@ -454,58 +376,17 @@ func (s *credentialsSuite) TestFinalizeCredentialAzureCLIGraphTokenError(c *gc.C
 		TenantId:  "tenant-id",
 	}}
 	s.azureCLI.Clouds = []azurecli.Cloud{{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectoryGraphResourceID: "https://graph.invalid/",
-			ResourceManager:                "https://arm.invalid/",
-		},
 		IsActive: true,
 		Name:     "AzureCloud",
 	}}
-	s.azureCLI.SetErrors(nil, nil, nil, errors.New("test error"))
+	s.servicePrincipalCreator.SetErrors(errors.New("test error"))
 	in := cloud.NewCredential("interactive", nil)
 	ctx := cmdtesting.Context(c)
 	cred, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
-		Credential:            in,
-		CloudEndpoint:         "https://arm.invalid",
-		CloudIdentityEndpoint: "https://graph.invalid",
+		Credential: in,
+		CloudName:  "azure",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot get access token for test-account1-id: test error`)
-	c.Assert(cred, gc.IsNil)
-}
-
-func (s *credentialsSuite) TestFinalizeCredentialAzureCLIResourceManagerTokenError(c *gc.C) {
-	s.azureCLI.Accounts = []azurecli.Account{{
-		CloudName: "AzureCloud",
-		ID:        "test-account1-id",
-		IsDefault: true,
-		Name:      "test-account1",
-		State:     "Enabled",
-		TenantId:  "tenant-id",
-	}, {
-		CloudName: "AzureCloud",
-		ID:        "test-account2-id",
-		IsDefault: false,
-		Name:      "test-account2",
-		State:     "Enabled",
-		TenantId:  "tenant-id",
-	}}
-	s.azureCLI.Clouds = []azurecli.Cloud{{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectoryGraphResourceID: "https://graph.invalid/",
-			ResourceManager:                "https://arm.invalid/",
-		},
-		IsActive: true,
-		Name:     "AzureCloud",
-	}}
-	s.azureCLI.SetErrors(nil, nil, nil, errors.New("test error"))
-	in := cloud.NewCredential("interactive", nil)
-	ctx := cmdtesting.Context(c)
-	cred, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
-		Credential:            in,
-		CloudEndpoint:         "https://arm.invalid",
-		CloudIdentityEndpoint: "https://graph.invalid",
-	})
-	c.Assert(err, gc.ErrorMatches, `cannot get access token for test-account1-id: test error`)
+	c.Assert(err, gc.ErrorMatches, `cannot create service principal: test error`)
 	c.Assert(cred, gc.IsNil)
 }
 
@@ -526,10 +407,6 @@ func (s *credentialsSuite) TestFinalizeCredentialAzureCLIServicePrincipalError(c
 		TenantId:  "tenant-id",
 	}}
 	s.azureCLI.Clouds = []azurecli.Cloud{{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectoryGraphResourceID: "https://graph.invalid/",
-			ResourceManager:                "https://arm.invalid/",
-		},
 		IsActive: true,
 		Name:     "AzureCloud",
 	}}
@@ -537,55 +414,11 @@ func (s *credentialsSuite) TestFinalizeCredentialAzureCLIServicePrincipalError(c
 	in := cloud.NewCredential("interactive", nil)
 	ctx := cmdtesting.Context(c)
 	cred, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
-		Credential:            in,
-		CloudEndpoint:         "https://arm.invalid",
-		CloudIdentityEndpoint: "https://graph.invalid",
+		Credential: in,
+		CloudName:  "azure",
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot get service principal: test error`)
+	c.Assert(err, gc.ErrorMatches, `cannot create service principal: test error`)
 	c.Assert(cred, gc.IsNil)
-}
-
-func (s *credentialsSuite) TestFinalizeCredentialAzureCLIDeviceFallback(c *gc.C) {
-	s.azureCLI.Accounts = []azurecli.Account{{
-		CloudName: "AzureCloud",
-		ID:        "test-account1-id",
-		IsDefault: true,
-		Name:      "test-account1",
-		State:     "Enabled",
-		TenantId:  "tenant-id",
-	}, {
-		CloudName: "AzureCloud",
-		ID:        "test-account2-id",
-		IsDefault: false,
-		Name:      "test-account2",
-		State:     "Enabled",
-		TenantId:  "tenant-id",
-	}}
-	s.azureCLI.Clouds = []azurecli.Cloud{{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectoryGraphResourceID: "https://graph.invalid/",
-			ResourceManager:                "https://arm.invalid/",
-		},
-		IsActive: true,
-		Name:     "AzureCloud",
-	}}
-	s.azureCLI.SetErrors(nil, nil, errors.New("test error"))
-	in := cloud.NewCredential("interactive", nil)
-	ctx := cmdtesting.Context(c)
-	cred, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
-		Credential:            in,
-		CloudEndpoint:         "https://arm.invalid",
-		CloudIdentityEndpoint: "https://graph.invalid",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cred, gc.Not(gc.IsNil))
-	c.Assert(cred.AuthType(), gc.Equals, cloud.AuthType("service-principal-secret"))
-	attrs := cred.Attributes()
-	c.Assert(attrs["subscription-id"], gc.Equals, "test-account1-id")
-	c.Assert(attrs["application-id"], gc.Equals, "appid")
-	c.Assert(attrs["application-password"], gc.Equals, "service-principal-password")
-	c.Assert(attrs["application-object-id"], gc.Equals, "application-object-id")
-	s.servicePrincipalCreator.CheckCallNames(c, "InteractiveCreate")
 }
 
 type servicePrincipalCreator struct {
@@ -650,22 +483,6 @@ func (e *azureCLI) findAccount(tenant string) (*azurecli.Account, error) {
 	return nil, errors.New("account not found")
 }
 
-func (e *azureCLI) GetAccessToken(tenant, resource string) (*azurecli.AccessToken, error) {
-	e.MethodCall(e, "GetAccessToken", tenant, resource)
-	if err := e.NextErr(); err != nil {
-		return nil, err
-	}
-	acc, err := e.findAccount(tenant)
-	if err != nil {
-		return nil, err
-	}
-	return &azurecli.AccessToken{
-		AccessToken: fmt.Sprintf("%s|%s|access-token", tenant, resource),
-		Tenant:      acc.TenantId,
-		TokenType:   "Bearer",
-	}, nil
-}
-
 func (e *azureCLI) ShowCloud(name string) (*azurecli.Cloud, error) {
 	e.MethodCall(e, "ShowCloud", name)
 	if err := e.NextErr(); err != nil {
@@ -674,19 +491,6 @@ func (e *azureCLI) ShowCloud(name string) (*azurecli.Cloud, error) {
 	for _, cloud := range e.Clouds {
 		if cloud.Name == name || name == "" {
 			return &cloud, nil
-		}
-	}
-	return nil, errors.New("cloud not found")
-}
-
-func (e *azureCLI) FindCloudsWithResourceManagerEndpoint(url string) ([]azurecli.Cloud, error) {
-	e.MethodCall(e, "FindCloudsWithResourceManagerEndpoint", url)
-	if err := e.NextErr(); err != nil {
-		return nil, err
-	}
-	for _, cloud := range e.Clouds {
-		if cloud.Endpoints.ResourceManager == url {
-			return []azurecli.Cloud{cloud}, nil
 		}
 	}
 	return nil, errors.New("cloud not found")

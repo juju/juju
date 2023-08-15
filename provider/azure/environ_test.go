@@ -22,7 +22,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
@@ -322,19 +321,18 @@ func fakeCloudSpec() environscloudspec.CloudSpec {
 }
 
 func discoverAuthSender() *azuretesting.MockSender {
-	sender := mocks.NewSender()
-	resp := mocks.NewResponseWithStatus("", http.StatusUnauthorized)
-	mocks.SetResponseHeaderValues(resp, "WWW-Authenticate", []string{
+	sender := &azuretesting.MockSender{
+		PathPattern: ".*/subscriptions/(" + fakeSubscriptionId + "|" + fakeManagedSubscriptionId + ")",
+	}
+	resp := azuretesting.NewResponseWithStatus("", http.StatusUnauthorized)
+	azuretesting.SetResponseHeaderValues(resp, "WWW-Authenticate", []string{
 		fmt.Sprintf(
 			`authorization_uri="https://testing.invalid/%s"`,
 			fakeTenantId,
 		),
 	})
 	sender.AppendResponse(resp)
-	return &azuretesting.MockSender{
-		Sender:      sender,
-		PathPattern: ".*/subscriptions/(" + fakeSubscriptionId + "|" + fakeManagedSubscriptionId + ")",
-	}
+	return sender
 }
 
 func (s *environSuite) initResourceGroupSenders(resourceGroupName string) azuretesting.Senders {
@@ -347,6 +345,7 @@ type startInstanceSenderParams struct {
 	subnets                 []*armnetwork.Subnet
 	diskEncryptionSetName   string
 	vaultName               string
+	vaultKeyName            string
 	existingNetwork         string
 	withQuotaRetry          bool
 	withConflictRetry       bool
@@ -381,9 +380,9 @@ func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azur
 				},
 			}))
 			vaultName := args.vaultName + "-deadbeef"
-			deletedVaultSender := azuretesting.MockSender{Sender: mocks.NewSender()}
+			deletedVaultSender := azuretesting.MockSender{}
 			deletedVaultSender.PathPattern = ".*/locations/westus/deletedVaults/" + vaultName
-			deletedVaultSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
+			deletedVaultSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus(
 				"vault not found", http.StatusNotFound,
 			), 1)
 			senders = append(senders, &deletedVaultSender)
@@ -394,12 +393,9 @@ func (s *environSuite) startInstanceSenders(args startInstanceSenderParams) azur
 					VaultURI: to.Ptr("https://vault-uri"),
 				},
 			}))
-			// Need to make 2 sends as the SDK sends a second time after token auth.
-			for i := 0; i < 2; i++ {
-				senders = append(senders, makeSender("keys/my-vault-deadbeef/create", &keyBundle{
-					Key: &jsonWebKey{Kid: to.Ptr("https://key-url")},
-				}))
-			}
+			senders = append(senders, makeSender(fmt.Sprintf("keys/%s/create", args.vaultKeyName), &keyBundle{
+				Key: &jsonWebKey{Kid: to.Ptr("https://key-url")},
+			}))
 		}
 	}
 
@@ -462,9 +458,9 @@ func (s *environSuite) resourceSKUsSender() *azuretesting.MockSender {
 }
 
 func makeResourceGroupNotFoundSender(pattern string) *azuretesting.MockSender {
-	sender := azuretesting.MockSender{Sender: mocks.NewSender()}
+	sender := azuretesting.MockSender{}
 	sender.PathPattern = pattern
-	sender.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
+	sender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus(
 		"resource group not found", http.StatusNotFound,
 	), 1)
 	return &sender
@@ -477,9 +473,9 @@ func makeSender(pattern string, v interface{}) *azuretesting.MockSender {
 }
 
 func makeSenderWithStatus(pattern string, statusCode int) *azuretesting.MockSender {
-	sender := azuretesting.MockSender{Sender: mocks.NewSender()}
+	sender := azuretesting.MockSender{}
 	sender.PathPattern = pattern
-	sender.AppendResponse(mocks.NewResponseWithStatus("", statusCode))
+	sender.AppendResponse(azuretesting.NewResponseWithStatus("", statusCode))
 	return &sender
 }
 
@@ -502,7 +498,7 @@ func newAzureResponseError(code int, status string) error {
 }
 
 func (s *environSuite) makeErrorSender(pattern string, err error, repeat int) *azuretesting.MockSender {
-	sender := &azuretesting.MockSender{Sender: mocks.NewSender()}
+	sender := &azuretesting.MockSender{}
 	sender.PathPattern = pattern
 	sender.SetAndRepeatError(err, repeat)
 	return sender
@@ -618,6 +614,7 @@ func (s *environSuite) assertStartInstance(
 	}
 	diskEncryptionSetName := ""
 	vaultName := ""
+	vaultKeyName := ""
 	if len(rootDiskSourceParams) > 0 {
 		encrypted, _ := rootDiskSourceParams["encrypted"].(string)
 		if encrypted == "true" {
@@ -626,12 +623,14 @@ func (s *environSuite) assertStartInstance(
 			}
 			diskEncryptionSetName, _ = rootDiskSourceParams["disk-encryption-set-name"].(string)
 			vaultName, _ = rootDiskSourceParams["vault-name-prefix"].(string)
+			vaultKeyName, _ = rootDiskSourceParams["vault-key-name"].(string)
 		}
 	}
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{
 		bootstrap:             false,
 		diskEncryptionSetName: diskEncryptionSetName,
 		vaultName:             vaultName,
+		vaultKeyName:          vaultKeyName,
 		withQuotaRetry:        withQuotaRetry,
 		withConflictRetry:     withConflictRetry,
 	})
@@ -642,6 +641,7 @@ func (s *environSuite) assertStartInstance(
 			bootstrap:               false,
 			diskEncryptionSetName:   diskEncryptionSetName,
 			vaultName:               vaultName,
+			vaultKeyName:            vaultKeyName,
 			withQuotaRetry:          withQuotaRetry,
 			existingAvailabilitySet: true,
 		})...)
@@ -654,6 +654,7 @@ func (s *environSuite) assertStartInstance(
 			bootstrap:             false,
 			diskEncryptionSetName: diskEncryptionSetName,
 			vaultName:             vaultName,
+			vaultKeyName:          vaultKeyName,
 			existingCommon:        true,
 		})...)
 	}
@@ -734,8 +735,8 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 }
 
 func (s *environSuite) createSenderWithUnauthorisedStatusCode(c *gc.C) {
-	unauthSender := mocks.NewSender()
-	unauthSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
+	unauthSender := &azuretesting.MockSender{}
+	unauthSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
 	s.sender = azuretesting.Senders{unauthSender, unauthSender, unauthSender}
 }
 
@@ -1711,8 +1712,8 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 
 func (s *environSuite) TestAllRunningInstancesResourceGroupNotFound(c *gc.C) {
 	env := s.openEnviron(c)
-	sender := mocks.NewSender()
-	sender.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
+	sender := &azuretesting.MockSender{}
+	sender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus(
 		"resource group not found", http.StatusNotFound,
 	), 2)
 	s.sender = azuretesting.Senders{sender, sender}
@@ -1746,12 +1747,12 @@ func (s *environSuite) TestAllRunningInstancesIgnoresCommonDeployment(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesNotFound(c *gc.C) {
 	env := s.openEnviron(c)
-	sender0 := mocks.NewSender()
-	sender0.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
+	sender0 := &azuretesting.MockSender{}
+	sender0.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus(
 		"vm not found", http.StatusNotFound,
 	), 2)
-	sender1 := mocks.NewSender()
-	sender1.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
+	sender1 := &azuretesting.MockSender{}
+	sender1.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus(
 		"vm not found", http.StatusNotFound,
 	), 2)
 	s.sender = azuretesting.Senders{sender0, sender1}
@@ -1860,8 +1861,8 @@ func (s *environSuite) TestStopInstancesMultiple(c *gc.C) {
 func (s *environSuite) TestStopInstancesDeploymentNotFound(c *gc.C) {
 	env := s.openEnviron(c)
 
-	cancelSender := mocks.NewSender()
-	cancelSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus(
+	cancelSender := &azuretesting.MockSender{}
+	cancelSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus(
 		"deployment not found", http.StatusNotFound,
 	), 2)
 	s.sender = azuretesting.Senders{cancelSender}
