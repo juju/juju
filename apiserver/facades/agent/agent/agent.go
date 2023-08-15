@@ -7,6 +7,8 @@
 package agent
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -35,7 +37,7 @@ type AgentAPI struct {
 	resources facade.Resources
 }
 
-func (api *AgentAPI) GetEntities(args params.Entities) params.AgentGetEntitiesResults {
+func (api *AgentAPI) GetEntities(ctx context.Context, args params.Entities) params.AgentGetEntitiesResults {
 	results := params.AgentGetEntitiesResults{
 		Entities: make([]params.AgentGetEntitiesResult, len(args.Entities)),
 	}
@@ -77,7 +79,7 @@ func (api *AgentAPI) getEntity(tag names.Tag) (result params.AgentGetEntitiesRes
 	return
 }
 
-func (api *AgentAPI) StateServingInfo() (result params.StateServingInfo, err error) {
+func (api *AgentAPI) StateServingInfo(ctx context.Context) (result params.StateServingInfo, err error) {
 	if !api.auth.AuthController() {
 		err = apiservererrors.ErrPerm
 		return
@@ -111,7 +113,7 @@ func (api *AgentAPI) StateServingInfo() (result params.StateServingInfo, err err
 // be overridden by tests.
 var MongoIsMaster = mongo.IsMaster
 
-func (api *AgentAPI) IsMaster() (params.IsMasterResult, error) {
+func (api *AgentAPI) IsMaster(ctx context.Context) (params.IsMasterResult, error) {
 	if !api.auth.AuthController() {
 		return params.IsMasterResult{}, apiservererrors.ErrPerm
 	}
@@ -140,7 +142,7 @@ func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []model.MachineJob {
 }
 
 // WatchCredentials watches for changes to the specified credentials.
-func (api *AgentAPI) WatchCredentials(args params.Entities) (params.NotifyWatchResults, error) {
+func (api *AgentAPI) WatchCredentials(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	if !api.auth.AuthController() {
 		return params.NotifyWatchResults{}, apiservererrors.ErrPerm
 	}
