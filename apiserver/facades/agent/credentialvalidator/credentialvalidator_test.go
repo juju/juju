@@ -4,6 +4,8 @@
 package credentialvalidator_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -47,7 +49,7 @@ func (s *CredentialValidatorSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
-	result, err := s.api.ModelCredential()
+	result, err := s.api.ModelCredential(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ModelCredential{
 		Model:           names.NewModelTag(modelUUID).String(),
@@ -61,13 +63,13 @@ func (s *CredentialValidatorSuite) TestModelCredentialNotNeeded(c *gc.C) {
 	s.backend.mc.Exists = false
 	s.backend.mc.Credential = names.CloudCredentialTag{}
 	s.backend.mc.Valid = false
-	result, err := s.api.ModelCredential()
+	result, err := s.api.ModelCredential(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ModelCredential{Model: names.NewModelTag(modelUUID).String()})
 }
 
 func (s *CredentialValidatorSuite) TestWatchCredential(c *gc.C) {
-	result, err := s.api.WatchCredential(params.Entity{credentialTag.String()})
+	result, err := s.api.WatchCredential(context.Background(), params.Entity{credentialTag.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
 	c.Assert(s.resources.Count(), gc.Equals, 1)
@@ -75,19 +77,19 @@ func (s *CredentialValidatorSuite) TestWatchCredential(c *gc.C) {
 
 func (s *CredentialValidatorSuite) TestWatchCredentialNotUsedInThisModel(c *gc.C) {
 	s.backend.isUsed = false
-	_, err := s.api.WatchCredential(params.Entity{credentialTag.String()})
+	_, err := s.api.WatchCredential(context.Background(), params.Entity{credentialTag.String()})
 	c.Assert(err, gc.ErrorMatches, apiservererrors.ErrPerm.Error())
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 }
 
 func (s *CredentialValidatorSuite) TestWatchCredentialInvalidTag(c *gc.C) {
-	_, err := s.api.WatchCredential(params.Entity{"my-tag"})
+	_, err := s.api.WatchCredential(context.Background(), params.Entity{"my-tag"})
 	c.Assert(err, gc.ErrorMatches, `"my-tag" is not a valid tag`)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 }
 
 func (s *CredentialValidatorSuite) TestInvalidateModelCredential(c *gc.C) {
-	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
+	result, err := s.api.InvalidateModelCredential(context.Background(), params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
 	s.backend.CheckCalls(c, []testing.StubCall{
@@ -98,7 +100,7 @@ func (s *CredentialValidatorSuite) TestInvalidateModelCredential(c *gc.C) {
 func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	expected := errors.New("boom")
 	s.backend.SetErrors(expected)
-	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
+	result, err := s.api.InvalidateModelCredential(context.Background(), params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(expected)})
 	s.backend.CheckCalls(c, []testing.StubCall{
@@ -107,7 +109,7 @@ func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *gc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestWatchModelCredential(c *gc.C) {
-	result, err := s.api.WatchModelCredential()
+	result, err := s.api.WatchModelCredential(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
 	c.Assert(s.resources.Count(), gc.Equals, 1)
@@ -115,7 +117,7 @@ func (s *CredentialValidatorSuite) TestWatchModelCredential(c *gc.C) {
 
 func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *gc.C) {
 	s.backend.SetErrors(errors.New("no nope niet"))
-	_, err := s.api.WatchModelCredential()
+	_, err := s.api.WatchModelCredential(context.Background())
 	c.Assert(err, gc.ErrorMatches, "no nope niet")
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 }
