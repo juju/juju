@@ -67,10 +67,15 @@ func collectAPIVersions(ctx context.ProviderCallContext, client *armresources.Pr
 	return result, nil
 }
 
-func azureCloud(apiEndpoint, identityEndpoint string) azurecloud.Configuration {
-	// The AD graph API is deprecated. Use the new one.
-	if identityEndpoint == "https://graph.windows.net" {
-		identityEndpoint = azurecloud.AzurePublic.ActiveDirectoryAuthorityHost
+func azureCloud(cloudName, apiEndpoint, identityEndpoint string) azurecloud.Configuration {
+	// Use well known cloud definitions from the SDk if possible.
+	switch cloudName {
+	case "azure":
+		return azurecloud.AzurePublic
+	case "azure-china":
+		return azurecloud.AzureChina
+	case "azure-gov":
+		return azurecloud.AzureGovernment
 	}
 	return azurecloud.Configuration{
 		ActiveDirectoryAuthorityHost: identityEndpoint,

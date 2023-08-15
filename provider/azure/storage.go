@@ -4,25 +4,18 @@
 package azure
 
 import (
-	stdcontext "context"
 	"fmt"
-	"net/http"
 	"path"
-	"strings"
 	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
-	legacystorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage"
-	azurestorage "github.com/Azure/azure-sdk-for-go/storage"
-	"github.com/Azure/go-autorest/autorest"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
-	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/storage"
 )
@@ -38,17 +31,6 @@ const (
 	//
 	// See: https://azure.microsoft.com/en-gb/documentation/articles/virtual-machines-disks-vhds/
 	volumeSizeMaxGiB = 1023
-
-	// osDiskVHDContainer is the name of the blob container for VHDs
-	// backing OS disks.
-	osDiskVHDContainer = "osvhds"
-
-	// dataDiskVHDContainer is the name of the blob container for VHDs
-	// backing data disks.
-	dataDiskVHDContainer = "datavhds"
-
-	// vhdExtension is the filename extension we give to VHDs we create.
-	vhdExtension = ".vhd"
 )
 
 // StorageProviderTypes implements storage.ProviderRegistry.
@@ -140,15 +122,7 @@ func (e *azureStorageProvider) DefaultPools() []*storage.Config {
 
 // VolumeSource is part of the Provider interface.
 func (e *azureStorageProvider) VolumeSource(cfg *storage.Config) (storage.VolumeSource, error) {
-	// Check to see if the environment has a storage account,
-	// which means it uses unmanaged disks. All models created
-	// before Juju 2.3 will have a storage account already, so
-	// it's safe to do the check up front.
-	maybeStorageClient, maybeStorageAccount, err := e.env.maybeGetStorageClient(stdcontext.Background())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &azureVolumeSource{e.env, maybeStorageAccount, maybeStorageClient}, nil
+	return &azureVolumeSource{e.env}, nil
 }
 
 // FilesystemSource is part of the Provider interface.
@@ -157,9 +131,7 @@ func (e *azureStorageProvider) FilesystemSource(providerConfig *storage.Config) 
 }
 
 type azureVolumeSource struct {
-	env                 *azureEnviron
-	maybeStorageAccount *legacystorage.Account
-	maybeStorageClient  internalazurestorage.Client
+	env *azureEnviron
 }
 
 // CreateVolumes is specified on the storage.VolumeSource interface.
@@ -171,11 +143,8 @@ func (v *azureVolumeSource) CreateVolumes(ctx context.ProviderCallContext, param
 			continue
 		}
 	}
-	if v.maybeStorageClient == nil {
-		v.createManagedDiskVolumes(ctx, params, results)
-		return results, nil
-	}
-	return results, v.createUnmanagedDiskVolumes(ctx, params, results)
+	v.createManagedDiskVolumes(ctx, params, results)
+	return results, nil
 }
 
 // createManagedDiskVolumes creates volumes with associated managed disks.
@@ -243,102 +212,9 @@ func (v *azureVolumeSource) createManagedDiskVolume(ctx context.ProviderCallCont
 	return &volume, nil
 }
 
-// createUnmanagedDiskVolumes creates volumes with associated unmanaged disks (blobs).
-func (v *azureVolumeSource) createUnmanagedDiskVolumes(ctx context.ProviderCallContext, params []storage.VolumeParams, results []storage.CreateVolumesResult) error {
-	var instanceIds []instance.Id
-	for i, p := range params {
-		if results[i].Error != nil {
-			continue
-		}
-		instanceIds = append(instanceIds, p.Attachment.InstanceId)
-	}
-	if len(instanceIds) == 0 {
-		return nil
-	}
-	virtualMachines, err := v.virtualMachines(ctx, instanceIds)
-	if err != nil {
-		return errors.Annotate(err, "getting virtual machines")
-	}
-	// Update VirtualMachine objects in-memory,
-	// and then perform the updates all at once.
-	for i, p := range params {
-		if results[i].Error != nil {
-			continue
-		}
-		vm, ok := virtualMachines[p.Attachment.InstanceId]
-		if !ok {
-			continue
-		}
-		if vm.err != nil {
-			results[i].Error = vm.err
-			continue
-		}
-		volume, volumeAttachment, err := v.createUnmanagedDiskVolume(vm.vm, p)
-		if err != nil {
-			results[i].Error = err
-			vm.err = err
-			continue
-		}
-		results[i].Volume = volume
-		results[i].VolumeAttachment = volumeAttachment
-	}
-
-	updateResults, err := v.updateVirtualMachines(ctx, virtualMachines, instanceIds)
-	if err != nil {
-		return errors.Annotate(err, "updating virtual machines")
-	}
-	for i, err := range updateResults {
-		if results[i].Error != nil || err == nil {
-			continue
-		}
-		results[i].Error = err
-		results[i].Volume = nil
-		results[i].VolumeAttachment = nil
-	}
-	return nil
-}
-
-// createUnmanagedDiskVolume updates the provided VirtualMachine's
-// StorageProfile with the parameters for creating a new unmanaged
-// data disk. We don't actually interact with the Azure API until
-// after all changes to the VirtualMachine are made.
-func (v *azureVolumeSource) createUnmanagedDiskVolume(
-	vm *armcompute.VirtualMachine,
-	p storage.VolumeParams,
-) (*storage.Volume, *storage.VolumeAttachment, error) {
-
-	diskName := p.Tag.String()
-	sizeInGib := mibToGib(p.Size)
-	volumeAttachment, err := v.addDataDisk(
-		vm,
-		diskName,
-		p.Tag,
-		p.Attachment.Machine,
-		armcompute.DiskCreateOptionTypesEmpty,
-		to.Ptr(int32(sizeInGib)),
-	)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	// Data disks associate VHDs to machines. In Juju's storage model,
-	// the VHD is the volume and the disk is the volume attachment.
-	volume := storage.Volume{
-		p.Tag,
-		storage.VolumeInfo{
-			VolumeId:   diskName,
-			Size:       gibToMib(sizeInGib),
-			Persistent: true,
-		},
-	}
-	return &volume, volumeAttachment, nil
-}
-
 // ListVolumes is specified on the storage.VolumeSource interface.
 func (v *azureVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
-	if v.maybeStorageClient == nil {
-		return v.listManagedDiskVolumes(ctx)
-	}
-	return v.listUnmanagedDiskVolumes(ctx)
+	return v.listManagedDiskVolumes(ctx)
 }
 
 func (v *azureVolumeSource) listManagedDiskVolumes(ctx context.ProviderCallContext) ([]string, error) {
@@ -364,48 +240,9 @@ func (v *azureVolumeSource) listManagedDiskVolumes(ctx context.ProviderCallConte
 	return volumeIds, nil
 }
 
-func (v *azureVolumeSource) listUnmanagedDiskVolumes(ctx context.ProviderCallContext) ([]string, error) {
-	blobs, err := v.listBlobs(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "listing volumes")
-	}
-	volumeIds := make([]string, 0, len(blobs))
-	for _, blob := range blobs {
-		volumeId, ok := blobVolumeId(blob)
-		if !ok {
-			continue
-		}
-		volumeIds = append(volumeIds, volumeId)
-	}
-	return volumeIds, nil
-}
-
-// listBlobs returns a list of blobs in the data-disk container.
-func (v *azureVolumeSource) listBlobs(ctx context.ProviderCallContext) ([]internalazurestorage.Blob, error) {
-	blobsClient := v.maybeStorageClient.GetBlobService()
-	vhdContainer := blobsClient.GetContainerReference(dataDiskVHDContainer)
-	// TODO(axw) consider taking a set of IDs and computing the
-	//           longest common prefix to pass in the parameters
-	blobs, err := vhdContainer.Blobs()
-	if err != nil {
-		err = errorutils.HandleCredentialError(err, ctx)
-		if err, ok := err.(azurestorage.AzureStorageServiceError); ok {
-			switch err.Code {
-			case "ContainerNotFound":
-				return nil, nil
-			}
-		}
-		return nil, errors.Annotate(err, "listing blobs")
-	}
-	return blobs, nil
-}
-
 // DescribeVolumes is specified on the storage.VolumeSource interface.
 func (v *azureVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
-	if v.maybeStorageClient == nil {
-		return v.describeManagedDiskVolumes(ctx, volumeIds)
-	}
-	return v.describeUnmanagedDiskVolumes(ctx, volumeIds)
+	return v.describeManagedDiskVolumes(ctx, volumeIds)
 }
 
 func (v *azureVolumeSource) describeManagedDiskVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
@@ -439,45 +276,9 @@ func (v *azureVolumeSource) describeManagedDiskVolumes(ctx context.ProviderCallC
 	return results, nil
 }
 
-func (v *azureVolumeSource) describeUnmanagedDiskVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
-	blobs, err := v.listBlobs(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "listing volumes")
-	}
-
-	byVolumeId := make(map[string]internalazurestorage.Blob)
-	for _, blob := range blobs {
-		volumeId, ok := blobVolumeId(blob)
-		if !ok {
-			continue
-		}
-		byVolumeId[volumeId] = blob
-	}
-
-	results := make([]storage.DescribeVolumesResult, len(volumeIds))
-	for i, volumeId := range volumeIds {
-		blob, ok := byVolumeId[volumeId]
-		if !ok {
-			results[i].Error = errors.NotFoundf("%s", volumeId)
-			continue
-		}
-		sizeInMib := blob.Properties().ContentLength / (1024 * 1024)
-		results[i].VolumeInfo = &storage.VolumeInfo{
-			VolumeId:   volumeId,
-			Size:       uint64(sizeInMib),
-			Persistent: true,
-		}
-	}
-
-	return results, nil
-}
-
 // DestroyVolumes is specified on the storage.VolumeSource interface.
 func (v *azureVolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
-	if v.maybeStorageClient == nil {
-		return v.destroyManagedDiskVolumes(ctx, volumeIds)
-	}
-	return v.destroyUnmanagedDiskVolumes(ctx, volumeIds)
+	return v.destroyManagedDiskVolumes(ctx, volumeIds)
 }
 
 func (v *azureVolumeSource) destroyManagedDiskVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
@@ -496,16 +297,6 @@ func (v *azureVolumeSource) destroyManagedDiskVolumes(ctx context.ProviderCallCo
 			}
 		}
 		return nil
-	}), nil
-}
-
-func (v *azureVolumeSource) destroyUnmanagedDiskVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
-	blobsClient := v.maybeStorageClient.GetBlobService()
-	vhdContainer := blobsClient.GetContainerReference(dataDiskVHDContainer)
-	return foreachVolume(volumeIds, func(volumeId string) error {
-		vhdBlob := vhdContainer.Blob(volumeId + vhdExtension)
-		_, err := vhdBlob.DeleteIfExists(nil)
-		return errorutils.HandleCredentialError(errors.Annotatef(err, "deleting blob %q", vhdBlob.Name()), ctx)
 	}), nil
 }
 
@@ -663,17 +454,9 @@ func (v *azureVolumeSource) addDataDisk(
 		CreateOption: to.Ptr(createOption),
 		DiskSizeGB:   diskSizeGB,
 	}
-	if v.maybeStorageAccount == nil {
-		// This model uses managed disks.
-		diskResourceID := v.diskResourceID(diskName)
-		dataDisk.ManagedDisk = &armcompute.ManagedDiskParameters{
-			ID: to.Ptr(diskResourceID),
-		}
-	} else {
-		// This model uses unmanaged disks.
-		dataDisksRoot := dataDiskVhdRoot(v.maybeStorageAccount)
-		vhdURI := dataDisksRoot + diskName + vhdExtension
-		dataDisk.Vhd = &armcompute.VirtualHardDisk{to.Ptr(vhdURI)}
+	diskResourceID := v.diskResourceID(diskName)
+	dataDisk.ManagedDisk = &armcompute.ManagedDiskParameters{
+		ID: to.Ptr(diskResourceID),
 	}
 
 	if vm.Properties != nil {
@@ -896,103 +679,4 @@ func mibToGib(m uint64) uint64 {
 // gibToMib converts gibibytes to mebibytes.
 func gibToMib(g uint64) uint64 {
 	return g * 1024
-}
-
-// dataDiskVhdRoot returns the URL to the blob container in which we store the
-// VHDs for data disks for the environment.
-func dataDiskVhdRoot(storageAccount *legacystorage.Account) string {
-	return blobContainerURL(storageAccount, dataDiskVHDContainer)
-}
-
-// blobContainer returns the URL to the named blob container.
-func blobContainerURL(storageAccount *legacystorage.Account, container string) string {
-	return fmt.Sprintf(
-		"%s%s/",
-		toValue(storageAccount.PrimaryEndpoints.Blob),
-		container,
-	)
-}
-
-// blobVolumeId returns the volume ID for a blob, and a boolean reporting
-// whether or not the blob's name matches the scheme we use.
-func blobVolumeId(blob internalazurestorage.Blob) (string, bool) {
-	blobName := blob.Name()
-	if !strings.HasSuffix(blobName, vhdExtension) {
-		return "", false
-	}
-	volumeId := blobName[:len(blobName)-len(vhdExtension)]
-	if _, err := names.ParseVolumeTag(volumeId); err != nil {
-		return "", false
-	}
-	return volumeId, true
-}
-
-// getStorageClient returns a new storage client, given an environ config
-// and a constructor.
-func getStorageClient(
-	newClient internalazurestorage.NewClientFunc,
-	storageEndpoint string,
-	storageAccount *legacystorage.Account,
-	storageAccountKey *legacystorage.AccountKey,
-) (internalazurestorage.Client, error) {
-	storageAccountName := toValue(storageAccount.Name)
-	const useHTTPS = true
-	return newClient(
-		storageAccountName,
-		toValue(storageAccountKey.Value),
-		storageEndpoint,
-		azurestorage.DefaultAPIVersion,
-		useHTTPS,
-	)
-}
-
-func isNotFoundResult(resp autorest.Response, err error) bool {
-	if resp.Response != nil && resp.StatusCode == http.StatusFound {
-		return true
-	}
-	var azureErr autorest.DetailedError
-	if errors.As(err, &azureErr) {
-		return azureErr.StatusCode == http.StatusNotFound
-	}
-	return false
-}
-
-// getStorageAccountKey returns the key for the storage account.
-func getStorageAccountKey(
-	ctx stdcontext.Context,
-	client legacystorage.AccountsClient,
-	resourceGroup, accountName string,
-) (*legacystorage.AccountKey, error) {
-	logger.Debugf("getting keys for storage account %q", accountName)
-	listKeysResult, err := client.ListKeys(ctx, resourceGroup, accountName)
-	if err != nil {
-		if isNotFoundResult(listKeysResult.Response, err) {
-			return nil, errors.NewNotFound(err, "storage account keys not found")
-		}
-		return nil, errors.Annotate(err, "listing storage account keys")
-	}
-	if listKeysResult.Keys == nil {
-		return nil, errors.NotFoundf("storage account keys")
-	}
-
-	// We need a storage key with full permissions.
-	var fullKey *legacystorage.AccountKey
-	for _, v := range *listKeysResult.Keys {
-		key := v
-		logger.Debugf("storage account key: %#v", key)
-		// At least some of the time, Azure returns the permissions
-		// in title-case, which does not match the constant.
-		if strings.ToUpper(string(key.Permissions)) != strings.ToUpper(string(legacystorage.Full)) {
-			continue
-		}
-		fullKey = &key
-		break
-	}
-	if fullKey == nil {
-		return nil, errors.NotFoundf(
-			"storage account key with %q permission",
-			legacystorage.Full,
-		)
-	}
-	return fullKey, nil
 }
