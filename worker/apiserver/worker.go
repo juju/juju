@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/servicefactory"
 	"github.com/juju/juju/worker/syslogger"
+	"github.com/juju/juju/worker/tracer"
 )
 
 // Config is the configuration required for running an API server worker.
@@ -52,6 +53,7 @@ type Config struct {
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter             changestream.WatchableDBGetter
 	ServiceFactoryGetter servicefactory.ServiceFactoryGetter
+	TracerGetter         tracer.TracerGetter
 }
 
 type HTTPClient interface {
@@ -114,6 +116,9 @@ func (config Config) Validate() error {
 	}
 	if config.DBGetter == nil {
 		return errors.NotValidf("nil DBGetter")
+	}
+	if config.TracerGetter == nil {
+		return errors.NotValidf("nil TracerGetter")
 	}
 	return nil
 }
@@ -180,6 +185,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		CharmhubHTTPClient:            config.CharmhubHTTPClient,
 		DBGetter:                      config.DBGetter,
 		ServiceFactoryGetter:          config.ServiceFactoryGetter,
+		TracerGetter:                  config.TracerGetter,
 	}
 	return config.NewServer(serverConfig)
 }

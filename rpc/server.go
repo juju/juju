@@ -235,11 +235,23 @@ func (conn *Conn) Start(ctx context.Context) {
 func (conn *Conn) Serve(root interface{}, factory RecorderFactory, transformErrors func(error) error) {
 	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
 	if rootValue.IsValid() {
-		conn.serve(rootValue, factory, transformErrors)
+		conn.serve(tracingRoot{Value: rootValue}, factory, transformErrors)
 	} else {
 		conn.serve(nil, factory, transformErrors)
 	}
 }
+
+type tracingRoot struct {
+	rpcreflect.Value
+}
+
+func (tracingRoot) StartTrace(ctx context.Context, name string) (context.Context, Span) {
+	return ctx, tracingSpan{}
+}
+
+type tracingSpan struct{}
+
+func (tracingSpan) End() {}
 
 // ServeRoot is like Serve except that it gives the root object dynamic
 // control over what methods are available instead of using reflection
@@ -344,10 +356,16 @@ type ErrorInfoProvider interface {
 	ErrorInfo() map[string]interface{}
 }
 
+// Span represents a tracing span that can be completed.
+type Span interface {
+	End()
+}
+
 // Root represents a type that can be used to lookup a Method and place
 // calls on that method.
 type Root interface {
 	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
+	StartTrace(context.Context, string) (context.Context, Span)
 	Killer
 }
 
@@ -567,6 +585,10 @@ func (conn *Conn) runRequest(
 	// TODO(axw) provide a means for clients to cancel a request.
 	ctx, cancel := context.WithCancel(conn.context)
 	defer cancel()
+
+	// Provide a tracer for every request.
+	ctx, span := conn.root.StartTrace(ctx, "runRequest")
+	defer span.End()
 
 	rv, err := req.Call(ctx, req.hdr.Request.Id, arg)
 	if err != nil {

@@ -28,12 +28,14 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	coretracer "github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/servicefactory"
+	"github.com/juju/juju/worker/tracer"
 )
 
 type objectKey struct {
@@ -50,6 +52,7 @@ type apiHandler struct {
 	model           *state.Model
 	rpcConn         *rpc.Conn
 	serviceFactory  servicefactory.ServiceFactory
+	tracer          tracer.Tracer
 	watcherRegistry facade.WatcherRegistry
 	shared          *sharedServerContext
 
@@ -108,10 +111,15 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	}
 
 	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(modelUUID)
+	tracer, err := srv.shared.tracerGetter.GetTracer(modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	r := &apiHandler{
 		state:           st,
 		serviceFactory:  serviceFactory,
+		tracer:          tracer,
 		model:           m,
 		resources:       common.NewResources(),
 		watcherRegistry: registry,
@@ -159,6 +167,11 @@ func (r *apiHandler) State() *state.State {
 // ServiceFactory returns the service factory.
 func (r *apiHandler) ServiceFactory() servicefactory.ServiceFactory {
 	return r.serviceFactory
+}
+
+// Tracer returns the tracer for a model.
+func (r *apiHandler) Tracer() tracer.Tracer {
+	return r.tracer
 }
 
 // SharedContext returns the server shared context.
@@ -327,6 +340,7 @@ type apiRoot struct {
 	clock           clock.Clock
 	state           *state.State
 	serviceFactory  servicefactory.ServiceFactory
+	tracer          tracer.Tracer
 	shared          *sharedServerContext
 	facades         *facade.Registry
 	watcherRegistry facade.WatcherRegistry
@@ -345,6 +359,8 @@ type apiRootHandler interface {
 	State() *state.State
 	// ServiceFactory returns the service factory.
 	ServiceFactory() servicefactory.ServiceFactory
+	// Tracer returns the tracer.
+	Tracer() tracer.Tracer
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext
 	// Resources returns the common resources.
@@ -369,6 +385,7 @@ func newAPIRoot(
 		clock:           clock,
 		state:           root.State(),
 		serviceFactory:  root.ServiceFactory(),
+		tracer:          root.Tracer(),
 		shared:          root.SharedContext(),
 		facades:         facades,
 		resources:       root.Resources(),
@@ -522,6 +539,12 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 	}, nil
 }
 
+// StartTrace returns a new tracer for the given name.
+func (r *apiRoot) StartTrace(ctx context.Context, name string) (context.Context, rpc.Span) {
+	ctx, span := r.tracer.Start(ctx, name)
+	return coretracer.WithTracer(ctx, r.tracer), span
+}
+
 func (r *apiRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
 	goType, err := r.facades.GetType(rootName, version)
 	if err != nil {
@@ -581,6 +604,8 @@ func newAdminRoot(h *apiHandler, adminAPIs map[int]any) *adminRoot {
 	return r
 }
 
+// FindName returns a method caller based on the rootName, version of the facade
+// and the method name.
 func (r *adminRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	if rootName != "Admin" {
 		return nil, &rpcreflect.CallNotImplementedError{
@@ -595,6 +620,11 @@ func (r *adminRoot) FindMethod(rootName string, version int, methodName string) 
 		Code:    params.CodeNotSupported,
 		Message: "this version of Juju does not support login from old clients",
 	}
+}
+
+// GetTracer returns a new tracer for the given name.
+func (r *adminRoot) StartTrace(ctx context.Context, name string) (context.Context, rpc.Span) {
+	return r.tracer.Start(ctx, name)
 }
 
 // facadeContext implements facade.Context
@@ -758,6 +788,11 @@ func (ctx *facadeContext) ControllerDB() (changestream.WatchableDB, error) {
 // ServiceFactory returns the services factory for the current model.
 func (ctx *facadeContext) ServiceFactory() servicefactory.ServiceFactory {
 	return ctx.r.serviceFactory
+}
+
+// Tracer returns the tracer for the current model.
+func (ctx *facadeContext) Tracer() tracer.Tracer {
+	return ctx.r.tracer
 }
 
 // MachineTag returns the current machine tag.

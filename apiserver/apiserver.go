@@ -55,6 +55,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/servicefactory"
 	"github.com/juju/juju/worker/syslogger"
+	"github.com/juju/juju/worker/tracer"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")
@@ -214,6 +215,9 @@ type ServerConfig struct {
 	// ServiceFactoryGetter provides access to the services.
 	ServiceFactoryGetter servicefactory.ServiceFactoryGetter
 
+	// TracerGetter provides access to tracers.
+	TracerGetter tracer.TracerGetter
+
 	// DBGetter returns WatchableDB implementations based on namespace.
 	DBGetter changestream.WatchableDBGetter
 }
@@ -263,6 +267,9 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.ServiceFactoryGetter == nil {
 		return errors.NotValidf("missing ServiceFactoryGetter")
+	}
+	if c.TracerGetter == nil {
+		return errors.NotValidf("missing TracerGetter")
 	}
 	return nil
 }
@@ -332,6 +339,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		charmhubHTTPClient:   cfg.CharmhubHTTPClient,
 		dbGetter:             cfg.DBGetter,
 		serviceFactoryGetter: cfg.ServiceFactoryGetter,
+		tracerGetter:         cfg.TracerGetter,
 		machineTag:           cfg.Tag,
 		dataDir:              cfg.DataDir,
 		logDir:               cfg.LogDir,

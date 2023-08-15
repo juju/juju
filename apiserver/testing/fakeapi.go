@@ -129,3 +129,11 @@ func (av allVersions) FindMethod(rootMethodName string, version int, objMethodNa
 	}
 	return av.Value.FindMethod(rootMethodName, 0, objMethodName)
 }
+
+func (av allVersions) StartTrace(ctx context.Context, _ string) (context.Context, rpc.Span) {
+	return ctx, noopSpan{}
+}
+
+type noopSpan struct{}
+
+func (noopSpan) End() {}

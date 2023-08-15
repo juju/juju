@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/syslogger"
+	"github.com/juju/juju/worker/tracer"
 )
 
 // ManifoldConfig holds the information necessary to run an apiserver
@@ -49,6 +50,7 @@ type ManifoldConfig struct {
 	CharmhubHTTPClientName string
 	ChangeStreamName       string
 	ServiceFactoryName     string
+	TracingName            string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -106,6 +108,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.ServiceFactoryName == "" {
 		return errors.NotValidf("empty ServiceFactoryName")
 	}
+	if config.TracingName == "" {
+		return errors.NotValidf("empty TracingName")
+	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
@@ -140,6 +145,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.CharmhubHTTPClientName,
 			config.ChangeStreamName,
 			config.ServiceFactoryName,
+			config.TracingName,
 		},
 		Start: config.start,
 	}
@@ -216,6 +222,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var tracerGetter tracer.TracerGetter
+	if err := context.Get(config.TracingName, &tracerGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
@@ -254,6 +265,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		CharmhubHTTPClient:                charmhubHTTPClient,
 		DBGetter:                          dbGetter,
 		ServiceFactoryGetter:              serviceFactoryGetter,
+		TracerGetter:                      tracerGetter,
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes

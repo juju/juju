@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -212,7 +214,10 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 }
 
 // FullStatus gives the information needed for juju status over the api
-func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error) {
+func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (params.FullStatus, error) {
+	_, span := tracer.Start(ctx, "FullStatus")
+	defer span.End()
+
 	if err := c.checkCanRead(); err != nil {
 		return params.FullStatus{}, err
 	}

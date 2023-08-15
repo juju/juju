@@ -93,6 +93,7 @@ import (
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
+	"github.com/juju/juju/worker/tracer"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -587,6 +588,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			// to remove databases corresponding to destroyed/migrated models.
 			ServiceFactoryName: serviceFactoryName,
 			ChangeStreamName:   changeStreamName,
+			TracingName:        tracerName,
 
 			PrometheusRegisterer:              config.PrometheusRegisterer,
 			RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
@@ -648,6 +650,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewDBWorker:          dbaccessor.NewTrackedDBWorker,
 			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
 		})),
+
+		tracerName: tracer.Manifold(tracer.ManifoldConfig{
+			Clock:           config.Clock,
+			Logger:          loggo.GetLogger("juju.worker.tracer"),
+			NewTracerWorker: tracer.NewTracerWorker,
+		}),
 
 		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{
 			LogDir: agentConfig.LogDir(),
@@ -1072,6 +1080,7 @@ const (
 	leaseManagerName              = "lease-manager"
 	stateConverterName            = "state-converter"
 	serviceFactoryName            = "service-factory"
+	tracerName                    = "tracer"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	kvmContainerProvisioner       = "kvm-container-provisioner"
 

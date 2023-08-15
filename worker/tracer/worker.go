@@ -75,6 +75,7 @@ func NewWorker(cfg WorkerConfig) (*tracerWorker, error) {
 			RestartDelay: time.Second * 10,
 			Logger:       cfg.Logger,
 		}),
+		tracerRequests: make(chan traceRequest),
 	}
 
 	if err = catacomb.Invoke(catacomb.Plan{
@@ -160,6 +161,7 @@ func (w *tracerWorker) GetTracer(namespace string) (Tracer, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	return tracked.(Tracer), nil
 }
 

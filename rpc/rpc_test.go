@@ -360,6 +360,14 @@ func (c customMethodCaller) Call(_ context.Context, objId string, arg reflect.Va
 func (cc *CustomRoot) Kill() {
 }
 
+func (cc *CustomRoot) StartTrace(ctx context.Context, _ string) (context.Context, rpc.Span) {
+	return ctx, noopSpan{}
+}
+
+type noopSpan struct{}
+
+func (noopSpan) End() {}
+
 func (cc *CustomRoot) FindMethod(
 	rootMethodName string, version int, objMethodName string,
 ) (

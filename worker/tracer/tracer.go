@@ -58,20 +58,22 @@ type Span interface {
 type tracer struct {
 	tomb tomb.Tomb
 
-	namespace string
-	client    trace.Tracer
+	namespace    string
+	client       otlptrace.Client
+	clientTracer trace.Tracer
 }
 
 // NewTracerWorker returns a new tracer worker.
 func NewTracerWorker(ctx context.Context, namespace string) (TrackedTracer, error) {
-	client, err := newClient(ctx, namespace)
+	client, clientTracer, err := newClient(ctx, namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	t := &tracer{
-		namespace: namespace,
-		client:    client,
+		namespace:    namespace,
+		client:       client,
+		clientTracer: clientTracer,
 	}
 
 	t.tomb.Go(t.loop)
@@ -100,7 +102,7 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...TracerOption) (
 		span   trace.Span
 	)
 	ctx, cancel = t.scopedContext(ctx)
-	ctx, span = t.client.Start(ctx, name)
+	ctx, span = t.clientTracer.Start(ctx, name)
 
 	return ctx, &managedSpan{
 		span:   span,
@@ -109,6 +111,8 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...TracerOption) (
 }
 
 func (t *tracer) loop() error {
+	defer t.client.Stop(context.Background())
+
 	<-t.tomb.Dying()
 	return tomb.ErrDying
 }
@@ -121,13 +125,14 @@ func (w *tracer) scopedContext(ctx context.Context) (context.Context, context.Ca
 	return w.tomb.Context(ctx), cancel
 }
 
-func newClient(ctx context.Context, namespace string) (trace.Tracer, error) {
+func newClient(ctx context.Context, namespace string) (otlptrace.Client, trace.Tracer, error) {
 	client := otlptracegrpc.NewClient(
 		otlptracegrpc.WithInsecure(),
+		otlptracegrpc.WithEndpoint("192.168.0.60:4317"),
 	)
 	exporter, err := otlptrace.New(ctx, client)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, nil, errors.Trace(err)
 	}
 
 	tp := sdktrace.NewTracerProvider(
@@ -135,7 +140,7 @@ func newClient(ctx context.Context, namespace string) (trace.Tracer, error) {
 		sdktrace.WithResource(newResource(namespace)),
 	)
 
-	return tp.Tracer(namespace), nil
+	return client, tp.Tracer(namespace), nil
 }
 
 func newResource(namespace string) *resource.Resource {

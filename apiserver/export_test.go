@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/servicefactory"
+	"github.com/juju/juju/worker/tracer"
 )
 
 var (
@@ -51,6 +52,10 @@ func (testingAPIRootHandler) State() *state.State {
 }
 
 func (testingAPIRootHandler) ServiceFactory() servicefactory.ServiceFactory {
+	return nil
+}
+
+func (testingAPIRootHandler) Tracer() tracer.Tracer {
 	return nil
 }
 

@@ -4,6 +4,8 @@
 package apiserver
 
 import (
+	"context"
+
 	"github.com/juju/rpcreflect"
 
 	"github.com/juju/juju/rpc"
@@ -30,6 +32,11 @@ func (r *restrictedRoot) FindMethod(facadeName string, version int, methodName s
 		return nil, err
 	}
 	return r.Root.FindMethod(facadeName, version, methodName)
+}
+
+// StartTrace implements rpc.Root.
+func (r *restrictedRoot) StartTrace(ctx context.Context, name string) (context.Context, rpc.Span) {
+	return r.Root.StartTrace(ctx, name)
 }
 
 // restrictAll blocks all API requests, returned a fixed error.
