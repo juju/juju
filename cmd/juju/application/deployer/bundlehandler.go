@@ -711,11 +711,7 @@ func (h *bundleHandler) addLocalCharm(chParams bundlechanges.AddCharmParams, chB
 		charmPath = filepath.Join(h.bundleDir, charmPath)
 	}
 
-	chSeries, err := corebase.GetSeriesFromBase(chBase)
-	if err != nil {
-		return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
-	}
-	ch, curl, err := corecharm.NewCharmAtPathForceSeries(charmPath, chSeries, h.force)
+	ch, curl, err := corecharm.NewCharmAtPathForceBase(charmPath, chBase, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 	}

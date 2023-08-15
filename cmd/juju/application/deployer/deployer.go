@@ -15,7 +15,6 @@ import (
 	charmresource "github.com/juju/charm/v11/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -56,7 +55,7 @@ type localPreDeployerKind struct {
 
 // localCharmDeployerKind represents a local charm deployment
 type localCharmDeployerKind struct {
-	seriesName  string
+	base        corebase.Base
 	imageStream string
 	ch          charm.Charm
 	curl        *charm.URL
@@ -227,40 +226,39 @@ func (d *factory) localBundleDeployer() (DeployerKind, error) {
 }
 
 func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, error) {
-	// Determine series
+	// Determine base
 	charmOrBundle := d.charmOrBundle
 	if isLocalSchema(charmOrBundle) {
 		charmOrBundle = charmOrBundle[6:]
 	}
-	seriesName, imageStream, seriesErr := d.determineSeriesForLocalCharm(charmOrBundle, getter)
-	if seriesErr != nil {
-		return nil, errors.Trace(seriesErr)
+	base, imageStream, baseErr := d.determineBaseForLocalCharm(charmOrBundle, getter)
+	if baseErr != nil {
+		return nil, errors.Trace(baseErr)
 	}
 
 	// Charm may have been supplied via a path reference.
-	ch, curl, err := corecharm.NewCharmAtPathForceSeries(charmOrBundle, seriesName, d.force)
+	ch, curl, err := corecharm.NewCharmAtPathForceBase(charmOrBundle, base, d.force)
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
-	if corecharm.IsMissingSeriesError(err) {
+	if corecharm.IsMissingBaseError(err) {
 		return nil, err
-	} else if corecharm.IsUnsupportedSeriesError(err) {
+	} else if corecharm.IsUnsupportedBaseError(err) {
 		return nil, errors.Trace(err)
 	} else if errors.Cause(err) == zip.ErrFormat {
 		return nil, errors.Errorf("invalid charm or bundle provided at %q", charmOrBundle)
 	} else if errors.Is(err, errors.NotFound) {
 		return nil, errors.Wrap(err, errors.NotFoundf("charm or bundle at %q", charmOrBundle))
-	} else if err != nil && err != os.ErrNotExist {
+	} else if errors.Is(err, os.ErrNotExist) {
+		logger.Debugf("cannot interpret as local charm: %v", err)
+		return nil, nil
+	} else if err != nil {
 		// If we get a "not exists" error then we attempt to interpret
 		// the supplied charm reference as a URL elsewhere, otherwise
 		// we return the error.
 		return nil, errors.Annotatef(err, "attempting to deploy %q", charmOrBundle)
-	} else if err != nil {
-		logger.Debugf("cannot interpret as local charm: %v", err)
-		return nil, nil
-	} else {
-		return &localCharmDeployerKind{seriesName, imageStream, ch, curl}, nil
 	}
+	return &localCharmDeployerKind{base, imageStream, ch, curl}, nil
 }
 
 func (d *factory) localPreDeployedCharmDeployer() (DeployerKind, error) {
@@ -277,74 +275,54 @@ func (d *factory) localPreDeployedCharmDeployer() (DeployerKind, error) {
 	return &localPreDeployerKind{userCharmURL: userCharmURL}, nil
 }
 
-func (d *factory) determineSeriesForLocalCharm(charmOrBundle string, getter ModelConfigGetter) (string, string, error) {
-	// TODO (cderici): check the validity of the comments belowe
-	// NOTE: Here we select the series using the algorithm defined by
-	// `seriesSelector.charmSeries`. This serves to override the algorithm found
-	// in `charmrepo.NewCharmAtPath` which is outdated (but must still be
-	// called since the code is coupled with path interpretation logic which
-	// cannot easily be factored out).
-
+func (d *factory) determineBaseForLocalCharm(charmOrBundle string, getter ModelConfigGetter) (corebase.Base, string, error) {
 	// NOTE: Reading the charm here is only meant to aid in inferring the
-	// correct series, if this fails we fall back to the argument series. If
-	// reading the charm fails here it will also fail below (the charm is read
-	// again below) where it is handled properly. This is just an expedient to
-	// get the correct series. A proper refactoring of the charmrepo package is
-	// needed for a more elegant fix.
+	// correct base. If this fails, we simply return with default values
+	// and trust the caller to handle this failure properly (the charm is
+	// read again later).
+	// TODO: A proper refactoring is required for a proper fix
 	var (
-		imageStream string
-		seriesName  string
+		imageStream  string
+		selectedBase corebase.Base
 	)
-	if !d.base.Empty() {
-		var err error
-		seriesName, err = corebase.GetSeriesFromBase(d.base)
-		if err != nil {
-			return "", "", errors.Trace(err)
-		}
-	}
-
 	ch, err := d.charmReader.ReadCharm(charmOrBundle)
-	if err == nil {
-		modelCfg, err := getModelConfig(getter)
-		if err != nil {
-			return "", "", errors.Trace(err)
-		}
-
-		imageStream = modelCfg.ImageStream()
-		workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
-		if err != nil {
-			return "", "", errors.Trace(err)
-		}
-
-		supportedSeries, err := corecharm.ComputedSeries(ch)
-		if err != nil {
-			return "", "", errors.Trace(err)
-		}
-		if len(supportedSeries) == 0 {
-			logger.Warningf("%s does not declare supported series in metadata.yml", ch.Meta().Name)
-		}
-
-		seriesSelector := corecharm.SeriesSelector{
-			SeriesFlag:          seriesName,
-			SupportedSeries:     supportedSeries,
-			SupportedJujuSeries: workloadSeries,
-			Force:               d.force,
-			Conf:                modelCfg,
-			FromBundle:          false,
-			Logger:              logger,
-			UsingImageID:        d.constraints.HasImageID() || d.modelConstraints.HasImageID(),
-		}
-		err = seriesSelector.Validate()
-		if err != nil {
-			return "", "", errors.Trace(err)
-		}
-
-		seriesName, err = seriesSelector.CharmSeries()
-		if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
-			return "", "", errors.Trace(err)
-		}
+	if err != nil {
+		return corebase.Base{}, "", nil
 	}
-	return seriesName, imageStream, nil
+
+	modelCfg, err := getModelConfig(getter)
+	if err != nil {
+		return corebase.Base{}, "", errors.Trace(err)
+	}
+
+	imageStream = modelCfg.ImageStream()
+	workloadBases, err := SupportedJujuBases(d.clock.Now(), d.base, imageStream)
+	if err != nil {
+		return corebase.Base{}, "", errors.Trace(err)
+	}
+
+	supportedBases, err := corecharm.ComputedBases(ch)
+	if err != nil {
+		return corebase.Base{}, "", errors.Trace(err)
+	}
+	baseSelector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
+		Config:              modelCfg,
+		Force:               d.force,
+		Logger:              logger,
+		RequestedBase:       d.base,
+		SupportedCharmBases: supportedBases,
+		WorkloadBases:       workloadBases,
+		UsingImageID:        d.constraints.HasImageID() || d.modelConstraints.HasImageID(),
+	})
+	if err != nil {
+		return corebase.Base{}, "", errors.Trace(err)
+	}
+
+	selectedBase, err = baseSelector.CharmBase()
+	if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
+		return corebase.Base{}, "", errors.Trace(err)
+	}
+	return selectedBase, imageStream, nil
 }
 
 func (d *factory) checkHandleRevision(userCharmURL *charm.URL, charmHubSchemaCheck bool) (*charm.URL, error) {
@@ -520,7 +498,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		storage:          d.storage,
 		trust:            d.trust,
 
-		validateCharmSeriesWithName:           d.validateCharmSeriesWithName,
+		validateCharmBaseWithName:             d.validateCharmBaseWithName,
 		validateResourcesNeededForLocalDeploy: d.validateResourcesNeededForLocalDeploy,
 	}
 }
@@ -580,10 +558,10 @@ func (dk *localPreDeployerKind) CreateDeployer(d factory) (Deployer, error) {
 }
 
 func (dk *localCharmDeployerKind) CreateDeployer(d factory) (Deployer, error) {
-	// Avoid deploying charm if the charm series is not correct for the
+	// Avoid deploying charm if the charm base is not correct for the
 	// available image streams.
 	var err error
-	if err = d.validateCharmSeriesWithName(dk.seriesName, dk.curl.Name, dk.imageStream); err != nil {
+	if err = d.validateCharmBaseWithName(dk.base, dk.curl.Name, dk.imageStream); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := d.validateResourcesNeededForLocalDeploy(dk.ch.Meta()); err != nil {
@@ -668,25 +646,6 @@ func appsRequiringTrust(appSpecList map[string]*charm.ApplicationSpec) []string 
 	return tl
 }
 
-func seriesSelectorRequirements(api ModelConfigGetter, cl jujuclock.Clock, chURL *charm.URL) (*config.Config, set.Strings, error) {
-	// resolver.resolve potentially updates the series of anything
-	// passed in. Store this for use in seriesSelector.
-	userRequestedSeries := chURL.Series
-
-	modelCfg, err := getModelConfig(api)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	imageStream := modelCfg.ImageStream()
-	workloadSeries, err := SupportedJujuSeries(cl.Now(), userRequestedSeries, imageStream)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	return modelCfg, workloadSeries, nil
-}
-
 var getModelConfig = func(api ModelConfigGetter) (*config.Config, error) {
 	// Separated into a variable for easy overrides
 	attrs, err := api.ModelGet()
@@ -697,27 +656,32 @@ var getModelConfig = func(api ModelConfigGetter) (*config.Config, error) {
 	return config.New(config.NoDefaults, attrs)
 }
 
-func (d *factory) validateCharmSeries(seriesName string, imageStream string) error {
+func (d *factory) validateCharmBase(base corebase.Base, imageStream string) error {
 	// TODO(sidecar): handle systems
 
-	// attempt to locate the charm series from the list of known juju series
+	if d.force {
+		return nil
+	}
+	// attempt to locate the charm base from the list of known juju bases
 	// that we currently support.
-	workloadSeries, err := SupportedJujuSeries(d.clock.Now(), seriesName, imageStream)
+	workloadBases, err := SupportedJujuBases(d.clock.Now(), base, imageStream)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	if !workloadSeries.Contains(seriesName) && !d.force {
-		return errors.NotSupportedf("series: %s", seriesName)
+	for _, workloadBase := range workloadBases {
+		if workloadBase == base {
+			return nil
+		}
 	}
-	return nil
+	return errors.NotSupportedf("base: %s", base)
 }
 
-// validateCharmSeriesWithName calls the validateCharmSeries, but handles the
+// validateCharmBaseWithName calls the validateCharmBase, but handles the
 // error return value to check for NotSupported error and returns a custom error
 // message if that's found.
-func (d *factory) validateCharmSeriesWithName(series, name string, imageStream string) error {
-	err := d.validateCharmSeries(series, imageStream)
+func (d *factory) validateCharmBaseWithName(base corebase.Base, name string, imageStream string) error {
+	err := d.validateCharmBase(base, imageStream)
 	return charmValidationError(name, errors.Trace(err))
 }
 

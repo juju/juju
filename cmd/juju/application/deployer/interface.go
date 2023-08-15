@@ -71,10 +71,6 @@ type ConsumeDetails interface {
 
 // For testing.
 // TODO: unexport it if we don't need to patch it anymore.
-var SupportedJujuSeries = corebase.WorkloadSeries
-
-// For testing.
-// TODO: unexport it if we don't need to patch it anymore.
 var SupportedJujuBases = corebase.WorkloadBases
 
 type DeployerAPI interface {

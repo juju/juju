@@ -44,16 +44,14 @@ type CharmResolver interface {
 
 // CharmRepository defines methods for interaction with a charm repo.
 type CharmRepository interface {
-	// NewCharmAtPathForceSeries returns the charm represented by this path,
-	// and a URL that describes it. If the series is empty,
-	// the charm's default series is used, if any.
-	// Otherwise, the series is validated against those the
+	// NewCharmAtPathForceBase returns the charm represented by this path,
+	// and a URL that describes it. If the base is empty,
+	// the charm's default base is used, if any.
+	// Otherwise, the base is validated against those the
 	// charm declares it supports. If force is true, then any
-	// series validation errors are ignored and the requested
-	// series is used regardless. Note though that is it still
-	// an error if the series is not specified and the charm does not
-	// define any.
-	NewCharmAtPathForceSeries(path, series string, force bool) (charm.Charm, *charm.URL, error)
+	// base validation errors are ignored and the requested
+	// base is used regardless.
+	NewCharmAtPathForceBase(path string, base base.Base, force bool) (charm.Charm, *charm.URL, error)
 }
 
 // CommandLogger represents a logger which follows the logging

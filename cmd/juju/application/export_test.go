@@ -4,12 +4,8 @@
 package application
 
 import (
-	"time"
-
 	"github.com/juju/charm/v11"
 	"github.com/juju/cmd/v3"
-	"github.com/juju/collections/set"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -18,7 +14,6 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/modelcmd"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -234,24 +229,4 @@ func NewConfigCommandForTest(api ApplicationAPI, store jujuclient.ClientStore) m
 	c := modelcmd.Wrap(&configCommand{configBase: appConfigBase, api: api})
 	c.SetClientStore(store)
 	return c
-}
-
-// RepoSuiteBaseSuite allows the patching of the supported juju suite for
-// each test.
-type RepoSuiteBaseSuite struct {
-	jujutesting.RepoSuite
-}
-
-func (s *RepoSuiteBaseSuite) SetUpTest(c *gc.C) {
-	s.RepoSuite.SetUpTest(c)
-
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"centos7", "centos9", "genericlinux", "kubernetes",
-				"jammy", "focal", "bionic", "xenial",
-			), nil
-		},
-	)
 }

@@ -1288,7 +1288,15 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 
 	// Handle local charm paths.
 	if charm.IsValidLocalCharmOrBundlePath(application.Charm) {
-		_, charmURL, err := corecharm.NewCharmAtPath(application.Charm, defaultSeries)
+		var base corebase.Base
+		if defaultSeries != "" {
+			var err error
+			base, err = corebase.GetBaseFromSeries(defaultSeries)
+			if err != nil {
+				return "", errors.Trace(err)
+			}
+		}
+		_, charmURL, err := corecharm.NewCharmAtPath(application.Charm, base)
 		if corecharm.IsMissingSeriesError(err) {
 			// local charm path is valid but the charm doesn't declare a default series.
 			return defaultSeries, nil

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/charm/v11"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v3"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
@@ -51,7 +50,7 @@ type deployCharm struct {
 	storage          map[string]storage.Constraints
 	trust            bool
 
-	validateCharmSeriesWithName           func(series, name string, imageStream string) error
+	validateCharmBaseWithName             func(base corebase.Base, name string, imageStream string) error
 	validateResourcesNeededForLocalDeploy func(charmMeta *charm.Meta) error
 }
 
@@ -225,7 +224,11 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 	}
 
 	// Avoid deploying charm if it's not valid for the model.
-	if err := d.validateCharmSeriesWithName(userCharmURL.Series, userCharmURL.Name, modelCfg.ImageStream()); err != nil {
+	base, err := corebase.GetBaseFromSeries(d.userCharmURL.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := d.validateCharmBaseWithName(base, userCharmURL.Name, modelCfg.ImageStream()); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -241,11 +244,6 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 	checkPodspec(charmInfo.Charm(), ctx)
 
 	if err := d.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
-		return errors.Trace(err)
-	}
-
-	base, err := corebase.GetBaseFromSeries(d.userCharmURL.Series)
-	if err != nil {
 		return errors.Trace(err)
 	}
 
@@ -426,7 +424,7 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 
 	ctx.Verbosef("Preparing to deploy %q from the %s", userRequestedURL.Name, location)
 
-	modelCfg, workloadSeries, err := seriesSelectorRequirements(deployAPI, c.clock, userRequestedURL)
+	modelCfg, err := getModelConfig(deployAPI)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -435,20 +433,20 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 	// deploy using the store but pass in the origin command line
 	// argument so users can target a specific origin.
 	origin := c.id.Origin
-	var usingDefaultSeries bool
+	var usingDefaultBase bool
 	if defaultBase, ok := modelCfg.DefaultBase(); ok && origin.Base.Channel.Empty() {
 		base, err := corebase.ParseBaseFromString(defaultBase)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		origin.Base = base
-		usingDefaultSeries = true
+		usingDefaultBase = true
 	}
 	storeCharmOrBundleURL, origin, supportedBases, err := resolver.ResolveCharm(userRequestedURL, origin, false) // no --switch possible.
 	if charm.IsUnsupportedSeriesError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
-		if usingDefaultSeries {
-			msg += " Used the default-series."
+		if usingDefaultBase {
+			msg += " Used the default-base."
 		}
 		return errors.Errorf(msg)
 	} else if err != nil {
@@ -458,53 +456,32 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 		return errors.Trace(err)
 	}
 
-	var seriesFlag string
-	if !c.baseFlag.Empty() {
-		var err error
-		seriesFlag, err = corebase.GetSeriesFromBase(c.baseFlag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	supportedSeries, err := transform.SliceOrErr(supportedBases, corebase.GetSeriesFromBase)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	selector := corecharm.SeriesSelector{
-		CharmURLSeries:      userRequestedURL.Series,
-		SeriesFlag:          seriesFlag,
-		SupportedSeries:     supportedSeries,
-		SupportedJujuSeries: workloadSeries,
-		Force:               c.force,
-		Conf:                modelCfg,
-		FromBundle:          false,
-		Logger:              logger,
-		UsingImageID:        (c.constraints.HasImageID() || c.modelConstraints.HasImageID()),
-	}
-	err = selector.Validate()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Get the series to use.
-	series, err := selector.CharmSeries()
-
-	logger.Tracef("Using series %q from %v to deploy %v", series, supportedSeries, userRequestedURL)
-
 	imageStream := modelCfg.ImageStream()
-	// Avoid deploying charm if it's not valid for the model.
-	// We check this first before possibly suggesting --force.
-	if err == nil {
-		if err2 := c.validateCharmSeriesWithName(series, storeCharmOrBundleURL.Name, imageStream); err2 != nil {
-			return errors.Trace(err2)
-		}
+	workloadBases, err := SupportedJujuBases(c.clock.Now(), c.baseFlag, imageStream)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	if charm.IsUnsupportedSeriesError(err) {
+	baseSelector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
+		Config:              modelCfg,
+		Force:               c.force,
+		Logger:              logger,
+		RequestedBase:       c.baseFlag,
+		SupportedCharmBases: supportedBases,
+		WorkloadBases:       workloadBases,
+		UsingImageID:        (c.constraints.HasImageID() || c.modelConstraints.HasImageID()),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Get the base to use.
+	base, err := baseSelector.CharmBase()
+	logger.Tracef("Using base %q from %v to deploy %v", base, supportedBases, userRequestedURL)
+	if corecharm.IsUnsupportedBaseError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
-		if usingDefaultSeries {
-			msg += " Used the default-series."
+		if usingDefaultBase {
+			msg += " Used the default-base."
 		}
 		return errors.Errorf(msg)
 	}
@@ -513,15 +490,6 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 	}
 
 	// Ensure we save the origin.
-	var base corebase.Base
-	if series == corebase.Kubernetes.String() {
-		base = corebase.LegacyKubernetesBase()
-	} else {
-		base, err = corebase.GetBaseFromSeries(series)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
 	origin = origin.WithBase(&base)
 
 	// In-order for the url to represent the following updates to the origin
@@ -567,16 +535,20 @@ func (c *repositoryCharm) compatibilityPrepareAndDeploy(ctx *cmd.Context, deploy
 	}
 	ctx.Infof(formatLocatedText(curl, csOrigin))
 
-	// If the original series was empty, so we couldn't validate the original
-	// charm series, but the charm url wasn't nil, we can check and validate
+	// If the original base was empty, so we couldn't validate the original
+	// charm base, but the charm url wasn't nil, we can check and validate
 	// what that one says.
 	//
 	// Note: it's interesting that the charm url and the series can diverge and
 	// tell different things when deploying a charm and in sake of understanding
 	// what we deploy, we should converge the two so that both report identical
 	// values.
-	if curl != nil && series == "" {
-		if err := c.validateCharmSeriesWithName(curl.Series, curl.Name, imageStream); err != nil {
+	if curl != nil && base.Empty() {
+		b, err := corebase.GetBaseFromSeries(curl.Series)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := c.validateCharmBaseWithName(b, curl.Name, imageStream); err != nil {
 			return errors.Trace(err)
 		}
 	}
