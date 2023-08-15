@@ -5,17 +5,16 @@ package dbaccessor
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 	"time"
 
-	"github.com/canonical/sqlair"
 	jujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/tomb.v2"
 
-	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/database/app"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 	jujujujutesting "github.com/juju/juju/testing"
 )
@@ -40,6 +39,7 @@ type baseSuite struct {
 	client               *MockClient
 	trackedDB            *MockTrackedDB
 	prometheusRegisterer *MockRegisterer
+	nodeManager          *MockNodeManager
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -52,6 +52,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.client = NewMockClient(ctrl)
 	s.trackedDB = NewMockTrackedDB(ctrl)
 	s.prometheusRegisterer = NewMockRegisterer(ctrl)
+	s.nodeManager = NewMockNodeManager(ctrl)
 
 	s.logger = jujujujutesting.CheckLogger{
 		Log: c,
@@ -102,41 +103,48 @@ func (s *baseSuite) expectTrackedDBKill() {
 	s.trackedDB.EXPECT().Wait().Return(nil).AnyTimes()
 }
 
-type dbBaseSuite struct {
-	domaintesting.ControllerSuite
-	baseSuite
-}
+func (s *baseSuite) expectNodeStartupAndShutdown(handover bool) chan struct{} {
+	sync := make(chan struct{})
 
-type workerTrackedDB struct {
-	tomb tomb.Tomb
-	db   coredatabase.TxnRunner
-}
+	appExp := s.dbApp.EXPECT()
+	appExp.Ready(gomock.Any()).Return(nil)
+	appExp.Client(gomock.Any()).Return(s.client, nil).MinTimes(1)
+	appExp.ID().DoAndReturn(func() uint64 {
+		close(sync)
+		return uint64(666)
+	})
 
-func newWorkerTrackedDB(db coredatabase.TxnRunner) *workerTrackedDB {
-	w := &workerTrackedDB{
-		db: db,
+	if handover {
+		appExp.Handover(gomock.Any()).Return(nil)
 	}
-	w.tomb.Go(w.loop)
+
+	appExp.Close().Return(nil)
+
+	return sync
+}
+
+func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
+	cfg := WorkerConfig{
+		NodeManager:  s.nodeManager,
+		Clock:        s.clock,
+		Hub:          s.hub,
+		ControllerID: "0",
+		Logger:       s.logger,
+		NewApp: func(string, ...app.Option) (DBApp, error) {
+			return s.dbApp, nil
+		},
+		NewDBWorker: func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
+			return db, nil
+		},
+		MetricsCollector: &Collector{},
+	}
+
+	w, err := NewWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
 	return w
 }
 
-func (w *workerTrackedDB) loop() error {
-	<-w.tomb.Dying()
-	return tomb.ErrDying
-}
-
-func (w *workerTrackedDB) Kill() {
-	w.tomb.Kill(nil)
-}
-
-func (w *workerTrackedDB) Wait() error {
-	return w.tomb.Wait()
-}
-
-func (w *workerTrackedDB) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
-	return w.db.Txn(ctx, fn)
-}
-
-func (w *workerTrackedDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return w.db.StdTxn(ctx, fn)
+type dbBaseSuite struct {
+	domaintesting.ControllerSuite
+	baseSuite
 }
