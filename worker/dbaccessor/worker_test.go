@@ -138,7 +138,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer workertest.CleanKill(c, w)
+	defer w.Kill()
 	dbw := w.(*dbWorker)
 
 	// Without a bind address for ourselves we keep waiting.
@@ -229,7 +229,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer workertest.CleanKill(c, w)
+	defer w.Kill()
 
 	ensureStartup(c, w.(*dbWorker))
 
@@ -260,7 +260,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer workertest.CleanKill(c, w)
+	defer w.Kill()
 	dbw := w.(*dbWorker)
 
 	ensureStartup(c, dbw)
@@ -347,7 +347,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer workertest.DirtyKill(c, w)
+	defer w.Kill()
 	dbw := w.(*dbWorker)
 
 	ensureStartup(c, dbw)
