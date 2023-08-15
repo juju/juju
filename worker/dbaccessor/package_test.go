@@ -103,24 +103,17 @@ func (s *baseSuite) expectTrackedDBKill() {
 	s.trackedDB.EXPECT().Wait().Return(nil).AnyTimes()
 }
 
-func (s *baseSuite) expectNodeStartupAndShutdown(handover bool) chan struct{} {
-	sync := make(chan struct{})
-
+func (s *baseSuite) expectNodeStartupAndShutdown(handover bool) {
 	appExp := s.dbApp.EXPECT()
 	appExp.Ready(gomock.Any()).Return(nil)
 	appExp.Client(gomock.Any()).Return(s.client, nil).MinTimes(1)
-	appExp.ID().DoAndReturn(func() uint64 {
-		close(sync)
-		return uint64(666)
-	})
+	appExp.ID().Return(uint64(666))
 
 	if handover {
 		appExp.Handover(gomock.Any()).Return(nil)
 	}
 
 	appExp.Close().Return(nil)
-
-	return sync
 }
 
 func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
@@ -147,4 +140,12 @@ func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
 type dbBaseSuite struct {
 	domaintesting.ControllerSuite
 	baseSuite
+}
+
+func ensureStartup(c *gc.C, w *dbWorker) {
+	select {
+	case <-w.dbReady:
+	case <-time.After(jujujujutesting.LongWait):
+		c.Fatal("timed out waiting for Dqlite node start")
+	}
 }
