@@ -4,6 +4,8 @@
 package hostkeyreporter
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -35,7 +37,7 @@ func New(backend Backend, _ facade.Resources, authorizer facade.Authorizer) (*Fa
 }
 
 // ReportKeys sets the SSH host keys for one or more entities.
-func (facade *Facade) ReportKeys(args params.SSHHostKeySet) (params.ErrorResults, error) {
+func (facade *Facade) ReportKeys(ctx context.Context, args params.SSHHostKeySet) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.EntityKeys)),
 	}

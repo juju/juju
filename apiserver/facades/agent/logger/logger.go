@@ -4,6 +4,8 @@
 package logger
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -18,8 +20,8 @@ import (
 // endpoint because our rpc mechanism panics.  However, I still feel that this
 // provides a useful documentation purpose.
 type Logger interface {
-	WatchLoggingConfig(args params.Entities) params.NotifyWatchResults
-	LoggingConfig(args params.Entities) params.StringResults
+	WatchLoggingConfig(ctx context.Context, args params.Entities) params.NotifyWatchResults
+	LoggingConfig(ctx context.Context, args params.Entities) params.StringResults
 }
 
 // LoggerAPI implements the Logger interface and is the concrete
@@ -36,7 +38,7 @@ var _ Logger = (*LoggerAPI)(nil)
 // for the agents specified..  Unfortunately the current infrastructure makes
 // watching parts of the config non-trivial, so currently any change to the
 // config will cause the watcher to notify the client.
-func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatchResults {
+func (api *LoggerAPI) WatchLoggingConfig(ctx context.Context, arg params.Entities) params.NotifyWatchResults {
 	result := make([]params.NotifyWatchResult, len(arg.Entities))
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
@@ -64,7 +66,7 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 }
 
 // LoggingConfig reports the logging configuration for the agents specified.
-func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
+func (api *LoggerAPI) LoggingConfig(ctx context.Context, arg params.Entities) params.StringResults {
 	if len(arg.Entities) == 0 {
 		return params.StringResults{}
 	}

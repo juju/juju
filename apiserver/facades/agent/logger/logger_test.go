@@ -4,6 +4,8 @@
 package logger_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -87,7 +89,7 @@ func (s *loggerSuite) TestNewLoggerAPIAcceptsApplicationAgent(c *gc.C) {
 
 func (s *loggerSuite) TestWatchLoggingConfigNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results := s.logger.WatchLoggingConfig(params.Entities{})
+	results := s.logger.WatchLoggingConfig(context.Background(), params.Entities{})
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
@@ -103,7 +105,7 @@ func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
-	results := s.logger.WatchLoggingConfig(args)
+	results := s.logger.WatchLoggingConfig(context.Background(), args)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -120,7 +122,7 @@ func (s *loggerSuite) TestWatchLoggingConfigRefusesWrongAgent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "machine-12354"}},
 	}
-	results := s.logger.WatchLoggingConfig(args)
+	results := s.logger.WatchLoggingConfig(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].NotifyWatcherId, gc.Equals, "")
@@ -129,7 +131,7 @@ func (s *loggerSuite) TestWatchLoggingConfigRefusesWrongAgent(c *gc.C) {
 
 func (s *loggerSuite) TestLoggingConfigForNoone(c *gc.C) {
 	// Not an error to request nothing, dumb, but not an error.
-	results := s.logger.LoggingConfig(params.Entities{})
+	results := s.logger.LoggingConfig(context.Background(), params.Entities{})
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
@@ -137,7 +139,7 @@ func (s *loggerSuite) TestLoggingConfigRefusesWrongAgent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "machine-12354"}},
 	}
-	results := s.logger.LoggingConfig(args)
+	results := s.logger.LoggingConfig(context.Background(), args)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
@@ -150,7 +152,7 @@ func (s *loggerSuite) TestLoggingConfigForAgent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
-	results := s.logger.LoggingConfig(args)
+	results := s.logger.LoggingConfig(context.Background(), args)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)

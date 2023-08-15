@@ -107,7 +107,7 @@ func (s *leadershipSuite) TestClaimLeadershipTranslation(c *gc.C) {
 	}
 
 	ldrSvc := newLeadershipService(c, claimer, nil)
-	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -137,7 +137,7 @@ func (s *leadershipSuite) TestClaimLeadershipApplicationAgent(c *gc.C) {
 		tag: names.NewApplicationTag(StubAppNm),
 	}
 	ldrSvc := newLeadershipService(c, claimer, authorizer)
-	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -164,7 +164,7 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 	}
 
 	ldrSvc := newLeadershipService(c, claimer, nil)
-	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -182,7 +182,7 @@ func (s *leadershipSuite) TestClaimLeadershipDeniedError(c *gc.C) {
 func (s *leadershipSuite) TestClaimLeadershipBadService(c *gc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 
-	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  "application-bad/0",
@@ -199,7 +199,7 @@ func (s *leadershipSuite) TestClaimLeadershipBadService(c *gc.C) {
 func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *gc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 
-	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -216,7 +216,7 @@ func (s *leadershipSuite) TestClaimLeadershipBadUnit(c *gc.C) {
 func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *gc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 
-	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -233,7 +233,7 @@ func (s *leadershipSuite) TestClaimLeadershipDurationTooShort(c *gc.C) {
 func (s *leadershipSuite) TestClaimLeadershipDurationTooLong(c *gc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
 
-	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -292,7 +292,7 @@ func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *gc.C) {
 	}
 
 	ldrSvc := newLeadershipService(c, nil, authorizer)
-	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag(StubAppNm).String(),
@@ -310,7 +310,7 @@ func (s *leadershipSuite) TestClaimLeadershipFailBadUnit(c *gc.C) {
 
 func (s *leadershipSuite) TestClaimLeadershipFailBadService(c *gc.C) {
 	ldrSvc := newLeadershipService(c, nil, nil)
-	results, err := ldrSvc.ClaimLeadership(params.ClaimLeadershipBulkParams{
+	results, err := ldrSvc.ClaimLeadership(context.Background(), params.ClaimLeadershipBulkParams{
 		Params: []params.ClaimLeadershipParams{
 			{
 				ApplicationTag:  names.NewApplicationTag("lol-different").String(),

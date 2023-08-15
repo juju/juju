@@ -4,6 +4,8 @@
 package hostkeyreporter_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -47,7 +49,7 @@ func (s *facadeSuite) TestReportKeys(c *gc.C) {
 			},
 		},
 	}
-	result, err := s.facade.ReportKeys(args)
+	result, err := s.facade.ReportKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{

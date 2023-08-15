@@ -4,6 +4,7 @@
 package diskmanager_test
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/names/v4"
@@ -47,7 +48,7 @@ func (s *DiskManagerSuite) SetUpTest(c *gc.C) {
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
 	devices := []storage.BlockDevice{{DeviceName: "sda"}, {DeviceName: "sdb"}}
-	results, err := s.api.SetMachineBlockDevices(params.SetMachineBlockDevices{
+	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine:      "machine-0",
 			BlockDevices: devices,
@@ -60,7 +61,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevices(c *gc.C) {
 }
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevicesEmptyArgs(c *gc.C) {
-	results, err := s.api.SetMachineBlockDevices(params.SetMachineBlockDevices{})
+	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
@@ -75,7 +76,7 @@ func (s *DiskManagerSuite) TestNewDiskManagerAPINonMachine(c *gc.C) {
 }
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *gc.C) {
-	results, err := s.api.SetMachineBlockDevices(params.SetMachineBlockDevices{
+	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine: "machine-0",
 		}, {
@@ -99,7 +100,7 @@ func (s *DiskManagerSuite) TestSetMachineBlockDevicesInvalidTags(c *gc.C) {
 
 func (s *DiskManagerSuite) TestSetMachineBlockDevicesStateError(c *gc.C) {
 	s.st.err = errors.New("boom")
-	results, err := s.api.SetMachineBlockDevices(params.SetMachineBlockDevices{
+	results, err := s.api.SetMachineBlockDevices(context.Background(), params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine: "machine-0",
 		}},

@@ -4,6 +4,7 @@
 package deployer_test
 
 import (
+	"context"
 	"sort"
 	stdtesting "testing"
 
@@ -351,7 +352,7 @@ func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
 		APIAddresses: []string{"1.2.3.4:1234", "0.1.2.3:1234"},
 	}
 
-	result, err := s.deployer.ConnectionInfo()
+	result, err := s.deployer.ConnectionInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expected)
 }
@@ -364,7 +365,7 @@ func (s *deployerSuite) TestSetStatus(c *gc.C) {
 			{Tag: "unit-fake-42", Status: "blocked", Info: "waiting", Data: map[string]interface{}{"foo": "bar"}},
 		},
 	}
-	results, err := s.deployer.SetStatus(args)
+	results, err := s.deployer.SetStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
