@@ -133,7 +133,8 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	s.expectNodeStartupAndShutdown(true)
+	s.expectNodeStartupAndShutdown()
+	s.dbApp.EXPECT().Handover(gomock.Any()).Return(nil)
 
 	// When we are starting up as a new node,
 	// we request details immediately.
@@ -227,7 +228,8 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	s.expectNodeStartupAndShutdown(true)
+	s.expectNodeStartupAndShutdown()
+	s.dbApp.EXPECT().Handover(gomock.Any()).Return(nil)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -259,7 +261,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	s.expectNodeStartupAndShutdown(false)
+	s.expectNodeStartupAndShutdown()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -347,7 +349,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	// Although the shut-down check for IsBootstrappedNode returns false,
 	// this call to shut-down is actually run before reconfiguring the node.
 	// When the loop exits, the node is already set to nil.
-	s.expectNodeStartupAndShutdown(false)
+	s.expectNodeStartupAndShutdown()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
@@ -379,26 +381,6 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 	s.nodeManager = NewMockNodeManager(ctrl)
 	return ctrl
-}
-
-func (s *workerSuite) expectNodeStartupAndShutdown(handover bool) chan struct{} {
-	sync := make(chan struct{})
-
-	appExp := s.dbApp.EXPECT()
-	appExp.Ready(gomock.Any()).Return(nil)
-	appExp.Client(gomock.Any()).Return(s.client, nil).MinTimes(1)
-	appExp.ID().DoAndReturn(func() uint64 {
-		close(sync)
-		return uint64(666)
-	})
-
-	if handover {
-		appExp.Handover(gomock.Any()).Return(nil)
-	}
-
-	appExp.Close().Return(nil)
-
-	return sync
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
