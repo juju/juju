@@ -20,7 +20,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	legacystorage "github.com/Azure/azure-sdk-for-go/services/storage/mgmt/2017-10-01/storage" // Pin this legacy storage API to 2017-10-01 since it's only used for unmanaged storage
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -44,10 +43,8 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
-	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/provider/azure/internal/tracing"
-	"github.com/juju/juju/provider/azure/internal/useragent"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -120,14 +117,6 @@ type azureEnviron struct {
 	config                 *azureModelConfig
 	instanceTypes          map[string]instances.InstanceType
 	commonResourcesCreated bool
-
-	// These are needed for models originalled deployed
-	// prior to Juju 2.3. Microsoft has deprecated this
-	// type of storage and it will be removed 1-08-2024.
-	storage            legacystorage.BaseClient
-	storageAccountName string
-	storageAccount     **legacystorage.Account
-	storageAccountKey  *legacystorage.AccountKey
 }
 
 var _ environs.Environ = (*azureEnviron)(nil)
@@ -166,19 +155,6 @@ func (env *azureEnviron) SetCloudSpec(ctx stdcontext.Context, cloud environsclou
 		}
 	}
 	env.modelName = cfg.Name()
-
-	// We need a deterministic storage account name, so that we can
-	// defer creation of the storage account to the VM deployment,
-	// and retain the ability to create multiple deployments in
-	// parallel.
-	//
-	// We use the last 20 non-hyphen hex characters of the model's
-	// UUID as the storage account name, prefixed with "juju". The
-	// probability of clashing with another storage account should
-	// be negligible.
-	uuidAlphaNumeric := strings.Replace(env.config.Config.UUID(), "-", "", -1)
-	env.storageAccountName = "juju" + uuidAlphaNumeric[len(uuidAlphaNumeric)-20:]
-
 	return nil
 }
 
@@ -190,7 +166,7 @@ func (env *azureEnviron) initEnviron(ctx stdcontext.Context) error {
 	}
 
 	env.clientOptions = azcore.ClientOptions{
-		Cloud: azureCloud(env.cloud.Endpoint, env.cloud.IdentityEndpoint),
+		Cloud: azureCloud(env.cloud.Name, env.cloud.Endpoint, env.cloud.IdentityEndpoint),
 		PerCallPolicies: []policy.Policy{
 			&tracing.LoggingPolicy{
 				Logger: logger.Child("azureapi"),
@@ -220,15 +196,6 @@ func (env *azureEnviron) initEnviron(ctx stdcontext.Context) error {
 	env.credential, err = env.provider.config.CreateTokenCredential(appId, appPassword, tenantID, env.clientOptions)
 	if err != nil {
 		return errors.Annotate(err, "set up credential")
-	}
-
-	// Set up legacy storage client, only used for models upgraded
-	// from Juju 2.2 or earlier.
-	env.storage = legacystorage.NewWithBaseURI(env.cloud.Endpoint, env.subscriptionId)
-	useragent.UpdateClient(&env.storage.Client)
-	env.storage.Client.Authorizer = azureauth.NewLegacyAuth(env.cloud, tenantID).Auth()
-	if env.provider.config.Sender != nil {
-		env.storage.Client.Sender = env.provider.config.Sender
 	}
 	return nil
 }
@@ -338,11 +305,6 @@ func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, cont
 			return errors.Trace(err)
 		}
 	}
-
-	// New models are not given a storage account. Initialise the
-	// storage account pointer to a pointer to a nil pointer, so
-	// "getStorageAccount" avoids making an API call.
-	env.storageAccount = new(*legacystorage.Account)
 
 	return nil
 }
@@ -708,17 +670,6 @@ func (env *azureEnviron) createVirtualMachine(
 		}
 	}
 
-	maybeStorageAccount, err := env.getStorageAccount(ctx)
-	if errors.IsNotFound(err) {
-		// Only models created prior to Juju 2.3 will have a storage
-		// account. Juju 2.3 onwards exclusively uses managed disks
-		// for all new models, and handles both managed and unmanaged
-		// disks for upgraded models.
-		maybeStorageAccount = nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-
 	osProfile, seriesOS, err := newOSProfile(
 		vmName, instanceConfig,
 		env.provider.config.RandomWindowsAdminPassword,
@@ -729,8 +680,6 @@ func (env *azureEnviron) createVirtualMachine(
 	}
 	storageProfile, err := newStorageProfile(
 		vmName,
-		maybeStorageAccount,
-		env.config.storageAccountType,
 		instanceSpec,
 	)
 	if err != nil {
@@ -772,24 +721,13 @@ func (env *azureEnviron) createVirtualMachine(
 		}
 	}
 	if createAvailabilitySet && availabilitySetName != "" {
-		var (
-			availabilitySetProperties  interface{}
-			availabilityStorageOptions *armtemplates.Sku
-		)
-		if maybeStorageAccount == nil {
-			// This model uses managed disks; we must create
-			// the availability set as "aligned" to support
-			// them.
-			availabilitySetProperties = &armcompute.AvailabilitySetProperties{
-				// Azure complains when the fault domain count
-				// is not specified, even though it is meant
-				// to be optional and default to the maximum.
-				// The maximum depends on the location, and
-				// there is no API to query it.
-				PlatformFaultDomainCount: to.Ptr(maxFaultDomains(env.location)),
-			}
-			// Availability needs to be 'Aligned' to support managed disks.
-			availabilityStorageOptions = &armtemplates.Sku{Name: "Aligned"}
+		availabilitySetProperties := &armcompute.AvailabilitySetProperties{
+			// Azure complains when the fault domain count
+			// is not specified, even though it is meant
+			// to be optional and default to the maximum.
+			// The maximum depends on the location, and
+			// there is no API to query it.
+			PlatformFaultDomainCount: to.Ptr(maxFaultDomains(env.location)),
 		}
 		res = append(res, armtemplates.Resource{
 			APIVersion: computeAPIVersion,
@@ -798,7 +736,7 @@ func (env *azureEnviron) createVirtualMachine(
 			Location:   env.location,
 			Tags:       envTags,
 			Properties: availabilitySetProperties,
-			Sku:        availabilityStorageOptions,
+			Sku:        &armtemplates.Sku{Name: "Aligned"},
 		})
 		vmDependsOn = append(vmDependsOn, availabilitySetId)
 	}
@@ -976,38 +914,10 @@ func (env *azureEnviron) waitCommonResourcesCreated(ctx context.ProviderCallCont
 	if env.commonResourcesCreated {
 		return nil
 	}
-	deployment, err := env.waitCommonResourcesCreatedLocked(ctx)
-	if err != nil {
+	if _, err := env.waitCommonResourcesCreatedLocked(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	env.commonResourcesCreated = true
-	if deployment != nil {
-		// Check if the common deployment created
-		// a storage account. If it didn't, we can
-		// avoid a query for the storage account.
-		var hasStorageAccount bool
-		if deployment.Properties != nil {
-			for _, p := range deployment.Properties.Providers {
-				if toValue(p.Namespace) != "Microsoft.Storage" {
-					continue
-				}
-				if p.ResourceTypes == nil {
-					continue
-				}
-				for _, rt := range p.ResourceTypes {
-					if toValue(rt.ResourceType) != "storageAccounts" {
-						continue
-					}
-					hasStorageAccount = true
-					break
-				}
-				break
-			}
-		}
-		if !hasStorageAccount {
-			env.storageAccount = new(*legacystorage.Account)
-		}
-	}
 	return nil
 }
 
@@ -1120,8 +1030,6 @@ func availabilitySetName(
 // based on the series and chosen instance spec.
 func newStorageProfile(
 	vmName string,
-	maybeStorageAccount *legacystorage.Account,
-	storageAccountType string,
 	instanceSpec *instances.InstanceSpec,
 ) (*armcompute.StorageProfile, error) {
 	logger.Debugf("creating storage profile for %q", vmName)
@@ -1142,18 +1050,9 @@ func newStorageProfile(
 		CreateOption: to.Ptr(armcompute.DiskCreateOptionTypesFromImage),
 		Caching:      to.Ptr(armcompute.CachingTypesReadWrite),
 		DiskSizeGB:   to.Ptr(int32(osDiskSizeGB)),
-	}
-
-	if maybeStorageAccount == nil {
-		// This model uses managed disks.
-		osDisk.ManagedDisk = &armcompute.ManagedDiskParameters{
-			StorageAccountType: to.Ptr(armcompute.StorageAccountTypes(storageAccountType)),
-		}
-	} else {
-		// This model uses unmanaged disks.
-		osDiskVhdRoot := blobContainerURL(maybeStorageAccount, osDiskVHDContainer)
-		vhdURI := osDiskVhdRoot + osDiskName + vhdExtension
-		osDisk.Vhd = &armcompute.VirtualHardDisk{to.Ptr(vhdURI)}
+		ManagedDisk: &armcompute.ManagedDiskParameters{
+			StorageAccountType: to.Ptr(armcompute.StorageAccountTypesStandardLRS),
+		},
 	}
 
 	return &armcompute.StorageProfile{
@@ -1275,11 +1174,6 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 		return nil
 	}
 
-	maybeStorageClient, _, err := env.maybeGetStorageClient(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	// List network interfaces and public IP addresses.
 	instanceNics, err := env.instanceNetworkInterfaces(
 		ctx,
@@ -1310,7 +1204,6 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 			err := env.deleteVirtualMachine(
 				ctx,
 				id,
-				maybeStorageClient,
 				instanceNics[id],
 				instancePips[id],
 			)
@@ -1366,7 +1259,6 @@ func isDeployConflictError(err error) bool {
 func (env *azureEnviron) deleteVirtualMachine(
 	ctx context.ProviderCallContext,
 	instId instance.Id,
-	maybeStorageClient internalazurestorage.Client,
 	networkInterfaces []*armnetwork.Interface,
 	publicIPAddresses []*armnetwork.PublicIPAddress,
 ) error {
@@ -1389,15 +1281,6 @@ func (env *azureEnviron) deleteVirtualMachine(
 			return errors.Annotate(err, "deleting virtual machine")
 		}
 	}
-	if maybeStorageClient != nil {
-		logger.Debugf("- deleting OS VHD (%s)", vmName)
-		blobClient := maybeStorageClient.GetBlobService()
-		vhdContainer := blobClient.GetContainerReference(osDiskVHDContainer)
-		vhdBlob := vhdContainer.Blob(vmName)
-		_, err := vhdBlob.DeleteIfExists(nil)
-		return errorutils.HandleCredentialError(errors.Annotate(err, "deleting OS VHD"), ctx)
-	}
-
 	// Delete the managed OS disk.
 	logger.Debugf("- deleting OS disk (%s)", vmName)
 	disks, err := env.disksClient()
@@ -2354,97 +2237,6 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 	}
 	env.instanceTypes = instanceTypes
 	return instanceTypes, nil
-}
-
-// maybeGetStorageClient returns the environment's storage client if it
-// has one, and nil if it does not.
-func (env *azureEnviron) maybeGetStorageClient(ctx stdcontext.Context) (internalazurestorage.Client, *legacystorage.Account, error) {
-	storageClient, storageAccount, err := env.getStorageClient(ctx)
-	if errors.IsNotFound(err) {
-		// Only models created prior to Juju 2.3 will have a storage
-		// account. Juju 2.3 onwards exclusively uses managed disks
-		// for all new models, and handles both managed and unmanaged
-		// disks for upgraded models.
-		storageClient = nil
-		storageAccount = nil
-	} else if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return storageClient, storageAccount, nil
-}
-
-// getStorageClient queries the storage account key, and uses it to construct
-// a new storage client.
-func (env *azureEnviron) getStorageClient(ctx stdcontext.Context) (internalazurestorage.Client, *legacystorage.Account, error) {
-	env.mu.Lock()
-	defer env.mu.Unlock()
-	storageAccount, err := env.getStorageAccountLocked(ctx)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting storage account")
-	}
-	storageAccountKey, err := env.getStorageAccountKeyLocked(
-		ctx, toValue(storageAccount.Name), false,
-	)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting storage account key")
-	}
-	client, err := getStorageClient(
-		env.provider.config.NewStorageClient,
-		env.storageEndpoint,
-		storageAccount,
-		storageAccountKey,
-	)
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "getting storage client")
-	}
-	return client, storageAccount, nil
-}
-
-// getStorageAccount returns the storage account for this environment's
-// resource group.
-func (env *azureEnviron) getStorageAccount(ctx stdcontext.Context) (*legacystorage.Account, error) {
-	env.mu.Lock()
-	defer env.mu.Unlock()
-	return env.getStorageAccountLocked(ctx)
-}
-
-func (env *azureEnviron) getStorageAccountLocked(ctx stdcontext.Context) (*legacystorage.Account, error) {
-	if env.storageAccount != nil {
-		if *env.storageAccount == nil {
-			return nil, errors.NotFoundf("storage account")
-		}
-		return *env.storageAccount, nil
-	}
-	client := legacystorage.AccountsClient{env.storage}
-	account, err := client.GetProperties(ctx, env.resourceGroup, env.storageAccountName)
-	if err != nil {
-		if isNotFoundResult(account.Response, err) {
-			// Remember that the account was not found
-			// by storing a pointer to a nil pointer.
-			env.storageAccount = new(*legacystorage.Account)
-			return nil, errors.NewNotFound(err, fmt.Sprintf("storage account not found"))
-		}
-		return nil, errors.Annotate(err, "checking legacy storage account")
-	}
-	env.storageAccount = new(*legacystorage.Account)
-	*env.storageAccount = &account
-	return &account, nil
-}
-
-// getStorageAccountKeysLocked returns a storage account key for this
-// environment's storage account. If refresh is true, any cached key
-// will be refreshed. This method assumes that env.mu is held.
-func (env *azureEnviron) getStorageAccountKeyLocked(ctx stdcontext.Context, accountName string, refresh bool) (*legacystorage.AccountKey, error) {
-	if !refresh && env.storageAccountKey != nil {
-		return env.storageAccountKey, nil
-	}
-	client := legacystorage.AccountsClient{env.storage}
-	key, err := getStorageAccountKey(ctx, client, env.resourceGroup, accountName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	env.storageAccountKey = key
-	return key, nil
 }
 
 // Region is specified in the HasRegion interface.

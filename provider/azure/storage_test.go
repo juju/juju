@@ -11,17 +11,15 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
-	autorestazure "github.com/Azure/go-autorest/autorest/azure"
-	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"github.com/microsoftgraph/msgraph-sdk-go/models/odataerrors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure"
-	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -30,11 +28,9 @@ import (
 type storageSuite struct {
 	testing.BaseSuite
 
-	datavhdsContainer azuretesting.MockStorageContainer
-	storageClient     azuretesting.MockStorageClient
-	provider          storage.Provider
-	requests          []*http.Request
-	sender            azuretesting.Senders
+	provider storage.Provider
+	requests []*http.Request
+	sender   azuretesting.Senders
 
 	cloudCallCtx      *context.CloudCallContext
 	invalidCredential bool
@@ -44,16 +40,9 @@ var _ = gc.Suite(&storageSuite{})
 
 func (s *storageSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.datavhdsContainer = azuretesting.MockStorageContainer{}
-	s.storageClient = azuretesting.MockStorageClient{
-		Containers: map[string]internalazurestorage.Container{
-			"datavhds": &s.datavhdsContainer,
-		},
-	}
 	s.requests = nil
 	envProvider := newProvider(c, azure.ProviderConfig{
 		Sender:                     &s.sender,
-		NewStorageClient:           s.storageClient.NewClient,
 		RequestInspector:           &azuretesting.RequestRecorderPolicy{Requests: &s.requests},
 		RandomWindowsAdminPassword: func() string { return "sorandom" },
 		CreateTokenCredential: func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error) {
@@ -84,18 +73,10 @@ func (s *storageSuite) volumeSource(c *gc.C, attrs ...testing.Attrs) storage.Vol
 	storageConfig, err := storage.NewConfig("azure", "azure", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.sender = azuretesting.Senders{s.accountNotFoundSender()}
+	s.sender = azuretesting.Senders{}
 	volumeSource, err := s.provider.VolumeSource(storageConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	return volumeSource
-}
-
-func (s *storageSuite) accountNotFoundSender() *mocks.Sender {
-	sender := mocks.NewSender()
-	sender.AppendResponse(mocks.NewResponseWithStatus(
-		"storage account not found", http.StatusNotFound,
-	))
-	return sender
 }
 
 func (s *storageSuite) TestVolumeSource(c *gc.C) {
@@ -204,6 +185,7 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 			"foo": to.Ptr("bar"),
 		}
 		return &armcompute.Disk{
+			Name:     to.Ptr(name),
 			Location: to.Ptr("westus"),
 			Tags:     tags,
 			SKU: &armcompute.DiskSKU{
@@ -224,8 +206,8 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 }
 
 func (s *storageSuite) createSenderWithUnauthorisedStatusCode() {
-	unauthSender := mocks.NewSender()
-	unauthSender.AppendAndRepeatResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
+	unauthSender := &azuretesting.MockSender{}
+	unauthSender.AppendAndRepeatResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized), 3)
 	s.sender = azuretesting.Senders{unauthSender, unauthSender, unauthSender}
 }
 
@@ -283,6 +265,7 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 			"foo": to.Ptr("bar"),
 		}
 		return &armcompute.Disk{
+			Name:     to.Ptr(name),
 			Location: to.Ptr("westus"),
 			Tags:     tags,
 			Properties: &armcompute.DiskProperties{
@@ -333,7 +316,7 @@ func (s *storageSuite) TestListVolumesWithInvalidCredential(c *gc.C) {
 
 func (s *storageSuite) TestListVolumesErrors(c *gc.C) {
 	volumeSource := s.volumeSource(c)
-	sender := mocks.NewSender()
+	sender := &azuretesting.MockSender{}
 	sender.SetAndRepeatError(errors.New("no disks for you"), -1)
 	s.sender = azuretesting.Senders{
 		sender,
@@ -379,9 +362,9 @@ func (s *storageSuite) TestDescribeVolumesWithInvalidCredential(c *gc.C) {
 
 func (s *storageSuite) TestDescribeVolumesNotFound(c *gc.C) {
 	volumeSource := s.volumeSource(c)
-	volumeSender := mocks.NewSender()
-	response := mocks.NewResponseWithBodyAndStatus(
-		mocks.NewBody("{}"),
+	volumeSender := &azuretesting.MockSender{}
+	response := azuretesting.NewResponseWithBodyAndStatus(
+		azuretesting.NewBody("{}"),
 		http.StatusNotFound,
 		"disk not found",
 	)
@@ -397,7 +380,7 @@ func (s *storageSuite) TestDescribeVolumesNotFound(c *gc.C) {
 func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	volumeSource := s.volumeSource(c)
 
-	volume0Sender := azuretesting.NewSenderWithValue(&autorestazure.ServiceError{})
+	volume0Sender := azuretesting.NewSenderWithValue(&odataerrors.ODataError{})
 	volume0Sender.PathPattern = `.*/Microsoft\.Compute/disks/volume-0`
 	s.sender = azuretesting.Senders{volume0Sender}
 
@@ -422,8 +405,8 @@ func (s *storageSuite) TestDestroyVolumesWithInvalidCredential(c *gc.C) {
 func (s *storageSuite) TestDestroyVolumesNotFound(c *gc.C) {
 	volumeSource := s.volumeSource(c)
 
-	volume42Sender := mocks.NewSender()
-	volume42Sender.AppendResponse(mocks.NewResponseWithStatus(
+	volume42Sender := &azuretesting.MockSender{}
+	volume42Sender.AppendResponse(azuretesting.NewResponseWithStatus(
 		"disk not found", http.StatusNotFound,
 	))
 	s.sender = azuretesting.Senders{volume42Sender}
@@ -541,6 +524,7 @@ func (s *storageSuite) TestAttachVolumes(c *gc.C) {
 	}}
 
 	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
+		Name: to.Ptr("machine-0"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{
 				DataDisks: machine0DataDisks,
@@ -623,6 +607,7 @@ func (s *storageSuite) TestDetachVolumes(c *gc.C) {
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // update machine-0
 
 	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
+		Name: to.Ptr("machine-0"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{
 				DataDisks: []*armcompute.DataDisk{
@@ -684,6 +669,7 @@ func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // update machine-0
 
 	assertRequestBody(c, s.requests[1], &armcompute.VirtualMachine{
+		Name: to.Ptr("machine-0"),
 		Properties: &armcompute.VirtualMachineProperties{
 			StorageProfile: &armcompute.StorageProfile{
 				DataDisks: []*armcompute.DataDisk{},

@@ -695,6 +695,7 @@ func (g bootstrapConfigGetter) getBootstrapConfigParams(controllerName string) (
 		credential, err = provider.FinalizeCredential(
 			g.ctx, environs.FinalizeCredentialParams{
 				Credential:            *credential,
+				CloudName:             bootstrapConfig.Cloud,
 				CloudEndpoint:         bootstrapConfig.CloudEndpoint,
 				CloudStorageEndpoint:  bootstrapConfig.CloudStorageEndpoint,
 				CloudIdentityEndpoint: bootstrapConfig.CloudIdentityEndpoint,

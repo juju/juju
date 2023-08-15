@@ -45,13 +45,11 @@ func (s *environProviderSuite) SetUpTest(c *gc.C) {
 		},
 	})
 	s.spec = environscloudspec.CloudSpec{
-		Type:             "azure",
-		Name:             "azure",
-		Region:           "westus",
-		Endpoint:         "https://api.azurestack.local",
-		IdentityEndpoint: "https://login.azurestack.local",
-		StorageEndpoint:  "https://storage.azurestack.local",
-		Credential:       fakeServicePrincipalCredential(),
+		Type:            "azure",
+		Name:            "azure",
+		Region:          "westus",
+		StorageEndpoint: "https://storage.azurestack.local",
+		Credential:      fakeServicePrincipalCredential(),
 	}
 	s.sender = nil
 }
@@ -117,10 +115,6 @@ func (s *environProviderSuite) testOpenError(c *gc.C, spec environscloudspec.Clo
 }
 
 func newProvider(c *gc.C, config azure.ProviderConfig) environs.EnvironProvider {
-	if config.NewStorageClient == nil {
-		var storage azuretesting.MockStorageClient
-		config.NewStorageClient = storage.NewClient
-	}
 	if config.RetryClock == nil {
 		config.RetryClock = testclock.NewClock(time.Time{})
 	}

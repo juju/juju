@@ -7,6 +7,7 @@ import (
 	stdcontext "context"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	azurecloud "github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -17,7 +18,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
@@ -50,10 +50,6 @@ type ProviderConfig struct {
 	// CreateTokenCredential is set by tests to create a token.
 	CreateTokenCredential func(appId, appPassword, tenantID string, opts azcore.ClientOptions) (azcore.TokenCredential, error)
 
-	// NewStorageClient will be used to construct new storage
-	// clients.
-	NewStorageClient azurestorage.NewClientFunc
-
 	// RetryClock is used for retrying some operations, like
 	// waiting for deployments to complete.
 	//
@@ -83,9 +79,6 @@ type ProviderConfig struct {
 
 // Validate validates the Azure provider configuration.
 func (cfg ProviderConfig) Validate() error {
-	if cfg.NewStorageClient == nil {
-		return errors.NotValidf("nil NewStorageClient")
-	}
 	if cfg.RetryClock == nil {
 		return errors.NotValidf("nil RetryClock")
 	}
@@ -195,7 +188,7 @@ var verifyCredentials = func(e *azureEnviron, ctx context.ProviderCallContext) e
 	// This is used at bootstrap - the ctx invalid credential callback will log
 	// a suitable message.
 	_, err := e.credential.GetToken(ctx, policy.TokenRequestOptions{
-		Scopes: []string{"https://management.core.windows.net/.default"},
+		Scopes: []string{e.clientOptions.Cloud.Services[azurecloud.ResourceManager].Audience + "/.default"},
 	})
 	return errorutils.HandleCredentialError(err, ctx)
 }

@@ -190,6 +190,9 @@ type FinalizeCredentialParams struct {
 	// Credential is the credential that the provider should finalize.
 	Credential cloud.Credential
 
+	// CloudName is the name of the cloud that the credentials are for.
+	CloudName string
+
 	// CloudEndpoint is the endpoint for the cloud that the credentials are
 	// for. This may be used by the provider to communicate with the cloud
 	// to finalize the credentials.

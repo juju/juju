@@ -4,13 +4,13 @@
 package azure_test
 
 import (
-	"github.com/Azure/go-autorest/autorest/mocks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/azure"
+	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/testing"
 )
 
@@ -32,7 +32,7 @@ var _ = gc.Suite(&configSuite{})
 func (s *configSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = newProvider(c, azure.ProviderConfig{
-		Sender: mocks.NewSender(),
+		Sender: &azuretesting.MockSender{},
 	})
 }
 
