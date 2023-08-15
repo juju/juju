@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
@@ -28,6 +29,7 @@ var logger = loggo.GetLogger("juju.apiserver.client.secrets")
 // SecretsAPI is the backend for the Secrets facade.
 type SecretsAPI struct {
 	authorizer     facade.Authorizer
+	authTag        names.Tag
 	controllerUUID string
 	modelUUID      string
 	modelName      string
@@ -221,16 +223,18 @@ func (s *SecretsAPI) secretContentFromBackend(uri *coresecrets.URI, rev int) (co
 	}
 }
 
-func (s *SecretsAPI) getActiveBackend() (provider.SecretsBackend, error) {
+func (s *SecretsAPI) getBackend(id *string) (provider.SecretsBackend, error) {
 	if s.activeBackendID == "" {
-		err := s.getBackendInfo()
-		if err != nil {
+		if err := s.getBackendInfo(); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	backend, ok := s.backends[s.activeBackendID]
+	if id == nil {
+		id = &s.activeBackendID
+	}
+	backend, ok := s.backends[*id]
 	if !ok {
-		return nil, errors.NotFoundf("external secret backend %q, have %q", s.activeBackendID, s.backends)
+		return nil, errors.NotFoundf("external secret backend %q", s.activeBackendID)
 	}
 	return backend, nil
 }
@@ -246,7 +250,7 @@ func (s *SecretsAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringR
 	if err := s.checkCanAdmin(); err != nil {
 		return result, errors.Trace(err)
 	}
-	backend, err := s.getActiveBackend()
+	backend, err := s.getBackend(nil)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -268,12 +272,13 @@ func (t successfulToken) Check() error {
 	return nil
 }
 
-func (s *SecretsAPI) createSecret(backend provider.SecretsBackend, arg params.CreateSecretArg) (_ string, err error) {
+func (s *SecretsAPI) createSecret(backend provider.SecretsBackend, arg params.CreateSecretArg) (_ string, errOut error) {
 	if arg.OwnerTag != "" && arg.OwnerTag != s.modelUUID {
 		return "", errors.NotValidf("owner tag %q", arg.OwnerTag)
 	}
 	secretOwner := names.NewModelTag(s.modelUUID)
 	var uri *coresecrets.URI
+	var err error
 	if arg.URI != nil {
 		uri, err = coresecrets.ParseURI(*arg.URI)
 		if err != nil {
@@ -292,13 +297,13 @@ func (s *SecretsAPI) createSecret(backend provider.SecretsBackend, arg params.Cr
 	}
 	if err == nil {
 		defer func() {
-			if err != nil {
+			if errOut != nil {
 				// If we failed to create the secret, we should delete the
 				// secret value from the backend.
-				if err := backend.DeleteContent(context.TODO(), revId); err != nil &&
-					!errors.Is(err, errors.NotSupported) &&
-					!errors.Is(err, errors.NotFound) {
-					logger.Errorf("failed to delete secret %q: %v", revId, err)
+				if err2 := backend.DeleteContent(context.TODO(), revId); err2 != nil &&
+					!errors.Is(err2, errors.NotSupported) &&
+					!errors.Is(err2, errors.NotFound) {
+					logger.Errorf("failed to delete secret %q: %v", revId, err2)
 				}
 			}
 		}()
@@ -338,7 +343,100 @@ func fromUpsertParams(p params.UpsertSecretArg) state.UpdateSecretParams {
 	}
 }
 
-// CreateSecrets isn't on the v1 API.
+// UpdateSecrets isn't on the v1 API.
+func (s *SecretsAPIV1) UpdateSecrets(_ struct{}) {}
+
+// UpdateSecrets creates new secrets.
+func (s *SecretsAPI) UpdateSecrets(args params.UpdateUserSecretArgs) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Args)),
+	}
+	if err := s.checkCanAdmin(); err != nil {
+		return result, errors.Trace(err)
+	}
+	backend, err := s.getBackend(nil)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	for i, arg := range args.Args {
+		err := s.updateSecret(backend, arg)
+		if errors.Is(err, state.LabelExists) {
+			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
+		}
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
+}
+
+func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.UpdateUserSecretArg) (errOut error) {
+	if err := arg.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	uri, err := coresecrets.ParseURI(arg.URI)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	md, err := s.secretsState.GetSecret(uri)
+	if err != nil {
+		// Check if the uri exists or not.
+		return errors.Trace(err)
+	}
+	if len(arg.Content.Data) > 0 {
+		revId, err := backend.SaveContent(context.TODO(), uri, md.LatestRevision+1, coresecrets.NewSecretValue(arg.Content.Data))
+		if err != nil && !errors.Is(err, errors.NotSupported) {
+			return errors.Trace(err)
+		}
+		if err == nil {
+			defer func() {
+				if errOut != nil {
+					// If we failed to update the secret, we should delete the
+					// secret value from the backend for the new revision.
+					if err2 := backend.DeleteContent(context.TODO(), revId); err2 != nil &&
+						!errors.Is(err2, errors.NotSupported) &&
+						!errors.Is(err2, errors.NotFound) {
+						logger.Errorf("failed to delete secret %q: %v", revId, err2)
+					}
+				}
+			}()
+			arg.Content.Data = nil
+			arg.Content.ValueRef = &params.SecretValueRef{
+				BackendID:  s.activeBackendID,
+				RevisionID: revId,
+			}
+		}
+	}
+	_, err = s.secretsState.UpdateSecret(uri, fromUpsertParams(arg.UpsertSecretArg))
+	return errors.Trace(err)
+}
+
+// RemoveSecrets isn't on the v1 API.
+func (s *SecretsAPIV1) RemoveSecrets(_ struct{}) {}
+
+// RemoveSecrets remove user secret.
+func (s *SecretsAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorResults, error) {
+	return commonsecrets.RemoveSecretsForClient(
+		s.secretsState, s.backendConfigGetter,
+		s.authTag, args,
+		func(uri *coresecrets.URI) error {
+			// Only admin can delete user secrets.
+			if err := s.checkCanAdmin(); err != nil {
+				return errors.Trace(err)
+			}
+			md, err := s.secretsState.GetSecret(uri)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			// Can only delete model owned(user supplied) secrets.
+			if md.OwnerTag != names.NewModelTag(s.modelUUID).String() {
+				return apiservererrors.ErrPerm
+			}
+			return nil
+		},
+	)
+}
+
+// GrantSecret isn't on the v1 API.
 func (s *SecretsAPIV1) GrantSecret(_ struct{}) {}
 
 // GrantSecret grants access to a user secret.

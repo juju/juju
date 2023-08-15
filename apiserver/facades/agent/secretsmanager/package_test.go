@@ -52,6 +52,7 @@ func NewTestAPI(
 
 	return &SecretsManagerAPI{
 		authTag:             authTag,
+		authorizer:          authorizer,
 		resources:           resources,
 		leadershipChecker:   leadership,
 		secretsState:        secretsState,

@@ -28,11 +28,6 @@ import (
 
 var logger = loggo.GetLoggerWithLabels("juju.apiserver.secretsmanager", corelogger.SECRETS)
 
-// For testing.
-var (
-	GetProvider = secretsprovider.Provider
-)
-
 // CrossModelSecretsClient gets secret content from a cross model controller.
 type CrossModelSecretsClient interface {
 	GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, refresh, peek bool, appToken string, unitId int, macs macaroon.Slice) (*secrets.ContentParams, *secretsprovider.ModelBackendConfig, int, bool, error)
@@ -41,6 +36,7 @@ type CrossModelSecretsClient interface {
 
 // SecretsManagerAPI is the implementation for the SecretsManager facade.
 type SecretsManagerAPI struct {
+	authorizer        facade.Authorizer
 	leadershipChecker leadership.Checker
 	secretsState      SecretsState
 	resources         facade.Resources
@@ -358,71 +354,14 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 
 // RemoveSecrets removes the specified secrets.
 func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorResults, error) {
-	type deleteInfo struct {
-		uri       *coresecrets.URI
-		revisions []int
-	}
-	toDelete := make([]deleteInfo, len(args.Args))
-	for i, arg := range args.Args {
-		uri, err := coresecrets.ParseURI(arg.URI)
-		if err != nil {
-			return params.ErrorResults{}, errors.Trace(err)
-		}
-		toDelete[i] = deleteInfo{uri: uri, revisions: arg.Revisions}
-	}
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	externalRevisions := make(map[string]secretsprovider.SecretRevisions)
-	for i, d := range toDelete {
-		external, err := s.removeSecret(d.uri, d.revisions...)
-		result.Results[i].Error = apiservererrors.ServerError(err)
-		if err == nil {
-			for _, rev := range external {
-				if _, ok := externalRevisions[rev.BackendID]; !ok {
-					externalRevisions[rev.BackendID] = secretsprovider.SecretRevisions{}
-				}
-				externalRevisions[rev.BackendID].Add(d.uri, rev.RevisionID)
-			}
-		}
-	}
-	if len(externalRevisions) == 0 {
-		return result, nil
-	}
-
-	cfgInfo, err := s.adminConfigGetter()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	for backendID, r := range externalRevisions {
-		// TODO: include unitTag in params.DeleteSecretArgs for operator uniters?
-		// This should be resolved once lp:1991213 and lp:1991854 are fixed.
-		backendCfg, ok := cfgInfo.Configs[backendID]
-		if !ok {
-			return params.ErrorResults{}, errors.NotFoundf("secret backend %q", backendID)
-		}
-		provider, err := GetProvider(backendCfg.BackendType)
-		if err != nil {
-			return params.ErrorResults{}, errors.Trace(err)
-		}
-		if err := provider.CleanupSecrets(&backendCfg, s.authTag, r); err != nil {
-			return params.ErrorResults{}, errors.Trace(err)
-		}
-	}
-	return result, nil
-}
-
-func (s *SecretsManagerAPI) removeSecret(uri *coresecrets.URI, revisions ...int) ([]coresecrets.ValueRef, error) {
-	if _, err := s.secretsState.GetSecret(uri); err != nil {
-		// Check if the uri exists or not.
-		return nil, errors.Trace(err)
-	}
-
-	_, err := s.canManage(uri)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return s.secretsState.DeleteSecret(uri, revisions...)
+	return commonsecrets.RemoveSecretsForAgent(
+		s.secretsState, s.adminConfigGetter,
+		s.authTag, args,
+		func(uri *coresecrets.URI) error {
+			_, err := s.canManage(uri)
+			return errors.Trace(err)
+		},
+	)
 }
 
 // GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets.

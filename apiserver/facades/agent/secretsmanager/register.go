@@ -48,29 +48,22 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
+	model, err := context.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	leadershipChecker, err := context.LeadershipChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	secretBackendConfigGetter := func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
-		model, err := context.State().Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		return secrets.BackendConfigInfo(secrets.SecretsModel(model), backendIDs, wantAll, context.Auth().GetAuthTag(), leadershipChecker)
 	}
 	secretBackendAdminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
-		model, err := context.State().Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
 	secretBackendDrainConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
-		model, err := context.State().Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		return secrets.DrainBackendConfigInfo(backendID, secrets.SecretsModel(model), context.Auth().GetAuthTag(), leadershipChecker)
 	}
 	controllerAPI := common.NewStateControllerConfig(context.State())
@@ -98,6 +91,7 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 	}
 
 	return &SecretsManagerAPI{
+		authorizer:          context.Auth(),
 		authTag:             context.Auth().GetAuthTag(),
 		leadershipChecker:   leadershipChecker,
 		secretsState:        state.NewSecrets(context.State()),

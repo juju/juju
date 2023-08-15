@@ -126,6 +126,68 @@ func (c *Client) CreateSecret(label, description string, data map[string]string)
 	return result.Result, nil
 }
 
+// UpdateSecret updates an existing secret.
+func (c *Client) UpdateSecret(
+	uri *secrets.URI, autoPrune *bool,
+	label, description string, data map[string]string,
+) error {
+	if c.BestAPIVersion() < 2 {
+		return errors.NotSupportedf("user secrets")
+	}
+	var results params.ErrorResults
+	arg := params.UpdateUserSecretArg{
+		URI:       uri.String(),
+		AutoPrune: autoPrune,
+		UpsertSecretArg: params.UpsertSecretArg{
+			Content: params.SecretContentParams{Data: data},
+		},
+	}
+	if label != "" {
+		arg.UpsertSecretArg.Label = &label
+	}
+	if description != "" {
+		arg.UpsertSecretArg.Description = &description
+	}
+	err := c.facade.FacadeCall("UpdateSecrets", params.UpdateUserSecretArgs{Args: []params.UpdateUserSecretArg{arg}}, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return params.TranslateWellKnownError(result.Error)
+	}
+	return nil
+}
+
+func (c *Client) RemoveSecret(uri *secrets.URI, revision *int) error {
+	if c.BestAPIVersion() < 2 {
+		return errors.NotSupportedf("user secrets")
+	}
+	arg := params.DeleteSecretArg{
+		URI: uri.String(),
+	}
+	if revision != nil {
+		arg.Revisions = append(arg.Revisions, *revision)
+	}
+
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("RemoveSecrets", params.DeleteSecretArgs{Args: []params.DeleteSecretArg{arg}}, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return params.TranslateWellKnownError(result.Error)
+	}
+	return nil
+}
+
 // GrantSecret grants access to a secret to the specified applications.
 func (c *Client) GrantSecret(uri *secrets.URI, apps []string) ([]error, error) {
 	if c.BestAPIVersion() < 2 {

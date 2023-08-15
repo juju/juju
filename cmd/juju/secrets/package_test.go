@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsapi.go github.com/juju/juju/cmd/juju/secrets ListSecretsAPI,AddSecretsAPI,GrantRevokeSecretsAPI
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsapi.go github.com/juju/juju/cmd/juju/secrets ListSecretsAPI,AddSecretsAPI,GrantRevokeSecretsAPI,UpdateSecretsAPI,RemoveSecretsAPI
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -21,6 +21,24 @@ func TestPackage(t *stdtesting.T) {
 func NewAddCommandForTest(store jujuclient.ClientStore, api AddSecretsAPI) *addSecretCommand {
 	c := &addSecretCommand{
 		secretsAPIFunc: func() (AddSecretsAPI, error) { return api, nil },
+	}
+	c.SetClientStore(store)
+	return c
+}
+
+// NewUpdateCommandForTest returns a secrets command for testing.
+func NewUpdateCommandForTest(store jujuclient.ClientStore, api UpdateSecretsAPI) *updateSecretCommand {
+	c := &updateSecretCommand{
+		secretsAPIFunc: func() (UpdateSecretsAPI, error) { return api, nil },
+	}
+	c.SetClientStore(store)
+	return c
+}
+
+// NewRemoveCommandForTest returns a secrets command for testing.
+func NewRemoveCommandForTest(store jujuclient.ClientStore, api RemoveSecretsAPI) *removeSecretCommand {
+	c := &removeSecretCommand{
+		secretsAPIFunc: func() (RemoveSecretsAPI, error) { return api, nil },
 	}
 	c.SetClientStore(store)
 	return c
