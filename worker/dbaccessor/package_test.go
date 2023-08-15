@@ -65,10 +65,6 @@ func (s *baseSuite) expectClock() {
 	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
 }
 
-func (s *baseSuite) expectAnyAfter() {
-	s.clock.EXPECT().After(gomock.Any()).AnyTimes()
-}
-
 func (s *baseSuite) setupTimer(interval time.Duration) chan time.Time {
 	s.timer.EXPECT().Stop().MinTimes(1)
 	s.clock.EXPECT().NewTimer(interval).Return(s.timer)
