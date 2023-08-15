@@ -31,7 +31,7 @@ func (dep mongoDependency) PackageList(series string) ([]packaging.Package, erro
 	)
 
 	switch series {
-	case "centos7", "centos8", "centos9", "opensuseleap":
+	case "centos7":
 		return nil, errors.NotSupportedf("installing mongo on series %q", series)
 	default:
 		if dep.snapChannel == "" {

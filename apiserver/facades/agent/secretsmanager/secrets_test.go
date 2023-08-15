@@ -18,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
 
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager/mocks"
@@ -78,7 +79,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.secretsTriggerWatcher = mocks.NewMockSecretsTriggerWatcher(ctrl)
 	s.expectAuthUnitAgent()
 
-	s.PatchValue(&secretsmanager.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.provider, nil })
+	s.PatchValue(&commonsecrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return s.provider, nil })
 
 	s.clock = testclock.NewClock(time.Now())
 

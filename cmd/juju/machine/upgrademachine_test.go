@@ -72,7 +72,7 @@ func (s *UpgradeMachineSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&machine.SupportedJujuSeries,
 		func(time.Time, string, string) (set.Strings, error) {
 			return set.NewStrings(
-				"centos7", "centos8", "centos9", "genericlinux", "opensuseleap",
+				"centos7", "centos9", "genericlinux",
 				"jammy", "focal", "bionic", "xenial",
 			), nil
 		},
