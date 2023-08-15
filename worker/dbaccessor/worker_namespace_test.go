@@ -61,7 +61,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer w.Kill()
+	defer workertest.DirtyKill(c, w)
 
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
@@ -97,7 +97,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModel(c *gc.C) {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer w.Kill()
+	defer workertest.DirtyKill(c, w)
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -149,7 +149,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer w.Kill()
+	defer workertest.DirtyKill(c, w)
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -210,7 +210,7 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *gc.C) {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer w.Kill()
+	defer workertest.DirtyKill(c, w)
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -262,7 +262,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *gc.C) {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer w.Kill()
+	defer workertest.DirtyKill(c, w)
 
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
@@ -317,7 +317,7 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	trackedWorkerDB := newWorkerTrackedDB(s.TxnRunner())
 
 	w := s.newWorkerWithDB(c, trackedWorkerDB)
-	defer w.Kill()
+	defer workertest.DirtyKill(c, w)
 
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
