@@ -16,21 +16,27 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/certupdater"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
 
-	authority      pki.Authority
-	manifold       dependency.Manifold
-	context        dependency.Context
-	agent          *mockAgent
-	stateTracker   stubStateTracker
-	addressWatcher fakeAddressWatcher
+	authority              pki.Authority
+	manifold               dependency.Manifold
+	context                dependency.Context
+	agent                  *mockAgent
+	stateTracker           stubStateTracker
+	addressWatcher         fakeAddressWatcher
+	serviceFactory         servicefactory.ServiceFactory
+	controllerConfigGetter *controllerconfigservice.Service
+	logger                 certupdater.Logger
 
 	stub testing.Stub
 }
@@ -42,6 +48,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.agent = &mockAgent{}
 	s.stateTracker = stubStateTracker{}
+	s.controllerConfigGetter = &controllerconfigservice.Service{}
+	s.serviceFactory = stubServiceFactory{
+		controllerConfigGetter: s.controllerConfigGetter,
+	}
+	s.logger = jujutesting.NewCheckLogger(c)
 	s.stub.ResetCalls()
 
 	authority, err := pkitest.NewTestAuthority()
@@ -53,16 +64,19 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:                "agent",
 		AuthorityName:            "authority",
 		StateName:                "state",
+		ServiceFactoryName:       "service-factory",
 		NewWorker:                s.newWorker,
 		NewMachineAddressWatcher: s.newMachineAddressWatcher,
+		Logger:                   s.logger,
 	})
 }
 
-func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
-	resources := map[string]interface{}{
-		"agent":     s.agent,
-		"authority": s.authority,
-		"state":     &s.stateTracker,
+func (s *ManifoldSuite) newContext(overlay map[string]any) dependency.Context {
+	resources := map[string]any{
+		"agent":           s.agent,
+		"authority":       s.authority,
+		"state":           &s.stateTracker,
+		"service-factory": s.serviceFactory,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -85,7 +99,7 @@ func (s *ManifoldSuite) newMachineAddressWatcher(st *state.State, machineId stri
 	return &s.addressWatcher, nil
 }
 
-var expectedInputs = []string{"agent", "authority", "state"}
+var expectedInputs = []string{"agent", "authority", "state", "service-factory"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -93,7 +107,7 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 
 func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 	for _, input := range expectedInputs {
-		context := s.newContext(map[string]interface{}{
+		context := s.newContext(map[string]any{
 			input: dependency.ErrMissing,
 		})
 		_, err := s.manifold.Start(context)
@@ -115,9 +129,11 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config := args[0].(certupdater.Config)
 
 	c.Assert(config, jc.DeepEquals, certupdater.Config{
-		AddressWatcher:     &s.addressWatcher,
-		Authority:          s.authority,
-		APIHostPortsGetter: &s.stateTracker.state,
+		AddressWatcher:         &s.addressWatcher,
+		Authority:              s.authority,
+		APIHostPortsGetter:     &s.stateTracker.state,
+		Logger:                 s.logger,
+		ControllerConfigGetter: s.controllerConfigGetter,
 	})
 }
 
@@ -202,11 +218,20 @@ func (s *stubStateTracker) Done() error {
 	return s.NextErr()
 }
 
-func (s *stubStateTracker) Report() map[string]interface{} {
+func (s *stubStateTracker) Report() map[string]any {
 	s.MethodCall(s, "Report")
 	return nil
 }
 
 type fakeAddressWatcher struct {
 	certupdater.AddressWatcher
+}
+
+type stubServiceFactory struct {
+	servicefactory.ServiceFactory
+	controllerConfigGetter *controllerconfigservice.Service
+}
+
+func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {
+	return s.controllerConfigGetter
 }

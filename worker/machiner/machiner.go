@@ -4,6 +4,7 @@
 package machiner
 
 import (
+	"context"
 	"net"
 
 	"github.com/juju/errors"
@@ -77,7 +78,7 @@ var NewMachiner = func(cfg Config) (worker.Worker, error) {
 // GetObservedNetworkConfig is patched for testing.
 var GetObservedNetworkConfig = common.GetObservedNetworkConfig
 
-func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
+func (mr *Machiner) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
 	m, err := mr.config.MachineAccessor.Machine(mr.config.Tag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
@@ -176,7 +177,7 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 	return m.SetMachineAddresses(machineAddresses)
 }
 
-func (mr *Machiner) Handle(_ <-chan struct{}) error {
+func (mr *Machiner) Handle(_ context.Context) error {
 	if err := mr.machine.Refresh(); params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		// NOTE(axw) we can distinguish between NotFound and CodeUnauthorized,
 		// so we could call NotifyMachineDead here in case the agent failed to

@@ -4,6 +4,8 @@
 package reboot
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -45,12 +47,12 @@ func NewReboot(client reboot.Client, agentTag names.Tag, machineLock machinelock
 	return w, errors.Trace(err)
 }
 
-func (r *Reboot) SetUp() (watcher.NotifyWatcher, error) {
+func (r *Reboot) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
 	watcher, err := r.client.WatchForRebootEvent()
 	return watcher, errors.Trace(err)
 }
 
-func (r *Reboot) Handle(_ <-chan struct{}) error {
+func (r *Reboot) Handle(_ context.Context) error {
 	rAction, err := r.client.GetRebootAction()
 	if err != nil {
 		return errors.Trace(err)

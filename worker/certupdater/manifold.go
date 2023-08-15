@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -23,8 +24,10 @@ type ManifoldConfig struct {
 	AgentName                string
 	AuthorityName            string
 	StateName                string
+	ServiceFactoryName       string
 	NewWorker                func(Config) (worker.Worker, error)
 	NewMachineAddressWatcher func(st *state.State, machineId string) (AddressWatcher, error)
+	Logger                   Logger
 }
 
 // Validate validates the manifold configuration.
@@ -38,11 +41,17 @@ func (config ManifoldConfig) Validate() error {
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
 	}
+	if config.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
+	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
 	if config.NewMachineAddressWatcher == nil {
 		return errors.NotValidf("nil NewMachineAddressWatcher")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
@@ -54,6 +63,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.AuthorityName,
 			config.StateName,
+			config.ServiceFactoryName,
 		},
 		Start: config.start,
 	}
@@ -75,6 +85,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var controllerServiceFactory servicefactory.ControllerServiceFactory
+	if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var stTracker workerstate.StateTracker
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
@@ -93,9 +108,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	w, err := config.NewWorker(Config{
-		AddressWatcher:     addressWatcher,
-		Authority:          authority,
-		APIHostPortsGetter: st,
+		AddressWatcher:         addressWatcher,
+		Authority:              authority,
+		APIHostPortsGetter:     st,
+		ControllerConfigGetter: controllerServiceFactory.ControllerConfig(),
+		Logger:                 config.Logger,
 	})
 	if err != nil {
 		_ = stTracker.Done()

@@ -4,6 +4,7 @@
 package meterstatus_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -104,12 +105,12 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerDoesNotRerunNoChange(c *gc.C) {
 	handler, err := meterstatus.NewConnectedStatusHandler(config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
-	_, err = handler.SetUp()
+	_, err = handler.SetUp(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = handler.Handle(nil)
+	err = handler.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	err = handler.Handle(nil)
+	err = handler.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "WatchMeterStatus", "MeterStatus", "RunHook", "MeterStatus")
@@ -139,12 +140,12 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerRunsHookOnChanges(c *gc.C) {
 	handler, err := meterstatus.NewConnectedStatusHandler(config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
-	_, err = handler.SetUp()
+	_, err = handler.SetUp(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	handler.Handle(nil)
+	handler.Handle(context.Background())
 	s.msClient.SetStatus("RED")
-	handler.Handle(nil)
+	handler.Handle(context.Background())
 
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCallNames(c, "WatchMeterStatus", "MeterStatus", "RunHook", "MeterStatus", "RunHook")
@@ -170,10 +171,10 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerHandlesHookMissingError(c *gc.C)
 	handler, err := meterstatus.NewConnectedStatusHandler(config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
-	_, err = handler.SetUp()
+	_, err = handler.SetUp(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = handler.Handle(nil)
+	err = handler.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	s.stub.CheckCallNames(c, "WatchMeterStatus", "MeterStatus", "RunHook")
 }
@@ -198,10 +199,10 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerHandlesRandomHookError(c *gc.C) 
 	handler, err := meterstatus.NewConnectedStatusHandler(config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
-	_, err = handler.SetUp()
+	_, err = handler.SetUp(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = handler.Handle(nil)
+	err = handler.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "WatchMeterStatus", "MeterStatus", "RunHook")
@@ -232,10 +233,10 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerDoesNotRerunAfterRestart(c *gc.C
 	handler, err := meterstatus.NewConnectedStatusHandler(config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
-	_, err = handler.SetUp()
+	_, err = handler.SetUp(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = handler.Handle(nil)
+	err = handler.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "WatchMeterStatus", "MeterStatus", "RunHook")
@@ -245,10 +246,10 @@ func (s *ConnectedWorkerSuite) TestStatusHandlerDoesNotRerunAfterRestart(c *gc.C
 	handler, err = meterstatus.NewConnectedStatusHandler(config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(handler, gc.NotNil)
-	_, err = handler.SetUp()
+	_, err = handler.SetUp(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = handler.Handle(nil)
+	err = handler.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "WatchMeterStatus", "MeterStatus")

@@ -4,6 +4,7 @@
 package proxyupdater
 
 import (
+	"context"
 	"io"
 	stdos "os"
 	stdexec "os/exec"
@@ -313,7 +314,7 @@ func (w *proxyWorker) onChange() error {
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.
-func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
+func (w *proxyWorker) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
 	// We need to set this up initially as the NotifyWorker sucks up the first
 	// event.
 	err := w.onChange()
@@ -325,7 +326,7 @@ func (w *proxyWorker) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.
-func (w *proxyWorker) Handle(_ <-chan struct{}) error {
+func (w *proxyWorker) Handle(_ context.Context) error {
 	return w.onChange()
 }
 

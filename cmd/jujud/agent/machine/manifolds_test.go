@@ -485,7 +485,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"certificate-updater": {
 		"agent",
 		"certificate-watcher",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
 		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 		"upgrade-check-flag",

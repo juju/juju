@@ -4,6 +4,7 @@
 package apiaddressupdater
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -79,12 +80,12 @@ func NewAPIAddressUpdater(config Config) (worker.Worker, error) {
 }
 
 // SetUp is part of the watcher.NotifyHandler interface.
-func (c *APIAddressUpdater) SetUp() (watcher.NotifyWatcher, error) {
+func (c *APIAddressUpdater) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
 	return c.config.Addresser.WatchAPIHostPorts()
 }
 
 // Handle is part of the watcher.NotifyHandler interface.
-func (c *APIAddressUpdater) Handle(_ <-chan struct{}) error {
+func (c *APIAddressUpdater) Handle(_ context.Context) error {
 	hps, err := c.getAddresses()
 	if err != nil {
 		return err
