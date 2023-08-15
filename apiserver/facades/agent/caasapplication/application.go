@@ -4,6 +4,7 @@
 package caasapplication
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -65,7 +66,7 @@ func NewFacade(
 }
 
 // UnitIntroduction sets the status of each given entity.
-func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.CAASUnitIntroductionResult, error) {
+func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntroductionArgs) (params.CAASUnitIntroductionResult, error) {
 	tag, ok := f.auth.GetAuthTag().(names.ApplicationTag)
 	if !ok {
 		return params.CAASUnitIntroductionResult{}, apiservererrors.ErrPerm
@@ -215,7 +216,7 @@ func (f *Facade) UnitIntroduction(args params.CAASUnitIntroductionArgs) (params.
 // UnitTerminating should be called by the CAASUnitTerminationWorker when
 // the agent receives a signal to exit. UnitTerminating will return how
 // the agent should shutdown.
-func (f *Facade) UnitTerminating(args params.Entity) (params.CAASUnitTerminationResult, error) {
+func (f *Facade) UnitTerminating(ctx context.Context, args params.Entity) (params.CAASUnitTerminationResult, error) {
 	tag, ok := f.auth.GetAuthTag().(names.UnitTag)
 	if !ok {
 		return params.CAASUnitTerminationResult{}, apiservererrors.ErrPerm
