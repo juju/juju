@@ -6,8 +6,8 @@ package charmrevisionupdater_test
 import (
 	"time"
 
-	"github.com/juju/charm/v10"
-	"github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v11/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"

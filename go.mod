@@ -46,7 +46,7 @@ require (
 	github.com/im7mortal/kmutex v1.0.1
 	github.com/juju/ansiterm v1.0.0
 	github.com/juju/blobstore/v3 v3.0.2
-	github.com/juju/charm/v10 v10.0.1
+	github.com/juju/charm/v11 v11.0.2
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v3 v3.0.13
 	github.com/juju/collections v1.0.4
@@ -90,6 +90,7 @@ require (
 	github.com/kr/pretty v0.3.1
 	github.com/mattn/go-isatty v0.0.19
 	github.com/microsoft/kiota-abstractions-go v1.2.0
+	github.com/microsoft/kiota-http-go v1.0.1
 	github.com/microsoftgraph/msgraph-sdk-go v1.14.0
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/mitchellh/mapstructure v1.5.0
@@ -216,7 +217,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
 	github.com/microsoft/kiota-authentication-azure-go v1.0.0 // indirect
-	github.com/microsoft/kiota-http-go v1.0.1 // indirect
 	github.com/microsoft/kiota-serialization-form-go v1.0.0 // indirect
 	github.com/microsoft/kiota-serialization-json-go v1.0.4 // indirect
 	github.com/microsoft/kiota-serialization-text-go v1.0.0 // indirect

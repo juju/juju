@@ -7,7 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v10"
+	charm "github.com/juju/charm/v11"
 	uniter "github.com/juju/juju/apiserver/facades/agent/uniter"
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"

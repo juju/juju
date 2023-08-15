@@ -7,7 +7,7 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 
 	apicharm "github.com/juju/juju/api/client/charms"

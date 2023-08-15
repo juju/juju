@@ -8,7 +8,7 @@ import (
 	"crypto/sha512"
 	"fmt"
 
-	charmresource "github.com/juju/charm/v10/resource"
+	charmresource "github.com/juju/charm/v11/resource"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

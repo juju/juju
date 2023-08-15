@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	charm "github.com/juju/charm/v10"
+	charm "github.com/juju/charm/v11"
 	application "github.com/juju/juju/core/application"
 	network "github.com/juju/juju/core/network"
 	payloads "github.com/juju/juju/core/payloads"
