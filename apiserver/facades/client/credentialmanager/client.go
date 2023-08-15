@@ -4,6 +4,8 @@
 package credentialmanager
 
 import (
+	"context"
+
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -12,7 +14,7 @@ import (
 
 // CredentialManager defines the methods on credentialmanager API endpoint.
 type CredentialManager interface {
-	InvalidateModelCredential(params.InvalidateCredentialArg) (params.ErrorResult, error)
+	InvalidateModelCredential(context.Context, params.InvalidateCredentialArg) (params.ErrorResult, error)
 }
 
 type CredentialManagerAPI struct {

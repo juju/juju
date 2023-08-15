@@ -4,6 +4,8 @@
 package credentialcommon_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -31,7 +33,7 @@ func (s *CredentialSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CredentialSuite) TestInvalidateModelCredential(c *gc.C) {
-	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
+	result, err := s.api.InvalidateModelCredential(context.Background(), params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
 	s.backend.CheckCalls(c, []testing.StubCall{
@@ -42,7 +44,7 @@ func (s *CredentialSuite) TestInvalidateModelCredential(c *gc.C) {
 func (s *CredentialSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	expected := errors.New("boom")
 	s.backend.SetErrors(expected)
-	result, err := s.api.InvalidateModelCredential(params.InvalidateCredentialArg{"not again"})
+	result, err := s.api.InvalidateModelCredential(context.Background(), params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(expected)})
 	s.backend.CheckCalls(c, []testing.StubCall{
