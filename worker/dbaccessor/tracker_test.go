@@ -358,7 +358,8 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxn(c *gc.C) {
 		case <-time.After(testing.ShortWait):
 			c.Fatal("timed out waiting for sync")
 		}
-		_ = workertest.CheckKill(c, w)
+
+		workertest.DirtyKill(c, w)
 	}()
 
 	// Ensure that the DB is dead.
@@ -396,7 +397,8 @@ func (s *trackedDBWorkerSuite) TestWorkerCancelsTxnNoRetry(c *gc.C) {
 		case <-time.After(testing.ShortWait):
 			c.Fatal("timed out waiting for sync")
 		}
-		_ = workertest.CheckKill(c, w)
+
+		workertest.DirtyKill(c, w)
 	}()
 
 	// Ensure that the DB is dead.
