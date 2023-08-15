@@ -89,16 +89,11 @@ func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
 	return s.expectTick(ch, ticks)
 }
 
-func (s *baseSuite) expectNodeStartupAndShutdown(handover bool) {
+func (s *baseSuite) expectNodeStartupAndShutdown() {
 	appExp := s.dbApp.EXPECT()
 	appExp.Ready(gomock.Any()).Return(nil)
 	appExp.Client(gomock.Any()).Return(s.client, nil).MinTimes(1)
 	appExp.ID().Return(uint64(666))
-
-	if handover {
-		appExp.Handover(gomock.Any()).Return(nil)
-	}
-
 	appExp.Close().Return(nil)
 }
 
