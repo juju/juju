@@ -133,7 +133,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(true)
+	s.expectNodeStartupAndShutdown(true)
 
 	// When we are starting up as a new node,
 	// we request details immediately.
@@ -142,10 +142,11 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
+	dbw := w.(*dbWorker)
 
 	// Without a bind address for ourselves we keep waiting.
 	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+	case dbw.apiServerChanges <- apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {ID: "0"},
 			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
@@ -169,7 +170,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	// At this point, the Dqlite node is not started.
 	// The worker is waiting for legitimate server detail messages.
 	select {
-	case <-sync:
+	case <-dbw.dbReady:
 		c.Fatal("Dqlite node should not be started yet.")
 	case <-time.After(testing.ShortWait):
 	}
@@ -187,11 +188,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 		c.Fatal("timed out waiting for cluster change to be processed")
 	}
 
-	select {
-	case <-sync:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for Dqlite node start")
-	}
+	ensureStartup(c, dbw)
 
 	s.client.EXPECT().Leader(gomock.Any()).Return(&dqlite.NodeInfo{
 		ID:      1,
@@ -230,18 +227,14 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(true)
+	s.expectNodeStartupAndShutdown(true)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	select {
-	case <-sync:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for Dqlite node start")
-	}
+	ensureStartup(c, w.(*dbWorker))
 
 	workertest.CleanKill(c, w)
 }
@@ -266,24 +259,21 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(false)
+	s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
+	dbw := w.(*dbWorker)
 
-	select {
-	case <-sync:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for Dqlite node start")
-	}
+	ensureStartup(c, dbw)
 
 	// At this point we have started successfully.
 	// Push a message onto the API details channel.
 	// A single server does not cause a binding change.
 	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+	case dbw.apiServerChanges <- apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
 		},
@@ -295,7 +285,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	// Multiple servers still do not cause a binding change
 	// if there is no internal address to bind to.
 	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+	case dbw.apiServerChanges <- apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {ID: "0"},
 			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
@@ -357,23 +347,20 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	// Although the shut-down check for IsBootstrappedNode returns false,
 	// this call to shut-down is actually run before reconfiguring the node.
 	// When the loop exits, the node is already set to nil.
-	sync := s.expectNodeStartupAndShutdown(false)
+	s.expectNodeStartupAndShutdown(false)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
+	dbw := w.(*dbWorker)
 
-	select {
-	case <-sync:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for Dqlite node start")
-	}
+	ensureStartup(c, dbw)
 
 	// At this point we have started successfully.
 	// Push a message onto the API details channel to simulate a move into HA.
 	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+	case dbw.apiServerChanges <- apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
 			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
