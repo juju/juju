@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"

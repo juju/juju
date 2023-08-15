@@ -6,8 +6,8 @@ package resources
 import (
 	"testing"
 
-	"github.com/juju/charm/v10"
-	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	charmresource "github.com/juju/charm/v11/resource"
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"

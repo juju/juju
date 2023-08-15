@@ -6,8 +6,8 @@ package resources_test
 import (
 	"time"
 
-	"github.com/juju/charm/v10"
-	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	charmresource "github.com/juju/charm/v11/resource"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/hash"
 	"go.uber.org/mock/gomock"

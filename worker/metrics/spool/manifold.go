@@ -6,7 +6,7 @@ package spool
 import (
 	"time"
 
-	corecharm "github.com/juju/charm/v10"
+	corecharm "github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"

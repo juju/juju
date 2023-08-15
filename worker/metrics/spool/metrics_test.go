@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	corecharm "github.com/juju/charm/v10"
+	corecharm "github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

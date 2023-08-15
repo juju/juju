@@ -6,8 +6,8 @@ package charms
 import (
 	"fmt"
 
-	"github.com/juju/charm/v10"
-	"github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
@@ -394,7 +394,7 @@ func convertCharmManifest(input *params.CharmManifest) (*charm.Manifest, error) 
 	}
 	res := []charm.Base(nil)
 	for _, v := range input.Bases {
-		str := fmt.Sprintf("%s/%s", v.Name, v.Channel)
+		str := fmt.Sprintf("%s@%s", v.Name, v.Channel)
 		b, err := charm.ParseBase(str, v.Architectures...)
 		if err != nil {
 			return nil, errors.Trace(err)

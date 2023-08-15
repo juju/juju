@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v10"
-	charmresource "github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
