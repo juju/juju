@@ -6,6 +6,7 @@ package dbaccessor
 import (
 	"context"
 	"database/sql"
+
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -15,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/pubsub/apiserver"
 )
 
@@ -32,7 +33,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForController(c *gc.C) {
 		dbApp: s.dbApp,
 	}
 
-	err := w.ensureNamespace(coredatabase.ControllerNS)
+	err := w.ensureNamespace(database.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -67,7 +68,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 	ensureStartup(c, dbw)
 
 	err := dbw.ensureNamespace("foo")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
 
 	workertest.CleanKill(c, w)
 }
@@ -231,7 +232,7 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *gc.C) {
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
 
-	err = dbw.closeDatabase(coredatabase.ControllerNS)
+	err = dbw.closeDatabase(database.ControllerNS)
 	c.Assert(err, gc.ErrorMatches, "cannot close controller database")
 
 	workertest.CleanKill(c, w)
@@ -330,10 +331,10 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 
 type workerTrackedDB struct {
 	tomb tomb.Tomb
-	db   coredatabase.TxnRunner
+	db   database.TxnRunner
 }
 
-func newWorkerTrackedDB(db coredatabase.TxnRunner) *workerTrackedDB {
+func newWorkerTrackedDB(db database.TxnRunner) *workerTrackedDB {
 	w := &workerTrackedDB{
 		db: db,
 	}
