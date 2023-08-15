@@ -4,6 +4,7 @@
 package watcher_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -63,7 +64,7 @@ type notifyHandler struct {
 	setupDone     chan struct{}
 }
 
-func (nh *notifyHandler) SetUp() (watcher.NotifyWatcher, error) {
+func (nh *notifyHandler) SetUp(context.Context) (watcher.NotifyWatcher, error) {
 	defer func() { nh.setupDone <- struct{}{} }()
 	nh.mu.Lock()
 	defer nh.mu.Unlock()
@@ -84,7 +85,7 @@ func (nh *notifyHandler) TearDown() error {
 	return nh.teardownError
 }
 
-func (nh *notifyHandler) Handle(_ <-chan struct{}) error {
+func (nh *notifyHandler) Handle(context.Context) error {
 	nh.mu.Lock()
 	defer nh.mu.Unlock()
 	nh.actions = append(nh.actions, "handler")
