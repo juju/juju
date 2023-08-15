@@ -22,6 +22,8 @@ import (
 
 type workerSuite struct {
 	baseSuite
+
+	trackedDB *MockTrackedDB
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -368,4 +370,20 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	return s.newWorkerWithDB(c, s.trackedDB)
+}
+
+func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := s.baseSuite.setupMocks(c)
+
+	s.trackedDB = NewMockTrackedDB(ctrl)
+
+	return ctrl
+}
+
+// expectTrackedDBKill accommodates termination of the TrackedDB.
+// the expectations are soft, because the worker may not have called the
+// NewDBWorker function before it is killed.
+func (s *workerSuite) expectTrackedDBKill() {
+	s.trackedDB.EXPECT().Kill().AnyTimes()
+	s.trackedDB.EXPECT().Wait().Return(nil).AnyTimes()
 }

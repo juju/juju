@@ -37,7 +37,6 @@ type baseSuite struct {
 	timer                *MockTimer
 	dbApp                *MockDBApp
 	client               *MockClient
-	trackedDB            *MockTrackedDB
 	prometheusRegisterer *MockRegisterer
 	nodeManager          *MockNodeManager
 }
@@ -50,7 +49,6 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.hub = NewMockHub(ctrl)
 	s.dbApp = NewMockDBApp(ctrl)
 	s.client = NewMockClient(ctrl)
-	s.trackedDB = NewMockTrackedDB(ctrl)
 	s.prometheusRegisterer = NewMockRegisterer(ctrl)
 	s.nodeManager = NewMockNodeManager(ctrl)
 
@@ -89,14 +87,6 @@ func (s *baseSuite) expectTick(ch chan time.Time, ticks int) <-chan struct{} {
 func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
 	ch := s.setupTimer(PollInterval)
 	return s.expectTick(ch, ticks)
-}
-
-// expectTrackedDBKill accommodates termination of the TrackedDB.
-// the expectations are soft, because the worker may not have called the
-// NewDBWorker function before it is killed.
-func (s *baseSuite) expectTrackedDBKill() {
-	s.trackedDB.EXPECT().Kill().AnyTimes()
-	s.trackedDB.EXPECT().Wait().Return(nil).AnyTimes()
 }
 
 func (s *baseSuite) expectNodeStartupAndShutdown(handover bool) {
