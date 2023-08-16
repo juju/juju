@@ -4,6 +4,8 @@
 package migrationflag_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -52,7 +54,7 @@ func (*FacadeSuite) TestPhaseSuccess(c *gc.C) {
 	facade, err := migrationflag.New(backend, nil, authOK)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results := facade.Phase(entities(
+	results := facade.Phase(context.Background(), entities(
 		coretesting.ModelTag.String(),
 		coretesting.ModelTag.String(),
 	))
@@ -73,7 +75,7 @@ func (*FacadeSuite) TestPhaseErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// 3 entities: unparseable, unauthorized, call error.
-	results := facade.Phase(entities(
+	results := facade.Phase(context.Background(), entities(
 		"urgle",
 		unknownModel,
 		coretesting.ModelTag.String(),
@@ -102,7 +104,7 @@ func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
 	facade, err := migrationflag.New(backend, resources, authOK)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results := facade.Watch(entities(
+	results := facade.Watch(context.Background(), entities(
 		coretesting.ModelTag.String(),
 		coretesting.ModelTag.String(),
 	))
@@ -130,7 +132,7 @@ func (*FacadeSuite) TestWatchErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// 3 entities: unparseable, unauthorized, closed channel.
-	results := facade.Watch(entities(
+	results := facade.Watch(context.Background(), entities(
 		"urgle",
 		unknownModel,
 		coretesting.ModelTag.String(),

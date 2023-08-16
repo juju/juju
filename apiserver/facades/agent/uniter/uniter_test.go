@@ -3067,7 +3067,7 @@ func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 
 func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
-	result, err := s.uniter.GetMeterStatus(args)
+	result, err := s.uniter.GetMeterStatus(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
@@ -3087,7 +3087,7 @@ func (s *uniterSuite) TestGetMeterStatusBadTag(c *gc.C) {
 	for i, tag := range tags {
 		args.Entities[i] = params.Entity{Tag: tag}
 	}
-	result, err := s.uniter.GetMeterStatus(args)
+	result, err := s.uniter.GetMeterStatus(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(tags))
 	for i, result := range result.Results {

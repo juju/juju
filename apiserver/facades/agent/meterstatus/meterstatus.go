@@ -4,6 +4,8 @@
 package meterstatus
 
 import (
+	"context"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
@@ -19,8 +21,8 @@ import (
 
 // MeterStatus defines the methods exported by the meter status API facade.
 type MeterStatus interface {
-	GetMeterStatus(args params.Entities) (params.MeterStatusResults, error)
-	WatchMeterStatus(args params.Entities) (params.NotifyWatchResults, error)
+	GetMeterStatus(ctx context.Context, args params.Entities) (params.MeterStatusResults, error)
+	WatchMeterStatus(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error)
 }
 
 // MeterStatusState represents the state of an model required by the MeterStatus.
@@ -77,7 +79,7 @@ func NewMeterStatusAPI(
 
 // WatchMeterStatus returns a NotifyWatcher for observing changes
 // to each unit's meter status.
-func (m *MeterStatusAPI) WatchMeterStatus(args params.Entities) (params.NotifyWatchResults, error) {
+func (m *MeterStatusAPI) WatchMeterStatus(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -115,7 +117,7 @@ func (m *MeterStatusAPI) watchOneUnitMeterStatus(tag names.UnitTag) (string, err
 }
 
 // GetMeterStatus returns meter status information for each unit.
-func (m *MeterStatusAPI) GetMeterStatus(args params.Entities) (params.MeterStatusResults, error) {
+func (m *MeterStatusAPI) GetMeterStatus(ctx context.Context, args params.Entities) (params.MeterStatusResults, error) {
 	result := params.MeterStatusResults{
 		Results: make([]params.MeterStatusResult, len(args.Entities)),
 	}

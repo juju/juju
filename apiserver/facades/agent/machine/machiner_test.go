@@ -4,6 +4,7 @@
 package machine_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/loggo"
@@ -188,7 +189,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 		{Tag: "machine-42", Addresses: params.FromMachineAddresses(addresses...)},
 	}}
 
-	result, err := s.machiner.SetMachineAddresses(args)
+	result, err := s.machiner.SetMachineAddresses(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -217,7 +218,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
 		{Tag: "machine-1", Addresses: params.FromMachineAddresses(addresses...)},
 	}}
-	result, err := s.machiner.SetMachineAddresses(args)
+	result, err := s.machiner.SetMachineAddresses(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -229,7 +230,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	c.Assert(s.machine1.MachineAddresses(), gc.HasLen, 2)
 
 	args.MachineAddresses[0].Addresses = nil
-	result, err = s.machiner.SetMachineAddresses(args)
+	result, err = s.machiner.SetMachineAddresses(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -249,7 +250,7 @@ func (s *machinerSuite) TestJobs(c *gc.C) {
 		{Tag: "machine-42"},
 	}}
 
-	result, err := s.machiner.Jobs(args)
+	result, err := s.machiner.Jobs(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.JobsResults{
 		Results: []params.JobsResult{
@@ -300,7 +301,7 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *gc.C) {
 		{Tag: "machine-42", Hostname: "missing-gem"},
 	}}
 
-	result, err := s.machiner.RecordAgentStartInformation(args)
+	result, err := s.machiner.RecordAgentStartInformation(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{

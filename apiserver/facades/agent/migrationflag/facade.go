@@ -4,6 +4,8 @@
 package migrationflag
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -56,7 +58,7 @@ func (facade *Facade) auth(tagString string) error {
 
 // Phase returns the current migration phase or an error for every
 // supplied entity.
-func (facade *Facade) Phase(entities params.Entities) params.PhaseResults {
+func (facade *Facade) Phase(ctx context.Context, entities params.Entities) params.PhaseResults {
 	count := len(entities.Entities)
 	results := params.PhaseResults{
 		Results: make([]params.PhaseResult, count),
@@ -83,7 +85,7 @@ func (facade *Facade) onePhase(tagString string) (string, error) {
 
 // Watch returns an id for use with the NotifyWatcher facade, or an
 // error, for every supplied entity.
-func (facade *Facade) Watch(entities params.Entities) params.NotifyWatchResults {
+func (facade *Facade) Watch(ctx context.Context, entities params.Entities) params.NotifyWatchResults {
 	count := len(entities.Entities)
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, count),

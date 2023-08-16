@@ -4,6 +4,8 @@
 package migrationminion
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -44,7 +46,7 @@ func NewAPI(
 //
 // The MigrationStatusWatcher facade must be used to receive events
 // from the watcher.
-func (api *API) Watch() (params.NotifyWatchResult, error) {
+func (api *API) Watch(ctx context.Context) (params.NotifyWatchResult, error) {
 	w := api.backend.WatchMigrationStatus()
 	return params.NotifyWatchResult{
 		NotifyWatcherId: api.resources.Register(w),
@@ -53,7 +55,7 @@ func (api *API) Watch() (params.NotifyWatchResult, error) {
 
 // Report allows a migration minion to submit whether it succeeded or
 // failed for a specific migration phase.
-func (api *API) Report(info params.MinionReport) error {
+func (api *API) Report(ctx context.Context, info params.MinionReport) error {
 	phase, ok := migration.ParsePhase(info.Phase)
 	if !ok {
 		return errors.New("unable to parse phase")

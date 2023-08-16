@@ -4,6 +4,8 @@
 package payloadshookcontext_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -49,7 +51,7 @@ func (s *suite) TestTrack(c *gc.C) {
 		}},
 	}
 
-	res, err := a.Track(args)
+	res, err := a.Track(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(res, jc.DeepEquals, params.PayloadResults{
@@ -99,7 +101,7 @@ func (s *suite) TestListOne(c *gc.C) {
 			Tag: names.NewPayloadTag(id).String(),
 		}},
 	}
-	results, err := a.List(args)
+	results, err := a.List(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.Payload{
@@ -146,7 +148,7 @@ func (s *suite) TestListAll(c *gc.C) {
 
 	a := unitfacade.NewUnitFacade(s.state, loggo.GetLogger("juju.apiserver.payloadshookcontext"))
 	args := params.Entities{}
-	results, err := a.List(args)
+	results, err := a.List(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.Payload{
@@ -181,7 +183,7 @@ func (s *suite) TestLookUpOkay(c *gc.C) {
 			ID:   "bar",
 		}},
 	}
-	res, err := a.LookUp(args)
+	res, err := a.LookUp(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCalls(c, []testing.StubCall{{
@@ -222,7 +224,7 @@ func (s *suite) TestLookUpMixed(c *gc.C) {
 			ID:   "eggs",
 		}},
 	}
-	res, err := a.LookUp(args)
+	res, err := a.LookUp(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "LookUp", "LookUp", "LookUp")
@@ -263,7 +265,7 @@ func (s *suite) TestSetStatus(c *gc.C) {
 			Status: payloads.StateRunning,
 		}},
 	}
-	res, err := a.SetStatus(args)
+	res, err := a.SetStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.state.id, gc.Equals, id)
@@ -290,7 +292,7 @@ func (s *suite) TestUntrack(c *gc.C) {
 			Tag: names.NewPayloadTag(id).String(),
 		}},
 	}
-	res, err := a.Untrack(args)
+	res, err := a.Untrack(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.state.id, gc.Equals, id)
@@ -313,7 +315,7 @@ func (s *suite) TestUntrackEmptyID(c *gc.C) {
 			Tag: "",
 		}},
 	}
-	res, err := a.Untrack(args)
+	res, err := a.Untrack(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.state.id, gc.Equals, "")
@@ -337,7 +339,7 @@ func (s *suite) TestUntrackNoIDs(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{},
 	}
-	res, err := a.Untrack(args)
+	res, err := a.Untrack(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.state.id, gc.Equals, id)

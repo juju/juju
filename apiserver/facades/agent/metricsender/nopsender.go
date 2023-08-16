@@ -4,6 +4,8 @@
 package metricsender
 
 import (
+	"context"
+
 	wireformat "github.com/juju/romulus/wireformat/metrics"
 	"github.com/juju/utils/v3"
 )
@@ -14,7 +16,7 @@ type NopSender struct {
 }
 
 // Implement the send interface, act like everything is fine.
-func (n NopSender) Send(batches []*wireformat.MetricBatch) (*wireformat.Response, error) {
+func (n NopSender) Send(ctx context.Context, batches []*wireformat.MetricBatch) (*wireformat.Response, error) {
 	var resp = make(wireformat.EnvironmentResponses)
 	for _, batch := range batches {
 		resp.Ack(batch.ModelUUID, batch.UUID)

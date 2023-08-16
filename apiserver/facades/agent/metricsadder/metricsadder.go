@@ -4,6 +4,8 @@
 package metricsadder
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -14,7 +16,7 @@ import (
 // MetricsAdder defines methods that are used to store metric batches in the state.
 type MetricsAdder interface {
 	// AddMetricBatches stores the specified metric batches in the state.
-	AddMetricBatches(batches params.MetricBatchParams) (params.ErrorResults, error)
+	AddMetricBatches(ctx context.Context, batches params.MetricBatchParams) (params.ErrorResults, error)
 }
 
 // MetricsAdderAPI implements the metrics adder interface and is the concrete
@@ -26,7 +28,7 @@ type MetricsAdderAPI struct {
 var _ MetricsAdder = (*MetricsAdderAPI)(nil)
 
 // AddMetricBatches implements the MetricsAdder interface.
-func (api *MetricsAdderAPI) AddMetricBatches(args params.MetricBatchParams) (params.ErrorResults, error) {
+func (api *MetricsAdderAPI) AddMetricBatches(ctx context.Context, args params.MetricBatchParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Batches)),
 	}

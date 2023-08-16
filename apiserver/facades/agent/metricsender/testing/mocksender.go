@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"fmt"
 
 	wireformat "github.com/juju/romulus/wireformat/metrics"
@@ -20,7 +21,7 @@ type MockSender struct {
 }
 
 // Send implements the Send interface.
-func (m *MockSender) Send(d []*wireformat.MetricBatch) (*wireformat.Response, error) {
+func (m *MockSender) Send(ctx context.Context, d []*wireformat.MetricBatch) (*wireformat.Response, error) {
 	m.Data = append(m.Data, d)
 	respUUID, err := utils.NewUUID()
 	if err != nil {
@@ -60,6 +61,6 @@ type ErrorSender struct {
 }
 
 // Send implements the Send interface returning errors specified in the ErrorSender.
-func (e *ErrorSender) Send(d []*wireformat.MetricBatch) (*wireformat.Response, error) {
+func (e *ErrorSender) Send(ctx context.Context, d []*wireformat.MetricBatch) (*wireformat.Response, error) {
 	return &wireformat.Response{}, e.Err
 }
