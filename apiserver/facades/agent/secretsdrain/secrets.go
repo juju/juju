@@ -4,6 +4,8 @@
 package secretsdrain
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -37,7 +39,7 @@ type SecretsDrainAPI struct {
 }
 
 // GetSecretsToDrain returns metadata for the secrets that need to be drained.
-func (s *SecretsDrainAPI) GetSecretsToDrain() (params.ListSecretResults, error) {
+func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.ListSecretResults, error) {
 	modelConfig, err := s.model.ModelConfig()
 	if err != nil {
 		return params.ListSecretResults{}, errors.Trace(err)
@@ -72,7 +74,7 @@ func (s *SecretsDrainAPI) GetSecretsToDrain() (params.ListSecretResults, error) 
 }
 
 // ChangeSecretBackend updates the backend for the specified secret after migration done.
-func (s *SecretsDrainAPI) ChangeSecretBackend(args params.ChangeSecretBackendArgs) (params.ErrorResults, error) {
+func (s *SecretsDrainAPI) ChangeSecretBackend(ctx context.Context, args params.ChangeSecretBackendArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -112,7 +114,7 @@ func toChangeSecretBackendParams(token leadership.Token, uri *coresecrets.URI, a
 }
 
 // WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.
-func (s *SecretsDrainAPI) WatchSecretBackendChanged() (params.NotifyWatchResult, error) {
+func (s *SecretsDrainAPI) WatchSecretBackendChanged(ctx context.Context) (params.NotifyWatchResult, error) {
 	stateWatcher := s.model.WatchForModelConfigChanges()
 	w, err := newSecretBackendModelConfigWatcher(s.model, stateWatcher, s.logger)
 	if err != nil {

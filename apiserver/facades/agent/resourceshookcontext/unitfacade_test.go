@@ -4,6 +4,8 @@
 package resourceshookcontext_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -51,7 +53,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoOkay(c *gc.C) {
 	}
 	uf := resourceshookcontext.UnitFacade{DataStore: store}
 
-	results, err := uf.GetResourceInfo(params.ListUnitResourcesArgs{
+	results, err := uf.GetResourceInfo(context.Background(), params.ListUnitResourcesArgs{
 		ResourceNames: []string{"spam", "eggs"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,7 +76,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoEmpty(c *gc.C) {
 	}
 	uf := resourceshookcontext.UnitFacade{DataStore: store}
 
-	results, err := uf.GetResourceInfo(params.ListUnitResourcesArgs{
+	results, err := uf.GetResourceInfo(context.Background(), params.ListUnitResourcesArgs{
 		ResourceNames: []string{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,7 +95,7 @@ func (s *UnitFacadeSuite) TestGetResourceInfoNotFound(c *gc.C) {
 	}
 	uf := resourceshookcontext.UnitFacade{DataStore: store}
 
-	results, err := uf.GetResourceInfo(params.ListUnitResourcesArgs{
+	results, err := uf.GetResourceInfo(context.Background(), params.ListUnitResourcesArgs{
 		ResourceNames: []string{"eggs"},
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -4,6 +4,8 @@
 package upgrader
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -21,10 +23,10 @@ import (
 )
 
 type Upgrader interface {
-	WatchAPIVersion(args params.Entities) (params.NotifyWatchResults, error)
-	DesiredVersion(args params.Entities) (params.VersionResults, error)
-	Tools(args params.Entities) (params.ToolsResults, error)
-	SetTools(args params.EntitiesVersion) (params.ErrorResults, error)
+	WatchAPIVersion(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error)
+	DesiredVersion(ctx context.Context, args params.Entities) (params.VersionResults, error)
+	Tools(ctx context.Context, args params.Entities) (params.ToolsResults, error)
+	SetTools(ctx context.Context, args params.EntitiesVersion) (params.ErrorResults, error)
 }
 
 // UpgraderAPI provides access to the Upgrader API facade.
@@ -74,7 +76,7 @@ func NewUpgraderAPI(
 
 // WatchAPIVersion starts a watcher to track if there is a new version
 // of the API that we want to upgrade to
-func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -132,7 +134,7 @@ func (u *UpgraderAPI) entityIsManager(tag names.Tag) bool {
 }
 
 // DesiredVersion reports the Agent Version that we want that agent to be running
-func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResults, error) {
+func (u *UpgraderAPI) DesiredVersion(ctx context.Context, args params.Entities) (params.VersionResults, error) {
 	results := make([]params.VersionResult, len(args.Entities))
 	if len(args.Entities) == 0 {
 		return params.VersionResults{}, nil

@@ -4,6 +4,8 @@
 package unitassigner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -34,7 +36,7 @@ type API struct {
 
 // AssignUnits assigns the units with the given ids to the correct machine. The
 // error results are returned in the same order as the given entities.
-func (a *API) AssignUnits(args params.Entities) (params.ErrorResults, error) {
+func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{}
 
 	// state uses ids, but the API uses Tags, so we have to convert back and
@@ -77,7 +79,7 @@ func (a *API) AssignUnits(args params.Entities) (params.ErrorResults, error) {
 
 // WatchUnitAssignments returns a strings watcher that is notified when new unit
 // assignments are added to the db.
-func (a *API) WatchUnitAssignments() (params.StringsWatchResult, error) {
+func (a *API) WatchUnitAssignments(ctx context.Context) (params.StringsWatchResult, error) {
 	watch := a.st.WatchForUnitAssignment()
 	if changes, ok := <-watch.Changes(); ok {
 		return params.StringsWatchResult{
@@ -90,6 +92,6 @@ func (a *API) WatchUnitAssignments() (params.StringsWatchResult, error) {
 
 // SetAgentStatus will set status for agents of Units passed in args, if one
 // of the args is not an Unit it will fail.
-func (a *API) SetAgentStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (a *API) SetAgentStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	return a.statusSetter.SetStatus(args)
 }

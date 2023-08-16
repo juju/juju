@@ -4,6 +4,7 @@
 package secretsmanager_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -179,7 +180,7 @@ func ptr[T any](v T) *T {
 func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	result, err := s.facade.GetSecretBackendConfigs(params.SecretBackendArgs{
+	result, err := s.facade.GetSecretBackendConfigs(context.Background(), params.SecretBackendArgs{
 		BackendIDs: []string{"backend-id"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -203,7 +204,7 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigs(c *gc.C) {
 func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	result, err := s.facade.GetSecretBackendConfigs(params.SecretBackendArgs{
+	result, err := s.facade.GetSecretBackendConfigs(context.Background(), params.SecretBackendArgs{
 		ForDrain:   true,
 		BackendIDs: []string{"backend-id"},
 	})
@@ -228,7 +229,7 @@ func (s *SecretsManagerSuite) TestGetSecretBackendConfigsForDrain(c *gc.C) {
 func (s *SecretsManagerSuite) TestCreateSecretURIs(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	results, err := s.facade.CreateSecretURIs(params.CreateSecretURIsArg{
+	results, err := s.facade.CreateSecretURIs(context.Background(), params.CreateSecretURIsArg{
 		Count: 2,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -277,7 +278,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 		},
 	)
 
-	results, err := s.facade.CreateSecrets(params.CreateSecretArgs{
+	results, err := s.facade.CreateSecrets(context.Background(), params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{{
 			OwnerTag: "application-mariadb",
 			UpsertSecretArg: params.UpsertSecretArg{
@@ -329,7 +330,7 @@ func (s *SecretsManagerSuite) TestCreateSecretDuplicateLabel(c *gc.C) {
 		nil, fmt.Errorf("dup label %w", state.LabelExists),
 	)
 
-	results, err := s.facade.CreateSecrets(params.CreateSecretArgs{
+	results, err := s.facade.CreateSecrets(context.Background(), params.CreateSecretArgs{
 		Args: []params.CreateSecretArg{{
 			OwnerTag: "application-mariadb",
 			UpsertSecretArg: params.UpsertSecretArg{
@@ -391,7 +392,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{}, nil).Times(2)
 	s.expectSecretAccessQuery(4)
 
-	results, err := s.facade.UpdateSecrets(params.UpdateSecretArgs{
+	results, err := s.facade.UpdateSecrets(context.Background(), params.UpdateSecretArgs{
 		Args: []params.UpdateSecretArg{{
 			URI: uri.String(),
 			UpsertSecretArg: params.UpsertSecretArg{
@@ -445,7 +446,7 @@ func (s *SecretsManagerSuite) TestUpdateSecretDuplicateLabel(c *gc.C) {
 	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{}, nil)
 	s.expectSecretAccessQuery(2)
 
-	results, err := s.facade.UpdateSecrets(params.UpdateSecretArgs{
+	results, err := s.facade.UpdateSecrets(context.Background(), params.UpdateSecretArgs{
 		Args: []params.UpdateSecretArg{{
 			URI: uri.String(),
 			UpsertSecretArg: params.UpsertSecretArg{
@@ -488,7 +489,7 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
 	).Return(nil)
 
-	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
+	results, err := s.facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
 			Revisions: []int{666},
@@ -511,7 +512,7 @@ func (s *SecretsManagerSuite) TestRemoveSecretRevision(c *gc.C) {
 	s.token.EXPECT().Check().Return(nil)
 	s.expectSecretAccessQuery(2)
 
-	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
+	results, err := s.facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
 			Revisions: []int{666},
@@ -530,7 +531,7 @@ func (s *SecretsManagerSuite) TestRemoveSecretNotFound(c *gc.C) {
 	expectURI := *uri
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, errors.NotFoundf("not found"))
 
-	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
+	results, err := s.facade.RemoveSecrets(context.Background(), params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
 			URI:       expectURI.String(),
 			Revisions: []int{666},
@@ -551,7 +552,7 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingConsumerLa
 			Label:          "label",
 		}, nil)
 
-	results, err := s.facade.GetConsumerSecretsRevisionInfo(params.GetSecretConsumerInfoArgs{
+	results, err := s.facade.GetConsumerSecretsRevisionInfo(context.Background(), params.GetSecretConsumerInfoArgs{
 		ConsumerTag: "application-mariadb",
 		URIs:        []string{uri.String()},
 	})
@@ -574,7 +575,7 @@ func (s *SecretsManagerSuite) TestGetConsumerRemoteSecretsRevisionInfo(c *gc.C) 
 			Label:          "label",
 		}, nil)
 
-	results, err := s.facade.GetConsumerSecretsRevisionInfo(params.GetSecretConsumerInfoArgs{
+	results, err := s.facade.GetConsumerSecretsRevisionInfo(context.Background(), params.GetSecretConsumerInfoArgs{
 		ConsumerTag: "application-mariadb",
 		URIs:        []string{uri.String()},
 	})
@@ -601,7 +602,7 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoHavingNoConsumer
 			OwnerTags: []names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")},
 		}).Return(nil, nil)
 
-	results, err := s.facade.GetConsumerSecretsRevisionInfo(params.GetSecretConsumerInfoArgs{
+	results, err := s.facade.GetConsumerSecretsRevisionInfo(context.Background(), params.GetSecretConsumerInfoArgs{
 		ConsumerTag: "application-mariadb",
 		URIs:        []string{uri.String()},
 	})
@@ -631,7 +632,7 @@ func (s *SecretsManagerSuite) TestGetConsumerSecretsRevisionInfoForPeerUnitsAcce
 		Label:    "owner-label",
 	}}, nil)
 
-	results, err := s.facade.GetConsumerSecretsRevisionInfo(params.GetSecretConsumerInfoArgs{
+	results, err := s.facade.GetConsumerSecretsRevisionInfo(context.Background(), params.GetSecretConsumerInfoArgs{
 		ConsumerTag: "application-mariadb",
 		URIs:        []string{uri.String()},
 	})
@@ -675,7 +676,7 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 		Revision: 667,
 	}}, nil)
 
-	results, err := s.facade.GetSecretMetadata()
+	results, err := s.facade.GetSecretMetadata(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
@@ -703,7 +704,7 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 func (s *SecretsManagerSuite) TestGetSecretContentInvalidArg(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{{}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -732,7 +733,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretURIArg(c *gc.C) 
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String()},
 		},
@@ -768,7 +769,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForOwnerSecretLabelArg(c *gc.C
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{Label: "foo"},
 		},
@@ -811,7 +812,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForUnitOwnedSecretUpdateLabel(
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String(), Label: "foo"},
 		},
@@ -859,7 +860,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabel(c *gc.
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String(), Label: "foo"},
 		},
@@ -901,7 +902,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForUnitAccessApplicationOwnedS
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{Label: "foo"},
 		},
@@ -945,7 +946,7 @@ func (s *SecretsManagerSuite) assertGetSecretContentConsumer(c *gc.C, isUnitAgen
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String()},
 		},
@@ -984,7 +985,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerLabelOnly(c *gc.C) {
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{Label: "label"},
 		},
@@ -1030,7 +1031,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerFirstTime(c *gc.C) {
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String(), Label: "label"},
 		},
@@ -1071,7 +1072,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateLabel(c *gc.C) {
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String(), Label: "new-label"},
 		},
@@ -1090,7 +1091,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerFirstTimeUsingLabelFai
 	s.expectgetAppOwnedOrUnitOwnedSecretMetadataNotFound()
 	s.secretsConsumer.EXPECT().GetURIByConsumerLabel("label-1", names.NewUnitTag("mariadb/0")).Return(nil, errors.NotFoundf("secret"))
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{Label: "label-1"},
 		},
@@ -1124,7 +1125,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerUpdateArg(c *gc.C) {
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String(), Label: "label", Refresh: true},
 		},
@@ -1155,7 +1156,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentConsumerPeekArg(c *gc.C) {
 		val, nil, nil,
 	)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String(), Peek: true},
 		},
@@ -1206,7 +1207,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 			},
 		}, 666, true, nil)
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String()},
 		},
@@ -1277,7 +1278,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 		CurrentRevision: 665,
 	})
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String(), Label: "foo"},
 		},
@@ -1348,7 +1349,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 		CurrentRevision: 666,
 	})
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String(), Refresh: true},
 		},
@@ -1417,7 +1418,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelNewConsumer(c *gc.C)
 		CurrentRevision: 666,
 	})
 
-	results, err := s.facade.GetSecretContentInfo(params.GetSecretContentArgs{
+	results, err := s.facade.GetSecretContentInfo(context.Background(), params.GetSecretContentArgs{
 		Args: []params.GetSecretContentArg{
 			{URI: uri.String(), Refresh: true},
 		},
@@ -1458,7 +1459,7 @@ func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	watchChan <- []string{uri.String()}
 	s.secretsWatcher.EXPECT().Changes().Return(watchChan)
 
-	result, err := s.facade.WatchConsumedSecretsChanges(params.Entities{
+	result, err := s.facade.WatchConsumedSecretsChanges(context.Background(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: "unit-mariadb-0",
 		}, {
@@ -1488,7 +1489,7 @@ func (s *SecretsManagerSuite) TestGetSecretRevisionContentInfo(c *gc.C) {
 		}, nil,
 	)
 
-	results, err := s.facade.GetSecretRevisionContentInfo(params.SecretRevisionArg{
+	results, err := s.facade.GetSecretRevisionContentInfo(context.Background(), params.SecretRevisionArg{
 		URI:       uri.String(),
 		Revisions: []int{666},
 	})
@@ -1531,7 +1532,7 @@ func (s *SecretsManagerSuite) TestWatchObsolete(c *gc.C) {
 	watchChan <- []string{uri.String()}
 	s.secretsWatcher.EXPECT().Changes().Return(watchChan)
 
-	result, err := s.facade.WatchObsolete(params.Entities{
+	result, err := s.facade.WatchObsolete(context.Background(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: "unit-mariadb-0",
 		}, {
@@ -1565,7 +1566,7 @@ func (s *SecretsManagerSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	}}
 	s.secretsTriggerWatcher.EXPECT().Changes().Return(rotateChan)
 
-	result, err := s.facade.WatchSecretsRotationChanges(params.Entities{
+	result, err := s.facade.WatchSecretsRotationChanges(context.Background(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: "unit-mariadb-0",
 		}, {
@@ -1594,7 +1595,7 @@ func (s *SecretsManagerSuite) TestSecretsRotated(c *gc.C) {
 		LatestRevision: 667,
 	}, nil)
 
-	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
+	result, err := s.facade.SecretsRotated(context.Background(), params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
 			URI:              uri.ID,
 			OriginalRevision: 666,
@@ -1627,7 +1628,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedRetry(c *gc.C) {
 		LatestRevision: 666,
 	}, nil)
 
-	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
+	result, err := s.facade.SecretsRotated(context.Background(), params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
 			URI:              uri.ID,
 			OriginalRevision: 666,
@@ -1656,7 +1657,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedForce(c *gc.C) {
 		LatestRevision:   667,
 	}, nil)
 
-	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
+	result, err := s.facade.SecretsRotated(context.Background(), params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
 			URI:              uri.ID,
 			OriginalRevision: 666,
@@ -1682,7 +1683,7 @@ func (s *SecretsManagerSuite) TestSecretsRotatedThenNever(c *gc.C) {
 		LatestRevision: 667,
 	}, nil)
 
-	result, err := s.facade.SecretsRotated(params.SecretRotatedArgs{
+	result, err := s.facade.SecretsRotated(context.Background(), params.SecretRotatedArgs{
 		Args: []params.SecretRotatedArg{{
 			URI:              uri.ID,
 			OriginalRevision: 666,
@@ -1715,7 +1716,7 @@ func (s *SecretsManagerSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 	}}
 	s.secretsTriggerWatcher.EXPECT().Changes().Return(expiryChan)
 
-	result, err := s.facade.WatchSecretRevisionsExpiryChanges(params.Entities{
+	result, err := s.facade.WatchSecretRevisionsExpiryChanges(context.Background(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: "unit-mariadb-0",
 		}, {
@@ -1752,7 +1753,7 @@ func (s *SecretsManagerSuite) TestSecretsGrant(c *gc.C) {
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
-	result, err := s.facade.SecretsGrant(params.GrantRevokeSecretArgs{
+	result, err := s.facade.SecretsGrant(context.Background(), params.GrantRevokeSecretArgs{
 		Args: []params.GrantRevokeSecretArg{{
 			URI:         uri.String(),
 			ScopeTag:    scopeTag.String(),
@@ -1796,7 +1797,7 @@ func (s *SecretsManagerSuite) TestSecretsRevoke(c *gc.C) {
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
-	result, err := s.facade.SecretsRevoke(params.GrantRevokeSecretArgs{
+	result, err := s.facade.SecretsRevoke(context.Background(), params.GrantRevokeSecretArgs{
 		Args: []params.GrantRevokeSecretArg{{
 			URI:         uri.String(),
 			ScopeTag:    scopeTag.String(),

@@ -4,6 +4,7 @@
 package upgrader_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -84,7 +85,7 @@ func (s *upgraderSuite) TearDownTest(c *gc.C) {
 
 func (s *upgraderSuite) TestWatchAPIVersionNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.WatchAPIVersion(params.Entities{})
+	results, err := s.upgrader.WatchAPIVersion(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -93,7 +94,7 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
-	results, err := s.upgrader.WatchAPIVersion(args)
+	results, err := s.upgrader.WatchAPIVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
 	c.Check(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
@@ -127,7 +128,7 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: app.Tag().String()}},
 	}
-	results, err := upgrader.WatchAPIVersion(args)
+	results, err := upgrader.WatchAPIVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
 	c.Check(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
@@ -164,7 +165,7 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: unit.Tag().String()}},
 	}
-	results, err := upgrader.WatchAPIVersion(args)
+	results, err := upgrader.WatchAPIVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
 	c.Check(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
@@ -197,7 +198,7 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: node.Tag().String()}},
 	}
-	results, err := upgrader.WatchAPIVersion(args)
+	results, err := upgrader.WatchAPIVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
 	c.Check(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
@@ -227,7 +228,7 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
-	results, err := anUpgrader.WatchAPIVersion(args)
+	results, err := anUpgrader.WatchAPIVersion(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
@@ -237,7 +238,7 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 
 func (s *upgraderSuite) TestToolsNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.Tools(params.Entities{})
+	results, err := s.upgrader.Tools(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -252,7 +253,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
-	results, err := anUpgrader.Tools(args)
+	results, err := anUpgrader.Tools(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
@@ -291,7 +292,7 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{agent}}
-	results, err := s.upgrader.Tools(args)
+	results, err := s.upgrader.Tools(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	assertTools := func() {
 		c.Check(results.Results, gc.HasLen, 1)
@@ -307,7 +308,7 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 
 func (s *upgraderSuite) TestSetToolsNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.SetTools(params.EntitiesVersion{})
+	results, err := s.upgrader.SetTools(context.Background(), params.EntitiesVersion{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -328,7 +329,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 		}},
 	}
 
-	results, err := anUpgrader.SetTools(args)
+	results, err := anUpgrader.SetTools(context.Background(), args)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
@@ -346,7 +347,7 @@ func (s *upgraderSuite) TestSetTools(c *gc.C) {
 			}},
 		},
 	}
-	results, err := s.upgrader.SetTools(args)
+	results, err := s.upgrader.SetTools(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -362,7 +363,7 @@ func (s *upgraderSuite) TestSetTools(c *gc.C) {
 
 func (s *upgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.DesiredVersion(params.Entities{})
+	results, err := s.upgrader.DesiredVersion(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -377,7 +378,7 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
-	results, err := anUpgrader.DesiredVersion(args)
+	results, err := anUpgrader.DesiredVersion(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
@@ -390,7 +391,7 @@ func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 		{Tag: s.rawMachine.Tag().String()},
 		{Tag: "machine-12345"},
 	}}
-	results, err := s.upgrader.DesiredVersion(args)
+	results, err := s.upgrader.DesiredVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 2)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -405,7 +406,7 @@ func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 
 func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
-	results, err := s.upgrader.DesiredVersion(args)
+	results, err := s.upgrader.DesiredVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -447,7 +448,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 	upgraderAPI, err := upgrader.NewUpgraderAPI(systemState, s.hosted, s.resources, authorizer, loggo.GetLogger("juju.apiserver.upgrader"))
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag().String()}}}
-	results, err := upgraderAPI.DesiredVersion(args)
+	results, err := upgraderAPI.DesiredVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -460,7 +461,7 @@ func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *gc.C) {
 	newVersion := s.bumpDesiredAgentVersion(c)
 	c.Assert(newVersion, gc.Not(gc.Equals), jujuversion.Current)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
-	results, err := s.upgrader.DesiredVersion(args)
+	results, err := s.upgrader.DesiredVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)

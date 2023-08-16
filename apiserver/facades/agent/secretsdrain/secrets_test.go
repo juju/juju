@@ -4,6 +4,7 @@
 package secretsdrain_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -155,7 +156,7 @@ func (s *SecretsDrainSuite) assertGetSecretsToDrain(
 		},
 	}, nil)
 
-	results, err := s.facade.GetSecretsToDrain()
+	results, err := s.facade.GetSecretsToDrain(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
@@ -292,7 +293,7 @@ func (s *SecretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token).Times(2)
 	s.token.EXPECT().Check().Return(nil).Times(2)
 
-	result, err := s.facade.ChangeSecretBackend(params.ChangeSecretBackendArgs{
+	result, err := s.facade.ChangeSecretBackend(context.Background(), params.ChangeSecretBackendArgs{
 		Args: []params.ChangeSecretBackendArg{
 			{
 				URI:      uri1.String(),
@@ -346,7 +347,7 @@ func (s *SecretsDrainSuite) TestWatchSecretBackendChanged(c *gc.C) {
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("11", nil)
 
-	result, err := s.facade.WatchSecretBackendChanged()
+	result, err := s.facade.WatchSecretBackendChanged(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "11",

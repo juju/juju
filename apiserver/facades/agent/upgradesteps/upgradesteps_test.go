@@ -4,6 +4,8 @@
 package upgradesteps_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/txn"
@@ -58,7 +60,7 @@ func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdle(c *
 
 	s.setupFacadeAPI(c)
 
-	result, err := s.api.ResetKVMMachineModificationStatusIdle(s.arg)
+	result, err := s.api.ResetKVMMachineModificationStatusIdle(context.Background(), s.arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
 }
@@ -72,7 +74,7 @@ func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleSetE
 
 	s.setupFacadeAPI(c)
 
-	result, err := s.api.ResetKVMMachineModificationStatusIdle(s.arg)
+	result, err := s.api.ResetKVMMachineModificationStatusIdle(context.Background(), s.arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
@@ -90,7 +92,7 @@ func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleKVMI
 
 	s.setupFacadeAPI(c)
 
-	_, err := s.api.ResetKVMMachineModificationStatusIdle(s.arg)
+	_, err := s.api.ResetKVMMachineModificationStatusIdle(context.Background(), s.arg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -101,7 +103,7 @@ func (s *machineUpgradeStepsSuite) TestResetKVMMachineModificationStatusIdleLXD(
 
 	s.setupFacadeAPI(c)
 
-	_, err := s.api.ResetKVMMachineModificationStatusIdle(s.arg)
+	_, err := s.api.ResetKVMMachineModificationStatusIdle(context.Background(), s.arg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -136,7 +138,7 @@ func (s *unitUpgradeStepsSuite) TestWriteAgentState(c *gc.C) {
 		},
 	}
 
-	results, err := s.api.WriteAgentState(args)
+	results, err := s.api.WriteAgentState(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
 }
@@ -156,7 +158,7 @@ func (s *unitUpgradeStepsSuite) TestWriteAgentStateError(c *gc.C) {
 		},
 	}
 
-	results, err := s.api.WriteAgentState(args)
+	results, err := s.api.WriteAgentState(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{
 		{},

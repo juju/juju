@@ -4,6 +4,8 @@
 package upgrader_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -91,7 +93,7 @@ func (s *unitUpgraderSuite) TearDownTest(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestWatchAPIVersionNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.WatchAPIVersion(params.Entities{})
+	results, err := s.upgrader.WatchAPIVersion(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -100,7 +102,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
-	results, err := s.upgrader.WatchAPIVersion(args)
+	results, err := s.upgrader.WatchAPIVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
 	c.Check(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
@@ -145,7 +147,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
-	results, err := anUpgrader.WatchAPIVersion(args)
+	results, err := anUpgrader.WatchAPIVersion(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
@@ -155,7 +157,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestToolsNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.Tools(params.Entities{})
+	results, err := s.upgrader.Tools(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -172,7 +174,7 @@ func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
-	results, err := anUpgrader.Tools(args)
+	results, err := anUpgrader.Tools(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -191,7 +193,7 @@ func (s *unitUpgraderSuite) TestToolsForAgent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{agent}}
-	results, err := s.upgrader.Tools(args)
+	results, err := s.upgrader.Tools(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	assertTools := func() {
 		c.Check(results.Results, gc.HasLen, 1)
@@ -205,7 +207,7 @@ func (s *unitUpgraderSuite) TestToolsForAgent(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestSetToolsNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.SetTools(params.EntitiesVersion{})
+	results, err := s.upgrader.SetTools(context.Background(), params.EntitiesVersion{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -228,7 +230,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 		}},
 	}
 
-	results, err := anUpgrader.SetTools(args)
+	results, err := anUpgrader.SetTools(context.Background(), args)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
@@ -246,7 +248,7 @@ func (s *unitUpgraderSuite) TestSetTools(c *gc.C) {
 			}},
 		},
 	}
-	results, err := s.upgrader.SetTools(args)
+	results, err := s.upgrader.SetTools(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -267,7 +269,7 @@ func (s *unitUpgraderSuite) TestSetTools(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.DesiredVersion(params.Entities{})
+	results, err := s.upgrader.DesiredVersion(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -284,7 +286,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
-	results, err := anUpgrader.DesiredVersion(args)
+	results, err := anUpgrader.DesiredVersion(context.Background(), args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
@@ -300,7 +302,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 		{Tag: s.rawUnit.Tag().String()},
 		{Tag: "unit-wordpress-12345"},
 	}}
-	results, err := s.upgrader.DesiredVersion(args)
+	results, err := s.upgrader.DesiredVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 2)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -318,7 +320,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 	err := s.rawMachine.SetAgentVersion(current)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}}}
-	results, err := s.upgrader.DesiredVersion(args)
+	results, err := s.upgrader.DesiredVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
