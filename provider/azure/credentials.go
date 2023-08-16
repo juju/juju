@@ -161,6 +161,19 @@ func (c environProviderCredentials) FinalizeCredential(
 	switch authType := args.Credential.AuthType(); authType {
 	case deviceCodeAuthType:
 		subscriptionId := args.Credential.Attributes()[credAttrSubscriptionId]
+
+		var azCloudName string
+		switch args.CloudName {
+		case "azure":
+			azCloudName = azureauth.AzureCloud
+		case "azure-china":
+			azCloudName = azureauth.AzureChinaCloud
+		case "azure-gov":
+			azCloudName = azureauth.AzureUSGovernment
+		default:
+			return nil, errors.Errorf("unknown Azure cloud name %q", args.CloudName)
+		}
+
 		if subscriptionId != "" {
 			opts := azcore.ClientOptions{
 				Cloud:     azureCloud(args.CloudName, args.CloudEndpoint, args.CloudIdentityEndpoint),
@@ -173,21 +186,12 @@ func (c environProviderCredentials) FinalizeCredential(
 				return nil, errors.Trace(err)
 			}
 			return c.deviceCodeCredential(ctx, args, azureauth.ServicePrincipalParams{
+				CloudName:      azCloudName,
 				SubscriptionId: subscriptionId,
 				TenantId:       tenantID,
 			})
 		}
-		var azCloudName string
-		switch args.CloudName {
-		case "azure":
-			azCloudName = "AzureCloud"
-		case "azure-china":
-			azCloudName = "AzureChinaCloud"
-		case "azure-gov":
-			azCloudName = "AzureUSGovernment"
-		default:
-			return nil, errors.Errorf("unknown Azure cloud name %q", args.CloudName)
-		}
+
 		params, err := c.getServicePrincipalParams(azCloudName)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -295,6 +299,7 @@ func (c environProviderCredentials) getServicePrincipalParams(cloudName string) 
 		}
 	}
 	return azureauth.ServicePrincipalParams{
+		CloudName:      cloudName,
 		SubscriptionId: acc.ID,
 		TenantId:       acc.AuthTenantId(),
 	}, nil
