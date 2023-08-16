@@ -5,6 +5,8 @@
 package retrystrategy_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -79,7 +81,7 @@ func (s *retryStrategySuite) TestRetryStrategyUnauthenticated(c *gc.C) {
 	otherUnit := f.MakeUnit(c, &jujufactory.UnitParams{Application: app})
 	args := params.Entities{Entities: []params.Entity{{otherUnit.Tag().String()}}}
 
-	res, err := s.strategy.RetryStrategy(args)
+	res, err := s.strategy.RetryStrategy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, "permission denied")
@@ -91,7 +93,7 @@ func (s *retryStrategySuite) TestRetryStrategyBadTag(c *gc.C) {
 	for i, t := range tagsTests {
 		args.Entities[i] = params.Entity{Tag: t.tag}
 	}
-	res, err := s.strategy.RetryStrategy(args)
+	res, err := s.strategy.RetryStrategy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, len(tagsTests))
 	for i, r := range res.Results {
@@ -134,7 +136,7 @@ func (s *retryStrategySuite) assertRetryStrategy(c *gc.C, tag string) {
 		RetryTimeFactor: retrystrategy.RetryTimeFactor,
 	}
 	args := params.Entities{Entities: []params.Entity{{Tag: tag}}}
-	r, err := s.strategy.RetryStrategy(args)
+	r, err := s.strategy.RetryStrategy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 1)
 	c.Assert(r.Results[0].Error, gc.IsNil)
@@ -143,7 +145,7 @@ func (s *retryStrategySuite) assertRetryStrategy(c *gc.C, tag string) {
 	s.setRetryStrategy(c, false)
 	expected.ShouldRetry = false
 
-	r, err = s.strategy.RetryStrategy(args)
+	r, err = s.strategy.RetryStrategy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 1)
 	c.Assert(r.Results[0].Error, gc.IsNil)
@@ -167,7 +169,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategyUnauthenticated(c *gc.C) {
 	otherUnit := f.MakeUnit(c, &jujufactory.UnitParams{Application: app})
 	args := params.Entities{Entities: []params.Entity{{otherUnit.Tag().String()}}}
 
-	res, err := s.strategy.WatchRetryStrategy(args)
+	res, err := s.strategy.WatchRetryStrategy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, "permission denied")
@@ -179,7 +181,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategyBadTag(c *gc.C) {
 	for i, t := range tagsTests {
 		args.Entities[i] = params.Entity{Tag: t.tag}
 	}
-	res, err := s.strategy.WatchRetryStrategy(args)
+	res, err := s.strategy.WatchRetryStrategy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, len(tagsTests))
 	for i, r := range res.Results {
@@ -196,7 +198,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategy(c *gc.C) {
 		{Tag: s.unit.UnitTag().String()},
 		{Tag: "unit-foo-42"},
 	}}
-	r, err := s.strategy.WatchRetryStrategy(args)
+	r, err := s.strategy.WatchRetryStrategy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{

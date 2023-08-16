@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -100,7 +101,7 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("42")).Return(nil, apiservertesting.NotFoundError("machine 42"))
 
-	result, err := tg.Tools(args)
+	result, err := tg.Tools(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
@@ -156,7 +157,7 @@ func (s *getToolsSuite) TestOSTools(c *gc.C) {
 		Entities: []params.Entity{
 			{Tag: "machine-0"},
 		}}
-	result, err := tg.Tools(args)
+	result, err := tg.Tools(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -182,7 +183,7 @@ func (s *getToolsSuite) TestToolsError(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "machine-42"}},
 	}
-	result, err := tg.Tools(args)
+	result, err := tg.Tools(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "splat")
 	c.Assert(result.Results, gc.HasLen, 1)
 }
@@ -241,7 +242,7 @@ func (s *setToolsSuite) TestSetTools(c *gc.C) {
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("42")).Return(nil, apiservertesting.NotFoundError("machine 42"))
 
-	result, err := ts.SetTools(args)
+	result, err := ts.SetTools(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results[0].Error, gc.IsNil)
@@ -264,7 +265,7 @@ func (s *setToolsSuite) TestToolsSetError(c *gc.C) {
 			},
 		}},
 	}
-	result, err := ts.SetTools(args)
+	result, err := ts.SetTools(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "splat")
 	c.Assert(result.Results, gc.HasLen, 1)
 }

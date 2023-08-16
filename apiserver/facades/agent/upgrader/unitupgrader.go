@@ -4,6 +4,8 @@
 package upgrader
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
@@ -64,7 +66,7 @@ func (u *UnitUpgraderAPI) watchAssignedMachine(unitTag names.Tag) (string, error
 // WatchAPIVersion starts a watcher to track if there is a new version
 // of the API that we want to upgrade to. The watcher tracks changes to
 // the unit's assigned machine since that's where the required agent version is stored.
-func (u *UnitUpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UnitUpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -89,7 +91,7 @@ func (u *UnitUpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWa
 
 // DesiredVersion reports the Agent Version that we want that unit to be running.
 // The desired version is what the unit's assigned machine is running.
-func (u *UnitUpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResults, error) {
+func (u *UnitUpgraderAPI) DesiredVersion(ctx context.Context, args params.Entities) (params.VersionResults, error) {
 	result := make([]params.VersionResult, len(args.Entities))
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
@@ -107,7 +109,7 @@ func (u *UnitUpgraderAPI) DesiredVersion(args params.Entities) (params.VersionRe
 }
 
 // Tools finds the tools necessary for the given agents.
-func (u *UnitUpgraderAPI) Tools(args params.Entities) (params.ToolsResults, error) {
+func (u *UnitUpgraderAPI) Tools(ctx context.Context, args params.Entities) (params.ToolsResults, error) {
 	result := params.ToolsResults{
 		Results: make([]params.ToolsResult, len(args.Entities)),
 	}

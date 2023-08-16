@@ -4,6 +4,8 @@
 package unitassigner
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -21,7 +23,7 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	f.results = []state.UnitAssignmentResult{{Unit: "foo/0"}}
 	api := API{st: f, res: common.NewResources()}
 	args := params.Entities{Entities: []params.Entity{{Tag: "unit-foo-0"}, {Tag: "unit-bar-1"}}}
-	res, err := api.AssignUnits(args)
+	res, err := api.AssignUnits(context.Background(), args)
 	c.Assert(f.ids, gc.DeepEquals, []string{"foo/0", "bar/1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 2)
@@ -34,7 +36,7 @@ func (testsuite) TestWatchUnitAssignment(c *gc.C) {
 	f := &fakeState{}
 	api := API{st: f, res: common.NewResources()}
 	f.ids = []string{"boo", "far"}
-	res, err := api.WatchUnitAssignments()
+	res, err := api.WatchUnitAssignments(context.Background())
 	c.Assert(f.watchCalled, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Changes, gc.DeepEquals, f.ids)
@@ -49,7 +51,7 @@ func (testsuite) TestSetStatus(c *gc.C) {
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{{Tag: "foo/0"}},
 	}
-	res, err := api.SetAgentStatus(args)
+	res, err := api.SetAgentStatus(context.Background(), args)
 	c.Assert(args, jc.DeepEquals, f.args)
 	c.Assert(res, jc.DeepEquals, f.res)
 	c.Assert(err, gc.Equals, f.err)

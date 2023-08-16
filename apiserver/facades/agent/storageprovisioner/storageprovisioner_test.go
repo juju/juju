@@ -4,6 +4,7 @@
 package storageprovisioner_test
 
 import (
+	"context"
 	"sort"
 	"time"
 
@@ -293,7 +294,7 @@ func (s *iaasProvisionerSuite) TestHostedVolumes(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.Controller = false
 
-	results, err := s.api.Volumes(params.Entities{
+	results, err := s.api.Volumes(context.Background(), params.Entities{
 		Entities: []params.Entity{{"volume-0-0"}, {"volume-1"}, {"volume-42"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -320,7 +321,7 @@ func (s *iaasProvisionerSuite) TestVolumesModel(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.Tag = names.NewMachineTag("2") // neither 0 nor 1
 
-	results, err := s.api.Volumes(params.Entities{
+	results, err := s.api.Volumes(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{"volume-0-0"},
 			{"volume-1"},
@@ -348,7 +349,7 @@ func (s *iaasProvisionerSuite) TestVolumesModel(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestVolumesEmptyArgs(c *gc.C) {
-	results, err := s.api.Volumes(params.Entities{})
+	results, err := s.api.Volumes(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
@@ -357,7 +358,7 @@ func (s *iaasProvisionerSuite) TestFilesystems(c *gc.C) {
 	s.setupFilesystems(c)
 	s.authorizer.Tag = names.NewMachineTag("2") // neither 0 nor 1
 
-	results, err := s.api.Filesystems(params.Entities{
+	results, err := s.api.Filesystems(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{"filesystem-0-0"},
 			{"filesystem-1"},
@@ -395,7 +396,7 @@ func (s *iaasProvisionerSuite) TestVolumeAttachments(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.VolumeAttachments(params.MachineStorageIds{
+	results, err := s.api.VolumeAttachments(context.Background(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "machine-0",
 			AttachmentTag: "volume-0-0",
@@ -440,7 +441,7 @@ func (s *iaasProvisionerSuite) TestFilesystemAttachments(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.FilesystemAttachments(params.MachineStorageIds{
+	results, err := s.api.FilesystemAttachments(context.Background(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "machine-0",
 			AttachmentTag: "filesystem-0-0",
@@ -475,7 +476,7 @@ func (s *iaasProvisionerSuite) TestFilesystemAttachments(c *gc.C) {
 func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
-	results, err := s.api.VolumeParams(params.Entities{
+	results, err := s.api.VolumeParams(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{"volume-0-0"},
 			{"volume-1"},
@@ -538,7 +539,7 @@ func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestVolumeParamsEmptyArgs(c *gc.C) {
-	results, err := s.api.VolumeParams(params.Entities{})
+	results, err := s.api.VolumeParams(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
@@ -611,7 +612,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 	err = s.storageBackend.RemoveVolumeAttachment(unitMachineTag, storageVolume.VolumeTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.RemoveVolumeParams(params.Entities{
+	results, err := s.api.RemoveVolumeParams(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{"volume-0-0"},
 			{storageVolume.Tag().String()},
@@ -646,7 +647,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 
 func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
 	s.setupFilesystems(c)
-	results, err := s.api.FilesystemParams(params.Entities{
+	results, err := s.api.FilesystemParams(context.Background(), params.Entities{
 		Entities: []params.Entity{{"filesystem-0-0"}, {"filesystem-1"}, {"filesystem-42"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -737,7 +738,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 	err = s.storageBackend.RemoveFilesystemAttachment(unitMachineTag, storageFilesystem.FilesystemTag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.RemoveFilesystemParams(params.Entities{
+	results, err := s.api.RemoveFilesystemParams(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{"filesystem-0-0"},
 			{storageFilesystem.Tag().String()},
@@ -791,7 +792,7 @@ func (s *iaasProvisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.VolumeAttachmentParams(params.MachineStorageIds{
+	results, err := s.api.VolumeAttachmentParams(context.Background(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "machine-0",
 			AttachmentTag: "volume-0-0",
@@ -861,7 +862,7 @@ func (s *iaasProvisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.FilesystemAttachmentParams(params.MachineStorageIds{
+	results, err := s.api.FilesystemAttachmentParams(context.Background(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "machine-0",
 			AttachmentTag: "filesystem-0-0",
@@ -916,7 +917,7 @@ func (s *iaasProvisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.SetVolumeAttachmentInfo(params.VolumeAttachments{
+	results, err := s.api.SetVolumeAttachmentInfo(context.Background(), params.VolumeAttachments{
 		VolumeAttachments: []params.VolumeAttachment{{
 			MachineTag: "machine-0",
 			VolumeTag:  "volume-0-0",
@@ -964,7 +965,7 @@ func (s *iaasProvisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.SetFilesystemAttachmentInfo(params.FilesystemAttachments{
+	results, err := s.api.SetFilesystemAttachmentInfo(context.Background(), params.FilesystemAttachments{
 		FilesystemAttachments: []params.FilesystemAttachment{{
 			MachineTag:    "machine-0",
 			FilesystemTag: "filesystem-0-0",
@@ -1019,7 +1020,7 @@ func (s *caasProvisionerSuite) TestWatchApplications(c *gc.C) {
 		},
 	})
 
-	result, err := s.api.WatchApplications()
+	result, err := s.api.WatchApplications(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.StringsWatcherId, gc.Equals, "1")
 	c.Assert(result.Changes, jc.DeepEquals, []string{"mariadb"})
@@ -1053,7 +1054,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {
 		{"machine-1"},
 		{"machine-42"}},
 	}
-	result, err := s.api.WatchVolumes(args)
+	result, err := s.api.WatchVolumes(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(result.Results[1].Changes)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
@@ -1098,7 +1099,7 @@ func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 		{"machine-1"},
 		{"machine-42"}},
 	}
-	result, err := s.api.WatchVolumeAttachments(args)
+	result, err := s.api.WatchVolumeAttachments(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Sort(byMachineAndEntity(result.Results[0].Changes))
 	sort.Sort(byMachineAndEntity(result.Results[1].Changes))
@@ -1159,7 +1160,7 @@ func (s *iaasProvisionerSuite) TestWatchFilesystems(c *gc.C) {
 		{"machine-1"},
 		{"machine-42"}},
 	}
-	result, err := s.api.WatchFilesystems(args)
+	result, err := s.api.WatchFilesystems(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(result.Results[1].Changes)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
@@ -1204,7 +1205,7 @@ func (s *iaasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 		{"machine-1"},
 		{"machine-42"}},
 	}
-	result, err := s.api.WatchFilesystemAttachments(args)
+	result, err := s.api.WatchFilesystemAttachments(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Sort(byMachineAndEntity(result.Results[0].Changes))
 	sort.Sort(byMachineAndEntity(result.Results[1].Changes))
@@ -1264,7 +1265,7 @@ func (s *iaasProvisionerSuite) TestWatchBlockDevices(c *gc.C) {
 		{"machine-1"},
 		{"machine-42"}},
 	}
-	results, err := s.api.WatchBlockDevices(args)
+	results, err := s.api.WatchBlockDevices(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -1326,7 +1327,7 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 		{MachineTag: "machine-42", AttachmentTag: "volume-42"},
 		{MachineTag: "application-mysql", AttachmentTag: "volume-1"},
 	}}
-	results, err := s.api.VolumeBlockDevices(args)
+	results, err := s.api.VolumeBlockDevices(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.BlockDeviceResults{
 		Results: []params.BlockDeviceResult{
@@ -1399,7 +1400,7 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevicesPlanBlockInfoSet(c *gc.C) {
 	args := params.MachineStorageIds{Ids: []params.MachineStorageId{
 		{MachineTag: "machine-0", AttachmentTag: "volume-0-0"},
 	}}
-	results, err := s.api.VolumeBlockDevices(args)
+	results, err := s.api.VolumeBlockDevices(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.BlockDeviceResults{
 		Results: []params.BlockDeviceResult{
@@ -1434,7 +1435,7 @@ func (s *iaasProvisionerSuite) TestAttachmentLife(c *gc.C) {
 	// TODO(axw) test filesystem attachment life
 	// TODO(axw) test Dying
 
-	results, err := s.api.AttachmentLife(params.MachineStorageIds{
+	results, err := s.api.AttachmentLife(context.Background(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "machine-0",
 			AttachmentTag: "volume-0-0",
@@ -1491,7 +1492,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumesController(c *gc.C) {
 	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("1"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.api.Remove(args)
+	result, err := s.api.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -1519,7 +1520,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemsController(c *gc.C) {
 	err = s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("1"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.api.Remove(args)
+	result, err := s.api.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -1549,7 +1550,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
 	err = s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.api.Remove(args)
+	result, err := s.api.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -1575,7 +1576,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
 	err = s.storageBackend.RemoveFilesystemAttachment(names.NewMachineTag("0"), names.NewFilesystemTag("0/0"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.api.Remove(args)
+	result, err := s.api.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -1596,7 +1597,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeAttachments(c *gc.C) {
 	err := s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"), false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.RemoveAttachment(params.MachineStorageIds{
+	results, err := s.api.RemoveAttachment(context.Background(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "machine-0",
 			AttachmentTag: "volume-0-0",
@@ -1629,7 +1630,7 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
 	err := s.storageBackend.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.RemoveAttachment(params.MachineStorageIds{
+	results, err := s.api.RemoveAttachment(context.Background(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "machine-0",
 			AttachmentTag: "filesystem-0-0",
@@ -1682,7 +1683,7 @@ func (s *caasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{"unit-mysql-0"}},
 	}
-	result, err := s.api.WatchFilesystemAttachments(args)
+	result, err := s.api.WatchFilesystemAttachments(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Sort(byMachineAndEntity(result.Results[0].Changes))
 	sort.Sort(byMachineAndEntity(result.Results[1].Changes))
@@ -1730,7 +1731,7 @@ func (s *caasProvisionerSuite) TestRemoveFilesystemAttachments(c *gc.C) {
 	err := s.storageBackend.DetachFilesystem(names.NewUnitTag("mariadb/0"), names.NewFilesystemTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.api.RemoveAttachment(params.MachineStorageIds{
+	results, err := s.api.RemoveAttachment(context.Background(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "unit-mariadb-0",
 			AttachmentTag: "filesystem-0",
@@ -1769,7 +1770,7 @@ func (s *caasProvisionerSuite) TestRemoveFilesystemsApplicationAgent(c *gc.C) {
 	err = s.storageBackend.RemoveFilesystemAttachment(names.NewUnitTag("mariadb/0"), names.NewFilesystemTag("0"), false)
 	c.Assert(err, gc.ErrorMatches, "removing attachment of filesystem 0 from unit mariadb/0: filesystem attachment is not dying")
 
-	result, err := s.api.Remove(args)
+	result, err := s.api.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -1800,7 +1801,7 @@ func (s *caasProvisionerSuite) TestFilesystemLife(c *gc.C) {
 func (s caasProvisionerSuite) TestFilesystemAttachmentLife(c *gc.C) {
 	s.setupFilesystems(c)
 
-	results, err := s.api.AttachmentLife(params.MachineStorageIds{
+	results, err := s.api.AttachmentLife(context.Background(), params.MachineStorageIds{
 		Ids: []params.MachineStorageId{{
 			MachineTag:    "unit-mariadb-0",
 			AttachmentTag: "filesystem-0",

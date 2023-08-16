@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -94,7 +95,7 @@ func NewToolsGetter(
 }
 
 // Tools finds the tools necessary for the given agents.
-func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
+func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.ToolsResults, error) {
 	result := params.ToolsResults{
 		Results: make([]params.ToolsResult, len(args.Entities)),
 	}
@@ -179,7 +180,7 @@ func NewToolsSetter(st ToolsFindEntity, getCanWrite GetAuthFunc) *ToolsSetter {
 }
 
 // SetTools updates the recorded tools version for the agents.
-func (t *ToolsSetter) SetTools(args params.EntitiesVersion) (params.ErrorResults, error) {
+func (t *ToolsSetter) SetTools(ctx context.Context, args params.EntitiesVersion) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.AgentTools)),
 	}

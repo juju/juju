@@ -4,6 +4,8 @@
 package upgradeseries_test
 
 import (
+	"context"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -63,7 +65,7 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 
 	s.machine.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
 
-	results, err := s.api.MachineStatus(s.entityArgs)
+	results, err := s.api.MachineStatus(context.Background(), s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{{Status: model.UpgradeSeriesPrepareCompleted}},
@@ -80,7 +82,7 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 		Params: []params.UpgradeSeriesStatusParam{{Entity: entity, Status: model.UpgradeSeriesPrepareCompleted}},
 	}
 
-	results, err := s.api.SetMachineStatus(args)
+	results, err := s.api.SetMachineStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
@@ -92,7 +94,7 @@ func (s *upgradeSeriesSuite) TestCurrentSeries(c *gc.C) {
 
 	s.machine.EXPECT().Base().Return(state.UbuntuBase("16.04")).AnyTimes()
 
-	results, err := s.api.CurrentSeries(s.entityArgs)
+	results, err := s.api.CurrentSeries(context.Background(), s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{Result: "xenial"}},
@@ -104,7 +106,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesTarget(c *gc.C) {
 
 	s.machine.EXPECT().UpgradeSeriesTarget().Return("bionic", nil)
 
-	results, err := s.api.TargetSeries(s.entityArgs)
+	results, err := s.api.TargetSeries(context.Background(), s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{{Result: "bionic"}},
@@ -116,7 +118,7 @@ func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 
 	s.machine.EXPECT().StartUpgradeSeriesUnitCompletion(gomock.Any()).Return(nil)
 
-	results, err := s.api.StartUnitCompletion(s.upgradeSeriesStartUnitCompletionArgs)
+	results, err := s.api.StartUnitCompletion(context.Background(), s.upgradeSeriesStartUnitCompletionArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
@@ -131,7 +133,7 @@ func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 		"redis/1": {Status: model.UpgradeSeriesPrepareStarted},
 	}, nil)
 
-	results, err := s.api.UnitsPrepared(s.entityArgs)
+	results, err := s.api.UnitsPrepared(context.Background(), s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.EntitiesResults{
 		Results: []params.EntitiesResult{{Entities: []params.Entity{{Tag: s.unitTag.String()}}}},
@@ -146,7 +148,7 @@ func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
 		"redis/1": {Status: model.UpgradeSeriesCompleteStarted},
 	}, nil)
 
-	results, err := s.api.UnitsCompleted(s.entityArgs)
+	results, err := s.api.UnitsCompleted(context.Background(), s.entityArgs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.EntitiesResults{
 		Results: []params.EntitiesResult{{Entities: []params.Entity{{Tag: s.unitTag.String()}}}},
@@ -166,7 +168,7 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesUpgraded(c *gc.C) {
 		Args: []params.UpdateChannelArg{{Entity: entity, Channel: "20.04"}},
 	}
 
-	results, err := s.api.FinishUpgradeSeries(args)
+	results, err := s.api.FinishUpgradeSeries(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
@@ -185,7 +187,7 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeriesNotUpgraded(c *gc.C) {
 		Args: []params.UpdateChannelArg{{Entity: entity, Channel: "22.04"}},
 	}
 
-	results, err := s.api.FinishUpgradeSeries(args)
+	results, err := s.api.FinishUpgradeSeries(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
@@ -203,7 +205,7 @@ func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
 		Message: msg,
 	}).Return(nil)
 
-	results, err := s.api.SetInstanceStatus(params.SetStatus{
+	results, err := s.api.SetInstanceStatus(context.Background(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{
 				Tag:    s.machineTag.String(),

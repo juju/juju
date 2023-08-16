@@ -5,6 +5,8 @@
 package reboot_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -61,7 +63,7 @@ func (s *rebootSuite) setUpMachine(c *gc.C, machine *state.Machine) *machines {
 		{Tag: machine.Tag().String()},
 	}}
 
-	resultMachine, err := rebootAPI.WatchForRebootEvent()
+	resultMachine, err := rebootAPI.WatchForRebootEvent(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(resultMachine.NotifyWatcherId, gc.Not(gc.Equals), "")
 	c.Check(resultMachine.Error, gc.IsNil)

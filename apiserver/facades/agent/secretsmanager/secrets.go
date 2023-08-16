@@ -4,6 +4,7 @@
 package secretsmanager
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -70,8 +71,8 @@ func (s *SecretsManagerAPI) canManage(uri *coresecrets.URI) (leadership.Token, e
 
 // GetSecretStoreConfig is for 3.0.x agents.
 // TODO - drop when we no longer support juju 3.0.x
-func (s *SecretsManagerAPIV1) GetSecretStoreConfig() (params.SecretBackendConfig, error) {
-	cfgInfo, err := s.GetSecretBackendConfig()
+func (s *SecretsManagerAPIV1) GetSecretStoreConfig(ctx context.Context) (params.SecretBackendConfig, error) {
+	cfgInfo, err := s.GetSecretBackendConfig(ctx)
 	if err != nil {
 		return params.SecretBackendConfig{}, errors.Trace(err)
 	}
@@ -80,7 +81,7 @@ func (s *SecretsManagerAPIV1) GetSecretStoreConfig() (params.SecretBackendConfig
 
 // GetSecretBackendConfig gets the config needed to create a client to secret backends.
 // TODO - drop when we no longer support juju 3.1.x
-func (s *SecretsManagerAPIV1) GetSecretBackendConfig() (params.SecretBackendConfigResultsV1, error) {
+func (s *SecretsManagerAPIV1) GetSecretBackendConfig(ctx context.Context) (params.SecretBackendConfigResultsV1, error) {
 	cfgInfo, err := s.backendConfigGetter(nil, true)
 	if err != nil {
 		return params.SecretBackendConfigResultsV1{}, errors.Trace(err)
@@ -102,10 +103,10 @@ func (s *SecretsManagerAPIV1) GetSecretBackendConfig() (params.SecretBackendConf
 }
 
 // GetSecretBackendConfigs isn't on the V1 API.
-func (*SecretsManagerAPIV1) GetSecretBackendConfigs(_ struct{}) {}
+func (*SecretsManagerAPIV1) GetSecretBackendConfigs(ctx context.Context, _ struct{}) {}
 
 // GetSecretBackendConfigs gets the config needed to create a client to secret backends.
-func (s *SecretsManagerAPI) GetSecretBackendConfigs(arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
+func (s *SecretsManagerAPI) GetSecretBackendConfigs(ctx context.Context, arg params.SecretBackendArgs) (params.SecretBackendConfigResults, error) {
 	if arg.ForDrain {
 		return s.getBackendConfigForDrain(arg)
 	}
@@ -207,7 +208,7 @@ func (s *SecretsManagerAPI) getBackend(backendID string) (*secretsprovider.Model
 }
 
 // CreateSecretURIs creates new secret URIs.
-func (s *SecretsManagerAPI) CreateSecretURIs(arg params.CreateSecretURIsArg) (params.StringResults, error) {
+func (s *SecretsManagerAPI) CreateSecretURIs(ctx context.Context, arg params.CreateSecretURIsArg) (params.StringResults, error) {
 	if arg.Count <= 0 {
 		return params.StringResults{}, errors.NotValidf("secret URi count %d", arg.Count)
 	}
@@ -222,7 +223,7 @@ func (s *SecretsManagerAPI) CreateSecretURIs(arg params.CreateSecretURIsArg) (pa
 }
 
 // CreateSecrets creates new secrets.
-func (s *SecretsManagerAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringResults, error) {
+func (s *SecretsManagerAPI) CreateSecrets(ctx context.Context, args params.CreateSecretArgs) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Args)),
 	}
@@ -308,7 +309,7 @@ func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token, nextRota
 }
 
 // UpdateSecrets updates the specified secrets.
-func (s *SecretsManagerAPI) UpdateSecrets(args params.UpdateSecretArgs) (params.ErrorResults, error) {
+func (s *SecretsManagerAPI) UpdateSecrets(ctx context.Context, args params.UpdateSecretArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -353,7 +354,7 @@ func (s *SecretsManagerAPI) updateSecret(arg params.UpdateSecretArg) error {
 }
 
 // RemoveSecrets removes the specified secrets.
-func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorResults, error) {
+func (s *SecretsManagerAPI) RemoveSecrets(ctx context.Context, args params.DeleteSecretArgs) (params.ErrorResults, error) {
 	return commonsecrets.RemoveSecretsForAgent(
 		s.secretsState, s.adminConfigGetter,
 		s.authTag, args,
@@ -366,7 +367,7 @@ func (s *SecretsManagerAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.
 
 // GetConsumerSecretsRevisionInfo returns the latest secret revisions for the specified secrets.
 // This facade method is used for remote watcher to get the latest secret revisions and labels for a secret changed hook.
-func (s *SecretsManagerAPI) GetConsumerSecretsRevisionInfo(args params.GetSecretConsumerInfoArgs) (params.SecretConsumerInfoResults, error) {
+func (s *SecretsManagerAPI) GetConsumerSecretsRevisionInfo(ctx context.Context, args params.GetSecretConsumerInfoArgs) (params.SecretConsumerInfoResults, error) {
 	result := params.SecretConsumerInfoResults{
 		Results: make([]params.SecretConsumerInfoResult, len(args.URIs)),
 	}
@@ -420,12 +421,12 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 }
 
 // GetSecretMetadata returns metadata for the caller's secrets.
-func (s *SecretsManagerAPI) GetSecretMetadata() (params.ListSecretResults, error) {
+func (s *SecretsManagerAPI) GetSecretMetadata(ctx context.Context) (params.ListSecretResults, error) {
 	return commonsecrets.GetSecretMetadata(s.authTag, s.secretsState, s.leadershipChecker, nil)
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
-func (s *SecretsManagerAPI) GetSecretContentInfo(args params.GetSecretContentArgs) (params.SecretContentResults, error) {
+func (s *SecretsManagerAPI) GetSecretContentInfo(ctx context.Context, args params.GetSecretContentArgs) (params.SecretContentResults, error) {
 	result := params.SecretContentResults{
 		Results: make([]params.SecretContentResult, len(args.Args)),
 	}
@@ -536,7 +537,7 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 }
 
 // GetSecretRevisionContentInfo returns the secret values for the specified secret revisions.
-func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(arg params.SecretRevisionArg) (params.SecretContentResults, error) {
+func (s *SecretsManagerAPI) GetSecretRevisionContentInfo(ctx context.Context, arg params.SecretRevisionArg) (params.SecretContentResults, error) {
 	result := params.SecretContentResults{
 		Results: make([]params.SecretContentResult, len(arg.Revisions)),
 	}
@@ -804,7 +805,7 @@ func (s *SecretsManagerAPI) getConsumedRevision(uri *coresecrets.URI, refresh, p
 }
 
 // WatchConsumedSecretsChanges sets up a watcher to notify of changes to secret revisions for the specified consumers.
-func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (params.StringsWatchResults, error) {
+func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -847,7 +848,7 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (p
 //
 // Obsolete revisions results are "uri/revno" and deleted
 // secret results are "uri".
-func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsWatchResult, error) {
+func (s *SecretsManagerAPI) WatchObsolete(ctx context.Context, args params.Entities) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	owners := make([]names.Tag, len(args.Entities))
 	for i, arg := range args.Entities {
@@ -883,7 +884,7 @@ func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsW
 }
 
 // WatchSecretsRotationChanges sets up a watcher to notify of changes to secret rotation config.
-func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (params.SecretTriggerWatchResult, error) {
+func (s *SecretsManagerAPI) WatchSecretsRotationChanges(ctx context.Context, args params.Entities) (params.SecretTriggerWatchResult, error) {
 	result := params.SecretTriggerWatchResult{}
 	owners := make([]names.Tag, len(args.Entities))
 	for i, arg := range args.Entities {
@@ -926,7 +927,7 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 }
 
 // SecretsRotated records when secrets were last rotated.
-func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (params.ErrorResults, error) {
+func (s *SecretsManagerAPI) SecretsRotated(ctx context.Context, args params.SecretRotatedArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -979,7 +980,7 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 }
 
 // WatchSecretRevisionsExpiryChanges sets up a watcher to notify of changes to secret revision expiry config.
-func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(args params.Entities) (params.SecretTriggerWatchResult, error) {
+func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(ctx context.Context, args params.Entities) (params.SecretTriggerWatchResult, error) {
 	result := params.SecretTriggerWatchResult{}
 	owners := make([]names.Tag, len(args.Entities))
 	for i, arg := range args.Entities {
@@ -1025,12 +1026,12 @@ func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(args params.Entiti
 type grantRevokeFunc func(*coresecrets.URI, state.SecretAccessParams) error
 
 // SecretsGrant grants access to a secret for the specified subjects.
-func (s *SecretsManagerAPI) SecretsGrant(args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
+func (s *SecretsManagerAPI) SecretsGrant(ctx context.Context, args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
 	return s.secretsGrantRevoke(args, s.secretsConsumer.GrantSecretAccess)
 }
 
 // SecretsRevoke revokes access to a secret for the specified subjects.
-func (s *SecretsManagerAPI) SecretsRevoke(args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
+func (s *SecretsManagerAPI) SecretsRevoke(ctx context.Context, args params.GrantRevokeSecretArgs) (params.ErrorResults, error) {
 	return s.secretsGrantRevoke(args, s.secretsConsumer.RevokeSecretAccess)
 }
 

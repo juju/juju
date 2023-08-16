@@ -4,6 +4,8 @@
 package upgradeseries
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -63,7 +65,7 @@ func NewUpgradeSeriesAPI(
 }
 
 // MachineStatus gets the current upgrade-machine status of a machine.
-func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
+func (a *API) MachineStatus(ctx context.Context, args params.Entities) (params.UpgradeSeriesStatusResults, error) {
 	result := params.UpgradeSeriesStatusResults{}
 
 	canAccess, err := a.AccessMachine()
@@ -91,7 +93,7 @@ func (a *API) MachineStatus(args params.Entities) (params.UpgradeSeriesStatusRes
 }
 
 // SetMachineStatus sets the current upgrade-machine status of a machine.
-func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.ErrorResults, error) {
+func (a *API) SetMachineStatus(ctx context.Context, args params.UpgradeSeriesStatusParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{}
 
 	canAccess, err := a.AccessMachine()
@@ -120,7 +122,7 @@ func (a *API) SetMachineStatus(args params.UpgradeSeriesStatusParams) (params.Er
 // Note that a machine could have been upgraded out-of-band by running
 // do-release-upgrade outside of the upgrade-machine workflow,
 // making this value incorrect.
-func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) {
+func (a *API) CurrentSeries(ctx context.Context, args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{}
 
 	canAccess, err := a.AccessMachine()
@@ -149,7 +151,7 @@ func (a *API) CurrentSeries(args params.Entities) (params.StringResults, error) 
 
 // TargetSeries returns the series that a machine has been locked
 // for upgrading to.
-func (a *API) TargetSeries(args params.Entities) (params.StringResults, error) {
+func (a *API) TargetSeries(ctx context.Context, args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{}
 
 	canAccess, err := a.AccessMachine()
@@ -177,7 +179,7 @@ func (a *API) TargetSeries(args params.Entities) (params.StringResults, error) {
 
 // StartUnitCompletion starts the upgrade series completion phase for all subordinate
 // units of a given machine.
-func (a *API) StartUnitCompletion(args params.UpgradeSeriesStartUnitCompletionParam) (params.ErrorResults, error) {
+func (a *API) StartUnitCompletion(ctx context.Context, args params.UpgradeSeriesStartUnitCompletionParam) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -204,7 +206,7 @@ func (a *API) StartUnitCompletion(args params.UpgradeSeriesStartUnitCompletionPa
 // called after all machine and unit statuses are "completed".
 // It updates the machine series to reflect the completed upgrade, then
 // removes the upgrade-machine lock.
-func (a *API) FinishUpgradeSeries(args params.UpdateChannelArgs) (params.ErrorResults, error) {
+func (a *API) FinishUpgradeSeries(ctx context.Context, args params.UpdateChannelArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -250,14 +252,14 @@ func (a *API) FinishUpgradeSeries(args params.UpdateChannelArgs) (params.ErrorRe
 // UnitsPrepared returns the units running on this machine that have completed
 // their upgrade-machine preparation, and are ready to be stopped and have their
 // unit agent services converted for the target series.
-func (a *API) UnitsPrepared(args params.Entities) (params.EntitiesResults, error) {
+func (a *API) UnitsPrepared(ctx context.Context, args params.Entities) (params.EntitiesResults, error) {
 	result, err := a.unitsInState(args, model.UpgradeSeriesPrepareCompleted)
 	return result, errors.Trace(err)
 }
 
 // UnitsCompleted returns the units running on this machine that have completed
 // the upgrade-machine workflow and are in their normal running state.
-func (a *API) UnitsCompleted(args params.Entities) (params.EntitiesResults, error) {
+func (a *API) UnitsCompleted(ctx context.Context, args params.Entities) (params.EntitiesResults, error) {
 	result, err := a.unitsInState(args, model.UpgradeSeriesCompleted)
 	return result, errors.Trace(err)
 }
@@ -310,24 +312,24 @@ func (a *API) authAndGetMachine(entityTag string, canAccess common.AuthFunc) (co
 
 // PinnedLeadership returns all pinned applications and the entities that
 // require their pinned behaviour, for leadership in the current model.
-func (a *API) PinnedLeadership() (params.PinnedLeadershipResult, error) {
+func (a *API) PinnedLeadership(ctx context.Context) (params.PinnedLeadershipResult, error) {
 	return a.leadership.PinnedLeadership()
 }
 
 // PinMachineApplications pins leadership for applications represented by units
 // running on the auth'd machine.
-func (a *API) PinMachineApplications() (params.PinApplicationsResults, error) {
+func (a *API) PinMachineApplications(ctx context.Context) (params.PinApplicationsResults, error) {
 	return a.leadership.PinApplicationLeaders()
 }
 
 // UnpinMachineApplications unpins leadership for applications represented by
 // units running on the auth'd machine.
-func (a *API) UnpinMachineApplications() (params.PinApplicationsResults, error) {
+func (a *API) UnpinMachineApplications(ctx context.Context) (params.PinApplicationsResults, error) {
 	return a.leadership.UnpinApplicationLeaders()
 }
 
 // SetInstanceStatus sets the status of the machine.
-func (a *API) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (a *API) SetInstanceStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{}
 
 	canAccess, err := a.AccessMachine()

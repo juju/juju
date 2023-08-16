@@ -4,6 +4,8 @@
 package upgradesteps
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -24,13 +26,13 @@ import (
 // upgrade steps API endpoint.
 type UpgradeStepsV2 interface {
 	UpgradeStepsV1
-	WriteAgentState(params.SetUnitStateArgs) (params.ErrorResults, error)
+	WriteAgentState(context.Context, params.SetUnitStateArgs) (params.ErrorResults, error)
 }
 
 // UpgradeStepsV1 defines the methods on the version 2 facade for the
 // upgrade steps API endpoint.
 type UpgradeStepsV1 interface {
-	ResetKVMMachineModificationStatusIdle(params.Entity) (params.ErrorResult, error)
+	ResetKVMMachineModificationStatusIdle(context.Context, params.Entity) (params.ErrorResult, error)
 }
 
 // UpgradeStepsAPI implements version 2 of the Upgrade Steps API,
@@ -75,7 +77,7 @@ func NewUpgradeStepsAPI(st UpgradeStepsState,
 // ResetKVMMachineModificationStatusIdle sets the modification status
 // of a kvm machine to idle if it is in an error state before upgrade.
 // Related to lp:1829393.
-func (api *UpgradeStepsAPI) ResetKVMMachineModificationStatusIdle(arg params.Entity) (params.ErrorResult, error) {
+func (api *UpgradeStepsAPI) ResetKVMMachineModificationStatusIdle(ctx context.Context, arg params.Entity) (params.ErrorResult, error) {
 	var result params.ErrorResult
 	canAccess, err := api.getMachineAuthFunc()
 	if err != nil {
@@ -112,7 +114,7 @@ func (api *UpgradeStepsAPI) ResetKVMMachineModificationStatusIdle(arg params.Ent
 
 // WriteAgentState writes the agent state for the set of units provided. This
 // call presently deals with the state for the unit agent.
-func (api *UpgradeStepsAPI) WriteAgentState(args params.SetUnitStateArgs) (params.ErrorResults, error) {
+func (api *UpgradeStepsAPI) WriteAgentState(ctx context.Context, args params.SetUnitStateArgs) (params.ErrorResults, error) {
 	ctrlCfg, err := api.st.ControllerConfig()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
