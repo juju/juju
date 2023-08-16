@@ -4,6 +4,7 @@
 package spaces_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"sort"
 
@@ -75,7 +76,7 @@ func (s *APISuite) TestShowSpaceDefault(c *gc.C) {
 		},
 	}}
 
-	res, err := s.API.ShowSpace(args)
+	res, err := s.API.ShowSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, jc.DeepEquals, expected)
 }
@@ -89,7 +90,7 @@ func (s *APISuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
 	s.expectDefaultSpace(ctrl, "default", bamErr, nil)
 	args := s.getShowSpaceArg("default")
 
-	res, err := s.API.ShowSpace(args)
+	res, err := s.API.ShowSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("fetching space %q: %v", args.Entities[0].Tag, bamErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -104,7 +105,7 @@ func (s *APISuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
 	s.expectDefaultSpace(ctrl, "default", nil, bamErr)
 	args := s.getShowSpaceArg("default")
 
-	res, err := s.API.ShowSpace(args)
+	res, err := s.API.ShowSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("fetching subnets: %v", bamErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -121,7 +122,7 @@ func (s *APISuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
 
 	args := s.getShowSpaceArg("default")
 
-	res, err := s.API.ShowSpace(args)
+	res, err := s.API.ShowSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("fetching applications: %v", expErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -138,7 +139,7 @@ func (s *APISuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 	s.expectMachines(ctrl, s.getDefaultSpaces(), bamErr, nil)
 
 	args := s.getShowSpaceArg("default")
-	res, err := s.API.ShowSpace(args)
+	res, err := s.API.ShowSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("fetching machine count: %v", bamErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -746,7 +747,7 @@ func (s *LegacySuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 		Spaces: []params.CreateSpaceParams{arg},
 	}
 
-	results, err := s.facade.CreateSpaces(args)
+	results, err := s.facade.CreateSpaces(stdcontext.Background(), args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results.Results), gc.Equals, 1)
 	if p.Error == "" {
@@ -902,7 +903,7 @@ func (s *LegacySuite) TestShowSpaceError(c *gc.C) {
 	)
 
 	entities := params.Entities{}
-	_, err := s.facade.ShowSpace(entities)
+	_, err := s.facade.ShowSpace(stdcontext.Background(), entities)
 	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
 }
 
@@ -912,7 +913,7 @@ func (s *LegacySuite) TestCreateSpacesModelConfigError(c *gc.C) {
 	)
 
 	args := params.CreateSpacesParams{}
-	_, err := s.facade.CreateSpaces(args)
+	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
 }
 
@@ -924,7 +925,7 @@ func (s *LegacySuite) TestCreateSpacesProviderOpenError(c *gc.C) {
 	)
 
 	args := params.CreateSpacesParams{}
-	_, err := s.facade.CreateSpaces(args)
+	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
 	c.Assert(err, gc.ErrorMatches,
 		`getting environ: creating environ for model \"stub-zoned-networking-environ\" \(.*\): boom`)
 }
@@ -938,7 +939,7 @@ func (s *LegacySuite) TestCreateSpacesNotSupportedError(c *gc.C) {
 	)
 
 	args := params.CreateSpacesParams{}
-	_, err := s.facade.CreateSpaces(args)
+	_, err := s.facade.CreateSpaces(stdcontext.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
 }
 
@@ -979,7 +980,7 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 		}},
 	}}
 
-	result, err := s.facade.ListSpaces()
+	result, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, expected)
 }
@@ -987,7 +988,7 @@ func (s *LegacySuite) TestListSpacesDefault(c *gc.C) {
 func (s *LegacySuite) TestListSpacesAllSpacesError(c *gc.C) {
 	boom := errors.New("backing boom")
 	apiservertesting.BackingInstance.SetErrors(boom)
-	_, err := s.facade.ListSpaces()
+	_, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: backing boom")
 }
 
@@ -1003,7 +1004,7 @@ func (s *LegacySuite) TestListSpacesSubnetsError(c *gc.C) {
 		errors.New("space2 subnets failed"), // Space.Subnets()
 	)
 
-	results, err := s.facade.ListSpaces()
+	results, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	for i, space := range results.Results {
 		errmsg := fmt.Sprintf("fetching subnets: space%d subnets failed", i)
@@ -1023,7 +1024,7 @@ func (s *LegacySuite) TestListSpacesSubnetsSingleSubnetError(c *gc.C) {
 		boom, // Space.Subnets() (2nd with error)
 	)
 
-	results, err := s.facade.ListSpaces()
+	results, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	for i, space := range results.Results {
 		if i == 1 {
@@ -1042,13 +1043,13 @@ func (s *LegacySuite) TestListSpacesNotSupportedError(c *gc.C) {
 		errors.NotSupportedf("spaces"), // ZonedNetworkingEnviron.supportsSpaces()
 	)
 
-	_, err := s.facade.ListSpaces()
+	_, err := s.facade.ListSpaces(stdcontext.Background())
 	c.Assert(err, gc.ErrorMatches, "spaces not supported")
 }
 
 func (s *LegacySuite) TestCreateSpacesBlocked(c *gc.C) {
 	s.blockChecker.SetErrors(apiservererrors.ServerError(apiservererrors.OperationBlockedError("test block")))
-	_, err := s.facade.CreateSpaces(params.CreateSpacesParams{})
+	_, err := s.facade.CreateSpaces(stdcontext.Background(), params.CreateSpacesParams{})
 	c.Assert(err, gc.ErrorMatches, "test block")
 	c.Assert(err, jc.Satisfies, params.IsCodeOperationBlocked)
 }

@@ -4,6 +4,8 @@
 package subnets_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -70,7 +72,7 @@ func (s *SubnetSuite) TestSubnetsByCIDR(c *gc.C) {
 	)
 
 	arg := params.CIDRParams{CIDRS: cidrs}
-	res, err := s.api.SubnetsByCIDR(arg)
+	res, err := s.api.SubnetsByCIDR(stdcontext.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	results := res.Results
@@ -219,7 +221,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(errors.NotSupportedf("zones"))
 
-	results, err := s.facade.AllZones()
+	results, err := s.facade.AllZones(stdcontext.Background())
 	c.Assert(err, gc.ErrorMatches, "zones not supported")
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
@@ -231,7 +233,7 @@ func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *gc.C) {
 }
 
 func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *gc.C) {
-	results, err := s.facade.AllZones()
+	results, err := s.facade.AllZones(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertAllZonesResult(c, results, apiservertesting.BackingInstance.Zones)
 
@@ -243,7 +245,7 @@ func (s *SubnetsSuite) TestAllZonesUsesBackingZonesWhenAvailable(c *gc.C) {
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 
-	results, err := s.facade.AllZones()
+	results, err := s.facade.AllZones(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertAllZonesResult(c, results, apiservertesting.ProviderInstance.Zones)
 
@@ -268,7 +270,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 		errors.NotSupportedf("setting"), // Backing.SetAvailabilityZones
 	)
 
-	results, err := s.facade.AllZones()
+	results, err := s.facade.AllZones(stdcontext.Background())
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: setting not supported`,
 	)
@@ -296,7 +298,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 		errors.NotValidf("foo"), // ZonedEnviron.AvailabilityZones
 	)
 
-	results, err := s.facade.AllZones()
+	results, err := s.facade.AllZones(stdcontext.Background())
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: foo not valid`,
 	)
@@ -320,7 +322,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C
 		errors.NotFoundf("config"), // Backing.ModelConfig
 	)
 
-	results, err := s.facade.AllZones()
+	results, err := s.facade.AllZones(stdcontext.Background())
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: opening environment: retrieving model config: config not found`,
 	)
@@ -343,7 +345,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 		errors.NotValidf("config"), // Provider.Open
 	)
 
-	results, err := s.facade.AllZones()
+	results, err := s.facade.AllZones(stdcontext.Background())
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: opening environment: creating environ for model \"stub-zoned-environ\" \(.*\): config not valid`,
 	)
@@ -363,7 +365,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubEnvironName, apiservertesting.WithoutZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
 	// ZonedEnviron not supported
 
-	results, err := s.facade.AllZones()
+	results, err := s.facade.AllZones(stdcontext.Background())
 	c.Assert(err, gc.ErrorMatches,
 		`cannot update known zones: availability zones not supported`,
 	)
@@ -399,40 +401,40 @@ func (s *SubnetsSuite) TestListSubnetsAndFiltering(c *gc.C) {
 	}}
 	// No filtering.
 	args := params.SubnetsFilters{}
-	subnets, err := s.facade.ListSubnets(args)
+	subnets, err := s.facade.ListSubnets(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets.Results, jc.DeepEquals, expected)
 
 	// Filter by space only.
 	args.SpaceTag = "space-dmz"
-	subnets, err = s.facade.ListSubnets(args)
+	subnets, err = s.facade.ListSubnets(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets.Results, jc.DeepEquals, expected[1:])
 
 	// Filter by zone only.
 	args.SpaceTag = ""
 	args.Zone = "zone3"
-	subnets, err = s.facade.ListSubnets(args)
+	subnets, err = s.facade.ListSubnets(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets.Results, jc.DeepEquals, expected[1:])
 
 	// Filter by both space and zone.
 	args.SpaceTag = "space-private"
 	args.Zone = "zone1"
-	subnets, err = s.facade.ListSubnets(args)
+	subnets, err = s.facade.ListSubnets(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets.Results, jc.DeepEquals, expected[:1])
 }
 
 func (s *SubnetsSuite) TestListSubnetsInvalidSpaceTag(c *gc.C) {
 	args := params.SubnetsFilters{SpaceTag: "invalid"}
-	_, err := s.facade.ListSubnets(args)
+	_, err := s.facade.ListSubnets(stdcontext.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `"invalid" is not a valid tag`)
 }
 
 func (s *SubnetsSuite) TestListSubnetsAllSubnetError(c *gc.C) {
 	boom := errors.New("no subnets for you")
 	apiservertesting.BackingInstance.SetErrors(boom)
-	_, err := s.facade.ListSubnets(params.SubnetsFilters{})
+	_, err := s.facade.ListSubnets(stdcontext.Background(), params.SubnetsFilters{})
 	c.Assert(err, gc.ErrorMatches, "no subnets for you")
 }

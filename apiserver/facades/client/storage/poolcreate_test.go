@@ -4,6 +4,8 @@
 package storage_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -33,7 +35,7 @@ func (s *poolCreateSuite) TestCreatePool(c *gc.C) {
 			Attrs:    nil,
 		}},
 	}
-	results, err := s.api.CreatePool(args)
+	results, err := s.api.CreatePool(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -55,7 +57,7 @@ func (s *poolCreateSuite) TestCreatePoolError(c *gc.C) {
 			Name: "doesnt-matter",
 		}},
 	}
-	results, err := s.api.CreatePool(args)
+	results, err := s.api.CreatePool(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{

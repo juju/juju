@@ -4,6 +4,7 @@
 package secretbackends
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -38,7 +39,7 @@ func (s *SecretBackendsAPI) checkCanAdmin() error {
 }
 
 // AddSecretBackends adds new secret backends.
-func (s *SecretBackendsAPI) AddSecretBackends(args params.AddSecretBackendArgs) (params.ErrorResults, error) {
+func (s *SecretBackendsAPI) AddSecretBackends(ctx context.Context, args params.AddSecretBackendArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -108,7 +109,7 @@ func (s *SecretBackendsAPI) createBackend(id string, arg params.SecretBackend) e
 }
 
 // UpdateSecretBackends updates secret backends.
-func (s *SecretBackendsAPI) UpdateSecretBackends(args params.UpdateSecretBackendArgs) (params.ErrorResults, error) {
+func (s *SecretBackendsAPI) UpdateSecretBackends(ctx context.Context, args params.UpdateSecretBackendArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -190,7 +191,7 @@ func (s *SecretBackendsAPI) updateBackend(arg params.UpdateSecretBackendArg) err
 }
 
 // ListSecretBackends lists available secret backends.
-func (s *SecretBackendsAPI) ListSecretBackends(arg params.ListSecretBackendsArgs) (params.ListSecretBackendsResults, error) {
+func (s *SecretBackendsAPI) ListSecretBackends(ctx context.Context, arg params.ListSecretBackendsArgs) (params.ListSecretBackendsResults, error) {
 	result := params.ListSecretBackendsResults{}
 	if arg.Reveal {
 		if err := s.checkCanAdmin(); err != nil {
@@ -208,7 +209,7 @@ func (s *SecretBackendsAPI) ListSecretBackends(arg params.ListSecretBackendsArgs
 }
 
 // RemoveSecretBackends removes secret backends.
-func (s *SecretBackendsAPI) RemoveSecretBackends(args params.RemoveSecretBackendArgs) (params.ErrorResults, error) {
+func (s *SecretBackendsAPI) RemoveSecretBackends(ctx context.Context, args params.RemoveSecretBackendArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}

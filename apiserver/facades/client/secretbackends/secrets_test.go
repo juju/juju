@@ -4,6 +4,7 @@
 package secretbackends_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -176,7 +177,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, modelType state.ModelTy
 	}, nil)
 	s.backendState.EXPECT().GetSecretBackendByID("backend-id-notfound").Return(nil, errors.NotFoundf(""))
 
-	results, err := facade.ListSecretBackends(params.ListSecretBackendsArgs{Names: names, Reveal: reveal})
+	results, err := facade.ListSecretBackends(context.Background(), params.ListSecretBackendsArgs{Names: names, Reveal: reveal})
 	c.Assert(err, jc.ErrorIsNil)
 	resultVaultCfg := map[string]interface{}{
 		"endpoint": "http://vault",
@@ -240,7 +241,7 @@ func (s *SecretsSuite) TestListSecretBackendsPermissionDeniedReveal(c *gc.C) {
 	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = facade.ListSecretBackends(params.ListSecretBackendsArgs{Reveal: true})
+	_, err = facade.ListSecretBackends(context.Background(), params.ListSecretBackendsArgs{Reveal: true})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -289,7 +290,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 		Config:      addedConfig,
 	}).Return("", errors.AlreadyExistsf(""))
 
-	results, err := facade.AddSecretBackends(params.AddSecretBackendArgs{
+	results, err := facade.AddSecretBackends(context.Background(), params.AddSecretBackendArgs{
 		Args: []params.AddSecretBackendArg{{
 			SecretBackend: params.SecretBackend{
 				Name:                "myvault",
@@ -333,7 +334,7 @@ func (s *SecretsSuite) TestAddSecretBackendsPermissionDenied(c *gc.C) {
 	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = facade.AddSecretBackends(params.AddSecretBackendArgs{})
+	_, err = facade.AddSecretBackends(context.Background(), params.AddSecretBackendArgs{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -349,7 +350,7 @@ func (s *SecretsSuite) TestRemoveSecretBackends(c *gc.C) {
 	s.backendState.EXPECT().DeleteSecretBackend("myvault", true).Return(nil)
 	s.backendState.EXPECT().DeleteSecretBackend("myvault2", false).Return(errors.NotSupportedf("remove with revisions"))
 
-	results, err := facade.RemoveSecretBackends(params.RemoveSecretBackendArgs{
+	results, err := facade.RemoveSecretBackends(context.Background(), params.RemoveSecretBackendArgs{
 		Args: []params.RemoveSecretBackendArg{{
 			Name:  "myvault",
 			Force: true,
@@ -376,7 +377,7 @@ func (s *SecretsSuite) TestRemoveSecretBackendsPermissionDenied(c *gc.C) {
 	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = facade.RemoveSecretBackends(params.RemoveSecretBackendArgs{})
+	_, err = facade.RemoveSecretBackends(context.Background(), params.RemoveSecretBackendArgs{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -424,7 +425,7 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *gc.C) {
 		Config:              updatedConfig,
 	}).Return(nil)
 
-	results, err := facade.UpdateSecretBackends(params.UpdateSecretBackendArgs{
+	results, err := facade.UpdateSecretBackends(context.Background(), params.UpdateSecretBackendArgs{
 		Args: []params.UpdateSecretBackendArg{{
 			Name:                "myvault",
 			NameChange:          ptr("new-name"),
@@ -454,6 +455,6 @@ func (s *SecretsSuite) TestUpdateSecretBackendsPermissionDenied(c *gc.C) {
 	facade, err := secretbackends.NewTestAPI(s.backendState, s.secretsState, s.statePool, s.authorizer, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = facade.UpdateSecretBackends(params.UpdateSecretBackendArgs{})
+	_, err = facade.UpdateSecretBackends(context.Background(), params.UpdateSecretBackendArgs{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

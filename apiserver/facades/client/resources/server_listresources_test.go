@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	"context"
+
 	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -62,7 +64,7 @@ func (s *ListResourcesSuite) TestOkay(c *gc.C) {
 		},
 	}, nil)
 
-	results, err := s.newFacade(c).ListResources(params.ListResourcesArgs{
+	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
 			Tag: appTag.String(),
 		}},
@@ -106,7 +108,7 @@ func (s *ListResourcesSuite) TestEmpty(c *gc.C) {
 	tag := names.NewApplicationTag("a-application")
 	s.backend.EXPECT().ListResources(tag.Id()).Return(coreresources.ApplicationResources{}, nil)
 
-	results, err := s.newFacade(c).ListResources(params.ListResourcesArgs{
+	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
 			Tag: tag.String(),
 		}},
@@ -124,7 +126,7 @@ func (s *ListResourcesSuite) TestError(c *gc.C) {
 	tag := names.NewApplicationTag("a-application")
 	s.backend.EXPECT().ListResources(tag.Id()).Return(coreresources.ApplicationResources{}, failure)
 
-	results, err := s.newFacade(c).ListResources(params.ListResourcesArgs{
+	results, err := s.newFacade(c).ListResources(context.Background(), params.ListResourcesArgs{
 		Entities: []params.Entity{{
 			Tag: tag.String(),
 		}},

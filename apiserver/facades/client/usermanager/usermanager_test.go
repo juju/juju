@@ -4,6 +4,7 @@
 package usermanager_test
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"time"
@@ -87,7 +88,7 @@ func (s *userManagerSuite) assertAddUser(c *gc.C, access params.UserAccessPermis
 			Password:    "password",
 		}}}
 
-	result, err := s.usermanager.AddUser(args)
+	result, err := s.usermanager.AddUser(context.Background(), args)
 	// Check that the call is successful
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -114,7 +115,7 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 			Password:    "", // assign secret key
 		}}}
 
-	result, err := s.usermanager.AddUser(args)
+	result, err := s.usermanager.AddUser(context.Background(), args)
 	// Check that the call is successful
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -146,7 +147,7 @@ func (s *userManagerSuite) TestBlockAddUser(c *gc.C) {
 		}}}
 
 	s.BlockAllChanges(c, "TestBlockAddUser")
-	result, err := s.usermanager.AddUser(args)
+	result, err := s.usermanager.AddUser(context.Background(), args)
 	// Check that the call is blocked.
 	s.AssertBlocked(c, err, "TestBlockAddUser")
 	// Check that there's no results.
@@ -177,7 +178,7 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 			Password:    "password",
 		}}}
 
-	_, err = usermanager.AddUser(args)
+	_, err = usermanager.AddUser(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	_, err = s.ControllerModel(c).State().User(names.NewLocalUserTag("foobar"))
@@ -198,7 +199,7 @@ func (s *userManagerSuite) TestDisableUser(c *gc.C) {
 			{names.NewUserTag("fred@remote").String()},
 			{"not-a-tag"},
 		}}
-	result, err := s.usermanager.DisableUser(args)
+	result, err := s.usermanager.DisableUser(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -241,7 +242,7 @@ func (s *userManagerSuite) TestBlockDisableUser(c *gc.C) {
 		}}
 
 	s.BlockAllChanges(c, "TestBlockDisableUser")
-	_, err := s.usermanager.DisableUser(args)
+	_, err := s.usermanager.DisableUser(context.Background(), args)
 	// Check that the call is blocked
 	s.AssertBlocked(c, err, "TestBlockDisableUser")
 
@@ -268,7 +269,7 @@ func (s *userManagerSuite) TestEnableUser(c *gc.C) {
 			{names.NewUserTag("fred@remote").String()},
 			{"not-a-tag"},
 		}}
-	result, err := s.usermanager.EnableUser(args)
+	result, err := s.usermanager.EnableUser(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -311,7 +312,7 @@ func (s *userManagerSuite) TestBlockEnableUser(c *gc.C) {
 		}}
 
 	s.BlockAllChanges(c, "TestBlockEnableUser")
-	_, err := s.usermanager.EnableUser(args)
+	_, err := s.usermanager.EnableUser(context.Background(), args)
 	// Check that the call is blocked
 	s.AssertBlocked(c, err, "TestBlockEnableUser")
 
@@ -340,7 +341,7 @@ func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	args := params.Entities{
 		[]params.Entity{{barb.Tag().String()}},
 	}
-	_, err = usermanager.DisableUser(args)
+	_, err = usermanager.DisableUser(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	err = barb.Refresh()
@@ -364,7 +365,7 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 	args := params.Entities{
 		[]params.Entity{{barb.Tag().String()}},
 	}
-	_, err = usermanager.EnableUser(args)
+	_, err = usermanager.EnableUser(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	err = barb.Refresh()
@@ -404,7 +405,7 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 			},
 		}}
 
-	results, err := s.usermanager.UserInfo(args)
+	results, err := s.usermanager.UserInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	var expected params.UserInfoResults
 	for _, r := range []struct {
@@ -470,7 +471,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	userAardvark := f.MakeUser(c, &factory.UserParams{Name: "aardvark", DisplayName: "Aard Vark", Disabled: true})
 
 	args := params.UserInfoRequest{IncludeDisabled: true}
-	results, err := s.usermanager.UserInfo(args)
+	results, err := s.usermanager.UserInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	var expected params.UserInfoResults
 	for _, r := range []struct {
@@ -506,7 +507,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	}
 	c.Assert(results, jc.DeepEquals, expected)
 
-	results, err = s.usermanager.UserInfo(params.UserInfoRequest{})
+	results, err = s.usermanager.UserInfo(context.Background(), params.UserInfoRequest{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Same results as before, but without the deactivated user
 	expected.Results = expected.Results[1:]
@@ -533,7 +534,7 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 		{Tag: userAardvark.Tag().String()},
 		{Tag: names.NewUserTag("foobar").String()},
 	}}
-	results, err := usermanager.UserInfo(args)
+	results, err := usermanager.UserInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	// Non admin users can only see themselves.
 	c.Assert(results, jc.DeepEquals, params.UserInfoResults{
@@ -573,7 +574,7 @@ func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.UserInfoRequest{Entities: []params.Entity{{Tag: names.NewUserTag("aardvark@external").String()}}}
-	results, err := s.usermanager.UserInfo(args)
+	results, err := s.usermanager.UserInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	// Non admin users can only see themselves.
 	c.Assert(results, jc.DeepEquals, params.UserInfoResults{
@@ -609,7 +610,7 @@ func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
 	remoteUser1 := f.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: permission.WriteAccess})
 	remoteUser2 := f.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: permission.WriteAccess})
 
-	results, err := s.usermanager.ModelUserInfo(params.Entities{Entities: []params.Entity{{
+	results, err := s.usermanager.ModelUserInfo(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: model.ModelTag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -714,7 +715,7 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 			Tag:      alex.Tag().String(),
 			Password: "new-password",
 		}}}
-	results, err := s.usermanager.SetPassword(args)
+	results, err := s.usermanager.SetPassword(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
@@ -737,7 +738,7 @@ func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
 		}}}
 
 	s.BlockAllChanges(c, "TestBlockSetPassword")
-	_, err := s.usermanager.SetPassword(args)
+	_, err := s.usermanager.SetPassword(context.Background(), args)
 	// Check that the call is blocked
 	s.AssertBlocked(c, err, "TestBlockSetPassword")
 
@@ -763,7 +764,7 @@ func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 			Tag:      alex.Tag().String(),
 			Password: "new-password",
 		}}}
-	results, err := usermanager.SetPassword(args)
+	results, err := usermanager.SetPassword(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
@@ -791,7 +792,7 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 			Tag:      barb.Tag().String(),
 			Password: "new-password",
 		}}}
-	results, err := usermanager.SetPassword(args)
+	results, err := usermanager.SetPassword(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{
@@ -808,7 +809,7 @@ func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
 
 func (s *userManagerSuite) TestRemoveUserBadTag(c *gc.C) {
 	tag := "not-a-tag"
-	got, err := s.usermanager.RemoveUser(params.Entities{
+	got, err := s.usermanager.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: tag}}})
 	c.Assert(got.Results, gc.HasLen, 1)
 	c.Assert(err, gc.Equals, nil)
@@ -819,7 +820,7 @@ func (s *userManagerSuite) TestRemoveUserBadTag(c *gc.C) {
 
 func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
 	tag := "user-harvey"
-	got, err := s.usermanager.RemoveUser(params.Entities{
+	got, err := s.usermanager.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: tag}}})
 	c.Assert(got.Results, gc.HasLen, 1)
 	c.Assert(err, gc.Equals, nil)
@@ -838,7 +839,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	expectedError := fmt.Sprintf("failed to delete user %q: user %q is permanently deleted", jjam.Name(), jjam.Name())
 
 	// Remove the user
-	got, err := s.usermanager.RemoveUser(params.Entities{
+	got, err := s.usermanager.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
 	c.Assert(got.Results, gc.HasLen, 1)
 
@@ -851,7 +852,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	c.Assert(jjam.IsDeleted(), jc.IsTrue)
 
 	// Try again and verify we get the expected error.
-	got, err = s.usermanager.RemoveUser(params.Entities{
+	got, err = s.usermanager.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
 	c.Check(got.Results, gc.HasLen, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
@@ -881,7 +882,7 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the user exists.
-	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{
+	ui, err := s.usermanager.UserInfo(context.Background(), params.UserInfoRequest{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
 	})
 	c.Check(err, jc.ErrorIsNil)
@@ -889,7 +890,7 @@ func (s *userManagerSuite) TestRemoveUserAsNormalUser(c *gc.C) {
 	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
 
 	// Remove jjam as chuck and fail.
-	_, err = usermanager.RemoveUser(params.Entities{
+	_, err = usermanager.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 
@@ -914,7 +915,7 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Make sure the user exists.
-	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{
+	ui, err := s.usermanager.UserInfo(context.Background(), params.UserInfoRequest{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -922,7 +923,7 @@ func (s *userManagerSuite) TestRemoveUserSelfAsNormalUser(c *gc.C) {
 	c.Assert(ui.Results[0].Result.Username, gc.DeepEquals, jjam.Name())
 
 	// Remove the user as the user
-	_, err = usermanager.RemoveUser(params.Entities{
+	_, err = usermanager.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: jjam.Tag().String()}}})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 
@@ -936,7 +937,7 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 	expectedError := "cannot delete controller owner \"admin\""
 
 	// Remove admin as admin.
-	got, err := s.usermanager.RemoveUser(params.Entities{
+	got, err := s.usermanager.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: jujutesting.AdminUser.String()}}})
 	c.Assert(got.Results, gc.HasLen, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
@@ -945,7 +946,7 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try again to see if we succeeded.
-	got, err = s.usermanager.RemoveUser(params.Entities{
+	got, err = s.usermanager.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: jujutesting.AdminUser.String()}}})
 	c.Assert(got.Results, gc.HasLen, 1)
 	c.Check(got.Results[0].Error, jc.DeepEquals, &params.Error{
@@ -953,7 +954,7 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ui, err := s.usermanager.UserInfo(params.UserInfoRequest{})
+	ui, err := s.usermanager.UserInfo(context.Background(), params.UserInfoRequest{})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(ui.Results, gc.HasLen, 1)
 
@@ -985,7 +986,7 @@ func (s *userManagerSuite) TestRemoveUserBulkSharedModels(c *gc.C) {
 	c.Assert(userNames, jc.SameContents, []string{"admin", jjam.Name(), alice.Name(), bob.Name()})
 
 	// Remove 2 users.
-	got, err := s.usermanager.RemoveUser(params.Entities{
+	got, err := s.usermanager.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: jjam.Tag().String()},
 			{Tag: alice.Tag().String()},
@@ -1012,7 +1013,7 @@ func (s *userManagerSuite) TestResetPassword(c *gc.C) {
 	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
 
 	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
-	results, err := s.usermanager.ResetPassword(args)
+	results, err := s.usermanager.ResetPassword(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 
@@ -1035,7 +1036,7 @@ func (s *userManagerSuite) TestResetPasswordMultiple(c *gc.C) {
 		{Tag: alex.Tag().String()},
 		{Tag: barb.Tag().String()},
 	}}
-	results, err := s.usermanager.ResetPassword(args)
+	results, err := s.usermanager.ResetPassword(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1063,7 +1064,7 @@ func (s *userManagerSuite) TestBlockResetPassword(c *gc.C) {
 	c.Assert(alex.PasswordValid("password"), jc.IsTrue)
 
 	s.BlockAllChanges(c, "TestBlockResetPassword")
-	_, err := s.usermanager.ResetPassword(args)
+	_, err := s.usermanager.ResetPassword(context.Background(), args)
 	// Check that the call is blocked
 	s.AssertBlocked(c, err, "TestBlockResetPassword")
 
@@ -1078,7 +1079,7 @@ func (s *userManagerSuite) TestResetPasswordControllerAdminForSelf(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{Tag: alex.Tag().String()}}}
 	c.Assert(alex.PasswordValid("dummy-secret"), jc.IsTrue)
 
-	results, err := s.usermanager.ResetPassword(args)
+	results, err := s.usermanager.ResetPassword(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 
@@ -1111,7 +1112,7 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 		{Tag: alex.Tag().String()},
 		{Tag: barb.Tag().String()},
 	}}
-	results, err := usermanager.ResetPassword(args)
+	results, err := usermanager.ResetPassword(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = alex.Refresh()
@@ -1142,7 +1143,7 @@ func (s *userManagerSuite) TestResetPasswordFail(c *gc.C) {
 		{Tag: alex.Tag().String()},
 	}}
 
-	results, err := s.usermanager.ResetPassword(args)
+	results, err := s.usermanager.ResetPassword(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.DeepEquals, []params.AddUserResult{
 		{
@@ -1166,7 +1167,7 @@ func (s *userManagerSuite) TestResetPasswordMixedResult(c *gc.C) {
 		{Tag: alex.Tag().String()},
 	}}
 
-	results, err := s.usermanager.ResetPassword(args)
+	results, err := s.usermanager.ResetPassword(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	err = alex.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1184,7 +1185,7 @@ func (s *userManagerSuite) TestResetPasswordMixedResult(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestResetPasswordEmpty(c *gc.C) {
-	results, err := s.usermanager.ResetPassword(params.Entities{})
+	results, err := s.usermanager.ResetPassword(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }

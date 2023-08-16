@@ -89,7 +89,7 @@ func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{s.m0}, {s.uFoo}, {s.uOther}},
 	}
-	results, err := s.facade.PublicAddress(args)
+	results, err := s.facade.PublicAddress(context.Background(), args)
 	// Check this was an error permission
 	c.Assert(err, gc.ErrorMatches, apiservererrors.ErrPerm.Error())
 	c.Assert(results, gc.DeepEquals, params.SSHAddressResults{})
@@ -108,7 +108,7 @@ func (s *facadeSuite) TestSuperUserAuth(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{s.m0}, {s.uFoo}, {s.uOther}},
 	}
-	results, err := s.facade.PublicAddress(args)
+	results, err := s.facade.PublicAddress(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, params.SSHAddressResults{
@@ -130,7 +130,7 @@ func (s *facadeSuite) TestPublicAddress(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{s.m0}, {s.uFoo}, {s.uOther}},
 	}
-	results, err := s.facade.PublicAddress(args)
+	results, err := s.facade.PublicAddress(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, params.SSHAddressResults{
@@ -151,7 +151,7 @@ func (s *facadeSuite) TestPrivateAddress(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{s.uOther}, {s.m0}, {s.uFoo}},
 	}
-	results, err := s.facade.PrivateAddress(args)
+	results, err := s.facade.PrivateAddress(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, params.SSHAddressResults{
@@ -172,7 +172,7 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{s.uOther}, {s.m0}, {s.uFoo}},
 	}
-	results, err := s.facade.AllAddresses(args)
+	results, err := s.facade.AllAddresses(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, params.SSHAddressesResults{
@@ -206,7 +206,7 @@ func (s *facadeSuite) TestPublicKeys(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{s.m0}, {s.uOther}, {s.uFoo}},
 	}
-	results, err := s.facade.PublicKeys(args)
+	results, err := s.facade.PublicKeys(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(results, gc.DeepEquals, params.SSHPublicKeysResults{
@@ -227,7 +227,7 @@ func (s *facadeSuite) TestPublicKeys(c *gc.C) {
 
 func (s *facadeSuite) TestProxyTrue(c *gc.C) {
 	s.backend.proxySSH = true
-	result, err := s.facade.Proxy()
+	result, err := s.facade.Proxy(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.UseProxy, jc.IsTrue)
 	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
@@ -237,7 +237,7 @@ func (s *facadeSuite) TestProxyTrue(c *gc.C) {
 
 func (s *facadeSuite) TestProxyFalse(c *gc.C) {
 	s.backend.proxySSH = false
-	result, err := s.facade.Proxy()
+	result, err := s.facade.Proxy(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.UseProxy, jc.IsFalse)
 	s.backend.stub.CheckCalls(c, []jujutesting.StubCall{
@@ -266,7 +266,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := facade.ModelCredentialForSSH()
+	result, err := facade.ModelCredentialForSSH(context.Background())
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, gc.IsNil)
@@ -296,7 +296,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := facade.ModelCredentialForSSH()
+	result, err := facade.ModelCredentialForSSH(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiservererrors.RestoreError(result.Error), gc.ErrorMatches, `facade ModelCredentialForSSH for non "caas" model not supported`)
 	c.Assert(result.Result, gc.IsNil)
@@ -338,7 +338,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := facade.ModelCredentialForSSH()
+	result, err := facade.ModelCredentialForSSH(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiservererrors.RestoreError(result.Error), gc.ErrorMatches, `cloud spec "name" has empty credential not valid`)
 	c.Assert(result.Result, gc.IsNil)
@@ -418,7 +418,7 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mo
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := facade.ModelCredentialForSSH()
+	result, err := facade.ModelCredentialForSSH(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, gc.DeepEquals, &params.CloudSpec{

@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
@@ -47,7 +48,7 @@ func (s *poolUpdateSuite) TestUpdatePool(c *gc.C) {
 			Attrs: newAttrs,
 		}},
 	}
-	results, err := s.api.UpdatePool(args)
+	results, err := s.api.UpdatePool(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -68,7 +69,7 @@ func (s *poolUpdateSuite) TestUpdatePoolError(c *gc.C) {
 			Name: poolName,
 		}},
 	}
-	results, err := s.api.UpdatePool(args)
+	results, err := s.api.UpdatePool(context.Background(), args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, jc.DeepEquals, &params.Error{

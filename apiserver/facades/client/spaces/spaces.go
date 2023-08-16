@@ -4,6 +4,7 @@
 package spaces
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/collections/set"
@@ -68,7 +69,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
-func (api *API) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
+func (api *API) CreateSpaces(ctx stdcontext.Context, args params.CreateSpacesParams) (results params.ErrorResults, err error) {
 	err = api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
 	if err != nil {
 		return results, err
@@ -123,7 +124,7 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 }
 
 // ListSpaces lists all the available spaces and their associated subnets.
-func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
+func (api *API) ListSpaces(ctx stdcontext.Context) (results params.ListSpacesResults, err error) {
 	err = api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
 	if err != nil {
 		return results, err
@@ -164,7 +165,7 @@ func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
 }
 
 // ShowSpace shows the spaces for a set of given entities.
-func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, error) {
+func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (params.ShowSpaceResults, error) {
 	err := api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
 	if err != nil {
 		return params.ShowSpaceResults{}, err
@@ -226,7 +227,7 @@ func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, er
 }
 
 // ReloadSpaces refreshes spaces from substrate
-func (api *API) ReloadSpaces() error {
+func (api *API) ReloadSpaces(ctx stdcontext.Context) error {
 	return api.reloadSpacesAPI.ReloadSpaces()
 }
 

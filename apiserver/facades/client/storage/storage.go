@@ -4,6 +4,7 @@
 package storage
 
 import (
+	stdcontext "context"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -76,7 +77,7 @@ func (a *StorageAPI) checkCanWrite() error {
 // StorageDetails retrieves and returns detailed information about desired
 // storage identified by supplied tags. If specified storage cannot be
 // retrieved, individual error is returned instead of storage information.
-func (a *StorageAPI) StorageDetails(entities params.Entities) (params.StorageDetailsResults, error) {
+func (a *StorageAPI) StorageDetails(ctx stdcontext.Context, entities params.Entities) (params.StorageDetailsResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.StorageDetailsResults{}, errors.Trace(err)
 	}
@@ -103,7 +104,7 @@ func (a *StorageAPI) StorageDetails(entities params.Entities) (params.StorageDet
 }
 
 // ListStorageDetails returns storage matching a filter.
-func (a *StorageAPI) ListStorageDetails(filters params.StorageFilters) (params.StorageDetailsListResults, error) {
+func (a *StorageAPI) ListStorageDetails(ctx stdcontext.Context, filters params.StorageFilters) (params.StorageDetailsListResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.StorageDetailsListResults{}, errors.Trace(err)
 	}
@@ -258,6 +259,7 @@ func storageAttachmentInfo(
 // This method lists union of pools and environment provider types.
 // If no filter is provided, all pools are returned.
 func (a *StorageAPI) ListPools(
+	ctx stdcontext.Context,
 	filters params.StoragePoolFilters,
 ) (params.StoragePoolsResults, error) {
 	if err := a.checkCanRead(); err != nil {
@@ -396,7 +398,7 @@ func (a *StorageAPI) validateProviderCriteria(registry storage.ProviderRegistry,
 }
 
 // CreatePool creates a new pool with specified parameters.
-func (a *StorageAPI) CreatePool(p params.StoragePoolArgs) (params.ErrorResults, error) {
+func (a *StorageAPI) CreatePool(ctx stdcontext.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
@@ -417,7 +419,7 @@ func (a *StorageAPI) CreatePool(p params.StoragePoolArgs) (params.ErrorResults, 
 // ListVolumes lists volumes with the given filters. Each filter produces
 // an independent list of volumes, or an error if the filter is invalid
 // or the volumes could not be listed.
-func (a *StorageAPI) ListVolumes(filters params.VolumeFilters) (params.VolumeDetailsListResults, error) {
+func (a *StorageAPI) ListVolumes(ctx stdcontext.Context, filters params.VolumeFilters) (params.VolumeDetailsListResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.VolumeDetailsListResults{}, errors.Trace(err)
 	}
@@ -582,7 +584,7 @@ func createVolumeDetails(
 // ListFilesystems returns a list of filesystems in the environment matching
 // the provided filter. Each result describes a filesystem in detail, including
 // the filesystem's attachments.
-func (a *StorageAPI) ListFilesystems(filters params.FilesystemFilters) (params.FilesystemDetailsListResults, error) {
+func (a *StorageAPI) ListFilesystems(ctx stdcontext.Context, filters params.FilesystemFilters) (params.FilesystemDetailsListResults, error) {
 	results := params.FilesystemDetailsListResults{
 		Results: make([]params.FilesystemDetailsListResult, len(filters.Filters)),
 	}
@@ -747,7 +749,7 @@ func createFilesystemDetails(
 
 // AddToUnit validates and creates additional storage instances for units.
 // A "CHANGE" block can block this operation.
-func (a *StorageAPI) AddToUnit(args params.StoragesAddParams) (params.AddStorageResults, error) {
+func (a *StorageAPI) AddToUnit(ctx stdcontext.Context, args params.StoragesAddParams) (params.AddStorageResults, error) {
 	return a.addToUnit(args)
 }
 
@@ -803,7 +805,7 @@ func (a *StorageAPI) addToUnit(args params.StoragesAddParams) (params.AddStorage
 // from the model. If the arguments specify that the storage should be
 // destroyed, then the associated cloud storage will be destroyed first;
 // otherwise it will only be released from Juju's control.
-func (a *StorageAPI) Remove(args params.RemoveStorage) (params.ErrorResults, error) {
+func (a *StorageAPI) Remove(ctx stdcontext.Context, args params.RemoveStorage) (params.ErrorResults, error) {
 	return a.remove(args)
 }
 
@@ -837,7 +839,7 @@ func (a *StorageAPI) remove(args params.RemoveStorage) (params.ErrorResults, err
 // DetachStorage sets the specified storage attachments to Dying, unless they are
 // already Dying or Dead. Any associated, persistent storage will remain
 // alive. This call can be forced.
-func (a *StorageAPI) DetachStorage(args params.StorageDetachmentParams) (params.ErrorResults, error) {
+func (a *StorageAPI) DetachStorage(ctx stdcontext.Context, args params.StorageDetachmentParams) (params.ErrorResults, error) {
 	return a.internalDetach(args.StorageIds, args.Force, args.MaxWait)
 }
 
@@ -907,7 +909,7 @@ func (a *StorageAPI) detachStorage(storageTag names.StorageTag, unitTag names.Un
 
 // Attach attaches existing storage instances to units.
 // A "CHANGE" block can block this operation.
-func (a *StorageAPI) Attach(args params.StorageAttachmentIds) (params.ErrorResults, error) {
+func (a *StorageAPI) Attach(ctx stdcontext.Context, args params.StorageAttachmentIds) (params.ErrorResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -938,7 +940,7 @@ func (a *StorageAPI) Attach(args params.StorageAttachmentIds) (params.ErrorResul
 
 // Import imports existing storage into the model.
 // A "CHANGE" block can block this operation.
-func (a *StorageAPI) Import(args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
+func (a *StorageAPI) Import(ctx stdcontext.Context, args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ImportStorageResults{}, errors.Trace(err)
 	}
@@ -1063,7 +1065,7 @@ func (a *StorageAPI) importFilesystem(
 }
 
 // RemovePool deletes the named pool
-func (a *StorageAPI) RemovePool(p params.StoragePoolDeleteArgs) (params.ErrorResults, error) {
+func (a *StorageAPI) RemovePool(ctx stdcontext.Context, p params.StoragePoolDeleteArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
@@ -1080,7 +1082,7 @@ func (a *StorageAPI) RemovePool(p params.StoragePoolDeleteArgs) (params.ErrorRes
 }
 
 // UpdatePool deletes the named pool
-func (a *StorageAPI) UpdatePool(p params.StoragePoolArgs) (params.ErrorResults, error) {
+func (a *StorageAPI) UpdatePool(ctx stdcontext.Context, p params.StoragePoolArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
