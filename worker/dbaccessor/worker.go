@@ -24,9 +24,13 @@ import (
 )
 
 const (
-	// ErrTryAgain indicates that the worker should try again to start the
-	// worker.
-	ErrTryAgain = errors.ConstError("DB node is nil, but worker is not dying; rescheduling TrackedDB start attempt")
+	// errTryAgain indicates that the worker should try
+	// again later to start a DB tracker worker.
+	errTryAgain = errors.ConstError("DB node is nil, but worker is not dying; rescheduling TrackedDB start attempt")
+
+	// errNotReady indicates that we successfully created a new Dqlite app,
+	// but the Ready call timed out, and we are waiting for broadcast info.
+	errNotReady = errors.ConstError("started DB app, but it failed to become ready; waiting for topology updates")
 )
 
 // nodeShutdownTimeout is the timeout that we add to the context passed
@@ -180,7 +184,7 @@ type dbWorker struct {
 
 	// dbReady is used to signal that we can
 	// begin processing GetDB requests.
-	dbReady chan error
+	dbReady chan struct{}
 
 	// dbRequests is used to synchronise GetDB
 	// requests into this worker's event loop.
@@ -210,12 +214,12 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 				// will be nil. In this case, we'll return ErrTryAgain. In this
 				// case we don't want to kill the worker. We'll force the
 				// worker to try again.
-				return !errors.Is(err, ErrTryAgain)
+				return !errors.Is(err, errTryAgain)
 			},
 			RestartDelay: time.Second * 10,
 			Logger:       cfg.Logger,
 		}),
-		dbReady:          make(chan error),
+		dbReady:          make(chan struct{}),
 		dbRequests:       make(chan dbRequest),
 		apiServerChanges: make(chan apiserver.Details),
 	}
@@ -383,7 +387,7 @@ func (w *dbWorker) GetDB(namespace string) (database.TxnRunner, error) {
 
 	// First check if we've already got the db worker already running. If
 	// we have, then return out quickly. The dbRunner is the cache, so there
-	// is no need to have a in-memory cache here.
+	// is no need to have an in-memory cache here.
 	if db, err := w.workerFromCache(namespace); err != nil {
 		return nil, errors.Trace(err)
 	} else if db != nil {
@@ -433,12 +437,12 @@ func (w *dbWorker) workerFromCache(namespace string) (database.TxnRunner, error)
 			return nil, errors.Trace(err)
 		}
 	} else if !errors.Is(errors.Cause(err), errors.NotFound) {
-		// If it's not a NotFound error, return the underlying error. We should
-		// only start a worker if it doesn't exist yet.
+		// If it's not a NotFound error, return the underlying error.
+		// We should only start a worker if it doesn't exist yet.
 		return nil, errors.Trace(err)
 	}
-	// We didn't find the worker, so return nil, we'll create it in the next
-	// step.
+
+	// We didn't find the worker. Let the caller decide what to do.
 	return nil, nil
 }
 
@@ -509,7 +513,41 @@ func (w *dbWorker) startExistingDqliteNode() error {
 	return errors.Trace(w.initialiseDqlite(options...))
 }
 
+// initialiseDqlite starts the local Dqlite app node,
+// opens and caches the controller database worker,
+// then updates the Dqlite info for this node.
 func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	if err := w.startDqliteNode(ctx, options...); err != nil {
+		if errors.Is(err, errNotReady) {
+			return nil
+		}
+		return errors.Trace(err)
+	}
+
+	// Open up the default controller database.
+	// Other database namespaces are opened lazily via GetDB calls.
+	// We don't need to apply the database schema here as the
+	// controller database is created during bootstrap.
+	if err := w.openDatabase(database.ControllerNS); err != nil {
+		return errors.Annotate(err, "opening controller database")
+	}
+
+	// Once initialised, set the details for the node.
+	// This is a no-op if the details are unchanged.
+	// We do this before serving any other requests.
+	if err := w.nodeService().UpdateDqliteNode(ctx, w.cfg.ControllerID, w.dbApp.ID(), w.dbApp.Address()); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Begin handling external requests.
+	close(w.dbReady)
+	return nil
+}
+
+func (w *dbWorker) startDqliteNode(ctx context.Context, options ...app.Option) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -538,7 +576,7 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 	defer cCancel()
 
 	if err := w.dbApp.Ready(ctx); err != nil {
-		if err == context.DeadlineExceeded {
+		if errors.Is(err, context.DeadlineExceeded) {
 			// We don't know whether we were cancelled by tomb or by timeout.
 			// Request API server details in case we need to invoke a backstop
 			// scenario. If we are shutting down, this won't matter.
@@ -546,22 +584,16 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 				return errors.Trace(err)
 			}
 			w.dbApp = nil
-			return errors.Annotatef(w.requestAPIServerDetails(), "requesting API server details")
+
+			if err := w.requestAPIServerDetails(); err != nil {
+				return errors.Annotatef(err, "requesting API server details")
+			}
+			return errNotReady
 		}
 		return errors.Annotatef(err, "ensuring Dqlite is ready to process changes")
 	}
 
-	// Open up the default controller database. Other database namespaces can
-	// be opened up in a more lazy fashion.
-	//
-	// Note: we don't need to verify the database schema here, since the
-	// controller database is created by the controller itself, and we know
-	// it's allowed to access it.
-	if err := w.openDatabase(database.ControllerNS); err != nil {
-		return errors.Annotate(err, "opening initial databases")
-	}
-
-	w.cfg.Logger.Infof("initialized Dqlite application (ID: %v)", w.dbApp.ID())
+	w.cfg.Logger.Infof("serving Dqlite application (ID: %v)", w.dbApp.ID())
 
 	if c, err := w.dbApp.Client(ctx); err == nil {
 		if info, err := c.Cluster(ctx); err == nil {
@@ -569,7 +601,6 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 		}
 	}
 
-	close(w.dbReady)
 	return nil
 }
 
@@ -602,7 +633,7 @@ func (w *dbWorker) openDatabase(namespace string) error {
 			case <-w.catacomb.Dying():
 				return nil, w.catacomb.ErrDying()
 			default:
-				return nil, ErrTryAgain
+				return nil, errTryAgain
 			}
 		}
 
@@ -912,8 +943,13 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 	return nil
 }
 
-// nodeService uses the worker's capacity as a DBGetter to return a
-// service instance for manipulating the controller node topology.
+// nodeService uses the worker's capacity as a DBGetter to return a service
+// instance for manipulating the controller node topology.
+// We can access the runner cache without going into the worker loop as long as
+// the Dqlite node is started - the DB worker for the controller is always
+// running in this case. Do not place a call to this method where that may
+// *not* be the case.
 func (w *dbWorker) nodeService() *service.Service {
-	return service.NewService(state.NewState(database.NewTxnRunnerFactoryForNamespace(w.GetDB, database.ControllerNS)))
+	return service.NewService(state.NewState(
+		database.NewTxnRunnerFactoryForNamespace(w.workerFromCache, database.ControllerNS)))
 }

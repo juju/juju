@@ -61,6 +61,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *baseSuite) expectClock() {
 	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
+	s.clock.EXPECT().After(gomock.Any()).AnyTimes()
 }
 
 func (s *baseSuite) setupTimer(interval time.Duration) chan time.Time {
@@ -89,11 +90,15 @@ func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
 	return s.expectTick(ch, ticks)
 }
 
+// expectNodeStartupAndShutdown encompasses expectations for starting the
+// Dqlite app, ensuring readiness, logging and updating the node info,
+// and shutting it down when the worker exits.
 func (s *baseSuite) expectNodeStartupAndShutdown() {
 	appExp := s.dbApp.EXPECT()
 	appExp.Ready(gomock.Any()).Return(nil)
 	appExp.Client(gomock.Any()).Return(s.client, nil).MinTimes(1)
-	appExp.ID().Return(uint64(666))
+	appExp.ID().Return(uint64(666)).MinTimes(1)
+	appExp.Address().Return("192.168.6.6")
 	appExp.Close().Return(nil)
 }
 
