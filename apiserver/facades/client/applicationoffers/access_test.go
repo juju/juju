@@ -4,6 +4,7 @@
 package applicationoffers_test
 
 import (
+	"context"
 	"regexp"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -63,7 +64,7 @@ func (s *offerAccessSuite) modifyAccess(
 			OfferURL: offerURL,
 		}}}
 
-	result, err := s.api.ModifyOfferAccess(args)
+	result, err := s.api.ModifyOfferAccess(context.Background(), args)
 	if err != nil {
 		return err
 	}
@@ -358,7 +359,7 @@ func (s *offerAccessSuite) TestGrantOfferInvalidUserTag(c *gc.C) {
 				OfferURL: "test.someoffer",
 			}}}
 
-		result, err := s.api.ModifyOfferAccess(args)
+		result, err := s.api.ModifyOfferAccess(context.Background(), args)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 	}
@@ -369,7 +370,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessEmptyArgs(c *gc.C) {
 	args := params.ModifyOfferAccessRequest{
 		Changes: []params.ModifyOfferAccess{{OfferURL: "test.someoffer"}}}
 
-	result, err := s.api.ModifyOfferAccess(args)
+	result, err := s.api.ModifyOfferAccess(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `could not modify offer access: "" offer access not valid`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
@@ -387,7 +388,7 @@ func (s *offerAccessSuite) TestModifyOfferAccessInvalidAction(c *gc.C) {
 			OfferURL: "test.someoffer",
 		}}}
 
-	result, err := s.api.ModifyOfferAccess(args)
+	result, err := s.api.ModifyOfferAccess(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)

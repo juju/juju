@@ -5,6 +5,7 @@ package bundle
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -128,7 +129,7 @@ func (b *BundleAPI) doGetBundleChanges(
 // bundle data. The changes are sorted by requirements, so that they can be
 // applied in order.
 // V4 GetChangesMapArgs is not supported on anything less than v4
-func (b *BundleAPI) GetChangesMapArgs(args params.BundleChangesParams) (params.BundleChangesMapArgsResults, error) {
+func (b *BundleAPI) GetChangesMapArgs(ctx context.Context, args params.BundleChangesParams) (params.BundleChangesMapArgsResults, error) {
 	vs := validators{
 		verifyConstraints: func(s string) error {
 			_, err := constraints.Parse(s)
@@ -185,7 +186,7 @@ func (b *BundleAPI) doGetBundleChangesMapArgs(
 }
 
 // ExportBundle exports the current model configuration as bundle.
-func (b *BundleAPI) ExportBundle(arg params.ExportBundleParams) (params.StringResult, error) {
+func (b *BundleAPI) ExportBundle(ctx context.Context, arg params.ExportBundleParams) (params.StringResult, error) {
 	fail := func(failErr error) (params.StringResult, error) {
 		return params.StringResult{}, apiservererrors.ServerError(failErr)
 	}

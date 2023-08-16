@@ -241,7 +241,7 @@ func (api *APIBase) checkCanWrite() error {
 // SetMetricCredentials sets credentials on the application.
 // TODO (cderici) only used for metered charms in cmd MeteredDeployAPI,
 // kept for client compatibility, remove in juju 4.0
-func (api *APIBase) SetMetricCredentials(args params.ApplicationMetricCredentials) (params.ErrorResults, error) {
+func (api *APIBase) SetMetricCredentials(ctx context.Context, args params.ApplicationMetricCredentials) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -267,7 +267,7 @@ func (api *APIBase) SetMetricCredentials(args params.ApplicationMetricCredential
 
 // Deploy fetches the charms from the charm store and deploys them
 // using the specified placement directives.
-func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults, error) {
+func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -886,7 +886,7 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 
 // UpdateApplicationBase updates the application base.
 // Base for subordinates is updated too.
-func (api *APIBase) UpdateApplicationBase(args params.UpdateChannelArgs) (params.ErrorResults, error) {
+func (api *APIBase) UpdateApplicationBase(ctx context.Context, args params.UpdateChannelArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -924,7 +924,7 @@ func (api *APIBase) updateOneApplicationBase(arg params.UpdateChannelArg) error 
 }
 
 // SetCharm sets the charm for a given for the application.
-func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
+func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetCharm) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -1178,7 +1178,7 @@ func charmConfigFromConfigValues(yamlContents map[string]interface{}) (charm.Set
 
 // GetCharmURLOrigin returns the charm URL and charm origin the given
 // application is running at present.
-func (api *APIBase) GetCharmURLOrigin(args params.ApplicationGet) (params.CharmURLOriginResult, error) {
+func (api *APIBase) GetCharmURLOrigin(ctx context.Context, args params.ApplicationGet) (params.CharmURLOriginResult, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.CharmURLOriginResult{}, errors.Trace(err)
 	}
@@ -1227,7 +1227,7 @@ func makeParamsCharmOrigin(origin *state.CharmOrigin) (params.CharmOrigin, error
 }
 
 // CharmRelations implements the server side of Application.CharmRelations.
-func (api *APIBase) CharmRelations(p params.ApplicationCharmRelations) (params.ApplicationCharmRelationsResults, error) {
+func (api *APIBase) CharmRelations(ctx context.Context, p params.ApplicationCharmRelations) (params.ApplicationCharmRelationsResults, error) {
 	var results params.ApplicationCharmRelationsResults
 	if err := api.checkCanRead(); err != nil {
 		return results, errors.Trace(err)
@@ -1250,7 +1250,7 @@ func (api *APIBase) CharmRelations(p params.ApplicationCharmRelations) (params.A
 
 // Expose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
-func (api *APIBase) Expose(args params.ApplicationExpose) error {
+func (api *APIBase) Expose(ctx context.Context, args params.ApplicationExpose) error {
 	if err := api.checkCanWrite(); err != nil {
 		return errors.Trace(err)
 	}
@@ -1329,7 +1329,7 @@ func (api *APIBase) mapExposedEndpointParams(params map[string]params.ExposedEnd
 
 // Unexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
-func (api *APIBase) Unexpose(args params.ApplicationUnexpose) error {
+func (api *APIBase) Unexpose(ctx context.Context, args params.ApplicationUnexpose) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -1351,7 +1351,7 @@ func (api *APIBase) Unexpose(args params.ApplicationUnexpose) error {
 }
 
 // AddUnits adds a given number of units to an application.
-func (api *APIBase) AddUnits(args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
+func (api *APIBase) AddUnits(ctx context.Context, args params.AddApplicationUnits) (params.AddApplicationUnitsResults, error) {
 	if api.model.Type() == state.ModelTypeCAAS {
 		return params.AddApplicationUnitsResults{}, errors.NotSupportedf("adding units to a container-based model")
 	}
@@ -1440,7 +1440,7 @@ func addApplicationUnits(backend Backend, modelType state.ModelType, args params
 }
 
 // DestroyUnit removes a given set of application units.
-func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
+func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
 	if api.model.Type() == state.ModelTypeCAAS {
 		return params.DestroyUnitResults{}, errors.NotSupportedf("removing units on a non-container model")
 	}
@@ -1541,7 +1541,7 @@ func (api *APIBase) DestroyUnit(args params.DestroyUnitsParams) (params.DestroyU
 }
 
 // DestroyApplication removes a given set of applications.
-func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (params.DestroyApplicationResults, error) {
+func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyApplicationsParams) (params.DestroyApplicationResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.DestroyApplicationResults{}, err
 	}
@@ -1647,7 +1647,7 @@ func (api *APIBase) DestroyApplication(args params.DestroyApplicationsParams) (p
 }
 
 // DestroyConsumedApplications removes a given set of consumed (remote) applications.
-func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedApplicationsParams) (params.ErrorResults, error) {
+func (api *APIBase) DestroyConsumedApplications(ctx context.Context, args params.DestroyConsumedApplicationsParams) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -1689,7 +1689,7 @@ func (api *APIBase) DestroyConsumedApplications(args params.DestroyConsumedAppli
 }
 
 // ScaleApplications scales the specified application to the requested number of units.
-func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
+func (api *APIBase) ScaleApplications(ctx context.Context, args params.ScaleApplicationsParams) (params.ScaleApplicationResults, error) {
 	if api.model.Type() != state.ModelTypeCAAS {
 		return params.ScaleApplicationResults{}, errors.NotSupportedf("scaling applications on a non-container model")
 	}
@@ -1760,7 +1760,7 @@ func (api *APIBase) ScaleApplications(args params.ScaleApplicationsParams) (para
 }
 
 // GetConstraints returns the constraints for a given application.
-func (api *APIBase) GetConstraints(args params.Entities) (params.ApplicationGetConstraintsResults, error) {
+func (api *APIBase) GetConstraints(ctx context.Context, args params.Entities) (params.ApplicationGetConstraintsResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ApplicationGetConstraintsResults{}, errors.Trace(err)
 	}
@@ -1793,7 +1793,7 @@ func (api *APIBase) getConstraints(entity string) (constraints.Value, error) {
 }
 
 // SetConstraints sets the constraints for a given application.
-func (api *APIBase) SetConstraints(args params.SetConstraints) error {
+func (api *APIBase) SetConstraints(ctx context.Context, args params.SetConstraints) error {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -1882,7 +1882,7 @@ func (api *APIBase) AddRelation(args params.AddRelation) (_ params.AddRelationRe
 
 // DestroyRelation removes the relation between the
 // specified endpoints or an id.
-func (api *APIBase) DestroyRelation(args params.DestroyRelation) (err error) {
+func (api *APIBase) DestroyRelation(ctx context.Context, args params.DestroyRelation) (err error) {
 	if err := api.checkCanWrite(); err != nil {
 		return err
 	}
@@ -1907,7 +1907,7 @@ func (api *APIBase) DestroyRelation(args params.DestroyRelation) (err error) {
 }
 
 // SetRelationsSuspended sets the suspended status of the specified relations.
-func (api *APIBase) SetRelationsSuspended(args params.RelationSuspendedArgs) (params.ErrorResults, error) {
+func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.RelationSuspendedArgs) (params.ErrorResults, error) {
 	var statusResults params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return statusResults, errors.Trace(err)
@@ -2171,7 +2171,7 @@ func (api *APIBase) maybeUpdateExistingApplicationEndpoints(
 
 // CharmConfig returns charm config for the input list of applications and
 // model generations.
-func (api *APIBase) CharmConfig(args params.ApplicationGetArgs) (params.ApplicationGetConfigResults, error) {
+func (api *APIBase) CharmConfig(ctx context.Context, args params.ApplicationGetArgs) (params.ApplicationGetConfigResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ApplicationGetConfigResults{}, err
 	}
@@ -2187,7 +2187,7 @@ func (api *APIBase) CharmConfig(args params.ApplicationGetArgs) (params.Applicat
 }
 
 // GetConfig returns the charm config for each of the input applications.
-func (api *APIBase) GetConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
+func (api *APIBase) GetConfig(ctx context.Context, args params.Entities) (params.ApplicationGetConfigResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ApplicationGetConfigResults{}, err
 	}
@@ -2233,7 +2233,7 @@ func (api *APIBase) getCharmConfig(gen string, appName string) (map[string]inter
 // SetConfigs implements the server side of Application.SetConfig.  Both
 // application and charm config are set. It does not unset values in
 // Config map that are set to an empty string. Unset should be used for that.
-func (api *APIBase) SetConfigs(args params.ConfigSetArgs) (params.ErrorResults, error) {
+func (api *APIBase) SetConfigs(ctx context.Context, args params.ConfigSetArgs) (params.ErrorResults, error) {
 	var result params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
@@ -2264,7 +2264,7 @@ func (api *APIBase) addAppToBranch(branchName string, appName string) error {
 }
 
 // UnsetApplicationsConfig implements the server side of Application.UnsetApplicationsConfig.
-func (api *APIBase) UnsetApplicationsConfig(args params.ApplicationConfigUnsetArgs) (params.ErrorResults, error) {
+func (api *APIBase) UnsetApplicationsConfig(ctx context.Context, args params.ApplicationConfigUnsetArgs) (params.ErrorResults, error) {
 	var result params.ErrorResults
 	if err := api.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
@@ -2323,7 +2323,7 @@ func (api *APIBase) unsetApplicationConfig(arg params.ApplicationUnset) error {
 }
 
 // ResolveUnitErrors marks errors on the specified units as resolved.
-func (api *APIBase) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResults, error) {
+func (api *APIBase) ResolveUnitErrors(ctx context.Context, p params.UnitsResolved) (params.ErrorResults, error) {
 	if p.All {
 		unitsWithErrors, err := api.backend.UnitsInError()
 		if err != nil {
@@ -2363,7 +2363,7 @@ func (api *APIBase) ResolveUnitErrors(p params.UnitsResolved) (params.ErrorResul
 }
 
 // ApplicationsInfo returns applications information.
-func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfoResults, error) {
+func (api *APIBase) ApplicationsInfo(ctx context.Context, in params.Entities) (params.ApplicationInfoResults, error) {
 	// Get all the space infos before iterating over the application infos.
 	allSpaceInfosLookup, err := api.backend.AllSpaceInfos()
 	if err != nil {
@@ -2479,7 +2479,7 @@ func (api *APIBase) mapExposedEndpointsFromState(exposedEndpoints map[string]sta
 
 // MergeBindings merges operator-defined bindings with the current bindings for
 // one or more applications.
-func (api *APIBase) MergeBindings(in params.ApplicationMergeBindingsArgs) (params.ErrorResults, error) {
+func (api *APIBase) MergeBindings(ctx context.Context, in params.ApplicationMergeBindingsArgs) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -2606,7 +2606,7 @@ func validateAgentVersions(application Application, versioner AgentVersioner) er
 
 // UnitsInfo returns unit information for the given entities (units or
 // applications).
-func (api *APIBase) UnitsInfo(in params.Entities) (params.UnitInfoResults, error) {
+func (api *APIBase) UnitsInfo(ctx context.Context, in params.Entities) (params.UnitInfoResults, error) {
 	var results []params.UnitInfoResult
 	leaders, err := api.leadershipReader.Leaders()
 	if err != nil {
@@ -2873,7 +2873,7 @@ func checkCAASMinVersion(ch CharmMeta, caasVersion *version.Number) (err error) 
 }
 
 // Leader returns the unit name of the leader for the given application.
-func (api *APIBase) Leader(entity params.Entity) (params.StringResult, error) {
+func (api *APIBase) Leader(ctx context.Context, entity params.Entity) (params.StringResult, error) {
 	result := params.StringResult{}
 	application, err := names.ParseApplicationTag(entity.Tag)
 	if err != nil {
@@ -2896,7 +2896,7 @@ func (api *APIBase) Leader(entity params.Entity) (params.StringResult, error) {
 // fails, a list of all errors found in validation will be returned. If a
 // local resource is provided, details required for uploading the validated
 // resource will be returned.
-func (api *APIBase) DeployFromRepository(args params.DeployFromRepositoryArgs) (params.DeployFromRepositoryResults, error) {
+func (api *APIBase) DeployFromRepository(ctx context.Context, args params.DeployFromRepositoryArgs) (params.DeployFromRepositoryResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.DeployFromRepositoryResults{}, errors.Trace(err)
 	}

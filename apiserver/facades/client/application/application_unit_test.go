@@ -301,7 +301,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        curl.String(),
 		CharmOrigin:     createCharmOriginFromURL(curl),
@@ -329,7 +329,7 @@ func (s *ApplicationSuite) TestSetCharmEverything(c *gc.C) {
 	app.EXPECT().UpdateApplicationConfig(coreconfig.ConfigAttributes{"trust": true}, nil, schemaFields, defaults)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	err = s.api.SetCharm(params.ApplicationSetCharm{
+	err = s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName:    "postgresql",
 		CharmURL:           curl.String(),
 		CharmOrigin:        createCharmOriginFromURL(curl),
@@ -348,7 +348,7 @@ func (s *ApplicationSuite) TestSetCharmWithBlockChange(c *gc.C) {
 	s.changeAllowed = errors.New("change blocked")
 	defer s.setup(c).Finish()
 
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:something-else",
 		CharmOrigin:     &params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
@@ -360,7 +360,7 @@ func (s *ApplicationSuite) TestSetCharmRejectCharmStore(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "cs:something-else",
 		CharmOrigin:     &params.CharmOrigin{Source: "charm-store", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
@@ -385,7 +385,7 @@ func (s *ApplicationSuite) TestSetCharmForceUnits(c *gc.C) {
 	app.EXPECT().SetCharm(setCharmConfigMatcher{c: c, expected: cfg})
 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        curl.String(),
 		ForceUnits:      true,
@@ -405,7 +405,7 @@ func (s *ApplicationSuite) TestSetCharmInvalidApplication(c *gc.C) {
 
 	s.backend.EXPECT().Application("badapplication").Return(nil, errors.NotFoundf(`application "badapplication"`))
 	curl := charm.MustParseURL("ch:something-else")
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "badapplication",
 		CharmURL:        curl.String(),
 		CharmOrigin:     createCharmOriginFromURL(curl),
@@ -440,7 +440,7 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	toUint64Ptr := func(v uint64) *uint64 {
 		return &v
 	}
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
 		StorageConstraints: map[string]params.StorageConstraints{
@@ -466,7 +466,7 @@ func (s *ApplicationSuite) TestSetCAASCharmInvalid(c *gc.C) {
 	app := s.expectDefaultApplication(ctrl)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
 		CharmOrigin:     createCharmOriginFromURL(curl),
@@ -511,7 +511,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	}).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
 		ConfigSettings:  map[string]string{"stringOption": "value"},
@@ -532,7 +532,7 @@ func (s *ApplicationSuite) TestSetCharmDisallowDowngradeFormat(c *gc.C) {
 	app := s.expectApplicationWithCharm(ctrl, currentCh, "postgresql")
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        curl.String(),
 		CharmOrigin:     createCharmOriginFromURL(curl),
@@ -555,7 +555,7 @@ func (s *ApplicationSuite) TestSetCharmConfigSettingsYAML(c *gc.C) {
 	}).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        curl.String(),
 		CharmOrigin:     createCharmOriginFromURL(curl),
@@ -594,7 +594,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithNewerAgentVersion(c *gc.C) 
 
 	s.model.EXPECT().AgentVersion().Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
 
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        curl.String(),
 		CharmOrigin:     createCharmOriginFromURL(curl),
@@ -618,7 +618,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithOldAgentVersion(c *gc.C) {
 
 	s.model.EXPECT().AgentVersion().Return(version.Number{Major: 2, Minor: 5, Patch: 0}, nil)
 
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        curl.String(),
 		CharmOrigin:     createCharmOriginFromURL(curl),
@@ -647,7 +647,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharmWithEmptyProfile(c *gc.C) {
 
 	s.model.EXPECT().AgentVersion().Return(version.Number{Major: 2, Minor: 6, Patch: 0}, nil)
 
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        curl.String(),
 		ConfigSettings:  map[string]string{"stringOption": "value"},
@@ -688,7 +688,7 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfied(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	// Try to upgrade the charm
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
 		ConfigSettings:  map[string]string{"stringOption": "value"},
@@ -730,7 +730,7 @@ func (s *ApplicationSuite) TestSetCharmAssumesNotSatisfiedWithForce(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	// Try to upgrade the charm
-	err := s.api.SetCharm(params.ApplicationSetCharm{
+	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
 		CharmURL:        "ch:postgresql",
 		CharmOrigin:     createCharmOriginFromURL(curl),
@@ -748,7 +748,7 @@ func (s *ApplicationSuite) TestDestroyRelation(c *gc.C) {
 	relation.EXPECT().DestroyWithForce(false, gomock.Any())
 	s.backend.EXPECT().InferActiveRelation("a", "b").Return(relation, nil)
 
-	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
+	err := s.api.DestroyRelation(context.Background(), params.DestroyRelation{Endpoints: []string{"a", "b"}})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -757,7 +757,7 @@ func (s *ApplicationSuite) TestDestroyRelationNoRelationsFound(c *gc.C) {
 
 	s.backend.EXPECT().InferActiveRelation("a", "b").Return(nil, errors.New("no relations found"))
 
-	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
+	err := s.api.DestroyRelation(context.Background(), params.DestroyRelation{Endpoints: []string{"a", "b"}})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
@@ -766,7 +766,7 @@ func (s *ApplicationSuite) TestDestroyRelationRelationNotFound(c *gc.C) {
 
 	s.backend.EXPECT().InferActiveRelation("a:b", "c:d").Return(nil, errors.NotFoundf(`relation "a:b c:d"`))
 
-	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a:b", "c:d"}})
+	err := s.api.DestroyRelation(context.Background(), params.DestroyRelation{Endpoints: []string{"a:b", "c:d"}})
 	c.Assert(err, gc.ErrorMatches, `relation "a:b c:d" not found`)
 }
 
@@ -774,7 +774,7 @@ func (s *ApplicationSuite) TestBlockRemoveDestroyRelation(c *gc.C) {
 	s.removeAllowed = errors.New("remove blocked")
 	defer s.setup(c).Finish()
 
-	err := s.api.DestroyRelation(params.DestroyRelation{Endpoints: []string{"a", "b"}})
+	err := s.api.DestroyRelation(context.Background(), params.DestroyRelation{Endpoints: []string{"a", "b"}})
 	c.Assert(err, gc.ErrorMatches, "remove blocked")
 }
 
@@ -786,7 +786,7 @@ func (s *ApplicationSuite) TestDestroyRelationId(c *gc.C) {
 	relation.EXPECT().DestroyWithForce(false, gomock.Any())
 	s.backend.EXPECT().Relation(123).Return(relation, nil)
 
-	err := s.api.DestroyRelation(params.DestroyRelation{RelationId: 123})
+	err := s.api.DestroyRelation(context.Background(), params.DestroyRelation{RelationId: 123})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -795,7 +795,7 @@ func (s *ApplicationSuite) TestDestroyRelationIdRelationNotFound(c *gc.C) {
 
 	s.backend.EXPECT().Relation(123).Return(nil, errors.NotFoundf(`relation "123"`))
 
-	err := s.api.DestroyRelation(params.DestroyRelation{RelationId: 123})
+	err := s.api.DestroyRelation(context.Background(), params.DestroyRelation{RelationId: 123})
 	c.Assert(err, gc.ErrorMatches, `relation "123" not found`)
 }
 
@@ -870,7 +870,7 @@ func (s *ApplicationSuite) TestDestroyApplication(c *gc.C) {
 
 	s.backend.EXPECT().ApplyOperation(&state.DestroyApplicationOperation{}).Return(nil)
 
-	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+	results, err := s.api.DestroyApplication(context.Background(), params.DestroyApplicationsParams{
 		Applications: []params.DestroyApplicationParams{{
 			ApplicationTag: "application-postgresql",
 		}},
@@ -887,7 +887,7 @@ func (s *ApplicationSuite) TestDestroyApplicationWithBlockRemove(c *gc.C) {
 	s.removeAllowed = errors.New("remove blocked")
 	defer s.setup(c).Finish()
 
-	_, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+	_, err := s.api.DestroyApplication(context.Background(), params.DestroyApplicationsParams{
 		Applications: []params.DestroyApplicationParams{{
 			ApplicationTag: "application-postgresql",
 		}},
@@ -916,7 +916,7 @@ func (s *ApplicationSuite) TestForceDestroyApplication(c *gc.C) {
 		MaxWait: common.MaxWait(&zero),
 	}}).Return(nil)
 
-	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+	results, err := s.api.DestroyApplication(context.Background(), params.DestroyApplicationsParams{
 		Applications: []params.DestroyApplicationParams{{
 			ApplicationTag: "application-postgresql",
 			Force:          true,
@@ -944,7 +944,7 @@ func (s *ApplicationSuite) TestDestroyApplicationDestroyStorage(c *gc.C) {
 		DestroyStorage: true,
 	}).Return(nil)
 
-	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+	results, err := s.api.DestroyApplication(context.Background(), params.DestroyApplicationsParams{
 		Applications: []params.DestroyApplicationParams{{
 			ApplicationTag: "application-postgresql",
 			DestroyStorage: true,
@@ -978,7 +978,7 @@ func (s *ApplicationSuite) TestDestroyApplicationDryRun(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
 	s.expectDefaultStorageAttachments(ctrl)
-	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+	results, err := s.api.DestroyApplication(context.Background(), params.DestroyApplicationsParams{
 		Applications: []params.DestroyApplicationParams{{
 			ApplicationTag: "application-postgresql",
 			DryRun:         true,
@@ -992,7 +992,7 @@ func (s *ApplicationSuite) TestDestroyApplicationNotFound(c *gc.C) {
 
 	s.backend.EXPECT().Application("postgresql").Return(nil, errors.NotFoundf(`application "postgresql"`))
 
-	results, err := s.api.DestroyApplication(params.DestroyApplicationsParams{
+	results, err := s.api.DestroyApplication(context.Background(), params.DestroyApplicationsParams{
 		Applications: []params.DestroyApplicationParams{{
 			ApplicationTag: "application-postgresql",
 		}},
@@ -1024,7 +1024,7 @@ func (s *ApplicationSuite) TestDestroyConsumedApplication(c *gc.C) {
 	s.backend.EXPECT().RemoteApplication("hosted-db2").Return(remApp, nil)
 	s.backend.EXPECT().ApplyOperation(&state.DestroyRemoteApplicationOperation{}).Return(nil)
 
-	results, err := s.api.DestroyConsumedApplications(params.DestroyConsumedApplicationsParams{
+	results, err := s.api.DestroyConsumedApplications(context.Background(), params.DestroyConsumedApplicationsParams{
 		Applications: []params.DestroyConsumedApplicationParams{{ApplicationTag: "application-hosted-db2"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1046,7 +1046,7 @@ func (s *ApplicationSuite) TestForceDestroyConsumedApplication(c *gc.C) {
 		MaxWait: zero,
 	}}).Return(nil)
 
-	results, err := s.api.DestroyConsumedApplications(params.DestroyConsumedApplicationsParams{
+	results, err := s.api.DestroyConsumedApplications(context.Background(), params.DestroyConsumedApplicationsParams{
 		Applications: []params.DestroyConsumedApplicationParams{{
 			ApplicationTag: "application-hosted-db2",
 			Force:          &force,
@@ -1063,7 +1063,7 @@ func (s *ApplicationSuite) TestDestroyConsumedApplicationNotFound(c *gc.C) {
 
 	s.backend.EXPECT().RemoteApplication("hosted-db2").Return(nil, errors.NotFoundf(`saas application "hosted-db2"`))
 
-	results, err := s.api.DestroyConsumedApplications(params.DestroyConsumedApplicationsParams{
+	results, err := s.api.DestroyConsumedApplications(context.Background(), params.DestroyConsumedApplicationsParams{
 		Applications: []params.DestroyConsumedApplicationParams{{ApplicationTag: "application-hosted-db2"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1099,7 +1099,7 @@ func (s *ApplicationSuite) TestDestroyUnit(c *gc.C) {
 
 	s.expectDefaultStorageAttachments(ctrl)
 
-	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+	results, err := s.api.DestroyUnit(context.Background(), params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{
 			{
 				UnitTag: "unit-postgresql-0",
@@ -1134,7 +1134,7 @@ func (s *ApplicationSuite) TestDestroyUnitWithRemoveBlock(c *gc.C) {
 	s.removeAllowed = errors.New("remove blocked")
 	defer s.setup(c).Finish()
 
-	_, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+	_, err := s.api.DestroyUnit(context.Background(), params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{{
 			UnitTag: "unit-postgresql-1",
 		}},
@@ -1170,7 +1170,7 @@ func (s *ApplicationSuite) TestForceDestroyUnit(c *gc.C) {
 
 	s.expectDefaultStorageAttachments(ctrl)
 
-	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+	results, err := s.api.DestroyUnit(context.Background(), params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{
 			{
 				UnitTag: "unit-postgresql-0",
@@ -1206,7 +1206,7 @@ func (s *ApplicationSuite) TestDestroySubordinateUnits(c *gc.C) {
 	unit0.EXPECT().IsPrincipal().Return(false)
 	s.backend.EXPECT().Unit("subordinate/0").Return(unit0, nil)
 
-	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+	results, err := s.api.DestroyUnit(context.Background(), params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{{
 			UnitTag: "unit-subordinate-0",
 		}},
@@ -1233,7 +1233,7 @@ func (s *ApplicationSuite) TestDestroyUnitDryRun(c *gc.C) {
 
 	s.expectDefaultStorageAttachments(ctrl)
 
-	results, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+	results, err := s.api.DestroyUnit(context.Background(), params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{
 			{
 				UnitTag: "unit-postgresql-0",
@@ -1289,7 +1289,7 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 			AttachStorage:   []string{"volume-baz-0"},
 		}},
 	}
-	results, err := s.api.Deploy(args)
+	results, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -1332,7 +1332,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 			NumUnits: 1,
 		}},
 	}
-	results, err := s.api.Deploy(args)
+	results, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -1386,7 +1386,7 @@ func (s *ApplicationSuite) TestApplicationDeployWithStorage(c *gc.C) {
 		NumUnits:        1,
 		Storage:         storageConstraints,
 	}
-	results, err := s.api.Deploy(params.ApplicationsDeploy{
+	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{args}},
 	)
 
@@ -1413,7 +1413,7 @@ func (s *ApplicationSuite) TestApplicationDeployDefaultFilesystemStorage(c *gc.C
 		CharmOrigin:     createCharmOriginFromURL(curl),
 		NumUnits:        1,
 	}
-	results, err := s.api.Deploy(params.ApplicationsDeploy{
+	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{args}},
 	)
 
@@ -1445,7 +1445,7 @@ func (s *ApplicationSuite) TestApplicationDeployPlacement(c *gc.C) {
 		NumUnits:        1,
 		Placement:       placement,
 	}
-	results, err := s.api.Deploy(params.ApplicationsDeploy{
+	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{args}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1488,7 +1488,7 @@ func (s *ApplicationSuite) TestApplicationDeployWithPlacementLockedError(c *gc.C
 		CharmOrigin:     validCharmOriginForTest(),
 		Placement:       []*instance.Placement{{Scope: "#", Directive: "0/lxd/0"}},
 	}}
-	results, err := s.api.Deploy(params.ApplicationsDeploy{
+	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: args,
 	})
 
@@ -1510,7 +1510,7 @@ func (s *ApplicationSuite) TestApplicationDeployFailCharmOrigin(c *gc.C) {
 	}, {
 		CharmOrigin: originHash,
 	}}
-	results, err := s.api.Deploy(params.ApplicationsDeploy{
+	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: args,
 	})
 
@@ -1529,7 +1529,7 @@ func (s *ApplicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFai
 	resourcesManager.EXPECT().RemovePendingAppResources("my-app", resources).Return(nil)
 	s.backend.EXPECT().Resources().Return(resourcesManager)
 
-	results, err := s.api.Deploy(params.ApplicationsDeploy{
+	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			// CharmURL is missing to ensure deployApplication fails
 			// so that we can assert pending app resources are removed
@@ -1560,7 +1560,7 @@ func (s *ApplicationSuite) TestApplicationDeploymentTrust(c *gc.C) {
 		NumUnits:        1,
 		Config:          withTrust,
 	}
-	results, err := s.api.Deploy(params.ApplicationsDeploy{
+	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{args},
 	})
 
@@ -1599,7 +1599,7 @@ func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 			"endpoint": "42",
 		},
 	}}
-	results, err := s.api.Deploy(params.ApplicationsDeploy{
+	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: args,
 	})
 
@@ -1655,7 +1655,7 @@ func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
 			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
 		}},
 	}
-	results, err := s.api.Deploy(args)
+	results, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(
@@ -1705,7 +1705,7 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 			Placement:       []*instance.Placement{{}, {}},
 		}},
 	}
-	results, err := s.api.Deploy(args)
+	results, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -1731,7 +1731,7 @@ func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
 			NumUnits:        1,
 		}},
 	}
-	result, err := s.api.Deploy(args)
+	result, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.OneError(), gc.ErrorMatches, `block storage "block" is not supported for container charms`)
@@ -1758,7 +1758,7 @@ func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 			NumUnits:        1,
 		}},
 	}
-	result, err := s.api.Deploy(args)
+	result, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	msg := result.OneError().Error()
@@ -1790,7 +1790,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 			NumUnits:        1,
 		}},
 	}
-	result, err := s.api.Deploy(args)
+	result, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
@@ -1817,7 +1817,7 @@ func (s *ApplicationSuite) TestDeployCAASModelSidecarCharmNeedsNoOperatorStorage
 			NumUnits:        1,
 		}},
 	}
-	result, err := s.api.Deploy(args)
+	result, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
@@ -1843,7 +1843,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 			NumUnits:        1,
 		}},
 	}
-	result, err := s.api.Deploy(args)
+	result, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
@@ -1871,7 +1871,7 @@ func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) 
 			NumUnits:        1,
 		}},
 	}
-	result, err := s.api.Deploy(args)
+	result, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	msg := result.OneError().Error()
@@ -1904,7 +1904,7 @@ func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
 			},
 		}},
 	}
-	result, err := s.api.Deploy(args)
+	result, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	msg := result.OneError().Error()
 	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `storage class not found`)
@@ -1941,7 +1941,7 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 			},
 		}},
 	}
-	result, err := s.api.Deploy(args)
+	result, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 }
@@ -1957,7 +1957,7 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	app.EXPECT().AddUnit(state.AddUnitParams{AttachStorage: []names.StorageTag{}}).Return(newUnit, nil)
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
-	results, err := s.api.AddUnits(params.AddApplicationUnits{
+	results, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",
 		NumUnits:        1,
 	})
@@ -1972,7 +1972,7 @@ func (s *ApplicationSuite) TestAddUnitsCAASModel(c *gc.C) {
 	s.modelType = state.ModelTypeCAAS
 	defer s.setup(c).Finish()
 
-	_, err := s.api.AddUnits(params.AddApplicationUnits{
+	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",
 		NumUnits:        1,
 	})
@@ -1992,7 +1992,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	}).Return(newUnit, nil)
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
-	_, err := s.api.AddUnits(params.AddApplicationUnits{
+	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "postgresql",
 		NumUnits:        1,
 		AttachStorage:   []string{"storage-pgdata-0"},
@@ -2008,7 +2008,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorageMultipleUnits(c *gc.C) {
 	app := s.expectApplicationWithCharm(ctrl, currentCh, "foo")
 	s.backend.EXPECT().Application("foo").AnyTimes().Return(app, nil)
 
-	_, err := s.api.AddUnits(params.AddApplicationUnits{
+	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "foo",
 		NumUnits:        2,
 		AttachStorage:   []string{"storage-foo-0"},
@@ -2024,7 +2024,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorageInvalidStorageTag(c *gc.C) {
 	app := s.expectApplicationWithCharm(ctrl, currentCh, "foo")
 	s.backend.EXPECT().Application("foo").AnyTimes().Return(app, nil)
 
-	_, err := s.api.AddUnits(params.AddApplicationUnits{
+	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "foo",
 		NumUnits:        1,
 		AttachStorage:   []string{"volume-0"},
@@ -2036,7 +2036,7 @@ func (s *ApplicationSuite) TestDestroyUnitsCAASModel(c *gc.C) {
 	s.modelType = state.ModelTypeCAAS
 	defer s.setup(c).Finish()
 
-	_, err := s.api.DestroyUnit(params.DestroyUnitsParams{
+	_, err := s.api.DestroyUnit(context.Background(), params.DestroyUnitsParams{
 		Units: []params.DestroyUnitParams{
 			{UnitTag: "unit-postgresql-0"},
 			{
@@ -2057,7 +2057,7 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModel(c *gc.C) {
 	app.EXPECT().SetScale(5, int64(0), true).Return(nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+	results, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{
 			ApplicationTag: "application-postgresql",
 			Scale:          5,
@@ -2090,7 +2090,7 @@ func (s *ApplicationSuite) TestScaleApplicationsNotAllowedForOperator(c *gc.C) {
 			Scale:          5,
 		}},
 	}
-	result, err := s.api.ScaleApplications(args)
+	result, err := s.api.ScaleApplications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.NotNil)
@@ -2117,7 +2117,7 @@ func (s *ApplicationSuite) TestScaleApplicationsNotAllowedForDaemonSet(c *gc.C) 
 			Scale:          5,
 		}},
 	}
-	result, err := s.api.ScaleApplications(args)
+	result, err := s.api.ScaleApplications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.NotNil)
@@ -2130,7 +2130,7 @@ func (s *ApplicationSuite) TestScaleApplicationsBlocked(c *gc.C) {
 	s.changeAllowed = errors.New("change blocked")
 	defer s.setup(c).Finish()
 
-	_, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+	_, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{
 			ApplicationTag: "application-postgresql",
 			Scale:          5,
@@ -2148,7 +2148,7 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleChange(c *gc.C) {
 	app.EXPECT().ChangeScale(5).Return(7, nil)
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+	results, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{
 			ApplicationTag: "application-postgresql",
 			ScaleChange:    5,
@@ -2166,7 +2166,7 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleArgCheckScaleAndSc
 	s.modelType = state.ModelTypeCAAS
 	defer s.setup(c).Finish()
 
-	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+	results, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{
 			ApplicationTag: "application-postgresql",
 			Scale:          5,
@@ -2181,7 +2181,7 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleArgCheckInvalidSca
 	s.modelType = state.ModelTypeCAAS
 	defer s.setup(c).Finish()
 
-	results, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+	results, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{
 			ApplicationTag: "application-postgresql",
 			Scale:          -1,
@@ -2194,7 +2194,7 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModelScaleArgCheckInvalidSca
 func (s *ApplicationSuite) TestScaleApplicationsIAASModel(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	_, err := s.api.ScaleApplications(params.ScaleApplicationsParams{
+	_, err := s.api.ScaleApplications(context.Background(), params.ScaleApplicationsParams{
 		Applications: []params.ScaleApplicationParams{{
 			ApplicationTag: "application-postgresql",
 			Scale:          5,
@@ -2251,7 +2251,7 @@ func (s *ApplicationSuite) TestSetRelationSuspended(c *gc.C) {
 	s.backend.EXPECT().Relation(123).Return(rel, nil)
 	s.backend.EXPECT().OfferConnectionForRelation("wordpress:db mysql:db").Return(nil, nil)
 
-	results, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+	results, err := s.api.SetRelationsSuspended(context.Background(), params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
 			Suspended:  true,
@@ -2269,7 +2269,7 @@ func (s *ApplicationSuite) TestSetRelationSuspendedNoOp(c *gc.C) {
 	rel := s.expectRelation(ctrl, "wordpress:db mysql:db", true)
 	s.backend.EXPECT().Relation(123).Return(rel, nil)
 
-	results, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+	results, err := s.api.SetRelationsSuspended(context.Background(), params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
 			Suspended:  true,
@@ -2289,7 +2289,7 @@ func (s *ApplicationSuite) TestSetRelationSuspendedFalse(c *gc.C) {
 	s.backend.EXPECT().Relation(123).Return(rel, nil)
 	s.backend.EXPECT().OfferConnectionForRelation("wordpress:db mysql:db").Return(nil, nil)
 
-	results, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+	results, err := s.api.SetRelationsSuspended(context.Background(), params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
 			Suspended:  false,
@@ -2312,7 +2312,7 @@ func (s *ApplicationSuite) TestSetRelationSuspendedPermission(c *gc.C) {
 	s.backend.EXPECT().OfferConnectionForRelation("wordpress:db mysql:db").Return(offerConn, nil)
 	s.backend.EXPECT().ApplicationOfferForUUID("offer-uuid").Return(&crossmodel.ApplicationOffer{OfferUUID: "mysql"}, nil)
 
-	results, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+	results, err := s.api.SetRelationsSuspended(context.Background(), params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
 			Suspended:  false,
@@ -2330,7 +2330,7 @@ func (s *ApplicationSuite) TestSetNonOfferRelationStatus(c *gc.C) {
 	s.backend.EXPECT().Relation(123).Return(rel, nil)
 	s.backend.EXPECT().OfferConnectionForRelation("mediawiki:db mysql:db").Return(nil, errors.NotFoundf(""))
 
-	results, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+	results, err := s.api.SetRelationsSuspended(context.Background(), params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
 			Suspended:  true,
@@ -2344,7 +2344,7 @@ func (s *ApplicationSuite) TestBlockSetRelationSuspended(c *gc.C) {
 	s.changeAllowed = errors.New("change blocked")
 	defer s.setup(c).Finish()
 
-	_, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+	_, err := s.api.SetRelationsSuspended(context.Background(), params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
 			Suspended:  true,
@@ -2359,7 +2359,7 @@ func (s *ApplicationSuite) TestSetRelationSuspendedPermissionDenied(c *gc.C) {
 	}
 	defer s.setup(c).Finish()
 
-	_, err := s.api.SetRelationsSuspended(params.RelationSuspendedArgs{
+	_, err := s.api.SetRelationsSuspended(context.Background(), params.RelationSuspendedArgs{
 		Args: []params.RelationSuspendedArg{{
 			RelationId: 123,
 			Suspended:  true,
@@ -2538,6 +2538,7 @@ func (s *ApplicationSuite) TestApplicationUpdateBaseNoParams(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	results, err := s.api.UpdateApplicationBase(
+		context.Background(),
 		params.UpdateChannelArgs{
 			Args: []params.UpdateChannelArg{},
 		},
@@ -2553,6 +2554,7 @@ func (s *ApplicationSuite) TestApplicationUpdateBasePermissionDenied(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	_, err := s.api.UpdateApplicationBase(
+		context.Background(),
 		params.UpdateChannelArgs{
 			Args: []params.UpdateChannelArg{{
 				Entity:  params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
@@ -2618,7 +2620,7 @@ func (s *ApplicationSuite) TestSetConfigBranch(c *gc.C) {
 	gen.EXPECT().AssignApplication("postgresql")
 	s.backend.EXPECT().Branch("new-branch").Return(gen, nil)
 
-	result, err := s.api.SetConfigs(params.ConfigSetArgs{
+	result, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
 		Args: []params.ConfigSet{{
 			ApplicationName: "postgresql",
 			Config: map[string]string{
@@ -2641,7 +2643,7 @@ func (s *ApplicationSuite) TestSetEmptyConfigMasterBranch(c *gc.C) {
 	s.expectUpdateApplicationConfig(c, app)
 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-	result, err := s.api.SetConfigs(params.ConfigSetArgs{
+	result, err := s.api.SetConfigs(context.Background(), params.ConfigSetArgs{
 		Args: []params.ConfigSet{{
 			ApplicationName: "postgresql",
 			Config: map[string]string{
@@ -2667,7 +2669,7 @@ func (s *ApplicationSuite) TestUnsetApplicationConfig(c *gc.C) {
 	app.EXPECT().UpdateCharmConfig("new-branch", charm.Settings{"stringVal": nil})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	result, err := s.api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{
+	result, err := s.api.UnsetApplicationsConfig(context.Background(), params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "postgresql",
 			Options:         []string{"trust", "stringVal"},
@@ -2682,7 +2684,7 @@ func (s *ApplicationSuite) TestBlockUnsetApplicationConfig(c *gc.C) {
 	s.changeAllowed = errors.New("change blocked")
 	defer s.setup(c).Finish()
 
-	_, err := s.api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{})
+	_, err := s.api.UnsetApplicationsConfig(context.Background(), params.ApplicationConfigUnsetArgs{})
 	c.Assert(err, gc.ErrorMatches, "change blocked")
 }
 
@@ -2693,7 +2695,7 @@ func (s *ApplicationSuite) TestUnsetApplicationConfigPermissionDenied(c *gc.C) {
 	s.modelType = state.ModelTypeCAAS
 	defer s.setup(c).Finish()
 
-	_, err := s.api.UnsetApplicationsConfig(params.ApplicationConfigUnsetArgs{
+	_, err := s.api.UnsetApplicationsConfig(context.Background(), params.ApplicationConfigUnsetArgs{
 		Args: []params.ApplicationUnset{{
 			ApplicationName: "postgresql",
 			Options:         []string{"option"},
@@ -2720,7 +2722,7 @@ func (s *ApplicationSuite) TestResolveUnitErrors(c *gc.C) {
 			Entities: entities,
 		},
 	}
-	result, err := s.api.ResolveUnitErrors(p)
+	result, err := s.api.ResolveUnitErrors(context.Background(), p)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{}, {}}})
 }
@@ -2737,7 +2739,7 @@ func (s *ApplicationSuite) TestResolveUnitErrorsAll(c *gc.C) {
 		All:   true,
 		Retry: true,
 	}
-	_, err := s.api.ResolveUnitErrors(p)
+	_, err := s.api.ResolveUnitErrors(context.Background(), p)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -2745,7 +2747,7 @@ func (s *ApplicationSuite) TestBlockResolveUnitErrors(c *gc.C) {
 	s.changeAllowed = errors.New("change blocked")
 	defer s.setup(c).Finish()
 
-	_, err := s.api.ResolveUnitErrors(params.UnitsResolved{})
+	_, err := s.api.ResolveUnitErrors(context.Background(), params.UnitsResolved{})
 	c.Assert(err, gc.ErrorMatches, "change blocked")
 }
 
@@ -2762,7 +2764,7 @@ func (s *ApplicationSuite) TestResolveUnitErrorsPermissionDenied(c *gc.C) {
 			Entities: entities,
 		},
 	}
-	_, err := s.api.ResolveUnitErrors(p)
+	_, err := s.api.ResolveUnitErrors(context.Background(), p)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -2785,7 +2787,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
 
 	entities := []params.Entity{{Tag: "application-postgresql"}}
-	result, err := s.api.ApplicationsInfo(params.Entities{Entities: entities})
+	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
@@ -2826,7 +2828,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOneWithExposedEndpoints(c *gc.C) 
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
 
 	entities := []params.Entity{{Tag: "application-postgresql"}}
-	result, err := s.api.ApplicationsInfo(params.Entities{Entities: entities})
+	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
@@ -2857,7 +2859,7 @@ func (s *ApplicationSuite) TestApplicationsInfoDetailsErr(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
 
 	entities := []params.Entity{{Tag: "application-postgresql"}}
-	result, err := s.api.ApplicationsInfo(params.Entities{Entities: entities})
+	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	c.Assert(*result.Results[0].Error, gc.ErrorMatches, "boom")
@@ -2874,7 +2876,7 @@ func (s *ApplicationSuite) TestApplicationsInfoBindingsErr(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").Return(app, nil).MinTimes(1)
 
 	entities := []params.Entity{{Tag: "application-postgresql"}}
-	result, err := s.api.ApplicationsInfo(params.Entities{Entities: entities})
+	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	c.Assert(*result.Results[0].Error, gc.ErrorMatches, "boom")
@@ -2902,7 +2904,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	s.backend.EXPECT().Application("wordpress").Return(nil, errors.NotFoundf(`application "wordpress"`))
 
 	entities := []params.Entity{{Tag: "application-postgresql"}, {Tag: "application-wordpress"}, {Tag: "unit-postgresql-0"}}
-	result, err := s.api.ApplicationsInfo(params.Entities{Entities: entities})
+	result, err := s.api.ApplicationsInfo(context.Background(), params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
@@ -2935,7 +2937,7 @@ func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {
 			},
 		},
 	}
-	result, err := s.api.MergeBindings(req)
+	result, err := s.api.MergeBindings(context.Background(), req)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(req.Args))
@@ -3005,7 +3007,7 @@ func (s *ApplicationSuite) TestUnitsInfo(c *gc.C) {
 	s.backend.EXPECT().Application("gitlab").Return(nil, errors.NotFoundf(`application "gitlab"`))
 
 	entities := []params.Entity{{Tag: "unit-postgresql-0"}, {Tag: "unit-mysql-0"}}
-	result, err := s.api.UnitsInfo(params.Entities{Entities: entities})
+	result, err := s.api.UnitsInfo(context.Background(), params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
 	c.Assert(result.Results[0].Error, gc.IsNil)
@@ -3067,7 +3069,7 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 	s.backend.EXPECT().Application("gitlab").Return(nil, errors.NotFoundf(`application "gitlab"`)).MinTimes(1)
 
 	entities := []params.Entity{{Tag: "application-postgresql"}}
-	result, err := s.api.UnitsInfo(params.Entities{Entities: entities})
+	result, err := s.api.UnitsInfo(context.Background(), params.Entities{Entities: entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 2)
 	c.Assert(result.Results[0].Error, gc.IsNil)
@@ -3126,7 +3128,7 @@ func (s *ApplicationSuite) TestUnitsInfoForApplication(c *gc.C) {
 func (s *ApplicationSuite) TestLeader(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	result, err := s.api.Leader(params.Entity{Tag: names.NewApplicationTag("postgresql").String()})
+	result, err := s.api.Leader(context.Background(), params.Entity{Tag: names.NewApplicationTag("postgresql").String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result, gc.Equals, "postgresql/0")
@@ -3166,7 +3168,7 @@ func (s *ApplicationSuite) TestCharmConfig(c *gc.C) {
 	s.setupConfigTest(ctrl)
 
 	branch := "test-branch"
-	results, err := s.api.CharmConfig(params.ApplicationGetArgs{
+	results, err := s.api.CharmConfig(context.Background(), params.ApplicationGetArgs{
 		Args: []params.ApplicationGet{
 			{ApplicationName: "foo", BranchName: branch},
 			{ApplicationName: "bar", BranchName: branch},
@@ -3183,7 +3185,7 @@ func (s *ApplicationSuite) TestGetConfig(c *gc.C) {
 
 	s.setupConfigTest(ctrl)
 
-	results, err := s.api.GetConfig(params.Entities{
+	results, err := s.api.GetConfig(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "wat"}, {Tag: "machine-0"}, {Tag: "user-foo"},
 			{Tag: "application-foo"}, {Tag: "application-bar"}, {Tag: "application-wat"},
@@ -3271,7 +3273,7 @@ func (s *ApplicationSuite) TestSetMetricCredentialsOneArg(c *gc.C) {
 	app.EXPECT().SetMetricCredentials([]byte("creds 1234")).Return(nil)
 	s.backend.EXPECT().Application("mysql").Return(app, nil)
 
-	results, err := s.api.SetMetricCredentials(params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
+	results, err := s.api.SetMetricCredentials(context.Background(), params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
 		ApplicationName:   "mysql",
 		MetricCredentials: []byte("creds 1234"),
 	}}})
@@ -3293,7 +3295,7 @@ func (s *ApplicationSuite) TestSetMetricCredentialsTwoArgsBothPass(c *gc.C) {
 	app1.EXPECT().SetMetricCredentials([]byte("creds 4567")).Return(nil)
 	s.backend.EXPECT().Application("wordpress").Return(app1, nil)
 
-	results, err := s.api.SetMetricCredentials(params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
+	results, err := s.api.SetMetricCredentials(context.Background(), params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
 		ApplicationName:   "mysql",
 		MetricCredentials: []byte("creds 1234"),
 	}, {
@@ -3315,7 +3317,7 @@ func (s *ApplicationSuite) TestSetMetricCredentialsTwoArgsSecondFails(c *gc.C) {
 	s.backend.EXPECT().Application("mysql").Return(app, nil)
 	s.backend.EXPECT().Application("not-an-application").Return(nil, errors.NotFoundf(`application "not-an-application"`))
 
-	results, err := s.api.SetMetricCredentials(params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
+	results, err := s.api.SetMetricCredentials(context.Background(), params.ApplicationMetricCredentials{Creds: []params.ApplicationMetricCredential{{
 		ApplicationName:   "mysql",
 		MetricCredentials: []byte("creds 1234"),
 	}, {
@@ -3372,7 +3374,7 @@ func (s *ApplicationSuite) TestApplicationGetCharmURLOrigin(c *gc.C) {
 	})
 	s.backend.EXPECT().Application("postgresql").Return(app, nil)
 
-	result, err := s.api.GetCharmURLOrigin(params.ApplicationGet{ApplicationName: "postgresql"})
+	result, err := s.api.GetCharmURLOrigin(context.Background(), params.ApplicationGet{ApplicationName: "postgresql"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.URL, gc.Equals, "ch:postgresql-42")

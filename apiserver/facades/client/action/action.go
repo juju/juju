@@ -4,6 +4,8 @@
 package action
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -81,7 +83,7 @@ func (a *ActionAPI) checkCanAdmin() error {
 
 // Actions takes a list of ActionTags, and returns the full Action for
 // each ID.
-func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
+func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.ActionResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.ActionResults{}, errors.Trace(err)
 	}
@@ -119,7 +121,7 @@ func (a *ActionAPI) Actions(arg params.Entities) (params.ActionResults, error) {
 }
 
 // Cancel attempts to cancel enqueued Actions from running.
-func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
+func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.ActionResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ActionResults{}, errors.Trace(err)
 	}
@@ -168,7 +170,7 @@ func (a *ActionAPI) Cancel(arg params.Entities) (params.ActionResults, error) {
 
 // ApplicationsCharmsActions returns a slice of charm Actions for a slice of
 // services.
-func (a *ActionAPI) ApplicationsCharmsActions(args params.Entities) (params.ApplicationsCharmActionsResults, error) {
+func (a *ActionAPI) ApplicationsCharmsActions(ctx context.Context, args params.Entities) (params.ApplicationsCharmActionsResults, error) {
 	result := params.ApplicationsCharmActionsResults{Results: make([]params.ApplicationCharmActionsResult, len(args.Entities))}
 	if err := a.checkCanWrite(); err != nil {
 		return result, errors.Trace(err)
@@ -207,7 +209,7 @@ func (a *ActionAPI) ApplicationsCharmsActions(args params.Entities) (params.Appl
 }
 
 // WatchActionsProgress creates a watcher that reports on action log messages.
-func (api *ActionAPI) WatchActionsProgress(actions params.Entities) (params.StringsWatchResults, error) {
+func (api *ActionAPI) WatchActionsProgress(ctx context.Context, actions params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(actions.Entities)),
 	}

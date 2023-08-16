@@ -168,7 +168,7 @@ func (s *controllerSuite) TestAllModels(c *gc.C) {
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "no-access", Owner: remoteUserTag}).Close()
 
-	response, err := s.controller.AllModels()
+	response, err := s.controller.AllModels(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	// The results are sorted.
 	expected := []string{"controller", "no-access", "owned", "user"}
@@ -192,7 +192,7 @@ func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "second", Owner: remoteUserTag}).Close()
 
-	results, err := s.controller.HostedModelConfigs()
+	results, err := s.controller.HostedModelConfigs(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results.Models), gc.Equals, 2)
 
@@ -236,7 +236,7 @@ func (s *controllerSuite) TestHostedModelConfigs_CanOpenEnviron(c *gc.C) {
 	s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "second", Owner: remoteUserTag}).Close()
 
-	results, err := s.controller.HostedModelConfigs()
+	results, err := s.controller.HostedModelConfigs(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(results.Models), gc.Equals, 2)
 
@@ -264,7 +264,7 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	list, err := s.controller.ListBlockedModels()
+	list, err := s.controller.ListBlockedModels(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(list.Models, jc.DeepEquals, []params.ModelBlockInfo{
@@ -291,13 +291,13 @@ func (s *controllerSuite) TestListBlockedModels(c *gc.C) {
 }
 
 func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
-	list, err := s.controller.ListBlockedModels()
+	list, err := s.controller.ListBlockedModels(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(list.Models, gc.HasLen, 0)
 }
 
 func (s *controllerSuite) TestModelConfig(c *gc.C) {
-	cfg, err := s.controller.ModelConfig()
+	cfg, err := s.controller.ModelConfig(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["name"], jc.DeepEquals, params.ConfigValue{Value: "controller"})
 }
@@ -321,7 +321,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := controller.ModelConfig()
+	cfg, err := controller.ModelConfig(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["name"], jc.DeepEquals, params.ConfigValue{Value: "controller"})
 }
@@ -369,7 +369,7 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 	st.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	st.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.controller.RemoveBlocks(params.RemoveBlocksArgs{All: true})
+	err := s.controller.RemoveBlocks(stdcontext.Background(), params.RemoveBlocksArgs{All: true})
 	c.Assert(err, jc.ErrorIsNil)
 
 	blocks, err := s.State.AllBlocksForController()
@@ -378,12 +378,12 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 }
 
 func (s *controllerSuite) TestRemoveBlocksNotAll(c *gc.C) {
-	err := s.controller.RemoveBlocks(params.RemoveBlocksArgs{})
+	err := s.controller.RemoveBlocks(stdcontext.Background(), params.RemoveBlocksArgs{})
 	c.Assert(err, gc.ErrorMatches, "not supported")
 }
 
 func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
-	watcherId, err := s.controller.WatchAllModels()
+	watcherId, err := s.controller.WatchAllModels(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var disposed bool
@@ -518,7 +518,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 			},
 		},
 	}
-	out, err := s.controller.InitiateMigration(args)
+	out, err := s.controller.InitiateMigration(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 2)
 
@@ -571,7 +571,7 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
 			// TargetInfo missing
 		}},
 	}
-	out, err := s.controller.InitiateMigration(args)
+	out, err := s.controller.InitiateMigration(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 1)
 	result := out.Results[0]
@@ -604,7 +604,7 @@ func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 			},
 		},
 	}
-	out, err := s.controller.InitiateMigration(args)
+	out, err := s.controller.InitiateMigration(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 2)
 
@@ -636,7 +636,7 @@ func (s *controllerSuite) TestInitiateMigrationInvalidMacaroons(c *gc.C) {
 			},
 		},
 	}
-	out, err := s.controller.InitiateMigration(args)
+	out, err := s.controller.InitiateMigration(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 1)
 	result := out.Results[0]
@@ -665,7 +665,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 			},
 		}},
 	}
-	out, err := s.controller.InitiateMigration(args)
+	out, err := s.controller.InitiateMigration(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out.Results, gc.HasLen, 1)
 	c.Check(out.Results[0].Error, gc.ErrorMatches, "boom")
@@ -692,7 +692,7 @@ func (s *controllerSuite) modifyControllerAccess(c *gc.C, user names.UserTag, ac
 			Action:  action,
 			Access:  access,
 		}}}
-	result, err := s.controller.ModifyControllerAccess(args)
+	result, err := s.controller.ModifyControllerAccess(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	return result.OneError()
 }
@@ -836,7 +836,7 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
 				Access:  string(permission.SuperuserAccess),
 			}}}
 
-		result, err := s.controller.ModifyControllerAccess(args)
+		result, err := s.controller.ModifyControllerAccess(stdcontext.Background(), args)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
 	}
@@ -845,7 +845,7 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
 func (s *controllerSuite) TestModifyControllerAccessEmptyArgs(c *gc.C) {
 	args := params.ModifyControllerAccessRequest{Changes: []params.ModifyControllerAccess{{}}}
 
-	result, err := s.controller.ModifyControllerAccess(args)
+	result, err := s.controller.ModifyControllerAccess(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `"" controller access not valid`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
@@ -860,7 +860,7 @@ func (s *controllerSuite) TestModifyControllerAccessInvalidAction(c *gc.C) {
 			Access:  string(permission.LoginAccess),
 		}}}
 
-	result, err := s.controller.ModifyControllerAccess(args)
+	result, err := s.controller.ModifyControllerAccess(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := `unknown action "dance"`
 	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
@@ -875,7 +875,7 @@ func (s *controllerSuite) TestGetControllerAccess(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: user.Tag().String()}, {Tag: user2.Tag().String()}},
 	}
-	results, err := s.controller.GetControllerAccess(req)
+	results, err := s.controller.GetControllerAccess(stdcontext.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.DeepEquals, []params.UserAccessResult{{
 		Result: &params.UserAccess{
@@ -907,7 +907,7 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 			Action:  params.GrantControllerAccess,
 			Access:  "superuser",
 		}}}
-	result, err := s.controller.ModifyControllerAccess(args)
+	result, err := s.controller.ModifyControllerAccess(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
 
@@ -916,7 +916,7 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: user.Tag().String()}, {Tag: differentUser.Tag().String()}},
 	}
-	results, err := endpoint.GetControllerAccess(req)
+	results, err := endpoint.GetControllerAccess(stdcontext.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
 	c.Assert(*results.Results[0].Result, jc.DeepEquals, params.UserAccess{
@@ -963,7 +963,7 @@ func (s *controllerSuite) TestConfigSet(c *gc.C) {
 	// Sanity check.
 	c.Assert(config.AuditingEnabled(), gc.Equals, false)
 
-	err = s.controller.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
+	err = s.controller.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"auditing-enabled": true,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -988,7 +988,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = endpoint.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
+	err = endpoint.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"something": 23,
 	}})
 
@@ -1004,7 +1004,7 @@ func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
 		close(done)
 	})
 
-	err := s.controller.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
+	err := s.controller.ConfigSet(stdcontext.Background(), params.ControllerConfigSet{Config: map[string]interface{}{
 		"features": "foo,bar",
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1019,7 +1019,7 @@ func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
 }
 
 func (s *controllerSuite) TestMongoVersion(c *gc.C) {
-	result, err := s.controller.MongoVersion()
+	result, err := s.controller.MongoVersion(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var resErr *params.Error
@@ -1037,7 +1037,7 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	}(s.ControllerConfig)
 
 	// Our default test configuration does not specify an IdentityURL
-	urlRes, err := s.controller.IdentityProviderURL()
+	urlRes, err := s.controller.IdentityProviderURL(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urlRes.Result, gc.Equals, "")
 
@@ -1050,7 +1050,7 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	}
 	s.SetUpTest(c)
 
-	urlRes, err = s.controller.IdentityProviderURL()
+	urlRes, err = s.controller.IdentityProviderURL(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urlRes.Result, gc.Equals, expURL)
 }
@@ -1067,7 +1067,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *gc.C) {
 	// TODO(dqlite) - implement me
 	c.Skip("watch model summaries to be implemented")
 	// Default authorizer is an admin.
-	result, err := s.controller.WatchAllModelSummaries()
+	result, err := s.controller.WatchAllModelSummaries(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
@@ -1111,7 +1111,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = endPoint.WatchAllModelSummaries()
+	_, err = endPoint.WatchAllModelSummaries(stdcontext.Background())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -1136,7 +1136,7 @@ func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
 
 	// Default authorizer is an admin. As a user, admin can't see
 	// Bob's model.
-	result, err := s.controller.WatchModelSummaries()
+	result, err := s.controller.WatchModelSummaries(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)

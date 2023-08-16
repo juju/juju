@@ -4,6 +4,7 @@
 package charms_test
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 
@@ -64,7 +65,7 @@ func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
 	defer release()
 	meteredCharm := f.MakeCharm(
 		c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/xenial/metered"})
-	info, err := s.api.CharmInfo(params.CharmURL{
+	info, err := s.api.CharmInfo(context.Background(), params.CharmURL{
 		URL: meteredCharm.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -105,7 +106,7 @@ func (s *charmsSuite) assertListCharms(c *gc.C, someCharms, args, expected []str
 			Name: aCharm, URL: fmt.Sprintf("local:quantal/%s-1", aCharm),
 		})
 	}
-	found, err := s.api.List(params.CharmsList{Names: args})
+	found, err := s.api.List(context.Background(), params.CharmsList{Names: args})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(found.CharmURLs, gc.HasLen, len(expected))
 	c.Check(found.CharmURLs, jc.DeepEquals, expected)
@@ -115,7 +116,7 @@ func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	metered, err := s.api.IsMetered(params.CharmURL{
+	metered, err := s.api.IsMetered(context.Background(), params.CharmURL{
 		URL: charm.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,7 +127,7 @@ func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
-	metered, err := s.api.IsMetered(params.CharmURL{
+	metered, err := s.api.IsMetered(context.Background(), params.CharmURL{
 		URL: meteredCharm.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,7 +213,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 			},
 		},
 	}
-	result, err := api.ResolveCharms(args)
+	result, err := api.ResolveCharms(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results, jc.DeepEquals, expected)
@@ -228,7 +229,7 @@ func (s *charmsMockSuite) TestResolveCharmsUnknownSchema(c *gc.C) {
 		Resolve: []params.ResolveCharmWithChannel{{Reference: curl.String()}},
 	}
 
-	result, err := api.ResolveCharms(args)
+	result, err := api.ResolveCharms(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
@@ -260,7 +261,7 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 		Origin:         edgeOrigin,
 		SupportedBases: []params.Base{{Name: "ubuntu", Channel: "20.04/stable"}},
 	}}
-	result, err := api.ResolveCharms(args)
+	result, err := api.ResolveCharms(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results, jc.DeepEquals, expected)
@@ -320,7 +321,7 @@ func (s *charmsMockSuite) TestResolveCharmV6(c *gc.C) {
 			SupportedSeries: []string{"bionic", "focal", "xenial"},
 		},
 	}
-	result, err := apiv6.ResolveCharms(args)
+	result, err := apiv6.ResolveCharms(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results, jc.DeepEquals, expected)
@@ -339,7 +340,7 @@ func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
 		},
 		Force: false,
 	}
-	_, err = api.AddCharm(args)
+	_, err = api.AddCharm(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
 }
 
@@ -411,7 +412,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 			Risk:   "edge",
 		},
 	}
-	obtained, err := api.AddCharm(args)
+	obtained, err := api.AddCharm(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
@@ -456,7 +457,7 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 		},
 		Force: false,
 	}
-	obtained, err := api.AddCharm(args)
+	obtained, err := api.AddCharm(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, params.CharmOriginResult{
 		Origin: params.CharmOrigin{
@@ -485,7 +486,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *gc.C) {
 		}},
 	}
 
-	result, err := api.CheckCharmPlacement(args)
+	result, err := api.CheckCharmPlacement(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
 }
@@ -510,7 +511,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *gc.C) {
 		}},
 	}
 
-	result, err := api.CheckCharmPlacement(args)
+	result, err := api.CheckCharmPlacement(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
 }
@@ -539,7 +540,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArch(c *gc.C) {
 		}},
 	}
 
-	result, err := api.CheckCharmPlacement(args)
+	result, err := api.CheckCharmPlacement(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
 }
@@ -568,7 +569,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchMachine(c *
 		}},
 	}
 
-	result, err := api.CheckCharmPlacement(args)
+	result, err := api.CheckCharmPlacement(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
 }
@@ -597,7 +598,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchAndHardware
 		}},
 	}
 
-	result, err := api.CheckCharmPlacement(args)
+	result, err := api.CheckCharmPlacement(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), jc.ErrorIsNil)
 }
@@ -632,7 +633,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
 		}},
 	}
 
-	result, err := api.CheckCharmPlacement(args)
+	result, err := api.CheckCharmPlacement(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.ErrorMatches, "charm can not be placed in a heterogeneous environment")
 }

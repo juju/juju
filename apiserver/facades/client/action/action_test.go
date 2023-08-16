@@ -4,6 +4,7 @@
 package action_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -191,7 +192,7 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 			// "my-one"
 			{Tag: results.Actions[2].Action.Tag},
 		}}
-	cancelled, err := s.action.Cancel(arg)
+	cancelled, err := s.action.Cancel(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cancelled.Results, gc.HasLen, 2)
 
@@ -252,7 +253,7 @@ func (s *actionSuite) TestAbort(c *gc.C) {
 			// "wp-one"
 			{Tag: results.Actions[0].Action.Tag},
 		}}
-	cancelled, err := s.action.Cancel(arg)
+	cancelled, err := s.action.Cancel(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cancelled.Results, gc.HasLen, 1)
 	c.Assert(cancelled.Results[0].Action.Name, gc.Equals, "fakeaction")
@@ -352,7 +353,7 @@ func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 			svcTags.Entities[j] = params.Entity{Tag: svcTag.String()}
 		}
 
-		results, err := s.action.ApplicationsCharmsActions(svcTags)
+		results, err := s.action.ApplicationsCharmsActions(context.Background(), svcTags)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(results.Results, jc.DeepEquals, t.expectedResults.Results)
 	}
@@ -391,6 +392,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.action.WatchActionsProgress(
+		context.Background(),
 		params.Entities{Entities: []params.Entity{{Tag: "action-2"}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)

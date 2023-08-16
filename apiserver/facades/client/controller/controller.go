@@ -136,7 +136,7 @@ func (c *ControllerAPI) checkIsSuperUser() error {
 //
 // NOTE: the implementation intentionally does not check for SuperuserAccess
 // as the Version is known even to users with login access.
-func (c *ControllerAPI) ControllerVersion() (params.ControllerVersionResults, error) {
+func (c *ControllerAPI) ControllerVersion(ctx context.Context) (params.ControllerVersionResults, error) {
 	result := params.ControllerVersionResults{
 		Version:   jujuversion.Current.String(),
 		GitCommit: jujuversion.GitCommit,
@@ -150,7 +150,7 @@ func (c *ControllerAPI) ControllerVersion() (params.ControllerVersionResults, er
 //
 // NOTE: the implementation intentionally does not check for SuperuserAccess
 // as the URL is known even to users with login access.
-func (c *ControllerAPI) IdentityProviderURL() (params.StringResult, error) {
+func (c *ControllerAPI) IdentityProviderURL(ctx context.Context) (params.StringResult, error) {
 	var result params.StringResult
 
 	cfgRes, err := c.ControllerConfig()
@@ -165,7 +165,7 @@ func (c *ControllerAPI) IdentityProviderURL() (params.StringResult, error) {
 }
 
 // MongoVersion allows the introspection of the mongo version per controller
-func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
+func (c *ControllerAPI) MongoVersion(ctx context.Context) (params.StringResult, error) {
 	result := params.StringResult{}
 	if err := c.checkIsSuperUser(); err != nil {
 		return result, errors.Trace(err)
@@ -264,7 +264,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 
 // DashboardConnectionInfo returns the connection information for a client to
 // connect to the Juju Dashboard including any proxying information.
-func (c *ControllerAPI) DashboardConnectionInfo() (params.DashboardConnectionInfo, error) {
+func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.DashboardConnectionInfo, error) {
 	getDashboardInfo := func() (params.DashboardConnectionInfo, error) {
 		rval := params.DashboardConnectionInfo{}
 		controllerApp, err := c.state.Application(bootstrap.ControllerApplicationName)
@@ -329,7 +329,7 @@ func (c *ControllerAPI) DashboardConnectionInfo() (params.DashboardConnectionInf
 
 // AllModels allows controller administrators to get the list of all the
 // models in the controller.
-func (c *ControllerAPI) AllModels() (params.UserModelList, error) {
+func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, error) {
 	result := params.UserModelList{}
 	if err := c.checkIsSuperUser(); err != nil {
 		return result, errors.Trace(err)
@@ -383,7 +383,7 @@ func (c *ControllerAPI) AllModels() (params.UserModelList, error) {
 // which have a block in place.  The resulting slice is sorted by model
 // name, then owner. Callers must be controller administrators to retrieve the
 // list.
-func (c *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
+func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBlockInfoList, error) {
 	results := params.ModelBlockInfoList{}
 	if err := c.checkIsSuperUser(); err != nil {
 		return results, errors.Trace(err)
@@ -428,7 +428,7 @@ func (c *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 // ModelConfig returns the model config for the controller
 // model.  For information on the current model, use
 // client.ModelGet
-func (c *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
+func (c *ControllerAPI) ModelConfig(ctx context.Context) (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 	if err := c.checkIsSuperUser(); err != nil {
 		return result, errors.Trace(err)
@@ -459,7 +459,7 @@ func (c *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 // HostedModelConfigs returns all the information that the client needs in
 // order to connect directly with the host model's provider and destroy it
 // directly.
-func (c *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, error) {
+func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedModelConfigsResults, error) {
 	result := params.HostedModelConfigsResults{}
 	if err := c.checkIsSuperUser(); err != nil {
 		return result, errors.Trace(err)
@@ -510,7 +510,7 @@ func (c *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, 
 }
 
 // RemoveBlocks removes all the blocks in the controller.
-func (c *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
+func (c *ControllerAPI) RemoveBlocks(ctx context.Context, args params.RemoveBlocksArgs) error {
 	if err := c.checkIsSuperUser(); err != nil {
 		return errors.Trace(err)
 	}
@@ -524,7 +524,7 @@ func (c *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
 // WatchAllModels starts watching events for all models in the
 // controller. The returned AllWatcherId should be used with Next on the
 // AllModelWatcher endpoint to receive deltas.
-func (c *ControllerAPI) WatchAllModels() (params.AllWatcherId, error) {
+func (c *ControllerAPI) WatchAllModels(ctx context.Context) (params.AllWatcherId, error) {
 	if err := c.checkIsSuperUser(); err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
@@ -537,7 +537,7 @@ func (c *ControllerAPI) WatchAllModels() (params.AllWatcherId, error) {
 // WatchAllModelSummaries starts watching the summary updates from the cache.
 // This method is superuser access only, and watches all models in the
 // controller.
-func (c *ControllerAPI) WatchAllModelSummaries() (params.SummaryWatcherID, error) {
+func (c *ControllerAPI) WatchAllModelSummaries(ctx context.Context) (params.SummaryWatcherID, error) {
 	if err := c.checkIsSuperUser(); err != nil {
 		return params.SummaryWatcherID{}, errors.Trace(err)
 	}
@@ -551,7 +551,7 @@ func (c *ControllerAPI) WatchAllModelSummaries() (params.SummaryWatcherID, error
 
 // WatchModelSummaries starts watching the summary updates from the cache.
 // Only models that the user has access to are returned.
-func (c *ControllerAPI) WatchModelSummaries() (params.SummaryWatcherID, error) {
+func (c *ControllerAPI) WatchModelSummaries(ctx context.Context) (params.SummaryWatcherID, error) {
 	// TODO(dqlite) - implement me
 	return params.SummaryWatcherID{}, errors.NotSupportedf("WatchModelSummaries")
 	//user := c.apiUser.Id()
@@ -563,7 +563,7 @@ func (c *ControllerAPI) WatchModelSummaries() (params.SummaryWatcherID, error) {
 
 // GetControllerAccess returns the level of access the specified users
 // have on the controller.
-func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAccessResults, error) {
+func (c *ControllerAPI) GetControllerAccess(ctx context.Context, req params.Entities) (params.UserAccessResults, error) {
 	results := params.UserAccessResults{}
 	err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
@@ -597,7 +597,7 @@ func (c *ControllerAPI) GetControllerAccess(req params.Entities) (params.UserAcc
 
 // InitiateMigration attempts to begin the migration of one or
 // more models to other controllers.
-func (c *ControllerAPI) InitiateMigration(reqArgs params.InitiateMigrationArgs) (
+func (c *ControllerAPI) InitiateMigration(ctx context.Context, reqArgs params.InitiateMigrationArgs) (
 	params.InitiateMigrationResults, error,
 ) {
 	out := params.InitiateMigrationResults{
@@ -690,7 +690,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 }
 
 // ModifyControllerAccess changes the model access granted to users.
-func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAccessRequest) (params.ErrorResults, error) {
+func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.ModifyControllerAccessRequest) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
@@ -731,7 +731,7 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 // ConfigSet changes the value of specified controller configuration
 // settings. Only some settings can be changed after bootstrap.
 // Settings that aren't specified in the params are left unchanged.
-func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
+func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerConfigSet) error {
 	if err := c.checkIsSuperUser(); err != nil {
 		return errors.Trace(err)
 	}

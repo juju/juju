@@ -4,6 +4,7 @@
 package applicationoffers_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -107,7 +108,7 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 		},
 	}
 
-	errs, err := s.api.Offer(all)
+	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	if expectedErr != nil {
@@ -153,7 +154,7 @@ func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
 	s.mockState.applications = map[string]crossmodel.Application{
 		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 	}
-	errs, err := s.api.Offer(all)
+	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.IsNil)
@@ -208,7 +209,7 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 		"paramsfail": &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 	}
 
-	errs, err := s.api.Offer(all)
+	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.IsNil)
@@ -240,7 +241,7 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 	}
 
-	errs, err := s.api.Offer(all)
+	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
 	c.Assert(errs.Results[0].Error, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
@@ -262,7 +263,7 @@ func (s *applicationOffersSuite) assertList(c *gc.C, expectedErr error, expected
 			},
 		},
 	}
-	found, err := s.api.ListApplicationOffers(filter)
+	found, err := s.api.ListApplicationOffers(context.Background(), filter)
 	if expectedErr != nil {
 		c.Assert(errors.Cause(err), gc.ErrorMatches, expectedErr.Error())
 		return
@@ -371,7 +372,7 @@ func (s *applicationOffersSuite) TestListError(c *gc.C) {
 		return nil, errors.New(msg)
 	}
 
-	_, err := s.api.ListApplicationOffers(filter)
+	_, err := s.api.ListApplicationOffers(context.Background(), filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 }
@@ -386,13 +387,13 @@ func (s *applicationOffersSuite) TestListFilterRequiresModel(c *gc.C) {
 			},
 		},
 	}
-	_, err := s.api.ListApplicationOffers(filter)
+	_, err := s.api.ListApplicationOffers(context.Background(), filter)
 	c.Assert(err, gc.ErrorMatches, "application offer filter must specify a model name")
 }
 
 func (s *applicationOffersSuite) TestListRequiresFilter(c *gc.C) {
 	s.setupOffers(c, "test", false)
-	_, err := s.api.ListApplicationOffers(params.OfferFilters{})
+	_, err := s.api.ListApplicationOffers(context.Background(), params.OfferFilters{})
 	c.Assert(err, gc.ErrorMatches, "at least one offer filter is required")
 }
 
@@ -404,7 +405,7 @@ func (s *applicationOffersSuite) assertShow(c *gc.C, url string, expected []para
 		names.NewUserTag("mary"), permission.ConsumeAccess)
 	filter := params.OfferURLs{[]string{url}, bakery.LatestVersion}
 
-	found, err := s.api.ApplicationOffers(filter)
+	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, jc.DeepEquals, expected)
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
@@ -522,7 +523,7 @@ func (s *applicationOffersSuite) TestShowError(c *gc.C) {
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 
-	_, err := s.api.ApplicationOffers(filter)
+	_, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 }
@@ -536,7 +537,7 @@ func (s *applicationOffersSuite) TestShowNotFound(c *gc.C) {
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 
-	found, err := s.api.ApplicationOffers(filter)
+	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred@external/prod.hosted-db2" not found`)
@@ -548,7 +549,7 @@ func (s *applicationOffersSuite) TestShowRejectsEndpoints(c *gc.C) {
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 
-	found, err := s.api.ApplicationOffers(filter)
+	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Message, gc.Equals, `saas application "fred@external/prod.hosted-db2:db" shouldn't include endpoint`)
@@ -569,7 +570,7 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	}
 	s.mockState.allmodels = []applicationoffers.Model{s.mockState.model, anotherModel}
 
-	found, err := s.api.ApplicationOffers(filter)
+	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 2)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred@external/prod.hosted-mysql" not found`)
@@ -665,7 +666,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-testagain"), user, permission.ConsumeAccess)
 	s.mockStatePool.st["uuid2"] = anotherState
 
-	found, err := s.api.ApplicationOffers(filter)
+	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	var results []params.ApplicationOfferAdminDetails
 	for _, r := range found.Results {
@@ -720,7 +721,7 @@ func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.Applicati
 			},
 		},
 	}
-	found, err := s.api.FindApplicationOffers(filter)
+	found, err := s.api.FindApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResults{
 		Results: expected,
@@ -833,13 +834,13 @@ func (s *applicationOffersSuite) TestFindFiltersRequireModel(c *gc.C) {
 			},
 		},
 	}
-	_, err := s.api.FindApplicationOffers(filter)
+	_, err := s.api.FindApplicationOffers(context.Background(), filter)
 	c.Assert(err, gc.ErrorMatches, "application offer filter must specify a model name")
 }
 
 func (s *applicationOffersSuite) TestFindRequiresFilter(c *gc.C) {
 	s.setupOffers(c, "", true)
-	_, err := s.api.FindApplicationOffers(params.OfferFilters{})
+	_, err := s.api.FindApplicationOffers(context.Background(), params.OfferFilters{})
 	c.Assert(err, gc.ErrorMatches, "at least one offer filter is required")
 }
 
@@ -1018,7 +1019,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 			},
 		},
 	}
-	found, err := s.api.FindApplicationOffers(filter)
+	found, err := s.api.FindApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResults{
 		[]params.ApplicationOfferAdminDetails{
@@ -1097,7 +1098,7 @@ func (s *applicationOffersSuite) TestFindError(c *gc.C) {
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 
-	_, err := s.api.FindApplicationOffers(filter)
+	_, err := s.api.FindApplicationOffers(context.Background(), filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
 	s.applicationOffers.CheckCallNames(c, listOffersBackendCall)
 }
@@ -1120,7 +1121,7 @@ func (s *applicationOffersSuite) TestFindMissingModelInMultipleFilters(c *gc.C) 
 		panic("should not be called")
 	}
 
-	_, err := s.api.FindApplicationOffers(filter)
+	_, err := s.api.FindApplicationOffers(context.Background(), filter)
 	c.Assert(err, gc.ErrorMatches, "application offer filter must specify a model name")
 	s.applicationOffers.CheckCallNames(c)
 }
@@ -1386,7 +1387,7 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer.Tag = user
-	results, err := s.api.RemoteApplicationInfo(params.OfferURLs{
+	results, err := s.api.RemoteApplicationInfo(context.Background(), params.OfferURLs{
 		OfferURLs: []string{"fred@external/prod.hosted-mysql", "fred@external/prod.unknown"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1424,7 +1425,7 @@ func (s *consumeSuite) TestDestroyOffersNoForceV2(c *gc.C) {
 }
 
 type destroyOffers interface {
-	DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error)
+	DestroyOffers(ctx context.Context, args params.DestroyApplicationOffers) (params.ErrorResults, error)
 }
 
 func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
@@ -1441,7 +1442,7 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
 	}
 
 	s.authorizer.Tag = names.NewUserTag("admin")
-	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
+	results, err := s.api.DestroyOffers(context.Background(), params.DestroyApplicationOffers{
 		OfferURLs: []string{
 			"fred@external/prod.hosted-mysql"},
 	})
@@ -1455,7 +1456,7 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
 
 	urls := []string{"fred@external/prod.hosted-db2"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
-	found, err := s.api.ApplicationOffers(filter)
+	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred@external/prod.hosted-db2" not found`)
@@ -1475,7 +1476,7 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 	}
 
 	s.authorizer.Tag = names.NewUserTag("admin")
-	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
+	results, err := s.api.DestroyOffers(context.Background(), params.DestroyApplicationOffers{
 		Force: true,
 		OfferURLs: []string{
 			"fred@external/prod.hosted-mysql", "fred@external/prod.unknown", "garbage/badmodel.someoffer", "badmodel.someoffer"},
@@ -1496,7 +1497,7 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 
 	urls := []string{"fred@external/prod.hosted-db2"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
-	found, err := s.api.ApplicationOffers(filter)
+	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	c.Assert(found.Results[0].Error.Error(), gc.Matches, `application offer "fred@external/prod.hosted-db2" not found`)
@@ -1508,7 +1509,7 @@ func (s *consumeSuite) TestDestroyOffersPermission(c *gc.C) {
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 
-	results, err := s.api.DestroyOffers(params.DestroyApplicationOffers{
+	results, err := s.api.DestroyOffers(context.Background(), params.DestroyApplicationOffers{
 		OfferURLs: []string{"fred@external/prod.hosted-mysql"},
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -4,6 +4,7 @@
 package bundle_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -59,7 +60,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: ":",
 	}
-	r, err := s.facade.GetChangesMapArgs(args)
+	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
 	c.Assert(r, gc.DeepEquals, params.BundleChangesMapArgsResults{})
 }
@@ -76,7 +77,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleVerificationErrors(c *gc.C) {
                     num_units: -1
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(args)
+	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -97,7 +98,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleConstraintsError(c *gc.C) {
                     constraints: bad=wolf
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(args)
+	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -116,7 +117,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleStorageError(c *gc.C) {
                         bad: 0,100M
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(args)
+	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -135,7 +136,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleDevicesError(c *gc.C) {
                         bad-gpu: -1,nvidia.com/gpu
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(args)
+	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Changes, gc.IsNil)
 	c.Assert(r.Errors, jc.SameContents, []string{
@@ -165,7 +166,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
                   - haproxy:web
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(args)
+	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
@@ -233,7 +234,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
                     channel: candidate
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(args)
+	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
@@ -281,7 +282,7 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
                   - haproxy:web
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(args)
+	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChangesMapArgs{{
 		Id:     "addCharm-0",
@@ -349,7 +350,7 @@ func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *gc.C
                         url: public
         `,
 	}
-	r, err := s.facade.GetChangesMapArgs(args)
+	r, err := s.facade.GetChangesMapArgs(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	for _, change := range r.Changes {
@@ -376,7 +377,7 @@ func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
 		CloudRegion: "some-region"})
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, gc.NotNil)
 	c.Assert(result, gc.Equals, params.StringResult{})
 	c.Check(err, gc.ErrorMatches, "nothing to export as there are no applications")
@@ -457,7 +458,7 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 series: focal
@@ -506,7 +507,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 series: focal
@@ -560,7 +561,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 series: focal
@@ -605,7 +606,7 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 series: focal
@@ -668,7 +669,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 series: focal
@@ -815,7 +816,7 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 series: focal
@@ -942,7 +943,7 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 
 	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 series: focal
@@ -1052,7 +1053,7 @@ func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
 	model := s.newModel("iaas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
@@ -1095,7 +1096,7 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	})
 	app.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{IncludeCharmDefaults: true})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{IncludeCharmDefaults: true})
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
@@ -1171,7 +1172,7 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 	s.setEndpointSettings(mysqlEndpoint, "mysql/0")
 	s.setEndpointSettings(loggingEndpoint, "logging/2")
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1239,7 +1240,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/18.04/stable"})
 	application.SetStatus(minimalStatusArgs())
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1294,7 +1295,7 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff strin
 
 func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
 	s.setupExportBundleEndpointBindingsPrinted("0", "0")
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1316,7 +1317,7 @@ applications:
 
 func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *gc.C) {
 	s.setupExportBundleEndpointBindingsPrinted("0", "1")
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1362,7 +1363,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 
 	s.addMinimalMachineWithConstraints(s.st.model, "0")
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1414,7 +1415,7 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 series: focal
@@ -1470,7 +1471,7 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 series: focal
@@ -1556,7 +1557,7 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	})
 	ut.SetAgentStatus(minimalStatusArgs())
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
 series: focal
@@ -1617,7 +1618,7 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 		Base: "ubuntu@22.04",
 	})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1683,7 +1684,7 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 		Base: "ubuntu@22.04",
 	})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
@@ -1715,7 +1716,7 @@ func (s *bundleSuite) TestExportKubernetesBundle(c *gc.C) {
 	model := s.newModel("caas", "wordpress", "mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
@@ -1741,7 +1742,7 @@ func (s *bundleSuite) TestExportCharmhubBundle(c *gc.C) {
 	model := s.newModel("iaas", "ch:wordpress", "ch:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
@@ -1777,7 +1778,7 @@ func (s *bundleSuite) TestExportLocalBundle(c *gc.C) {
 	model := s.newModel("iaas", "local:wordpress", "local:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
@@ -1811,7 +1812,7 @@ func (s *bundleSuite) TestExportLocalBundleWithSeries(c *gc.C) {
 	model := s.newModel("iaas", "local:focal/wordpress", "local:mysql")
 	model.SetStatus(description.StatusArgs{Value: "available"})
 
-	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
@@ -1949,7 +1950,7 @@ applications:
 		application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
 		application.SetStatus(minimalStatusArgs())
 
-		result, err := s.facade.ExportBundle(params.ExportBundleParams{})
+		result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 		c.Assert(err, jc.ErrorIsNil)
 
 		exp := params.StringResult{Result: spec.expBundle}
