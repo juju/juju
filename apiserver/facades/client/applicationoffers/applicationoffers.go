@@ -67,7 +67,7 @@ func createOffersAPI(
 }
 
 // Offer makes application endpoints available for consumption at a specified URL.
-func (api *OffersAPI) Offer(all params.AddApplicationOffers) (params.ErrorResults, error) {
+func (api *OffersAPI) Offer(ctx context.Context, all params.AddApplicationOffers) (params.ErrorResults, error) {
 	result := make([]params.ErrorResult, len(all.Offers))
 
 	apiUser := api.Authorizer.GetAuthTag().(names.UserTag)
@@ -145,7 +145,7 @@ func (api *OffersAPI) makeAddOfferArgsFromParams(user names.UserTag, backend Bac
 
 // ListApplicationOffers gets deployed details about application offers that match given filter.
 // The results contain details about the deployed applications such as connection count.
-func (api *OffersAPI) ListApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResults, error) {
+func (api *OffersAPI) ListApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResults, error) {
 	var result params.QueryApplicationOffersResults
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	offers, err := api.getApplicationOffersDetails(user, filters, permission.AdminAccess)
@@ -157,7 +157,7 @@ func (api *OffersAPI) ListApplicationOffers(filters params.OfferFilters) (params
 }
 
 // ModifyOfferAccess changes the application offer access granted to users.
-func (api *OffersAPI) ModifyOfferAccess(args params.ModifyOfferAccessRequest) (result params.ErrorResults, _ error) {
+func (api *OffersAPI) ModifyOfferAccess(ctx context.Context, args params.ModifyOfferAccessRequest) (result params.ErrorResults, _ error) {
 	result = params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
@@ -313,7 +313,7 @@ func (api *OffersAPI) revokeOfferAccess(backend Backend, offerTag names.Applicat
 }
 
 // ApplicationOffers gets details about remote applications that match given URLs.
-func (api *OffersAPI) ApplicationOffers(urls params.OfferURLs) (params.ApplicationOffersResults, error) {
+func (api *OffersAPI) ApplicationOffers(ctx context.Context, urls params.OfferURLs) (params.ApplicationOffersResults, error) {
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	return api.getApplicationOffers(user, urls)
 }
@@ -376,7 +376,7 @@ func (api *OffersAPI) getApplicationOffers(user names.UserTag, urls params.Offer
 }
 
 // FindApplicationOffers gets details about remote applications that match given filter.
-func (api *OffersAPI) FindApplicationOffers(filters params.OfferFilters) (params.QueryApplicationOffersResults, error) {
+func (api *OffersAPI) FindApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResults, error) {
 	var result params.QueryApplicationOffersResults
 	var filtersToUse params.OfferFilters
 
@@ -502,7 +502,7 @@ func (api *OffersAPI) getConsumeDetails(user names.UserTag, urls params.OfferURL
 
 // RemoteApplicationInfo returns information about the requested remote application.
 // This call currently has no client side API, only there for the Dashboard at this stage.
-func (api *OffersAPI) RemoteApplicationInfo(args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
+func (api *OffersAPI) RemoteApplicationInfo(ctx context.Context, args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
 	results := make([]params.RemoteApplicationInfoResult, len(args.OfferURLs))
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	for i, url := range args.OfferURLs {
@@ -559,7 +559,7 @@ func (api *OffersAPI) oneRemoteApplicationInfo(user names.UserTag, urlStr string
 }
 
 // DestroyOffers removes the offers specified by the given URLs, forcing if necessary.
-func (api *OffersAPI) DestroyOffers(args params.DestroyApplicationOffers) (params.ErrorResults, error) {
+func (api *OffersAPI) DestroyOffers(ctx context.Context, args params.DestroyApplicationOffers) (params.ErrorResults, error) {
 	result := make([]params.ErrorResult, len(args.OfferURLs))
 
 	user := api.Authorizer.GetAuthTag().(names.UserTag)

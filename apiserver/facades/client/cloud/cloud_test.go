@@ -4,6 +4,7 @@
 package cloud_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"regexp"
 	"sort"
@@ -80,7 +81,7 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}, nil)
 
-	results, err := s.api.Cloud(params.Entities{
+	results, err := s.api.Cloud(stdcontext.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "cloud-my-cloud"}, {Tag: "machine-0"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,7 +103,7 @@ func (s *cloudSuite) TestCloudNotFound(c *gc.C) {
 	backend := s.backend.EXPECT()
 	backend.Cloud("no-dice").Return(jujucloud.Cloud{}, errors.NotFoundf("cloud \"no-dice\""))
 
-	results, err := s.api.Cloud(params.Entities{
+	results, err := s.api.Cloud(stdcontext.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "cloud-no-dice"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -137,7 +138,7 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 		},
 	}, nil)
 
-	result, err := s.api.Clouds()
+	result, err := s.api.Clouds(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Clouds, jc.DeepEquals, map[string]params.Cloud{
 		"cloud-my-cloud": {
@@ -176,7 +177,7 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *gc.C) {
 	fredTag := names.NewUserTag("fred")
 	backend.User(fredTag).Return(fred, nil)
 
-	result, err := s.api.CloudInfo(params.Entities{Entities: []params.Entity{{
+	result, err := s.api.CloudInfo(stdcontext.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "cloud-my-cloud",
 	}, {
 		Tag: "machine-0",
@@ -230,7 +231,7 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}, nil)
 
-	result, err := s.api.CloudInfo(params.Entities{Entities: []params.Entity{{
+	result, err := s.api.CloudInfo(stdcontext.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "cloud-my-cloud",
 	}, {
 		Tag: "machine-0",
@@ -285,7 +286,7 @@ func (s *cloudSuite) TestAddCloud(c *gc.C) {
 			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
 		}}
 
-	err := s.api.AddCloud(paramsCloud)
+	err := s.api.AddCloud(stdcontext.Background(), paramsCloud)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -319,7 +320,7 @@ func (s *cloudSuite) TestAddCloudNotWhitelisted(c *gc.C) {
 	backend.ControllerInfo().Return(&state.ControllerInfo{CloudName: "dummy"}, nil)
 	backend.Cloud("dummy").Return(cloud, nil)
 
-	err := s.api.AddCloud(createAddCloudParam(""))
+	err := s.api.AddCloud(stdcontext.Background(), createAddCloudParam(""))
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`
 controller cloud type "dummy" is not whitelisted, current whitelist: 
  - controller cloud type "kubernetes" supports [lxd maas openstack]
@@ -353,7 +354,7 @@ func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *gc.C) {
 	force := true
 	addCloudArg := createAddCloudParam("")
 	addCloudArg.Force = &force
-	err := s.api.AddCloud(addCloudArg)
+	err := s.api.AddCloud(stdcontext.Background(), addCloudArg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -364,7 +365,7 @@ func (s *cloudSuite) TestAddCloudControllerInfoErr(c *gc.C) {
 	backend := s.backend.EXPECT()
 	backend.ControllerInfo().Return(nil, errors.New("kaboom"))
 
-	err := s.api.AddCloud(createAddCloudParam(""))
+	err := s.api.AddCloud(stdcontext.Background(), createAddCloudParam(""))
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }
 
@@ -376,7 +377,7 @@ func (s *cloudSuite) TestAddCloudControllerCloudErr(c *gc.C) {
 	backend.ControllerInfo().Return(&state.ControllerInfo{CloudName: "kaboom"}, nil)
 	backend.Cloud("kaboom").Return(jujucloud.Cloud{}, errors.New("kaboom"))
 
-	err := s.api.AddCloud(createAddCloudParam(""))
+	err := s.api.AddCloud(stdcontext.Background(), createAddCloudParam(""))
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }
 
@@ -398,7 +399,7 @@ func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
 	addCloudArg := createAddCloudParam(string(k8sconstants.CAASProviderType))
 
 	add := func() {
-		err := s.api.AddCloud(addCloudArg)
+		err := s.api.AddCloud(stdcontext.Background(), addCloudArg)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	add()
@@ -437,7 +438,7 @@ func (s *cloudSuite) TestAddCloudNoRegion(c *gc.C) {
 			AuthTypes: []string{"empty", "userpass"},
 			Endpoint:  "fake-endpoint",
 		}}
-	err := s.api.AddCloud(paramsCloud)
+	err := s.api.AddCloud(stdcontext.Background(), paramsCloud)
 	c.Assert(err, jc.ErrorIsNil)
 
 }
@@ -454,7 +455,7 @@ func (s *cloudSuite) TestAddCloudNoAdminPerms(c *gc.C) {
 			Endpoint:  "fake-endpoint",
 			Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "nether-endpoint"}},
 		}}
-	err := s.api.AddCloud(paramsCloud)
+	err := s.api.AddCloud(stdcontext.Background(), paramsCloud)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -478,7 +479,7 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
-	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
+	results, err := s.api.UpdateCloud(stdcontext.Background(), params.UpdateCloudArgs{
 		Clouds: []params.AddCloudArgs{{
 			Name:  "dummy",
 			Cloud: cloud.CloudToParams(updatedCloud),
@@ -500,7 +501,7 @@ func (s *cloudSuite) TestUpdateCloudNonAdminPerm(c *gc.C) {
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
-	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
+	results, err := s.api.UpdateCloud(stdcontext.Background(), params.UpdateCloudArgs{
 		Clouds: []params.AddCloudArgs{{
 			Name:  "dummy",
 			Cloud: cloud.CloudToParams(updatedCloud),
@@ -532,7 +533,7 @@ func (s *cloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 
-	results, err := s.api.UpdateCloud(params.UpdateCloudArgs{
+	results, err := s.api.UpdateCloud(stdcontext.Background(), params.UpdateCloudArgs{
 		Clouds: []params.AddCloudArgs{{
 			Name:  "nope",
 			Cloud: cloud.CloudToParams(updatedCloud),
@@ -561,7 +562,7 @@ func (s *cloudSuite) TestListCloudInfo(c *gc.C) {
 	ctrlBackend := s.ctrlBackend.EXPECT()
 	ctrlBackend.CloudsForUser(fredTag, true).Return(cloudInfo, nil)
 
-	result, err := s.api.ListCloudInfo(params.ListCloudsRequest{
+	result, err := s.api.ListCloudInfo(stdcontext.Background(), params.ListCloudsRequest{
 		UserTag: "user-admin",
 		All:     true,
 	})
@@ -600,7 +601,7 @@ func (s *cloudSuite) TestUserCredentials(c *gc.C) {
 	backend := s.backend.EXPECT()
 	backend.CloudCredentials(bruceTag, "meep").Return(creds, nil)
 
-	results, err := s.api.UserCredentials(params.UserClouds{UserClouds: []params.UserCloud{{
+	results, err := s.api.UserCredentials(stdcontext.Background(), params.UserClouds{UserClouds: []params.UserCloud{{
 		UserTag:  "machine-0",
 		CloudTag: "cloud-meep",
 	}, {
@@ -633,7 +634,7 @@ func (s *cloudSuite) TestUserCredentialsAdminAccess(c *gc.C) {
 	backend := s.backend.EXPECT()
 	backend.CloudCredentials(julia, "meep").Return(map[string]state.Credential{}, nil)
 
-	results, err := s.api.UserCredentials(params.UserClouds{UserClouds: []params.UserCloud{{
+	results, err := s.api.UserCredentials(stdcontext.Background(), params.UserClouds{UserClouds: []params.UserCloud{{
 		UserTag:  "user-julia",
 		CloudTag: "cloud-meep",
 	}}})
@@ -664,7 +665,7 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 		map[string]string{"token": "foo:bar:baz"},
 	)).Return(nil)
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: false,
 		Credentials: []params.TaggedCredential{{
 			Tag: "machine-0",
@@ -715,7 +716,7 @@ func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 	backend.UpdateCloudCredential(names.NewCloudCredentialTag("meep/julia/three"),
 		jujucloud.Credential{}).Return(nil)
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: false,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -738,7 +739,7 @@ func (s *cloudSuite) TestUpdateCredentialsNoModelsFound(c *gc.C) {
 	backend.UpdateCloudCredential(names.NewCloudCredentialTag("meep/julia/three"),
 		jujucloud.Credential{}).Return(nil)
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: false,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -758,7 +759,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelsError(c *gc.C) {
 	backend := s.backend.EXPECT()
 	backend.CredentialModels(tag).Return(nil, errors.New("cannot get models"))
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: false,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -786,7 +787,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelsErrorForce(c *gc.C) {
 	backend.UpdateCloudCredential(tag,
 		jujucloud.Credential{}).Return(nil)
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: true,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -833,7 +834,7 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *gc.C) {
 	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(newModelBackend(c, aCloud, coretesting.ModelTag.Id()),
 		context.NewEmptyCloudCallContext(), nil)
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: false,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -868,7 +869,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetError(c *gc.C) {
 	pool := s.pool.EXPECT()
 	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(nil, nil, errors.New("cannot get a model"))
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: false,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -905,7 +906,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetErrorForce(c *gc.C) {
 	pool := s.pool.EXPECT()
 	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(nil, nil, errors.New("cannot get a model"))
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: true,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -938,7 +939,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidation(c *gc.C) {
 		coretesting.ModelTag.Id(): "testModel1",
 	}, nil)
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: false,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -994,7 +995,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) {
 			modelUUID), context.NewEmptyCloudCallContext(), nil
 	}).MinTimes(1)
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: true,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -1051,7 +1052,7 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) {
 	pool.GetModelCallContext("deadbeef-2f18-4fd2-967d-db9663db7bea").Return(newModelBackend(c, aCloud,
 		"deadbeef-2f18-4fd2-967d-db9663db7bea"), context.NewEmptyCloudCallContext(), nil)
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: false,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -1114,7 +1115,7 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *gc.
 	pool.GetModelCallContext("deadbeef-2f18-4fd2-967d-db9663db7bea").Return(newModelBackend(c, aCloud,
 		"deadbeef-2f18-4fd2-967d-db9663db7bea"), nil, nil)
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: true,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -1173,7 +1174,7 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidation(c *gc.C) {
 	pool.GetModelCallContext(gomock.Any()).Return(newModelBackend(c, aCloud, coretesting.ModelTag.Id()),
 		context.NewEmptyCloudCallContext(), nil).Times(2)
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: false,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -1233,7 +1234,7 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidationForce(c *gc.C
 	pool.GetModelCallContext(gomock.Any()).Return(newModelBackend(c, aCloud, "deadbeef-2f18-4fd2-967d-db9663db7bea"),
 		context.NewEmptyCloudCallContext(), nil)
 
-	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
+	results, err := s.api.UpdateCredentialsCheckModels(stdcontext.Background(), params.UpdateCredentialArgs{
 		Force: true,
 		Credentials: []params.TaggedCredential{{
 			Tag:        "cloudcred-meep_julia_three",
@@ -1272,7 +1273,7 @@ func (s *cloudSuite) TestRevokeCredentials(c *gc.C) {
 	backend.RemoveCloudCredential(tag).Return(nil)
 	backend.RemoveModelsCredential(tag).Return(nil)
 
-	results, err := s.api.RevokeCredentialsCheckModels(params.RevokeCredentialArgs{
+	results, err := s.api.RevokeCredentialsCheckModels(stdcontext.Background(), params.RevokeCredentialArgs{
 		Credentials: []params.RevokeCredentialArg{
 			{Tag: "machine-0"},
 			{Tag: "cloudcred-meep_admin_whatever"},
@@ -1302,7 +1303,7 @@ func (s *cloudSuite) TestRevokeCredentialsAdminAccess(c *gc.C) {
 	backend.RemoveCloudCredential(tag).Return(nil)
 	backend.RemoveModelsCredential(tag).Return(nil)
 
-	results, err := s.api.RevokeCredentialsCheckModels(params.RevokeCredentialArgs{
+	results, err := s.api.RevokeCredentialsCheckModels(stdcontext.Background(), params.RevokeCredentialArgs{
 		Credentials: []params.RevokeCredentialArg{
 			{Tag: "cloudcred-meep_julia_three"},
 		},
@@ -1323,7 +1324,7 @@ func (s *cloudSuite) TestRevokeCredentialsCantGetModels(c *gc.C) {
 	backend := s.backend.EXPECT()
 	backend.CredentialModels(tag).Return(nil, errors.New("no niet nope"))
 
-	results, err := s.api.RevokeCredentialsCheckModels(params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
+	results, err := s.api.RevokeCredentialsCheckModels(stdcontext.Background(), params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
 		{Tag: "cloudcred-meep_julia_three"},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1347,7 +1348,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceCantGetModels(c *gc.C) {
 	backend.RemoveCloudCredential(tag).Return(nil)
 	backend.RemoveModelsCredential(tag).Return(nil)
 
-	results, err := s.api.RevokeCredentialsCheckModels(params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
+	results, err := s.api.RevokeCredentialsCheckModels(stdcontext.Background(), params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
 		{Tag: "cloudcred-meep_julia_three", Force: true},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1372,7 +1373,7 @@ func (s *cloudSuite) TestRevokeCredentialsHasModel(c *gc.C) {
 		coretesting.ModelTag.Id(): "modelName",
 	}, nil)
 
-	results, err := s.api.RevokeCredentialsCheckModels(params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
+	results, err := s.api.RevokeCredentialsCheckModels(stdcontext.Background(), params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
 		{Tag: "cloudcred-meep_julia_three"},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1398,7 +1399,7 @@ func (s *cloudSuite) TestRevokeCredentialsHasModels(c *gc.C) {
 		"deadbeef-1bad-511d-8000-4b1d0d06f00d": "anotherModelName",
 	}, nil)
 
-	results, err := s.api.RevokeCredentialsCheckModels(params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
+	results, err := s.api.RevokeCredentialsCheckModels(stdcontext.Background(), params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
 		{Tag: "cloudcred-meep_julia_three"},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1427,7 +1428,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceHasModel(c *gc.C) {
 	backend.RemoveCloudCredential(tag).Return(nil)
 	backend.RemoveModelsCredential(tag).Return(nil)
 
-	results, err := s.api.RevokeCredentialsCheckModels(params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
+	results, err := s.api.RevokeCredentialsCheckModels(stdcontext.Background(), params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
 		{Tag: "cloudcred-meep_julia_three", Force: true},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1460,7 +1461,7 @@ func (s *cloudSuite) TestRevokeCredentialsForceMany(c *gc.C) {
 	backend.RemoveCloudCredential(gomock.Any()).Return(nil)
 	backend.RemoveModelsCredential(gomock.Any()).Return(nil)
 
-	results, err := s.api.RevokeCredentialsCheckModels(params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
+	results, err := s.api.RevokeCredentialsCheckModels(stdcontext.Background(), params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
 		{Tag: "cloudcred-meep_julia_three", Force: true},
 		{Tag: "cloudcred-meep_bruce_three"},
 	}})
@@ -1491,7 +1492,7 @@ func (s *cloudSuite) TestRevokeCredentialsClearModelCredentialsError(c *gc.C) {
 	backend.RemoveCloudCredential(tag).Return(nil)
 	backend.RemoveModelsCredential(tag).Return(errors.New("kaboom"))
 
-	results, err := s.api.RevokeCredentialsCheckModels(params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
+	results, err := s.api.RevokeCredentialsCheckModels(stdcontext.Background(), params.RevokeCredentialArgs{Credentials: []params.RevokeCredentialArg{
 		{Tag: "cloudcred-meep_julia_three", Force: true},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1532,7 +1533,7 @@ func (s *cloudSuite) TestCredential(c *gc.C) {
 	backend.Cloud("meep").Return(cloud, nil)
 	backend.CloudCredentials(names.NewUserTag("bruce"), "meep").Return(creds, nil)
 
-	results, err := s.api.Credential(params.Entities{Entities: []params.Entity{{
+	results, err := s.api.Credential(stdcontext.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "machine-0",
 	}, {
 		Tag: "cloudcred-meep_admin_foo",
@@ -1579,7 +1580,7 @@ func (s *cloudSuite) TestCredentialAdminAccess(c *gc.C) {
 	backend.Cloud("meep").Return(cloud, nil)
 	backend.CloudCredentials(names.NewUserTag("bruce"), "meep").Return(creds, nil)
 
-	results, err := s.api.Credential(params.Entities{Entities: []params.Entity{{
+	results, err := s.api.Credential(stdcontext.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "cloudcred-meep_bruce_two",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1607,7 +1608,7 @@ func (s *cloudSuite) TestModifyCloudAccess(c *gc.C) {
 		permission.AddModelAccess).Return(nil)
 	backend.RemoveCloudAccess("fluffy", mary).Return(nil)
 
-	results, err := s.api.ModifyCloudAccess(params.ModifyCloudAccessRequest{
+	results, err := s.api.ModifyCloudAccess(stdcontext.Background(), params.ModifyCloudAccessRequest{
 		Changes: []params.ModifyCloudAccess{
 			{
 				Action:   params.GrantCloudAccess,
@@ -1650,7 +1651,7 @@ func (s *cloudSuite) TestModifyCloudUpdateAccess(c *gc.C) {
 	backend.UpdateCloudAccess("fluffy", fredTag,
 		permission.AdminAccess).Return(nil)
 
-	results, err := s.api.ModifyCloudAccess(params.ModifyCloudAccessRequest{
+	results, err := s.api.ModifyCloudAccess(stdcontext.Background(), params.ModifyCloudAccessRequest{
 		Changes: []params.ModifyCloudAccess{
 			{
 				Action:   params.GrantCloudAccess,
@@ -1686,7 +1687,7 @@ func (s *cloudSuite) TestModifyCloudAlreadyHasAccess(c *gc.C) {
 	backend.GetCloudAccess("fluffy", fredTag).Return(permission.AdminAccess,
 		nil)
 
-	results, err := s.api.ModifyCloudAccess(params.ModifyCloudAccessRequest{
+	results, err := s.api.ModifyCloudAccess(stdcontext.Background(), params.ModifyCloudAccessRequest{
 		Changes: []params.ModifyCloudAccess{
 			{
 				Action:   params.GrantCloudAccess,
@@ -1732,7 +1733,7 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *gc.C) {
 	backend.CredentialModelsAndOwnerAccess(tagOne).Return([]state.CredentialOwnerModelAccess{}, nil)
 	backend.CredentialModelsAndOwnerAccess(tagTwo).Return([]state.CredentialOwnerModelAccess{}, nil)
 
-	results, err := s.api.CredentialContents(params.CloudCredentialArgs{})
+	results, err := s.api.CredentialContents(stdcontext.Background(), params.CloudCredentialArgs{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_true := true

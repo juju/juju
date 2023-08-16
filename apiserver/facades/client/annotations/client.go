@@ -4,6 +4,8 @@
 package annotations
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -20,8 +22,8 @@ var getState = func(st *state.State, m *state.Model) annotationAccess {
 
 // Annotations defines the methods on the service API end point.
 type Annotations interface {
-	Get(args params.Entities) params.AnnotationsGetResults
-	Set(args params.AnnotationsSet) params.ErrorResults
+	Get(ctx context.Context, args params.Entities) params.AnnotationsGetResults
+	Set(ctx context.Context, args params.AnnotationsSet) params.ErrorResults
 }
 
 // API implements the service interface and is the concrete
@@ -42,7 +44,7 @@ func (api *API) checkCanWrite() error {
 // Get returns annotations for given entities.
 // If annotations cannot be retrieved for a given entity, an error is returned.
 // Each entity is treated independently and, hence, will fail or succeed independently.
-func (api *API) Get(args params.Entities) params.AnnotationsGetResults {
+func (api *API) Get(ctx context.Context, args params.Entities) params.AnnotationsGetResults {
 	if err := api.checkCanRead(); err != nil {
 		result := make([]params.AnnotationsGetResult, len(args.Entities))
 		for i := range result {
@@ -65,7 +67,7 @@ func (api *API) Get(args params.Entities) params.AnnotationsGetResults {
 }
 
 // Set stores annotations for given entities
-func (api *API) Set(args params.AnnotationsSet) params.ErrorResults {
+func (api *API) Set(ctx context.Context, args params.AnnotationsSet) params.ErrorResults {
 	if err := api.checkCanWrite(); err != nil {
 		errorResults := make([]params.ErrorResult, len(args.Annotations))
 		for i := range errorResults {

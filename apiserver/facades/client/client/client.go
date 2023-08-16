@@ -4,6 +4,8 @@
 package client
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -187,7 +189,7 @@ func NewClient(
 }
 
 // WatchAll initiates a watcher for entities in the connected model.
-func (c *Client) WatchAll() (params.AllWatcherId, error) {
+func (c *Client) WatchAll(ctx stdcontext.Context) (params.AllWatcherId, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.AllWatcherId{}, err
 	}
@@ -233,7 +235,7 @@ func (s *stripApplicationOffers) Next() ([]multiwatcher.Delta, error) {
 
 // FindTools returns a List containing all tools matching the given parameters.
 // TODO(juju 3.1) - remove, used by 2.9 client only
-func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
+func (c *Client) FindTools(ctx stdcontext.Context, args params.FindToolsParams) (params.FindToolsResult, error) {
 	if err := c.checkCanWrite(); err != nil {
 		return params.FindToolsResult{}, err
 	}

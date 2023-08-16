@@ -4,6 +4,8 @@
 package block_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -45,7 +47,7 @@ func (s *blockSuite) TestListBlockNoneExistent(c *gc.C) {
 }
 
 func (s *blockSuite) assertBlockList(c *gc.C, length int) {
-	all, err := s.api.List()
+	all, err := s.api.List(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(all.Results, gc.HasLen, length)
 }
@@ -59,7 +61,7 @@ func (s *blockSuite) assertSwitchBlockOn(c *gc.C, blockType, msg string) {
 		Type:    blockType,
 		Message: msg,
 	}
-	err := s.api.SwitchBlockOn(on)
+	err := s.api.SwitchBlockOn(context.Background(), on)
 	c.Assert(err.Error, gc.IsNil)
 	s.assertBlockList(c, 1)
 }
@@ -70,7 +72,7 @@ func (s *blockSuite) TestSwitchInvalidBlockOn(c *gc.C) {
 		Message: "for TestSwitchInvalidBlockOn",
 	}
 
-	c.Assert(func() { s.api.SwitchBlockOn(on) }, gc.PanicMatches, ".*unknown block type.*")
+	c.Assert(func() { s.api.SwitchBlockOn(context.Background(), on) }, gc.PanicMatches, ".*unknown block type.*")
 }
 
 func (s *blockSuite) TestSwitchBlockOff(c *gc.C) {
@@ -80,7 +82,7 @@ func (s *blockSuite) TestSwitchBlockOff(c *gc.C) {
 	off := params.BlockSwitchParams{
 		Type: valid.String(),
 	}
-	err := s.api.SwitchBlockOff(off)
+	err := s.api.SwitchBlockOff(context.Background(), off)
 	c.Assert(err.Error, gc.IsNil)
 	s.assertBlockList(c, 0)
 }

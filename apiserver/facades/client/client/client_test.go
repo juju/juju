@@ -4,6 +4,7 @@
 package client_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/charm/v11"
@@ -421,7 +422,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2})
+	result, err := api.FindTools(context.Background(), params.FindToolsParams{MajorVersion: 2})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.FindToolsResult{List: simpleStreams})
 }
@@ -507,7 +508,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2})
+	result, err := api.FindTools(context.Background(), params.FindToolsParams{MajorVersion: 2})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.FindToolsResult{
 		List: []*tools.Tools{
@@ -591,7 +592,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := api.FindTools(params.FindToolsParams{MajorVersion: 2, AgentStream: envtools.DevelStream})
+	result, err := api.FindTools(context.Background(), params.FindToolsParams{MajorVersion: 2, AgentStream: envtools.DevelStream})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.FindToolsResult{
 		List: []*tools.Tools{

@@ -4,6 +4,7 @@
 package charms
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"sync"
@@ -74,7 +75,7 @@ type API struct {
 }
 
 // CharmInfo returns information about the requested charm.
-func (a *API) CharmInfo(args params.CharmURL) (params.Charm, error) {
+func (a *API) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm, error) {
 	return a.charmInfoAPI.CharmInfo(args)
 }
 
@@ -124,7 +125,7 @@ func NewCharmsAPI(
 // List returns a list of charm URLs currently in the state.
 // If supplied parameter contains any names, the result will
 // be filtered to return only the charms with supplied names.
-func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
+func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsListResult, error) {
 	a.logger.Tracef("List %+v", args)
 	if err := a.checkCanRead(); err != nil {
 		return params.CharmsListResult{}, errors.Trace(err)
@@ -152,7 +153,7 @@ func (a *API) List(args params.CharmsList) (params.CharmsListResult, error) {
 
 // GetDownloadInfos attempts to get the bundle corresponding to the charm url
 // and origin.
-func (a *API) GetDownloadInfos(args params.CharmURLAndOrigins) (params.DownloadInfoResults, error) {
+func (a *API) GetDownloadInfos(ctx context.Context, args params.CharmURLAndOrigins) (params.DownloadInfoResults, error) {
 	a.logger.Tracef("GetDownloadInfos %+v", args)
 
 	results := params.DownloadInfoResults{
@@ -242,7 +243,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string, logger
 // AddCharm adds the given charm URL (which must include revision) to the
 // environment, if it does not exist yet. Local charms are not supported,
 // only charm store and charm hub URLs. See also AddLocalCharm().
-func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult, error) {
+func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (params.CharmOriginResult, error) {
 	a.logger.Tracef("AddCharm %+v", args)
 	return a.addCharmWithAuthorization(params.AddCharmWithAuth{
 		URL:    args.URL,
@@ -257,7 +258,7 @@ func (a *API) AddCharm(args params.AddCharmWithOrigin) (params.CharmOriginResult
 //
 // Since the charm macaroons are no longer supported, this is the same as
 // AddCharm. We keep it for backwards compatibility in APIv5.
-func (a *APIv5) AddCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
+func (a *APIv5) AddCharmWithAuthorization(ctx context.Context, args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
 	a.logger.Tracef("AddCharmWithAuthorization %+v", args)
 	return a.addCharmWithAuthorization(args)
 }
@@ -343,7 +344,7 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.  Channel provided via CharmOrigin.
-func (a *API) ResolveCharms(args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
+func (a *API) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
 	a.logger.Tracef("ResolveCharms %+v", args)
 	if err := a.checkCanRead(); err != nil {
 		return params.ResolveCharmWithChannelResults{}, errors.Trace(err)
@@ -435,8 +436,8 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.  Channel provided via CharmOrigin.
 // We need to include SupportedSeries in facade version 6
-func (a *APIv6) ResolveCharms(args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResultsV6, error) {
-	res, err := a.API.ResolveCharms(args)
+func (a *APIv6) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResultsV6, error) {
+	res, err := a.API.ResolveCharms(ctx, args)
 	if err != nil {
 		return params.ResolveCharmWithChannelResultsV6{}, errors.Trace(err)
 	}
@@ -514,7 +515,7 @@ func (a *API) getCharmRepository(src corecharm.Source) (corecharm.Repository, er
 // IsMetered returns whether or not the charm is metered.
 // TODO (cderici) only used for metered charms in cmd MeteredDeployAPI,
 // kept for client compatibility, remove in juju 4.0
-func (a *API) IsMetered(args params.CharmURL) (params.IsMeteredResult, error) {
+func (a *API) IsMetered(ctx context.Context, args params.CharmURL) (params.IsMeteredResult, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.IsMeteredResult{}, errors.Trace(err)
 	}
@@ -535,7 +536,7 @@ func (a *API) IsMetered(args params.CharmURL) (params.IsMeteredResult, error) {
 
 // CheckCharmPlacement checks if a charm is allowed to be placed with in a
 // given application.
-func (a *API) CheckCharmPlacement(args params.ApplicationCharmPlacements) (params.ErrorResults, error) {
+func (a *API) CheckCharmPlacement(ctx context.Context, args params.ApplicationCharmPlacements) (params.ErrorResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -675,7 +676,7 @@ func (a *API) getMachineArch(machine charmsinterfaces.Machine) (arch.Arch, error
 }
 
 // ListCharmResources returns a series of resources for a given charm.
-func (a *API) ListCharmResources(args params.CharmURLAndOrigins) (params.CharmResourcesResults, error) {
+func (a *API) ListCharmResources(ctx context.Context, args params.CharmURLAndOrigins) (params.CharmResourcesResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.CharmResourcesResults{}, errors.Trace(err)
 	}

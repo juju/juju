@@ -4,6 +4,8 @@
 package block
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -49,7 +51,7 @@ func (a *API) checkCanWrite() error {
 }
 
 // List implements Block.List().
-func (a *API) List() (params.BlockResults, error) {
+func (a *API) List(ctx context.Context) (params.BlockResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.BlockResults{}, err
 	}
@@ -82,7 +84,7 @@ func convertBlock(b state.Block) params.BlockResult {
 }
 
 // SwitchBlockOn implements Block.SwitchBlockOn().
-func (a *API) SwitchBlockOn(args params.BlockSwitchParams) params.ErrorResult {
+func (a *API) SwitchBlockOn(ctx context.Context, args params.BlockSwitchParams) params.ErrorResult {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}
@@ -92,7 +94,7 @@ func (a *API) SwitchBlockOn(args params.BlockSwitchParams) params.ErrorResult {
 }
 
 // SwitchBlockOff implements Block.SwitchBlockOff().
-func (a *API) SwitchBlockOff(args params.BlockSwitchParams) params.ErrorResult {
+func (a *API) SwitchBlockOff(ctx context.Context, args params.BlockSwitchParams) params.ErrorResult {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}

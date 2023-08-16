@@ -4,6 +4,7 @@
 package cloud
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -29,18 +30,18 @@ import (
 
 // CloudV7 defines the methods on the cloud API facade, version 7.
 type CloudV7 interface {
-	AddCloud(cloudArgs params.AddCloudArgs) error
-	AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error)
-	CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error)
-	Cloud(args params.Entities) (params.CloudResults, error)
-	Clouds() (params.CloudsResult, error)
-	Credential(args params.Entities) (params.CloudCredentialResults, error)
-	CredentialContents(credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
-	ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
-	RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error)
-	UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
-	UserCredentials(args params.UserClouds) (params.StringsResults, error)
-	UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error)
+	AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs) error
+	AddCredentials(ctx context.Context, args params.TaggedCredentials) (params.ErrorResults, error)
+	CheckCredentialsModels(ctx context.Context, args params.TaggedCredentials) (params.UpdateCredentialResults, error)
+	Cloud(ctx context.Context, args params.Entities) (params.CloudResults, error)
+	Clouds(ctx context.Context) (params.CloudsResult, error)
+	Credential(ctx context.Context, args params.Entities) (params.CloudCredentialResults, error)
+	CredentialContents(ctx context.Context, credentialArgs params.CloudCredentialArgs) (params.CredentialContentResults, error)
+	ModifyCloudAccess(ctx context.Context, args params.ModifyCloudAccessRequest) (params.ErrorResults, error)
+	RevokeCredentialsCheckModels(ctx context.Context, args params.RevokeCredentialArgs) (params.ErrorResults, error)
+	UpdateCredentialsCheckModels(ctx context.Context, args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error)
+	UserCredentials(ctx context.Context, args params.UserClouds) (params.StringsResults, error)
+	UpdateCloud(ctx context.Context, cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error)
 }
 
 // CloudAPI implements the cloud interface and is the concrete implementation
@@ -107,7 +108,7 @@ func (api *CloudAPI) canAccessCloud(cloud string, user names.UserTag, access per
 
 // Clouds returns the definitions of all clouds supported by the controller
 // that the logged in user can see.
-func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
+func (api *CloudAPI) Clouds(ctx context.Context) (params.CloudsResult, error) {
 	var result params.CloudsResult
 	clouds, err := api.backend.Clouds()
 	if err != nil {
@@ -139,7 +140,7 @@ func (api *CloudAPI) Clouds() (params.CloudsResult, error) {
 }
 
 // Cloud returns the cloud definitions for the specified clouds.
-func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
+func (api *CloudAPI) Cloud(ctx context.Context, args params.Entities) (params.CloudResults, error) {
 	results := params.CloudResults{
 		Results: make([]params.CloudResult, len(args.Entities)),
 	}
@@ -184,7 +185,7 @@ func (api *CloudAPI) Cloud(args params.Entities) (params.CloudResults, error) {
 }
 
 // CloudInfo returns information about the specified clouds.
-func (api *CloudAPI) CloudInfo(args params.Entities) (params.CloudInfoResults, error) {
+func (api *CloudAPI) CloudInfo(ctx context.Context, args params.Entities) (params.CloudInfoResults, error) {
 	results := params.CloudInfoResults{
 		Results: make([]params.CloudInfoResult, len(args.Entities)),
 	}
@@ -276,7 +277,7 @@ func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error)
 // ListCloudInfo returns clouds that the specified user has access to.
 // Controller admins (superuser) can list clouds for any user.
 // Other users can only ask about their own clouds.
-func (api *CloudAPI) ListCloudInfo(req params.ListCloudsRequest) (params.ListCloudInfoResults, error) {
+func (api *CloudAPI) ListCloudInfo(ctx context.Context, req params.ListCloudsRequest) (params.ListCloudInfoResults, error) {
 	result := params.ListCloudInfoResults{}
 
 	userTag, err := names.ParseUserTag(req.UserTag)
@@ -300,7 +301,7 @@ func (api *CloudAPI) ListCloudInfo(req params.ListCloudsRequest) (params.ListClo
 }
 
 // UserCredentials returns the cloud credentials for a set of users.
-func (api *CloudAPI) UserCredentials(args params.UserClouds) (params.StringsResults, error) {
+func (api *CloudAPI) UserCredentials(ctx context.Context, args params.UserClouds) (params.StringsResults, error) {
 	results := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.UserClouds)),
 	}
@@ -345,7 +346,7 @@ func (api *CloudAPI) UserCredentials(args params.UserClouds) (params.StringsResu
 // In contrast to UpdateCredentials() below, the new credentials can be
 // for a cloud that the controller does not manage (this is required
 // for CAAS models)
-func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.ErrorResults, error) {
+func (api *CloudAPI) AddCredentials(ctx context.Context, args params.TaggedCredentials) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
@@ -385,7 +386,7 @@ func (api *CloudAPI) AddCredentials(args params.TaggedCredentials) (params.Error
 // cloud instances are not going to be accessible with corresponding credential,
 // there will be detailed validation errors per model.
 // There's no Juju API client which uses this, but JAAS does,
-func (api *CloudAPI) CheckCredentialsModels(args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
+func (api *CloudAPI) CheckCredentialsModels(ctx context.Context, args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
 	return api.commonUpdateCredentials(false, false, true, args)
 }
 
@@ -396,7 +397,7 @@ func (api *CloudAPI) CheckCredentialsModels(args params.TaggedCredentials) (para
 // separately and do not contribute to the overall method error status.
 // Controller admins can 'force' an update of the credential
 // regardless of whether it is deemed valid or not.
-func (api *CloudAPI) UpdateCredentialsCheckModels(args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error) {
+func (api *CloudAPI) UpdateCredentialsCheckModels(ctx context.Context, args params.UpdateCredentialArgs) (params.UpdateCredentialResults, error) {
 	return api.commonUpdateCredentials(true, args.Force, false, params.TaggedCredentials{Credentials: args.Credentials})
 }
 
@@ -557,7 +558,7 @@ func modelsPretty(in map[string]string) string {
 // RevokeCredentialsCheckModels revokes a set of cloud credentials.
 // If the credentials are used by any of the models, the credential deletion will be aborted.
 // If credential-in-use needs to be revoked nonetheless, this method allows the use of force.
-func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialArgs) (params.ErrorResults, error) {
+func (api *CloudAPI) RevokeCredentialsCheckModels(ctx context.Context, args params.RevokeCredentialArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Credentials)),
 	}
@@ -622,7 +623,7 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(args params.RevokeCredentialAr
 }
 
 // Credential returns the specified cloud credential for each tag, minus secrets.
-func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialResults, error) {
+func (api *CloudAPI) Credential(ctx context.Context, args params.Entities) (params.CloudCredentialResults, error) {
 	results := params.CloudCredentialResults{
 		Results: make([]params.CloudCredentialResult, len(args.Entities)),
 	}
@@ -700,7 +701,7 @@ func (api *CloudAPI) Credential(args params.Entities) (params.CloudCredentialRes
 }
 
 // AddCloud adds a new cloud, different from the one managed by the controller.
-func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
+func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs) error {
 	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
 	if err != nil {
 		return err
@@ -735,7 +736,7 @@ func (api *CloudAPI) AddCloud(cloudArgs params.AddCloudArgs) error {
 }
 
 // UpdateCloud updates an existing cloud that the controller knows about.
-func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error) {
+func (api *CloudAPI) UpdateCloud(ctx context.Context, cloudArgs params.UpdateCloudArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(cloudArgs.Clouds)),
 	}
@@ -754,7 +755,7 @@ func (api *CloudAPI) UpdateCloud(cloudArgs params.UpdateCloudArgs) (params.Error
 
 // RemoveClouds removes the specified clouds from the controller.
 // If a cloud is in use (has models deployed to it), the removal will fail.
-func (api *CloudAPI) RemoveClouds(args params.Entities) (params.ErrorResults, error) {
+func (api *CloudAPI) RemoveClouds(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -793,7 +794,7 @@ func (api *CloudAPI) RemoveClouds(args params.Entities) (params.ErrorResults, er
 // are returned.
 // Only credential owner can see its contents as well as what models use it.
 // Controller admin has no special superpowers here and is treated the same as all other users.
-func (api *CloudAPI) CredentialContents(args params.CloudCredentialArgs) (params.CredentialContentResults, error) {
+func (api *CloudAPI) CredentialContents(ctx context.Context, args params.CloudCredentialArgs) (params.CredentialContentResults, error) {
 	return api.internalCredentialContents(args, true)
 }
 
@@ -908,7 +909,7 @@ func (api *CloudAPI) internalCredentialContents(args params.CloudCredentialArgs,
 }
 
 // ModifyCloudAccess changes the model access granted to users.
-func (c *CloudAPI) ModifyCloudAccess(args params.ModifyCloudAccessRequest) (params.ErrorResults, error) {
+func (c *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyCloudAccessRequest) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}

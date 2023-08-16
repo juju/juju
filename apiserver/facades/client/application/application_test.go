@@ -105,7 +105,7 @@ func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.
 }
 
 func (s *applicationSuite) assertApplicationDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
 			CharmOrigin:     createCharmOriginFromURL(curl),
@@ -120,7 +120,7 @@ func (s *applicationSuite) assertApplicationDeployPrincipal(c *gc.C, curl *charm
 }
 
 func (s *applicationSuite) assertApplicationDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, mem4g constraints.Value) {
-	_, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+	_, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
 			CharmOrigin:     createCharmOriginFromURL(curl),
@@ -151,7 +151,7 @@ func (s *applicationSuite) TestBlockChangesApplicationDeployPrincipal(c *gc.C) {
 
 func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
 	curl, ch := s.addCharmToState(c, "ch:utopic/logging-47", "logging")
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
 			CharmOrigin:     createCharmOriginFromURL(curl),
@@ -185,7 +185,7 @@ func (s *applicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Se
 
 func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
 			CharmOrigin:     createCharmOriginFromURL(curl),
@@ -210,7 +210,7 @@ func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
 	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
 			CharmOrigin:     createCharmOriginFromURL(curl),
@@ -240,7 +240,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	err = machine.SetProvisioned(instId, "", "fake-nonce", hwChar)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
 			CharmOrigin:     createCharmOriginFromURL(curl),
@@ -289,7 +289,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 	err = machine.SetProvisioned(instId, "", "fake-nonce", hwChar)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
 			CharmOrigin:     createCharmOriginFromURL(curl),
@@ -344,7 +344,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	err = machine.SetProvisioned(instId, "", "fake-nonce", hwChar)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        curl.String(),
 			CharmOrigin:     createCharmOriginFromURL(curl),
@@ -385,7 +385,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
-	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
+	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        "ch:jammy/application-name-1",
 			CharmOrigin:     &params.CharmOrigin{Source: "charm-hub", Base: params.Base{Name: "ubuntu", Channel: "22.04/stable"}},
@@ -464,7 +464,7 @@ func (s *applicationSuite) TestClientAddApplicationUnits(c *gc.C) {
 		if t.to != "" {
 			args.Placement = []*instance.Placement{instance.MustParsePlacement(t.to)}
 		}
-		result, err := s.applicationAPI.AddUnits(args)
+		result, err := s.applicationAPI.AddUnits(context.Background(), args)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
@@ -490,7 +490,7 @@ func (s *applicationSuite) TestAddApplicationUnitsToNewContainer(c *gc.C) {
 	machine, err := s.ControllerModel(c).State().AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.applicationAPI.AddUnits(params.AddApplicationUnits{
+	_, err = s.applicationAPI.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "dummy",
 		NumUnits:        1,
 		Placement:       []*instance.Placement{instance.MustParsePlacement("lxd:" + machine.Id())},
@@ -547,7 +547,7 @@ func (s *applicationSuite) TestAddApplicationUnits(c *gc.C) {
 		if applicationName == "" {
 			applicationName = "dummy"
 		}
-		result, err := s.applicationAPI.AddUnits(params.AddApplicationUnits{
+		result, err := s.applicationAPI.AddUnits(context.Background(), params.AddApplicationUnits{
 			ApplicationName: applicationName,
 			NumUnits:        len(t.expected),
 			Placement:       t.placement,
@@ -569,7 +569,7 @@ func (s *applicationSuite) TestAddApplicationUnits(c *gc.C) {
 }
 
 func (s *applicationSuite) assertAddApplicationUnits(c *gc.C) {
-	result, err := s.applicationAPI.AddUnits(params.AddApplicationUnits{
+	result, err := s.applicationAPI.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "dummy",
 		NumUnits:        3,
 	})
@@ -602,10 +602,10 @@ func (s *applicationSuite) TestApplicationCharmRelations(c *gc.C) {
 	_, err = st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.applicationAPI.CharmRelations(params.ApplicationCharmRelations{ApplicationName: "blah"})
+	_, err = s.applicationAPI.CharmRelations(context.Background(), params.ApplicationCharmRelations{ApplicationName: "blah"})
 	c.Assert(err, gc.ErrorMatches, `application "blah" not found`)
 
-	result, err := s.applicationAPI.CharmRelations(params.ApplicationCharmRelations{ApplicationName: "wordpress"})
+	result, err := s.applicationAPI.CharmRelations(context.Background(), params.ApplicationCharmRelations{ApplicationName: "wordpress"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.CharmRelations, gc.DeepEquals, []string{
 		"cache", "db", "juju-info", "logging-dir", "monitoring-port", "url",
@@ -613,7 +613,7 @@ func (s *applicationSuite) TestApplicationCharmRelations(c *gc.C) {
 }
 
 func (s *applicationSuite) assertAddApplicationUnitsBlocked(c *gc.C, msg string) {
-	_, err := s.applicationAPI.AddUnits(params.AddApplicationUnits{
+	_, err := s.applicationAPI.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "dummy",
 		NumUnits:        3,
 	})
@@ -660,7 +660,7 @@ func (s *applicationSuite) TestAddUnitToMachineNotFound(c *gc.C) {
 		Name:  "dummy",
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
 	})
-	_, err := s.applicationAPI.AddUnits(params.AddApplicationUnits{
+	_, err := s.applicationAPI.AddUnits(context.Background(), params.AddApplicationUnits{
 		ApplicationName: "dummy",
 		NumUnits:        3,
 		Placement:       []*instance.Placement{instance.MustParsePlacement("42")},
@@ -698,7 +698,7 @@ func (s *applicationSuite) TestApplicationExposeEndpoints(c *gc.C) {
 	})
 	c.Assert(app.IsExposed(), jc.IsFalse)
 
-	err := s.applicationAPI.Expose(params.ApplicationExpose{
+	err := s.applicationAPI.Expose(context.Background(), params.ApplicationExpose{
 		ApplicationName: app.Name(),
 		ExposedEndpoints: map[string]params.ExposedEndpoint{
 			// Exposing an endpoint with no expose options implies
@@ -727,7 +727,7 @@ func (s *applicationSuite) TestApplicationExposeEndpointsWithPre29Client(c *gc.C
 	})
 	c.Assert(app.IsExposed(), jc.IsFalse)
 
-	err := s.applicationAPI.Expose(params.ApplicationExpose{
+	err := s.applicationAPI.Expose(context.Background(), params.ApplicationExpose{
 		ApplicationName: app.Name(),
 		// If no endpoint-specific expose params are provided, the call
 		// will emulate the behavior of a pre 2.9 controller where all
@@ -838,7 +838,7 @@ var applicationExposeTests = []struct {
 func (s *applicationSuite) assertApplicationExpose(c *gc.C) {
 	for i, t := range applicationExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Expose(params.ApplicationExpose{
+		err := s.applicationAPI.Expose(context.Background(), params.ApplicationExpose{
 			ApplicationName:  t.application,
 			ExposedEndpoints: t.exposedEndpointParams,
 		})
@@ -857,7 +857,7 @@ func (s *applicationSuite) assertApplicationExpose(c *gc.C) {
 func (s *applicationSuite) assertApplicationExposeBlocked(c *gc.C, msg string) {
 	for i, t := range applicationExposeTests {
 		c.Logf("test %d. %s", i, t.about)
-		err := s.applicationAPI.Expose(params.ApplicationExpose{
+		err := s.applicationAPI.Expose(context.Background(), params.ApplicationExpose{
 			ApplicationName:  t.application,
 			ExposedEndpoints: t.exposedEndpointParams,
 		})
@@ -954,7 +954,7 @@ func (s *applicationSuite) TestApplicationUnexpose(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		c.Assert(app.IsExposed(), gc.Equals, len(t.initial) != 0)
-		err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{
+		err := s.applicationAPI.Unexpose(context.Background(), params.ApplicationUnexpose{
 			ApplicationName:  t.application,
 			ExposedEndpoints: t.unexposeEndpoints,
 		})
@@ -985,7 +985,7 @@ func (s *applicationSuite) setupApplicationUnexpose(c *gc.C) *state.Application 
 }
 
 func (s *applicationSuite) assertApplicationUnexpose(c *gc.C, app *state.Application) {
-	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{ApplicationName: "dummy-application"})
+	err := s.applicationAPI.Unexpose(context.Background(), params.ApplicationUnexpose{ApplicationName: "dummy-application"})
 	c.Assert(err, jc.ErrorIsNil)
 	app.Refresh()
 	c.Assert(app.IsExposed(), gc.Equals, false)
@@ -994,7 +994,7 @@ func (s *applicationSuite) assertApplicationUnexpose(c *gc.C, app *state.Applica
 }
 
 func (s *applicationSuite) assertApplicationUnexposeBlocked(c *gc.C, app *state.Application, msg string) {
-	err := s.applicationAPI.Unexpose(params.ApplicationUnexpose{ApplicationName: "dummy-application"})
+	err := s.applicationAPI.Unexpose(context.Background(), params.ApplicationUnexpose{ApplicationName: "dummy-application"})
 	s.AssertBlocked(c, err, msg)
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1029,7 +1029,7 @@ func (s *applicationSuite) TestClientSetApplicationConstraints(c *gc.C) {
 	// Update constraints for the application.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.applicationAPI.SetConstraints(params.SetConstraints{ApplicationName: "dummy", Constraints: cons})
+	err = s.applicationAPI.SetConstraints(context.Background(), params.SetConstraints{ApplicationName: "dummy", Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the constraints have been correctly updated.
@@ -1052,7 +1052,7 @@ func (s *applicationSuite) setupSetApplicationConstraints(c *gc.C) (*state.Appli
 }
 
 func (s *applicationSuite) assertSetApplicationConstraints(c *gc.C, application *state.Application, cons constraints.Value) {
-	err := s.applicationAPI.SetConstraints(params.SetConstraints{ApplicationName: "dummy", Constraints: cons})
+	err := s.applicationAPI.SetConstraints(context.Background(), params.SetConstraints{ApplicationName: "dummy", Constraints: cons})
 	c.Assert(err, jc.ErrorIsNil)
 	// Ensure the constraints have been correctly updated.
 	obtained, err := application.Constraints()
@@ -1061,7 +1061,7 @@ func (s *applicationSuite) assertSetApplicationConstraints(c *gc.C, application 
 }
 
 func (s *applicationSuite) assertSetApplicationConstraintsBlocked(c *gc.C, msg string, application *state.Application, cons constraints.Value) {
-	err := s.applicationAPI.SetConstraints(params.SetConstraints{ApplicationName: "dummy", Constraints: cons})
+	err := s.applicationAPI.SetConstraints(context.Background(), params.SetConstraints{ApplicationName: "dummy", Constraints: cons})
 	s.AssertBlocked(c, err, msg)
 }
 
@@ -1097,7 +1097,7 @@ func (s *applicationSuite) TestClientGetApplicationConstraints(c *gc.C) {
 		Constraints: barConstraints,
 	})
 
-	results, err := s.applicationAPI.GetConstraints(params.Entities{
+	results, err := s.applicationAPI.GetConstraints(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "wat"}, {Tag: "machine-0"}, {Tag: "user-foo"},
 			{Tag: "application-foo"}, {Tag: "application-bar"}, {Tag: "application-wat"},
