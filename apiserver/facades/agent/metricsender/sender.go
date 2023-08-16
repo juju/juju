@@ -5,6 +5,7 @@ package metricsender
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -19,7 +20,7 @@ type HTTPSender struct {
 }
 
 // Send sends the given metrics to the collector service.
-func (s *HTTPSender) Send(metrics []*wireformat.MetricBatch) (*wireformat.Response, error) {
+func (s *HTTPSender) Send(ctx context.Context, metrics []*wireformat.MetricBatch) (*wireformat.Response, error) {
 	b, err := json.Marshal(metrics)
 	if err != nil {
 		return nil, errors.Trace(err)

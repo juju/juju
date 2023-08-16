@@ -4,6 +4,8 @@
 package metricsender
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -17,7 +19,7 @@ var logger = loggo.GetLogger("juju.apiserver.metricsender")
 // MetricSender defines the interface used to send metrics
 // to a collection service.
 type MetricSender interface {
-	Send([]*wireformat.MetricBatch) (*wireformat.Response, error)
+	Send(context.Context, []*wireformat.MetricBatch) (*wireformat.Response, error)
 }
 
 type SenderFactory func(url string) MetricSender
@@ -109,7 +111,7 @@ func SendMetrics(st ModelBackend, sender MetricSender, clock clock.Clock, batchS
 				wireData = append(wireData, ToWire(m, modelName))
 			}
 		}
-		response, err := sender.Send(wireData)
+		response, err := sender.Send(context.Background(), wireData)
 		if err != nil {
 			logger.Errorf("%+v", err)
 			if incErr := metricsManager.IncrementConsecutiveErrors(); incErr != nil {

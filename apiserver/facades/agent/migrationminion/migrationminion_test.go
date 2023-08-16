@@ -4,6 +4,8 @@
 package migrationminion_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -71,14 +73,14 @@ func (s *Suite) TestAuthNotAgent(c *gc.C) {
 
 func (s *Suite) TestWatch(c *gc.C) {
 	api := s.mustMakeAPI(c)
-	result, err := api.Watch()
+	result, err := api.Watch(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.resources.Get(result.NotifyWatcherId), gc.NotNil)
 }
 
 func (s *Suite) TestReport(c *gc.C) {
 	api := s.mustMakeAPI(c)
-	err := api.Report(params.MinionReport{
+	err := api.Report(context.Background(), params.MinionReport{
 		MigrationId: "id",
 		Phase:       "IMPORT",
 		Success:     true,
@@ -92,7 +94,7 @@ func (s *Suite) TestReport(c *gc.C) {
 
 func (s *Suite) TestReportInvalidPhase(c *gc.C) {
 	api := s.mustMakeAPI(c)
-	err := api.Report(params.MinionReport{
+	err := api.Report(context.Background(), params.MinionReport{
 		MigrationId: "id",
 		Phase:       "WTF",
 		Success:     true,
@@ -104,7 +106,7 @@ func (s *Suite) TestReportNoSuchMigration(c *gc.C) {
 	failure := errors.NotFoundf("model")
 	s.backend.modelLookupErr = failure
 	api := s.mustMakeAPI(c)
-	err := api.Report(params.MinionReport{
+	err := api.Report(context.Background(), params.MinionReport{
 		MigrationId: "id",
 		Phase:       "QUIESCE",
 		Success:     false,

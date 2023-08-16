@@ -4,6 +4,7 @@
 package metricsadder_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -108,7 +109,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatch(c *gc.C) {
 	}}
 	uuid := utils.MustNewUUID().String()
 
-	result, err := s.adder.AddMetricBatches(params.MetricBatchParams{
+	result, err := s.adder.AddMetricBatches(context.Background(), params.MetricBatchParams{
 		Batches: []params.MetricBatchParam{{
 			Tag: s.meteredUnit.Tag().String(),
 			Batch: params.MetricBatch{
@@ -144,7 +145,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
 	uuid := utils.MustNewUUID().String()
 
-	result, err := s.adder.AddMetricBatches(params.MetricBatchParams{
+	result, err := s.adder.AddMetricBatches(context.Background(), params.MetricBatchParams{
 		Batches: []params.MetricBatchParam{{
 			Tag: s.meteredUnit.Tag().String(),
 			Batch: params.MetricBatch{
@@ -195,7 +196,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %s -> %s", i, test.about, test.tag)
-		result, err := s.adder.AddMetricBatches(params.MetricBatchParams{
+		result, err := s.adder.AddMetricBatches(context.Background(), params.MetricBatchParams{
 			Batches: []params.MetricBatchParam{{
 				Tag: test.tag,
 				Batch: params.MetricBatch{

@@ -5,6 +5,7 @@
 package machineactions_test
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/names/v4"
@@ -51,7 +52,7 @@ func (*FacadeSuite) TestRunningActions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	stub.SetErrors(errors.New("boom"))
-	results := facade.RunningActions(entities(
+	results := facade.RunningActions(context.Background(), entities(
 		"valid", // we will cause this one to err out
 		"valid",
 		"invalid",

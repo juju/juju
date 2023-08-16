@@ -4,6 +4,8 @@
 package machine
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -75,7 +77,7 @@ func (api *MachinerAPI) getMachine(tag string, authChecker common.AuthFunc) (*st
 	return entity.(*state.Machine), nil
 }
 
-func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (params.ErrorResults, error) {
+func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
 	}
@@ -102,7 +104,7 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 }
 
 // Jobs returns the jobs assigned to the given entities.
-func (api *MachinerAPI) Jobs(args params.Entities) (params.JobsResults, error) {
+func (api *MachinerAPI) Jobs(ctx context.Context, args params.Entities) (params.JobsResults, error) {
 	result := params.JobsResults{
 		Results: make([]params.JobsResult, len(args.Entities)),
 	}
@@ -129,7 +131,7 @@ func (api *MachinerAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 }
 
 // RecordAgentStartTime updates the agent start time field in the machine doc.
-func (api *MachinerAPI) RecordAgentStartTime(args params.Entities) (params.ErrorResults, error) {
+func (api *MachinerAPI) RecordAgentStartTime(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -153,7 +155,7 @@ func (api *MachinerAPI) RecordAgentStartTime(args params.Entities) (params.Error
 
 // RecordAgentStartInformation syncs the machine model with information
 // reported by a machine agent when it starts.
-func (api *MachinerAPI) RecordAgentStartInformation(args params.RecordAgentStartInformationArgs) (params.ErrorResults, error) {
+func (api *MachinerAPI) RecordAgentStartInformation(ctx context.Context, args params.RecordAgentStartInformationArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -176,7 +178,7 @@ func (api *MachinerAPI) RecordAgentStartInformation(args params.RecordAgentStart
 }
 
 // APIHostPorts returns the API server addresses.
-func (api *MachinerAPI) APIHostPorts() (result params.APIHostPortsResult, err error) {
+func (api *MachinerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
 	controllerConfig, err := api.st.ControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -186,7 +188,7 @@ func (api *MachinerAPI) APIHostPorts() (result params.APIHostPortsResult, err er
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-func (api *MachinerAPI) APIAddresses() (result params.StringsResult, err error) {
+func (api *MachinerAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
 	controllerConfig, err := api.st.ControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
