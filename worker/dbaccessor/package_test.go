@@ -5,17 +5,16 @@ package dbaccessor
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 	"time"
 
-	"github.com/canonical/sqlair"
 	jujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/tomb.v2"
 
-	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/database/app"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 	jujujujutesting "github.com/juju/juju/testing"
 )
@@ -38,8 +37,8 @@ type baseSuite struct {
 	timer                *MockTimer
 	dbApp                *MockDBApp
 	client               *MockClient
-	trackedDB            *MockTrackedDB
 	prometheusRegisterer *MockRegisterer
+	nodeManager          *MockNodeManager
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -50,8 +49,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.hub = NewMockHub(ctrl)
 	s.dbApp = NewMockDBApp(ctrl)
 	s.client = NewMockClient(ctrl)
-	s.trackedDB = NewMockTrackedDB(ctrl)
 	s.prometheusRegisterer = NewMockRegisterer(ctrl)
+	s.nodeManager = NewMockNodeManager(ctrl)
 
 	s.logger = jujujujutesting.CheckLogger{
 		Log: c,
@@ -62,10 +61,6 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *baseSuite) expectClock() {
 	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
-}
-
-func (s *baseSuite) expectAnyAfter() {
-	s.clock.EXPECT().After(gomock.Any()).AnyTimes()
 }
 
 func (s *baseSuite) setupTimer(interval time.Duration) chan time.Time {
@@ -94,12 +89,33 @@ func (s *baseSuite) expectTimer(ticks int) <-chan struct{} {
 	return s.expectTick(ch, ticks)
 }
 
-// expectTrackedDBKill accommodates termination of the TrackedDB.
-// the expectations are soft, because the worker may not have called the
-// NewDBWorker function before it is killed.
-func (s *baseSuite) expectTrackedDBKill() {
-	s.trackedDB.EXPECT().Kill().AnyTimes()
-	s.trackedDB.EXPECT().Wait().Return(nil).AnyTimes()
+func (s *baseSuite) expectNodeStartupAndShutdown() {
+	appExp := s.dbApp.EXPECT()
+	appExp.Ready(gomock.Any()).Return(nil)
+	appExp.Client(gomock.Any()).Return(s.client, nil).MinTimes(1)
+	appExp.ID().Return(uint64(666))
+	appExp.Close().Return(nil)
+}
+
+func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
+	cfg := WorkerConfig{
+		NodeManager:  s.nodeManager,
+		Clock:        s.clock,
+		Hub:          s.hub,
+		ControllerID: "0",
+		Logger:       s.logger,
+		NewApp: func(string, ...app.Option) (DBApp, error) {
+			return s.dbApp, nil
+		},
+		NewDBWorker: func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
+			return db, nil
+		},
+		MetricsCollector: &Collector{},
+	}
+
+	w, err := NewWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	return w
 }
 
 type dbBaseSuite struct {
@@ -107,36 +123,10 @@ type dbBaseSuite struct {
 	baseSuite
 }
 
-type workerTrackedDB struct {
-	tomb tomb.Tomb
-	db   coredatabase.TxnRunner
-}
-
-func newWorkerTrackedDB(db coredatabase.TxnRunner) *workerTrackedDB {
-	w := &workerTrackedDB{
-		db: db,
+func ensureStartup(c *gc.C, w *dbWorker) {
+	select {
+	case <-w.dbReady:
+	case <-time.After(jujujujutesting.LongWait):
+		c.Fatal("timed out waiting for Dqlite node start")
 	}
-	w.tomb.Go(w.loop)
-	return w
-}
-
-func (w *workerTrackedDB) loop() error {
-	<-w.tomb.Dying()
-	return tomb.ErrDying
-}
-
-func (w *workerTrackedDB) Kill() {
-	w.tomb.Kill(nil)
-}
-
-func (w *workerTrackedDB) Wait() error {
-	return w.tomb.Wait()
-}
-
-func (w *workerTrackedDB) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
-	return w.db.Txn(ctx, fn)
-}
-
-func (w *workerTrackedDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
-	return w.db.StdTxn(ctx, fn)
 }
