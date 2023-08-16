@@ -28,14 +28,13 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
-	coretracer "github.com/juju/juju/core/tracer"
+	"github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/servicefactory"
-	"github.com/juju/juju/worker/tracer"
 )
 
 type objectKey struct {
@@ -541,7 +540,7 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 
 // StartTrace returns a new tracer for the given name.
 func (r *apiRoot) StartTrace(ctx context.Context) (context.Context, rpc.Span) {
-	return coretracer.Start(coretracer.WithTracer(ctx, r.tracer), tracer.WithAttributes(map[string]string{
+	return tracer.Start(tracer.WithTracer(ctx, r.tracer), tracer.WithAttributes(map[string]string{
 		"task": "apiserver",
 		"root": "api",
 	}))
@@ -626,7 +625,7 @@ func (r *adminRoot) FindMethod(rootName string, version int, methodName string) 
 
 // StartTrace starts a new trace based on the context.
 func (r *adminRoot) StartTrace(ctx context.Context) (context.Context, rpc.Span) {
-	return coretracer.Start(coretracer.WithTracer(ctx, r.tracer), tracer.WithAttributes(map[string]string{
+	return tracer.Start(tracer.WithTracer(ctx, r.tracer), tracer.WithAttributes(map[string]string{
 		"task": "apiserver",
 		"root": "admin",
 	}))

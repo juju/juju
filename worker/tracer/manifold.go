@@ -11,13 +11,14 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
+	coretracer "github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/worker/common"
 )
 
 // TracerGetter is the interface that is used to get a tracer.
 type TracerGetter interface {
 	// GetTracer returns a tracer for the given namespace.
-	GetTracer(namespace string) (Tracer, error)
+	GetTracer(namespace string) (coretracer.Tracer, error)
 }
 
 // Logger represents the logging methods called.

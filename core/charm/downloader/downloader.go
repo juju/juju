@@ -18,9 +18,8 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/lxdprofile"
-	coretracer "github.com/juju/juju/core/tracer"
+	"github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/tracer"
 )
 
 // Logger defines the logging methods that the package uses.
@@ -116,7 +115,7 @@ func NewDownloader(logger Logger, storage Storage, repoGetter RepositoryGetter) 
 //
 // The method ensures that all temporary resources are cleaned up before returning.
 func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithAttributes(map[string]string{
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(map[string]string{
 		"charm-url":            charmURL.String(),
 		"charm.origin.source":  string(requestedOrigin.Source),
 		"charm.origin.id":      requestedOrigin.ID,

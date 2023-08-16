@@ -21,9 +21,8 @@ import (
 	"github.com/juju/juju/core/charm/repository"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resources"
-	coretracer "github.com/juju/juju/core/tracer"
+	"github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/tracer"
 )
 
 // Backend is the functionality of Juju's state needed for the resources API.
@@ -151,7 +150,7 @@ func (a *API) ListResources(ctx context.Context, args params.ListResourcesArgs) 
 // model in a pending state, meaning they are not available until
 // resolved. Handles CharmHub and Local charms.
 func (a *API) AddPendingResources(ctx context.Context, args params.AddPendingResourcesArgsV2) (params.AddPendingResourcesResult, error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithAttributes(map[string]string{
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(map[string]string{
 		"charm.url":            args.URL,
 		"charm.origin.source":  args.CharmOrigin.Source,
 		"charm.origin.id":      args.CharmOrigin.ID,

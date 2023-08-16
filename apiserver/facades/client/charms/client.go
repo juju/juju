@@ -30,10 +30,9 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/permission"
-	coretracer "github.com/juju/juju/core/tracer"
+	"github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/tracer"
 )
 
 // APIv7 provides the Charms API facade for version 7.
@@ -128,7 +127,7 @@ func NewCharmsAPI(
 // If supplied parameter contains any names, the result will
 // be filtered to return only the charms with supplied names.
 func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsListResult, error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithName("List"))
+	ctx, span := tracer.Start(ctx, tracer.WithName("List"))
 	defer span.End()
 
 	a.logger.Tracef("List %+v", args)
@@ -159,7 +158,7 @@ func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsLi
 // GetDownloadInfos attempts to get the bundle corresponding to the charm url
 // and origin.
 func (a *API) GetDownloadInfos(ctx context.Context, args params.CharmURLAndOrigins) (params.DownloadInfoResults, error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithName("GetDownloadInfos"))
+	ctx, span := tracer.Start(ctx, tracer.WithName("GetDownloadInfos"))
 	defer span.End()
 
 	a.logger.Tracef("GetDownloadInfos %+v", args)
@@ -252,7 +251,7 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string, logger
 // environment, if it does not exist yet. Local charms are not supported,
 // only charm store and charm hub URLs. See also AddLocalCharm().
 func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (params.CharmOriginResult, error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithName("AddCharmWithAuthorization"))
+	ctx, span := tracer.Start(ctx, tracer.WithName("AddCharmWithAuthorization"))
 	defer span.End()
 
 	a.logger.Tracef("AddCharm %+v", args)
@@ -270,7 +269,7 @@ func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (par
 // Since the charm macaroons are no longer supported, this is the same as
 // AddCharm. We keep it for backwards compatibility in APIv5.
 func (a *APIv5) AddCharmWithAuthorization(ctx context.Context, args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithName("AddCharmWithAuthorization"))
+	ctx, span := tracer.Start(ctx, tracer.WithName("AddCharmWithAuthorization"))
 	defer span.End()
 
 	a.logger.Tracef("AddCharmWithAuthorization %+v", args)
@@ -359,7 +358,7 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.  Channel provided via CharmOrigin.
 func (a *API) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithName("ResolveCharms"))
+	ctx, span := tracer.Start(ctx, tracer.WithName("ResolveCharms"))
 	defer span.End()
 
 	a.logger.Tracef("ResolveCharms %+v", args)
@@ -454,7 +453,7 @@ func (a *API) resolveOneCharm(ctx context.Context, arg params.ResolveCharmWithCh
 // preferred channel.  Channel provided via CharmOrigin.
 // We need to include SupportedSeries in facade version 6
 func (a *APIv6) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResultsV6, error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithName("ResolveCharms"))
+	ctx, span := tracer.Start(ctx, tracer.WithName("ResolveCharms"))
 	defer span.End()
 
 	res, err := a.API.ResolveCharms(ctx, args)
@@ -557,7 +556,7 @@ func (a *API) IsMetered(ctx context.Context, args params.CharmURL) (params.IsMet
 // CheckCharmPlacement checks if a charm is allowed to be placed with in a
 // given application.
 func (a *API) CheckCharmPlacement(ctx context.Context, args params.ApplicationCharmPlacements) (params.ErrorResults, error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithName("CheckCharmPlacement"))
+	ctx, span := tracer.Start(ctx, tracer.WithName("CheckCharmPlacement"))
 	defer span.End()
 
 	if err := a.checkCanRead(); err != nil {
@@ -700,7 +699,7 @@ func (a *API) getMachineArch(machine charmsinterfaces.Machine) (arch.Arch, error
 
 // ListCharmResources returns a series of resources for a given charm.
 func (a *API) ListCharmResources(ctx context.Context, args params.CharmURLAndOrigins) (params.CharmResourcesResults, error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithName("ListCharmResources"))
+	ctx, span := tracer.Start(ctx, tracer.WithName("ListCharmResources"))
 	defer span.End()
 
 	if err := a.checkCanRead(); err != nil {

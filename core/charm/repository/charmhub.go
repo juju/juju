@@ -19,7 +19,6 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	coretracer "github.com/juju/juju/core/tracer"
-	"github.com/juju/juju/worker/tracer"
 )
 
 // CharmHubClient describes the API exposed by the charmhub client.
@@ -48,7 +47,7 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 // charm origin (platform and channel) to locate a matching charm against the
 // Charmhub API.
 func (c *CharmHubRepository) ResolveWithPreferredChannel(ctx context.Context, charmURL *charm.URL, argOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithAttributes(map[string]string{
+	ctx, span := coretracer.Start(ctx, coretracer.WithAttributes(map[string]string{
 		"charm-url":            charmURL.String(),
 		"charm.origin.source":  string(argOrigin.Source),
 		"charm.origin.id":      argOrigin.ID,

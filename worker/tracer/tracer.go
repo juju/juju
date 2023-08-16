@@ -16,68 +16,9 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/tomb.v2"
+
+	coretracer "github.com/juju/juju/core/tracer"
 )
-
-// TracerOptions are options that can be passed to the Tracer.Start() method.
-type TracerOption func(*tracerOption)
-
-type tracerOption struct {
-	name       string
-	attributes map[string]string
-	stackTrace bool
-}
-
-func WithAttributes(attributes map[string]string) TracerOption {
-	return func(o *tracerOption) {
-		o.attributes = attributes
-	}
-}
-
-func WithName(name string) TracerOption {
-	return func(o *tracerOption) {
-		o.name = name
-	}
-}
-
-func WithStackTrace() TracerOption {
-	return func(o *tracerOption) {
-		o.stackTrace = true
-	}
-}
-
-func newTracerOptions() *tracerOption {
-	return &tracerOption{}
-}
-
-// Tracer is the interface that all tracers must implement.
-type Tracer interface {
-	// Start creates a span and a context.Context containing the newly-created span.
-	//
-	// If the context.Context provided in `ctx` contains a Span then the newly-created
-	// Span will be a child of that span, otherwise it will be a root span. This behavior
-	// can be overridden by providing `WithNewRoot()` as a SpanOption, causing the
-	// newly-created Span to be a root span even if `ctx` contains a Span.
-	//
-	// When creating a Span it is recommended to provide all known span attributes using
-	// the `WithAttributes()` SpanOption as samplers will only have access to the
-	// attributes provided when a Span is created.
-	//
-	// Any Span that is created MUST also be ended. This is the responsibility of the user.
-	// Implementations of this API may leak memory or other resources if Spans are not ended.
-	Start(context.Context, string, ...TracerOption) (context.Context, Span)
-}
-
-// Span is the individual component of a trace. It represents a single named
-// and timed operation of a workflow that is traced. A Tracer is used to
-// create a Span and it is then up to the operation the Span represents to
-// properly end the Span when the operation itself ends.
-type Span interface {
-	// End completes the Span. The Span is considered complete and ready to be
-	// delivered through the rest of the telemetry pipeline after this method
-	// is called. Therefore, updates to the Span are not allowed after this
-	// method has been called.
-	End()
-}
 
 type tracer struct {
 	tomb tomb.Tomb
@@ -119,19 +60,19 @@ func (t *tracer) Wait() error {
 }
 
 // Start creates a span and a context.Context containing the newly-created span.
-func (t *tracer) Start(ctx context.Context, name string, opts ...TracerOption) (context.Context, Span) {
-	o := newTracerOptions()
+func (t *tracer) Start(ctx context.Context, name string, opts ...coretracer.Option) (context.Context, coretracer.Span) {
+	o := coretracer.NewTracerOptions()
 	for _, opt := range opts {
 		opt(o)
 	}
 
 	// Allows the override of the name.
-	if o.name != "" {
-		name = o.name
+	if n := o.Name(); n != "" {
+		name = n
 	}
 
 	var attrs []attribute.KeyValue
-	for k, v := range o.attributes {
+	for k, v := range o.Attributes() {
 		attrs = append(attrs, attribute.String(k, v))
 	}
 
@@ -145,7 +86,7 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...TracerOption) (
 	return ctx, &managedSpan{
 		span:       span,
 		cancel:     cancel,
-		stackTrace: o.stackTrace,
+		stackTrace: o.StackTrace(),
 	}
 }
 

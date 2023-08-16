@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	coretracer "github.com/juju/juju/core/tracer"
+	"github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/tracer"
 )
 
 var deployRepoLogger = logger.Child("deployfromrepository")
@@ -89,7 +88,7 @@ func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator Deplo
 }
 
 func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithName("DeployFromRepository"))
+	ctx, span := tracer.Start(ctx, tracer.WithName("DeployFromRepository"))
 	defer span.End()
 
 	deployRepoLogger.Tracef("deployOneFromRepository(%s)", pretty.Sprint(arg))

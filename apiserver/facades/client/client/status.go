@@ -24,10 +24,9 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	coretracer "github.com/juju/juju/core/tracer"
+	"github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/tracer"
 )
 
 func agentStatusFromStatusInfo(s []status.StatusInfo, kind status.HistoryKind) []params.DetailedStatus {
@@ -216,7 +215,7 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (params.FullStatus, error) {
-	_, span := coretracer.Start(ctx, tracer.WithName("FullStatus"))
+	_, span := tracer.Start(ctx, tracer.WithName("FullStatus"))
 	defer span.End()
 
 	if err := c.checkCanRead(); err != nil {

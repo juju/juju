@@ -5,8 +5,6 @@ package tracer
 
 import (
 	"context"
-
-	"github.com/juju/juju/worker/tracer"
 )
 
 type contextKey string
@@ -15,12 +13,12 @@ const tracerContextKey contextKey = "tracer"
 
 // FromContext returns a tracer from the context. If no tracer is found,
 // an empty tracer is returned.
-func FromContext(ctx context.Context) tracer.Tracer {
+func FromContext(ctx context.Context) Tracer {
 	value := ctx.Value(tracerContextKey)
 	if value == nil {
 		return noopTracer{}
 	}
-	tracer, ok := ctx.Value(tracerContextKey).(tracer.Tracer)
+	tracer, ok := ctx.Value(tracerContextKey).(Tracer)
 	if !ok {
 		return noopTracer{}
 	}
@@ -28,13 +26,13 @@ func FromContext(ctx context.Context) tracer.Tracer {
 }
 
 // WithTracer returns a new context with the given tracer.
-func WithTracer(ctx context.Context, tracer tracer.Tracer) context.Context {
+func WithTracer(ctx context.Context, tracer Tracer) context.Context {
 	return context.WithValue(ctx, tracerContextKey, tracer)
 }
 
 type noopTracer struct{}
 
-func (noopTracer) Start(ctx context.Context, name string, options ...tracer.TracerOption) (context.Context, tracer.Span) {
+func (noopTracer) Start(ctx context.Context, name string, options ...Option) (context.Context, Span) {
 	return ctx, noopSpan{}
 }
 

@@ -11,11 +11,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+
+	coretracer "github.com/juju/juju/core/tracer"
 )
 
 type TrackedTracer interface {
 	worker.Worker
-	Tracer
+	coretracer.Tracer
 }
 
 // WorkerConfig encapsulates the configuration options for the
@@ -121,7 +123,7 @@ func (w *tracerWorker) Wait() error {
 }
 
 // GetTracer returns a tracer for the given namespace.
-func (w *tracerWorker) GetTracer(namespace string) (Tracer, error) {
+func (w *tracerWorker) GetTracer(namespace string) (coretracer.Tracer, error) {
 	// First check if we've already got the tracer worker already running. If
 	// we have, then return out quickly. The tracerRunner is the cache, so there
 	// is no need to have a in-memory cache here.
@@ -162,13 +164,13 @@ func (w *tracerWorker) GetTracer(namespace string) (Tracer, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return tracked.(Tracer), nil
+	return tracked.(coretracer.Tracer), nil
 }
 
-func (w *tracerWorker) workerFromCache(namespace string) (Tracer, error) {
+func (w *tracerWorker) workerFromCache(namespace string) (coretracer.Tracer, error) {
 	// If the worker already exists, return the existing worker early.
 	if tracer, err := w.tracerRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return tracer.(Tracer), nil
+		return tracer.(coretracer.Tracer), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the DB runner is dead due to this worker dying.
 		select {

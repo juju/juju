@@ -21,10 +21,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/servicefactory"
-	"github.com/juju/juju/worker/tracer"
 )
 
 var (

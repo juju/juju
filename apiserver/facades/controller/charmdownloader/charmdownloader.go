@@ -15,10 +15,9 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	coretracer "github.com/juju/juju/core/tracer"
+	"github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/worker/tracer"
 )
 
 // CharmDownloaderAPI implements an API for watching the charms collection for
@@ -89,7 +88,7 @@ func (a *CharmDownloaderAPI) WatchApplicationsWithPendingCharms() (params.String
 // downloads any referenced charms that have not yet been persisted to the
 // blob store.
 func (a *CharmDownloaderAPI) DownloadApplicationCharms(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
-	ctx, span := coretracer.Start(ctx, tracer.WithName("DownloadApplicationCharms"))
+	ctx, span := tracer.Start(ctx, tracer.WithName("DownloadApplicationCharms"))
 	defer span.End()
 
 	if !a.authChecker.AuthController() {

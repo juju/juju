@@ -14,7 +14,6 @@ import (
 	multiwatcher "github.com/juju/juju/core/multiwatcher"
 	state "github.com/juju/juju/state"
 	servicefactory "github.com/juju/juju/worker/servicefactory"
-	tracer "github.com/juju/juju/worker/tracer"
 	loggo "github.com/juju/loggo"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
@@ -382,20 +381,6 @@ func (m *MockContext) StatePool() *state.StatePool {
 func (mr *MockContextMockRecorder) StatePool() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatePool", reflect.TypeOf((*MockContext)(nil).StatePool))
-}
-
-// Tracer mocks base method.
-func (m *MockContext) Tracer() tracer.Tracer {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Tracer")
-	ret0, _ := ret[0].(tracer.Tracer)
-	return ret0
-}
-
-// Tracer indicates an expected call of Tracer.
-func (mr *MockContextMockRecorder) Tracer() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tracer", reflect.TypeOf((*MockContext)(nil).Tracer))
 }
 
 // WatcherRegistry mocks base method.
