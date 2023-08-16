@@ -4,15 +4,24 @@
 package upgradesteps
 
 import (
+	"context"
+
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 
+// ControllerConfigGetter is an interface that provides access to the
+// controller configuration.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// UpgradeStepsState represents the state methods used by the upgrade steps
+// facade.
 type UpgradeStepsState interface {
 	state.EntityFinder
-	ControllerConfig() (controller.Config, error)
 	ApplyOperation(state.ModelOperation) error
 }
 

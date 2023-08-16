@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,9 +17,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
-
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/upgradesteps_mock.go github.com/juju/juju/apiserver/facades/agent/upgradesteps UpgradeStepsState,Machine,Unit
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity
 
 // UpgradeStepsV2 defines the methods on the version 2 facade for the
 // upgrade steps API endpoint.
@@ -35,15 +31,22 @@ type UpgradeStepsV1 interface {
 	ResetKVMMachineModificationStatusIdle(context.Context, params.Entity) (params.ErrorResult, error)
 }
 
+// Logger represents the logging methods used by the upgrade steps.
+type Logger interface {
+	Criticalf(string, ...any)
+	Warningf(string, ...any)
+}
+
 // UpgradeStepsAPI implements version 2 of the Upgrade Steps API,
 // which adds WriteUniterState.
 type UpgradeStepsAPI struct {
 	st                 UpgradeStepsState
+	ctrlConfigGetter   ControllerConfigGetter
 	resources          facade.Resources
 	authorizer         facade.Authorizer
 	getMachineAuthFunc common.GetAuthFunc
 	getUnitAuthFunc    common.GetAuthFunc
-	logger             loggo.Logger
+	logger             Logger
 }
 
 // UpgradeStepsAPIV1 implements version 1 of the Upgrade Steps API.
@@ -53,10 +56,12 @@ type UpgradeStepsAPIV1 struct {
 
 var _ UpgradeStepsV2 = (*UpgradeStepsAPI)(nil)
 
-func NewUpgradeStepsAPI(st UpgradeStepsState,
+func NewUpgradeStepsAPI(
+	st UpgradeStepsState,
+	ctrlConfigGetter ControllerConfigGetter,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	logger loggo.Logger,
+	logger Logger,
 ) (*UpgradeStepsAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -66,6 +71,7 @@ func NewUpgradeStepsAPI(st UpgradeStepsState,
 	getUnitAuthFunc := common.AuthFuncForTagKind(names.UnitTagKind)
 	return &UpgradeStepsAPI{
 		st:                 st,
+		ctrlConfigGetter:   ctrlConfigGetter,
 		resources:          resources,
 		authorizer:         authorizer,
 		getMachineAuthFunc: getMachineAuthFunc,
@@ -115,7 +121,7 @@ func (api *UpgradeStepsAPI) ResetKVMMachineModificationStatusIdle(ctx context.Co
 // WriteAgentState writes the agent state for the set of units provided. This
 // call presently deals with the state for the unit agent.
 func (api *UpgradeStepsAPI) WriteAgentState(ctx context.Context, args params.SetUnitStateArgs) (params.ErrorResults, error) {
-	ctrlCfg, err := api.st.ControllerConfig()
+	ctrlCfg, err := api.ctrlConfigGetter.ControllerConfig(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
