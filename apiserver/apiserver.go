@@ -24,7 +24,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/ratelimit"
-	"github.com/juju/worker/v3/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/tomb.v2"
 
@@ -49,7 +48,6 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/rpc"
@@ -426,20 +424,11 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		}
 	}
 
-	unsubscribe, err := cfg.Hub.Subscribe(apiserver.RestartTopic, func(string, map[string]interface{}) {
-		srv.tomb.Kill(dependency.ErrBounce)
-	})
-	if err != nil {
-		unsubscribeControllerConfig()
-		return nil, errors.Annotate(err, "unable to subscribe to restart message")
-	}
-
 	ready := make(chan struct{})
 	srv.tomb.Go(func() error {
 		defer srv.apiServerLoggers.dispose()
 		defer srv.logSinkWriter.Close()
 		defer srv.shared.Close()
-		defer unsubscribe()
 		defer unsubscribeControllerConfig()
 		return srv.loop(ready)
 	})

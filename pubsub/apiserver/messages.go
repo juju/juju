@@ -91,10 +91,6 @@ type PresenceResponse struct {
 // topics.
 type OriginTarget common.OriginTarget
 
-// RestartTopic is used by the API server to listen for events that should
-// cause the API server to be bounced.
-const RestartTopic = "apiserver.restart"
-
 // Restart message only contains the local-only indicator as the restart
 // is only ever for the same agent.
 type Restart common.LocalOnly

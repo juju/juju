@@ -11,14 +11,12 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	psapiserver "github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/testing"
 )
 
@@ -30,20 +28,6 @@ var _ = gc.Suite(&apiserverSuite{})
 
 func (s *apiserverSuite) TestCleanStop(c *gc.C) {
 	workertest.CleanKill(c, s.Server)
-}
-
-func (s *apiserverSuite) TestRestartMessage(c *gc.C) {
-	hub := apiserver.CentralHub(s.Server)
-	_, err := hub.Publish(psapiserver.RestartTopic, psapiserver.Restart{
-		LocalOnly: true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = workertest.CheckKilled(c, s.Server)
-	c.Assert(err, gc.ErrorMatches, "restart immediately")
-
-	err = workertest.CheckKilled(c, s.Server)
-	c.Assert(err, gc.Equals, dependency.ErrBounce)
-	s.Server = nil
 }
 
 func (s *apiserverSuite) getHealth(c *gc.C) (string, int) {
