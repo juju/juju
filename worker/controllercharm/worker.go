@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
-	"github.com/lxc/lxd/shared/logger"
 
 	"github.com/juju/juju/pubsub/agent"
 )
@@ -23,6 +22,7 @@ type Facade interface {
 // Logger allows logging messages.
 type Logger interface {
 	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
 	Errorf(string, ...interface{})
 }
 
@@ -73,21 +73,21 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("controllercharm worker started")
+	w.Logger.Infof("controllercharm worker started")
 	return &w, nil
 }
 
 func (w *controllerCharmWorker) handleAddMetricsUserRequest(_ string, data interface{}) {
-	logger.Debugf("received add-metrics-user request")
+	w.Logger.Debugf("received add-metrics-user request")
 	userInfo, ok := data.(agent.UserInfo)
 	if !ok {
 		w.Logger.Errorf("data for add-metrics-user request should be a UserInfo structure")
 		return
 	}
-	logger.Debugf("add-metrics-user request for username %q", userInfo.Username)
+	w.Logger.Debugf("add-metrics-user request for username %q", userInfo.Username)
 
 	err := w.Facade.AddMetricsUser(userInfo.Username, userInfo.Password)
-	logger.Debugf("response to add-metrics-user request: %s", err)
+	w.Logger.Debugf("response to add-metrics-user request: %s", err)
 
 	var response string
 	if err == nil {
@@ -99,7 +99,7 @@ func (w *controllerCharmWorker) handleAddMetricsUserRequest(_ string, data inter
 }
 
 func (w *controllerCharmWorker) handleRemoveMetricsUserRequest(_ string, data interface{}) {
-	logger.Debugf("received remove-metrics-user request: %#v", data)
+	w.Logger.Debugf("received remove-metrics-user request: %#v", data)
 	username, ok := data.(string)
 	if !ok {
 		w.Logger.Errorf("data for remove-metrics-user request should be a string representing username")
@@ -107,7 +107,7 @@ func (w *controllerCharmWorker) handleRemoveMetricsUserRequest(_ string, data in
 	}
 
 	err := w.Facade.RemoveMetricsUser(username)
-	logger.Debugf("response to remove-metrics-user request: %s", err)
+	w.Logger.Debugf("response to remove-metrics-user request: %s", err)
 
 	var response string
 	if err == nil {
