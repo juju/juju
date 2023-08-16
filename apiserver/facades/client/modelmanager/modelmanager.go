@@ -5,7 +5,6 @@ package modelmanager
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 	"sort"
 	"time"
@@ -46,13 +45,13 @@ var (
 	supportedFeaturesGetter = stateenvirons.SupportedFeatures
 )
 
-type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error)
+type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (caas.Broker, error)
 
 // ModelManagerService defines a interface for interacting with the underlying
 // state.
 type ModelManagerService interface {
-	Create(stdcontext.Context, modelmanagerservice.UUID) error
-	Delete(stdcontext.Context, modelmanagerservice.UUID) error
+	Create(context.Context, modelmanagerservice.UUID) error
+	Delete(context.Context, modelmanagerservice.UUID) error
 }
 
 type ModelExporter interface {
@@ -214,7 +213,7 @@ func (m *ModelManagerAPI) checkAddModelPermission(cloud string, userTag names.Us
 
 // CreateModel creates a new model using the account and
 // model config specified in the args.
-func (m *ModelManagerAPI) CreateModel(ctx stdcontext.Context, args params.ModelCreateArgs) (params.ModelInfo, error) {
+func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCreateArgs) (params.ModelInfo, error) {
 	result := params.ModelInfo{}
 
 	// Get the controller model first. We need it both for the state
@@ -399,7 +398,7 @@ Please choose a different model name.
 		}
 	}()
 
-	broker, err := m.getBroker(stdcontext.TODO(), environs.OpenParams{
+	broker, err := m.getBroker(context.Background(), environs.OpenParams{
 		ControllerUUID: controllerConfig.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,
@@ -454,7 +453,7 @@ func (m *ModelManagerAPI) newModel(
 	}
 
 	// Create the Environ.
-	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
+	env, err := environs.New(context.Background(), environs.OpenParams{
 		ControllerUUID: controllerCfg.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         newConfig,
@@ -610,7 +609,7 @@ func (m *ModelManagerAPI) DumpModels(ctx context.Context, args params.DumpModelR
 // DumpModelsDB will gather all documents from all model collections
 // for the specified model. The map result contains a map of collection
 // names to lists of documents represented as maps.
-func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
+func (m *ModelManagerAPI) DumpModelsDB(ctx context.Context, args params.Entities) params.MapResults {
 	results := params.MapResults{
 		Results: make([]params.MapResult, len(args.Entities)),
 	}
@@ -629,7 +628,7 @@ func (m *ModelManagerAPI) DumpModelsDB(args params.Entities) params.MapResults {
 // has access to in the current server.  Controller admins (superuser)
 // can list models for any user.  Other users
 // can only ask about their own models.
-func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (params.ModelSummaryResults, error) {
+func (m *ModelManagerAPI) ListModelSummaries(ctx context.Context, req params.ModelSummariesRequest) (params.ModelSummaryResults, error) {
 	result := params.ModelSummaryResults{}
 
 	userTag, err := names.ParseUserTag(req.UserTag)
@@ -717,7 +716,7 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 // has access to in the current server.  Controller admins (superuser)
 // can list models for any user.  Other users
 // can only ask about their own models.
-func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, error) {
+func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (params.UserModelList, error) {
 	result := params.UserModelList{}
 
 	userTag, err := names.ParseUserTag(user.Tag)
@@ -761,7 +760,7 @@ func (m *ModelManagerAPI) ListModels(user params.Entity) (params.UserModelList, 
 // DestroyModels will try to destroy the specified models.
 // If there is a block on destruction, this method will return an error.
 // From ModelManager v7 onwards, DestroyModels gains 'force' and 'max-wait' parameters.
-func (m *ModelManagerAPI) DestroyModels(ctx stdcontext.Context, args params.DestroyModelsParams) (params.ErrorResults, error) {
+func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.DestroyModelsParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Models)),
 	}
@@ -815,7 +814,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx stdcontext.Context, args params.Dest
 }
 
 // ModelInfo returns information about the specified models.
-func (m *ModelManagerAPI) ModelInfo(args params.Entities) (params.ModelInfoResults, error) {
+func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (params.ModelInfoResults, error) {
 	results := params.ModelInfoResults{
 		Results: make([]params.ModelInfoResult, len(args.Entities)),
 	}
@@ -899,7 +898,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (pa
 	// However, for Alive models, these errors are genuine and cannot be ignored.
 	ignoreNotFoundError := model.Life() != state.Alive || model.MigrationMode() == state.MigrationModeImporting
 
-	// If we received an an error and cannot ignore it, we should consider it fatal and surface it.
+	// If we received an error and cannot ignore it, we should consider it fatal and surface it.
 	// We should do the same if we can ignore NotFound errors but the given error is of some other type.
 	shouldErr := func(thisErr error) bool {
 		if thisErr == nil {
@@ -943,7 +942,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (pa
 	if err == nil {
 		for _, user := range users {
 			if !modelAdmin && m.authCheck(user.UserTag) != nil {
-				// The authenticated user is neither the a controller
+				// The authenticated user is neither the controller
 				// superuser, a model administrator, nor the model user, so
 				// has no business knowing about the model user.
 				continue
@@ -1026,7 +1025,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (pa
 }
 
 // ModifyModelAccess changes the model access granted to users.
-func (m *ModelManagerAPI) ModifyModelAccess(args params.ModifyModelAccessRequest) (result params.ErrorResults, _ error) {
+func (m *ModelManagerAPI) ModifyModelAccess(ctx context.Context, args params.ModifyModelAccessRequest) (result params.ErrorResults, _ error) {
 	result = params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
@@ -1179,7 +1178,7 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 
 // ModelDefaultsForClouds returns the default config values for the specified
 // clouds.
-func (m *ModelManagerAPI) ModelDefaultsForClouds(args params.Entities) (params.ModelDefaultsResults, error) {
+func (m *ModelManagerAPI) ModelDefaultsForClouds(ctx context.Context, args params.Entities) (params.ModelDefaultsResults, error) {
 	result := params.ModelDefaultsResults{}
 	if !m.isAdmin {
 		return result, apiservererrors.ErrPerm
@@ -1221,7 +1220,7 @@ func (m *ModelManagerAPI) modelDefaults(cloud string) params.ModelDefaultsResult
 }
 
 // SetModelDefaults writes new values for the specified default model settings.
-func (m *ModelManagerAPI) SetModelDefaults(args params.SetModelDefaults) (params.ErrorResults, error) {
+func (m *ModelManagerAPI) SetModelDefaults(ctx context.Context, args params.SetModelDefaults) (params.ErrorResults, error) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Config))}
 	if err := m.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
@@ -1259,7 +1258,7 @@ func (m *ModelManagerAPI) setModelDefaults(args params.ModelDefaultValues) error
 }
 
 // UnsetModelDefaults removes the specified default model settings.
-func (m *ModelManagerAPI) UnsetModelDefaults(args params.UnsetModelDefaults) (params.ErrorResults, error) {
+func (m *ModelManagerAPI) UnsetModelDefaults(ctx context.Context, args params.UnsetModelDefaults) (params.ErrorResults, error) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Keys))}
 	if !m.isAdmin {
 		return results, apiservererrors.ErrPerm
@@ -1303,7 +1302,7 @@ func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environscloudspec
 
 // ChangeModelCredential changes cloud credential reference for models.
 // These new cloud credentials must already exist on the controller.
-func (m *ModelManagerAPI) ChangeModelCredential(args params.ChangeModelCredentialsParams) (params.ErrorResults, error) {
+func (m *ModelManagerAPI) ChangeModelCredential(ctx context.Context, args params.ChangeModelCredentialsParams) (params.ErrorResults, error) {
 	if err := m.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

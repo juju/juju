@@ -4,6 +4,7 @@
 package keymanager
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -76,7 +77,7 @@ func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
 }
 
 // ListKeys returns the authorised ssh keys for the specified users.
-func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResults, error) {
+func (api *KeyManagerAPI) ListKeys(ctx context.Context, arg params.ListSSHKeys) (params.StringsResults, error) {
 	if len(arg.Entities.Entities) == 0 {
 		return params.StringsResults{}, nil
 	}
@@ -162,7 +163,7 @@ func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints se
 }
 
 // AddKeys adds new authorised ssh keys for the specified user.
-func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+func (api *KeyManagerAPI) AddKeys(ctx context.Context, arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
@@ -254,7 +255,7 @@ func runSSHKeyImport(keyIds []string) map[string][]importedSSHKey {
 }
 
 // ImportKeys imports new authorised ssh keys from the specified key ids for the specified user.
-func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
@@ -334,7 +335,7 @@ func (api *KeyManagerAPI) currentKeyDataForDelete() (
 }
 
 // DeleteKeys deletes the authorised ssh keys for the specified user.
-func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
+func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}

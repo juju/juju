@@ -4,6 +4,8 @@
 package payloads_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -74,7 +76,7 @@ func (s *Suite) TestListNoPatterns(c *gc.C) {
 	args := params.PayloadListArgs{
 		Patterns: []string{},
 	}
-	results, err := facade.List(args)
+	results, err := facade.List(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, params.PayloadListResults{
@@ -96,7 +98,7 @@ func (s *Suite) TestListAllMatch(c *gc.C) {
 			"a-application/0",
 		},
 	}
-	results, err := facade.List(args)
+	results, err := facade.List(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, params.PayloadListResults{
@@ -118,7 +120,7 @@ func (s *Suite) TestListNoMatch(c *gc.C) {
 			"a-application/1",
 		},
 	}
-	results, err := facade.List(args)
+	results, err := facade.List(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results.Results, gc.HasLen, 0)
@@ -129,7 +131,7 @@ func (s *Suite) TestListNoPayloads(c *gc.C) {
 	args := params.PayloadListArgs{
 		Patterns: []string{},
 	}
-	results, err := facade.List(args)
+	results, err := facade.List(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results.Results, gc.HasLen, 0)
@@ -147,7 +149,7 @@ func (s *Suite) TestListMultiMatch(c *gc.C) {
 			"eggs",
 		},
 	}
-	results, err := facade.List(args)
+	results, err := facade.List(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, params.PayloadListResults{
@@ -169,7 +171,7 @@ func (s *Suite) TestListPartialMatch(c *gc.C) {
 			"spam",
 		},
 	}
-	results, err := facade.List(args)
+	results, err := facade.List(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, params.PayloadListResults{
@@ -192,7 +194,7 @@ func (s *Suite) TestListPartialMultiMatch(c *gc.C) {
 			"ham",
 		},
 	}
-	results, err := facade.List(args)
+	results, err := facade.List(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, params.PayloadListResults{
@@ -238,7 +240,7 @@ func (s *Suite) TestListAllFilters(c *gc.C) {
 				pattern,
 			},
 		}
-		results, err := facade.List(args)
+		results, err := facade.List(context.Background(), args)
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Check(results, jc.DeepEquals, params.PayloadListResults{

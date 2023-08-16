@@ -4,6 +4,7 @@
 package metricsdebug_test
 
 import (
+	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -165,7 +166,7 @@ func (s *metricsDebugSuite) TestSetMeterStatus(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("running test %d: %v", i, test.about)
-		result, err := s.metricsdebug.SetMeterStatus(test.params)
+		result, err := s.metricsdebug.SetMeterStatus(context.Background(), test.params)
 		if test.err == "" {
 			c.Assert(err, jc.ErrorIsNil)
 			test.assert(c, result)
@@ -191,7 +192,7 @@ func (s *metricsDebugSuite) TestGetMetrics(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{"unit-metered/0"},
 	}}
-	result, err := s.metricsdebug.GetMetrics(args)
+	result, err := s.metricsdebug.GetMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 1)
@@ -228,7 +229,7 @@ func (s *metricsDebugSuite) TestGetMetricsLabelOrdering(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{"unit-metered/0"},
 	}}
-	result, err := s.metricsdebug.GetMetrics(args)
+	result, err := s.metricsdebug.GetMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 4)
@@ -262,7 +263,7 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectly(c *gc.C) {
 	f.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB, metricC}})
 	f.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB, metricC}})
 	args := params.Entities{}
-	result, err := s.metricsdebug.GetMetrics(args)
+	result, err := s.metricsdebug.GetMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 4)
@@ -306,7 +307,7 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWhenNotAllMetricsInEac
 	f.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricA, metricB, metricC}})
 	f.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB}})
 	args := params.Entities{}
-	result, err := s.metricsdebug.GetMetrics(args)
+	result, err := s.metricsdebug.GetMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 3)
@@ -346,7 +347,7 @@ func (s *metricsDebugSuite) TestGetMetricsFiltersCorrectlyWithMultipleBatchesPer
 	f.MakeMetric(c, &factory.MetricParams{Unit: unit0, Metrics: []state.Metric{metricC}})
 	f.MakeMetric(c, &factory.MetricParams{Unit: unit1, Metrics: []state.Metric{metricA, metricB}})
 	args := params.Entities{}
-	result, err := s.metricsdebug.GetMetrics(args)
+	result, err := s.metricsdebug.GetMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Metrics, gc.HasLen, 3)
@@ -394,14 +395,14 @@ func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocks(c *gc.C) {
 		{"unit-metered/1"},
 	}}
 
-	metrics0, err := s.metricsdebug.GetMetrics(args0)
+	metrics0, err := s.metricsdebug.GetMetrics(context.Background(), args0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics0.Results, gc.HasLen, 1)
 	c.Assert(metrics0.Results[0].Metrics[0].Key, gc.Equals, metricUnit0.Metrics()[0].Key)
 	c.Assert(metrics0.Results[0].Metrics[0].Value, gc.Equals, metricUnit0.Metrics()[0].Value)
 	c.Assert(metrics0.Results[0].Metrics[0].Time, jc.TimeBetween(metricUnit0.Metrics()[0].Time, metricUnit0.Metrics()[0].Time))
 
-	metrics1, err := s.metricsdebug.GetMetrics(args1)
+	metrics1, err := s.metricsdebug.GetMetrics(context.Background(), args1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics1.Results, gc.HasLen, 1)
 	c.Assert(metrics1.Results[0].Metrics[0].Key, gc.Equals, metricUnit1.Metrics()[0].Key)
@@ -431,7 +432,7 @@ func (s *metricsDebugSuite) TestGetMultipleMetricsNoMocksWithApplication(c *gc.C
 		{"application-metered"},
 	}}
 
-	metrics, err := s.metricsdebug.GetMetrics(args)
+	metrics, err := s.metricsdebug.GetMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics.Results, gc.HasLen, 1)
 	c.Assert(metrics.Results[0].Metrics, gc.HasLen, 2)
@@ -463,7 +464,7 @@ func (s *metricsDebugSuite) TestGetModelNoMocks(c *gc.C) {
 	})
 
 	args := params.Entities{Entities: []params.Entity{}}
-	metrics, err := s.metricsdebug.GetMetrics(args)
+	metrics, err := s.metricsdebug.GetMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metrics.Results, gc.HasLen, 1)
 	metric0 := metrics.Results[0].Metrics[0]

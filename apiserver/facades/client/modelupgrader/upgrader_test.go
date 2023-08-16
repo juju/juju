@@ -4,6 +4,8 @@
 package modelupgrader_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -149,7 +151,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelWithInvalidModelTag(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	_, err := api.UpgradeModel(params.UpgradeModelParams{ModelTag: "!!!"})
+	_, err := api.UpgradeModel(stdcontext.Background(), params.UpgradeModelParams{ModelTag: "!!!"})
 	c.Assert(err, gc.ErrorMatches, `"!!!" is not a valid tag`)
 }
 
@@ -161,6 +163,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelWithModelWithNoPermission(c *gc.C) {
 	defer ctrl.Finish()
 
 	_, err := api.UpgradeModel(
+		stdcontext.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      coretesting.ModelTag.String(),
 			TargetVersion: version.MustParse("3.0.0"),
@@ -176,6 +179,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelWithChangeNotAllowed(c *gc.C) {
 	s.blockChecker.EXPECT().ChangeAllowed().Return(errors.Errorf("the operation has been blocked"))
 
 	_, err := api.UpgradeModel(
+		stdcontext.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      coretesting.ModelTag.String(),
 			TargetVersion: version.MustParse("3.0.0"),
@@ -289,6 +293,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	}
 
 	result, err := api.UpgradeModel(
+		stdcontext.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      ctrlModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
@@ -401,6 +406,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 	ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil)
 
 	result, err := api.UpgradeModel(
+		stdcontext.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      ctrlModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
@@ -524,6 +530,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	model1.EXPECT().Name().Return("model-1")
 
 	result, err := api.UpgradeModel(
+		stdcontext.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      ctrlModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
@@ -606,6 +613,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	}
 
 	result, err := api.UpgradeModel(
+		stdcontext.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      coretesting.ModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
@@ -689,6 +697,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	model.EXPECT().Name().Return("model-1")
 
 	result, err := api.UpgradeModel(
+		stdcontext.Background(),
 		params.UpgradeModelParams{
 			ModelTag:      coretesting.ModelTag.String(),
 			TargetVersion: version.MustParse("3.9.99"),
@@ -717,7 +726,7 @@ func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
 		s.statePool.EXPECT().Get(modelUUID).Return(st, nil),
 		st.EXPECT().AbortCurrentUpgrade().Return(nil),
 	)
-	err := api.AbortModelUpgrade(params.ModelParam{ModelTag: coretesting.ModelTag.String()})
+	err := api.AbortModelUpgrade(stdcontext.Background(), params.ModelParam{ModelTag: coretesting.ModelTag.String()})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

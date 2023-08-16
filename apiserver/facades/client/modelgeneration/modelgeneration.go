@@ -4,6 +4,7 @@
 package modelgeneration
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/collections/set"
@@ -47,7 +48,7 @@ func NewModelGenerationAPI(
 	}, nil
 }
 
-func (api *API) hasAdminAccess() error {
+func (api *API) hasAdminAccess(ctx context.Context) error {
 	// We used to cache the result on the api object if the user was a superuser.
 	// We don't do that anymore as permission caching could become invalid
 	// for long lived connections.
@@ -64,9 +65,9 @@ func (api *API) hasAdminAccess() error {
 }
 
 // AddBranch adds a new branch with the input name to the model.
-func (api *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
+func (api *API) AddBranch(ctx context.Context, arg params.BranchArg) (params.ErrorResult, error) {
 	result := params.ErrorResult{}
-	if err := api.hasAdminAccess(); err != nil {
+	if err := api.hasAdminAccess(ctx); err != nil {
 		return result, err
 	}
 
@@ -80,8 +81,8 @@ func (api *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
 
 // TrackBranch marks the input units and/or applications as tracking the input
 // branch, causing them to realise changes made under that branch.
-func (api *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, error) {
-	if err := api.hasAdminAccess(); err != nil {
+func (api *API) TrackBranch(ctx context.Context, arg params.BranchTrackArg) (params.ErrorResults, error) {
+	if err := api.hasAdminAccess(ctx); err != nil {
 		return params.ErrorResults{}, err
 	}
 
@@ -122,10 +123,10 @@ func (api *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, err
 
 // CommitBranch commits the input branch, making its changes applicable to
 // the whole model and marking it complete.
-func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
+func (api *API) CommitBranch(ctx context.Context, arg params.BranchArg) (params.IntResult, error) {
 	result := params.IntResult{}
 
-	if err := api.hasAdminAccess(); err != nil {
+	if err := api.hasAdminAccess(ctx); err != nil {
 		return result, err
 	}
 
@@ -145,10 +146,10 @@ func (api *API) CommitBranch(arg params.BranchArg) (params.IntResult, error) {
 // AbortBranch aborts the input branch, marking it complete.  However no
 // changes are made applicable to the whole model.  No units may be assigned
 // to the branch when aborting.
-func (api *API) AbortBranch(arg params.BranchArg) (params.ErrorResult, error) {
+func (api *API) AbortBranch(ctx context.Context, arg params.BranchArg) (params.ErrorResult, error) {
 	result := params.ErrorResult{}
 
-	if err := api.hasAdminAccess(); err != nil {
+	if err := api.hasAdminAccess(ctx); err != nil {
 		return result, err
 	}
 
@@ -169,10 +170,11 @@ func (api *API) AbortBranch(arg params.BranchArg) (params.ErrorResult, error) {
 // master generation.
 // An error is returned if no in-flight branch matching in input is found.
 func (api *API) BranchInfo(
+	ctx context.Context,
 	args params.BranchInfoArgs) (params.BranchResults, error) {
 	result := params.BranchResults{}
 
-	if err := api.hasAdminAccess(); err != nil {
+	if err := api.hasAdminAccess(ctx); err != nil {
 		return result, err
 	}
 
@@ -207,10 +209,10 @@ func (api *API) BranchInfo(
 // ShowCommit will return details a commit given by its generationId
 // An error is returned if either no branch can be found corresponding to the generation id.
 // Or the generation id given is below 1.
-func (api *API) ShowCommit(arg params.GenerationId) (params.GenerationResult, error) {
+func (api *API) ShowCommit(ctx context.Context, arg params.GenerationId) (params.GenerationResult, error) {
 	result := params.GenerationResult{}
 
-	if err := api.hasAdminAccess(); err != nil {
+	if err := api.hasAdminAccess(ctx); err != nil {
 		return result, err
 	}
 
@@ -236,10 +238,10 @@ func (api *API) ShowCommit(arg params.GenerationId) (params.GenerationResult, er
 }
 
 // ListCommits will return the commits, hence only branches with generation_id higher than 0
-func (api *API) ListCommits() (params.BranchResults, error) {
+func (api *API) ListCommits(ctx context.Context) (params.BranchResults, error) {
 	var result params.BranchResults
 
-	if err := api.hasAdminAccess(); err != nil {
+	if err := api.hasAdminAccess(ctx); err != nil {
 		return result, err
 	}
 
@@ -330,9 +332,9 @@ func (api *API) getGenerationCommit(branch Generation) (params.Generation, error
 
 // HasActiveBranch returns a true result if the input model has an "in-flight"
 // branch matching the input name.
-func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error) {
+func (api *API) HasActiveBranch(ctx context.Context, arg params.BranchArg) (params.BoolResult, error) {
 	result := params.BoolResult{}
-	if err := api.hasAdminAccess(); err != nil {
+	if err := api.hasAdminAccess(ctx); err != nil {
 		return result, err
 	}
 

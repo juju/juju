@@ -4,6 +4,8 @@
 package imagemetadatamanager_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -19,7 +21,7 @@ type metadataSuite struct {
 var _ = gc.Suite(&metadataSuite{})
 
 func (s *metadataSuite) TestFindNil(c *gc.C) {
-	found, err := s.api.List(params.ImageMetadataFilter{})
+	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
 	s.assertCalls(c, controllerTag, findMetadata)
@@ -30,7 +32,7 @@ func (s *metadataSuite) TestFindEmpty(c *gc.C) {
 		return map[string][]cloudimagemetadata.Metadata{}, nil
 	}
 
-	found, err := s.api.List(params.ImageMetadataFilter{})
+	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
 	s.assertCalls(c, controllerTag, findMetadata)
@@ -44,7 +46,7 @@ func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
 		}, nil
 	}
 
-	found, err := s.api.List(params.ImageMetadataFilter{})
+	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
 	s.assertCalls(c, controllerTag, findMetadata)
@@ -56,7 +58,7 @@ func (s *metadataSuite) TestFindError(c *gc.C) {
 		return nil, errors.New(msg)
 	}
 
-	found, err := s.api.List(params.ImageMetadataFilter{})
+	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(found.Result, gc.HasLen, 0)
 	s.assertCalls(c, controllerTag, findMetadata)
@@ -82,7 +84,7 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 			nil
 	}
 
-	found, err := s.api.List(params.ImageMetadataFilter{})
+	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 4)
 
@@ -96,7 +98,7 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 }
 
 func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
-	errs, err := s.api.Save(params.MetadataSaveParams{})
+	errs, err := s.api.Save(context.Background(), params.MetadataSaveParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 0)
 	s.assertCalls(c, controllerTag, model)
@@ -130,7 +132,7 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 		return errors.New(msg)
 	}
 
-	errs, err := s.api.Save(params.MetadataSaveParams{
+	errs, err := s.api.Save(context.Background(), params.MetadataSaveParams{
 		Metadata: []params.CloudImageMetadataList{{
 			Metadata: []params.CloudImageMetadata{m1},
 		}, {
@@ -148,7 +150,7 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 }
 
 func (s *metadataSuite) TestDeleteEmpty(c *gc.C) {
-	errs, err := s.api.Delete(params.MetadataImageIds{})
+	errs, err := s.api.Delete(context.Background(), params.MetadataImageIds{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 0)
 	s.assertCalls(c, controllerTag)
@@ -166,7 +168,7 @@ func (s *metadataSuite) TestDelete(c *gc.C) {
 		return nil
 	}
 
-	errs, err := s.api.Delete(params.MetadataImageIds{[]string{idOk, idFail}})
+	errs, err := s.api.Delete(context.Background(), params.MetadataImageIds{[]string{idOk, idFail}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 2)
 	c.Assert(errs.Results[0].Error, gc.IsNil)

@@ -4,6 +4,7 @@
 package imagemetadatamanager
 
 import (
+	"context"
 	"sort"
 
 	"github.com/juju/errors"
@@ -48,7 +49,7 @@ func createAPI(
 // List returns all found cloud image metadata that satisfy
 // given filter.
 // Returned list contains metadata ordered by priority.
-func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMetadataResult, error) {
+func (api *API) List(ctx context.Context, filter params.ImageMetadataFilter) (params.ListCloudImageMetadataResult, error) {
 	found, err := api.metadata.FindMetadata(cloudimagemetadata.MetadataFilter{
 		Region:          filter.Region,
 		Versions:        filter.Versions,
@@ -78,7 +79,7 @@ func (api *API) List(filter params.ImageMetadataFilter) (params.ListCloudImageMe
 
 // Save stores given cloud image metadata.
 // It supports bulk calls.
-func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, error) {
+func (api *API) Save(ctx context.Context, metadata params.MetadataSaveParams) (params.ErrorResults, error) {
 	model, err := api.metadata.Model()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -100,7 +101,7 @@ func (api *API) Save(metadata params.MetadataSaveParams) (params.ErrorResults, e
 
 // Delete deletes cloud image metadata for given image ids.
 // It supports bulk calls.
-func (api *API) Delete(images params.MetadataImageIds) (params.ErrorResults, error) {
+func (api *API) Delete(ctx context.Context, images params.MetadataImageIds) (params.ErrorResults, error) {
 	all := make([]params.ErrorResult, len(images.Ids))
 	for i, imageId := range images.Ids {
 		err := api.metadata.DeleteMetadata(imageId)

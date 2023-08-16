@@ -4,6 +4,7 @@
 package keymanager_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -80,7 +81,7 @@ func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 		}},
 		Mode: ssh.FullKeys,
 	}
-	results, err := s.api.ListKeys(args)
+	results, err := s.api.ListKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
@@ -103,7 +104,7 @@ func (s *keyManagerSuite) TestListKeysHidesJujuInternal(c *gc.C) {
 		}},
 		Mode: ssh.FullKeys,
 	}
-	results, err := s.api.ListKeys(args)
+	results, err := s.api.ListKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
@@ -124,7 +125,7 @@ func (s *keyManagerSuite) TestListJujuSystemKey(c *gc.C) {
 		}},
 		Mode: ssh.FullKeys,
 	}
-	results, err := s.api.ListKeys(args)
+	results, err := s.api.ListKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, "permission denied")
@@ -146,7 +147,7 @@ func (s *keyManagerSuite) assertAddKeys(c *gc.C) {
 		User: names.NewUserTag("admin").Name(),
 		Keys: []string{key2, newKey, newKey, "invalid-key"},
 	}
-	results, err := s.api.AddKeys(args)
+	results, err := s.api.AddKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
@@ -183,7 +184,7 @@ func (s *keyManagerSuite) TestAddKeysNonAuthorised(c *gc.C) {
 	s.apiUser = names.NewUserTag("fred")
 	defer s.setup(c).Finish()
 
-	_, err := s.api.AddKeys(params.ModifyUserSSHKeys{})
+	_, err := s.api.AddKeys(context.Background(), params.ModifyUserSSHKeys{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
@@ -192,7 +193,7 @@ func (s *keyManagerSuite) TestBlockAddKeys(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.blockChecker.EXPECT().ChangeAllowed().Return(errors.OperationBlockedError("TestAddKeys"))
 
-	_, err := s.api.AddKeys(params.ModifyUserSSHKeys{})
+	_, err := s.api.AddKeys(context.Background(), params.ModifyUserSSHKeys{})
 
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 }
@@ -212,7 +213,7 @@ func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
 		User: names.NewUserTag("admin").Name(),
 		Keys: []string{newKey},
 	}
-	results, err := s.api.AddKeys(args)
+	results, err := s.api.AddKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -235,7 +236,7 @@ func (s *keyManagerSuite) assertDeleteKeys(c *gc.C) {
 		User: names.NewUserTag("admin").String(),
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
 	}
-	results, err := s.api.DeleteKeys(args)
+	results, err := s.api.DeleteKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -270,7 +271,7 @@ func (s *keyManagerSuite) TestDeleteKeysNonAuthorised(c *gc.C) {
 	s.apiUser = names.NewUserTag("fred")
 	defer s.setup(c).Finish()
 
-	_, err := s.api.DeleteKeys(params.ModifyUserSSHKeys{})
+	_, err := s.api.DeleteKeys(context.Background(), params.ModifyUserSSHKeys{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
@@ -279,7 +280,7 @@ func (s *keyManagerSuite) TestBlockDeleteKeys(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.blockChecker.EXPECT().RemoveAllowed().Return(errors.OperationBlockedError("TestDeleteKeys"))
 
-	_, err := s.api.DeleteKeys(params.ModifyUserSSHKeys{})
+	_, err := s.api.DeleteKeys(context.Background(), params.ModifyUserSSHKeys{})
 
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 }
@@ -302,7 +303,7 @@ func (s *keyManagerSuite) TestDeleteJujuSystemKey(c *gc.C) {
 		User: names.NewUserTag("admin").Name(),
 		Keys: []string{"juju-client-key", config.JujuSystemKey},
 	}
-	results, err := s.api.DeleteKeys(args)
+	results, err := s.api.DeleteKeys(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -326,7 +327,7 @@ func (s *keyManagerSuite) TestCannotDeleteAllKeys(c *gc.C) {
 		User: names.NewUserTag("admin").String(),
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, "user@host"},
 	}
-	_, err := s.api.DeleteKeys(args)
+	_, err := s.api.DeleteKeys(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "cannot delete all keys")
 }
 
@@ -360,7 +361,7 @@ func (s *keyManagerSuite) assertImportKeys(c *gc.C) {
 			"lp:multionedup",
 		},
 	}
-	results, err := s.api.ImportKeys(args)
+	results, err := s.api.ImportKeys(context.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 8)
@@ -411,7 +412,7 @@ func (s *keyManagerSuite) TestImportKeysNonAuthorised(c *gc.C) {
 	s.apiUser = names.NewUserTag("fred")
 	defer s.setup(c).Finish()
 
-	_, err := s.api.ImportKeys(params.ModifyUserSSHKeys{})
+	_, err := s.api.ImportKeys(context.Background(), params.ModifyUserSSHKeys{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 }
@@ -431,7 +432,7 @@ func (s *keyManagerSuite) TestImportJujuSystemKey(c *gc.C) {
 		User: names.NewUserTag("admin").String(),
 		Keys: []string{"lp:systemkey"},
 	}
-	results, err := s.api.ImportKeys(args)
+	results, err := s.api.ImportKeys(context.Background(), args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -444,7 +445,7 @@ func (s *keyManagerSuite) TestBlockImportKeys(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.blockChecker.EXPECT().ChangeAllowed().Return(errors.OperationBlockedError("TestImportKeys"))
 
-	_, err := s.api.ImportKeys(params.ModifyUserSSHKeys{})
+	_, err := s.api.ImportKeys(context.Background(), params.ModifyUserSSHKeys{})
 
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 }

@@ -4,6 +4,7 @@
 package metricsdebug
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -37,10 +38,10 @@ type metricsDebug interface {
 // MetricsDebug defines the methods on the metricsdebug API end point.
 type MetricsDebug interface {
 	// GetMetrics returns all metrics stored by the state server.
-	GetMetrics(arg params.Entities) (params.MetricResults, error)
+	GetMetrics(ctx context.Context, arg params.Entities) (params.MetricResults, error)
 
 	// SetMeterStatus will set the meter status on the given entity tag.
-	SetMeterStatus(params.MeterStatusParams) (params.ErrorResults, error)
+	SetMeterStatus(context.Context, params.MeterStatusParams) (params.ErrorResults, error)
 }
 
 // MetricsDebugAPI implements the metricsdebug interface and is the concrete
@@ -52,7 +53,7 @@ type MetricsDebugAPI struct {
 var _ MetricsDebug = (*MetricsDebugAPI)(nil)
 
 // GetMetrics returns all metrics stored by the state server.
-func (api *MetricsDebugAPI) GetMetrics(args params.Entities) (params.MetricResults, error) {
+func (api *MetricsDebugAPI) GetMetrics(ctx context.Context, args params.Entities) (params.MetricResults, error) {
 	results := params.MetricResults{
 		Results: make([]params.EntityMetrics, len(args.Entities)),
 	}
@@ -150,7 +151,7 @@ func (api *MetricsDebugAPI) filterLastValuePerKeyPerUnit(batches []state.MetricB
 }
 
 // SetMeterStatus sets meter statuses for entities.
-func (api *MetricsDebugAPI) SetMeterStatus(args params.MeterStatusParams) (params.ErrorResults, error) {
+func (api *MetricsDebugAPI) SetMeterStatus(ctx context.Context, args params.MeterStatusParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Statuses)),
 	}
