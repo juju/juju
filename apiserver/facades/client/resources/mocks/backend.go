@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	resource "github.com/juju/charm/v11/resource"
@@ -90,16 +91,16 @@ func (m *MockNewCharmRepository) EXPECT() *MockNewCharmRepositoryMockRecorder {
 }
 
 // ResolveResources mocks base method.
-func (m *MockNewCharmRepository) ResolveResources(arg0 []resource.Resource, arg1 charm.CharmID) ([]resource.Resource, error) {
+func (m *MockNewCharmRepository) ResolveResources(arg0 context.Context, arg1 []resource.Resource, arg2 charm.CharmID) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveResources", arg0, arg1)
+	ret := m.ctrl.Call(m, "ResolveResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]resource.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ResolveResources indicates an expected call of ResolveResources.
-func (mr *MockNewCharmRepositoryMockRecorder) ResolveResources(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockNewCharmRepositoryMockRecorder) ResolveResources(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveResources", reflect.TypeOf((*MockNewCharmRepository)(nil).ResolveResources), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveResources", reflect.TypeOf((*MockNewCharmRepository)(nil).ResolveResources), arg0, arg1, arg2)
 }

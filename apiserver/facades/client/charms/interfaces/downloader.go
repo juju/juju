@@ -4,6 +4,8 @@
 package interfaces
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -11,5 +13,5 @@ import (
 
 // Downloader defines an API for downloading and storing charms.
 type Downloader interface {
-	DownloadAndStore(charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error)
+	DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error)
 }

@@ -4,6 +4,7 @@
 package charmdownloader_test
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -71,7 +72,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsAuthChecks(c *gc.C) 
 	defer s.setupMocks(c).Finish()
 	s.authChecker.EXPECT().AuthController().Return(false)
 
-	_, err := s.api.DownloadApplicationCharms(params.Entities{})
+	_, err := s.api.DownloadApplicationCharms(context.Background(), params.Entities{})
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm, gc.Commentf("expected ErrPerm when not authenticating as the controller"))
 }
 
@@ -102,15 +103,18 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeploy(c *gc.C) {
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
+	s.downloader.EXPECT().DownloadAndStore(gomock.Any(), charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
 
-	got, err := s.api.DownloadApplicationCharms(params.Entities{
-		Entities: []params.Entity{
-			{
-				Tag: names.NewApplicationTag("ufo").String(),
+	got, err := s.api.DownloadApplicationCharms(
+		context.Background(),
+		params.Entities{
+			Entities: []params.Entity{
+				{
+					Tag: names.NewApplicationTag("ufo").String(),
+				},
 			},
 		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.Combine(), jc.ErrorIsNil)
 }
@@ -149,17 +153,20 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeployMultiAppOneCha
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(appOne, nil)
 	s.stateBackend.EXPECT().Application("another-ufo").Return(appTwo, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil).AnyTimes()
+	s.downloader.EXPECT().DownloadAndStore(gomock.Any(), charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil).AnyTimes()
 
-	got, err := s.api.DownloadApplicationCharms(params.Entities{
-		Entities: []params.Entity{
-			{
-				Tag: names.NewApplicationTag("ufo").String(),
-			}, {
-				Tag: names.NewApplicationTag("another-ufo").String(),
+	got, err := s.api.DownloadApplicationCharms(
+		context.Background(),
+		params.Entities{
+			Entities: []params.Entity{
+				{
+					Tag: names.NewApplicationTag("ufo").String(),
+				}, {
+					Tag: names.NewApplicationTag("another-ufo").String(),
+				},
 			},
 		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.Combine(), jc.ErrorIsNil)
 }
@@ -192,15 +199,18 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsRefresh(c *gc.C) {
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
+	s.downloader.EXPECT().DownloadAndStore(gomock.Any(), charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
 
-	got, err := s.api.DownloadApplicationCharms(params.Entities{
-		Entities: []params.Entity{
-			{
-				Tag: names.NewApplicationTag("ufo").String(),
+	got, err := s.api.DownloadApplicationCharms(
+		context.Background(),
+		params.Entities{
+			Entities: []params.Entity{
+				{
+					Tag: names.NewApplicationTag("ufo").String(),
+				},
 			},
 		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.Combine(), jc.ErrorIsNil)
 }
@@ -227,15 +237,18 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(corecharm.Origin{}, errors.NotFoundf("charm"))
+	s.downloader.EXPECT().DownloadAndStore(gomock.Any(), charmURL, resolvedOrigin, false).Return(corecharm.Origin{}, errors.NotFoundf("charm"))
 
-	got, err := s.api.DownloadApplicationCharms(params.Entities{
-		Entities: []params.Entity{
-			{
-				Tag: names.NewApplicationTag("ufo").String(),
+	got, err := s.api.DownloadApplicationCharms(
+		context.Background(),
+		params.Entities{
+			Entities: []params.Entity{
+				{
+					Tag: names.NewApplicationTag("ufo").String(),
+				},
 			},
 		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.Combine(), gc.ErrorMatches, ".*charm not found.*")
 }

@@ -360,7 +360,7 @@ func (c customMethodCaller) Call(_ context.Context, objId string, arg reflect.Va
 func (cc *CustomRoot) Kill() {
 }
 
-func (cc *CustomRoot) StartTrace(ctx context.Context, _ string) (context.Context, rpc.Span) {
+func (cc *CustomRoot) StartTrace(ctx context.Context) (context.Context, rpc.Span) {
 	return ctx, noopSpan{}
 }
 

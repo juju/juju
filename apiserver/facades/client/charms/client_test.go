@@ -444,7 +444,7 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 
 	s.state.EXPECT().Charm(curl).Return(nil, nil) // a nil error indicates that the charm doc already exists
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
-	s.repository.EXPECT().GetDownloadURL(curl, gomock.Any()).Return(resURL, resolvedOrigin, nil)
+	s.repository.EXPECT().GetDownloadURL(context.Background(), curl, gomock.Any()).Return(resURL, resolvedOrigin, nil)
 
 	api := s.api(c)
 
@@ -684,6 +684,7 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error) {
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil).Times(times)
 	s.repository.EXPECT().ResolveWithPreferredChannel(
+		gomock.Any(),
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(corecharm.Origin{}),
 	).DoAndReturn(
@@ -711,6 +712,7 @@ func (s *charmsMockSuite) expectResolveWithPreferredChannel(times int, err error
 func (s *charmsMockSuite) expectResolveWithPreferredChannelNoSeries() {
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
 	s.repository.EXPECT().ResolveWithPreferredChannel(
+		gomock.Any(),
 		gomock.AssignableToTypeOf(&charm.URL{}),
 		gomock.AssignableToTypeOf(corecharm.Origin{}),
 	).DoAndReturn(

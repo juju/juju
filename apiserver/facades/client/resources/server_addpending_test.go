@@ -32,14 +32,17 @@ func (s *AddPendingResourcesSuite) TestNoURL(c *gc.C) {
 	s.backend.EXPECT().AddPendingResource(aTag.Id(), "", resourceMatcher{c: c}).Return(id1, nil)
 	facade := s.newFacade(c)
 
-	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
-		Entity: params.Entity{
-			Tag: aTag.String(),
+	result, err := facade.AddPendingResources(
+		context.Background(),
+		params.AddPendingResourcesArgsV2{
+			Entity: params.Entity{
+				Tag: aTag.String(),
+			},
+			Resources: []params.CharmResource{
+				apiRes1.CharmResource,
+			},
 		},
-		Resources: []params.CharmResource{
-			apiRes1.CharmResource,
-		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
@@ -62,18 +65,21 @@ func (s *AddPendingResourcesSuite) TestWithURLUpToDate(c *gc.C) {
 	res := []charmresource.Resource{
 		res1.Resource,
 	}
-	s.factory.EXPECT().ResolveResources(gomock.Any(), gomock.Any()).Return(res, nil)
+	s.factory.EXPECT().ResolveResources(gomock.Any(), gomock.Any(), gomock.Any()).Return(res, nil)
 	facade := s.newFacade(c)
 
-	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
-		Entity: params.Entity{
-			Tag: aTag.String(),
+	result, err := facade.AddPendingResources(
+		context.Background(),
+		params.AddPendingResourcesArgsV2{
+			Entity: params.Entity{
+				Tag: aTag.String(),
+			},
+			URL: "ch:amd64/jammy/spam-5",
+			Resources: []params.CharmResource{
+				apiRes1.CharmResource,
+			},
 		},
-		URL: "ch:amd64/jammy/spam-5",
-		Resources: []params.CharmResource{
-			apiRes1.CharmResource,
-		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
@@ -100,18 +106,21 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *gc.C) {
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
 	expected := []charmresource.Resource{res1.Resource}
-	s.factory.EXPECT().ResolveResources(expected, charmID).Return(expected, nil)
+	s.factory.EXPECT().ResolveResources(gomock.Any(), expected, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
-	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
-		Entity: params.Entity{
-			Tag: aTag.String(),
+	result, err := facade.AddPendingResources(
+		context.Background(),
+		params.AddPendingResourcesArgsV2{
+			Entity: params.Entity{
+				Tag: aTag.String(),
+			},
+			URL: curl.String(),
+			Resources: []params.CharmResource{
+				apiRes1.CharmResource,
+			},
 		},
-		URL: curl.String(),
-		Resources: []params.CharmResource{
-			apiRes1.CharmResource,
-		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
@@ -151,18 +160,21 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
-	s.factory.EXPECT().ResolveResources(res2, charmID).Return(expected, nil)
+	s.factory.EXPECT().ResolveResources(gomock.Any(), res2, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
-	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
-		Entity: params.Entity{
-			Tag: aTag.String(),
+	result, err := facade.AddPendingResources(
+		context.Background(),
+		params.AddPendingResourcesArgsV2{
+			Entity: params.Entity{
+				Tag: aTag.String(),
+			},
+			URL: curl.String(),
+			Resources: []params.CharmResource{
+				apiRes1.CharmResource,
+			},
 		},
-		URL: curl.String(),
-		Resources: []params.CharmResource{
-			apiRes1.CharmResource,
-		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
@@ -199,18 +211,21 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
-	s.factory.EXPECT().ResolveResources(resNoRev, charmID).Return(expected, nil)
+	s.factory.EXPECT().ResolveResources(gomock.Any(), resNoRev, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
-	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
-		Entity: params.Entity{
-			Tag: aTag.String(),
+	result, err := facade.AddPendingResources(
+		context.Background(),
+		params.AddPendingResourcesArgsV2{
+			Entity: params.Entity{
+				Tag: aTag.String(),
+			},
+			URL: curl.String(),
+			Resources: []params.CharmResource{
+				apiRes1.CharmResource,
+			},
 		},
-		URL: curl.String(),
-		Resources: []params.CharmResource{
-			apiRes1.CharmResource,
-		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
@@ -240,18 +255,21 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
-	s.factory.EXPECT().ResolveResources([]charmresource.Resource{res1.Resource}, charmID).Return(expected, nil)
+	s.factory.EXPECT().ResolveResources(gomock.Any(), []charmresource.Resource{res1.Resource}, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
-	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
-		Entity: params.Entity{
-			Tag: aTag.String(),
+	result, err := facade.AddPendingResources(
+		context.Background(),
+		params.AddPendingResourcesArgsV2{
+			Entity: params.Entity{
+				Tag: aTag.String(),
+			},
+			URL: curl.String(),
+			Resources: []params.CharmResource{
+				apiRes1.CharmResource,
+			},
 		},
-		URL: curl.String(),
-		Resources: []params.CharmResource{
-			apiRes1.CharmResource,
-		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 
@@ -278,18 +296,21 @@ func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
 		URL:    curl,
 		Origin: corecharm.Origin{Channel: &charm.Channel{}},
 	}
-	s.factory.EXPECT().ResolveResources(expected, charmID).Return(expected, nil)
+	s.factory.EXPECT().ResolveResources(gomock.Any(), expected, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
-	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
-		Entity: params.Entity{
-			Tag: aTag.String(),
+	result, err := facade.AddPendingResources(
+		context.Background(),
+		params.AddPendingResourcesArgsV2{
+			Entity: params.Entity{
+				Tag: aTag.String(),
+			},
+			URL: curl.String(),
+			Resources: []params.CharmResource{
+				apiRes1.CharmResource,
+			},
 		},
-		URL: curl.String(),
-		Resources: []params.CharmResource{
-			apiRes1.CharmResource,
-		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{
@@ -306,14 +327,17 @@ func (s *AddPendingResourcesSuite) TestDataStoreError(c *gc.C) {
 	s.backend.EXPECT().AddPendingResource(gomock.Any(), gomock.Any(), gomock.Any()).Return("", failure)
 
 	facade := s.newFacade(c)
-	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
-		Entity: params.Entity{
-			Tag: "application-a-application",
+	result, err := facade.AddPendingResources(
+		context.Background(),
+		params.AddPendingResourcesArgsV2{
+			Entity: params.Entity{
+				Tag: "application-a-application",
+			},
+			Resources: []params.CharmResource{
+				apiRes1.CharmResource,
+			},
 		},
-		Resources: []params.CharmResource{
-			apiRes1.CharmResource,
-		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, jc.DeepEquals, params.AddPendingResourcesResult{

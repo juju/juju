@@ -4,6 +4,7 @@
 package charmdownloader
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/clock"
@@ -14,8 +15,10 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
+	coretracer "github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/worker/tracer"
 )
 
 // CharmDownloaderAPI implements an API for watching the charms collection for
@@ -85,7 +88,10 @@ func (a *CharmDownloaderAPI) WatchApplicationsWithPendingCharms() (params.String
 // DownloadApplicationCharms iterates the list of provided applications and
 // downloads any referenced charms that have not yet been persisted to the
 // blob store.
-func (a *CharmDownloaderAPI) DownloadApplicationCharms(args params.Entities) (params.ErrorResults, error) {
+func (a *CharmDownloaderAPI) DownloadApplicationCharms(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("DownloadApplicationCharms"))
+	defer span.End()
+
 	if !a.authChecker.AuthController() {
 		return params.ErrorResults{}, apiservererrors.ErrPerm
 	}
@@ -97,12 +103,12 @@ func (a *CharmDownloaderAPI) DownloadApplicationCharms(args params.Entities) (pa
 			res.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		res.Results[i].Error = apiservererrors.ServerError(a.downloadApplicationCharm(app))
+		res.Results[i].Error = apiservererrors.ServerError(a.downloadApplicationCharm(ctx, app))
 	}
 	return res, nil
 }
 
-func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTag) error {
+func (a *CharmDownloaderAPI) downloadApplicationCharm(ctx context.Context, appTag names.ApplicationTag) error {
 	app, err := a.stateBackend.Application(appTag.Name)
 	if err != nil {
 		return errors.Trace(err)
@@ -135,7 +141,7 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 	}
 
 	a.logger.Infof("downloading charm %q", pendingCharmURL)
-	downloadedOrigin, err := downloader.DownloadAndStore(pendingCharmURL, *resolvedOrigin, force)
+	downloadedOrigin, err := downloader.DownloadAndStore(ctx, pendingCharmURL, *resolvedOrigin, force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot download and store charm %q", pendingCharmURL)
 	}

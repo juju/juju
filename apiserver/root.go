@@ -540,9 +540,11 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 }
 
 // StartTrace returns a new tracer for the given name.
-func (r *apiRoot) StartTrace(ctx context.Context, name string) (context.Context, rpc.Span) {
-	ctx, span := r.tracer.Start(ctx, name)
-	return coretracer.WithTracer(ctx, r.tracer), span
+func (r *apiRoot) StartTrace(ctx context.Context) (context.Context, rpc.Span) {
+	return coretracer.Start(coretracer.WithTracer(ctx, r.tracer), tracer.WithAttributes(map[string]string{
+		"task": "apiserver",
+		"root": "api",
+	}))
 }
 
 func (r *apiRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
@@ -622,9 +624,12 @@ func (r *adminRoot) FindMethod(rootName string, version int, methodName string) 
 	}
 }
 
-// GetTracer returns a new tracer for the given name.
-func (r *adminRoot) StartTrace(ctx context.Context, name string) (context.Context, rpc.Span) {
-	return r.tracer.Start(ctx, name)
+// StartTrace starts a new trace based on the context.
+func (r *adminRoot) StartTrace(ctx context.Context) (context.Context, rpc.Span) {
+	return coretracer.Start(coretracer.WithTracer(ctx, r.tracer), tracer.WithAttributes(map[string]string{
+		"task": "apiserver",
+		"root": "admin",
+	}))
 }
 
 // facadeContext implements facade.Context

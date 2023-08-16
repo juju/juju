@@ -30,8 +30,10 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/permission"
+	coretracer "github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/tracer"
 )
 
 // APIv7 provides the Charms API facade for version 7.
@@ -126,6 +128,9 @@ func NewCharmsAPI(
 // If supplied parameter contains any names, the result will
 // be filtered to return only the charms with supplied names.
 func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsListResult, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("List"))
+	defer span.End()
+
 	a.logger.Tracef("List %+v", args)
 	if err := a.checkCanRead(); err != nil {
 		return params.CharmsListResult{}, errors.Trace(err)
@@ -154,13 +159,16 @@ func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsLi
 // GetDownloadInfos attempts to get the bundle corresponding to the charm url
 // and origin.
 func (a *API) GetDownloadInfos(ctx context.Context, args params.CharmURLAndOrigins) (params.DownloadInfoResults, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("GetDownloadInfos"))
+	defer span.End()
+
 	a.logger.Tracef("GetDownloadInfos %+v", args)
 
 	results := params.DownloadInfoResults{
 		Results: make([]params.DownloadInfoResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		result, err := a.getDownloadInfo(arg)
+		result, err := a.getDownloadInfo(ctx, arg)
 		if err != nil {
 			return params.DownloadInfoResults{}, errors.Trace(err)
 		}
@@ -169,7 +177,7 @@ func (a *API) GetDownloadInfos(ctx context.Context, args params.CharmURLAndOrigi
 	return results, nil
 }
 
-func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfoResult, error) {
+func (a *API) getDownloadInfo(ctx context.Context, arg params.CharmURLAndOrigin) (params.DownloadInfoResult, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -198,7 +206,7 @@ func (a *API) getDownloadInfo(arg params.CharmURLAndOrigin) (params.DownloadInfo
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
-	url, origin, err := repo.GetDownloadURL(curl, requestedOrigin)
+	url, origin, err := repo.GetDownloadURL(ctx, curl, requestedOrigin)
 	if err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
@@ -244,8 +252,11 @@ func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string, logger
 // environment, if it does not exist yet. Local charms are not supported,
 // only charm store and charm hub URLs. See also AddLocalCharm().
 func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (params.CharmOriginResult, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("AddCharmWithAuthorization"))
+	defer span.End()
+
 	a.logger.Tracef("AddCharm %+v", args)
-	return a.addCharmWithAuthorization(params.AddCharmWithAuth{
+	return a.addCharmWithAuthorization(ctx, params.AddCharmWithAuth{
 		URL:    args.URL,
 		Origin: args.Origin,
 		Force:  args.Force,
@@ -259,11 +270,14 @@ func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (par
 // Since the charm macaroons are no longer supported, this is the same as
 // AddCharm. We keep it for backwards compatibility in APIv5.
 func (a *APIv5) AddCharmWithAuthorization(ctx context.Context, args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("AddCharmWithAuthorization"))
+	defer span.End()
+
 	a.logger.Tracef("AddCharmWithAuthorization %+v", args)
-	return a.addCharmWithAuthorization(args)
+	return a.addCharmWithAuthorization(ctx, args)
 }
 
-func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
+func (a *API) addCharmWithAuthorization(ctx context.Context, args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
 	if commoncharm.OriginSource(args.Origin.Source) != commoncharm.OriginCharmHub {
 		return params.CharmOriginResult{}, errors.Errorf("unknown schema for charm URL %q", args.URL)
 	}
@@ -276,7 +290,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 		return params.CharmOriginResult{}, err
 	}
 
-	actualOrigin, err := a.queueAsyncCharmDownload(args)
+	actualOrigin, err := a.queueAsyncCharmDownload(ctx, args)
 	if err != nil {
 		return params.CharmOriginResult{}, errors.Trace(err)
 	}
@@ -290,7 +304,7 @@ func (a *API) addCharmWithAuthorization(args params.AddCharmWithAuth) (params.Ch
 	}, nil
 }
 
-func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.Origin, error) {
+func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmWithAuth) (corecharm.Origin, error) {
 	charmURL, err := charm.ParseURL(args.URL)
 	if err != nil {
 		return corecharm.Origin{}, err
@@ -315,14 +329,14 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 	// to ensure that the resolved origin has the ID/Hash fields correctly
 	// populated.
 	if _, err := a.backendState.Charm(charmURL); err == nil {
-		_, resolvedOrigin, err := repo.GetDownloadURL(charmURL, requestedOrigin)
+		_, resolvedOrigin, err := repo.GetDownloadURL(ctx, charmURL, requestedOrigin)
 		return resolvedOrigin, errors.Trace(err)
 	}
 
 	// Fetch the essential metadata that we require to deploy the charm
 	// without downloading the full archive. The remaining metadata will
 	// be populated once the charm gets downloaded.
-	essentialMeta, err := repo.GetEssentialMetadata(corecharm.MetadataRequest{
+	essentialMeta, err := repo.GetEssentialMetadata(ctx, corecharm.MetadataRequest{
 		CharmURL: charmURL,
 		Origin:   requestedOrigin,
 	})
@@ -345,6 +359,9 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 // ResolveCharms resolves the given charm URLs with an optionally specified
 // preferred channel.  Channel provided via CharmOrigin.
 func (a *API) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("ResolveCharms"))
+	defer span.End()
+
 	a.logger.Tracef("ResolveCharms %+v", args)
 	if err := a.checkCanRead(); err != nil {
 		return params.ResolveCharmWithChannelResults{}, errors.Trace(err)
@@ -353,13 +370,13 @@ func (a *API) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithCh
 		Results: make([]params.ResolveCharmWithChannelResult, len(args.Resolve)),
 	}
 	for i, arg := range args.Resolve {
-		result.Results[i] = a.resolveOneCharm(arg)
+		result.Results[i] = a.resolveOneCharm(ctx, arg)
 	}
 
 	return result, nil
 }
 
-func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.ResolveCharmWithChannelResult {
+func (a *API) resolveOneCharm(ctx context.Context, arg params.ResolveCharmWithChannel) params.ResolveCharmWithChannelResult {
 	result := params.ResolveCharmWithChannelResult{}
 	curl, err := charm.ParseURL(arg.Reference)
 	if err != nil {
@@ -389,7 +406,7 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 		return result
 	}
 
-	resultURL, origin, resolvedBases, err := repo.ResolveWithPreferredChannel(curl, requestedOrigin)
+	resultURL, origin, resolvedBases, err := repo.ResolveWithPreferredChannel(ctx, curl, requestedOrigin)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -437,6 +454,9 @@ func (a *API) resolveOneCharm(arg params.ResolveCharmWithChannel) params.Resolve
 // preferred channel.  Channel provided via CharmOrigin.
 // We need to include SupportedSeries in facade version 6
 func (a *APIv6) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResultsV6, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("ResolveCharms"))
+	defer span.End()
+
 	res, err := a.API.ResolveCharms(ctx, args)
 	if err != nil {
 		return params.ResolveCharmWithChannelResultsV6{}, errors.Trace(err)
@@ -537,6 +557,9 @@ func (a *API) IsMetered(ctx context.Context, args params.CharmURL) (params.IsMet
 // CheckCharmPlacement checks if a charm is allowed to be placed with in a
 // given application.
 func (a *API) CheckCharmPlacement(ctx context.Context, args params.ApplicationCharmPlacements) (params.ErrorResults, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("CheckCharmPlacement"))
+	defer span.End()
+
 	if err := a.checkCanRead(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -677,6 +700,9 @@ func (a *API) getMachineArch(machine charmsinterfaces.Machine) (arch.Arch, error
 
 // ListCharmResources returns a series of resources for a given charm.
 func (a *API) ListCharmResources(ctx context.Context, args params.CharmURLAndOrigins) (params.CharmResourcesResults, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("ListCharmResources"))
+	defer span.End()
+
 	if err := a.checkCanRead(); err != nil {
 		return params.CharmResourcesResults{}, errors.Trace(err)
 	}
@@ -684,7 +710,7 @@ func (a *API) ListCharmResources(ctx context.Context, args params.CharmURLAndOri
 		Results: make([][]params.CharmResourceResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		result, err := a.listOneCharmResources(arg)
+		result, err := a.listOneCharmResources(ctx, arg)
 		if err != nil {
 			return params.CharmResourcesResults{}, errors.Trace(err)
 		}
@@ -693,7 +719,7 @@ func (a *API) ListCharmResources(ctx context.Context, args params.CharmURLAndOri
 	return results, nil
 }
 
-func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.CharmResourceResult, error) {
+func (a *API) listOneCharmResources(ctx context.Context, arg params.CharmURLAndOrigin) ([]params.CharmResourceResult, error) {
 	// TODO (stickupkid) - remove api packages from apiserver packages.
 	curl, err := charm.ParseURL(arg.CharmURL)
 	if err != nil {
@@ -721,7 +747,7 @@ func (a *API) listOneCharmResources(arg params.CharmURLAndOrigin) ([]params.Char
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}
-	resources, err := repo.ListResources(curl, requestedOrigin)
+	resources, err := repo.ListResources(ctx, curl, requestedOrigin)
 	if err != nil {
 		return nil, apiservererrors.ServerError(err)
 	}

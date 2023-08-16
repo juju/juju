@@ -192,7 +192,7 @@ func (w *tracerWorker) initTracer(namespace string) error {
 		ctx, cancel := w.scopedContext()
 		defer cancel()
 
-		return w.cfg.NewTracerWorker(ctx, namespace)
+		return w.cfg.NewTracerWorker(ctx, namespace, w.cfg.Logger)
 	})
 	if errors.Is(err, errors.AlreadyExists) {
 		return nil

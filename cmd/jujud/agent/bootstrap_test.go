@@ -280,9 +280,9 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	storeCurl.Architecture = "amd64"
 	storeOrigin := origin
 	storeOrigin.Type = "charm"
-	repo.EXPECT().ResolveWithPreferredChannel(curl, origin).Return(&storeCurl, storeOrigin, nil, nil)
+	repo.EXPECT().ResolveWithPreferredChannel(gomock.Any(), curl, origin).Return(&storeCurl, storeOrigin, nil, nil)
 
-	downloader.EXPECT().DownloadAndStore(&storeCurl, storeOrigin, false).
+	downloader.EXPECT().DownloadAndStore(gomock.Any(), &storeCurl, storeOrigin, false).
 		DoAndReturn(func(charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error) {
 			controllerCharm := testcharms.Repo.CharmArchive(c.MkDir(), "juju-controller")
 			st, closer := s.getSystemState(c)

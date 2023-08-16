@@ -35,8 +35,8 @@ func (r *restrictedRoot) FindMethod(facadeName string, version int, methodName s
 }
 
 // StartTrace implements rpc.Root.
-func (r *restrictedRoot) StartTrace(ctx context.Context, name string) (context.Context, rpc.Span) {
-	return r.Root.StartTrace(ctx, name)
+func (r *restrictedRoot) StartTrace(ctx context.Context) (context.Context, rpc.Span) {
+	return r.Root.StartTrace(ctx)
 }
 
 // restrictAll blocks all API requests, returned a fixed error.

@@ -5,6 +5,7 @@
 package application
 
 import (
+	context "context"
 	url "net/url"
 	reflect "reflect"
 
@@ -38,9 +39,9 @@ func (m *MockRepository) EXPECT() *MockRepositoryMockRecorder {
 }
 
 // DownloadCharm mocks base method.
-func (m *MockRepository) DownloadCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 string) (charm0.CharmArchive, charm0.Origin, error) {
+func (m *MockRepository) DownloadCharm(arg0 context.Context, arg1 *charm.URL, arg2 charm0.Origin, arg3 string) (charm0.CharmArchive, charm0.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(charm0.CharmArchive)
 	ret1, _ := ret[1].(charm0.Origin)
 	ret2, _ := ret[2].(error)
@@ -48,15 +49,15 @@ func (m *MockRepository) DownloadCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2
 }
 
 // DownloadCharm indicates an expected call of DownloadCharm.
-func (mr *MockRepositoryMockRecorder) DownloadCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) DownloadCharm(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadCharm", reflect.TypeOf((*MockRepository)(nil).DownloadCharm), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadCharm", reflect.TypeOf((*MockRepository)(nil).DownloadCharm), arg0, arg1, arg2, arg3)
 }
 
 // GetDownloadURL mocks base method.
-func (m *MockRepository) GetDownloadURL(arg0 *charm.URL, arg1 charm0.Origin) (*url.URL, charm0.Origin, error) {
+func (m *MockRepository) GetDownloadURL(arg0 context.Context, arg1 *charm.URL, arg2 charm0.Origin) (*url.URL, charm0.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDownloadURL", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetDownloadURL", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*url.URL)
 	ret1, _ := ret[1].(charm0.Origin)
 	ret2, _ := ret[2].(error)
@@ -64,16 +65,16 @@ func (m *MockRepository) GetDownloadURL(arg0 *charm.URL, arg1 charm0.Origin) (*u
 }
 
 // GetDownloadURL indicates an expected call of GetDownloadURL.
-func (mr *MockRepositoryMockRecorder) GetDownloadURL(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) GetDownloadURL(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDownloadURL", reflect.TypeOf((*MockRepository)(nil).GetDownloadURL), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDownloadURL", reflect.TypeOf((*MockRepository)(nil).GetDownloadURL), arg0, arg1, arg2)
 }
 
 // GetEssentialMetadata mocks base method.
-func (m *MockRepository) GetEssentialMetadata(arg0 ...charm0.MetadataRequest) ([]charm0.EssentialMetadata, error) {
+func (m *MockRepository) GetEssentialMetadata(arg0 context.Context, arg1 ...charm0.MetadataRequest) ([]charm0.EssentialMetadata, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{}
-	for _, a := range arg0 {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetEssentialMetadata", varargs...)
@@ -83,60 +84,61 @@ func (m *MockRepository) GetEssentialMetadata(arg0 ...charm0.MetadataRequest) ([
 }
 
 // GetEssentialMetadata indicates an expected call of GetEssentialMetadata.
-func (mr *MockRepositoryMockRecorder) GetEssentialMetadata(arg0 ...interface{}) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) GetEssentialMetadata(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEssentialMetadata", reflect.TypeOf((*MockRepository)(nil).GetEssentialMetadata), arg0...)
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEssentialMetadata", reflect.TypeOf((*MockRepository)(nil).GetEssentialMetadata), varargs...)
 }
 
 // ListResources mocks base method.
-func (m *MockRepository) ListResources(arg0 *charm.URL, arg1 charm0.Origin) ([]resource.Resource, error) {
+func (m *MockRepository) ListResources(arg0 context.Context, arg1 *charm.URL, arg2 charm0.Origin) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListResources", arg0, arg1)
+	ret := m.ctrl.Call(m, "ListResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]resource.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListResources indicates an expected call of ListResources.
-func (mr *MockRepositoryMockRecorder) ListResources(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) ListResources(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListResources", reflect.TypeOf((*MockRepository)(nil).ListResources), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListResources", reflect.TypeOf((*MockRepository)(nil).ListResources), arg0, arg1, arg2)
 }
 
 // ResolveForDeploy mocks base method.
-func (m *MockRepository) ResolveForDeploy(arg0 charm0.CharmID) (charm0.ResolvedDataForDeploy, error) {
+func (m *MockRepository) ResolveForDeploy(arg0 context.Context, arg1 charm0.CharmID) (charm0.ResolvedDataForDeploy, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveForDeploy", arg0)
+	ret := m.ctrl.Call(m, "ResolveForDeploy", arg0, arg1)
 	ret0, _ := ret[0].(charm0.ResolvedDataForDeploy)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ResolveForDeploy indicates an expected call of ResolveForDeploy.
-func (mr *MockRepositoryMockRecorder) ResolveForDeploy(arg0 interface{}) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) ResolveForDeploy(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveForDeploy", reflect.TypeOf((*MockRepository)(nil).ResolveForDeploy), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveForDeploy", reflect.TypeOf((*MockRepository)(nil).ResolveForDeploy), arg0, arg1)
 }
 
 // ResolveResources mocks base method.
-func (m *MockRepository) ResolveResources(arg0 []resource.Resource, arg1 charm0.CharmID) ([]resource.Resource, error) {
+func (m *MockRepository) ResolveResources(arg0 context.Context, arg1 []resource.Resource, arg2 charm0.CharmID) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveResources", arg0, arg1)
+	ret := m.ctrl.Call(m, "ResolveResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]resource.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ResolveResources indicates an expected call of ResolveResources.
-func (mr *MockRepositoryMockRecorder) ResolveResources(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) ResolveResources(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveResources", reflect.TypeOf((*MockRepository)(nil).ResolveResources), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveResources", reflect.TypeOf((*MockRepository)(nil).ResolveResources), arg0, arg1, arg2)
 }
 
 // ResolveWithPreferredChannel mocks base method.
-func (m *MockRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 charm0.Origin) (*charm.URL, charm0.Origin, []charm0.Platform, error) {
+func (m *MockRepository) ResolveWithPreferredChannel(arg0 context.Context, arg1 *charm.URL, arg2 charm0.Origin) (*charm.URL, charm0.Origin, []charm0.Platform, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1)
+	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*charm.URL)
 	ret1, _ := ret[1].(charm0.Origin)
 	ret2, _ := ret[2].([]charm0.Platform)
@@ -145,9 +147,9 @@ func (m *MockRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 charm
 }
 
 // ResolveWithPreferredChannel indicates an expected call of ResolveWithPreferredChannel.
-func (mr *MockRepositoryMockRecorder) ResolveWithPreferredChannel(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockRepositoryMockRecorder) ResolveWithPreferredChannel(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveWithPreferredChannel", reflect.TypeOf((*MockRepository)(nil).ResolveWithPreferredChannel), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveWithPreferredChannel", reflect.TypeOf((*MockRepository)(nil).ResolveWithPreferredChannel), arg0, arg1, arg2)
 }
 
 // MockRepositoryFactory is a mock of RepositoryFactory interface.

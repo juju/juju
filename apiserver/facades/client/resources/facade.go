@@ -21,7 +21,9 @@ import (
 	"github.com/juju/juju/core/charm/repository"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resources"
+	coretracer "github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/worker/tracer"
 )
 
 // Backend is the functionality of Juju's state needed for the resources API.
@@ -149,6 +151,14 @@ func (a *API) ListResources(ctx context.Context, args params.ListResourcesArgs) 
 // model in a pending state, meaning they are not available until
 // resolved. Handles CharmHub and Local charms.
 func (a *API) AddPendingResources(ctx context.Context, args params.AddPendingResourcesArgsV2) (params.AddPendingResourcesResult, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithAttributes(map[string]string{
+		"charm.url":            args.URL,
+		"charm.origin.source":  args.CharmOrigin.Source,
+		"charm.origin.id":      args.CharmOrigin.ID,
+		"charm.origin.channel": args.CharmOrigin.Base.Channel,
+	}))
+	defer span.End()
+
 	var result params.AddPendingResourcesResult
 
 	tag, apiErr := parseApplicationTag(args.Tag)
@@ -163,7 +173,7 @@ func (a *API) AddPendingResources(ctx context.Context, args params.AddPendingRes
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
-	ids, err := a.addPendingResources(applicationID, args.URL, requestedOrigin, args.Resources)
+	ids, err := a.addPendingResources(ctx, applicationID, args.URL, requestedOrigin, args.Resources)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -172,7 +182,7 @@ func (a *API) AddPendingResources(ctx context.Context, args params.AddPendingRes
 	return result, nil
 }
 
-func (a *API) addPendingResources(appName, chRef string, origin corecharm.Origin, apiResources []params.CharmResource) ([]string, error) {
+func (a *API) addPendingResources(ctx context.Context, appName, chRef string, origin corecharm.Origin, apiResources []params.CharmResource) ([]string, error) {
 	var resources []charmresource.Resource
 	for _, apiRes := range apiResources {
 		res, err := apiresources.API2CharmResource(apiRes)
@@ -195,7 +205,7 @@ func (a *API) addPendingResources(appName, chRef string, origin corecharm.Origin
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		resources, err = repository.ResolveResources(resources, id)
+		resources, err = repository.ResolveResources(ctx, resources, id)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -4,6 +4,8 @@
 package downloader
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"net/url"
 	"os"
@@ -16,7 +18,9 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/lxdprofile"
+	coretracer "github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/tracer"
 )
 
 // Logger defines the logging methods that the package uses.
@@ -33,9 +37,9 @@ type CharmArchive interface {
 
 // CharmRepository provides an API for downloading charms/bundles.
 type CharmRepository interface {
-	GetDownloadURL(*charm.URL, corecharm.Origin) (*url.URL, corecharm.Origin, error)
-	ResolveWithPreferredChannel(charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error)
-	DownloadCharm(charmURL *charm.URL, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error)
+	GetDownloadURL(context.Context, *charm.URL, corecharm.Origin) (*url.URL, corecharm.Origin, error)
+	ResolveWithPreferredChannel(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error)
+	DownloadCharm(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error)
 }
 
 // RepositoryGetter returns a suitable CharmRepository for the specified Source.
@@ -111,7 +115,16 @@ func NewDownloader(logger Logger, storage Storage, repoGetter RepositoryGetter) 
 // API so it can be persisted.
 //
 // The method ensures that all temporary resources are cleaned up before returning.
-func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error) {
+func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithAttributes(map[string]string{
+		"charm-url":            charmURL.String(),
+		"charm.origin.source":  string(requestedOrigin.Source),
+		"charm.origin.id":      requestedOrigin.ID,
+		"charm.origin.channel": requestedOrigin.Channel.String(),
+		"force":                fmt.Sprintf("%t", force),
+	}))
+	defer span.End()
+
 	var (
 		err           error
 		channelOrigin = requestedOrigin
@@ -133,7 +146,7 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 			if err != nil {
 				return corecharm.Origin{}, errors.Trace(err)
 			}
-			_, resolvedOrigin, err := repo.GetDownloadURL(charmURL, requestedOrigin)
+			_, resolvedOrigin, err := repo.GetDownloadURL(ctx, charmURL, requestedOrigin)
 			return resolvedOrigin, errors.Trace(err)
 		}
 
@@ -157,7 +170,7 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 		return corecharm.Origin{}, errors.Trace(err)
 	}
 
-	downloadedCharm, actualOrigin, err := d.downloadAndHash(charmURL, channelOrigin, repo, tmpFile.Name())
+	downloadedCharm, actualOrigin, err := d.downloadAndHash(ctx, charmURL, channelOrigin, repo, tmpFile.Name())
 	if err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "downloading charm %q from origin %v", charmURL, requestedOrigin)
 	}
@@ -175,9 +188,9 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 	return actualOrigin, nil
 }
 
-func (d *Downloader) downloadAndHash(charmURL *charm.URL, requestedOrigin corecharm.Origin, repo CharmRepository, dstPath string) (DownloadedCharm, corecharm.Origin, error) {
+func (d *Downloader) downloadAndHash(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, repo CharmRepository, dstPath string) (DownloadedCharm, corecharm.Origin, error) {
 	d.logger.Debugf("downloading charm %q from requested origin %v", charmURL, requestedOrigin)
-	chArchive, actualOrigin, err := repo.DownloadCharm(charmURL, requestedOrigin, dstPath)
+	chArchive, actualOrigin, err := repo.DownloadCharm(ctx, charmURL, requestedOrigin, dstPath)
 	if err != nil {
 		return DownloadedCharm{}, corecharm.Origin{}, errors.Trace(err)
 	}

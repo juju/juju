@@ -245,7 +245,7 @@ type tracingRoot struct {
 	rpcreflect.Value
 }
 
-func (tracingRoot) StartTrace(ctx context.Context, name string) (context.Context, Span) {
+func (tracingRoot) StartTrace(ctx context.Context) (context.Context, Span) {
 	return ctx, tracingSpan{}
 }
 
@@ -365,7 +365,7 @@ type Span interface {
 // calls on that method.
 type Root interface {
 	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
-	StartTrace(context.Context, string) (context.Context, Span)
+	StartTrace(context.Context) (context.Context, Span)
 	Killer
 }
 
@@ -587,7 +587,7 @@ func (conn *Conn) runRequest(
 	defer cancel()
 
 	// Provide a tracer for every request.
-	ctx, span := conn.root.StartTrace(ctx, "runRequest")
+	ctx, span := conn.root.StartTrace(ctx)
 	defer span.End()
 
 	rv, err := req.Call(ctx, req.hdr.Request.Id, arg)

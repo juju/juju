@@ -584,7 +584,7 @@ func (r *errRoot) FindMethod(rootName string, version int, methodName string) (r
 	return nil, r.err
 }
 
-func (r *errRoot) StartTrace(ctx context.Context, name string) (context.Context, rpc.Span) {
+func (r *errRoot) StartTrace(ctx context.Context) (context.Context, rpc.Span) {
 	return ctx, noopSpan{}
 }
 

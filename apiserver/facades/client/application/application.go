@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	coretracer "github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
@@ -54,6 +55,7 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/tracer"
 )
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
@@ -2897,6 +2899,9 @@ func (api *APIBase) Leader(ctx context.Context, entity params.Entity) (params.St
 // local resource is provided, details required for uploading the validated
 // resource will be returned.
 func (api *APIBase) DeployFromRepository(ctx context.Context, args params.DeployFromRepositoryArgs) (params.DeployFromRepositoryResults, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("DeployFromRepository"))
+	defer span.End()
+
 	if err := api.checkCanWrite(); err != nil {
 		return params.DeployFromRepositoryResults{}, errors.Trace(err)
 	}
@@ -2906,7 +2911,7 @@ func (api *APIBase) DeployFromRepository(ctx context.Context, args params.Deploy
 
 	results := make([]params.DeployFromRepositoryResult, len(args.Args))
 	for i, entity := range args.Args {
-		info, pending, errs := api.repoDeploy.DeployFromRepository(entity)
+		info, pending, errs := api.repoDeploy.DeployFromRepository(ctx, entity)
 		if len(errs) > 0 {
 			results[i].Errors = apiservererrors.ServerErrors(errs)
 			continue

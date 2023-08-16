@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	coretracer "github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -33,19 +35,20 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/tracer"
 )
 
 var deployRepoLogger = logger.Child("deployfromrepository")
 
 // DeployFromRepositoryValidator defines an deploy config validator.
 type DeployFromRepositoryValidator interface {
-	ValidateArg(params.DeployFromRepositoryArg) (deployTemplate, []error)
+	ValidateArg(context.Context, params.DeployFromRepositoryArg) (deployTemplate, []error)
 }
 
 // DeployFromRepository defines an interface for deploying a charm
 // from a repository.
 type DeployFromRepository interface {
-	DeployFromRepository(arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error)
+	DeployFromRepository(ctx context.Context, arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error)
 }
 
 // DeployFromRepositoryState defines a common set of functions for retrieving state
@@ -85,10 +88,13 @@ func NewDeployFromRepositoryAPI(state DeployFromRepositoryState, validator Deplo
 	}
 }
 
-func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
+func (api *DeployFromRepositoryAPI) DeployFromRepository(ctx context.Context, arg params.DeployFromRepositoryArg) (params.DeployFromRepositoryInfo, []*params.PendingResourceUpload, []error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("DeployFromRepository"))
+	defer span.End()
+
 	deployRepoLogger.Tracef("deployOneFromRepository(%s)", pretty.Sprint(arg))
 	// Validate the args.
-	dt, addPendingResourceErrs := api.validator.ValidateArg(arg)
+	dt, addPendingResourceErrs := api.validator.ValidateArg(ctx, arg)
 
 	if len(addPendingResourceErrs) > 0 {
 		return params.DeployFromRepositoryInfo{}, nil, addPendingResourceErrs
@@ -163,6 +169,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 // the DeployFromRepository returns. Errors are not terminal,
 // and will be collected and returned altogether.
 func (v *deployFromRepositoryValidator) resolveResources(
+	ctx context.Context,
 	curl *charm.URL,
 	origin corecharm.Origin,
 	deployResArg map[string]string,
@@ -203,7 +210,7 @@ func (v *deployFromRepositoryValidator) resolveResources(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	resolvedResources, resolveErr := repo.ResolveResources(resources, corecharm.CharmID{URL: curl, Origin: origin})
+	resolvedResources, resolveErr := repo.ResolveResources(ctx, resources, corecharm.CharmID{URL: curl, Origin: origin})
 
 	return resolvedResources, pendingUploadIDs, resolveErr
 }
@@ -340,7 +347,7 @@ type deployFromRepositoryValidator struct {
 // arguments. Returned is a deployTemplate which contains validated
 // data necessary to deploy the application.
 // Where possible, errors will be grouped and returned as a list.
-func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
+func (v *deployFromRepositoryValidator) validate(ctx context.Context, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
 	errs := make([]error, 0)
 
 	if err := checkMachinePlacement(v.state, arg.ApplicationName, arg.Placement); err != nil {
@@ -349,7 +356,7 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 
 	// get the charm data to validate against, either a previously deployed
 	// charm or the essential metadata from a charm to be async downloaded.
-	charmURL, resolvedOrigin, resolvedCharm, getCharmErr := v.getCharm(arg)
+	charmURL, resolvedOrigin, resolvedCharm, getCharmErr := v.getCharm(ctx, arg)
 	if getCharmErr != nil {
 		errs = append(errs, getCharmErr)
 		// return any errors here, there is no need to continue with
@@ -377,7 +384,7 @@ func (v *deployFromRepositoryValidator) validate(arg params.DeployFromRepository
 		dt.endpoints = bindings.Map()
 	}
 	// resolve and validate resources
-	resources, pendingResourceUploads, resolveResErr := v.resolveResources(dt.charmURL, dt.origin, dt.resources, resolvedCharm.Meta().Resources)
+	resources, pendingResourceUploads, resolveResErr := v.resolveResources(ctx, dt.charmURL, dt.origin, dt.resources, resolvedCharm.Meta().Resources)
 	if resolveResErr != nil {
 		errs = append(errs, resolveResErr)
 	}
@@ -502,8 +509,8 @@ type caasDeployFromRepositoryValidator struct {
 //   - Check kubernetes model config values against the kubernetes cluster
 //     in use
 //   - Check the charm's min version against the caasVersion
-func (v caasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
-	dt, errs := v.validator.validate(arg)
+func (v caasDeployFromRepositoryValidator) ValidateArg(ctx context.Context, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
+	dt, errs := v.validator.validate(ctx, arg)
 
 	if charm.MetaFormat(dt.charm) == charm.FormatV1 {
 		errs = append(errs, errors.NotSupportedf("deploying format v1 charm %q", arg.CharmName))
@@ -525,8 +532,8 @@ type iaasDeployFromRepositoryValidator struct {
 // ValidateArg validates DeployFromRepositoryArg from a iaas perspective.
 // First checking the common validation, then any validation specific to
 // iaas charms.
-func (v iaasDeployFromRepositoryValidator) ValidateArg(arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
-	dt, errs := v.validator.validate(arg)
+func (v iaasDeployFromRepositoryValidator) ValidateArg(ctx context.Context, arg params.DeployFromRepositoryArg) (deployTemplate, []error) {
+	dt, errs := v.validator.validate(ctx, arg)
 	attachStorage, attachStorageErrs := validateAndParseAttachStorage(arg.AttachStorage, dt.numUnits)
 	if len(attachStorageErrs) > 0 {
 		errs = append(errs, attachStorageErrs...)
@@ -698,7 +705,7 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(placements []*inst
 	return platform, platStrings.Size() == 1, nil
 }
 
-func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedOrigin corecharm.Origin, force, usedModelDefaultBase bool, cons constraints.Value) (corecharm.ResolvedDataForDeploy, error) {
+func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *charm.URL, requestedOrigin corecharm.Origin, force, usedModelDefaultBase bool, cons constraints.Value) (corecharm.ResolvedDataForDeploy, error) {
 	repo, err := v.getCharmRepository(requestedOrigin.Source)
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
@@ -707,7 +714,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 	// TODO (hml) 2023-05-16
 	// Use resource data found in resolvedData as part of ResolveResource.
 	// Will require a new method on the repo.
-	resolvedData, resolveErr := repo.ResolveForDeploy(corecharm.CharmID{URL: curl, Origin: requestedOrigin})
+	resolvedData, resolveErr := repo.ResolveForDeploy(ctx, corecharm.CharmID{URL: curl, Origin: requestedOrigin})
 	if charm.IsUnsupportedSeriesError(resolveErr) {
 		if !force {
 			msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", resolveErr)
@@ -794,7 +801,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedO
 
 // getCharm returns the charm being deployed. Either it already has been
 // used once, and we get the data from state. Or we get the essential metadata.
-func (v *deployFromRepositoryValidator) getCharm(arg params.DeployFromRepositoryArg) (*charm.URL, corecharm.Origin, charm.Charm, error) {
+func (v *deployFromRepositoryValidator) getCharm(ctx context.Context, arg params.DeployFromRepositoryArg) (*charm.URL, corecharm.Origin, charm.Charm, error) {
 	initialCurl, requestedOrigin, usedModelDefaultBase, err := v.createOrigin(arg)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, errors.Trace(err)
@@ -804,7 +811,7 @@ func (v *deployFromRepositoryValidator) getCharm(arg params.DeployFromRepository
 	// Fetch the essential metadata that we require to deploy the charm
 	// without downloading the full archive. The remaining metadata will
 	// be populated once the charm gets downloaded.
-	resolvedData, err := v.resolveCharm(initialCurl, requestedOrigin, arg.Force, usedModelDefaultBase, arg.Cons)
+	resolvedData, err := v.resolveCharm(ctx, initialCurl, requestedOrigin, arg.Force, usedModelDefaultBase, arg.Cons)
 	if err != nil {
 		return nil, corecharm.Origin{}, nil, err
 	}

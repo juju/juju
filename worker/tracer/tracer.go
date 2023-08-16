@@ -5,8 +5,10 @@ package tracer
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/errors"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -19,7 +21,29 @@ import (
 // TracerOptions are options that can be passed to the Tracer.Start() method.
 type TracerOption func(*tracerOption)
 
-type tracerOption struct{}
+type tracerOption struct {
+	name       string
+	attributes map[string]string
+	stackTrace bool
+}
+
+func WithAttributes(attributes map[string]string) TracerOption {
+	return func(o *tracerOption) {
+		o.attributes = attributes
+	}
+}
+
+func WithName(name string) TracerOption {
+	return func(o *tracerOption) {
+		o.name = name
+	}
+}
+
+func WithStackTrace() TracerOption {
+	return func(o *tracerOption) {
+		o.stackTrace = true
+	}
+}
 
 func newTracerOptions() *tracerOption {
 	return &tracerOption{}
@@ -58,22 +82,26 @@ type Span interface {
 type tracer struct {
 	tomb tomb.Tomb
 
-	namespace    string
-	client       otlptrace.Client
-	clientTracer trace.Tracer
+	namespace      string
+	client         otlptrace.Client
+	clientProvider *sdktrace.TracerProvider
+	clientTracer   trace.Tracer
+	logger         Logger
 }
 
 // NewTracerWorker returns a new tracer worker.
-func NewTracerWorker(ctx context.Context, namespace string) (TrackedTracer, error) {
-	client, clientTracer, err := newClient(ctx, namespace)
+func NewTracerWorker(ctx context.Context, namespace string, logger Logger) (TrackedTracer, error) {
+	client, clientProvider, clientTracer, err := newClient(ctx, namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	t := &tracer{
-		namespace:    namespace,
-		client:       client,
-		clientTracer: clientTracer,
+		namespace:      namespace,
+		client:         client,
+		clientProvider: clientProvider,
+		clientTracer:   clientTracer,
+		logger:         logger,
 	}
 
 	t.tomb.Go(t.loop)
@@ -97,21 +125,43 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...TracerOption) (
 		opt(o)
 	}
 
+	// Allows the override of the name.
+	if o.name != "" {
+		name = o.name
+	}
+
+	var attrs []attribute.KeyValue
+	for k, v := range o.attributes {
+		attrs = append(attrs, attribute.String(k, v))
+	}
+
 	var (
 		cancel context.CancelFunc
 		span   trace.Span
 	)
 	ctx, cancel = t.scopedContext(ctx)
-	ctx, span = t.clientTracer.Start(ctx, name)
+	ctx, span = t.clientTracer.Start(ctx, name, trace.WithAttributes(attrs...))
 
 	return ctx, &managedSpan{
-		span:   span,
-		cancel: cancel,
+		span:       span,
+		cancel:     cancel,
+		stackTrace: o.stackTrace,
 	}
 }
 
 func (t *tracer) loop() error {
-	defer t.client.Stop(context.Background())
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
+
+		if err := t.client.Stop(ctx); err != nil {
+			t.logger.Infof("failed to stop client: %v", err)
+		}
+
+		if err := t.clientProvider.Shutdown(ctx); err != nil {
+			t.logger.Infof("failed to shutdown provider: %v", err)
+		}
+	}()
 
 	<-t.tomb.Dying()
 	return tomb.ErrDying
@@ -125,14 +175,14 @@ func (w *tracer) scopedContext(ctx context.Context) (context.Context, context.Ca
 	return w.tomb.Context(ctx), cancel
 }
 
-func newClient(ctx context.Context, namespace string) (otlptrace.Client, trace.Tracer, error) {
+func newClient(ctx context.Context, namespace string) (otlptrace.Client, *sdktrace.TracerProvider, trace.Tracer, error) {
 	client := otlptracegrpc.NewClient(
 		otlptracegrpc.WithInsecure(),
 		otlptracegrpc.WithEndpoint("192.168.0.60:4317"),
 	)
 	exporter, err := otlptrace.New(ctx, client)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, nil, nil, errors.Trace(err)
 	}
 
 	tp := sdktrace.NewTracerProvider(
@@ -140,7 +190,7 @@ func newClient(ctx context.Context, namespace string) (otlptrace.Client, trace.T
 		sdktrace.WithResource(newResource(namespace)),
 	)
 
-	return client, tp.Tracer(namespace), nil
+	return client, tp, tp.Tracer(namespace), nil
 }
 
 func newResource(namespace string) *resource.Resource {
@@ -152,11 +202,12 @@ func newResource(namespace string) *resource.Resource {
 }
 
 type managedSpan struct {
-	span   trace.Span
-	cancel context.CancelFunc
+	span       trace.Span
+	cancel     context.CancelFunc
+	stackTrace bool
 }
 
 func (s *managedSpan) End() {
 	defer s.cancel()
-	s.span.End()
+	s.span.End(trace.WithStackTrace(s.stackTrace))
 }

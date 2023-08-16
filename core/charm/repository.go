@@ -4,6 +4,7 @@
 package charm
 
 import (
+	"context"
 	"net/url"
 
 	"github.com/juju/charm/v11"
@@ -16,36 +17,36 @@ type Repository interface {
 	// GetDownloadURL returns a url from which a charm can be downloaded
 	// based on the given charm url and charm origin.  A charm origin
 	// updated with the ID and hash for the download is also returned.
-	GetDownloadURL(*charm.URL, Origin) (*url.URL, Origin, error)
+	GetDownloadURL(context.Context, *charm.URL, Origin) (*url.URL, Origin, error)
 
 	// DownloadCharm retrieves specified charm from the store and saves its
 	// contents to the specified path.
-	DownloadCharm(charmURL *charm.URL, requestedOrigin Origin, archivePath string) (CharmArchive, Origin, error)
+	DownloadCharm(ctx context.Context, charmURL *charm.URL, requestedOrigin Origin, archivePath string) (CharmArchive, Origin, error)
 
 	// ResolveWithPreferredChannel verified that the charm with the requested
 	// channel exists.  If no channel is specified, the latests, most stable is
 	// used. It returns a charm URL which includes the most current revision,
 	// if none was provided, a charm origin, and a slice of series supported by
 	// this charm.
-	ResolveWithPreferredChannel(*charm.URL, Origin) (*charm.URL, Origin, []Platform, error)
+	ResolveWithPreferredChannel(context.Context, *charm.URL, Origin) (*charm.URL, Origin, []Platform, error)
 
 	// GetEssentialMetadata resolves each provided MetadataRequest and
 	// returns back a slice with the results. The results include the
 	// minimum set of metadata that is required for deploying each charm.
-	GetEssentialMetadata(...MetadataRequest) ([]EssentialMetadata, error)
+	GetEssentialMetadata(context.Context, ...MetadataRequest) ([]EssentialMetadata, error)
 
 	// ListResources returns a list of resources associated with a given charm.
-	ListResources(*charm.URL, Origin) ([]charmresource.Resource, error)
+	ListResources(context.Context, *charm.URL, Origin) ([]charmresource.Resource, error)
 
 	// ResolveResources looks at the provided repository and backend (already
 	// downloaded) resources to determine which to use. Provided (uploaded) take
 	// precedence. If charmhub has a newer resource than the back end, use that.
-	ResolveResources(resources []charmresource.Resource, id CharmID) ([]charmresource.Resource, error)
+	ResolveResources(ctx context.Context, resources []charmresource.Resource, id CharmID) ([]charmresource.Resource, error)
 
 	// ResolveForDeploy does the same thing as ResolveWithPreferredChannel
 	// returning EssentialMetadata also. Resources are returned if a
 	// charm revision was not provided in the CharmID.
-	ResolveForDeploy(CharmID) (ResolvedDataForDeploy, error)
+	ResolveForDeploy(context.Context, CharmID) (ResolvedDataForDeploy, error)
 }
 
 // RepositoryFactory is a factory for charm Repositories.

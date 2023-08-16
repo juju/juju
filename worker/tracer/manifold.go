@@ -32,7 +32,7 @@ type Logger interface {
 }
 
 // TracerWorkerFunc is the function signature for creating a new tracer worker.
-type TracerWorkerFunc func(context.Context, string) (TrackedTracer, error)
+type TracerWorkerFunc func(context.Context, string, Logger) (TrackedTracer, error)
 
 // ManifoldConfig defines the configuration for the tracing manifold.
 type ManifoldConfig struct {

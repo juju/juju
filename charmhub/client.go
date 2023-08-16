@@ -32,6 +32,8 @@ import (
 	"github.com/juju/juju/charmhub/transport"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
+	coretracer "github.com/juju/juju/core/tracer"
+	"github.com/juju/juju/worker/tracer"
 )
 
 const (
@@ -176,16 +178,34 @@ func (c *Client) URL() string {
 
 // Info returns charm info on the provided charm name from CharmHub API.
 func (c *Client) Info(ctx context.Context, name string, options ...InfoOption) (transport.InfoResponse, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("Info"), tracer.WithAttributes(map[string]string{
+		"name":   name,
+		"client": "charmhub",
+	}))
+	defer span.End()
+
 	return c.infoClient.Info(ctx, name, options...)
 }
 
 // Find searches for a given charm for a given name from CharmHub API.
 func (c *Client) Find(ctx context.Context, name string, options ...FindOption) ([]transport.FindResponse, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("Find"), tracer.WithAttributes(map[string]string{
+		"name":   name,
+		"client": "charmhub",
+	}))
+	defer span.End()
+
 	return c.findClient.Find(ctx, name, options...)
 }
 
 // Refresh defines a client for making refresh API calls with different actions.
 func (c *Client) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("Refresh"), tracer.WithAttributes(map[string]string{
+		"config": config.String(),
+		"client": "charmhub",
+	}))
+	defer span.End()
+
 	return c.refreshClient.Refresh(ctx, config)
 }
 
@@ -193,6 +213,12 @@ func (c *Client) Refresh(ctx context.Context, config RefreshConfig) ([]transport
 // Specifically to use the refresh action and provide metrics.  Intended for
 // use in the charm revision updater facade only.  Otherwise use Refresh.
 func (c *Client) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("RefreshWithRequestMetrics"), tracer.WithAttributes(map[string]string{
+		"config": config.String(),
+		"client": "charmhub",
+	}))
+	defer span.End()
+
 	return c.refreshClient.RefreshWithRequestMetrics(ctx, config, metrics)
 }
 
@@ -200,30 +226,69 @@ func (c *Client) RefreshWithRequestMetrics(ctx context.Context, config RefreshCo
 // action, whose purpose is to send metrics data for models without current
 // units.  E.G. the controller model.
 func (c *Client) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) error {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("RefreshWithMetricsOnly"), tracer.WithAttributes(map[string]string{
+		"client": "charmhub",
+	}))
+	defer span.End()
+
 	return c.refreshClient.RefreshWithMetricsOnly(ctx, metrics)
 }
 
 // Download defines a client for downloading charms directly.
 func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) error {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("Download"), tracer.WithAttributes(map[string]string{
+		"resource-url": resourceURL.String(),
+		"archive-path": archivePath,
+		"client":       "charmhub",
+	}))
+	defer span.End()
+
 	return c.downloadClient.Download(ctx, resourceURL, archivePath, options...)
 }
 
 // DownloadAndRead defines a client for downloading charms directly.
 func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("DownloadAndRead"), tracer.WithAttributes(map[string]string{
+		"resource-url": resourceURL.String(),
+		"archive-path": archivePath,
+		"client":       "charmhub",
+	}))
+	defer span.End()
+
 	return c.downloadClient.DownloadAndRead(ctx, resourceURL, archivePath, options...)
 }
 
 // DownloadAndReadBundle defines a client for downloading bundles directly.
 func (c *Client) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (charm.Bundle, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("DownloadAndReadBundle"), tracer.WithAttributes(map[string]string{
+		"resource-url": resourceURL.String(),
+		"archive-path": archivePath,
+		"client":       "charmhub",
+	}))
+	defer span.End()
+
 	return c.downloadClient.DownloadAndReadBundle(ctx, resourceURL, archivePath, options...)
 }
 
 // DownloadResource returns an io.ReadCloser to read the Resource from.
 func (c *Client) DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("DownloadResource"), tracer.WithAttributes(map[string]string{
+		"resource-url": resourceURL.String(),
+		"client":       "charmhub",
+	}))
+	defer span.End()
+
 	return c.downloadClient.DownloadResource(ctx, resourceURL)
 }
 
 // ListResourceRevisions returns resource revisions for the provided charm and resource.
 func (c *Client) ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error) {
+	ctx, span := coretracer.Start(ctx, tracer.WithName("ListResourceRevisions"), tracer.WithAttributes(map[string]string{
+		"charm":    charm,
+		"resource": resource,
+		"client":   "charmhub",
+	}))
+	defer span.End()
+
 	return c.resourcesClient.ListResourceRevisions(ctx, charm, resource)
 }
