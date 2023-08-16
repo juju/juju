@@ -346,7 +346,7 @@ func (s *modelInfoSuite) TestModelInfoNonOwner(c *gc.C) {
 }
 
 func (s *modelInfoSuite) getModelInfo(c *gc.C, modelUUID string) params.ModelInfo {
-	results, err := s.modelmanager.ModelInfo(params.Entities{
+	results, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{
 		Entities: []params.Entity{{
 			names.NewModelTag(modelUUID).String(),
 		}},
@@ -398,7 +398,7 @@ func (s *modelInfoSuite) TestRunningMigration(c *gc.C) {
 		start:  start,
 	}
 
-	results, err := s.modelmanager.ModelInfo(params.Entities{
+	results, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
 
@@ -418,7 +418,7 @@ func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
 		end:    end,
 	}
 
-	results, err := s.modelmanager.ModelInfo(params.Entities{
+	results, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
 
@@ -430,7 +430,7 @@ func (s *modelInfoSuite) TestFailedMigration(c *gc.C) {
 }
 
 func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
-	results, err := s.modelmanager.ModelInfo(params.Entities{
+	results, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{
 		Entities: []params.Entity{{coretesting.ModelTag.String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -592,7 +592,7 @@ func (s *modelInfoSuite) assertSuccess(c *gc.C, modelUUID string, desiredLife st
 }
 
 func (s *modelInfoSuite) testModelInfoError(c *gc.C, modelTag, expectedErr string) {
-	results, err := s.modelmanager.ModelInfo(params.Entities{
+	results, err := s.modelmanager.ModelInfo(stdcontext.Background(), params.Entities{
 		Entities: []params.Entity{{modelTag}},
 	})
 	c.Assert(err, jc.ErrorIsNil)

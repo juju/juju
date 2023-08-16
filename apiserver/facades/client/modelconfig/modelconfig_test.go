@@ -4,6 +4,8 @@
 package modelconfig_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -66,7 +68,7 @@ func (s *modelconfigSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *modelconfigSuite) TestAdminModelGet(c *gc.C) {
-	result, err := s.api.ModelGet()
+	result, err := s.api.ModelGet(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
 		"type":          {Value: "dummy", Source: "model"},
@@ -82,7 +84,7 @@ func (s *modelconfigSuite) TestUserModelGet(c *gc.C) {
 		HasWriteTag: names.NewUserTag("bruce@local"),
 		AdminTag:    names.NewUserTag("mary@local"),
 	}
-	result, err := s.api.ModelGet()
+	result, err := s.api.ModelGet(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config, jc.DeepEquals, map[string]params.ConfigValue{
 		"type":          {Value: "dummy", Source: "model"},
@@ -110,7 +112,7 @@ func (s *modelconfigSuite) TestAdminModelSet(c *gc.C) {
 			"other-key": "other value",
 		},
 	}
-	err := s.api.ModelSet(params)
+	err := s.api.ModelSet(context.Background(), params)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigValue(c, "some-key", "value")
 	s.assertConfigValue(c, "other-key", "other value")
@@ -130,7 +132,7 @@ func (s *modelconfigSuite) assertBlocked(c *gc.C, err error, msg string) {
 }
 
 func (s *modelconfigSuite) assertModelSetBlocked(c *gc.C, args map[string]interface{}, msg string) {
-	err := s.api.ModelSet(params.ModelSet{Config: args})
+	err := s.api.ModelSet(context.Background(), params.ModelSet{Config: args})
 	s.assertBlocked(c, err, msg)
 }
 
@@ -149,15 +151,15 @@ func (s *modelconfigSuite) TestModelSetCannotChangeAgentVersion(c *gc.C) {
 	args := params.ModelSet{
 		Config: map[string]interface{}{"agent-version": "9.9.9"},
 	}
-	err = s.api.ModelSet(args)
+	err = s.api.ModelSet(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "agent-version cannot be changed")
 
 	// It's okay to pass config back with the same agent-version.
-	result, err := s.api.ModelGet()
+	result, err := s.api.ModelGet(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config["agent-version"], gc.NotNil)
 	args.Config["agent-version"] = result.Config["agent-version"].Value
-	err = s.api.ModelSet(args)
+	err = s.api.ModelSet(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -170,15 +172,15 @@ func (s *modelconfigSuite) TestModelSetCannotChangeCharmHubURL(c *gc.C) {
 	args := params.ModelSet{
 		Config: map[string]interface{}{"charmhub-url": "http://another-url.com"},
 	}
-	err = s.api.ModelSet(args)
+	err = s.api.ModelSet(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "charmhub-url cannot be changed")
 
 	// It's okay to pass config back with the same charmhub-url.
-	result, err := s.api.ModelGet()
+	result, err := s.api.ModelGet(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config["charmhub-url"], gc.NotNil)
 	args.Config["charmhub-url"] = result.Config["charmhub-url"].Value
-	err = s.api.ModelSet(args)
+	err = s.api.ModelSet(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -186,10 +188,10 @@ func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *gc.C) {
 	args := params.ModelSet{
 		Config: map[string]interface{}{"logging-config": "<root>=DEBUG;somepackage=TRACE"},
 	}
-	err := s.api.ModelSet(args)
+	err := s.api.ModelSet(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.api.ModelGet()
+	result, err := s.api.ModelGet(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config["logging-config"].Value, gc.Equals, "<root>=DEBUG;somepackage=TRACE")
 }
@@ -201,10 +203,10 @@ func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *gc.C) {
 	apiUser := names.NewUserTag("fred")
 	s.authorizer.Tag = apiUser
 	s.authorizer.HasWriteTag = apiUser
-	err := s.api.ModelSet(args)
+	err := s.api.ModelSet(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.api.ModelGet()
+	result, err := s.api.ModelGet(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config["logging-config"].Value, gc.Equals, "<root>=DEBUG;somepackage=ERROR")
 }
@@ -213,10 +215,10 @@ func (s *modelconfigSuite) TestUserReadAccess(c *gc.C) {
 	apiUser := names.NewUserTag("read")
 	s.authorizer.Tag = apiUser
 
-	_, err := s.api.ModelGet()
+	_, err := s.api.ModelGet(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.api.ModelSet(params.ModelSet{})
+	err = s.api.ModelSet(context.Background(), params.ModelSet{})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "permission denied")
 }
 
@@ -227,7 +229,7 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
 	apiUser := names.NewUserTag("fred")
 	s.authorizer.Tag = apiUser
 	s.authorizer.HasWriteTag = apiUser
-	err := s.api.ModelSet(args)
+	err := s.api.ModelSet(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `only controller admins can set a model's logging level to TRACE`)
 }
 
@@ -235,17 +237,17 @@ func (s *modelconfigSuite) TestSetSecretBackend(c *gc.C) {
 	args := params.ModelSet{
 		Config: map[string]interface{}{"secret-backend": 1},
 	}
-	err := s.api.ModelSet(args)
+	err := s.api.ModelSet(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `"secret-backend" config value is not a string`)
 
 	args.Config = map[string]interface{}{"secret-backend": ""}
-	err = s.api.ModelSet(args)
+	err = s.api.ModelSet(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `empty "secret-backend" config value not valid`)
 
 	args.Config = map[string]interface{}{"secret-backend": "auto"}
-	err = s.api.ModelSet(args)
+	err = s.api.ModelSet(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.api.ModelGet()
+	result, err := s.api.ModelGet(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config["secret-backend"].Value, gc.Equals, "auto")
 }
@@ -272,9 +274,9 @@ func (s *modelconfigSuite) TestSetSecretBackendExternal(c *gc.C) {
 	args := params.ModelSet{
 		Config: map[string]interface{}{"secret-backend": "backend-1"},
 	}
-	err := s.api.ModelSet(args)
+	err := s.api.ModelSet(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.api.ModelGet()
+	result, err := s.api.ModelGet(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Config["secret-backend"].Value, gc.Equals, "backend-1")
 }
@@ -301,7 +303,7 @@ func (s *modelconfigSuite) TestSetSecretBackendExternalValidationFailed(c *gc.C)
 	args := params.ModelSet{
 		Config: map[string]interface{}{"secret-backend": "backend-1"},
 	}
-	err := s.api.ModelSet(args)
+	err := s.api.ModelSet(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `cannot ping backend "backend-1": not reachable`)
 }
 
@@ -310,7 +312,7 @@ func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.ModelUnset{Keys: []string{"abc"}}
-	err = s.api.ModelUnset(args)
+	err = s.api.ModelUnset(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertConfigValueMissing(c, "abc")
 }
@@ -321,19 +323,19 @@ func (s *modelconfigSuite) TestBlockModelUnset(c *gc.C) {
 	s.blockAllChanges(c, "TestBlockModelUnset")
 
 	args := params.ModelUnset{Keys: []string{"abc"}}
-	err = s.api.ModelUnset(args)
+	err = s.api.ModelUnset(context.Background(), args)
 	s.assertBlocked(c, err, "TestBlockModelUnset")
 }
 
 func (s *modelconfigSuite) TestModelUnsetMissing(c *gc.C) {
 	// It's okay to unset a non-existent attribute.
 	args := params.ModelUnset{Keys: []string{"not_there"}}
-	err := s.api.ModelUnset(args)
+	err := s.api.ModelUnset(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *modelconfigSuite) TestSetSupportCredentals(c *gc.C) {
-	err := s.api.SetSLALevel(params.ModelSLA{
+	err := s.api.SetSLALevel(context.Background(), params.ModelSLA{
 		ModelSLAInfo: params.ModelSLAInfo{Level: "level", Owner: "bob"},
 		Credentials:  []byte("foobar"),
 	})
@@ -344,7 +346,7 @@ func (s *modelconfigSuite) TestClientSetModelConstraints(c *gc.C) {
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.api.SetModelConstraints(params.SetConstraints{
+	err = s.api.SetModelConstraints(context.Background(), params.SetConstraints{
 		ApplicationName: "app",
 		Constraints:     cons,
 	})
@@ -356,7 +358,7 @@ func (s *modelconfigSuite) assertSetModelConstraintsBlocked(c *gc.C, msg string)
 	// Set constraints for the model.
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.api.SetModelConstraints(params.SetConstraints{
+	err = s.api.SetModelConstraints(context.Background(), params.SetConstraints{
 		ApplicationName: "app",
 		Constraints:     cons,
 	})
@@ -373,7 +375,7 @@ func (s *modelconfigSuite) TestClientGetModelConstraints(c *gc.C) {
 	cons, err := constraints.Parse("mem=4096", "cores=2")
 	c.Assert(err, jc.ErrorIsNil)
 	s.backend.cons = cons
-	obtained, err := s.api.GetModelConstraints()
+	obtained, err := s.api.GetModelConstraints(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained.Constraints, gc.DeepEquals, cons)
 }

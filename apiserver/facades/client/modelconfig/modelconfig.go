@@ -4,6 +4,7 @@
 package modelconfig
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -84,7 +85,7 @@ func (c *ModelConfigAPI) isModelAdmin() (bool, error) {
 
 // ModelGet implements the server-side part of the
 // model-config CLI command.
-func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
+func (c *ModelConfigAPI) ModelGet(ctx context.Context) (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 	if err := c.canReadModel(); err != nil {
 		return result, errors.Trace(err)
@@ -130,7 +131,7 @@ func (c *ModelConfigAPI) ModelGet() (params.ModelConfigResults, error) {
 
 // ModelSet implements the server-side part of the
 // set-model-config CLI command.
-func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
+func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) error {
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}
@@ -291,7 +292,7 @@ func (c *ModelConfigAPI) checkSecretBackend() state.ValidateConfigFunc {
 
 // ModelUnset implements the server-side part of the
 // set-model-config CLI command.
-func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
+func (c *ModelConfigAPI) ModelUnset(ctx context.Context, args params.ModelUnset) error {
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}
@@ -303,7 +304,7 @@ func (c *ModelConfigAPI) ModelUnset(args params.ModelUnset) error {
 }
 
 // GetModelConstraints returns the constraints for the model.
-func (c *ModelConfigAPI) GetModelConstraints() (params.GetConstraintsResults, error) {
+func (c *ModelConfigAPI) GetModelConstraints(ctx context.Context) (params.GetConstraintsResults, error) {
 	if err := c.canReadModel(); err != nil {
 		return params.GetConstraintsResults{}, err
 	}
@@ -316,7 +317,7 @@ func (c *ModelConfigAPI) GetModelConstraints() (params.GetConstraintsResults, er
 }
 
 // SetModelConstraints sets the constraints for the model.
-func (c *ModelConfigAPI) SetModelConstraints(args params.SetConstraints) error {
+func (c *ModelConfigAPI) SetModelConstraints(ctx context.Context, args params.SetConstraints) error {
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}
@@ -328,7 +329,7 @@ func (c *ModelConfigAPI) SetModelConstraints(args params.SetConstraints) error {
 }
 
 // SetSLALevel sets the sla level on the model.
-func (c *ModelConfigAPI) SetSLALevel(args params.ModelSLA) error {
+func (c *ModelConfigAPI) SetSLALevel(ctx context.Context, args params.ModelSLA) error {
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}
@@ -337,7 +338,7 @@ func (c *ModelConfigAPI) SetSLALevel(args params.ModelSLA) error {
 }
 
 // SLALevel returns the current sla level for the model.
-func (c *ModelConfigAPI) SLALevel() (params.StringResult, error) {
+func (c *ModelConfigAPI) SLALevel(ctx context.Context) (params.StringResult, error) {
 	result := params.StringResult{}
 	level, err := c.backend.SLALevel()
 	if err != nil {
@@ -348,7 +349,7 @@ func (c *ModelConfigAPI) SLALevel() (params.StringResult, error) {
 }
 
 // Sequences returns the model's sequence names and next values.
-func (c *ModelConfigAPI) Sequences() (params.ModelSequencesResult, error) {
+func (c *ModelConfigAPI) Sequences(ctx context.Context) (params.ModelSequencesResult, error) {
 	result := params.ModelSequencesResult{}
 	if err := c.canReadModel(); err != nil {
 		return result, errors.Trace(err)

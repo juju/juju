@@ -186,7 +186,7 @@ func NewMachineManagerAPI(
 
 // AddMachines adds new machines with the supplied parameters.
 // The args will contain Base info.
-func (mm *MachineManagerAPI) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
+func (mm *MachineManagerAPI) AddMachines(ctx context.Context, args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
@@ -317,7 +317,7 @@ func (mm *MachineManagerAPI) addOneMachine(p params.AddMachineParams) (*state.Ma
 
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
-func (mm *MachineManagerAPI) ProvisioningScript(args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
+func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ProvisioningScriptResult{}, err
 	}
@@ -369,7 +369,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(args params.ProvisioningScriptPa
 }
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
-func (mm *MachineManagerAPI) RetryProvisioning(p params.RetryProvisioningArgs) (params.ErrorResults, error) {
+func (mm *MachineManagerAPI) RetryProvisioning(ctx context.Context, p params.RetryProvisioningArgs) (params.ErrorResults, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -435,7 +435,7 @@ func (mm *MachineManagerAPI) maybeUpdateInstanceStatus(all bool, m Machine, data
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.
-func (mm *MachineManagerAPI) DestroyMachineWithParams(args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
+func (mm *MachineManagerAPI) DestroyMachineWithParams(ctx context.Context, args params.DestroyMachinesParams) (params.DestroyMachineResults, error) {
 	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
 	for i, tag := range args.MachineTags {
 		entities.Entities[i].Tag = tag
@@ -444,7 +444,7 @@ func (mm *MachineManagerAPI) DestroyMachineWithParams(args params.DestroyMachine
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.
-func (mm *MachineManagerV9) DestroyMachineWithParams(args params.DestroyMachinesParamsV9) (params.DestroyMachineResults, error) {
+func (mm *MachineManagerV9) DestroyMachineWithParams(ctx context.Context, args params.DestroyMachinesParamsV9) (params.DestroyMachineResults, error) {
 	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
 	for i, tag := range args.MachineTags {
 		entities.Entities[i].Tag = tag
@@ -632,6 +632,7 @@ func (mm *MachineManagerAPI) classifyDetachedStorage(units []Unit) (destroyed, d
 // If they do, a list of the machine's current units is returned for use in
 // soliciting user confirmation of the command.
 func (mm *MachineManagerAPI) UpgradeSeriesValidate(
+	ctx context.Context,
 	args params.UpdateChannelArgs,
 ) (params.UpgradeSeriesUnitsResults, error) {
 	entities := make([]ValidationEntity, len(args.Args))
@@ -662,7 +663,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 }
 
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
-func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateChannelArg) (params.ErrorResult, error) {
+func (mm *MachineManagerAPI) UpgradeSeriesPrepare(ctx context.Context, arg params.UpdateChannelArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
@@ -677,7 +678,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(arg params.UpdateChannelArg) (
 
 // UpgradeSeriesComplete marks a machine as having completed a managed series
 // upgrade.
-func (mm *MachineManagerAPI) UpgradeSeriesComplete(arg params.UpdateChannelArg) (params.ErrorResult, error) {
+func (mm *MachineManagerAPI) UpgradeSeriesComplete(ctx context.Context, arg params.UpdateChannelArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
@@ -694,7 +695,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(arg params.UpdateChannelArg) 
 
 // WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade
 // series events.
-func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entities) (params.NotifyWatchResults, error) {
+func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	err := mm.authorizer.CanRead()
 	if err != nil {
 		return params.NotifyWatchResults{}, err
@@ -728,7 +729,7 @@ func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(args params.Entitie
 // GetUpgradeSeriesMessages returns all new messages associated with upgrade
 // series events. Messages that have already been retrieved once are not
 // returned by this method.
-func (mm *MachineManagerAPI) GetUpgradeSeriesMessages(args params.UpgradeSeriesNotificationParams) (params.StringsResults, error) {
+func (mm *MachineManagerAPI) GetUpgradeSeriesMessages(ctx context.Context, args params.UpgradeSeriesNotificationParams) (params.StringsResults, error) {
 	if err := mm.authorizer.CanRead(); err != nil {
 		return params.StringsResults{}, err
 	}

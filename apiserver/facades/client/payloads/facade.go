@@ -4,6 +4,8 @@
 package payloads
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	api "github.com/juju/juju/api/client/payloads"
@@ -31,7 +33,7 @@ func NewAPI(backend payloadBackend) *API {
 // List builds the list of payloads being tracked for
 // the given unit and IDs. If no IDs are provided then all tracked
 // payloads for the unit are returned.
-func (a API) List(args params.PayloadListArgs) (params.PayloadListResults, error) {
+func (a API) List(ctx context.Context, args params.PayloadListArgs) (params.PayloadListResults, error) {
 	var r params.PayloadListResults
 
 	payloadInfo, err := a.backend.ListAll()

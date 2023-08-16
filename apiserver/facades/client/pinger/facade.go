@@ -4,6 +4,8 @@
 package pinger
 
 import (
+	"context"
+
 	"github.com/juju/worker/v3"
 )
 
@@ -26,12 +28,12 @@ func NewAPI(pinger Pinger) *API {
 }
 
 // Ping is used by the client heartbeat monitor and resets.
-func (a API) Ping() {
+func (a API) Ping(ctx context.Context) {
 	a.pinger.Ping()
 }
 
 // Stop stops the pinger.
-func (a API) Stop() error {
+func (a API) Stop(ctx context.Context) error {
 	a.pinger.Kill()
 	return a.pinger.Wait()
 }

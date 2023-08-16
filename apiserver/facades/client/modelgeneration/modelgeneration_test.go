@@ -4,6 +4,8 @@
 package modelgeneration_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -49,7 +51,7 @@ func (s *modelGenerationSuite) TestAddBranchInvalidNameError(c *gc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 
 	arg := params.BranchArg{BranchName: model.GenerationMaster}
-	result, err := s.api.AddBranch(arg)
+	result, err := s.api.AddBranch(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.NotNil)
 	c.Check(result.Error.Message, gc.Matches, ".* not valid")
@@ -59,7 +61,7 @@ func (s *modelGenerationSuite) TestAddBranchSuccess(c *gc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 	s.expectAddBranch()
 
-	result, err := s.api.AddBranch(s.newBranchArg())
+	result, err := s.api.AddBranch(context.Background(), s.newBranchArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 }
@@ -78,7 +80,7 @@ func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
 			{Tag: names.NewMachineTag("7").String()},
 		},
 	}
-	result, err := s.api.TrackBranch(arg)
+	result, err := s.api.TrackBranch(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
@@ -100,7 +102,7 @@ func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 			{Tag: names.NewApplicationTag("ghost").String()},
 		},
 	}
-	result, err := s.api.TrackBranch(arg)
+	result, err := s.api.TrackBranch(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult{
 		{Error: nil},
@@ -119,7 +121,7 @@ func (s *modelGenerationSuite) TestTrackBranchWithTooManyNumUnits(c *gc.C) {
 		},
 		NumUnits: 1,
 	}
-	result, err := s.api.TrackBranch(arg)
+	result, err := s.api.TrackBranch(context.Background(), arg)
 	c.Assert(err, gc.ErrorMatches, "number of units and unit IDs can not be specified at the same time")
 	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult(nil))
 }
@@ -129,7 +131,7 @@ func (s *modelGenerationSuite) TestCommitBranchSuccess(c *gc.C) {
 	s.expectCommit()
 	s.expectBranch()
 
-	result, err := s.api.CommitBranch(s.newBranchArg())
+	result, err := s.api.CommitBranch(context.Background(), s.newBranchArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.IntResult{Result: 3, Error: nil})
 }
@@ -139,7 +141,7 @@ func (s *modelGenerationSuite) TestAbortBranchSuccess(c *gc.C) {
 	s.expectAbort()
 	s.expectBranch()
 
-	result, err := s.api.AbortBranch(s.newBranchArg())
+	result, err := s.api.AbortBranch(context.Background(), s.newBranchArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: nil})
 }
@@ -148,7 +150,7 @@ func (s *modelGenerationSuite) TestHasActiveBranchTrue(c *gc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 	s.expectHasActiveBranch(nil)
 
-	result, err := s.api.HasActiveBranch(s.newBranchArg())
+	result, err := s.api.HasActiveBranch(context.Background(), s.newBranchArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Check(result.Result, jc.IsTrue)
@@ -158,7 +160,7 @@ func (s *modelGenerationSuite) TestHasActiveBranchFalse(c *gc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 	s.expectHasActiveBranch(errors.NotFoundf(s.newBranchName))
 
-	result, err := s.api.HasActiveBranch(s.newBranchArg())
+	result, err := s.api.HasActiveBranch(context.Background(), s.newBranchArg())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Check(result.Result, jc.IsFalse)
@@ -194,7 +196,7 @@ func (s *modelGenerationSuite) testBranchInfo(c *gc.C, branchNames []string, det
 
 	s.setupMockApp(ctrl, units)
 
-	result, err := s.api.BranchInfo(params.BranchInfoArgs{
+	result, err := s.api.BranchInfo(context.Background(), params.BranchInfoArgs{
 		BranchNames: branchNames,
 		Detailed:    detailed,
 	})

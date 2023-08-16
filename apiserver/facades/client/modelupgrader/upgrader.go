@@ -4,6 +4,7 @@
 package modelupgrader
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -103,7 +104,7 @@ type ConfigSource interface {
 
 // AbortModelUpgrade aborts and archives the model upgrade
 // synchronisation record, if any.
-func (m *ModelUpgraderAPI) AbortModelUpgrade(arg params.ModelParam) error {
+func (m *ModelUpgraderAPI) AbortModelUpgrade(ctx stdcontext.Context, arg params.ModelParam) error {
 	modelTag, err := names.ParseModelTag(arg.ModelTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -124,7 +125,7 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(arg params.ModelParam) error {
 }
 
 // UpgradeModel upgrades a model.
-func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error) {
+func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.UpgradeModelParams) (result params.UpgradeModelResult, err error) {
 	m.logger.Tracef("UpgradeModel arg %#v", arg)
 	targetVersion := arg.TargetVersion
 	defer func() {
