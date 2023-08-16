@@ -4,6 +4,7 @@
 package usermanager
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -39,7 +40,7 @@ func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {
 
 // AddUser adds a user with a username, and either a password or
 // a randomly generated secret key which will be returned.
-func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults, error) {
+func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (params.AddUserResults, error) {
 	var result params.AddUserResults
 
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -85,7 +86,7 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 // information around for auditing purposes.
 // TODO(redir): Add information about getting deleted user information when we
 // add that capability.
-func (api *UserManagerAPI) RemoveUser(entities params.Entities) (params.ErrorResults, error) {
+func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entities) (params.ErrorResults, error) {
 	var deletions params.ErrorResults
 
 	if err := api.check.ChangeAllowed(); err != nil {
@@ -150,7 +151,7 @@ func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 
 // EnableUser enables one or more users.  If the user is already enabled,
 // the action is considered a success.
-func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResults, error) {
+func (api *UserManagerAPI) EnableUser(ctx context.Context, users params.Entities) (params.ErrorResults, error) {
 	if _, err := api.hasControllerAdminAccess(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -163,7 +164,7 @@ func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResult
 
 // DisableUser disables one or more users.  If the user is already disabled,
 // the action is considered a success.
-func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResults, error) {
+func (api *UserManagerAPI) DisableUser(ctx context.Context, users params.Entities) (params.ErrorResults, error) {
 	if _, err := api.hasControllerAdminAccess(); err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -205,7 +206,7 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 }
 
 // UserInfo returns information on a user.
-func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.UserInfoResults, error) {
+func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfoRequest) (params.UserInfoResults, error) {
 	var results params.UserInfoResults
 	isAdmin, err := api.hasControllerAdminAccess()
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
@@ -305,7 +306,7 @@ func (api *UserManagerAPI) checkCanRead(modelTag names.Tag) error {
 }
 
 // ModelUserInfo returns information on all users in the model.
-func (api *UserManagerAPI) ModelUserInfo(args params.Entities) (params.ModelUserInfoResults, error) {
+func (api *UserManagerAPI) ModelUserInfo(ctx context.Context, args params.Entities) (params.ModelUserInfoResults, error) {
 	var result params.ModelUserInfoResults
 	for _, entity := range args.Entities {
 		modelTag, err := names.ParseModelTag(entity.Tag)
@@ -352,7 +353,7 @@ func (api *UserManagerAPI) modelUserInfo(modelTag names.ModelTag) ([]params.Mode
 }
 
 // SetPassword changes the stored password for the specified users.
-func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.ErrorResults, error) {
+func (api *UserManagerAPI) SetPassword(ctx context.Context, args params.EntityPasswords) (params.ErrorResults, error) {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -399,7 +400,7 @@ func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 // invalidating current passwords (if any) and generating
 // new random secret keys which will be returned.
 // Users cannot reset their own password.
-func (api *UserManagerAPI) ResetPassword(args params.Entities) (params.AddUserResults, error) {
+func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entities) (params.AddUserResults, error) {
 	var result params.AddUserResults
 
 	if err := api.check.ChangeAllowed(); err != nil {

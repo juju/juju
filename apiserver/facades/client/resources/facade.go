@@ -4,6 +4,8 @@
 package resources
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
@@ -116,7 +118,7 @@ func NewResourcesAPI(backend Backend, factory func(*charm.URL) (NewCharmReposito
 }
 
 // ListResources returns the list of resources for the given application.
-func (a *API) ListResources(args params.ListResourcesArgs) (params.ResourcesResults, error) {
+func (a *API) ListResources(ctx context.Context, args params.ListResourcesArgs) (params.ResourcesResults, error) {
 	var r params.ResourcesResults
 	r.Results = make([]params.ResourcesResult, len(args.Entities))
 
@@ -146,7 +148,7 @@ func (a *API) ListResources(args params.ListResourcesArgs) (params.ResourcesResu
 // AddPendingResources adds the provided resources (info) to the Juju
 // model in a pending state, meaning they are not available until
 // resolved. Handles CharmHub and Local charms.
-func (a *API) AddPendingResources(args params.AddPendingResourcesArgsV2) (params.AddPendingResourcesResult, error) {
+func (a *API) AddPendingResources(ctx context.Context, args params.AddPendingResourcesArgsV2) (params.AddPendingResourcesResult, error) {
 	var result params.AddPendingResourcesResult
 
 	tag, apiErr := parseApplicationTag(args.Tag)

@@ -4,6 +4,7 @@
 package storage_test
 
 import (
+	"context"
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
@@ -39,7 +40,7 @@ func (s *poolRemoveSuite) TestRemovePool(c *gc.C) {
 			Name: poolName,
 		}},
 	}
-	results, err := s.api.RemovePool(args)
+	results, err := s.api.RemovePool(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -57,7 +58,7 @@ func (s *poolRemoveSuite) TestRemoveNotExists(c *gc.C) {
 			Name: poolName,
 		}},
 	}
-	results, err := s.api.RemovePool(args)
+	results, err := s.api.RemovePool(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -76,7 +77,7 @@ func (s *poolRemoveSuite) TestRemoveInUse(c *gc.C) {
 			Name: poolName,
 		}},
 	}
-	results, err := s.api.RemovePool(args)
+	results, err := s.api.RemovePool(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolName))
@@ -98,7 +99,7 @@ func (s *poolRemoveSuite) TestRemoveSomeInUse(c *gc.C) {
 			Name: poolNameNotInUse,
 		}},
 	}
-	results, err := s.api.RemovePool(args)
+	results, err := s.api.RemovePool(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, fmt.Sprintf("storage pool %q in use", poolNameInUse))

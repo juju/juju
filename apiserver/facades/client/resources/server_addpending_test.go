@@ -4,6 +4,8 @@
 package resources_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
@@ -30,7 +32,7 @@ func (s *AddPendingResourcesSuite) TestNoURL(c *gc.C) {
 	s.backend.EXPECT().AddPendingResource(aTag.Id(), "", resourceMatcher{c: c}).Return(id1, nil)
 	facade := s.newFacade(c)
 
-	result, err := facade.AddPendingResources(params.AddPendingResourcesArgsV2{
+	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{
 			Tag: aTag.String(),
 		},
@@ -63,7 +65,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpToDate(c *gc.C) {
 	s.factory.EXPECT().ResolveResources(gomock.Any(), gomock.Any()).Return(res, nil)
 	facade := s.newFacade(c)
 
-	result, err := facade.AddPendingResources(params.AddPendingResourcesArgsV2{
+	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{
 			Tag: aTag.String(),
 		},
@@ -101,7 +103,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchComplete(c *gc.C) {
 	s.factory.EXPECT().ResolveResources(expected, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
-	result, err := facade.AddPendingResources(params.AddPendingResourcesArgsV2{
+	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{
 			Tag: aTag.String(),
 		},
@@ -152,7 +154,7 @@ func (s *AddPendingResourcesSuite) TestWithURLMismatchIncomplete(c *gc.C) {
 	s.factory.EXPECT().ResolveResources(res2, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
-	result, err := facade.AddPendingResources(params.AddPendingResourcesArgsV2{
+	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{
 			Tag: aTag.String(),
 		},
@@ -200,7 +202,7 @@ func (s *AddPendingResourcesSuite) TestWithURLNoRevision(c *gc.C) {
 	s.factory.EXPECT().ResolveResources(resNoRev, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
-	result, err := facade.AddPendingResources(params.AddPendingResourcesArgsV2{
+	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{
 			Tag: aTag.String(),
 		},
@@ -241,7 +243,7 @@ func (s *AddPendingResourcesSuite) TestWithURLUpload(c *gc.C) {
 	s.factory.EXPECT().ResolveResources([]charmresource.Resource{res1.Resource}, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
-	result, err := facade.AddPendingResources(params.AddPendingResourcesArgsV2{
+	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{
 			Tag: aTag.String(),
 		},
@@ -279,7 +281,7 @@ func (s *AddPendingResourcesSuite) TestUnknownResource(c *gc.C) {
 	s.factory.EXPECT().ResolveResources(expected, charmID).Return(expected, nil)
 
 	facade := s.newFacade(c)
-	result, err := facade.AddPendingResources(params.AddPendingResourcesArgsV2{
+	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{
 			Tag: aTag.String(),
 		},
@@ -304,7 +306,7 @@ func (s *AddPendingResourcesSuite) TestDataStoreError(c *gc.C) {
 	s.backend.EXPECT().AddPendingResource(gomock.Any(), gomock.Any(), gomock.Any()).Return("", failure)
 
 	facade := s.newFacade(c)
-	result, err := facade.AddPendingResources(params.AddPendingResourcesArgsV2{
+	result, err := facade.AddPendingResources(context.Background(), params.AddPendingResourcesArgsV2{
 		Entity: params.Entity{
 			Tag: "application-a-application",
 		},

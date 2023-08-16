@@ -4,6 +4,8 @@
 package subnets
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -79,7 +81,7 @@ func newAPIWithBacking(backing Backing, ctx context.ProviderCallContext, resourc
 // AllZones returns all availability zones known to Juju. If a
 // zone is unusable, unavailable, or deprecated the Available
 // field will be false.
-func (api *API) AllZones() (params.ZoneResults, error) {
+func (api *API) AllZones(ctx stdcontext.Context) (params.ZoneResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ZoneResults{}, err
 	}
@@ -88,7 +90,7 @@ func (api *API) AllZones() (params.ZoneResults, error) {
 
 // ListSubnets returns the matching subnets after applying
 // optional filters.
-func (api *API) ListSubnets(args params.SubnetsFilters) (results params.ListSubnetsResults, err error) {
+func (api *API) ListSubnets(ctx stdcontext.Context, args params.SubnetsFilters) (results params.ListSubnetsResults, err error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ListSubnetsResults{}, err
 	}
@@ -131,7 +133,7 @@ func (api *API) ListSubnets(args params.SubnetsFilters) (results params.ListSubn
 }
 
 // SubnetsByCIDR returns the collection of subnets matching each CIDR in the input.
-func (api *API) SubnetsByCIDR(arg params.CIDRParams) (params.SubnetsResults, error) {
+func (api *API) SubnetsByCIDR(ctx stdcontext.Context, arg params.CIDRParams) (params.SubnetsResults, error) {
 	result := params.SubnetsResults{}
 
 	if err := api.checkCanRead(); err != nil {

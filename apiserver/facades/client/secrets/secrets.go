@@ -63,7 +63,7 @@ func (s *SecretsAPI) checkCanAdmin() error {
 }
 
 // ListSecrets lists available secrets.
-func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretResults, error) {
+func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs) (params.ListSecretResults, error) {
 	result := params.ListSecretResults{}
 	if arg.ShowSecrets {
 		if err := s.checkCanAdmin(); err != nil {
@@ -240,10 +240,10 @@ func (s *SecretsAPI) getBackend(id *string) (provider.SecretsBackend, error) {
 }
 
 // CreateSecrets isn't on the v1 API.
-func (s *SecretsAPIV1) CreateSecrets(_ struct{}) {}
+func (s *SecretsAPIV1) CreateSecrets(ctx context.Context, _ struct{}) {}
 
 // CreateSecrets creates new secrets.
-func (s *SecretsAPI) CreateSecrets(args params.CreateSecretArgs) (params.StringResults, error) {
+func (s *SecretsAPI) CreateSecrets(ctx context.Context, args params.CreateSecretArgs) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Args)),
 	}
@@ -344,10 +344,10 @@ func fromUpsertParams(p params.UpsertSecretArg) state.UpdateSecretParams {
 }
 
 // UpdateSecrets isn't on the v1 API.
-func (s *SecretsAPIV1) UpdateSecrets(_ struct{}) {}
+func (s *SecretsAPIV1) UpdateSecrets(ctx context.Context, _ struct{}) {}
 
 // UpdateSecrets creates new secrets.
-func (s *SecretsAPI) UpdateSecrets(args params.UpdateUserSecretArgs) (params.ErrorResults, error) {
+func (s *SecretsAPI) UpdateSecrets(ctx context.Context, args params.UpdateUserSecretArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -411,10 +411,10 @@ func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.Up
 }
 
 // RemoveSecrets isn't on the v1 API.
-func (s *SecretsAPIV1) RemoveSecrets(_ struct{}) {}
+func (s *SecretsAPIV1) RemoveSecrets(ctx context.Context, _ struct{}) {}
 
 // RemoveSecrets remove user secret.
-func (s *SecretsAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorResults, error) {
+func (s *SecretsAPI) RemoveSecrets(ctx context.Context, args params.DeleteSecretArgs) (params.ErrorResults, error) {
 	return commonsecrets.RemoveSecretsForClient(
 		s.secretsState, s.backendConfigGetter,
 		s.authTag, args,
@@ -437,18 +437,18 @@ func (s *SecretsAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorRe
 }
 
 // GrantSecret isn't on the v1 API.
-func (s *SecretsAPIV1) GrantSecret(_ struct{}) {}
+func (s *SecretsAPIV1) GrantSecret(ctx context.Context, _ struct{}) {}
 
 // GrantSecret grants access to a user secret.
-func (s *SecretsAPI) GrantSecret(arg params.GrantRevokeUserSecretArg) (params.ErrorResults, error) {
+func (s *SecretsAPI) GrantSecret(ctx context.Context, arg params.GrantRevokeUserSecretArg) (params.ErrorResults, error) {
 	return s.secretsGrantRevoke(arg, s.secretsConsumer.GrantSecretAccess)
 }
 
 // RevokeSecret isn't on the v1 API.
-func (s *SecretsAPIV1) RevokeSecret(_ struct{}) {}
+func (s *SecretsAPIV1) RevokeSecret(ctx context.Context, _ struct{}) {}
 
 // RevokeSecret revokes access to a user secret.
-func (s *SecretsAPI) RevokeSecret(arg params.GrantRevokeUserSecretArg) (params.ErrorResults, error) {
+func (s *SecretsAPI) RevokeSecret(ctx context.Context, arg params.GrantRevokeUserSecretArg) (params.ErrorResults, error) {
 	return s.secretsGrantRevoke(arg, s.secretsConsumer.RevokeSecretAccess)
 }
 
