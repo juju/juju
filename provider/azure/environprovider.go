@@ -7,6 +7,7 @@ import (
 	stdcontext "context"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	azurecloud "github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -180,7 +181,7 @@ var verifyCredentials = func(e *azureEnviron, ctx context.ProviderCallContext) e
 	// This is used at bootstrap - the ctx invalid credential callback will log
 	// a suitable message.
 	_, err := e.credential.GetToken(ctx, policy.TokenRequestOptions{
-		Scopes: []string{"https://management.core.windows.net/.default"},
+		Scopes: []string{e.clientOptions.Cloud.Services[azurecloud.ResourceManager].Audience + "/.default"},
 	})
 	return errorutils.HandleCredentialError(err, ctx)
 }
