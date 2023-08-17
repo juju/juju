@@ -4,6 +4,7 @@
 package statushistory_test
 
 import (
+	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -44,7 +45,7 @@ func (s *StatusHistoryPrunerSuite) TestPruneNonController(c *gc.C) {
 	s.context.Auth_ = testing.FakeAuthorizer{}
 	api, err := statushistory.NewAPI(s.context)
 	c.Assert(err, jc.ErrorIsNil)
-	err = api.Prune(params.StatusHistoryPruneArgs{})
+	err = api.Prune(context.Background(), params.StatusHistoryPruneArgs{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -56,7 +57,7 @@ func (s *StatusHistoryPrunerSuite) TestPrune(c *gc.C) {
 		called = true
 		return nil
 	})
-	err := s.api.Prune(params.StatusHistoryPruneArgs{
+	err := s.api.Prune(context.Background(), params.StatusHistoryPruneArgs{
 		MaxHistoryTime: time.Hour,
 		MaxHistoryMB:   666,
 	})

@@ -4,6 +4,7 @@
 package secretbackendmanager
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -36,7 +37,7 @@ type SecretBackendsManagerAPI struct {
 }
 
 // WatchSecretBackendsRotateChanges sets up a watcher to notify of changes to secret backend rotations.
-func (s *SecretBackendsManagerAPI) WatchSecretBackendsRotateChanges() (params.SecretBackendRotateWatchResult, error) {
+func (s *SecretBackendsManagerAPI) WatchSecretBackendsRotateChanges(ctx context.Context) (params.SecretBackendRotateWatchResult, error) {
 	result := params.SecretBackendRotateWatchResult{}
 	w, err := s.backendRotate.WatchSecretBackendRotationChanges()
 	if err != nil {
@@ -69,7 +70,7 @@ var (
 )
 
 // RotateBackendTokens rotates the tokens for the specified backends.
-func (s *SecretBackendsManagerAPI) RotateBackendTokens(args params.RotateSecretBackendArgs) (params.ErrorResults, error) {
+func (s *SecretBackendsManagerAPI) RotateBackendTokens(ctx context.Context, args params.RotateSecretBackendArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.BackendIDs)),
 	}

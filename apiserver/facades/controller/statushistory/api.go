@@ -4,6 +4,8 @@
 package statushistory
 
 import (
+	"context"
+
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -30,7 +32,7 @@ var Prune = state.PruneStatusHistory
 // Prune endpoint removes status history entries until
 // only the ones newer than now - p.MaxHistoryTime remain and
 // the history is smaller than p.MaxHistoryMB.
-func (api *API) Prune(p params.StatusHistoryPruneArgs) error {
+func (api *API) Prune(ctx context.Context, p params.StatusHistoryPruneArgs) error {
 	if !api.authorizer.AuthController() {
 		return apiservererrors.ErrPerm
 	}

@@ -77,7 +77,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplications(c *gc.C) {
 	applicationWatcher := newMockStringsWatcher()
 	applicationWatcher.changes <- []string{"db2", "hadoop"}
 	s.st.EXPECT().WatchRemoteApplications().Return(applicationWatcher)
-	result, err := s.api.WatchRemoteApplications()
+	result, err := s.api.WatchRemoteApplications(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.StringsWatcherId, gc.Equals, "1")
@@ -96,7 +96,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	s.st.EXPECT().WatchRemoteApplicationRelations("db2").Return(db2RelationsWatcher, nil)
 	s.st.EXPECT().WatchRemoteApplicationRelations("hadoop").Return(nil, errors.NotFoundf(`application "hadoop"`))
 
-	results, err := s.api.WatchRemoteApplicationRelations(params.Entities{Entities: []params.Entity{
+	results, err := s.api.WatchRemoteApplicationRelations(context.Background(), params.Entities{Entities: []params.Entity{
 		{"application-db2"},
 		{"application-hadoop"},
 		{"machine-42"},
@@ -124,7 +124,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
 	relationWatcher.changes <- []string{"1", "2"}
 	s.st.EXPECT().WatchRemoteRelations().Return(relationWatcher)
 
-	result, err := s.api.WatchRemoteRelations()
+	result, err := s.api.WatchRemoteRelations(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.StringsWatcherId, gc.Equals, "1")
@@ -170,7 +170,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 
 	s.st.EXPECT().KeyRelation("hadoop:db db2:db").Return(nil, errors.NotFoundf(`relation "hadoop:db db2:db"`))
 
-	results, err := s.api.WatchLocalRelationChanges(params.Entities{[]params.Entity{
+	results, err := s.api.WatchLocalRelationChanges(context.Background(), params.Entities{[]params.Entity{
 		{"relation-django:db#db2:db"},
 		{"relation-hadoop:db#db2:db"},
 		{"machine-42"},
@@ -222,7 +222,7 @@ func (s *remoteRelationsSuite) TestImportRemoteEntities(c *gc.C) {
 
 	s.st.EXPECT().ImportRemoteEntity(names.ApplicationTag{Name: "django"}, "token").Return(nil)
 
-	result, err := s.api.ImportRemoteEntities(params.RemoteEntityTokenArgs{
+	result, err := s.api.ImportRemoteEntities(context.Background(), params.RemoteEntityTokenArgs{
 		Args: []params.RemoteEntityTokenArg{
 			{Tag: "application-django", Token: "token"},
 		}})
@@ -238,12 +238,12 @@ func (s *remoteRelationsSuite) TestImportRemoteEntitiesTwice(c *gc.C) {
 	s.st.EXPECT().ImportRemoteEntity(tag, "token").Return(nil)
 	s.st.EXPECT().ImportRemoteEntity(tag, "token").Return(errors.AlreadyExistsf(tag.Id()))
 
-	_, err := s.api.ImportRemoteEntities(params.RemoteEntityTokenArgs{
+	_, err := s.api.ImportRemoteEntities(context.Background(), params.RemoteEntityTokenArgs{
 		Args: []params.RemoteEntityTokenArg{
 			{Tag: "application-django", Token: "token"},
 		}})
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.api.ImportRemoteEntities(params.RemoteEntityTokenArgs{
+	result, err := s.api.ImportRemoteEntities(context.Background(), params.RemoteEntityTokenArgs{
 		Args: []params.RemoteEntityTokenArg{
 			{Tag: "application-django", Token: "token"},
 		}})
@@ -258,7 +258,7 @@ func (s *remoteRelationsSuite) TestExportEntities(c *gc.C) {
 
 	s.st.EXPECT().ExportLocalEntity(names.ApplicationTag{Name: "django"}).Return("token-django", nil)
 
-	result, err := s.api.ExportEntities(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
+	result, err := s.api.ExportEntities(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0], jc.DeepEquals, params.TokenResult{
@@ -273,9 +273,9 @@ func (s *remoteRelationsSuite) TestExportEntitiesTwice(c *gc.C) {
 	s.st.EXPECT().ExportLocalEntity(tag).Return("token-django", nil)
 	s.st.EXPECT().ExportLocalEntity(tag).Return("token-django", errors.AlreadyExistsf(tag.Id()))
 
-	_, err := s.api.ExportEntities(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
+	_, err := s.api.ExportEntities(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.api.ExportEntities(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
+	result, err := s.api.ExportEntities(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.NotNil)
@@ -288,7 +288,7 @@ func (s *remoteRelationsSuite) TestGetTokens(c *gc.C) {
 
 	s.st.EXPECT().GetToken(names.NewApplicationTag("django")).Return("token-application-django", nil)
 
-	result, err := s.api.GetTokens(params.GetTokenArgs{
+	result, err := s.api.GetTokens(context.Background(), params.GetTokenArgs{
 		Args: []params.GetTokenArg{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -303,7 +303,7 @@ func (s *remoteRelationsSuite) TestSaveMacaroons(c *gc.C) {
 	relTag := names.NewRelationTag("mysql:db wordpress:db")
 	s.st.EXPECT().SaveMacaroon(relTag, mac).Return(nil)
 
-	result, err := s.api.SaveMacaroons(params.EntityMacaroonArgs{
+	result, err := s.api.SaveMacaroons(context.Background(), params.EntityMacaroonArgs{
 		Args: []params.EntityMacaroonArg{{Tag: relTag.String(), Macaroon: mac}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -315,7 +315,7 @@ func (s *remoteRelationsSuite) TestRemoteApplications(c *gc.C) {
 
 	s.st.EXPECT().RemoteApplication("django").Return(newMockRemoteApplication("django", "me/model.riak"), nil)
 
-	result, err := s.api.RemoteApplications(params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
+	result, err := s.api.RemoteApplications(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "application-django"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := jujutesting.NewMacaroon("test")
 	c.Assert(err, jc.ErrorIsNil)
@@ -368,7 +368,7 @@ func (s *remoteRelationsSuite) TestRelations(c *gc.C) {
 	s.st.EXPECT().Application("django").Return(app, nil)
 	s.st.EXPECT().RemoteApplication("db2").Return(remoteApp, nil)
 
-	result, err := s.api.Relations(params.Entities{Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}})
+	result, err := s.api.Relations(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, jc.DeepEquals, []params.RemoteRelationResult{{
 		Result: &params.RemoteRelation{
@@ -416,7 +416,7 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 	s.st.EXPECT().GetRemoteEntity("app-token").Return(names.NewApplicationTag("django"), nil)
 	s.st.EXPECT().ModelUUID().AnyTimes()
 
-	result, err := s.api.ConsumeRemoteRelationChanges(changes)
+	result, err := s.api.ConsumeRemoteRelationChanges(context.Background(), changes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.IsNil)
 
@@ -459,7 +459,7 @@ func (s *remoteRelationsSuite) TestConsumeRelationResumePermission(c *gc.C) {
 	s.st.EXPECT().OfferConnectionForRelation(db2Relation.key).Return(offerConn, nil)
 	s.st.EXPECT().ApplicationOfferForUUID("offer-uuid").Return(&crossmodel.ApplicationOffer{ApplicationName: "django"}, nil)
 
-	result, err := s.api.ConsumeRemoteRelationChanges(changes)
+	result, err := s.api.ConsumeRemoteRelationChanges(context.Background(), changes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.ErrorMatches, "permission denied")
 }
@@ -472,6 +472,7 @@ func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatus(c *gc.C) {
 	s.st.EXPECT().RemoteApplication("db2").Return(remoteApp, nil)
 
 	result, err := s.api.SetRemoteApplicationsStatus(
+		context.Background(),
 		params.SetStatus{Entities: []params.EntityStatusArgs{{
 			Tag:    entity.String(),
 			Status: "blocked",
@@ -493,6 +494,7 @@ func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatusTerminated(c *gc.C
 	s.st.EXPECT().ApplyOperation(&mockOperation{message: "killer whales"}).Return(nil)
 
 	result, err := s.api.SetRemoteApplicationsStatus(
+		context.Background(),
 		params.SetStatus{Entities: []params.EntityStatusArgs{{
 			Tag:    entity.String(),
 			Status: "terminated",
@@ -583,7 +585,7 @@ func (s *remoteRelationsSuite) TestConsumeRemoteSecretChanges(c *gc.C) {
 	s.st.EXPECT().UpdateSecretConsumerOperation(uri, 666).Return(op, nil)
 	s.st.EXPECT().ApplyOperation(op).Return(nil)
 
-	result, err := s.api.ConsumeRemoteSecretChanges(changes)
+	result, err := s.api.ConsumeRemoteSecretChanges(context.Background(), changes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.IsNil)
 }

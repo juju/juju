@@ -4,6 +4,7 @@
 package secretbackendmanager_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -88,7 +89,7 @@ func (s *SecretsManagerSuite) TestWatchBackendRotateChanges(c *gc.C) {
 	}}
 	s.backendRotateWatcher.EXPECT().Changes().Return(rotateChan)
 
-	result, err := s.facade.WatchSecretBackendsRotateChanges()
+	result, err := s.facade.WatchSecretBackendsRotateChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.SecretBackendRotateWatchResult{
 		WatcherId: "1",
@@ -140,7 +141,7 @@ func (s *SecretsManagerSuite) TestRotateBackendTokens(c *gc.C) {
 	nextRotateTime := s.clock.Now().Add(150 * time.Minute)
 	s.backendState.EXPECT().SecretBackendRotated("backend-id", nextRotateTime).Return(errors.New("boom"))
 
-	result, err := s.facade.RotateBackendTokens(params.RotateSecretBackendArgs{
+	result, err := s.facade.RotateBackendTokens(context.Background(), params.RotateSecretBackendArgs{
 		BackendIDs: []string{"backend-id"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{
@@ -182,7 +183,7 @@ func (s *SecretsManagerSuite) TestRotateBackendTokensRetry(c *gc.C) {
 
 	s.backendState.EXPECT().SecretBackendRotated("backend-id", nextRotateTime).Return(errors.New("boom"))
 
-	result, err := s.facade.RotateBackendTokens(params.RotateSecretBackendArgs{
+	result, err := s.facade.RotateBackendTokens(context.Background(), params.RotateSecretBackendArgs{
 		BackendIDs: []string{"backend-id"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{

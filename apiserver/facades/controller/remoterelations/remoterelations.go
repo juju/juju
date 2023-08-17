@@ -63,7 +63,7 @@ func NewRemoteRelationsAPI(
 }
 
 // ImportRemoteEntities adds entities to the remote entities collection with the specified opaque tokens.
-func (api *API) ImportRemoteEntities(args params.RemoteEntityTokenArgs) (params.ErrorResults, error) {
+func (api *API) ImportRemoteEntities(ctx context.Context, args params.RemoteEntityTokenArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -83,7 +83,7 @@ func (api *API) importRemoteEntity(arg params.RemoteEntityTokenArg) error {
 }
 
 // ExportEntities allocates unique, remote entity IDs for the given entities in the local model.
-func (api *API) ExportEntities(entities params.Entities) (params.TokenResults, error) {
+func (api *API) ExportEntities(ctx context.Context, entities params.Entities) (params.TokenResults, error) {
 	results := params.TokenResults{
 		Results: make([]params.TokenResult, len(entities.Entities)),
 	}
@@ -106,7 +106,7 @@ func (api *API) ExportEntities(entities params.Entities) (params.TokenResults, e
 }
 
 // GetTokens returns the token associated with the entities with the given tags for the given models.
-func (api *API) GetTokens(args params.GetTokenArgs) (params.StringResults, error) {
+func (api *API) GetTokens(ctx context.Context, args params.GetTokenArgs) (params.StringResults, error) {
 	results := params.StringResults{
 		Results: make([]params.StringResult, len(args.Args)),
 	}
@@ -126,7 +126,7 @@ func (api *API) GetTokens(args params.GetTokenArgs) (params.StringResults, error
 }
 
 // SaveMacaroons saves the macaroons for the given entities.
-func (api *API) SaveMacaroons(args params.EntityMacaroonArgs) (params.ErrorResults, error) {
+func (api *API) SaveMacaroons(ctx context.Context, args params.EntityMacaroonArgs) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
@@ -188,7 +188,7 @@ func (api *API) remoteRelation(entity params.Entity) (*params.RemoteRelation, er
 
 // Relations returns information about the cross-model relations with the specified keys
 // in the local model.
-func (api *API) Relations(entities params.Entities) (params.RemoteRelationResults, error) {
+func (api *API) Relations(ctx context.Context, entities params.Entities) (params.RemoteRelationResults, error) {
 	results := params.RemoteRelationResults{
 		Results: make([]params.RemoteRelationResult, len(entities.Entities)),
 	}
@@ -205,7 +205,7 @@ func (api *API) Relations(entities params.Entities) (params.RemoteRelationResult
 
 // RemoteApplications returns the current state of the remote applications with
 // the specified names in the local model.
-func (api *API) RemoteApplications(entities params.Entities) (params.RemoteApplicationResults, error) {
+func (api *API) RemoteApplications(ctx context.Context, entities params.Entities) (params.RemoteApplicationResults, error) {
 	results := params.RemoteApplicationResults{
 		Results: make([]params.RemoteApplicationResult, len(entities.Entities)),
 	}
@@ -247,7 +247,7 @@ func (api *API) RemoteApplications(entities params.Entities) (params.RemoteAppli
 // removal, and lifecycle changes of remote applications in the model; and
 // returns the watcher ID and initial IDs of remote applications, or an error if
 // watching failed.
-func (api *API) WatchRemoteApplications() (params.StringsWatchResult, error) {
+func (api *API) WatchRemoteApplications(ctx context.Context) (params.StringsWatchResult, error) {
 	w := api.st.WatchRemoteApplications()
 	// TODO(jam): 2019-10-27 Watching Changes() should be protected with a select with api.ctx.Cancel()
 	if changes, ok := <-w.Changes(); ok {
@@ -262,7 +262,7 @@ func (api *API) WatchRemoteApplications() (params.StringsWatchResult, error) {
 // WatchLocalRelationChanges starts a RemoteRelationWatcher for each
 // specified relation, returning the watcher IDs and initial values,
 // or an error if the remote relations couldn't be watched.
-func (api *API) WatchLocalRelationChanges(args params.Entities) (params.RemoteRelationWatchResults, error) {
+func (api *API) WatchLocalRelationChanges(ctx context.Context, args params.Entities) (params.RemoteRelationWatchResults, error) {
 	results := params.RemoteRelationWatchResults{
 		make([]params.RemoteRelationWatchResult, len(args.Entities)),
 	}
@@ -315,7 +315,7 @@ func (api *API) WatchLocalRelationChanges(args params.Entities) (params.RemoteRe
 // each specified application in the local model, and returns the watcher IDs
 // and initial values, or an error if the services' relations could not be
 // watched.
-func (api *API) WatchRemoteApplicationRelations(args params.Entities) (params.StringsWatchResults, error) {
+func (api *API) WatchRemoteApplicationRelations(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -347,7 +347,7 @@ func (api *API) WatchRemoteApplicationRelations(args params.Entities) (params.St
 // removal, and lifecycle changes of remote relations in the model; and
 // returns the watcher ID and initial IDs of remote relations, or an error if
 // watching failed.
-func (api *API) WatchRemoteRelations() (params.StringsWatchResult, error) {
+func (api *API) WatchRemoteRelations(ctx context.Context) (params.StringsWatchResult, error) {
 	w := api.st.WatchRemoteRelations()
 	// TODO(jam): 2019-10-27 Watching Changes() should be protected with a select with api.ctx.Cancel()
 	if changes, ok := <-w.Changes(); ok {
@@ -361,7 +361,7 @@ func (api *API) WatchRemoteRelations() (params.StringsWatchResult, error) {
 
 // ConsumeRemoteRelationChanges consumes changes to settings originating
 // from the remote/offering side of relations.
-func (api *API) ConsumeRemoteRelationChanges(changes params.RemoteRelationsChanges) (params.ErrorResults, error) {
+func (api *API) ConsumeRemoteRelationChanges(ctx context.Context, changes params.RemoteRelationsChanges) (params.ErrorResults, error) {
 	api.logger.Debugf("ConsumeRemoteRelationChanges: %+v", changes)
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(changes.Changes)),
@@ -390,7 +390,7 @@ func (api *API) ConsumeRemoteRelationChanges(changes params.RemoteRelationsChang
 }
 
 // SetRemoteApplicationsStatus sets the status for the specified remote applications.
-func (api *API) SetRemoteApplicationsStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (api *API) SetRemoteApplicationsStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	var result params.ErrorResults
 	result.Results = make([]params.ErrorResult, len(args.Entities))
 	for i, entity := range args.Entities {
@@ -460,7 +460,7 @@ func (api *API) UpdateControllersForModels(ctx context.Context, args params.Upda
 
 // ConsumeRemoteSecretChanges updates the local model with secret revision changes
 // originating from the remote/offering model.
-func (api *API) ConsumeRemoteSecretChanges(args params.LatestSecretRevisionChanges) (params.ErrorResults, error) {
+func (api *API) ConsumeRemoteSecretChanges(ctx context.Context, args params.LatestSecretRevisionChanges) (params.ErrorResults, error) {
 	var result params.ErrorResults
 	result.Results = make([]params.ErrorResult, len(args.Changes))
 	for i, arg := range args.Changes {

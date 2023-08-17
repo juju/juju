@@ -4,6 +4,7 @@
 package undertaker_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -99,7 +100,7 @@ func (s *undertakerSuite) TestModelInfo(c *gc.C) {
 		minute := time.Minute
 		test.st.model.timeout = &minute
 
-		result, err := test.api.ModelInfo()
+		result, err := test.api.ModelInfo(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 
 		info := result.Result
@@ -122,12 +123,12 @@ func (s *undertakerSuite) TestProcessDyingModel(c *gc.C) {
 	model, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = hostedAPI.ProcessDyingModel()
+	err = hostedAPI.ProcessDyingModel(context.Background())
 	c.Assert(err, gc.ErrorMatches, "model is not dying")
 	c.Assert(model.Life(), gc.Equals, state.Alive)
 
 	otherSt.model.life = state.Dying
-	err = hostedAPI.ProcessDyingModel()
+	err = hostedAPI.ProcessDyingModel(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dead)
 }
@@ -137,7 +138,7 @@ func (s *undertakerSuite) TestRemoveAliveModel(c *gc.C) {
 	_, err := otherSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = hostedAPI.RemoveModel()
+	err = hostedAPI.RemoveModel(context.Background())
 	c.Assert(err, gc.ErrorMatches, "model not dying or dead")
 }
 
@@ -147,7 +148,7 @@ func (s *undertakerSuite) TestRemoveDyingModel(c *gc.C) {
 	// Set model to dying
 	otherSt.model.life = state.Dying
 
-	c.Assert(hostedAPI.RemoveModel(), jc.ErrorIsNil)
+	c.Assert(hostedAPI.RemoveModel(context.Background()), jc.ErrorIsNil)
 }
 
 func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
@@ -155,10 +156,10 @@ func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
 
 	// Set model to dead
 	otherSt.model.life = state.Dying
-	err := hostedAPI.ProcessDyingModel()
+	err := hostedAPI.ProcessDyingModel(context.Background())
 	c.Assert(err, gc.IsNil)
 
-	err = hostedAPI.RemoveModel()
+	err = hostedAPI.RemoveModel(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(otherSt.removed, jc.IsTrue)
