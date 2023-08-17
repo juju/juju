@@ -16,6 +16,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package changestream -destination stream_mock_test.go github.com/juju/juju/worker/changestream DBGetter,Logger,WatchableDBWorker,FileNotifyWatcher
 //go:generate go run go.uber.org/mock/mockgen -package changestream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -package changestream -destination source_mock_test.go github.com/juju/juju/core/changestream EventSource
+//go:generate go run go.uber.org/mock/mockgen -package changestream -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -24,13 +25,14 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	domaintesting.ControllerSuite
 
-	dbGetter          *MockDBGetter
-	clock             *MockClock
-	timer             *MockTimer
-	logger            *MockLogger
-	fileNotifyWatcher *MockFileNotifyWatcher
-	eventSource       *MockEventSource
-	watchableDBWorker *MockWatchableDBWorker
+	dbGetter             *MockDBGetter
+	clock                *MockClock
+	timer                *MockTimer
+	logger               *MockLogger
+	fileNotifyWatcher    *MockFileNotifyWatcher
+	eventSource          *MockEventSource
+	prometheusRegisterer *MockRegisterer
+	watchableDBWorker    *MockWatchableDBWorker
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -42,6 +44,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.logger = NewMockLogger(ctrl)
 	s.fileNotifyWatcher = NewMockFileNotifyWatcher(ctrl)
 	s.eventSource = NewMockEventSource(ctrl)
+	s.prometheusRegisterer = NewMockRegisterer(ctrl)
 	s.watchableDBWorker = NewMockWatchableDBWorker(ctrl)
 
 	return ctrl

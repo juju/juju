@@ -32,7 +32,7 @@ const (
 
 // TrackedDB defines the union of a TxnRunner and a worker.Worker interface.
 // This is local to the package, allowing for better testing of the underlying
-// trackerDB worker.
+// trackedDB worker.
 type TrackedDB interface {
 	coredatabase.TxnRunner
 	worker.Worker
@@ -181,9 +181,10 @@ func (w *trackedDBWorker) StdTxn(ctx context.Context, fn func(context.Context, *
 }
 
 func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) error {
+	w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
 	return database.Retry(w.tomb.Context(ctx), func() (err error) {
 		begin := w.clock.Now()
-		w.metrics.TxnRequests.WithLabelValues(w.namespace).Inc()
+		w.metrics.TxnRetries.WithLabelValues(w.namespace).Inc()
 		w.metrics.DBRequests.WithLabelValues(w.namespace).Inc()
 		defer w.meterDBOpResult(begin, err)
 

@@ -37,6 +37,7 @@ type WorkerConfig struct {
 	FileNotifyWatcher FileNotifyWatcher
 	Clock             clock.Clock
 	Logger            Logger
+	Metrics           Metrics
 	NewWatchableDB    WatchableDBFn
 }
 
@@ -56,6 +57,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("missing logger")
+	}
+	if c.Metrics == nil {
+		return errors.NotValidf("missing metrics Collector")
 	}
 	if c.NewWatchableDB == nil {
 		return errors.NotValidf("missing NewWatchableDB")
@@ -138,7 +142,7 @@ func (w *changeStreamWorker) GetWatchableDB(namespace string) (changestream.Watc
 		mux, err := w.cfg.NewWatchableDB(w.cfg.AgentTag, db, fileNotifyWatcher{
 			fileNotifier: w.cfg.FileNotifyWatcher,
 			fileName:     namespace,
-		}, w.cfg.Clock, w.cfg.Logger)
+		}, w.cfg.Clock, w.cfg.Metrics.ForNamespace(namespace), w.cfg.Logger)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
