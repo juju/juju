@@ -143,6 +143,10 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 	mockAdaptor := &MockRequestAdaptor{NetHttpRequestAdapter: ra}
 	mockAdaptor.results = []requestResult{{
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
+		Params:      map[string]string{"appId": "cfa8b339-82a2-471a-a3c9-0fc0be7a4093"},
+		Result:      models.NewServicePrincipal(),
+	}, {
+		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
 		Params:      map[string]string{"appId": "60a04dc9-1857-425f-8076-5ba81ca53d66"},
 		Result:      sp,
 	}, {
@@ -167,6 +171,7 @@ func (s *InteractiveSuite) TestInteractive(c *gc.C) {
 	sdkCtx := context.Background()
 
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
+		CloudName:      "AzureCloud",
 		SubscriptionId: subscriptionId,
 		TenantId:       fakeTenantId,
 		Credential:     &azuretesting.FakeCredential{},
@@ -194,6 +199,10 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 	mockAdaptor := &MockRequestAdaptor{NetHttpRequestAdapter: ra}
 	mockAdaptor.results = []requestResult{{
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
+		Params:      map[string]string{"appId": "cfa8b339-82a2-471a-a3c9-0fc0be7a4093"},
+		Result:      models.NewServicePrincipal(),
+	}, {
+		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
 		Params:      map[string]string{"appId": "60a04dc9-1857-425f-8076-5ba81ca53d66"},
 		Result:      sp,
 	}, {
@@ -218,6 +227,7 @@ func (s *InteractiveSuite) TestInteractiveRoleAssignmentAlreadyExists(c *gc.C) {
 	sdkCtx := context.Background()
 
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
+		CloudName:      "AzureCloud",
 		SubscriptionId: subscriptionId,
 		TenantId:       fakeTenantId,
 		Credential:     &azuretesting.FakeCredential{},
@@ -255,6 +265,10 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *gc.C) {
 	mockAdaptor := &MockRequestAdaptor{NetHttpRequestAdapter: ra}
 	mockAdaptor.results = []requestResult{{
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
+		Params:      map[string]string{"appId": "cfa8b339-82a2-471a-a3c9-0fc0be7a4093"},
+		Result:      models.NewServicePrincipal(),
+	}, {
+		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
 		Params:      map[string]string{"appId": "60a04dc9-1857-425f-8076-5ba81ca53d66"},
 		Err:         dataError("Request_ResourceNotFound"),
 	}, {
@@ -282,6 +296,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFound(c *gc.C) {
 	sdkCtx := context.Background()
 
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
+		CloudName:      "AzureCloud",
 		SubscriptionId: subscriptionId,
 		TenantId:       fakeTenantId,
 		Credential:     &azuretesting.FakeCredential{},
@@ -304,6 +319,10 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *gc.C) 
 
 	mockAdaptor := &MockRequestAdaptor{NetHttpRequestAdapter: ra}
 	mockAdaptor.results = []requestResult{{
+		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
+		Params:      map[string]string{"appId": "cfa8b339-82a2-471a-a3c9-0fc0be7a4093"},
+		Result:      models.NewServicePrincipal(),
+	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
 		Params:      map[string]string{"appId": "60a04dc9-1857-425f-8076-5ba81ca53d66"},
 		Err:         dataError("Request_ResourceNotFound"),
@@ -335,6 +354,7 @@ func (s *InteractiveSuite) TestInteractiveServicePrincipalNotFoundRace(c *gc.C) 
 	sdkCtx := context.Background()
 
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
+		CloudName:      "AzureCloud",
 		SubscriptionId: subscriptionId,
 		TenantId:       fakeTenantId, Credential: &azuretesting.FakeCredential{},
 	})
@@ -356,6 +376,10 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 
 	mockAdaptor := &MockRequestAdaptor{NetHttpRequestAdapter: ra}
 	mockAdaptor.results = []requestResult{{
+		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
+		Params:      map[string]string{"appId": "cfa8b339-82a2-471a-a3c9-0fc0be7a4093"},
+		Result:      models.NewServicePrincipal(),
+	}, {
 		PathPattern: regexp.QuoteMeta("{+baseurl}/servicePrincipals(appId='{appId}')") + ".*",
 		Params:      map[string]string{"appId": "60a04dc9-1857-425f-8076-5ba81ca53d66"},
 		Result:      sp,
@@ -381,6 +405,7 @@ func (s *InteractiveSuite) TestInteractiveRetriesRoleAssignment(c *gc.C) {
 	subscriptionId := "22222222-2222-2222-2222-222222222222"
 	sdkCtx := context.Background()
 	appId, spObjectId, password, err := spc.InteractiveCreate(sdkCtx, &stderr, azureauth.ServicePrincipalParams{
+		CloudName:      "AzureCloud",
 		SubscriptionId: subscriptionId,
 		TenantId:       fakeTenantId, Credential: &azuretesting.FakeCredential{},
 	})
