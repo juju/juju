@@ -89,8 +89,8 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 
 // TestingAPIHandler gives you an APIHandler that isn't connected to
 // anything real. It's enough to let test some basic functionality though.
-func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State) (*apiHandler, *common.Resources) {
-	authenticator, err := stateauthenticator.NewAuthenticator(pool, clock.WallClock)
+func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, configGetter stateauthenticator.ControllerConfigGetter) (*apiHandler, *common.Resources) {
+	authenticator, err := stateauthenticator.NewAuthenticator(pool, configGetter, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	offerAuthCtxt, err := newOfferAuthcontext(pool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -118,8 +118,14 @@ func (s *StubServiceFactoryGetter) FactoryForModel(string) servicefactory.Servic
 // TestingAPIHandlerWithEntity gives you the sane kind of APIHandler as
 // TestingAPIHandler but sets the passed entity as the apiHandler
 // entity.
-func TestingAPIHandlerWithEntity(c *gc.C, pool *state.StatePool, st *state.State, entity state.Entity) (*apiHandler, *common.Resources) {
-	h, hr := TestingAPIHandler(c, pool, st)
+func TestingAPIHandlerWithEntity(
+	c *gc.C,
+	pool *state.StatePool,
+	st *state.State,
+	configGetter stateauthenticator.ControllerConfigGetter,
+	entity state.Entity,
+) (*apiHandler, *common.Resources) {
+	h, hr := TestingAPIHandler(c, pool, st, configGetter)
 	h.authInfo.Entity = entity
 	h.authInfo.Delegator = &stateauthenticator.PermissionDelegator{State: st}
 	return h, hr
@@ -132,10 +138,11 @@ func TestingAPIHandlerWithToken(
 	c *gc.C,
 	pool *state.StatePool,
 	st *state.State,
+	configGetter stateauthenticator.ControllerConfigGetter,
 	jwt jwt.Token,
 	delegator authentication.PermissionDelegator,
 ) (*apiHandler, *common.Resources) {
-	h, hr := TestingAPIHandler(c, pool, st)
+	h, hr := TestingAPIHandler(c, pool, st, configGetter)
 	user, err := names.ParseUserTag(jwt.Subject())
 	c.Assert(err, jc.ErrorIsNil)
 	h.authInfo.Entity = authjwt.TokenEntity{User: user}

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/httpcontext"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -43,27 +44,40 @@ var AgentTags = []string{
 // This Authenticator only works with requests that have been handled
 // by one of the httpcontext.*ModelHandler handlers.
 type Authenticator struct {
-	statePool   *state.StatePool
-	authContext *authContext
+	statePool              *state.StatePool
+	controllerConfigGetter ControllerConfigGetter
+	authContext            *authContext
 }
 
+// PermissionDelegator implements authentication.PermissionDelegator
 type PermissionDelegator struct {
 	State *state.State
 }
 
+// ControllerConfigGetter is an interface that can be implemented by
+// types that can return a controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // NewAuthenticator returns a new Authenticator using the given StatePool.
-func NewAuthenticator(statePool *state.StatePool, clock clock.Clock) (*Authenticator, error) {
+func NewAuthenticator(
+	statePool *state.StatePool,
+	controllerConfigGetter ControllerConfigGetter,
+	clock clock.Clock,
+) (*Authenticator, error) {
 	systemState, err := statePool.SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	authContext, err := newAuthContext(systemState, clock)
+	authContext, err := newAuthContext(systemState, controllerConfigGetter, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &Authenticator{
-		statePool:   statePool,
-		authContext: authContext,
+		statePool:              statePool,
+		controllerConfigGetter: controllerConfigGetter,
+		authContext:            authContext,
 	}, nil
 }
 
@@ -221,7 +235,7 @@ func (a *Authenticator) checkCreds(
 	}
 
 	authInfo := authentication.AuthInfo{
-		Delegator: &PermissionDelegator{st},
+		Delegator: &PermissionDelegator{State: st},
 		Entity:    entity,
 	}
 	type withIsManager interface {

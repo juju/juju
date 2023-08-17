@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"crypto/tls"
 	"database/sql"
 	"fmt"
@@ -44,6 +45,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
 	databasetesting "github.com/juju/juju/database/testing"
+	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
@@ -118,9 +120,11 @@ type ApiServerSuite struct {
 
 	// These are exposed for the tests to use.
 
-	Server       *apiserver.Server
-	LeaseManager *lease.Manager
-	Clock        testclock.AdvanceableClock
+	Server                   *apiserver.Server
+	LeaseManager             *lease.Manager
+	Clock                    testclock.AdvanceableClock
+	ServiceFactoryGetter     *stubServiceFactoryGetter
+	ControllerServiceFactory servicefactory.ControllerServiceFactory
 
 	// These attributes are set before SetUpTest to indicate we want to
 	// set up the api server with real components instead of stubs.
@@ -244,7 +248,10 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		modelType = s.WithControllerModelType
 	}
 	ctrl, err := state.Initialize(state.InitializeParams{
-		Clock:            clock.WallClock,
+		Clock: clock.WallClock,
+		// TODO (stickupkid): Remove controller config from the state
+		// InitializeParams once we have removed the controller config
+		// from the state.
 		ControllerConfig: controllerCfg,
 		ControllerModelArgs: state.ModelArgs{
 			Type:            modelType,
@@ -281,17 +288,16 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.controllerModelUUID = st.ControllerModelUUID()
+
+	err = bootstrap.InsertInitialControllerConfig(controllerCfg)(context.Background(), s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config) {
 	cfg := DefaultServerConfig(c, s.Clock)
 	cfg.Mux = s.mux
 	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
-	cfg.ServiceFactoryGetter = &stubServiceFactoryGetter{
-		ctrlDB:    stubWatchableDB{TxnRunner: s.TxnRunner()},
-		dbDeleter: stubDBDeleter{DB: s.DB()},
-		logger:    servicefactorytesting.NewCheckLogger(c),
-	}
+	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
@@ -321,7 +327,8 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	}
 
 	// Set up auth handler.
-	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, cfg.Clock)
+	ctrlConfigGetter := s.ControllerServiceFactory.ControllerConfig()
+	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, ctrlConfigGetter, cfg.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)
@@ -338,6 +345,13 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.ControllerSuite.SetUpTest(c)
+
+	s.ServiceFactoryGetter = &stubServiceFactoryGetter{
+		ctrlDB:    stubWatchableDB{TxnRunner: s.TxnRunner()},
+		dbDeleter: stubDBDeleter{DB: s.DB()},
+		logger:    servicefactorytesting.NewCheckLogger(c),
+	}
+	s.ControllerServiceFactory = s.ServiceFactoryGetter.FactoryForModel(coredatabase.ControllerNS)
 
 	if s.Clock == nil {
 		s.Clock = testclock.NewClock(time.Now())

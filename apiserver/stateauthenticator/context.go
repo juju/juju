@@ -25,6 +25,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
+var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not configured")
+
+const (
+	// TODO make this configurable via model config.
+	externalLoginExpiryTime = 24 * time.Hour
+)
+
 const (
 	localUserIdentityLocationPath = "/auth"
 )
@@ -32,7 +39,8 @@ const (
 // authContext holds authentication context shared
 // between all API endpoints.
 type authContext struct {
-	st *state.State
+	st                     *state.State
+	controllerConfigGetter ControllerConfigGetter
 
 	clock     clock.Clock
 	agentAuth authentication.AgentAuthenticator
@@ -75,12 +83,14 @@ func (OpenLoginAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery
 // newAuthContext creates a new authentication context for st.
 func newAuthContext(
 	st *state.State,
+	controllerConfigGetter ControllerConfigGetter,
 	clock clock.Clock,
 ) (*authContext, error) {
 	ctxt := &authContext{
-		st:                    st,
-		clock:                 clock,
-		localUserInteractions: authentication.NewInteractions(),
+		st:                     st,
+		clock:                  clock,
+		controllerConfigGetter: controllerConfigGetter,
+		localUserInteractions:  authentication.NewInteractions(),
 	}
 
 	// Create a bakery for discharging third-party caveats for
@@ -101,13 +111,13 @@ func newAuthContext(
 	if err != nil {
 		return nil, errors.Annotate(err, "generating key for local user third party bakery key")
 	}
-	ctxt.localUserThirdPartyBakery = bakery.New(
-		bakery.BakeryParams{
-			Checker:       checker,
-			Key:           ctxt.localUserThirdPartyBakeryKey,
-			OpsAuthorizer: OpenLoginAuthorizer{},
-			Location:      location,
-		})
+
+	ctxt.localUserThirdPartyBakery = bakery.New(bakery.BakeryParams{
+		Checker:       checker,
+		Key:           ctxt.localUserThirdPartyBakeryKey,
+		OpsAuthorizer: OpenLoginAuthorizer{},
+		Location:      location,
+	})
 
 	// Create a bakery service for local user authentication. This service
 	// persists keys into MongoDB in a TTL collection.
@@ -115,21 +125,26 @@ func newAuthContext(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	locator := bakeryutil.BakeryThirdPartyLocator{PublicKey: ctxt.localUserThirdPartyBakeryKey.Public}
+	locator := bakeryutil.BakeryThirdPartyLocator{
+		PublicKey: ctxt.localUserThirdPartyBakeryKey.Public,
+	}
 	localUserBakeryKey, err := bakeryConfig.GetLocalUsersKey()
 	if err != nil {
 		return nil, errors.Annotate(err, "generating key for local user bakery key")
 	}
-	localUserBakery := bakery.New(
-		bakery.BakeryParams{
-			RootKeyStore:  store,
-			Key:           localUserBakeryKey,
-			OpsAuthorizer: OpenLoginAuthorizer{},
-			Location:      location,
-		})
+	localUserBakery := bakery.New(bakery.BakeryParams{
+		RootKeyStore:  store,
+		Key:           localUserBakeryKey,
+		OpsAuthorizer: OpenLoginAuthorizer{},
+		Location:      location,
+	})
 
 	ctxt.localUserBakery = &bakeryutil.ExpirableStorageBakery{
-		localUserBakery, location, localUserBakeryKey, store, locator,
+		Bakery:   localUserBakery,
+		Location: location,
+		Key:      localUserBakeryKey,
+		Store:    store,
+		Locator:  locator,
 	}
 	return ctxt, nil
 }
@@ -184,7 +199,7 @@ func (a authenticator) Authenticate(
 	entityFinder authentication.EntityFinder,
 	authParams authentication.AuthParams,
 ) (state.Entity, error) {
-	auth, err := a.authenticatorForTag(authParams.AuthTag)
+	auth, err := a.authenticatorForTag(ctx, authParams.AuthTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -193,9 +208,9 @@ func (a authenticator) Authenticate(
 
 // authenticatorForTag returns the authenticator appropriate
 // to use for a login with the given possibly-nil tag.
-func (a authenticator) authenticatorForTag(tag names.Tag) (authentication.EntityAuthenticator, error) {
+func (a authenticator) authenticatorForTag(ctx context.Context, tag names.Tag) (authentication.EntityAuthenticator, error) {
 	if tag == nil {
-		auth, err := a.ctxt.externalMacaroonAuth(nil)
+		auth, err := a.ctxt.externalMacaroonAuth(ctx, nil)
 		if errors.Cause(err) == errMacaroonAuthNotConfigured {
 			err = errors.Trace(apiservererrors.ErrNoCreds)
 		}
@@ -232,9 +247,9 @@ func (a authenticator) localUserAuth() *authentication.LocalUserAuthenticator {
 
 // externalMacaroonAuth returns an authenticator that can authenticate macaroon-based
 // logins for external users. If it fails once, it will always fail.
-func (ctxt *authContext) externalMacaroonAuth(identClient identchecker.IdentityClient) (authentication.EntityAuthenticator, error) {
+func (ctxt *authContext) externalMacaroonAuth(ctx context.Context, identClient identchecker.IdentityClient) (authentication.EntityAuthenticator, error) {
 	ctxt.macaroonAuthOnce.Do(func() {
-		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctxt.st, ctxt.clock, externalLoginExpiryTime, identClient)
+		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctx, ctxt.st, ctxt.controllerConfigGetter, ctxt.clock, externalLoginExpiryTime, identClient)
 	})
 	if ctxt._macaroonAuth == nil {
 		return nil, errors.Trace(ctxt._macaroonAuthError)
@@ -242,20 +257,13 @@ func (ctxt *authContext) externalMacaroonAuth(identClient identchecker.IdentityC
 	return ctxt._macaroonAuth, nil
 }
 
-var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not configured")
-
-const (
-	// TODO make this configurable via model config.
-	externalLoginExpiryTime = 24 * time.Hour
-)
-
 // newExternalMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins for external users. This is just a helper function
 // for authCtxt.externalMacaroonAuth.
-func newExternalMacaroonAuth(st *state.State, clock clock.Clock, expiryTime time.Duration, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
-	controllerCfg, err := st.ControllerConfig()
+func newExternalMacaroonAuth(ctx context.Context, st *state.State, controllerConfigGetter ControllerConfigGetter, clock clock.Clock, expiryTime time.Duration, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
+	controllerCfg, err := controllerConfigGetter.ControllerConfig(ctx)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot get model config")
+		return nil, errors.Annotate(err, "cannot get controller config")
 	}
 	idURL := controllerCfg.IdentityURL()
 	if idURL == "" {

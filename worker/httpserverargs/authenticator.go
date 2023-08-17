@@ -4,19 +4,29 @@
 package httpserverargs
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/apiserver/stateauthenticator"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/state"
 )
+
+// ControllerConfigGetter is an interface that can be implemented by
+// types that can return a controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // NewStateAuthenticatorFunc is a function type satisfied by
 // NewStateAuthenticator.
 type NewStateAuthenticatorFunc func(
 	statePool *state.StatePool,
+	controllerConfigGetter ControllerConfigGetter,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
@@ -28,11 +38,12 @@ type NewStateAuthenticatorFunc func(
 // local macaroon logins.
 func NewStateAuthenticator(
 	statePool *state.StatePool,
+	controllerConfigGetter ControllerConfigGetter,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, clock)
+	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, controllerConfigGetter, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

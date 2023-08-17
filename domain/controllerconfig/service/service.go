@@ -15,8 +15,8 @@ import (
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
-	ControllerConfig(context.Context) (map[string]interface{}, error)
-	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]interface{}, removeAttrs []string) error
+	ControllerConfig(context.Context) (map[string]any, error)
+	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]any, removeAttrs []string) error
 
 	// AllKeysQuery is used to get the initial state
 	// for the controller configuration watcher.
@@ -76,7 +76,7 @@ func (s *Service) Watch() (watcher.StringsWatcher, error) {
 }
 
 // validateConfig validates the given updateAttrs and removeAttrs.
-func validateConfig(updateAttrs map[string]interface{}, removeAttrs []string) error {
+func validateConfig(updateAttrs map[string]any, removeAttrs []string) error {
 	for k := range updateAttrs {
 		if err := validateConfigField(k); err != nil {
 			return errors.Trace(err)
@@ -101,9 +101,9 @@ func validateConfigField(name string) error {
 	return nil
 }
 
-// coerceControllerConfigMap converts a map[string]interface{} to a controller config.
-func coerceControllerConfigMap(m map[string]interface{}) (map[string]interface{}, error) {
-	result := make(map[string]interface{})
+// coerceControllerConfigMap converts a map[string]any to a controller config.
+func coerceControllerConfigMap(m map[string]any) (map[string]interface{}, error) {
+	result := make(map[string]any)
 	// Validate the updateAttrs.
 	fields, _, err := controller.ConfigSchema.ValidationSchema()
 	if err != nil {

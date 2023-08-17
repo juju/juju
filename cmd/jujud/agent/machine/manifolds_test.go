@@ -628,7 +628,13 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"http-server-args": {
 		"agent",
+		"change-stream",
 		"clock",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 	},
@@ -1136,7 +1142,13 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"http-server-args": {
 		"agent",
+		"change-stream",
 		"clock",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 	},

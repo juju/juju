@@ -46,7 +46,7 @@ func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateExternalControllerError(c *gc.C) {
+func (s *serviceSuite) TestUpdateControllerError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cc := jujucontroller.Config{

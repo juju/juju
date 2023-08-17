@@ -9,6 +9,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -22,22 +23,18 @@ import (
 // via the public interface, and then get rid of export_test.go.
 type agentAuthenticatorSuite struct {
 	statetesting.StateSuite
-	authenticator *stateauthenticator.Authenticator
+	authenticator          *stateauthenticator.Authenticator
+	controllerConfigGetter *MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&agentAuthenticatorSuite{})
 
-func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
-	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
-	s.authenticator = authenticator
-}
-
 func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "password"})
 
-	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, user.Tag())
+	authenticator, err := stateauthenticator.EntityAuthenticator(context.Background(), s.authenticator, user.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(authenticator, gc.NotNil)
 	userFinder := userFinder{user}
@@ -52,30 +49,51 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 }
 
 func (s *agentAuthenticatorSuite) TestMachineGetsAgentAuthenticator(c *gc.C) {
-	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewMachineTag("0"))
+	defer s.setupMocks(c).Finish()
+
+	authenticator, err := stateauthenticator.EntityAuthenticator(context.Background(), s.authenticator, names.NewMachineTag("0"))
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
 	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *agentAuthenticatorSuite) TestModelGetsAgentAuthenticator(c *gc.C) {
-	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d"))
+	defer s.setupMocks(c).Finish()
+
+	authenticator, err := stateauthenticator.EntityAuthenticator(context.Background(), s.authenticator, names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f00d"))
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
 	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *agentAuthenticatorSuite) TestUnitGetsAgentAuthenticator(c *gc.C) {
-	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewUnitTag("wordpress/0"))
+	defer s.setupMocks(c).Finish()
+
+	authenticator, err := stateauthenticator.EntityAuthenticator(context.Background(), s.authenticator, names.NewUnitTag("wordpress/0"))
 	c.Assert(err, jc.ErrorIsNil)
 	_, ok := authenticator.(*authentication.AgentAuthenticator)
 	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *agentAuthenticatorSuite) TestNotSupportedTag(c *gc.C) {
-	authenticator, err := stateauthenticator.EntityAuthenticator(s.authenticator, names.NewCloudTag("not-support"))
+	defer s.setupMocks(c).Finish()
+
+	authenticator, err := stateauthenticator.EntityAuthenticator(context.Background(), s.authenticator, names.NewCloudTag("not-support"))
 	c.Assert(err, gc.ErrorMatches, "unexpected login entity tag: invalid request")
 	c.Assert(authenticator, gc.IsNil)
+}
+
+func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
+	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
+
+	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, s.controllerConfigGetter, clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.authenticator = authenticator
+
+	return ctrl
 }
 
 type userFinder struct {
