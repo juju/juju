@@ -26,40 +26,6 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestSeedControllerConfigSuccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	cc := jujucontroller.Config{
-		jujucontroller.AuditingEnabled:     true,
-		jujucontroller.AuditLogCaptureArgs: false,
-		jujucontroller.AuditLogMaxBackups:  10,
-		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
-		jujucontroller.APIPortOpenDelay:    "100ms",
-	}
-
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), cc, nil).Return(nil)
-
-	err := NewService(s.state, s.watcherFactory).SeedControllerConfig(context.Background(), cc)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *serviceSuite) TestSeedControllerConfigError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	cc := jujucontroller.Config{
-		jujucontroller.AuditingEnabled:     true,
-		jujucontroller.AuditLogCaptureArgs: false,
-		jujucontroller.AuditLogMaxBackups:  10,
-		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
-		jujucontroller.APIPortOpenDelay:    "100ms",
-	}
-
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), cc, nil).Return(errors.New("boom"))
-
-	err := NewService(s.state, s.watcherFactory).SeedControllerConfig(context.Background(), cc)
-	c.Assert(err, gc.ErrorMatches, "seeding controller config state: boom")
-}
-
 func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

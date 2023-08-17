@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
 	databasetesting "github.com/juju/juju/database/testing"
+	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
@@ -288,7 +289,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 
 	s.controllerModelUUID = st.ControllerModelUUID()
 
-	err = s.ControllerServiceFactory.ControllerConfig().SeedControllerConfig(context.Background(), controllerCfg)
+	err = bootstrap.InsertInitialControllerConfig(controllerCfg)(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

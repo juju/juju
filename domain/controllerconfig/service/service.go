@@ -55,28 +55,13 @@ func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, erro
 	return coercedControllerConfig, errors.Annotate(err, "getting controller config state")
 }
 
-// SeedControllerConfig sets the controller config without removing any
-// attributes. This is used to set the initial config.
-func (s *Service) SeedControllerConfig(ctx context.Context, attrs controller.Config) error {
-	coercedUpdateAttrs, err := coerceControllerConfigMap(attrs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = validateSeedConfig(attrs)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = s.st.UpdateControllerConfig(ctx, coercedUpdateAttrs, nil)
-	return errors.Annotate(err, "seeding controller config state")
-}
-
 // UpdateControllerConfig updates the controller config.
 func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error {
 	coercedUpdateAttrs, err := coerceControllerConfigMap(updateAttrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = validateUpdateConfig(updateAttrs, removeAttrs)
+	err = validateConfig(updateAttrs, removeAttrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -90,18 +75,8 @@ func (s *Service) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceWatcher("controller_config", changestream.All, s.st.AllKeysQuery())
 }
 
-// validateSeedConfig validate the given seed attrs.
-func validateSeedConfig(attrs map[string]any) error {
-	for name := range attrs {
-		if !controller.ControllerOnlyAttribute(name) {
-			return errors.Errorf("unknown controller config setting %q", name)
-		}
-	}
-	return nil
-}
-
-// validateUpdateConfig validates the given updateAttrs and removeAttrs.
-func validateUpdateConfig(updateAttrs map[string]any, removeAttrs []string) error {
+// validateConfig validates the given updateAttrs and removeAttrs.
+func validateConfig(updateAttrs map[string]any, removeAttrs []string) error {
 	for k := range updateAttrs {
 		if err := validateConfigField(k); err != nil {
 			return errors.Trace(err)
