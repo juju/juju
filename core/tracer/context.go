@@ -38,4 +38,6 @@ func (noopTracer) Start(ctx context.Context, name string, options ...Option) (co
 
 type noopSpan struct{}
 
+func (noopSpan) RecordError(error, func() map[string]string) {}
+
 func (noopSpan) End() {}

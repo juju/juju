@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/pinger"
+	"github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -584,12 +585,14 @@ func (r *errRoot) FindMethod(rootName string, version int, methodName string) (r
 	return nil, r.err
 }
 
-func (r *errRoot) StartTrace(ctx context.Context) (context.Context, rpc.Span) {
+func (r *errRoot) StartTrace(ctx context.Context) (context.Context, tracer.Span) {
 	return ctx, noopSpan{}
 }
 
 func (r *errRoot) Kill() {}
 
 type noopSpan struct{}
+
+func (noopSpan) RecordError(error, func() map[string]string) {}
 
 func (noopSpan) End() {}

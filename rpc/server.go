@@ -5,6 +5,7 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"reflect"
 	"runtime/debug"
@@ -12,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	coretracer "github.com/juju/juju/core/tracer"
 	"github.com/juju/loggo"
 	"github.com/juju/rpcreflect"
 )
@@ -245,11 +247,13 @@ type tracingRoot struct {
 	rpcreflect.Value
 }
 
-func (tracingRoot) StartTrace(ctx context.Context) (context.Context, Span) {
+func (tracingRoot) StartTrace(ctx context.Context) (context.Context, coretracer.Span) {
 	return ctx, tracingSpan{}
 }
 
 type tracingSpan struct{}
+
+func (tracingSpan) RecordError(error, func() map[string]string) {}
 
 func (tracingSpan) End() {}
 
@@ -356,16 +360,11 @@ type ErrorInfoProvider interface {
 	ErrorInfo() map[string]interface{}
 }
 
-// Span represents a tracing span that can be completed.
-type Span interface {
-	End()
-}
-
 // Root represents a type that can be used to lookup a Method and place
 // calls on that method.
 type Root interface {
 	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
-	StartTrace(context.Context) (context.Context, Span)
+	StartTrace(context.Context) (context.Context, coretracer.Span)
 	Killer
 }
 
@@ -612,6 +611,13 @@ func (conn *Conn) runRequest(
 		conn.sending.Unlock()
 	}
 	if err != nil {
+		span.RecordError(err, func() map[string]string {
+			return map[string]string{
+				"request-id":     req.hdr.Request.Id,
+				"request-action": req.hdr.Request.Action,
+				"version":        fmt.Sprintf("%d", version),
+			}
+		})
 		// If the message failed due to the other end closing the socket, that
 		// is expected when an agent restarts so no need to log an  error.
 		// The error type here is errors.errorString so all we can do is a match

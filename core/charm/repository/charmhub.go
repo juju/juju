@@ -47,11 +47,13 @@ func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepo
 // charm origin (platform and channel) to locate a matching charm against the
 // Charmhub API.
 func (c *CharmHubRepository) ResolveWithPreferredChannel(ctx context.Context, charmURL *charm.URL, argOrigin corecharm.Origin) (*charm.URL, corecharm.Origin, []corecharm.Platform, error) {
-	ctx, span := coretracer.Start(ctx, coretracer.WithAttributes(map[string]string{
-		"charm-url":            charmURL.String(),
-		"charm.origin.source":  string(argOrigin.Source),
-		"charm.origin.id":      argOrigin.ID,
-		"charm.origin.channel": argOrigin.Channel.String(),
+	ctx, span := coretracer.Start(ctx, coretracer.WithAttributes(func() map[string]string {
+		return map[string]string{
+			"charm-url":            charmURL.String(),
+			"charm.origin.source":  string(argOrigin.Source),
+			"charm.origin.id":      argOrigin.ID,
+			"charm.origin.channel": argOrigin.Channel.String(),
+		}
 	}))
 	defer span.End()
 

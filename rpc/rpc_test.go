@@ -19,6 +19,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coretracer "github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"
@@ -360,11 +361,13 @@ func (c customMethodCaller) Call(_ context.Context, objId string, arg reflect.Va
 func (cc *CustomRoot) Kill() {
 }
 
-func (cc *CustomRoot) StartTrace(ctx context.Context) (context.Context, rpc.Span) {
+func (cc *CustomRoot) StartTrace(ctx context.Context) (context.Context, coretracer.Span) {
 	return ctx, noopSpan{}
 }
 
 type noopSpan struct{}
+
+func (noopSpan) RecordError(error, func() map[string]string) {}
 
 func (noopSpan) End() {}
 

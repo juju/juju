@@ -5,10 +5,12 @@ package tracer
 
 import (
 	"context"
+	"runtime/debug"
 	"time"
 
 	"github.com/juju/errors"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -18,6 +20,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	coretracer "github.com/juju/juju/core/tracer"
+	"github.com/juju/juju/version"
 )
 
 type tracer struct {
@@ -66,14 +69,12 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretracer.Opti
 		opt(o)
 	}
 
+	// generatedName is the name that was generated, so let's keep that one
+	// if it's overwritten.
+	generatedName := name
 	// Allows the override of the name.
 	if n := o.Name(); n != "" {
 		name = n
-	}
-
-	var attrs []attribute.KeyValue
-	for k, v := range o.Attributes() {
-		attrs = append(attrs, attribute.String(k, v))
 	}
 
 	var (
@@ -81,13 +82,37 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretracer.Opti
 		span   trace.Span
 	)
 	ctx, cancel = t.scopedContext(ctx)
-	ctx, span = t.clientTracer.Start(ctx, name, trace.WithAttributes(attrs...))
+	ctx, span = t.clientTracer.Start(ctx, name)
+
+	t.applySpanAttrs(span, o.Attributes(), generatedName)
 
 	return ctx, &managedSpan{
 		span:       span,
 		cancel:     cancel,
 		stackTrace: o.StackTrace(),
 	}
+}
+
+func (t *tracer) applySpanAttrs(span trace.Span, attrsFn func() map[string]string, generatedName string) {
+	if attrsFn == nil {
+		return
+	}
+
+	spanContext := span.SpanContext()
+
+	if t.logger.IsTraceEnabled() {
+		t.logger.Tracef("SpanContext: span-id %s, trace-id %s", spanContext.SpanID(), spanContext.TraceID())
+	}
+
+	attrs := attrsFn()
+	attrs["generated-name"] = generatedName
+
+	var keyValues []attribute.KeyValue
+	for k, v := range attrs {
+		keyValues = append(keyValues, attribute.String(k, v))
+	}
+
+	span.SetAttributes(keyValues...)
 }
 
 func (t *tracer) loop() error {
@@ -138,7 +163,7 @@ func newResource(namespace string) *resource.Resource {
 	return resource.NewWithAttributes(
 		semconv.SchemaURL,
 		semconv.ServiceName(namespace),
-		semconv.ServiceVersion("0.0.1"),
+		semconv.ServiceVersion(version.Current.String()),
 	)
 }
 
@@ -148,7 +173,28 @@ type managedSpan struct {
 	stackTrace bool
 }
 
+func (s *managedSpan) RecordError(err error, attrsFn func() map[string]string) {
+	if err == nil {
+		return
+	}
+
+	var attrs []attribute.KeyValue
+	if attrsFn != nil {
+		for k, v := range attrsFn() {
+			attrs = append(attrs, attribute.String(k, v))
+		}
+	}
+
+	s.span.RecordError(err, trace.WithAttributes(attrs...))
+	s.span.SetStatus(codes.Error, err.Error())
+}
+
 func (s *managedSpan) End() {
 	defer s.cancel()
+
+	if s.stackTrace {
+		s.span.SetAttributes(attribute.String("stack-trace", string(debug.Stack())))
+	}
+
 	s.span.End(trace.WithStackTrace(s.stackTrace))
 }

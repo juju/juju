@@ -48,6 +48,8 @@ const (
 const (
 	serverVersion = "v2"
 	serverEntity  = "charms"
+
+	clientName = "charmhub"
 )
 
 // Logger is the interface to use for logging requests and errors.
@@ -154,7 +156,8 @@ func NewClient(config Config) (*Client, error) {
 
 	apiRequester := newAPIRequester(httpClient, logger)
 	apiRequestLogger := newAPIRequesterLogger(apiRequester, logger)
-	restClient := newHTTPRESTClient(apiRequestLogger)
+	apiRequestTracer := newAPIRequesterTracer(apiRequestLogger)
+	restClient := newHTTPRESTClient(apiRequestTracer)
 
 	return &Client{
 		url:           base.String(),
@@ -177,9 +180,11 @@ func (c *Client) URL() string {
 
 // Info returns charm info on the provided charm name from CharmHub API.
 func (c *Client) Info(ctx context.Context, name string, options ...InfoOption) (transport.InfoResponse, error) {
-	ctx, span := tracer.Start(ctx, tracer.WithName("Info"), tracer.WithAttributes(map[string]string{
-		"name":   name,
-		"client": "charmhub",
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(func() map[string]string {
+		return map[string]string{
+			"name":   name,
+			"client": clientName,
+		}
 	}))
 	defer span.End()
 
@@ -188,9 +193,11 @@ func (c *Client) Info(ctx context.Context, name string, options ...InfoOption) (
 
 // Find searches for a given charm for a given name from CharmHub API.
 func (c *Client) Find(ctx context.Context, name string, options ...FindOption) ([]transport.FindResponse, error) {
-	ctx, span := tracer.Start(ctx, tracer.WithName("Find"), tracer.WithAttributes(map[string]string{
-		"name":   name,
-		"client": "charmhub",
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(func() map[string]string {
+		return map[string]string{
+			"name":   name,
+			"client": clientName,
+		}
 	}))
 	defer span.End()
 
@@ -199,95 +206,151 @@ func (c *Client) Find(ctx context.Context, name string, options ...FindOption) (
 
 // Refresh defines a client for making refresh API calls with different actions.
 func (c *Client) Refresh(ctx context.Context, config RefreshConfig) ([]transport.RefreshResponse, error) {
-	ctx, span := tracer.Start(ctx, tracer.WithName("Refresh"), tracer.WithAttributes(map[string]string{
-		"config": config.String(),
-		"client": "charmhub",
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(func() map[string]string {
+		return map[string]string{
+			"config": config.String(),
+			"client": clientName,
+		}
 	}))
 	defer span.End()
 
-	return c.refreshClient.Refresh(ctx, config)
+	result, err := c.refreshClient.Refresh(ctx, config)
+	if err != nil {
+		span.RecordError(err, nil)
+		return nil, errors.Trace(err)
+	}
+	return result, nil
 }
 
 // RefreshWithRequestMetrics defines a client for making refresh API calls.
 // Specifically to use the refresh action and provide metrics.  Intended for
 // use in the charm revision updater facade only.  Otherwise use Refresh.
 func (c *Client) RefreshWithRequestMetrics(ctx context.Context, config RefreshConfig, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) ([]transport.RefreshResponse, error) {
-	ctx, span := tracer.Start(ctx, tracer.WithName("RefreshWithRequestMetrics"), tracer.WithAttributes(map[string]string{
-		"config": config.String(),
-		"client": "charmhub",
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(func() map[string]string {
+		return map[string]string{
+			"config": config.String(),
+			"client": clientName,
+		}
 	}))
 	defer span.End()
 
-	return c.refreshClient.RefreshWithRequestMetrics(ctx, config, metrics)
+	result, err := c.refreshClient.RefreshWithRequestMetrics(ctx, config, metrics)
+	if err != nil {
+		span.RecordError(err, nil)
+		return nil, errors.Trace(err)
+	}
+	return result, nil
 }
 
 // RefreshWithMetricsOnly defines a client making a refresh API call with no
 // action, whose purpose is to send metrics data for models without current
 // units.  E.G. the controller model.
 func (c *Client) RefreshWithMetricsOnly(ctx context.Context, metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string) error {
-	ctx, span := tracer.Start(ctx, tracer.WithName("RefreshWithMetricsOnly"), tracer.WithAttributes(map[string]string{
-		"client": "charmhub",
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(func() map[string]string {
+		return map[string]string{
+			"client": clientName,
+		}
 	}))
 	defer span.End()
 
-	return c.refreshClient.RefreshWithMetricsOnly(ctx, metrics)
+	err := c.refreshClient.RefreshWithMetricsOnly(ctx, metrics)
+	if err != nil {
+		span.RecordError(err, nil)
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // Download defines a client for downloading charms directly.
 func (c *Client) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) error {
-	ctx, span := tracer.Start(ctx, tracer.WithName("Download"), tracer.WithAttributes(map[string]string{
-		"resource-url": resourceURL.String(),
-		"archive-path": archivePath,
-		"client":       "charmhub",
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(func() map[string]string {
+		return map[string]string{
+			"resource-url": resourceURL.String(),
+			"archive-path": archivePath,
+			"client":       clientName,
+		}
 	}))
 	defer span.End()
 
-	return c.downloadClient.Download(ctx, resourceURL, archivePath, options...)
+	err := c.downloadClient.Download(ctx, resourceURL, archivePath, options...)
+	if err != nil {
+		span.RecordError(err, nil)
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // DownloadAndRead defines a client for downloading charms directly.
 func (c *Client) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, error) {
-	ctx, span := tracer.Start(ctx, tracer.WithName("DownloadAndRead"), tracer.WithAttributes(map[string]string{
-		"resource-url": resourceURL.String(),
-		"archive-path": archivePath,
-		"client":       "charmhub",
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(func() map[string]string {
+		return map[string]string{
+			"resource-url": resourceURL.String(),
+			"archive-path": archivePath,
+			"client":       clientName,
+		}
 	}))
 	defer span.End()
 
-	return c.downloadClient.DownloadAndRead(ctx, resourceURL, archivePath, options...)
+	result, err := c.downloadClient.DownloadAndRead(ctx, resourceURL, archivePath, options...)
+	if err != nil {
+		span.RecordError(err, nil)
+		return nil, errors.Trace(err)
+	}
+	return result, nil
 }
 
 // DownloadAndReadBundle defines a client for downloading bundles directly.
 func (c *Client) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (charm.Bundle, error) {
-	ctx, span := tracer.Start(ctx, tracer.WithName("DownloadAndReadBundle"), tracer.WithAttributes(map[string]string{
-		"resource-url": resourceURL.String(),
-		"archive-path": archivePath,
-		"client":       "charmhub",
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(func() map[string]string {
+		return map[string]string{
+			"resource-url": resourceURL.String(),
+			"archive-path": archivePath,
+			"client":       clientName,
+		}
 	}))
 	defer span.End()
 
-	return c.downloadClient.DownloadAndReadBundle(ctx, resourceURL, archivePath, options...)
+	result, err := c.downloadClient.DownloadAndReadBundle(ctx, resourceURL, archivePath, options...)
+	if err != nil {
+		span.RecordError(err, nil)
+		return nil, errors.Trace(err)
+	}
+	return result, nil
 }
 
 // DownloadResource returns an io.ReadCloser to read the Resource from.
 func (c *Client) DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
-	ctx, span := tracer.Start(ctx, tracer.WithName("DownloadResource"), tracer.WithAttributes(map[string]string{
-		"resource-url": resourceURL.String(),
-		"client":       "charmhub",
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(func() map[string]string {
+		return map[string]string{
+			"resource-url": resourceURL.String(),
+			"client":       clientName,
+		}
 	}))
 	defer span.End()
 
-	return c.downloadClient.DownloadResource(ctx, resourceURL)
+	result, err := c.downloadClient.DownloadResource(ctx, resourceURL)
+	if err != nil {
+		span.RecordError(err, nil)
+		return nil, errors.Trace(err)
+	}
+	return result, nil
 }
 
 // ListResourceRevisions returns resource revisions for the provided charm and resource.
 func (c *Client) ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error) {
-	ctx, span := tracer.Start(ctx, tracer.WithName("ListResourceRevisions"), tracer.WithAttributes(map[string]string{
-		"charm":    charm,
-		"resource": resource,
-		"client":   "charmhub",
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(func() map[string]string {
+		return map[string]string{
+			"charm":    charm,
+			"resource": resource,
+			"client":   clientName,
+		}
 	}))
 	defer span.End()
 
-	return c.resourcesClient.ListResourceRevisions(ctx, charm, resource)
+	result, err := c.resourcesClient.ListResourceRevisions(ctx, charm, resource)
+	if err != nil {
+		span.RecordError(err, nil)
+		return nil, errors.Trace(err)
+	}
+	return result, nil
 }

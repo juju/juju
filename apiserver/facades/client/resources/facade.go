@@ -150,11 +150,13 @@ func (a *API) ListResources(ctx context.Context, args params.ListResourcesArgs) 
 // model in a pending state, meaning they are not available until
 // resolved. Handles CharmHub and Local charms.
 func (a *API) AddPendingResources(ctx context.Context, args params.AddPendingResourcesArgsV2) (params.AddPendingResourcesResult, error) {
-	ctx, span := tracer.Start(ctx, tracer.WithAttributes(map[string]string{
-		"charm.url":            args.URL,
-		"charm.origin.source":  args.CharmOrigin.Source,
-		"charm.origin.id":      args.CharmOrigin.ID,
-		"charm.origin.channel": args.CharmOrigin.Base.Channel,
+	ctx, span := tracer.Start(ctx, tracer.WithAttributes(func() map[string]string {
+		return map[string]string{
+			"charm.url":            args.URL,
+			"charm.origin.source":  args.CharmOrigin.Source,
+			"charm.origin.id":      args.CharmOrigin.ID,
+			"charm.origin.channel": args.CharmOrigin.Base.Channel,
+		}
 	}))
 	defer span.End()
 

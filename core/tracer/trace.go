@@ -14,7 +14,7 @@ type Option func(*TracerOption)
 
 type TracerOption struct {
 	name       string
-	attributes map[string]string
+	attributes func() map[string]string
 	stackTrace bool
 }
 
@@ -24,7 +24,7 @@ func (t *TracerOption) Name() string {
 }
 
 // Attributes returns the attributes on the span.
-func (t *TracerOption) Attributes() map[string]string {
+func (t *TracerOption) Attributes() func() map[string]string {
 	return t.attributes
 }
 
@@ -34,7 +34,7 @@ func (t *TracerOption) StackTrace() bool {
 }
 
 // WithAttributes returns a Option that sets the attributes on the span.
-func WithAttributes(attributes map[string]string) Option {
+func WithAttributes(attributes func() map[string]string) Option {
 	return func(o *TracerOption) {
 		o.attributes = attributes
 	}
@@ -56,7 +56,9 @@ func WithStackTrace() Option {
 
 // NewTracerOptions returns a new tracerOption.
 func NewTracerOptions() *TracerOption {
-	return &TracerOption{}
+	return &TracerOption{
+		stackTrace: true,
+	}
 }
 
 // Tracer is the interface that all tracers must implement.
@@ -82,6 +84,12 @@ type Tracer interface {
 // create a Span and it is then up to the operation the Span represents to
 // properly end the Span when the operation itself ends.
 type Span interface {
+	// RecordError will record err as an exception span event for this span. If
+	// this span is not being recorded or err is nil then this method does
+	// nothing.
+	// The attributes is lazy and only called if the span is recording.
+	RecordError(error, func() map[string]string)
+
 	// End completes the Span. The Span is considered complete and ready to be
 	// delivered through the rest of the telemetry pipeline after this method
 	// is called. Therefore, updates to the Span are not allowed after this

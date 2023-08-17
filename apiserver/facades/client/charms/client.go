@@ -169,6 +169,14 @@ func (a *API) GetDownloadInfos(ctx context.Context, args params.CharmURLAndOrigi
 	for i, arg := range args.Entities {
 		result, err := a.getDownloadInfo(ctx, arg)
 		if err != nil {
+			span.RecordError(err, func() map[string]string {
+				return map[string]string{
+					"charm-url":     arg.CharmURL,
+					"origin-source": arg.Origin.Source,
+					"origin-type":   arg.Origin.Type,
+					"origin-id":     arg.Origin.ID,
+				}
+			})
 			return params.DownloadInfoResults{}, errors.Trace(err)
 		}
 		results.Results[i] = result
@@ -255,11 +263,25 @@ func (a *API) AddCharm(ctx context.Context, args params.AddCharmWithOrigin) (par
 	defer span.End()
 
 	a.logger.Tracef("AddCharm %+v", args)
-	return a.addCharmWithAuthorization(ctx, params.AddCharmWithAuth{
+	result, err := a.addCharmWithAuthorization(ctx, params.AddCharmWithAuth{
 		URL:    args.URL,
 		Origin: args.Origin,
 		Force:  args.Force,
 	})
+
+	if err != nil {
+		span.RecordError(err, func() map[string]string {
+			return map[string]string{
+				"charm-url":     args.URL,
+				"origin-source": args.Origin.Source,
+				"origin-type":   args.Origin.Type,
+				"origin-id":     args.Origin.ID,
+			}
+		})
+		return result, errors.Trace(err)
+	}
+
+	return result, nil
 }
 
 // AddCharmWithAuthorization adds the given charm URL (which must include
@@ -273,7 +295,21 @@ func (a *APIv5) AddCharmWithAuthorization(ctx context.Context, args params.AddCh
 	defer span.End()
 
 	a.logger.Tracef("AddCharmWithAuthorization %+v", args)
-	return a.addCharmWithAuthorization(ctx, args)
+	result, err := a.addCharmWithAuthorization(ctx, args)
+
+	if err != nil {
+		span.RecordError(err, func() map[string]string {
+			return map[string]string{
+				"charm-url":     args.URL,
+				"origin-source": args.Origin.Source,
+				"origin-type":   args.Origin.Type,
+				"origin-id":     args.Origin.ID,
+			}
+		})
+		return result, errors.Trace(err)
+	}
+
+	return result, nil
 }
 
 func (a *API) addCharmWithAuthorization(ctx context.Context, args params.AddCharmWithAuth) (params.CharmOriginResult, error) {
@@ -369,7 +405,21 @@ func (a *API) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithCh
 		Results: make([]params.ResolveCharmWithChannelResult, len(args.Resolve)),
 	}
 	for i, arg := range args.Resolve {
-		result.Results[i] = a.resolveOneCharm(ctx, arg)
+		res := a.resolveOneCharm(ctx, arg)
+		if res.Error != nil {
+			span.RecordError(res.Error, func() map[string]string {
+				return map[string]string{
+					"references":          arg.Reference,
+					"origin-source":       arg.Origin.Source,
+					"origin-type":         arg.Origin.Type,
+					"origin-id":           arg.Origin.ID,
+					"origin-base-name":    arg.Origin.Base.Name,
+					"origin-base-channel": arg.Origin.Base.Channel,
+				}
+			})
+		}
+
+		result.Results[i] = res
 	}
 
 	return result, nil
@@ -556,7 +606,7 @@ func (a *API) IsMetered(ctx context.Context, args params.CharmURL) (params.IsMet
 // CheckCharmPlacement checks if a charm is allowed to be placed with in a
 // given application.
 func (a *API) CheckCharmPlacement(ctx context.Context, args params.ApplicationCharmPlacements) (params.ErrorResults, error) {
-	ctx, span := tracer.Start(ctx, tracer.WithName("CheckCharmPlacement"))
+	_, span := tracer.Start(ctx, tracer.WithName("CheckCharmPlacement"))
 	defer span.End()
 
 	if err := a.checkCanRead(); err != nil {

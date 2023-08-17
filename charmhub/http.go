@@ -12,6 +12,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/juju/juju/charmhub/path"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/version"
 )
 
@@ -249,6 +251,50 @@ func (t *apiRequestLogger) Do(req *http.Request) (*http.Response, error) {
 		} else {
 			t.logger.Tracef("%s response DumpResponse error %s", req.Method, err.Error())
 		}
+	}
+
+	return resp, err
+}
+
+// apiRequestTracer creates a wrapper around the HTTP client to allow for better
+// logging.
+type apiRequestTracer struct {
+	httpClient HTTPClient
+}
+
+// newAPIRequesterTracer creates a new HTTPClient that allows tracing of requests
+// for every request.
+func newAPIRequesterTracer(httpClient HTTPClient) *apiRequestTracer {
+	return &apiRequestTracer{
+		httpClient: httpClient,
+	}
+}
+
+func requestAttrs(req *http.Request) func() map[string]string {
+	return func() map[string]string {
+		m := map[string]string{
+			"method": req.Method,
+			"url":    req.URL.String(),
+		}
+		for k, v := range req.Header {
+			m["header-"+k] = strings.Join(v, ", ")
+		}
+
+		return m
+	}
+}
+
+// Do performs the request and logs the request and response if tracing is enabled.
+func (t *apiRequestTracer) Do(req *http.Request) (*http.Response, error) {
+	ctx, span := tracer.Start(req.Context(), tracer.WithAttributes(requestAttrs(req)))
+	defer span.End()
+
+	req = req.WithContext(ctx)
+
+	resp, err := t.httpClient.Do(req)
+	if err != nil {
+		span.RecordError(err, requestAttrs(req))
+		return nil, errors.Trace(err)
 	}
 
 	return resp, err

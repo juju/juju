@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	apiwebsocket "github.com/juju/juju/apiserver/websocket"
+	coretracer "github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/testing"
@@ -130,10 +131,12 @@ func (av allVersions) FindMethod(rootMethodName string, version int, objMethodNa
 	return av.Value.FindMethod(rootMethodName, 0, objMethodName)
 }
 
-func (av allVersions) StartTrace(ctx context.Context) (context.Context, rpc.Span) {
+func (av allVersions) StartTrace(ctx context.Context) (context.Context, coretracer.Span) {
 	return ctx, noopSpan{}
 }
 
 type noopSpan struct{}
+
+func (noopSpan) RecordError(error, func() map[string]string) {}
 
 func (noopSpan) End() {}

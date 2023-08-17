@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/rpcreflect"
 
+	"github.com/juju/juju/core/tracer"
 	"github.com/juju/juju/rpc"
 )
 
@@ -35,7 +36,7 @@ func (r *restrictedRoot) FindMethod(facadeName string, version int, methodName s
 }
 
 // StartTrace implements rpc.Root.
-func (r *restrictedRoot) StartTrace(ctx context.Context) (context.Context, rpc.Span) {
+func (r *restrictedRoot) StartTrace(ctx context.Context) (context.Context, tracer.Span) {
 	return r.Root.StartTrace(ctx)
 }
 
