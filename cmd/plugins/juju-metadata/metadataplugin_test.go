@@ -31,10 +31,8 @@ var _ = gc.Suite(&MetadataSuite{})
 var metadataCommandNames = []string{
 	"add-image",
 	"delete-image",
-	"documentation",
 	"generate-agent-binaries",
 	"generate-image",
-	"help",
 	"images",
 	"list-images",
 	"sign",

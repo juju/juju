@@ -7,12 +7,11 @@ import (
 	stdcontext "context"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/keyvault/azkeys"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
+	"github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys"
 	"github.com/gofrs/uuid"
 	"github.com/juju/errors"
 
@@ -326,35 +325,31 @@ func (env *azureEnviron) createVaultKey(
 
 	resp, err := keyClient.CreateKey(
 		ctx,
-		vaultName,
-		azkeys.KeyTypeRSA,
-		&azkeys.CreateKeyOptions{
+		keyName,
+		azkeys.CreateKeyParameters{
+			Kty: to.Ptr(azkeys.KeyTypeRSA),
 			// TODO(wallyworld) - make these configurable via storage pool attributes
-			Size: to.Ptr(int32(4096)),
-			Operations: []*azkeys.Operation{
-				to.Ptr(azkeys.OperationWrapKey),
-				to.Ptr(azkeys.OperationUnwrapKey),
+			KeySize: to.Ptr(int32(4096)),
+			KeyOps: []*azkeys.KeyOperation{
+				to.Ptr(azkeys.KeyOperationWrapKey),
+				to.Ptr(azkeys.KeyOperationUnwrapKey),
 			},
-			Properties: &azkeys.Properties{
-				Name:    to.Ptr(keyName),
+			KeyAttributes: &azkeys.KeyAttributes{
 				Enabled: to.Ptr(true),
 			},
-		})
+		},
+		nil)
 	if err == nil {
-		return resp.Key.ID, nil
+		return to.Ptr(string(toValue(resp.Key.KID))), nil
 	}
 	if !errorutils.IsConflictError(err) {
 		return nil, errors.Trace(err)
 	}
 
 	// If the key was previously soft deleted, recover it.
-	poller, err := keyClient.BeginRecoverDeletedKey(ctx, keyName, nil)
-	var result azkeys.RecoverDeletedKeyResponse
-	if err == nil {
-		result, err = poller.PollUntilDone(ctx, 5*time.Second)
-	}
+	result, err := keyClient.RecoverDeletedKey(ctx, keyName, nil)
 	if err != nil {
 		return nil, errors.Annotatef(err, "restoring soft deleted vault key %q in %q", keyName, vaultName)
 	}
-	return result.Key.ID, nil
+	return to.Ptr(string(toValue(result.Key.KID))), nil
 }

@@ -140,6 +140,8 @@ clouds:
       southamerica-east1:
         endpoint: https://www.googleapis.com
   azure:
+    # Note: the storage endpoint definitions below are no longer used by
+    # recent Juju versions, and are retained for compatibility only.
     type: azure
     description: Microsoft Azure
     auth-types: [ interactive, service-principal-secret ]
@@ -147,175 +149,175 @@ clouds:
       centralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       eastus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       eastus2:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       northcentralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       southcentralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       westcentralus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       westus:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       westus2:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       westus3:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       northeurope:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       westeurope:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       eastasia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       southeastasia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       japaneast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       japanwest:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       brazilsouth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       australiacentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       australiacentral2:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       australiaeast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       australiasoutheast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       centralindia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       southindia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       westindia:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       canadacentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       canadaeast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       uksouth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       ukwest:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       koreacentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net        
+        identity-endpoint: https://login.microsoftonline.com        
       koreasouth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       francecentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       francesouth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       southafricanorth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       southafricawest:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       germanynorth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       germanywestcentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       uaecentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       uaenorth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       norwayeast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       norwaywest:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       switzerlandnorth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       switzerlandwest:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       swedencentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
       qatarcentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net
+        identity-endpoint: https://login.microsoftonline.com
   azure-china:
     type: azure
     description: Microsoft Azure China

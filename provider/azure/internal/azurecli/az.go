@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/kr/pretty"
@@ -78,44 +77,6 @@ func (a AzureCLI) run(v interface{}, args ...string) error {
 		logger.Debugf("az returned: %s", pretty.Sprint(v))
 	}
 	return nil
-}
-
-// AccessToken contains the result of the GetAccessToken function.
-type AccessToken struct {
-	AccessToken  string `json:"accessToken"`
-	ExpiresOn    string `json:"expiresOn"`
-	Subscription string `json:"subscription"`
-	Tenant       string `json:"tenant"`
-	TokenType    string `json:"tokenType"`
-}
-
-// Token creates an adal.Token from the AccessToken. This token can be
-// used with go-autorest to access azure endpoints.
-func (t AccessToken) Token() *adal.Token {
-	return &adal.Token{
-		AccessToken: t.AccessToken,
-		Type:        t.TokenType,
-	}
-}
-
-// GetAccessToken gets an access token from the Azure CLI to access the
-// given resource using the given subscription. Either subscription or
-// resource may be empty in which case the default from the az
-// application are used.
-func (a AzureCLI) GetAccessToken(tenant, resource string) (*AccessToken, error) {
-	logger.Debugf("getting access token for tenant %q", tenant)
-	cmd := []string{"account", "get-access-token"}
-	if tenant != "" {
-		cmd = append(cmd, "--tenant", tenant)
-	}
-	if resource != "" {
-		cmd = append(cmd, "--resource", resource)
-	}
-	var tok AccessToken
-	if err := a.run(&tok, cmd...); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &tok, nil
 }
 
 // Account contains details of an azure account (subscription).
@@ -189,31 +150,9 @@ func (a AzureCLI) FindAccountsWithCloudName(name string) ([]Account, error) {
 
 // Cloud contains details of a cloud configured in the Azure CLI.
 type Cloud struct {
-	Endpoints CloudEndpoints `json:"endpoints"`
-	IsActive  bool           `json:"isActive"`
-	Name      string         `json:"name"`
-	Profile   string         `json:"profile"`
-	Suffixes  CloudSuffixes  `json:"suffixes"`
-}
-
-// CloudEndpoints contains the endpoints used by a cloud.
-type CloudEndpoints struct {
-	ActiveDirectory                string `json:"activeDirectory"`
-	ActiveDirectoryGraphResourceID string `json:"activeDirectoryGraphResourceId"`
-	ActiveDirectoryResourceID      string `json:"activeDirectoryResourceId"`
-	BatchResourceID                string `json:"batchResourceId"`
-	Management                     string `json:"management"`
-	ResourceManager                string `json:"resourceManager"`
-	SQLManagement                  string `json:"sqlManagement"`
-}
-
-// CloudSuffixes contains the suffixes used with a cloud.
-type CloudSuffixes struct {
-	AzureDatalakeAnalyticsCatalogAndJobEndpoint string `json:"azureDatalakeAnalyticsCatalogAndJobEndpoint"`
-	AzureDatalakeStoreFileSystemEndpoint        string `json:"azureDatalakeStoreFileSystemEndpoint"`
-	KeyvaultDNS                                 string `json:"keyvaultDns"`
-	SQLServerHostname                           string `json:"sqlServerHostname"`
-	StorageEndpoint                             string `json:"storageEndpoint"`
+	IsActive bool   `json:"isActive"`
+	Name     string `json:"name"`
+	Profile  string `json:"profile"`
 }
 
 // ShowCloud returns the details of the cloud with the given name. If the
@@ -228,22 +167,6 @@ func (a AzureCLI) ShowCloud(name string) (*Cloud, error) {
 		return nil, err
 	}
 	return &cloud, nil
-}
-
-// FindCloudsWithResourceManagerEndpoint returns a list of clouds which
-// use the given url for it's resource manager endpoint.
-func (a AzureCLI) FindCloudsWithResourceManagerEndpoint(url string) ([]Cloud, error) {
-	var clouds []Cloud
-	cmd := []string{
-		"cloud",
-		"list",
-		"--query",
-		fmt.Sprintf("[?endpoints.resourceManager=='%s']", url),
-	}
-	if err := a.run(&clouds, cmd...); err != nil {
-		return nil, err
-	}
-	return clouds, nil
 }
 
 // ListClouds returns the details for all clouds available in the Azure
