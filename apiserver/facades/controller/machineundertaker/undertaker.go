@@ -4,6 +4,8 @@
 package machineundertaker
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -41,7 +43,7 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 
 // AllMachineRemovals returns tags for all of the machines that have
 // been marked for removal in the requested model.
-func (m *API) AllMachineRemovals(models params.Entities) params.EntitiesResults {
+func (m *API) AllMachineRemovals(ctx context.Context, models params.Entities) params.EntitiesResults {
 	results := make([]params.EntitiesResult, len(models.Entities))
 	for i, entity := range models.Entities {
 		entities, err := m.allRemovalsForTag(entity.Tag)
@@ -71,7 +73,7 @@ func (m *API) allRemovalsForTag(tag string) ([]params.Entity, error) {
 
 // GetMachineProviderInterfaceInfo returns the provider details for
 // all network interfaces attached to the machines requested.
-func (m *API) GetMachineProviderInterfaceInfo(machines params.Entities) params.ProviderInterfaceInfoResults {
+func (m *API) GetMachineProviderInterfaceInfo(ctx context.Context, machines params.Entities) params.ProviderInterfaceInfoResults {
 	results := make([]params.ProviderInterfaceInfoResult, len(machines.Entities))
 	for i, entity := range machines.Entities {
 		results[i].MachineTag = entity.Tag
@@ -113,7 +115,7 @@ func (m *API) getInterfaceInfoForOneMachine(machineTag string) ([]network.Provid
 // CompleteMachineRemovals removes the specified machines from the
 // model database. It should only be called once any provider-level
 // cleanup has been done for those machines.
-func (m *API) CompleteMachineRemovals(machines params.Entities) error {
+func (m *API) CompleteMachineRemovals(ctx context.Context, machines params.Entities) error {
 	machineIDs, err := collectMachineIDs(machines)
 	if err != nil {
 		return errors.Trace(err)
@@ -123,7 +125,7 @@ func (m *API) CompleteMachineRemovals(machines params.Entities) error {
 
 // WatchMachineRemovals returns a watcher that will signal each time a
 // machine is marked for removal.
-func (m *API) WatchMachineRemovals(models params.Entities) params.NotifyWatchResults {
+func (m *API) WatchMachineRemovals(ctx context.Context, models params.Entities) params.NotifyWatchResults {
 	results := make([]params.NotifyWatchResult, len(models.Entities))
 	for i, entity := range models.Entities {
 		id, err := m.watchRemovalsForTag(entity.Tag)

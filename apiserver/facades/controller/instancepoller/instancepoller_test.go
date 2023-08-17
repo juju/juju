@@ -4,6 +4,7 @@
 package instancepoller_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -439,7 +440,7 @@ func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: addrs})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
 
-	result, err := s.api.ProviderAddresses(s.mixedEntities)
+	result, err := s.api.ProviderAddresses(context.Background(), s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MachineAddressesResults{
 		Results: []params.MachineAddressesResult{
@@ -472,7 +473,7 @@ func (s *InstancePollerSuite) TestProviderAddressesFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1"})
 	s.st.SetMachineInfo(c, machineInfo{id: "2"})
 
-	result, err := s.api.ProviderAddresses(s.machineEntities)
+	result, err := s.api.ProviderAddresses(context.Background(), s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MachineAddressesResults{
 		Results: []params.MachineAddressesResult{
@@ -499,7 +500,7 @@ func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: oldAddrs})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
 
-	result, err := s.api.SetProviderAddresses(params.SetMachinesAddresses{
+	result, err := s.api.SetProviderAddresses(context.Background(), params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
 			{Tag: "machine-1", Addresses: nil},
 			{Tag: "machine-2", Addresses: toParamAddresses(newAddrs)},
@@ -543,7 +544,7 @@ func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: oldAddrs})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
 
-	result, err := s.api.SetProviderAddresses(params.SetMachinesAddresses{
+	result, err := s.api.SetProviderAddresses(context.Background(), params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
 			{Tag: "machine-1"},
 			{Tag: "machine-2", Addresses: toParamAddresses(newAddrs)},
@@ -582,7 +583,7 @@ func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
-	result, err := s.api.InstanceStatus(s.mixedEntities)
+	result, err := s.api.InstanceStatus(context.Background(), s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
@@ -615,7 +616,7 @@ func (s *InstancePollerSuite) TestInstanceStatusFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
-	result, err := s.api.InstanceStatus(s.machineEntities)
+	result, err := s.api.InstanceStatus(context.Background(), s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
@@ -635,7 +636,7 @@ func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
-	result, err := s.api.SetInstanceStatus(params.SetStatus{
+	result, err := s.api.SetInstanceStatus(context.Background(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: "machine-1", Status: ""},
 			{Tag: "machine-2", Status: "new status"},
@@ -685,7 +686,7 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
-	result, err := s.api.SetInstanceStatus(params.SetStatus{
+	result, err := s.api.SetInstanceStatus(context.Background(), params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: "machine-1", Status: "new"},
 			{Tag: "machine-2", Status: "invalid"},
@@ -706,7 +707,7 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", isManual: true})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
 
-	result, err := s.api.AreManuallyProvisioned(s.mixedEntities)
+	result, err := s.api.AreManuallyProvisioned(context.Background(), s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -738,7 +739,7 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", isManual: true})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
 
-	result, err := s.api.AreManuallyProvisioned(s.machineEntities)
+	result, err := s.api.AreManuallyProvisioned(context.Background(), s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -759,7 +760,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 
-	results, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+	results, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag: "machine-1",
@@ -869,7 +870,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *gc.C) {
 		},
 	})
 
-	results, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+	results, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag: "machine-1",
@@ -938,7 +939,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *gc.C) {
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigNotAlive(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Dying})
 
-	results, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+	results, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{{
 			Tag: "machine-1",
 			Configs: []params.NetworkConfig{{
@@ -980,7 +981,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc
 		addresses:        []networkingcommon.LinkLayerAddress{addr},
 	})
 
-	result, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+	result, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag:     "machine-1",
@@ -1035,7 +1036,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 		addresses:        []networkingcommon.LinkLayerAddress{addr},
 	})
 
-	result, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+	result, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag: "machine-1",
@@ -1113,7 +1114,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(
 		addresses:        []networkingcommon.LinkLayerAddress{},
 	})
 
-	result, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+	result, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag: "machine-1",
@@ -1167,7 +1168,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDMultipleRefsError(
 	})
 
 	// Same provider ID for both.
-	result, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+	result, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
 			{
 				Tag: "machine-1",

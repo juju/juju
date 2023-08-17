@@ -98,7 +98,7 @@ func (s *Suite) TestWatch(c *gc.C) {
 
 	s.backend.EXPECT().WatchForMigration().Return(w)
 
-	result := s.mustMakeAPI(c).Watch()
+	result := s.mustMakeAPI(c).Watch(context.Background())
 	c.Assert(result.Error, gc.IsNil)
 
 	resource := s.resources.Get(result.NotifyWatcherId)
@@ -143,7 +143,7 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
 	api := s.mustMakeAPI(c)
-	status, err := api.MigrationStatus()
+	status, err := api.MigrationStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(status, gc.DeepEquals, params.MasterMigrationStatus{
@@ -173,7 +173,7 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 	exp.ModelOwner().Return(names.NewUserTag("owner"), nil)
 	exp.AgentVersion().Return(version.MustParse("1.2.3"), nil)
 
-	mod, err := s.mustMakeAPI(c).ModelInfo()
+	mod, err := s.mustMakeAPI(c).ModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(mod.UUID, gc.Equals, "model-uuid")
@@ -202,7 +202,7 @@ func (s *Suite) TestSourceControllerInfo(c *gc.C) {
 	}}}
 	s.controllerBackend.EXPECT().APIHostPortsForClients(cfg).Return(apiAddr, nil)
 
-	info, err := s.mustMakeAPI(c).SourceControllerInfo()
+	info, err := s.mustMakeAPI(c).SourceControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(info, jc.DeepEquals, params.MigrationSourceInfo{
@@ -223,7 +223,7 @@ func (s *Suite) TestSetPhase(c *gc.C) {
 
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
-	err := s.mustMakeAPI(c).SetPhase(params.SetMigrationPhaseArgs{Phase: "ABORT"})
+	err := s.mustMakeAPI(c).SetPhase(context.Background(), params.SetMigrationPhaseArgs{Phase: "ABORT"})
 	c.Assert(err, jc.ErrorIsNil)
 
 }
@@ -233,12 +233,12 @@ func (s *Suite) TestSetPhaseNoMigration(c *gc.C) {
 
 	s.backend.EXPECT().LatestMigration().Return(nil, errors.New("boom"))
 
-	err := s.mustMakeAPI(c).SetPhase(params.SetMigrationPhaseArgs{Phase: "ABORT"})
+	err := s.mustMakeAPI(c).SetPhase(context.Background(), params.SetMigrationPhaseArgs{Phase: "ABORT"})
 	c.Assert(err, gc.ErrorMatches, "could not get migration: boom")
 }
 
 func (s *Suite) TestSetPhaseBadPhase(c *gc.C) {
-	err := s.mustMakeAPI(c).SetPhase(params.SetMigrationPhaseArgs{Phase: "wat"})
+	err := s.mustMakeAPI(c).SetPhase(context.Background(), params.SetMigrationPhaseArgs{Phase: "wat"})
 	c.Assert(err, gc.ErrorMatches, `invalid phase: "wat"`)
 }
 
@@ -251,7 +251,7 @@ func (s *Suite) TestSetPhaseError(c *gc.C) {
 
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
-	err := s.mustMakeAPI(c).SetPhase(params.SetMigrationPhaseArgs{Phase: "ABORT"})
+	err := s.mustMakeAPI(c).SetPhase(context.Background(), params.SetMigrationPhaseArgs{Phase: "ABORT"})
 	c.Assert(err, gc.ErrorMatches, "failed to set phase: blam")
 }
 
@@ -264,7 +264,7 @@ func (s *Suite) TestSetStatusMessage(c *gc.C) {
 
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
-	err := s.mustMakeAPI(c).SetStatusMessage(params.SetMigrationStatusMessageArgs{Message: "foo"})
+	err := s.mustMakeAPI(c).SetStatusMessage(context.Background(), params.SetMigrationStatusMessageArgs{Message: "foo"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -273,7 +273,7 @@ func (s *Suite) TestSetStatusMessageNoMigration(c *gc.C) {
 
 	s.backend.EXPECT().LatestMigration().Return(nil, errors.New("boom"))
 
-	err := s.mustMakeAPI(c).SetStatusMessage(params.SetMigrationStatusMessageArgs{Message: "foo"})
+	err := s.mustMakeAPI(c).SetStatusMessage(context.Background(), params.SetMigrationStatusMessageArgs{Message: "foo"})
 	c.Assert(err, gc.ErrorMatches, "could not get migration: boom")
 }
 
@@ -286,7 +286,7 @@ func (s *Suite) TestSetStatusMessageError(c *gc.C) {
 
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
-	err := s.mustMakeAPI(c).SetStatusMessage(params.SetMigrationStatusMessageArgs{Message: "foo"})
+	err := s.mustMakeAPI(c).SetStatusMessage(context.Background(), params.SetMigrationStatusMessageArgs{Message: "foo"})
 	c.Assert(err, gc.ErrorMatches, "failed to set status message: blam")
 }
 
@@ -295,13 +295,13 @@ func (s *Suite) TestPrechecksModelError(c *gc.C) {
 
 	s.precheckBackend.EXPECT().Model().Return(nil, errors.New("boom"))
 
-	err := s.mustMakeAPI(c).Prechecks(params.PrechecksArgs{TargetControllerVersion: version.MustParse("2.9.32")})
+	err := s.mustMakeAPI(c).Prechecks(context.Background(), params.PrechecksArgs{TargetControllerVersion: version.MustParse("2.9.32")})
 	c.Assert(err, gc.ErrorMatches, "retrieving model: boom")
 }
 
 func (s *Suite) TestProcessRelations(c *gc.C) {
 	api := s.mustMakeAPI(c)
-	err := api.ProcessRelations(params.ProcessRelations{ControllerAlias: "foo"})
+	err := api.ProcessRelations(context.Background(), params.ProcessRelations{ControllerAlias: "foo"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -457,7 +457,7 @@ func (s *Suite) TestReap(c *gc.C) {
 	exp.RemoveExportingModelDocs().Return(nil)
 	mig.EXPECT().SetPhase(coremigration.DONE).Return(nil)
 
-	err := s.mustMakeAPI(c).Reap()
+	err := s.mustMakeAPI(c).Reap(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 
 }
@@ -471,7 +471,7 @@ func (s *Suite) TestReapError(c *gc.C) {
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 	s.backend.EXPECT().RemoveExportingModelDocs().Return(errors.New("boom"))
 
-	err := s.mustMakeAPI(c).Reap()
+	err := s.mustMakeAPI(c).Reap(context.Background())
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
@@ -493,7 +493,7 @@ func (s *Suite) TestWatchMinionReports(c *gc.C) {
 
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
-	result := s.mustMakeAPI(c).WatchMinionReports()
+	result := s.mustMakeAPI(c).WatchMinionReports(context.Background())
 	c.Assert(result.Error, gc.IsNil)
 
 	resource := s.resources.Get(result.NotifyWatcherId)
@@ -538,7 +538,7 @@ func (s *Suite) TestMinionReports(c *gc.C) {
 
 	s.backend.EXPECT().LatestMigration().Return(mig, nil)
 
-	reports, err := s.mustMakeAPI(c).MinionReports()
+	reports, err := s.mustMakeAPI(c).MinionReports(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Expect the sample of unknowns to be in order and be limited to
@@ -573,7 +573,7 @@ func (s *Suite) TestMinionReportTimeout(c *gc.C) {
 		controller.MigrationMinionWaitMax: timeout,
 	}, nil)
 
-	res, err := s.mustMakeAPI(c).MinionReportTimeout()
+	res, err := s.mustMakeAPI(c).MinionReportTimeout(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Error, gc.IsNil)
 	c.Check(res.Result, gc.Equals, timeout)

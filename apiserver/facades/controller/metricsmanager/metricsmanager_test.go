@@ -4,6 +4,7 @@
 package metricsmanager_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -91,7 +92,7 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{s.ControllerModel(c).ModelTag().String()},
 	}}
-	result, err := s.metricsmanager.CleanupOldMetrics(args)
+	result, err := s.metricsmanager.CleanupOldMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
@@ -106,7 +107,7 @@ func (s *metricsManagerSuite) TestCleanupOldMetricsInvalidArg(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{"invalid"},
 	}}
-	result, err := s.metricsmanager.CleanupOldMetrics(args)
+	result, err := s.metricsmanager.CleanupOldMetrics(context.Background(), args)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedError := apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -118,7 +119,7 @@ func (s *metricsManagerSuite) TestCleanupArgsIndependent(c *gc.C) {
 		{"invalid"},
 		{s.ControllerModel(c).ModelTag().String()},
 	}}
-	result, err := s.metricsmanager.CleanupOldMetrics(args)
+	result, err := s.metricsmanager.CleanupOldMetrics(context.Background(), args)
 	c.Assert(result.Results, gc.HasLen, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedError := apiservererrors.ServerError(apiservererrors.ErrPerm)
@@ -139,7 +140,7 @@ func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{s.ControllerModel(c).ModelTag().String()},
 	}}
-	result, err := s.metricsmanager.SendMetrics(args)
+	result, err := s.metricsmanager.SendMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
@@ -154,7 +155,7 @@ func (s *metricsManagerSuite) TestSendOldMetricsInvalidArg(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{"invalid"},
 	}}
-	result, err := s.metricsmanager.SendMetrics(args)
+	result, err := s.metricsmanager.SendMetrics(context.Background(), args)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedError := `"invalid" is not a valid tag`
@@ -166,7 +167,7 @@ func (s *metricsManagerSuite) TestSendArgsIndependent(c *gc.C) {
 		{"invalid"},
 		{s.ControllerModel(c).ModelTag().String()},
 	}}
-	result, err := s.metricsmanager.SendMetrics(args)
+	result, err := s.metricsmanager.SendMetrics(context.Background(), args)
 	c.Assert(result.Results, gc.HasLen, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedError := `"invalid" is not a valid tag`
@@ -187,7 +188,7 @@ func (s *metricsManagerSuite) TestMeterStatusOnConsecutiveErrors(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{s.ControllerModel(c).ModelTag().String()},
 	}}
-	result, err := s.metricsmanager.SendMetrics(args)
+	result, err := s.metricsmanager.SendMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedError := params.ErrorResult{Error: apiservertesting.PrefixedError(
 		fmt.Sprintf("failed to send metrics for %s: ", s.ControllerModel(c).ModelTag()),
@@ -210,7 +211,7 @@ func (s *metricsManagerSuite) TestMeterStatusSuccessfulSend(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{s.ControllerModel(c).ModelTag().String()},
 	}}
-	result, err := s.metricsmanager.SendMetrics(args)
+	result, err := s.metricsmanager.SendMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	mm, err := s.ControllerModel(c).State().MetricsManager()
@@ -225,7 +226,7 @@ func (s *metricsManagerSuite) TestLastSuccessfulNotChangedIfNothingToSend(c *gc.
 	args := params.Entities{Entities: []params.Entity{
 		{s.ControllerModel(c).ModelTag().String()},
 	}}
-	result, err := s.metricsmanager.SendMetrics(args)
+	result, err := s.metricsmanager.SendMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	mm, err := s.ControllerModel(c).State().MetricsManager()
@@ -244,7 +245,7 @@ func (s *metricsManagerSuite) TestAddJujuMachineMetrics(c *gc.C) {
 	f.MakeMachine(c, &factory.MachineParams{Base: state.UbuntuBase("20.04")})
 	f.MakeMachine(c, &factory.MachineParams{Base: state.Base{OS: "centos", Channel: "7"}})
 	f.MakeMachine(c, &factory.MachineParams{Base: state.Base{OS: "zzzz", Channel: "redux"}})
-	err = s.metricsmanager.AddJujuMachineMetrics()
+	err = s.metricsmanager.AddJujuMachineMetrics(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	metrics, err := st.MetricsToSend(10)
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,7 +276,7 @@ func (s *metricsManagerSuite) TestAddJujuMachineMetricsAddsNoMetricsWhenNoSLASet
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	f.MakeMachine(c, nil)
-	err := s.metricsmanager.AddJujuMachineMetrics()
+	err := s.metricsmanager.AddJujuMachineMetrics(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	metrics, err := s.ControllerModel(c).State().MetricsToSend(10)
 	c.Assert(err, jc.ErrorIsNil)
@@ -290,7 +291,7 @@ func (s *metricsManagerSuite) TestAddJujuMachineMetricsDontCountContainers(c *gc
 	defer release()
 	machine := f.MakeMachine(c, nil)
 	f.MakeMachineNested(c, machine.Id(), nil)
-	err = s.metricsmanager.AddJujuMachineMetrics()
+	err = s.metricsmanager.AddJujuMachineMetrics(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	metrics, err := st.MetricsToSend(10)
 	c.Assert(err, jc.ErrorIsNil)
@@ -315,7 +316,7 @@ func (s *metricsManagerSuite) TestSendMetricsMachineMetrics(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{s.ControllerModel(c).ModelTag().String()},
 	}}
-	result, err := s.metricsmanager.SendMetrics(args)
+	result, err := s.metricsmanager.SendMetrics(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})

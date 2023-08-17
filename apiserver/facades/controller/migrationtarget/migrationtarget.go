@@ -98,7 +98,7 @@ func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 
 // Prechecks ensure that the target controller is ready to accept a
 // model migration.
-func (api *API) Prechecks(model params.MigrationModelInfo) error {
+func (api *API) Prechecks(ctx context.Context, model params.MigrationModelInfo) error {
 	ownerTag, err := names.ParseUserTag(model.OwnerTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -169,7 +169,7 @@ func (api *API) getImportingModel(tag string) (*state.Model, func(), error) {
 
 // Abort removes the specified model from the database. It is an error to
 // attempt to Abort a model that has a migration mode other than importing.
-func (api *API) Abort(args params.ModelArgs) error {
+func (api *API) Abort(ctx context.Context, args params.ModelArgs) error {
 	model, releaseModel, err := api.getImportingModel(args.ModelTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -187,7 +187,7 @@ func (api *API) Abort(args params.ModelArgs) error {
 // Activate sets the migration mode of the model to "none", meaning it
 // is ready for use. It is an error to attempt to Abort a model that
 // has a migration mode other than importing.
-func (api *APIV1) Activate(args params.ModelArgs) error {
+func (api *APIV1) Activate(ctx context.Context, args params.ModelArgs) error {
 	model, release, err := api.getImportingModel(args.ModelTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -278,7 +278,7 @@ func (api *API) Activate(ctx context.Context, args params.ActivateModelArgs) err
 // can't be used to avoid duplicates when logtransfer is restarted.
 //
 // Returns the zero time if no logs have been transferred.
-func (api *API) LatestLogTime(args params.ModelArgs) (time.Time, error) {
+func (api *API) LatestLogTime(ctx context.Context, args params.ModelArgs) (time.Time, error) {
 	model, release, err := api.getModel(args.ModelTag)
 	if err != nil {
 		return time.Time{}, errors.Trace(err)
@@ -301,7 +301,7 @@ func (api *API) LatestLogTime(args params.ModelArgs) (time.Time, error) {
 // tags for a model's resources. This prevents the resources from
 // being destroyed if the source controller is destroyed after the
 // model is migrated away.
-func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
+func (api *API) AdoptResources(ctx context.Context, args params.AdoptResourcesArgs) error {
 	tag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -336,7 +336,7 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 
 // CheckMachines compares the machines in state with the ones reported
 // by the provider and reports any discrepancies.
-func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error) {
+func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (params.ErrorResults, error) {
 	tag, err := names.ParseModelTag(args.ModelTag)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -364,7 +364,7 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 }
 
 // CACert returns the certificate used to validate the state connection.
-func (api *API) CACert() (params.BytesResult, error) {
+func (api *API) CACert(ctx context.Context) (params.BytesResult, error) {
 	cfg, err := api.state.ControllerConfig()
 	if err != nil {
 		return params.BytesResult{}, errors.Trace(err)

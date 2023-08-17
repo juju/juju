@@ -4,6 +4,7 @@
 package metricsmanager
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/clock"
@@ -29,8 +30,8 @@ var (
 
 // MetricsManager defines the methods on the metricsmanager API end point.
 type MetricsManager interface {
-	CleanupOldMetrics(arg params.Entities) (params.ErrorResults, error)
-	SendMetrics(args params.Entities) (params.ErrorResults, error)
+	CleanupOldMetrics(ctx context.Context, arg params.Entities) (params.ErrorResults, error)
+	SendMetrics(ctx context.Context, args params.Entities) (params.ErrorResults, error)
 }
 
 // MetricsManagerAPI implements the metrics manager interface and is the concrete
@@ -100,7 +101,7 @@ func NewMetricsManagerAPI(
 // The single arg params is expected to contain and model uuid.
 // Even though the call will delete all metrics across models
 // it serves to validate that the connection has access to at least one model.
-func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.ErrorResults, error) {
+func (api *MetricsManagerAPI) CleanupOldMetrics(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -139,7 +140,7 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 
 // AddJujuMachineMetrics adds a metric that counts the number of
 // non-container machines in the current model.
-func (api *MetricsManagerAPI) AddJujuMachineMetrics() error {
+func (api *MetricsManagerAPI) AddJujuMachineMetrics(ctx context.Context) error {
 	sla, err := api.state.SLACredential()
 	if err != nil {
 		return errors.Trace(err)
@@ -186,8 +187,8 @@ func (api *MetricsManagerAPI) AddJujuMachineMetrics() error {
 }
 
 // SendMetrics will send any unsent metrics onto the metric collection service.
-func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorResults, error) {
-	if err := api.AddJujuMachineMetrics(); err != nil {
+func (api *MetricsManagerAPI) SendMetrics(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
+	if err := api.AddJujuMachineMetrics(ctx); err != nil {
 		logger.Warningf("failed to add juju-machines metrics: %v", err)
 	}
 	result := params.ErrorResults{

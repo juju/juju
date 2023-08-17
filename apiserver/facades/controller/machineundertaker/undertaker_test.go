@@ -4,6 +4,8 @@
 package machineundertaker_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -48,7 +50,7 @@ func (*undertakerSuite) TestRequiresModelManager(c *gc.C) {
 
 func (*undertakerSuite) TestAllMachineRemovalsNoResults(c *gc.C) {
 	_, _, api := makeAPI(c, uuid1)
-	result := api.AllMachineRemovals(makeEntities(tag1))
+	result := api.AllMachineRemovals(context.Background(), makeEntities(tag1))
 	c.Assert(result, gc.DeepEquals, params.EntitiesResults{
 		Results: []params.EntitiesResult{{}}, // So, one empty set of entities.
 	})
@@ -57,7 +59,7 @@ func (*undertakerSuite) TestAllMachineRemovalsNoResults(c *gc.C) {
 func (*undertakerSuite) TestAllMachineRemovalsError(c *gc.C) {
 	backend, _, api := makeAPI(c, uuid1)
 	backend.SetErrors(errors.New("I don't want to set the world on fire"))
-	result := api.AllMachineRemovals(makeEntities(tag1))
+	result := api.AllMachineRemovals(context.Background(), makeEntities(tag1))
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "I don't want to set the world on fire")
 	c.Assert(result.Results[0].Entities, jc.DeepEquals, []params.Entity{})
@@ -65,7 +67,7 @@ func (*undertakerSuite) TestAllMachineRemovalsError(c *gc.C) {
 
 func (*undertakerSuite) TestAllMachineRemovalsRequiresModelTags(c *gc.C) {
 	_, _, api := makeAPI(c, uuid1)
-	results := api.AllMachineRemovals(makeEntities(tag1, "machine-0"))
+	results := api.AllMachineRemovals(context.Background(), makeEntities(tag1, "machine-0"))
 	c.Assert(results.Results, gc.HasLen, 2)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[0].Entities, jc.DeepEquals, []params.Entity{})
@@ -75,7 +77,7 @@ func (*undertakerSuite) TestAllMachineRemovalsRequiresModelTags(c *gc.C) {
 
 func (*undertakerSuite) TestAllMachineRemovalsChecksModelTag(c *gc.C) {
 	_, _, api := makeAPI(c, uuid1)
-	results := api.AllMachineRemovals(makeEntities(tag2))
+	results := api.AllMachineRemovals(context.Background(), makeEntities(tag2))
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, "permission denied")
 	c.Assert(results.Results[0].Entities, gc.IsNil)
@@ -85,7 +87,7 @@ func (*undertakerSuite) TestAllMachineRemovals(c *gc.C) {
 	backend, _, api := makeAPI(c, uuid1)
 	backend.removals = []string{"0", "2"}
 
-	result := api.AllMachineRemovals(makeEntities(tag1))
+	result := api.AllMachineRemovals(context.Background(), makeEntities(tag1))
 	c.Assert(result, gc.DeepEquals, makeEntitiesResults("machine-0", "machine-2"))
 }
 
@@ -115,7 +117,7 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfo(c *gc.C) {
 	backend.SetErrors(nil, errors.NotFoundf("no machine 100 fool!"))
 
 	args := makeEntities("machine-2", "machine-100", "machine-0", "machine-inv")
-	result := api.GetMachineProviderInterfaceInfo(args)
+	result := api.GetMachineProviderInterfaceInfo(context.Background(), args)
 
 	c.Assert(result, gc.DeepEquals, params.ProviderInterfaceInfoResults{
 		Results: []params.ProviderInterfaceInfoResult{{
@@ -156,7 +158,7 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfoHandlesError(c *gc.C)
 		"0": {Stub: backend.Stub},
 	}
 	backend.SetErrors(nil, errors.New("oops - problem getting interface infos"))
-	result := api.GetMachineProviderInterfaceInfo(makeEntities("machine-0"))
+	result := api.GetMachineProviderInterfaceInfo(context.Background(), makeEntities("machine-0"))
 
 	c.Assert(result.Results, gc.DeepEquals, []params.ProviderInterfaceInfoResult{{
 		MachineTag: "machine-0",
@@ -166,20 +168,20 @@ func (*undertakerSuite) TestGetMachineProviderInterfaceInfoHandlesError(c *gc.C)
 
 func (*undertakerSuite) TestCompleteMachineRemovalsWithNonMachineTags(c *gc.C) {
 	_, _, api := makeAPI(c, "")
-	err := api.CompleteMachineRemovals(makeEntities("machine-2", "application-a1"))
+	err := api.CompleteMachineRemovals(context.Background(), makeEntities("machine-2", "application-a1"))
 	c.Assert(err, gc.ErrorMatches, `"application-a1" is not a valid machine tag`)
 }
 
 func (*undertakerSuite) TestCompleteMachineRemovalsWithOtherError(c *gc.C) {
 	backend, _, api := makeAPI(c, "")
 	backend.SetErrors(errors.New("boom"))
-	err := api.CompleteMachineRemovals(makeEntities("machine-2"))
+	err := api.CompleteMachineRemovals(context.Background(), makeEntities("machine-2"))
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (*undertakerSuite) TestCompleteMachineRemovals(c *gc.C) {
 	backend, _, api := makeAPI(c, "")
-	err := api.CompleteMachineRemovals(makeEntities("machine-2", "machine-52"))
+	err := api.CompleteMachineRemovals(context.Background(), makeEntities("machine-2", "machine-52"))
 	c.Assert(err, jc.ErrorIsNil)
 	backend.CheckCallNames(c, "CompleteMachineRemovals")
 	callArgs := backend.Calls()[0].Args
@@ -192,7 +194,7 @@ func (*undertakerSuite) TestCompleteMachineRemovals(c *gc.C) {
 func (*undertakerSuite) TestWatchMachineRemovals(c *gc.C) {
 	backend, res, api := makeAPI(c, uuid1)
 
-	result := api.WatchMachineRemovals(makeEntities(tag1))
+	result := api.WatchMachineRemovals(context.Background(), makeEntities(tag1))
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(res.Get(result.Results[0].NotifyWatcherId), gc.NotNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
@@ -201,7 +203,7 @@ func (*undertakerSuite) TestWatchMachineRemovals(c *gc.C) {
 
 func (*undertakerSuite) TestWatchMachineRemovalsPermissionError(c *gc.C) {
 	_, _, api := makeAPI(c, uuid1)
-	result := api.WatchMachineRemovals(makeEntities(tag2))
+	result := api.WatchMachineRemovals(context.Background(), makeEntities(tag2))
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
 }
@@ -211,7 +213,7 @@ func (*undertakerSuite) TestWatchMachineRemovalsError(c *gc.C) {
 	backend.watcherBlowsUp = true
 	backend.SetErrors(errors.New("oh no!"))
 
-	result := api.WatchMachineRemovals(makeEntities(tag1))
+	result := api.WatchMachineRemovals(context.Background(), makeEntities(tag1))
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "oh no!")
 	c.Assert(result.Results[0].NotifyWatcherId, gc.Equals, "")
