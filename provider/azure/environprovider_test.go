@@ -44,13 +44,11 @@ func (s *environProviderSuite) SetUpTest(c *gc.C) {
 		},
 	})
 	s.spec = environscloudspec.CloudSpec{
-		Type:             "azure",
-		Name:             "azure",
-		Region:           "westus",
-		Endpoint:         "https://api.azurestack.local",
-		IdentityEndpoint: "https://login.azurestack.local",
-		StorageEndpoint:  "https://storage.azurestack.local",
-		Credential:       fakeServicePrincipalCredential(),
+		Type:            "azure",
+		Name:            "azure",
+		Region:          "westus",
+		StorageEndpoint: "https://storage.azurestack.local",
+		Credential:      fakeServicePrincipalCredential(),
 	}
 	s.sender = nil
 }
