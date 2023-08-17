@@ -71,7 +71,7 @@ func (s *SingularSuite) TestInvalidClaims(c *gc.C) {
 	backend := &mockBackend{}
 	facade, err := singular.NewFacade(backend, backend, mockAuth{})
 	c.Assert(err, jc.ErrorIsNil)
-	result := facade.Claim(claims)
+	result := facade.Claim(context.Background(), claims)
 	c.Assert(result.Results, gc.HasLen, count)
 
 	for i, result := range result.Results {
@@ -126,7 +126,7 @@ func (s *SingularSuite) TestValidClaims(c *gc.C) {
 	backend.stub.SetErrors(errors...)
 	facade, err := singular.NewFacade(backend, backend, mockAuth{})
 	c.Assert(err, jc.ErrorIsNil)
-	result := facade.Claim(claims)
+	result := facade.Claim(context.Background(), claims)
 	c.Assert(result.Results, gc.HasLen, count)
 
 	for i, err := range result.Results {

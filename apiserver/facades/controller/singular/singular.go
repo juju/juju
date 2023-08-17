@@ -87,7 +87,7 @@ func (facade *Facade) Wait(ctx context.Context, args params.Entities) (result pa
 // Claim makes the supplied singular-controller lease requests. (In practice,
 // any requests not for the connection's model or controller, or not on behalf
 // of the connected ModelManager machine, will be rejected.)
-func (facade *Facade) Claim(args params.SingularClaims) (result params.ErrorResults) {
+func (facade *Facade) Claim(ctx context.Context, args params.SingularClaims) (result params.ErrorResults) {
 	result.Results = make([]params.ErrorResult, len(args.Claims))
 	for i, claim := range args.Claims {
 		err := facade.claim(claim)

@@ -4,6 +4,8 @@
 package undertaker
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -67,7 +69,7 @@ func newUndertakerAPI(st State, resources facade.Resources, authorizer facade.Au
 }
 
 // ModelInfo returns information on the model needed by the undertaker worker.
-func (u *UndertakerAPI) ModelInfo() (params.UndertakerModelInfoResult, error) {
+func (u *UndertakerAPI) ModelInfo(ctx context.Context) (params.UndertakerModelInfoResult, error) {
 	result := params.UndertakerModelInfoResult{}
 	model, err := u.st.Model()
 
@@ -90,12 +92,12 @@ func (u *UndertakerAPI) ModelInfo() (params.UndertakerModelInfoResult, error) {
 
 // ProcessDyingModel checks if a dying model has any machines or applications.
 // If there are none, the model's life is changed from dying to dead.
-func (u *UndertakerAPI) ProcessDyingModel() error {
+func (u *UndertakerAPI) ProcessDyingModel(ctx context.Context) error {
 	return u.st.ProcessDyingModel()
 }
 
 // RemoveModel removes any records of this model from Juju.
-func (u *UndertakerAPI) RemoveModel() error {
+func (u *UndertakerAPI) RemoveModel(ctx context.Context) error {
 	secretBackendCfg, err := u.secretBackendConfigGetter()
 	if err != nil {
 		return errors.Annotate(err, "getting secrets backends config")
@@ -130,7 +132,7 @@ func (u *UndertakerAPI) modelEntitiesWatcher() params.NotifyWatchResult {
 
 // WatchModelResources creates watchers for changes to the lifecycle of an
 // model's machines and applications and storage.
-func (u *UndertakerAPI) WatchModelResources() params.NotifyWatchResults {
+func (u *UndertakerAPI) WatchModelResources(ctx context.Context) params.NotifyWatchResults {
 	return params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			u.modelEntitiesWatcher(),
@@ -156,7 +158,7 @@ func (u *UndertakerAPI) modelWatcher() params.NotifyWatchResult {
 }
 
 // WatchModel creates a watcher for the current model.
-func (u *UndertakerAPI) WatchModel() params.NotifyWatchResults {
+func (u *UndertakerAPI) WatchModel(ctx context.Context) params.NotifyWatchResults {
 	return params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			u.modelWatcher(),
