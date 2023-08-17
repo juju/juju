@@ -94,6 +94,7 @@ func VerifyCredentials(ctx *cmd.Context, aCloud *cloud.Cloud, credential *cloud.
 	credential, err = provider.FinalizeCredential(
 		ctx, environs.FinalizeCredentialParams{
 			Credential:            *credential,
+			CloudName:             aCloud.Name,
 			CloudEndpoint:         cloudEndpoint,
 			CloudStorageEndpoint:  cloudStorageEndpoint,
 			CloudIdentityEndpoint: cloudIdentityEndpoint,

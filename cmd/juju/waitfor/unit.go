@@ -37,15 +37,30 @@ func newUnitCommand() cmd.Command {
 }
 
 const unitCommandDoc = `
-Waits for a unit to reach a specified state.
+The wait-for unit command waits for the unit to reach a goal state. The goal
+state can be defined programmatically using the query DSL (domain specific
+language). The default query for a unit just waits for the unit to be created 
+and active.
 
-arguments:
-name
-   unit name identifier
+The wait-for command is an optimized alternative to the status command for 
+determining programmatically if a goal state has been reached. The wait-for
+command streams delta changes from the underlying database, unlike the status
+command which performs a full query of the database.
 
-options:
---query (= 'life=="alive" && status=="active"')
-   query represents the sought state of the specified unit
+The unit query DSL can be used to programmatically define the goal state
+for machine within the scope of the unit. This can be achieved by using lambda
+expressions to iterate over the machines associated with the unit. Multiple
+expressions can be combined to define a complex goal state.
+`
+
+const unitCommandExamples = `
+Waits for a units to be machines to be length of 1.
+
+    juju wait-for unit ubuntu/0 --query='len(machines) == 1'
+
+Waits for the unit to be created and active.
+
+    juju wait-for unit ubuntu/0 --query='life=="alive" && workload-status=="active"'
 `
 
 // unitCommand defines a command for waiting for units.
@@ -64,10 +79,16 @@ type unitCommand struct {
 // Info implements Command.Info.
 func (c *unitCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "unit",
-		Args:    "[<name>]",
-		Purpose: "Wait for a unit to reach a specified state.",
-		Doc:     unitCommandDoc,
+		Name:     "unit",
+		Args:     "[<name>]",
+		Purpose:  "Wait for a unit to reach a specified state.",
+		Doc:      unitCommandDoc,
+		Examples: unitCommandExamples,
+		SeeAlso: []string{
+			"wait-for model",
+			"wait-for application",
+			"wait-for machine",
+		},
 	})
 }
 

@@ -7,11 +7,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
@@ -46,8 +46,6 @@ type AzureCLI interface {
 	ListAccounts() ([]azurecli.Account, error)
 	FindAccountsWithCloudName(name string) ([]azurecli.Account, error)
 	ShowAccount(subscription string) (*azurecli.Account, error)
-	GetAccessToken(tenant, resource string) (*azurecli.AccessToken, error)
-	FindCloudsWithResourceManagerEndpoint(url string) ([]azurecli.Cloud, error)
 	ListClouds() ([]azurecli.Cloud, error)
 }
 
@@ -135,7 +133,7 @@ func (c environProviderCredentials) DetectCredentials(cloudName string) (*cloud.
 		if !ok {
 			continue
 		}
-		cred, err := c.accountCredential(acc, cloudInfo)
+		cred, err := c.accountCredential(acc)
 		if err != nil {
 			logger.Debugf("cannot get credential for %s: %s", acc.Name, err)
 			continue
@@ -163,17 +161,22 @@ func (c environProviderCredentials) FinalizeCredential(
 	switch authType := args.Credential.AuthType(); authType {
 	case deviceCodeAuthType:
 		subscriptionId := args.Credential.Attributes()[credAttrSubscriptionId]
+
+		var azCloudName string
+		switch args.CloudName {
+		case "azure":
+			azCloudName = azureauth.AzureCloud
+		case "azure-china":
+			azCloudName = azureauth.AzureChinaCloud
+		case "azure-gov":
+			azCloudName = azureauth.AzureUSGovernment
+		default:
+			return nil, errors.Errorf("unknown Azure cloud name %q", args.CloudName)
+		}
+
 		if subscriptionId != "" {
-			// If a subscription ID was specified then fall
-			// back to the interactive device login. attempt
-			// to get subscription details from Azure CLI.
-			graphResourceId := azureauth.TokenResource(args.CloudIdentityEndpoint)
-			resourceManagerResourceId, err := azureauth.ResourceManagerResourceId(args.CloudStorageEndpoint)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
 			opts := azcore.ClientOptions{
-				Cloud:     azureCloud(args.CloudEndpoint, args.CloudIdentityEndpoint),
+				Cloud:     azureCloud(args.CloudName, args.CloudEndpoint, args.CloudIdentityEndpoint),
 				Transport: c.transporter,
 			}
 			clientOpts := arm.ClientOptions{ClientOptions: opts}
@@ -183,15 +186,13 @@ func (c environProviderCredentials) FinalizeCredential(
 				return nil, errors.Trace(err)
 			}
 			return c.deviceCodeCredential(ctx, args, azureauth.ServicePrincipalParams{
-				GraphEndpoint:             args.CloudIdentityEndpoint,
-				GraphResourceId:           graphResourceId,
-				ResourceManagerEndpoint:   args.CloudEndpoint,
-				ResourceManagerResourceId: resourceManagerResourceId,
-				SubscriptionId:            subscriptionId,
-				TenantId:                  tenantID,
+				CloudName:      azCloudName,
+				SubscriptionId: subscriptionId,
+				TenantId:       tenantID,
 			})
 		}
-		params, err := c.getServicePrincipalParams(args.CloudEndpoint)
+
+		params, err := c.getServicePrincipalParams(azCloudName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -228,26 +229,22 @@ func (c environProviderCredentials) azureCLICredential(
 	args environs.FinalizeCredentialParams,
 	params azureauth.ServicePrincipalParams,
 ) (*cloud.Credential, error) {
-	graphToken, err := c.azureCLI.GetAccessToken(params.TenantId, params.GraphResourceId)
+	cred, err := azidentity.NewAzureCLICredential(&azidentity.AzureCLICredentialOptions{
+		TenantID: params.TenantId,
+	})
 	if err != nil {
-		// The version of Azure CLI may not support
-		// get-access-token so fallback to using device
-		// authentication.
-		logger.Debugf("error getting access token: %s", err)
-		return c.deviceCodeCredential(ctx, args, params)
+		return nil, errors.Trace(err)
 	}
-	params.GraphTokenProvider = graphToken.Token()
+	params.Credential = cred
 
-	resourceManagerAuthorizer, err := c.azureCLI.GetAccessToken(params.TenantId, params.ResourceManagerResourceId)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get access token for %s", params.SubscriptionId)
 	}
-	params.ResourceManagerTokenProvider = resourceManagerAuthorizer.Token()
 
 	sdkCtx := context.Background()
 	applicationId, spObjectId, password, err := c.servicePrincipalCreator.Create(sdkCtx, params)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get service principal")
+		return nil, errors.Annotatef(err, "cannot create service principal")
 	}
 	out := cloud.NewCredential(clientCredentialsAuthType, map[string]string{
 		credAttrSubscriptionId:      params.SubscriptionId,
@@ -261,26 +258,19 @@ func (c environProviderCredentials) azureCLICredential(
 
 func (c environProviderCredentials) accountCredential(
 	acc azurecli.Account,
-	cloudInfo azurecli.Cloud,
 ) (cloud.Credential, error) {
-	graphToken, err := c.azureCLI.GetAccessToken(acc.AuthTenantId(), cloudInfo.Endpoints.ActiveDirectoryGraphResourceID)
+	cred, err := azidentity.NewAzureCLICredential(&azidentity.AzureCLICredentialOptions{
+		TenantID:                   acc.AuthTenantId(),
+		AdditionallyAllowedTenants: []string{"*"},
+	})
 	if err != nil {
-		return cloud.Credential{}, errors.Annotatef(err, "cannot get access token for %s", acc.ID)
-	}
-	armToken, err := c.azureCLI.GetAccessToken(acc.AuthTenantId(), cloudInfo.Endpoints.ResourceManager)
-	if err != nil {
-		return cloud.Credential{}, errors.Annotatef(err, "cannot get access token for %s", acc.ID)
+		return cloud.Credential{}, errors.Annotate(err, "cannot get az cli credential")
 	}
 	sdkCtx := context.Background()
 	applicationId, spObjectId, password, err := c.servicePrincipalCreator.Create(sdkCtx, azureauth.ServicePrincipalParams{
-		GraphEndpoint:                cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
-		GraphResourceId:              cloudInfo.Endpoints.ActiveDirectoryGraphResourceID,
-		GraphTokenProvider:           graphToken.Token(),
-		ResourceManagerEndpoint:      cloudInfo.Endpoints.ResourceManager,
-		ResourceManagerResourceId:    cloudInfo.Endpoints.ResourceManager,
-		ResourceManagerTokenProvider: armToken.Token(),
-		SubscriptionId:               acc.ID,
-		TenantId:                     graphToken.Tenant,
+		Credential:     cred,
+		SubscriptionId: acc.ID,
+		TenantId:       acc.TenantId,
 	})
 	if err != nil {
 		return cloud.Credential{}, errors.Annotate(err, "cannot get service principal")
@@ -294,23 +284,13 @@ func (c environProviderCredentials) accountCredential(
 	}), nil
 }
 
-func (c environProviderCredentials) getServicePrincipalParams(cloudEndpoint string) (azureauth.ServicePrincipalParams, error) {
-	if !strings.HasSuffix(cloudEndpoint, "/") {
-		cloudEndpoint += "/"
-	}
-	clouds, err := c.azureCLI.FindCloudsWithResourceManagerEndpoint(cloudEndpoint)
-	if err != nil {
-		return azureauth.ServicePrincipalParams{}, errors.Annotatef(err, "cannot list clouds")
-	}
-	if len(clouds) != 1 {
-		return azureauth.ServicePrincipalParams{}, errors.Errorf("cannot find cloud for %s", cloudEndpoint)
-	}
-	accounts, err := c.azureCLI.FindAccountsWithCloudName(clouds[0].Name)
+func (c environProviderCredentials) getServicePrincipalParams(cloudName string) (azureauth.ServicePrincipalParams, error) {
+	accounts, err := c.azureCLI.FindAccountsWithCloudName(cloudName)
 	if err != nil {
 		return azureauth.ServicePrincipalParams{}, errors.Annotatef(err, "cannot get accounts")
 	}
 	if len(accounts) < 1 {
-		return azureauth.ServicePrincipalParams{}, errors.Errorf("no %s accounts found", clouds[0].Name)
+		return azureauth.ServicePrincipalParams{}, errors.Errorf("no %s accounts found", cloudName)
 	}
 	acc := accounts[0]
 	for _, a := range accounts[1:] {
@@ -319,12 +299,9 @@ func (c environProviderCredentials) getServicePrincipalParams(cloudEndpoint stri
 		}
 	}
 	return azureauth.ServicePrincipalParams{
-		GraphEndpoint:             clouds[0].Endpoints.ActiveDirectoryGraphResourceID,
-		GraphResourceId:           clouds[0].Endpoints.ActiveDirectoryGraphResourceID,
-		ResourceManagerEndpoint:   clouds[0].Endpoints.ResourceManager,
-		ResourceManagerResourceId: clouds[0].Endpoints.ResourceManager,
-		SubscriptionId:            acc.ID,
-		TenantId:                  acc.AuthTenantId(),
+		CloudName:      cloudName,
+		SubscriptionId: acc.ID,
+		TenantId:       acc.AuthTenantId(),
 	}, nil
 
 }

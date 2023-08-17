@@ -36,15 +36,23 @@ func newMachineCommand() cmd.Command {
 }
 
 const machineCommandDoc = `
-Waits for a machine to reach a specified state.
+The wait-for machine command waits for a machine to reach a goal state.
+The goal state can be defined programmatically using the query DSL
+(domain specific language). The default query for a machine just waits for the
+machine to be created and started.
 
-arguments:
-name
-   machine name identifier
+The wait-for command is an optimized alternative to the status command for 
+determining programmatically if a goal state has been reached. The wait-for
+command streams delta changes from the underlying database, unlike the status
+command which performs a full query of the database.
 
-options:
---query (= 'life=="alive" && status=="started")
-   query represents the sought state of the specified machine
+Multiple expressions can be combined to define a complex goal state.
+`
+
+const machineCommandExamples = `
+Waits for a machine to be created and started.
+
+    juju wait-for machine 0 --query='life=="alive" && status=="started"'
 `
 
 // machineCommand defines a command for waiting for models.
@@ -62,10 +70,16 @@ type machineCommand struct {
 // Info implements Command.Info.
 func (c *machineCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "machine",
-		Args:    "[<id>]",
-		Purpose: "Wait for a machine to reach a specified state.",
-		Doc:     machineCommandDoc,
+		Name:     "machine",
+		Args:     "[<id>]",
+		Purpose:  "Wait for a machine to reach a specified state.",
+		Doc:      machineCommandDoc,
+		Examples: machineCommandExamples,
+		SeeAlso: []string{
+			"wait-for model",
+			"wait-for application",
+			"wait-for unit",
+		},
 	})
 }
 

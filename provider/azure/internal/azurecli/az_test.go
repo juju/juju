@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -18,109 +17,6 @@ import (
 type azSuite struct{}
 
 var _ = gc.Suite(&azSuite{})
-
-func (s *azSuite) TestGetAccessToken(c *gc.C) {
-	azcli := azurecli.AzureCLI{
-		Exec: testExecutor{
-			commands: map[string]result{
-				"az account get-access-token -o json": {
-					stdout: []byte(`
-{
-  "accessToken": "ACCESSTOKEN",
-  "expiresOn": "2017-06-07 09:27:58.063743",
-  "subscription": "5544b9a5-0000-0000-0000-fedceb5d3696",
-  "tenant": "a52afd7f-0000-0000-0000-e47a54b982da",
-  "tokenType": "Bearer"
-}
-`[1:]),
-				},
-			},
-		}.Exec,
-	}
-	tok, err := azcli.GetAccessToken("", "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tok, jc.DeepEquals, &azurecli.AccessToken{
-		AccessToken:  "ACCESSTOKEN",
-		ExpiresOn:    "2017-06-07 09:27:58.063743",
-		Subscription: "5544b9a5-0000-0000-0000-fedceb5d3696",
-		Tenant:       "a52afd7f-0000-0000-0000-e47a54b982da",
-		TokenType:    "Bearer",
-	})
-}
-
-func (s *azSuite) TestGetAccessTokenWithTenantAndResource(c *gc.C) {
-	azcli := azurecli.AzureCLI{
-		Exec: testExecutor{
-			commands: map[string]result{
-				"az account get-access-token --tenant 5544b9a5-0000-0000-0000-fedceb5d3696 --resource resid -o json": {
-					stdout: []byte(`
-{
-  "accessToken": "ACCESSTOKEN",
-  "expiresOn": "2017-06-07 09:27:58.063743",
-  "subscription": "5544b9a5-0000-0000-0000-fedceb5d3696",
-  "tenant": "a52afd7f-0000-0000-0000-e47a54b982da",
-  "tokenType": "Bearer"
-}
-`[1:]),
-				},
-			},
-		}.Exec,
-	}
-	tok, err := azcli.GetAccessToken("5544b9a5-0000-0000-0000-fedceb5d3696", "resid")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(tok, jc.DeepEquals, &azurecli.AccessToken{
-		AccessToken:  "ACCESSTOKEN",
-		ExpiresOn:    "2017-06-07 09:27:58.063743",
-		Subscription: "5544b9a5-0000-0000-0000-fedceb5d3696",
-		Tenant:       "a52afd7f-0000-0000-0000-e47a54b982da",
-		TokenType:    "Bearer",
-	})
-}
-
-func (s *azSuite) TestGetAccessTokenError(c *gc.C) {
-	azcli := azurecli.AzureCLI{
-		Exec: testExecutor{
-			commands: map[string]result{
-				"az account get-access-token -o json": {
-					error: &exec.ExitError{Stderr: []byte("test error")},
-				},
-			},
-		}.Exec,
-	}
-	tok, err := azcli.GetAccessToken("", "")
-	c.Assert(err, gc.ErrorMatches, `execution failure: test error`)
-	c.Assert(tok, gc.IsNil)
-}
-
-func (s *azSuite) TestGetAccessTokenJSONError(c *gc.C) {
-	azcli := azurecli.AzureCLI{
-		Exec: testExecutor{
-			commands: map[string]result{
-				"az account get-access-token -o json": {
-					stdout: []byte(`}`),
-				},
-			},
-		}.Exec,
-	}
-	tok, err := azcli.GetAccessToken("", "")
-	c.Assert(err, gc.ErrorMatches, `cannot unmarshal output: invalid character '}' looking for beginning of value`)
-	c.Assert(tok, gc.IsNil)
-}
-
-func (s *azSuite) TestAzureTokenFromAccessToken(c *gc.C) {
-	tok := azurecli.AccessToken{
-		AccessToken:  "0123456789",
-		ExpiresOn:    "2017-06-05 10:20:43.752534",
-		Subscription: "00000000-0000-0000-0000-00000001",
-		Tenant:       "00000000-0000-0000-0000-00000002",
-		TokenType:    "Bearer",
-	}
-	tok1 := tok.Token()
-	c.Assert(tok1, jc.DeepEquals, &adal.Token{
-		AccessToken: "0123456789",
-		Type:        "Bearer",
-	})
-}
 
 func (s *azSuite) TestShowAccount(c *gc.C) {
 	azcli := azurecli.AzureCLI{
@@ -362,26 +258,9 @@ func (s *azSuite) TestShowCloud(c *gc.C) {
 				"az cloud show -o json": {
 					stdout: []byte(`
 {
-  "endpoints": {
-    "activeDirectory": "https://login.microsoftonline.com",
-    "activeDirectoryGraphResourceId": "https://graph.windows.net/",
-    "activeDirectoryResourceId": "https://management.core.windows.net/",
-    "batchResourceId": "https://batch.core.windows.net/",
-    "gallery": "https://gallery.azure.com/",
-    "management": "https://management.core.windows.net/",
-    "resourceManager": "https://management.azure.com/",
-    "sqlManagement": "https://management.core.windows.net:8443/"
-  },
   "isActive": true,
   "name": "AzureCloud",
-  "profile": "latest",
-  "suffixes": {
-    "azureDatalakeAnalyticsCatalogAndJobEndpoint": "azuredatalakeanalytics.net",
-    "azureDatalakeStoreFileSystemEndpoint": "azuredatalakestore.net",
-    "keyvaultDns": ".vault.azure.net",
-    "sqlServerHostname": ".database.windows.net",
-    "storageEndpoint": "core.windows.net"
-  }
+  "profile": "latest"
 }
 `[1:]),
 				},
@@ -391,25 +270,9 @@ func (s *azSuite) TestShowCloud(c *gc.C) {
 	cloud, err := azcli.ShowCloud("")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud, jc.DeepEquals, &azurecli.Cloud{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectory:                "https://login.microsoftonline.com",
-			ActiveDirectoryGraphResourceID: "https://graph.windows.net/",
-			ActiveDirectoryResourceID:      "https://management.core.windows.net/",
-			BatchResourceID:                "https://batch.core.windows.net/",
-			Management:                     "https://management.core.windows.net/",
-			ResourceManager:                "https://management.azure.com/",
-			SQLManagement:                  "https://management.core.windows.net:8443/",
-		},
 		IsActive: true,
 		Name:     "AzureCloud",
 		Profile:  "latest",
-		Suffixes: azurecli.CloudSuffixes{
-			AzureDatalakeAnalyticsCatalogAndJobEndpoint: "azuredatalakeanalytics.net",
-			AzureDatalakeStoreFileSystemEndpoint:        "azuredatalakestore.net",
-			KeyvaultDNS:                                 ".vault.azure.net",
-			SQLServerHostname:                           ".database.windows.net",
-			StorageEndpoint:                             "core.windows.net",
-		},
 	})
 }
 
@@ -420,26 +283,9 @@ func (s *azSuite) TestShowCloudWithName(c *gc.C) {
 				"az cloud show --name AzureUSGovernment -o json": {
 					stdout: []byte(`
 {
-  "endpoints": {
-    "activeDirectory": "https://login.microsoftonline.com",
-    "activeDirectoryGraphResourceId": "https://graph.windows.net/",
-    "activeDirectoryResourceId": "https://management.core.usgovcloudapi.net/",
-    "batchResourceId": "https://batch.core.usgovcloudapi.net/",
-    "gallery": "https://gallery.usgovcloudapi.net/",
-    "management": "https://management.core.usgovcloudapi.net/",
-    "resourceManager": "https://management.usgovcloudapi.net/",
-    "sqlManagement": "https://management.core.usgovcloudapi.net:8443/"
-  },
   "isActive": false,
   "name": "AzureUSGovernment",
-  "profile": "latest",
-  "suffixes": {
-    "azureDatalakeAnalyticsCatalogAndJobEndpoint": null,
-    "azureDatalakeStoreFileSystemEndpoint": null,
-    "keyvaultDns": ".vault.usgovcloudapi.net",
-    "sqlServerHostname": ".database.usgovcloudapi.net",
-    "storageEndpoint": "core.usgovcloudapi.net"
-  }
+  "profile": "latest"
 }
 `[1:]),
 				},
@@ -449,23 +295,9 @@ func (s *azSuite) TestShowCloudWithName(c *gc.C) {
 	cloud, err := azcli.ShowCloud("AzureUSGovernment")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloud, jc.DeepEquals, &azurecli.Cloud{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectory:                "https://login.microsoftonline.com",
-			ActiveDirectoryGraphResourceID: "https://graph.windows.net/",
-			ActiveDirectoryResourceID:      "https://management.core.usgovcloudapi.net/",
-			BatchResourceID:                "https://batch.core.usgovcloudapi.net/",
-			Management:                     "https://management.core.usgovcloudapi.net/",
-			ResourceManager:                "https://management.usgovcloudapi.net/",
-			SQLManagement:                  "https://management.core.usgovcloudapi.net:8443/",
-		},
 		IsActive: false,
 		Name:     "AzureUSGovernment",
 		Profile:  "latest",
-		Suffixes: azurecli.CloudSuffixes{
-			KeyvaultDNS:       ".vault.usgovcloudapi.net",
-			SQLServerHostname: ".database.usgovcloudapi.net",
-			StorageEndpoint:   "core.usgovcloudapi.net",
-		},
 	})
 }
 
@@ -484,81 +316,6 @@ func (s *azSuite) TestShowCloudError(c *gc.C) {
 	c.Assert(cloud, gc.IsNil)
 }
 
-func (s *azSuite) TestFindCloudsWithResourceManagerEndpoint(c *gc.C) {
-	azcli := azurecli.AzureCLI{
-		Exec: testExecutor{
-			commands: map[string]result{
-				"az cloud list --query [?endpoints.resourceManager=='https://management.azure.com/'] -o json": {
-					stdout: []byte(`
-[
-  {
-    "endpoints": {
-      "activeDirectory": "https://login.microsoftonline.com",
-      "activeDirectoryGraphResourceId": "https://graph.windows.net/",
-      "activeDirectoryResourceId": "https://management.core.windows.net/",
-      "batchResourceId": "https://batch.core.windows.net/",
-      "gallery": "https://gallery.azure.com/",
-      "management": "https://management.core.windows.net/",
-      "resourceManager": "https://management.azure.com/",
-      "sqlManagement": "https://management.core.windows.net:8443/"
-    },
-    "isActive": true,
-    "name": "AzureCloud",
-    "profile": "latest",
-    "suffixes": {
-      "azureDatalakeAnalyticsCatalogAndJobEndpoint": "azuredatalakeanalytics.net",
-      "azureDatalakeStoreFileSystemEndpoint": "azuredatalakestore.net",
-      "keyvaultDns": ".vault.azure.net",
-      "sqlServerHostname": ".database.windows.net",
-      "storageEndpoint": "core.windows.net"
-    }
-  }
-]
-`[1:]),
-				},
-			},
-		}.Exec,
-	}
-	cloud, err := azcli.FindCloudsWithResourceManagerEndpoint("https://management.azure.com/")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud, jc.DeepEquals, []azurecli.Cloud{{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectory:                "https://login.microsoftonline.com",
-			ActiveDirectoryGraphResourceID: "https://graph.windows.net/",
-			ActiveDirectoryResourceID:      "https://management.core.windows.net/",
-			BatchResourceID:                "https://batch.core.windows.net/",
-			Management:                     "https://management.core.windows.net/",
-			ResourceManager:                "https://management.azure.com/",
-			SQLManagement:                  "https://management.core.windows.net:8443/",
-		},
-		IsActive: true,
-		Name:     "AzureCloud",
-		Profile:  "latest",
-		Suffixes: azurecli.CloudSuffixes{
-			AzureDatalakeAnalyticsCatalogAndJobEndpoint: "azuredatalakeanalytics.net",
-			AzureDatalakeStoreFileSystemEndpoint:        "azuredatalakestore.net",
-			KeyvaultDNS:                                 ".vault.azure.net",
-			SQLServerHostname:                           ".database.windows.net",
-			StorageEndpoint:                             "core.windows.net",
-		},
-	}})
-}
-
-func (s *azSuite) TestFindCloudsWithResourceManagerEndpointError(c *gc.C) {
-	azcli := azurecli.AzureCLI{
-		Exec: testExecutor{
-			commands: map[string]result{
-				"az cloud list --query [?endpoints.resourceManager=='https://management.azure.com/'] -o json": {
-					error: errors.New("test error"),
-				},
-			},
-		}.Exec,
-	}
-	cloud, err := azcli.FindCloudsWithResourceManagerEndpoint("https://management.azure.com/")
-	c.Assert(err, gc.ErrorMatches, `execution failure: test error`)
-	c.Assert(cloud, gc.IsNil)
-}
-
 func (s *azSuite) TestListClouds(c *gc.C) {
 	azcli := azurecli.AzureCLI{
 		Exec: testExecutor{
@@ -567,92 +324,24 @@ func (s *azSuite) TestListClouds(c *gc.C) {
 					stdout: []byte(`
 [
   {
-    "endpoints": {
-      "activeDirectory": "https://login.microsoftonline.com",
-      "activeDirectoryGraphResourceId": "https://graph.windows.net/",
-      "activeDirectoryResourceId": "https://management.core.windows.net/",
-      "batchResourceId": "https://batch.core.windows.net/",
-      "gallery": "https://gallery.azure.com/",
-      "management": "https://management.core.windows.net/",
-      "resourceManager": "https://management.azure.com/",
-      "sqlManagement": "https://management.core.windows.net:8443/"
-    },
     "isActive": true,
     "name": "AzureCloud",
-    "profile": "latest",
-    "suffixes": {
-      "azureDatalakeAnalyticsCatalogAndJobEndpoint": "azuredatalakeanalytics.net",
-      "azureDatalakeStoreFileSystemEndpoint": "azuredatalakestore.net",
-      "keyvaultDns": ".vault.azure.net",
-      "sqlServerHostname": ".database.windows.net",
-      "storageEndpoint": "core.windows.net"
-    }
+    "profile": "latest"
   },
   {
-    "endpoints": {
-      "activeDirectory": "https://login.chinacloudapi.cn",
-      "activeDirectoryGraphResourceId": "https://graph.chinacloudapi.cn/",
-      "activeDirectoryResourceId": "https://management.core.chinacloudapi.cn/",
-      "batchResourceId": "https://batch.chinacloudapi.cn/",
-      "gallery": "https://gallery.chinacloudapi.cn/",
-      "management": "https://management.core.chinacloudapi.cn/",
-      "resourceManager": "https://management.chinacloudapi.cn",
-      "sqlManagement": "https://management.core.chinacloudapi.cn:8443/"
-    },
     "isActive": false,
     "name": "AzureChinaCloud",
-    "profile": "latest",
-    "suffixes": {
-      "azureDatalakeAnalyticsCatalogAndJobEndpoint": null,
-      "azureDatalakeStoreFileSystemEndpoint": null,
-      "keyvaultDns": ".vault.azure.cn",
-      "sqlServerHostname": ".database.chinacloudapi.cn",
-      "storageEndpoint": "core.chinacloudapi.cn"
-    }
+    "profile": "latest"
   },
   {
-    "endpoints": {
-      "activeDirectory": "https://login.microsoftonline.com",
-      "activeDirectoryGraphResourceId": "https://graph.windows.net/",
-      "activeDirectoryResourceId": "https://management.core.usgovcloudapi.net/",
-      "batchResourceId": "https://batch.core.usgovcloudapi.net/",
-      "gallery": "https://gallery.usgovcloudapi.net/",
-      "management": "https://management.core.usgovcloudapi.net/",
-      "resourceManager": "https://management.usgovcloudapi.net/",
-      "sqlManagement": "https://management.core.usgovcloudapi.net:8443/"
-    },
     "isActive": false,
     "name": "AzureUSGovernment",
-    "profile": "latest",
-    "suffixes": {
-      "azureDatalakeAnalyticsCatalogAndJobEndpoint": null,
-      "azureDatalakeStoreFileSystemEndpoint": null,
-      "keyvaultDns": ".vault.usgovcloudapi.net",
-      "sqlServerHostname": ".database.usgovcloudapi.net",
-      "storageEndpoint": "core.usgovcloudapi.net"
-    }
+    "profile": "latest"
   },
   {
-    "endpoints": {
-      "activeDirectory": "https://login.microsoftonline.de",
-      "activeDirectoryGraphResourceId": "https://graph.cloudapi.de/",
-      "activeDirectoryResourceId": "https://management.core.cloudapi.de/",
-      "batchResourceId": "https://batch.cloudapi.de/",
-      "gallery": "https://gallery.cloudapi.de/",
-      "management": "https://management.core.cloudapi.de/",
-      "resourceManager": "https://management.microsoftazure.de",
-      "sqlManagement": "https://management.core.cloudapi.de:8443/"
-    },
     "isActive": false,
     "name": "AzureGermanCloud",
-    "profile": "latest",
-    "suffixes": {
-      "azureDatalakeAnalyticsCatalogAndJobEndpoint": null,
-      "azureDatalakeStoreFileSystemEndpoint": null,
-      "keyvaultDns": ".vault.microsoftazure.de",
-      "sqlServerHostname": ".database.cloudapi.de",
-      "storageEndpoint": "core.cloudapi.de"
-    }
+    "profile": "latest"
   }
 ]
 
@@ -664,79 +353,21 @@ func (s *azSuite) TestListClouds(c *gc.C) {
 	clouds, err := azcli.ListClouds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, jc.DeepEquals, []azurecli.Cloud{{
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectory:                "https://login.microsoftonline.com",
-			ActiveDirectoryGraphResourceID: "https://graph.windows.net/",
-			ActiveDirectoryResourceID:      "https://management.core.windows.net/",
-			BatchResourceID:                "https://batch.core.windows.net/",
-			Management:                     "https://management.core.windows.net/",
-			ResourceManager:                "https://management.azure.com/",
-			SQLManagement:                  "https://management.core.windows.net:8443/",
-		},
 		IsActive: true,
 		Name:     "AzureCloud",
 		Profile:  "latest",
-		Suffixes: azurecli.CloudSuffixes{
-			AzureDatalakeAnalyticsCatalogAndJobEndpoint: "azuredatalakeanalytics.net",
-			AzureDatalakeStoreFileSystemEndpoint:        "azuredatalakestore.net",
-			KeyvaultDNS:                                 ".vault.azure.net",
-			SQLServerHostname:                           ".database.windows.net",
-			StorageEndpoint:                             "core.windows.net",
-		},
 	}, {
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectory:                "https://login.chinacloudapi.cn",
-			ActiveDirectoryGraphResourceID: "https://graph.chinacloudapi.cn/",
-			ActiveDirectoryResourceID:      "https://management.core.chinacloudapi.cn/",
-			BatchResourceID:                "https://batch.chinacloudapi.cn/",
-			Management:                     "https://management.core.chinacloudapi.cn/",
-			ResourceManager:                "https://management.chinacloudapi.cn",
-			SQLManagement:                  "https://management.core.chinacloudapi.cn:8443/",
-		},
 		IsActive: false,
 		Name:     "AzureChinaCloud",
 		Profile:  "latest",
-		Suffixes: azurecli.CloudSuffixes{
-			KeyvaultDNS:       ".vault.azure.cn",
-			SQLServerHostname: ".database.chinacloudapi.cn",
-			StorageEndpoint:   "core.chinacloudapi.cn",
-		},
 	}, {
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectory:                "https://login.microsoftonline.com",
-			ActiveDirectoryGraphResourceID: "https://graph.windows.net/",
-			ActiveDirectoryResourceID:      "https://management.core.usgovcloudapi.net/",
-			BatchResourceID:                "https://batch.core.usgovcloudapi.net/",
-			Management:                     "https://management.core.usgovcloudapi.net/",
-			ResourceManager:                "https://management.usgovcloudapi.net/",
-			SQLManagement:                  "https://management.core.usgovcloudapi.net:8443/",
-		},
 		IsActive: false,
 		Name:     "AzureUSGovernment",
 		Profile:  "latest",
-		Suffixes: azurecli.CloudSuffixes{
-			KeyvaultDNS:       ".vault.usgovcloudapi.net",
-			SQLServerHostname: ".database.usgovcloudapi.net",
-			StorageEndpoint:   "core.usgovcloudapi.net",
-		},
 	}, {
-		Endpoints: azurecli.CloudEndpoints{
-			ActiveDirectory:                "https://login.microsoftonline.de",
-			ActiveDirectoryGraphResourceID: "https://graph.cloudapi.de/",
-			ActiveDirectoryResourceID:      "https://management.core.cloudapi.de/",
-			BatchResourceID:                "https://batch.cloudapi.de/",
-			Management:                     "https://management.core.cloudapi.de/",
-			ResourceManager:                "https://management.microsoftazure.de",
-			SQLManagement:                  "https://management.core.cloudapi.de:8443/",
-		},
 		IsActive: false,
 		Name:     "AzureGermanCloud",
 		Profile:  "latest",
-		Suffixes: azurecli.CloudSuffixes{
-			KeyvaultDNS:       ".vault.microsoftazure.de",
-			SQLServerHostname: ".database.cloudapi.de",
-			StorageEndpoint:   "core.cloudapi.de",
-		},
 	}})
 }
 
