@@ -295,6 +295,21 @@ type Config interface {
 	// lower the threshold, the more queries will be output. A value of 0
 	// means all queries will be output.
 	QueryTracingThreshold() time.Duration
+
+	// OpenTelemetryEnabled returns whether the open telemetry is enabled.
+	OpenTelemetryEnabled() bool
+
+	// OpenTelemetryEndpoint returns the endpoint to use for open telemetry
+	// collection.
+	OpenTelemetryEndpoint() string
+
+	// OpenTelemetryInsecure returns if the endpoint is insecure. This is useful
+	// for local/development testing
+	OpenTelemetryInsecure() bool
+
+	// OpenTelemetryStackTraces return if debug stack traces should be enabled
+	// for each span.
+	OpenTelemetryStackTraces() bool
 }
 
 type configSetterOnly interface {
@@ -348,6 +363,21 @@ type configSetterOnly interface {
 
 	// SetQueryTracingThreshold sets the threshold for query tracing.
 	SetQueryTracingThreshold(time.Duration)
+
+	// SetOpenTelemetryEnabled sets whether open telemetry is enabled.
+	SetOpenTelemetryEnabled(bool)
+
+	// SetOpenTelemetryEndpoint sets the endpoint to use for open telemetry
+	// collection.
+	SetOpenTelemetryEndpoint(string)
+
+	// SetOpenTelemetryInsecure sets if the endpoint is insecure. This is
+	// useful for local/development testing
+	SetOpenTelemetryInsecure(bool)
+
+	// SetOpenTelemetryStackTraces sets the debug stack traces should be
+	// enabled for each span.
+	SetOpenTelemetryStackTraces(bool)
 }
 
 // LogFileName returns the filename for the Agent's log file.
@@ -404,49 +434,57 @@ func (d *apiDetails) clone() *apiDetails {
 }
 
 type configInternal struct {
-	configFilePath         string
-	paths                  Paths
-	tag                    names.Tag
-	nonce                  string
-	controller             names.ControllerTag
-	model                  names.ModelTag
-	jobs                   []model.MachineJob
-	upgradedToVersion      version.Number
-	caCert                 string
-	apiDetails             *apiDetails
-	statePassword          string
-	oldPassword            string
-	servingInfo            *controller.StateServingInfo
-	loggingConfig          string
-	values                 map[string]string
-	mongoMemoryProfile     string
-	jujuDBSnapChannel      string
-	agentLogfileMaxSizeMB  int
-	agentLogfileMaxBackups int
-	queryTracingEnabled    bool
-	queryTracingThreshold  time.Duration
+	configFilePath           string
+	paths                    Paths
+	tag                      names.Tag
+	nonce                    string
+	controller               names.ControllerTag
+	model                    names.ModelTag
+	jobs                     []model.MachineJob
+	upgradedToVersion        version.Number
+	caCert                   string
+	apiDetails               *apiDetails
+	statePassword            string
+	oldPassword              string
+	servingInfo              *controller.StateServingInfo
+	loggingConfig            string
+	values                   map[string]string
+	mongoMemoryProfile       string
+	jujuDBSnapChannel        string
+	agentLogfileMaxSizeMB    int
+	agentLogfileMaxBackups   int
+	queryTracingEnabled      bool
+	queryTracingThreshold    time.Duration
+	openTelemetryEnabled     bool
+	openTelemetryEndpoint    string
+	openTelemetryInsecure    bool
+	openTelemetryStackTraces bool
 }
 
 // AgentConfigParams holds the parameters required to create
 // a new AgentConfig.
 type AgentConfigParams struct {
-	Paths                  Paths
-	Jobs                   []model.MachineJob
-	UpgradedToVersion      version.Number
-	Tag                    names.Tag
-	Password               string
-	Nonce                  string
-	Controller             names.ControllerTag
-	Model                  names.ModelTag
-	APIAddresses           []string
-	CACert                 string
-	Values                 map[string]string
-	MongoMemoryProfile     mongo.MemoryProfile
-	JujuDBSnapChannel      string
-	AgentLogfileMaxSizeMB  int
-	AgentLogfileMaxBackups int
-	QueryTracingEnabled    bool
-	QueryTracingThreshold  time.Duration
+	Paths                    Paths
+	Jobs                     []model.MachineJob
+	UpgradedToVersion        version.Number
+	Tag                      names.Tag
+	Password                 string
+	Nonce                    string
+	Controller               names.ControllerTag
+	Model                    names.ModelTag
+	APIAddresses             []string
+	CACert                   string
+	Values                   map[string]string
+	MongoMemoryProfile       mongo.MemoryProfile
+	JujuDBSnapChannel        string
+	AgentLogfileMaxSizeMB    int
+	AgentLogfileMaxBackups   int
+	QueryTracingEnabled      bool
+	QueryTracingThreshold    time.Duration
+	OpenTelemetryEnabled     bool
+	OpenTelemetryEndpoint    string
+	OpenTelemetryInsecure    bool
+	OpenTelemetryStackTraces bool
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -496,22 +534,26 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	// When/if this connection is successful, apicaller worker will generate
 	// a new secure password and update this agent's config.
 	config := &configInternal{
-		paths:                  NewPathsWithDefaults(configParams.Paths),
-		jobs:                   configParams.Jobs,
-		upgradedToVersion:      configParams.UpgradedToVersion,
-		tag:                    configParams.Tag,
-		nonce:                  configParams.Nonce,
-		controller:             configParams.Controller,
-		model:                  configParams.Model,
-		caCert:                 configParams.CACert,
-		oldPassword:            configParams.Password,
-		values:                 configParams.Values,
-		mongoMemoryProfile:     configParams.MongoMemoryProfile.String(),
-		jujuDBSnapChannel:      configParams.JujuDBSnapChannel,
-		agentLogfileMaxSizeMB:  configParams.AgentLogfileMaxSizeMB,
-		agentLogfileMaxBackups: configParams.AgentLogfileMaxBackups,
-		queryTracingEnabled:    configParams.QueryTracingEnabled,
-		queryTracingThreshold:  configParams.QueryTracingThreshold,
+		paths:                    NewPathsWithDefaults(configParams.Paths),
+		jobs:                     configParams.Jobs,
+		upgradedToVersion:        configParams.UpgradedToVersion,
+		tag:                      configParams.Tag,
+		nonce:                    configParams.Nonce,
+		controller:               configParams.Controller,
+		model:                    configParams.Model,
+		caCert:                   configParams.CACert,
+		oldPassword:              configParams.Password,
+		values:                   configParams.Values,
+		mongoMemoryProfile:       configParams.MongoMemoryProfile.String(),
+		jujuDBSnapChannel:        configParams.JujuDBSnapChannel,
+		agentLogfileMaxSizeMB:    configParams.AgentLogfileMaxSizeMB,
+		agentLogfileMaxBackups:   configParams.AgentLogfileMaxBackups,
+		queryTracingEnabled:      configParams.QueryTracingEnabled,
+		queryTracingThreshold:    configParams.QueryTracingThreshold,
+		openTelemetryEnabled:     configParams.OpenTelemetryEnabled,
+		openTelemetryEndpoint:    configParams.OpenTelemetryEndpoint,
+		openTelemetryInsecure:    configParams.OpenTelemetryInsecure,
+		openTelemetryStackTraces: configParams.OpenTelemetryStackTraces,
 	}
 	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -852,6 +894,46 @@ func (c *configInternal) QueryTracingThreshold() time.Duration {
 // SetQueryTracingThreshold implements configSetterOnly.
 func (c *configInternal) SetQueryTracingThreshold(v time.Duration) {
 	c.queryTracingThreshold = v
+}
+
+// OpenTelemetryEnabled implements Config.
+func (c *configInternal) OpenTelemetryEnabled() bool {
+	return c.openTelemetryEnabled
+}
+
+// SetOpenTelemetryEnabled implements configSetterOnly.
+func (c *configInternal) SetOpenTelemetryEnabled(v bool) {
+	c.openTelemetryEnabled = v
+}
+
+// OpenTelemetryEndpoint implements Config.
+func (c *configInternal) OpenTelemetryEndpoint() string {
+	return c.openTelemetryEndpoint
+}
+
+// SetOpenTelemetryEndpoint implements configSetterOnly.
+func (c *configInternal) SetOpenTelemetryEndpoint(v string) {
+	c.openTelemetryEndpoint = v
+}
+
+// OpenTelemetryInsecure implements Config.
+func (c *configInternal) OpenTelemetryInsecure() bool {
+	return c.openTelemetryInsecure
+}
+
+// SetopenTelemetryInsecure implements configSetterOnly.
+func (c *configInternal) SetOpenTelemetryInsecure(v bool) {
+	c.openTelemetryInsecure = v
+}
+
+// OpenTelemetryStackTraces implements Config.
+func (c *configInternal) OpenTelemetryStackTraces() bool {
+	return c.openTelemetryStackTraces
+}
+
+// SetopenTelemetryStackTraces implements configSetterOnly.
+func (c *configInternal) SetOpenTelemetryStackTraces(v bool) {
+	c.openTelemetryStackTraces = v
 }
 
 var validAddr = regexp.MustCompile("^.+:[0-9]+$")

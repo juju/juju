@@ -66,6 +66,11 @@ type format_2_0Serialization struct {
 	JujuDBSnapChannel     string        `yaml:"juju-db-snap-channel,omitempty"`
 	QueryTracingEnabled   bool          `yaml:"querytracingenabled,omitempty"`
 	QueryTracingThreshold time.Duration `yaml:"querytracingthreshold,omitempty"`
+
+	OpenTelemetryEnabled     bool   `yaml:"opentelemetryenabled,omitempty"`
+	OpenTelemetryEndpoint    string `yaml:"opentelemetryendpoint,omitempty"`
+	OpenTelemetryInsecure    bool   `yaml:"opentelemetryinsecure,omitempty"`
+	OpenTelemetryStackTraces bool   `yaml:"opentelemetrystacktraces,omitempty"`
 }
 
 func init() {
@@ -119,11 +124,15 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 
 		queryTracingEnabled:   format.QueryTracingEnabled,
 		queryTracingThreshold: format.QueryTracingThreshold,
+
+		openTelemetryEnabled:     format.OpenTelemetryEnabled,
+		openTelemetryInsecure:    format.OpenTelemetryInsecure,
+		openTelemetryStackTraces: format.OpenTelemetryStackTraces,
 	}
 	if len(format.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
-			format.APIAddresses,
-			format.APIPassword,
+			addresses: format.APIAddresses,
+			password:  format.APIPassword,
 		}
 	}
 	if len(format.ControllerKey) != 0 {
@@ -162,6 +171,9 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 	if format.JujuDBSnapChannel != "" {
 		config.jujuDBSnapChannel = format.JujuDBSnapChannel
 	}
+	if format.OpenTelemetryEndpoint != "" {
+		config.openTelemetryEndpoint = format.OpenTelemetryEndpoint
+	}
 	return config, nil
 }
 
@@ -189,6 +201,10 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 
 		QueryTracingEnabled:   config.queryTracingEnabled,
 		QueryTracingThreshold: config.queryTracingThreshold,
+
+		OpenTelemetryEnabled:     config.openTelemetryEnabled,
+		OpenTelemetryInsecure:    config.openTelemetryInsecure,
+		OpenTelemetryStackTraces: config.openTelemetryStackTraces,
 	}
 	if config.servingInfo != nil {
 		format.ControllerCert = config.servingInfo.Cert
@@ -210,6 +226,9 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	}
 	if config.jujuDBSnapChannel != "" {
 		format.JujuDBSnapChannel = config.jujuDBSnapChannel
+	}
+	if config.openTelemetryEndpoint != "" {
+		format.OpenTelemetryEndpoint = config.openTelemetryEndpoint
 	}
 	return goyaml.Marshal(format)
 }

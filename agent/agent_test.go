@@ -725,3 +725,51 @@ func (*suite) TestSetQueryTracingThreshold(c *gc.C) {
 	queryTracingThreshold = conf.QueryTracingThreshold()
 	c.Assert(queryTracingThreshold, gc.Equals, time.Second*10, gc.Commentf("query tracing threshold setting not updated"))
 }
+
+func (*suite) TestSetOpenTelemetryEnabled(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, jc.ErrorIsNil)
+
+	queryTracingEnabled := conf.OpenTelemetryEnabled()
+	c.Assert(queryTracingEnabled, gc.Equals, attributeParams.OpenTelemetryEnabled)
+
+	conf.SetOpenTelemetryEnabled(true)
+	queryTracingEnabled = conf.OpenTelemetryEnabled()
+	c.Assert(queryTracingEnabled, gc.Equals, true, gc.Commentf("open telemetry enabled setting not updated"))
+}
+
+func (*suite) TestSetOpenTelemetryEndpoint(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, jc.ErrorIsNil)
+
+	queryTracingEndpoint := conf.OpenTelemetryEndpoint()
+	c.Assert(queryTracingEndpoint, gc.Equals, attributeParams.OpenTelemetryEndpoint)
+
+	conf.SetOpenTelemetryEndpoint("http://foo.bar")
+	queryTracingEndpoint = conf.OpenTelemetryEndpoint()
+	c.Assert(queryTracingEndpoint, gc.Equals, "http://foo.bar", gc.Commentf("open telemetry endpoint setting not updated"))
+}
+
+func (*suite) TestSetOpenTelemetryInsecure(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, jc.ErrorIsNil)
+
+	queryTracingInsecure := conf.OpenTelemetryInsecure()
+	c.Assert(queryTracingInsecure, gc.Equals, attributeParams.OpenTelemetryInsecure)
+
+	conf.SetOpenTelemetryInsecure(true)
+	queryTracingInsecure = conf.OpenTelemetryInsecure()
+	c.Assert(queryTracingInsecure, gc.Equals, true, gc.Commentf("open telemetry insecure setting not updated"))
+}
+
+func (*suite) TestSetOpenTelemetryStackTraces(c *gc.C) {
+	conf, err := agent.NewAgentConfig(attributeParams)
+	c.Assert(err, jc.ErrorIsNil)
+
+	queryTracingStackTraces := conf.OpenTelemetryStackTraces()
+	c.Assert(queryTracingStackTraces, gc.Equals, attributeParams.OpenTelemetryStackTraces)
+
+	conf.SetOpenTelemetryStackTraces(true)
+	queryTracingStackTraces = conf.OpenTelemetryStackTraces()
+	c.Assert(queryTracingStackTraces, gc.Equals, true, gc.Commentf("open telemetry stack traces setting not updated"))
+}
