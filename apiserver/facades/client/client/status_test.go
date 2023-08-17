@@ -4,6 +4,7 @@
 package client_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -1108,7 +1109,7 @@ func (s *statusUpgradeUnitSuite) TestUpdateRevisionsCharmhub(c *gc.C) {
 	c.Assert(appStatus.CanUpgradeTo, gc.Equals, "")
 
 	// Update to the latest available charm revision.
-	result, err := s.charmrevisionupdater.UpdateLatestRevisions()
+	result, err := s.charmrevisionupdater.UpdateLatestRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 

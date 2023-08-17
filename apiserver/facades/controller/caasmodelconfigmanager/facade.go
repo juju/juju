@@ -4,6 +4,8 @@
 package caasmodelconfigmanager
 
 import (
+	"context"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
@@ -15,6 +17,6 @@ type Facade struct {
 	controllerConfigAPI *common.ControllerConfigAPI
 }
 
-func (f *Facade) ControllerConfig() (params.ControllerConfigResult, error) {
+func (f *Facade) ControllerConfig(ctx context.Context) (params.ControllerConfigResult, error) {
 	return f.controllerConfigAPI.ControllerConfig()
 }

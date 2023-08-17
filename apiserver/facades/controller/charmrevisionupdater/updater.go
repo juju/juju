@@ -27,7 +27,7 @@ import (
 
 // CharmRevisionUpdater defines the methods on the charmrevisionupdater API end point.
 type CharmRevisionUpdater interface {
-	UpdateLatestRevisions() (params.ErrorResult, error)
+	UpdateLatestRevisions(ctx context.Context) (params.ErrorResult, error)
 }
 
 // CharmRevisionUpdaterAPI implements the CharmRevisionUpdater interface and is the concrete
@@ -62,7 +62,7 @@ func NewCharmRevisionUpdaterAPIState(
 
 // UpdateLatestRevisions retrieves the latest revision information from the charm store for all deployed charms
 // and records this information in state.
-func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions() (params.ErrorResult, error) {
+func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions(ctx context.Context) (params.ErrorResult, error) {
 	if err := api.updateLatestRevisions(); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}

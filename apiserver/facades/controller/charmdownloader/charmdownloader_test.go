@@ -4,6 +4,7 @@
 package charmdownloader_test
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -42,7 +43,7 @@ func (s *charmDownloaderSuite) TestWatchApplicationsWithPendingCharmsAuthChecks(
 	defer s.setupMocks(c).Finish()
 	s.authChecker.EXPECT().AuthController().Return(false)
 
-	_, err := s.api.WatchApplicationsWithPendingCharms()
+	_, err := s.api.WatchApplicationsWithPendingCharms(context.Background())
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm, gc.Commentf("expected ErrPerm when not authenticating as the controller"))
 }
 
@@ -61,7 +62,7 @@ func (s *charmDownloaderSuite) TestWatchApplicationsWithPendingCharms(c *gc.C) {
 	})
 	s.resourcesBackend.EXPECT().Register(watcher).Return("42")
 
-	got, err := s.api.WatchApplicationsWithPendingCharms()
+	got, err := s.api.WatchApplicationsWithPendingCharms(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got.StringsWatcherId, gc.Equals, "42")
 	c.Assert(got.Changes, gc.DeepEquals, []string{"ufo", "cons", "piracy"})
@@ -71,7 +72,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsAuthChecks(c *gc.C) 
 	defer s.setupMocks(c).Finish()
 	s.authChecker.EXPECT().AuthController().Return(false)
 
-	_, err := s.api.DownloadApplicationCharms(params.Entities{})
+	_, err := s.api.DownloadApplicationCharms(context.Background(), params.Entities{})
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm, gc.Commentf("expected ErrPerm when not authenticating as the controller"))
 }
 
@@ -104,7 +105,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeploy(c *gc.C) {
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
 	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
 
-	got, err := s.api.DownloadApplicationCharms(params.Entities{
+	got, err := s.api.DownloadApplicationCharms(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{
 				Tag: names.NewApplicationTag("ufo").String(),
@@ -151,7 +152,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeployMultiAppOneCha
 	s.stateBackend.EXPECT().Application("another-ufo").Return(appTwo, nil)
 	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil).AnyTimes()
 
-	got, err := s.api.DownloadApplicationCharms(params.Entities{
+	got, err := s.api.DownloadApplicationCharms(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{
 				Tag: names.NewApplicationTag("ufo").String(),
@@ -194,7 +195,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsRefresh(c *gc.C) {
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
 	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
 
-	got, err := s.api.DownloadApplicationCharms(params.Entities{
+	got, err := s.api.DownloadApplicationCharms(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{
 				Tag: names.NewApplicationTag("ufo").String(),
@@ -229,7 +230,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
 	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(corecharm.Origin{}, errors.NotFoundf("charm"))
 
-	got, err := s.api.DownloadApplicationCharms(params.Entities{
+	got, err := s.api.DownloadApplicationCharms(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{
 				Tag: names.NewApplicationTag("ufo").String(),

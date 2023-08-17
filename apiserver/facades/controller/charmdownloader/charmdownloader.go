@@ -4,6 +4,7 @@
 package charmdownloader
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/clock"
@@ -66,7 +67,7 @@ func newAPI(
 // WatchApplicationsWithPendingCharms registers and returns a watcher instance
 // that reports the ID of applications that reference a charm which has not yet
 // been downloaded.
-func (a *CharmDownloaderAPI) WatchApplicationsWithPendingCharms() (params.StringsWatchResult, error) {
+func (a *CharmDownloaderAPI) WatchApplicationsWithPendingCharms(ctx context.Context) (params.StringsWatchResult, error) {
 	if !a.authChecker.AuthController() {
 		return params.StringsWatchResult{}, apiservererrors.ErrPerm
 	}
@@ -85,7 +86,7 @@ func (a *CharmDownloaderAPI) WatchApplicationsWithPendingCharms() (params.String
 // DownloadApplicationCharms iterates the list of provided applications and
 // downloads any referenced charms that have not yet been persisted to the
 // blob store.
-func (a *CharmDownloaderAPI) DownloadApplicationCharms(args params.Entities) (params.ErrorResults, error) {
+func (a *CharmDownloaderAPI) DownloadApplicationCharms(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	if !a.authChecker.AuthController() {
 		return params.ErrorResults{}, apiservererrors.ErrPerm
 	}

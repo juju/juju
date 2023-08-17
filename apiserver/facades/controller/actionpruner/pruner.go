@@ -4,6 +4,8 @@
 package actionpruner
 
 import (
+	"context"
+
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -30,7 +32,7 @@ var Prune = state.PruneOperations
 // Prune endpoint removes action entries until
 // only the ones newer than now - p.MaxHistoryTime remain and
 // the history is smaller than p.MaxHistoryMB.
-func (api *API) Prune(p params.ActionPruneArgs) error {
+func (api *API) Prune(ctx context.Context, p params.ActionPruneArgs) error {
 	if !api.authorizer.AuthController() {
 		return apiservererrors.ErrPerm
 	}

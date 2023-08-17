@@ -218,7 +218,7 @@ func (s *CrossModelSecretsSuite) assertGetSecretContentInfo(c *gc.C, newConsumer
 			Refresh:          true,
 		}},
 	}
-	results, err := s.facade.GetSecretContentInfo(args)
+	results, err := s.facade.GetSecretContentInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.SecretContentResults{
 		Results: []params.SecretContentResult{{

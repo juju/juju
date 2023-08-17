@@ -84,7 +84,7 @@ func NewCrossModelRelationsAPI(
 	}, nil
 }
 
-func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
+func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(ctx context.Context, relationTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
 	api.mu.Lock()
 	defer api.mu.Unlock()
 
@@ -103,6 +103,7 @@ func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.T
 // PublishRelationChanges publishes relation changes to the
 // model hosting the remote application involved in the relation.
 func (api *CrossModelRelationsAPI) PublishRelationChanges(
+	ctx context.Context,
 	changes params.RemoteRelationsChanges,
 ) (params.ErrorResults, error) {
 	api.logger.Debugf("PublishRelationChanges: %+v", changes)
@@ -120,7 +121,7 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 			continue
 		}
 		api.logger.Debugf("relation tag for token %+v is %v", change.RelationToken, relationTag)
-		if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons, change.BakeryVersion); err != nil {
+		if err := api.checkMacaroonsForRelation(ctx, relationTag, change.Macaroons, change.BakeryVersion); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -145,6 +146,7 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 // RegisterRemoteRelations sets up the model to participate
 // in the specified relations. This operation is idempotent.
 func (api *CrossModelRelationsAPI) RegisterRemoteRelations(
+	ctx context.Context,
 	relations params.RegisterRemoteRelationArgs,
 ) (params.RegisterRemoteRelationResults, error) {
 	results := params.RegisterRemoteRelationResults{
@@ -318,7 +320,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 // WatchRelationChanges starts a RemoteRelationChangesWatcher for each
 // specified relation, returning the watcher IDs and initial values,
 // or an error if the remote relations couldn't be watched.
-func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs params.RemoteEntityArgs) (
+func (api *CrossModelRelationsAPI) WatchRelationChanges(ctx context.Context, remoteRelationArgs params.RemoteEntityArgs) (
 	params.RemoteRelationWatchResults, error,
 ) {
 	results := params.RemoteRelationWatchResults{
@@ -331,7 +333,7 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 		if err != nil {
 			return nil, empty, errors.Annotatef(err, "getting relation for token %q", arg.Token)
 		}
-		if err := api.checkMacaroonsForRelation(tag, arg.Macaroons, arg.BakeryVersion); err != nil {
+		if err := api.checkMacaroonsForRelation(ctx, tag, arg.Macaroons, arg.BakeryVersion); err != nil {
 			return nil, empty, errors.Trace(err)
 		}
 		relationTag, ok := tag.(names.RelationTag)
@@ -392,6 +394,7 @@ func watchRelationLifeSuspendedStatus(st CrossModelRelationsState, tag names.Rel
 // WatchRelationsSuspendedStatus starts a RelationStatusWatcher for
 // watching the life and suspended status of a relation.
 func (api *CrossModelRelationsAPI) WatchRelationsSuspendedStatus(
+	ctx context.Context,
 	remoteRelationArgs params.RemoteEntityArgs,
 ) (params.RelationStatusWatchResults, error) {
 	results := params.RelationStatusWatchResults{
@@ -404,7 +407,7 @@ func (api *CrossModelRelationsAPI) WatchRelationsSuspendedStatus(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
+		if err := api.checkMacaroonsForRelation(ctx, relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -518,7 +521,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 
 // WatchConsumedSecretsChanges returns a watcher which notifies of changes to any secrets
 // for the specified remote consumers.
-func (api *CrossModelRelationsAPI) WatchConsumedSecretsChanges(args params.WatchRemoteSecretChangesArgs) (params.SecretRevisionWatchResults, error) {
+func (api *CrossModelRelationsAPI) WatchConsumedSecretsChanges(ctx context.Context, args params.WatchRemoteSecretChangesArgs) (params.SecretRevisionWatchResults, error) {
 	results := params.SecretRevisionWatchResults{
 		Results: make([]params.SecretRevisionWatchResult, len(args.Args)),
 	}
@@ -591,6 +594,7 @@ func (api *CrossModelRelationsAPI) getSecretChanges(uris []string) ([]params.Sec
 // PublishIngressNetworkChanges publishes changes to the required
 // ingress addresses to the model hosting the offer in the relation.
 func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
+	ctx context.Context,
 	changes params.IngressNetworksChanges,
 ) (params.ErrorResults, error) {
 	results := params.ErrorResults{
@@ -604,7 +608,7 @@ func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
 		}
 		api.logger.Debugf("relation tag for token %+v is %v", change.RelationToken, relationTag)
 
-		if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons, change.BakeryVersion); err != nil {
+		if err := api.checkMacaroonsForRelation(ctx, relationTag, change.Macaroons, change.BakeryVersion); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -619,7 +623,7 @@ func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
 // WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
-func (api *CrossModelRelationsAPI) WatchEgressAddressesForRelations(remoteRelationArgs params.RemoteEntityArgs) (params.StringsWatchResults, error) {
+func (api *CrossModelRelationsAPI) WatchEgressAddressesForRelations(ctx context.Context, remoteRelationArgs params.RemoteEntityArgs) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(remoteRelationArgs.Args)),
 	}
@@ -630,7 +634,7 @@ func (api *CrossModelRelationsAPI) WatchEgressAddressesForRelations(remoteRelati
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
+		if err := api.checkMacaroonsForRelation(ctx, relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

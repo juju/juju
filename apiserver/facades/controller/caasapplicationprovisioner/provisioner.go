@@ -4,6 +4,7 @@
 package caasapplicationprovisioner
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -190,7 +191,7 @@ func NewCAASApplicationProvisionerAPI(
 
 // WatchApplications starts a StringsWatcher to watch applications
 // deployed to this model.
-func (a *API) WatchApplications() (params.StringsWatchResult, error) {
+func (a *API) WatchApplications(ctx context.Context) (params.StringsWatchResult, error) {
 	watch := a.state.WatchApplications()
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
@@ -205,7 +206,7 @@ func (a *API) WatchApplications() (params.StringsWatchResult, error) {
 // WatchProvisioningInfo provides a watcher for changes that affect the
 // information returned by ProvisioningInfo. This is useful for ensuring the
 // latest application stated is ensured.
-func (a *API) WatchProvisioningInfo(args params.Entities) (params.NotifyWatchResults, error) {
+func (a *API) WatchProvisioningInfo(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	var result params.NotifyWatchResults
 	result.Results = make([]params.NotifyWatchResult, len(args.Entities))
 	for i, entity := range args.Entities {
@@ -254,7 +255,7 @@ func (a *API) watchProvisioningInfo(appName names.ApplicationTag) (params.Notify
 }
 
 // ProvisioningInfo returns the info needed to provision a caas application.
-func (a *API) ProvisioningInfo(args params.Entities) (params.CAASApplicationProvisioningInfoResults, error) {
+func (a *API) ProvisioningInfo(ctx context.Context, args params.Entities) (params.CAASApplicationProvisioningInfoResults, error) {
 	var result params.CAASApplicationProvisioningInfoResults
 	result.Results = make([]params.CAASApplicationProvisioningInfo, len(args.Entities))
 	for i, entity := range args.Entities {
@@ -372,7 +373,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 }
 
 // SetOperatorStatus sets the status of each given entity.
-func (a *API) SetOperatorStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (a *API) SetOperatorStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -401,7 +402,7 @@ func (a *API) setStatus(tag names.ApplicationTag, info status.StatusInfo) error 
 }
 
 // Units returns all the units for each application specified.
-func (a *API) Units(args params.Entities) (params.CAASUnitsResults, error) {
+func (a *API) Units(ctx context.Context, args params.Entities) (params.CAASUnitsResults, error) {
 	results := params.CAASUnitsResults{
 		Results: make([]params.CAASUnitsResult, len(args.Entities)),
 	}
@@ -633,7 +634,7 @@ func (a *API) devicesParams(app Application) ([]params.KubernetesDeviceParams, e
 }
 
 // ApplicationOCIResources returns the OCI image resources for an application.
-func (a *API) ApplicationOCIResources(args params.Entities) (params.CAASApplicationOCIResourceResults, error) {
+func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities) (params.CAASApplicationOCIResourceResults, error) {
 	res := params.CAASApplicationOCIResourceResults{
 		Results: make([]params.CAASApplicationOCIResourceResult, len(args.Entities)),
 	}
@@ -709,7 +710,7 @@ func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
 
 // UpdateApplicationsUnits updates the Juju data model to reflect the given
 // units of the specified application.
-func (a *API) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) (params.UpdateApplicationUnitResults, error) {
+func (a *API) UpdateApplicationsUnits(ctx context.Context, args params.UpdateApplicationUnitArgs) (params.UpdateApplicationUnitResults, error) {
 	result := params.UpdateApplicationUnitResults{
 		Results: make([]params.UpdateApplicationUnitResult, len(args.Args)),
 	}
@@ -1226,7 +1227,7 @@ func updateStatus(params params.ApplicationUnitParams) (
 
 // ClearApplicationsResources clears the flags which indicate
 // applications still have resources in the cluster.
-func (a *API) ClearApplicationsResources(args params.Entities) (params.ErrorResults, error) {
+func (a *API) ClearApplicationsResources(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -1255,7 +1256,7 @@ func (a *API) ClearApplicationsResources(args params.Entities) (params.ErrorResu
 // WatchUnits starts a StringsWatcher to watch changes to the
 // lifecycle states of units for the specified applications in
 // this model.
-func (a *API) WatchUnits(args params.Entities) (params.StringsWatchResults, error) {
+func (a *API) WatchUnits(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -1289,7 +1290,7 @@ func (a *API) watchUnits(tagString string) (string, []string, error) {
 
 // DestroyUnits is responsible for scaling down a set of units on the this
 // Application.
-func (a *API) DestroyUnits(args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
+func (a *API) DestroyUnits(ctx context.Context, args params.DestroyUnitsParams) (params.DestroyUnitResults, error) {
 	results := make([]params.DestroyUnitResult, 0, len(args.Units))
 
 	for _, unit := range args.Units {
@@ -1335,7 +1336,7 @@ func (a *API) destroyUnit(args params.DestroyUnitParams) (params.DestroyUnitResu
 }
 
 // ProvisioningState returns the provisioning state for the application.
-func (a *API) ProvisioningState(args params.Entity) (params.CAASApplicationProvisioningStateResult, error) {
+func (a *API) ProvisioningState(ctx context.Context, args params.Entity) (params.CAASApplicationProvisioningStateResult, error) {
 	result := params.CAASApplicationProvisioningStateResult{}
 
 	appTag, err := names.ParseApplicationTag(args.Tag)
@@ -1363,7 +1364,7 @@ func (a *API) ProvisioningState(args params.Entity) (params.CAASApplicationProvi
 }
 
 // SetProvisioningState sets the provisioning state for the application.
-func (a *API) SetProvisioningState(args params.CAASApplicationProvisioningStateArg) (params.ErrorResult, error) {
+func (a *API) SetProvisioningState(ctx context.Context, args params.CAASApplicationProvisioningStateArg) (params.ErrorResult, error) {
 	result := params.ErrorResult{}
 
 	appTag, err := names.ParseApplicationTag(args.Application.Tag)
@@ -1395,7 +1396,7 @@ func (a *API) SetProvisioningState(args params.CAASApplicationProvisioningStateA
 }
 
 // ProvisionerConfig returns the provisioner's configuration.
-func (a *API) ProvisionerConfig() (params.CAASApplicationProvisionerConfigResult, error) {
+func (a *API) ProvisionerConfig(ctx context.Context) (params.CAASApplicationProvisionerConfigResult, error) {
 	result := params.CAASApplicationProvisionerConfigResult{
 		ProvisionerConfig: &params.CAASApplicationProvisionerConfig{},
 	}

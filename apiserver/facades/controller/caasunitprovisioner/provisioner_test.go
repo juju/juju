@@ -4,6 +4,7 @@
 package caasunitprovisioner_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -84,7 +85,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
 	s.scaleChanges <- struct{}{}
 
-	results, err := s.facade.WatchApplicationsScale(params.Entities{
+	results, err := s.facade.WatchApplicationsScale(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},
@@ -105,7 +106,7 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsScale(c *gc.C) {
 func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *gc.C) {
 	s.settingsChanges <- []string{"hash"}
 
-	results, err := s.facade.WatchApplicationsTrustHash(params.Entities{
+	results, err := s.facade.WatchApplicationsTrustHash(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},
@@ -124,7 +125,7 @@ func (s *CAASProvisionerSuite) TestWatchApplicationsConfigSetingsHash(c *gc.C) {
 }
 
 func (s *CAASProvisionerSuite) TestApplicationScale(c *gc.C) {
-	results, err := s.facade.ApplicationsScale(params.Entities{
+	results, err := s.facade.ApplicationsScale(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},
