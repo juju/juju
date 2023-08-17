@@ -4,6 +4,7 @@
 package certupdater_test
 
 import (
+	"context"
 	"net"
 	stdtesting "testing"
 
@@ -16,7 +17,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
-	coretesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/certupdater"
 )
 
@@ -25,7 +26,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type CertUpdaterSuite struct {
-	coretesting.BaseSuite
+	jujutesting.BaseSuite
 	stateServingInfo controller.StateServingInfo
 }
 
@@ -35,12 +36,57 @@ func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.stateServingInfo = controller.StateServingInfo{
-		Cert:         coretesting.ServerCert,
-		PrivateKey:   coretesting.ServerKey,
-		CAPrivateKey: coretesting.CAKey,
+		Cert:         jujutesting.ServerCert,
+		PrivateKey:   jujutesting.ServerKey,
+		CAPrivateKey: jujutesting.CAKey,
 		StatePort:    123,
 		APIPort:      456,
 	}
+}
+
+func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
+	authority, err := pkitest.NewTestAuthority()
+	c.Assert(err, jc.ErrorIsNil)
+
+	changes := make(chan struct{})
+	worker, err := certupdater.NewCertificateUpdater(certupdater.Config{
+		AddressWatcher:         &mockMachine{changes: changes},
+		APIHostPortsGetter:     &mockAPIHostGetter{},
+		Authority:              authority,
+		ControllerConfigGetter: &mockControllerConfigGetter{},
+		Logger:                 jujutesting.NewCheckLogger(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	workertest.CleanKill(c, worker)
+
+	leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(leaf.Certificate().IPAddresses, jujutesting.IPsEqual,
+		[]net.IP{net.ParseIP("192.168.1.1")})
+}
+
+func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
+	authority, err := pkitest.NewTestAuthority()
+	c.Assert(err, jc.ErrorIsNil)
+
+	changes := make(chan struct{})
+	worker, err := certupdater.NewCertificateUpdater(certupdater.Config{
+		AddressWatcher:         &mockMachine{changes: changes},
+		APIHostPortsGetter:     &mockAPIHostGetter{},
+		Authority:              authority,
+		ControllerConfigGetter: &mockControllerConfigGetter{},
+		Logger:                 jujutesting.NewCheckLogger(c),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	changes <- struct{}{}
+	// Certificate should be updated with the address value.
+
+	workertest.CleanKill(c, worker)
+	leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(leaf.Certificate().IPAddresses, jujutesting.IPsEqual,
+		[]net.IP{net.ParseIP("0.1.2.3")})
 }
 
 type mockNotifyWatcher struct {
@@ -87,10 +133,6 @@ func (s *CertUpdaterSuite) StateServingInfo() (controller.StateServingInfo, bool
 
 type mockAPIHostGetter struct{}
 
-func (g *mockAPIHostGetter) ControllerConfig() (controller.Config, error) {
-	return coretesting.FakeControllerConfig(), nil
-}
-
 func (g *mockAPIHostGetter) APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error) {
 	return []network.SpaceHostPorts{{
 		{SpaceAddress: network.NewSpaceAddress("192.168.1.1", network.WithScope(network.ScopeCloudLocal)), NetPort: 17070},
@@ -98,43 +140,8 @@ func (g *mockAPIHostGetter) APIHostPortsForClients(controller.Config) ([]network
 	}}, nil
 }
 
-func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
-	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
+type mockControllerConfigGetter struct{}
 
-	changes := make(chan struct{})
-	worker, err := certupdater.NewCertificateUpdater(certupdater.Config{
-		AddressWatcher:     &mockMachine{changes},
-		APIHostPortsGetter: &mockAPIHostGetter{},
-		Authority:          authority,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	workertest.CleanKill(c, worker)
-
-	leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(leaf.Certificate().IPAddresses, coretesting.IPsEqual,
-		[]net.IP{net.ParseIP("192.168.1.1")})
-}
-
-func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
-	authority, err := pkitest.NewTestAuthority()
-	c.Assert(err, jc.ErrorIsNil)
-
-	changes := make(chan struct{})
-	worker, err := certupdater.NewCertificateUpdater(certupdater.Config{
-		AddressWatcher:     &mockMachine{changes},
-		APIHostPortsGetter: &mockAPIHostGetter{},
-		Authority:          authority,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	changes <- struct{}{}
-	// Certificate should be updated with the address value.
-
-	workertest.CleanKill(c, worker)
-	leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(leaf.Certificate().IPAddresses, coretesting.IPsEqual,
-		[]net.IP{net.ParseIP("0.1.2.3")})
+func (*mockControllerConfigGetter) ControllerConfig(context.Context) (controller.Config, error) {
+	return jujutesting.FakeControllerConfig(), nil
 }

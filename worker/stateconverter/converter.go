@@ -4,6 +4,7 @@
 package stateconverter
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -58,7 +59,7 @@ func (w wrapper) Machine(tag names.MachineTag) (Machine, error) {
 
 // SetUp implements NotifyWatchHandler's SetUp method. It returns a watcher that
 // checks for changes to the current machine.
-func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
+func (c *converter) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
 	c.logger.Tracef("Calling SetUp for %s", c.machineTag)
 	m, err := c.machiner.Machine(c.machineTag)
 	if err != nil {
@@ -71,7 +72,7 @@ func (c *converter) SetUp() (watcher.NotifyWatcher, error) {
 // Handle implements NotifyWatchHandler's Handle method.  If the change means
 // that the machine is now expected to manage the environment,
 // we throw a fatal error to instigate agent restart.
-func (c *converter) Handle(_ <-chan struct{}) error {
+func (c *converter) Handle(_ context.Context) error {
 	c.logger.Tracef("Calling Handle for %s", c.machineTag)
 	results, err := c.machine.Jobs()
 	if err != nil {

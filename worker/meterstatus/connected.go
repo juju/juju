@@ -4,6 +4,8 @@
 package meterstatus
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 
@@ -69,7 +71,7 @@ func NewConnectedStatusHandler(cfg ConnectedConfig) (watcher.NotifyHandler, erro
 }
 
 // SetUp is part of the worker.NotifyWatchHandler interface.
-func (w *connectedStatusHandler) SetUp() (watcher.NotifyWatcher, error) {
+func (w *connectedStatusHandler) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
 	var err error
 	if w.st, err = w.config.StateReadWriter.Read(); err != nil {
 		if !errors.IsNotFound(err) {
@@ -89,7 +91,7 @@ func (w *connectedStatusHandler) TearDown() error {
 }
 
 // Handle is part of the worker.NotifyWatchHandler interface.
-func (w *connectedStatusHandler) Handle(abort <-chan struct{}) error {
+func (w *connectedStatusHandler) Handle(ctx context.Context) error {
 	w.config.Logger.Debugf("got meter status change signal from watcher")
 	currentCode, currentInfo, err := w.config.Status.MeterStatus()
 	if err != nil {
@@ -99,7 +101,7 @@ func (w *connectedStatusHandler) Handle(abort <-chan struct{}) error {
 		w.config.Logger.Tracef("meter status (%q, %q) matches stored information (%q, %q), skipping", currentCode, currentInfo, w.st.Code, w.st.Info)
 		return nil
 	}
-	w.applyStatus(currentCode, currentInfo, abort)
+	w.applyStatus(currentCode, currentInfo, ctx.Done())
 	w.st.Code, w.st.Info = currentCode, currentInfo
 	if err = w.config.StateReadWriter.Write(w.st); err != nil {
 		return errors.Annotate(err, "failed to record meter status worker state")

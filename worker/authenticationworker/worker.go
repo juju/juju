@@ -4,6 +4,7 @@
 package authenticationworker
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -60,7 +61,7 @@ func NewWorker(client Client, agentConfig agent.Config) (worker.Worker, error) {
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.
-func (kw *keyupdaterWorker) SetUp() (watcher.NotifyWatcher, error) {
+func (kw *keyupdaterWorker) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
 	// Record the keys Juju knows about.
 	jujuKeys, err := kw.client.AuthorisedKeys(kw.tag)
 	if err != nil {
@@ -115,7 +116,7 @@ func (kw *keyupdaterWorker) writeSSHKeys(jujuKeys []string) error {
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.
-func (kw *keyupdaterWorker) Handle(_ <-chan struct{}) error {
+func (kw *keyupdaterWorker) Handle(_ context.Context) error {
 	// Read the keys that Juju has.
 	newKeys, err := kw.client.AuthorisedKeys(kw.tag)
 	if err != nil {

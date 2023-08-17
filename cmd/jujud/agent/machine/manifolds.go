@@ -773,8 +773,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:                agentName,
 			AuthorityName:            certificateWatcherName,
 			StateName:                stateName,
+			ServiceFactoryName:       serviceFactoryName,
 			NewWorker:                certupdater.NewCertificateUpdater,
 			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
+			Logger:                   loggo.GetLogger("juju.worker.certupdater"),
 		})),
 
 		// The machiner Worker will wait for the identified machine to become

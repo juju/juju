@@ -4,6 +4,8 @@
 package logger
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -116,7 +118,7 @@ func (l *loggerWorker) setLogging() {
 // SetUp is called by the NotifyWorker when the worker starts, and it is
 // required to return a notify watcher that is used as the event source
 // for the Handle method.
-func (l *loggerWorker) SetUp() (watcher.NotifyWatcher, error) {
+func (l *loggerWorker) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
 	l.config.Logger.Infof("logger worker started")
 	// We need to set this up initially as the NotifyWorker sucks up the first
 	// event.
@@ -125,7 +127,7 @@ func (l *loggerWorker) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 // Handle is called by the NotifyWorker whenever the notify event is fired.
-func (l *loggerWorker) Handle(_ <-chan struct{}) error {
+func (l *loggerWorker) Handle(_ context.Context) error {
 	l.setLogging()
 	return nil
 }

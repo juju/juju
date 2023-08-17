@@ -4,6 +4,8 @@
 package stateconverter_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -29,7 +31,7 @@ func (s *converterSuite) TestSetUp(c *gc.C) {
 	s.machine.EXPECT().Watch().Return(nil, nil)
 
 	conv := s.newConverter()
-	_, err := conv.SetUp()
+	_, err := conv.SetUp(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -39,7 +41,7 @@ func (s *converterSuite) TestSetupMachinerErr(c *gc.C) {
 	s.machiner.EXPECT().Machine(gomock.Any()).Return(nil, expectedError)
 
 	conv := s.newConverter()
-	w, err := conv.SetUp()
+	w, err := conv.SetUp(context.Background())
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 	c.Assert(w, gc.IsNil)
 }
@@ -51,7 +53,7 @@ func (s *converterSuite) TestSetupWatchErr(c *gc.C) {
 	s.machine.EXPECT().Watch().Return(nil, expectedError)
 
 	conv := s.newConverter()
-	w, err := conv.SetUp()
+	w, err := conv.SetUp(context.Background())
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 	c.Assert(w, gc.IsNil)
 }
@@ -64,7 +66,7 @@ func (s *converterSuite) TestHandle(c *gc.C) {
 	s.machine.EXPECT().Jobs().Return(&jobs, nil)
 
 	conv := s.newConverter()
-	_, err := conv.SetUp()
+	_, err := conv.SetUp(context.Background())
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
 	// Since machine has model.JobManageModel, we expect an error
@@ -80,7 +82,7 @@ func (s *converterSuite) TestHandleNotController(c *gc.C) {
 	s.machine.EXPECT().Jobs().Return(&jobs, nil)
 
 	conv := s.newConverter()
-	_, err := conv.SetUp()
+	_, err := conv.SetUp(context.Background())
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
 	c.Assert(err, gc.IsNil)
@@ -96,13 +98,13 @@ func (s *converterSuite) TestHandleJobsError(c *gc.C) {
 	s.machine.EXPECT().Jobs().Return(nil, expectedError)
 
 	conv := s.newConverter()
-	_, err := conv.SetUp()
+	_, err := conv.SetUp(context.Background())
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
 	// Since machine has model.JobManageModel, we expect an error
 	// which will get machineTag to restart.
 	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
-	_, err = conv.SetUp()
+	_, err = conv.SetUp(context.Background())
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
 	c.Assert(errors.Cause(err), gc.Equals, expectedError)

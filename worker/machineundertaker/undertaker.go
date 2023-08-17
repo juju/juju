@@ -68,14 +68,14 @@ func NewWorker(api Facade, env environs.Environ, credentialAPI common.Credential
 
 // SetUp (part of watcher.NotifyHandler) starts watching for machine
 // removals.
-func (u *Undertaker) SetUp() (watcher.NotifyWatcher, error) {
+func (u *Undertaker) SetUp(_ stdcontext.Context) (watcher.NotifyWatcher, error) {
 	u.Logger.Infof("setting up machine undertaker")
 	return u.API.WatchMachineRemovals()
 }
 
 // Handle (part of watcher.NotifyHandler) cleans up provider resources
 // and removes machines that have been marked for removal.
-func (u *Undertaker) Handle(<-chan struct{}) error {
+func (u *Undertaker) Handle(_ stdcontext.Context) error {
 	removals, err := u.API.AllMachineRemovals()
 	if err != nil {
 		return errors.Trace(err)

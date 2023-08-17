@@ -4,10 +4,10 @@
 package certupdater
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/controller"
@@ -16,9 +16,16 @@ import (
 	"github.com/juju/juju/pki"
 )
 
-var (
-	logger = loggo.GetLogger("juju.worker.certupdater")
-)
+// Logger is an interface for logging messages.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
+}
+
+// ControllerConfigGetter is an interface that returns the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // CertificateUpdater is responsible for generating controller certificates.
 //
@@ -26,10 +33,12 @@ var (
 // that server's machines addresses in state, and write a new certificate to the
 // agent's config file.
 type CertificateUpdater struct {
-	addressWatcher  AddressWatcher
-	authority       pki.Authority
-	hostPortsGetter APIHostPortsGetter
-	addresses       network.SpaceAddresses
+	addressWatcher   AddressWatcher
+	authority        pki.Authority
+	hostPortsGetter  APIHostPortsGetter
+	addresses        network.SpaceAddresses
+	ctrlConfigGetter ControllerConfigGetter
+	logger           Logger
 }
 
 // AddressWatcher is an interface that is provided to NewCertificateUpdater
@@ -48,15 +57,16 @@ type StateServingInfoGetter interface {
 // APIHostPortsGetter is an interface that is provided to NewCertificateUpdater.
 // It returns all known API addresses.
 type APIHostPortsGetter interface {
-	ControllerConfig() (controller.Config, error)
 	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
 // Config holds the configuration for the certificate updater worker.
 type Config struct {
-	AddressWatcher     AddressWatcher
-	Authority          pki.Authority
-	APIHostPortsGetter APIHostPortsGetter
+	AddressWatcher         AddressWatcher
+	Authority              pki.Authority
+	APIHostPortsGetter     APIHostPortsGetter
+	ControllerConfigGetter ControllerConfigGetter
+	Logger                 Logger
 }
 
 // NewCertificateUpdater returns a worker.Worker that watches for changes to
@@ -65,16 +75,18 @@ type Config struct {
 func NewCertificateUpdater(config Config) (worker.Worker, error) {
 	return watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &CertificateUpdater{
-			addressWatcher:  config.AddressWatcher,
-			authority:       config.Authority,
-			hostPortsGetter: config.APIHostPortsGetter,
+			addressWatcher:   config.AddressWatcher,
+			authority:        config.Authority,
+			hostPortsGetter:  config.APIHostPortsGetter,
+			ctrlConfigGetter: config.ControllerConfigGetter,
+			logger:           config.Logger,
 		},
 	})
 }
 
 // SetUp is defined on the NotifyWatchHandler interface.
-func (c *CertificateUpdater) SetUp() (watcher.NotifyWatcher, error) {
-	cfg, err := c.hostPortsGetter.ControllerConfig()
+func (c *CertificateUpdater) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
+	cfg, err := c.ctrlConfigGetter.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving controller config")
 	}
@@ -99,19 +111,19 @@ func (c *CertificateUpdater) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 // Handle is defined on the NotifyWatchHandler interface.
-func (c *CertificateUpdater) Handle(done <-chan struct{}) error {
+func (c *CertificateUpdater) Handle(_ context.Context) error {
 	addresses := c.addressWatcher.Addresses()
 	if reflect.DeepEqual(addresses, c.addresses) {
 		// Sometimes the watcher will tell us things have changed, when they
 		// haven't as far as we can tell.
-		logger.Debugf("addresses have not changed since last updated cert")
+		c.logger.Debugf("addresses have not changed since last updated cert")
 		return nil
 	}
 	return c.updateCertificate(addresses)
 }
 
 func (c *CertificateUpdater) updateCertificate(addresses network.SpaceAddresses) error {
-	logger.Debugf("new machine addresses: %#v", addresses)
+	c.logger.Debugf("new machine addresses: %#v", addresses)
 	c.addresses = addresses
 
 	request := c.authority.LeafRequestForGroup(pki.ControllerIPLeafGroup)
@@ -139,7 +151,7 @@ func (c *CertificateUpdater) updateCertificate(addresses network.SpaceAddresses)
 			}
 			request.AddIPAddresses(ip)
 		default:
-			logger.Warningf(
+			c.logger.Warningf(
 				"unsupported space address type %s for controller certificate",
 				addr.Type)
 		}
