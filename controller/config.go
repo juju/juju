@@ -270,6 +270,21 @@ const (
 	// is enabled). The lower the threshold, the more queries will be output. A
 	// value of 0 means all queries will be output.
 	QueryTracingThreshold = "query-tracing-threshold"
+
+	// OpenTelemetryEnabled returns whether open telemetry is enabled.
+	OpenTelemetryEnabled = "open-telemetry-enabled"
+
+	// OpenTelemetryEndpoint returns the endpoint at which the telemetry will
+	// be pushed to.
+	OpenTelemetryEndpoint = "open-telemetry-endpoint"
+
+	// OpenTelemetryInsecure returns if the telemetry collector endpoint is
+	// insecure or not. Useful for debug or local testing.
+	OpenTelemetryInsecure = "open-telemetry-insecure"
+
+	// OpenTelemetryStackTraces return whether stack traces should be added per
+	// span.
+	OpenTelemetryStackTraces = "open-telemetry-stack-traces"
 )
 
 // Attribute Defaults
@@ -400,6 +415,18 @@ const (
 	// This special value means we exclude any methods in the set
 	// listed in apiserver/observer/auditfilter.go
 	DefaultAuditLogExcludeMethods = ReadOnlyMethodsWildcard
+
+	// DefaultOpenTelemetryEnabled is the default value for if the open
+	// telemetry tracing is enabled or not.
+	DefaultOpenTelemetryEnabled = false
+
+	// DefaultOpenTelemetryInsecure is the default value for it the open
+	// telemetry tracing endpoint is insecure or not.
+	DefaultOpenTelemetryInsecure = false
+
+	// DefaultOpenTelemetryStackTraces is the default value for it the open
+	// telemetry tracing has stack traces or not.
+	DefaultOpenTelemetryStackTraces = false
 )
 
 var (
@@ -454,6 +481,10 @@ var (
 		ControllerResourceDownloadLimit,
 		QueryTracingEnabled,
 		QueryTracingThreshold,
+		OpenTelemetryEnabled,
+		OpenTelemetryEndpoint,
+		OpenTelemetryInsecure,
+		OpenTelemetryStackTraces,
 	}
 
 	// For backwards compatibility, we must include "anything", "juju-apiserver"
@@ -503,6 +534,10 @@ var (
 		ControllerResourceDownloadLimit,
 		QueryTracingEnabled,
 		QueryTracingThreshold,
+		OpenTelemetryEnabled,
+		OpenTelemetryEndpoint,
+		OpenTelemetryInsecure,
+		OpenTelemetryStackTraces,
 	)
 
 	methodNameRE = regexp.MustCompile(`[[:alpha:]][[:alnum:]]*\.[[:alpha:]][[:alnum:]]*`)
@@ -1020,6 +1055,28 @@ func (c Config) QueryTracingEnabled() bool {
 // means all queries will be output.
 func (c Config) QueryTracingThreshold() time.Duration {
 	return c.durationOrDefault(QueryTracingThreshold, DefaultQueryTracingThreshold)
+}
+
+// OpenTelemetryEnabled returns whether open telemetry tracing is enabled.
+func (c Config) OpenTelemetryEnabled() bool {
+	return c.boolOrDefault(OpenTelemetryEnabled, DefaultOpenTelemetryEnabled)
+}
+
+// OpenTelemetryEndpoint returns the open telemetry endpoint.
+func (c Config) OpenTelemetryEndpoint() string {
+	return c.asString(OpenTelemetryEndpoint)
+}
+
+// OpenTelemetryInsecure returns whether open telemetry tracing endpoint is
+// insecure or not.
+func (c Config) OpenTelemetryInsecure() bool {
+	return c.boolOrDefault(OpenTelemetryInsecure, DefaultOpenTelemetryInsecure)
+}
+
+// OpenTelemetryStackTraces returns whether open telemetry tracing spans
+// requires to have stack traces.
+func (c Config) OpenTelemetryStackTraces() bool {
+	return c.boolOrDefault(OpenTelemetryStackTraces, DefaultOpenTelemetryStackTraces)
 }
 
 // Validate ensures that config is a valid configuration.
