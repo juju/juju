@@ -9,7 +9,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
-	"github.com/Azure/go-autorest/autorest/mocks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -25,7 +24,7 @@ import (
 type imageutilsSuite struct {
 	testing.BaseSuite
 
-	mockSender *mocks.Sender
+	mockSender *azuretesting.MockSender
 	client     *armcompute.VirtualMachineImagesClient
 	callCtx    *context.CloudCallContext
 }
@@ -34,7 +33,7 @@ var _ = gc.Suite(&imageutilsSuite{})
 
 func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.mockSender = mocks.NewSender()
+	s.mockSender = &azuretesting.MockSender{}
 	opts := &arm.ClientOptions{
 		ClientOptions: policy.ClientOptions{
 			Transport: s.mockSender,
@@ -47,7 +46,7 @@ func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
-	s.mockSender.AppendResponse(mocks.NewResponseWithContent(
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
 		`[{"name": "20_04"}, {"name": "20_04-LTS"}, {"name": "19_04"}]`,
 	))
 	image, err := imageutils.SeriesImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "20.04"), "released", "westus", s.client)
@@ -61,7 +60,7 @@ func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
 }
 
 func (s *imageutilsSuite) TestSeriesImageInvalidSKU(c *gc.C) {
-	s.mockSender.AppendResponse(mocks.NewResponseWithContent(
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
 		`[{"name": "22_04_invalid"}, {"name": "22_04_5-LTS"}]`,
 	))
 	image, err := imageutils.SeriesImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", s.client)
@@ -82,7 +81,7 @@ func (s *imageutilsSuite) TestSeriesImageCentOS(c *gc.C) {
 }
 
 func (s *imageutilsSuite) TestSeriesImageStream(c *gc.C) {
-	s.mockSender.AppendAndRepeatResponse(mocks.NewResponseWithContent(
+	s.mockSender.AppendAndRepeatResponse(azuretesting.NewResponseWithContent(
 		`[{"name": "22_04_2"}, {"name": "22_04_3-DAILY"}, {"name": "22_04_1-LTS"}]`), 2)
 	base := corebase.MakeDefaultBase("ubuntu", "22.04")
 	s.assertImageId(c, base, "daily", "Canonical:0001-com-ubuntu-server-jammy:22_04_3-DAILY:latest")
@@ -90,20 +89,20 @@ func (s *imageutilsSuite) TestSeriesImageStream(c *gc.C) {
 }
 
 func (s *imageutilsSuite) TestSeriesImageNotFound(c *gc.C) {
-	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[]`))
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(`[]`))
 	image, err := imageutils.SeriesImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", s.client)
 	c.Assert(err, gc.ErrorMatches, "selecting SKU for ubuntu@22.04: Ubuntu SKUs for released stream not found")
 	c.Assert(image, gc.IsNil)
 }
 
 func (s *imageutilsSuite) TestSeriesImageStreamNotFound(c *gc.C) {
-	s.mockSender.AppendResponse(mocks.NewResponseWithContent(`[{"name": "22_04-beta1"}]`))
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(`[{"name": "22_04-beta1"}]`))
 	_, err := imageutils.SeriesImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
 	c.Assert(err, gc.ErrorMatches, "selecting SKU for ubuntu@22.04: Ubuntu SKUs for whatever stream not found")
 }
 
 func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
-	s.mockSender.AppendResponse(mocks.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
 	called := false
 	s.callCtx.InvalidateCredentialFunc = func(string) error {
 		called = true
@@ -116,7 +115,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 }
 
 func (s *imageutilsSuite) TestSeriesImageStreamThrewNonCredentialError(c *gc.C) {
-	s.mockSender.AppendResponse(mocks.NewResponseWithStatus("308 Permanent Redirect", http.StatusPermanentRedirect))
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("308 Permanent Redirect", http.StatusPermanentRedirect))
 	called := false
 	s.callCtx.InvalidateCredentialFunc = func(string) error {
 		called = true
