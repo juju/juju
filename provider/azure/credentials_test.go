@@ -256,6 +256,7 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *gc.C) {
 	in := cloud.NewCredential("interactive", map[string]string{"subscription-id": fakeSubscriptionId})
 	ctx := cmdtesting.Context(c)
 	out, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
+		CloudName:             "azure",
 		Credential:            in,
 		CloudEndpoint:         "https://arm.invalid",
 		CloudStorageEndpoint:  "https://core.invalid",
@@ -274,6 +275,7 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractive(c *gc.C) {
 	s.servicePrincipalCreator.CheckCallNames(c, "InteractiveCreate")
 	args := s.servicePrincipalCreator.Calls()[0].Args
 	c.Assert(args[2], jc.DeepEquals, azureauth.ServicePrincipalParams{
+		CloudName:      "AzureCloud",
 		SubscriptionId: fakeSubscriptionId,
 		TenantId:       fakeTenantId,
 	})
@@ -285,6 +287,7 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractiveError(c *gc.C) {
 	s.servicePrincipalCreator.SetErrors(errors.New("blargh"))
 	ctx := cmdtesting.Context(c)
 	_, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
+		CloudName:             "azure",
 		Credential:            in,
 		CloudEndpoint:         "https://arm.invalid",
 		CloudIdentityEndpoint: "https://graph.invalid",

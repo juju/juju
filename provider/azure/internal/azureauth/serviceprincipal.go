@@ -35,13 +35,32 @@ const (
 	// the application.
 	jujuApplicationId = "60a04dc9-1857-425f-8076-5ba81ca53d66"
 
-	// JujuApplicationObjectId is the ObjectId of the Azure application.
+	// jujuApplicationObjectId is the ObjectId of the Azure application.
 	jujuApplicationObjectId = "8b744cea-179d-4a73-9dff-20d52126030a"
+
+	// defaultAzureKeyVaultApplicationId is the default Azure Key Vault
+	// applicationID if not specified for a specific cloud type.
+	defaultAzureKeyVaultApplicationId = "cfa8b339-82a2-471a-a3c9-0fc0be7a4093"
 
 	// passwordExpiryDuration is how long the application password we
 	// set will remain valid.
 	passwordExpiryDuration = 365 * 24 * time.Hour
 )
+
+const (
+	// These consts represent the Azure cloud types.
+
+	AzureCloud        = "AzureCloud"
+	AzureChinaCloud   = "AzureChinaCloud"
+	AzureUSGovernment = "AzureUSGovernment"
+)
+
+// cloudVaultApps holds the IDs of the Azure Key Vault Application
+// for each cloud type.
+var cloudVaultApps = map[string]string{
+	AzureCloud:        defaultAzureKeyVaultApplicationId,
+	AzureUSGovernment: "7e7c393b-45d0-48b1-a35e-2905ddf8183c",
+}
 
 // MaybeJujuApplicationObjectID returns the Juju Application Object ID
 // if the passed in application ID is the Juju Enterprise App.
@@ -54,6 +73,7 @@ func MaybeJujuApplicationObjectID(appID string) (string, error) {
 
 // ServicePrincipalParams are used when creating Juju service principal.
 type ServicePrincipalParams struct {
+	CloudName string
 	// Credential is the authorization needed to contact the
 	// Azure graph API.
 	Credential azcore.TokenCredential
@@ -119,7 +139,18 @@ func (c *ServicePrincipalCreator) Create(sdkCtx context.Context, params ServiceP
 	if err != nil {
 		return "", "", "", errors.Trace(err)
 	}
-	servicePrincipalObjectId, password, err := c.createOrUpdateServicePrincipal(sdkCtx, client)
+
+	// The user account must have a service principal for the Azure Key Vault application.
+	azureKeyVaultApplicationId, ok := cloudVaultApps[params.CloudName]
+	if !ok {
+		azureKeyVaultApplicationId = defaultAzureKeyVaultApplicationId
+	}
+	_, err = c.createOrUpdateServicePrincipal(sdkCtx, client, azureKeyVaultApplicationId, "Azure Key Vault application")
+	if err != nil {
+		return "", "", "", errors.Trace(err)
+	}
+
+	servicePrincipalObjectId, password, err := c.createOrUpdateJujuServicePrincipal(sdkCtx, client)
 	if err != nil {
 		return "", "", "", errors.Trace(err)
 	}
@@ -129,7 +160,7 @@ func (c *ServicePrincipalCreator) Create(sdkCtx context.Context, params ServiceP
 	return jujuApplicationId, servicePrincipalObjectId, password, nil
 }
 
-func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.Context, client *msgraphsdkgo.GraphServiceClient) (servicePrincipalObjectId, password string, _ error) {
+func (c *ServicePrincipalCreator) createOrUpdateJujuServicePrincipal(sdkCtx context.Context, client *msgraphsdkgo.GraphServiceClient) (servicePrincipalObjectId, password string, _ error) {
 	passwordCredential, err := c.preparePasswordCredential()
 	if err != nil {
 		return "", "", errors.Annotate(err, "preparing password credential")
@@ -155,24 +186,30 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.
 		return toValue(servicePrincipal.GetId()), toValue(addPassword.GetSecretText()), nil
 	}
 
-	// The service principal might already exist, so we need to query
-	// its object ID, and fetch the existing password credentials
-	// to update.
-	servicePrincipal, err := client.ServicePrincipalsWithAppId(to.Ptr(jujuApplicationId)).Get(sdkCtx, nil)
+	servicePrincipal, err := c.createOrUpdateServicePrincipal(sdkCtx, client, jujuApplicationId, "Juju Application")
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	id, password, err := addPassword(servicePrincipal)
+	if err != nil {
+		return "", "", errors.Annotate(err, "creating service principal password")
+	}
+	return id, password, nil
+}
+
+func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.Context, client *msgraphsdkgo.GraphServiceClient, appId, label string) (models.ServicePrincipalable, error) {
+	// The service principal might already exist, so we need to query its application ID.
+	servicePrincipal, err := client.ServicePrincipalsWithAppId(to.Ptr(appId)).Get(sdkCtx, nil)
 	if err == nil {
-		id, password, err := addPassword(servicePrincipal)
-		if err != nil {
-			return "", "", errors.Annotate(err, "creating service principal password")
-		}
-		return id, password, nil
+		return servicePrincipal, nil
 	}
 	if !isNotFound(err) {
-		return "", "", errors.Annotate(ReportableError(err), "looking for existing service principal")
+		return nil, errors.Annotatef(ReportableError(err), "looking for existing service principal for %s", label)
 	}
 
 	createServicePrincipal := func() error {
 		requestBody := models.NewServicePrincipal()
-		requestBody.SetAppId(to.Ptr(jujuApplicationId))
+		requestBody.SetAppId(to.Ptr(appId))
 		requestBody.SetAccountEnabled(to.Ptr(true))
 		servicePrincipal, err = client.ServicePrincipals().Post(sdkCtx, requestBody, nil)
 		return errors.Annotate(ReportableError(err), "creating service principal")
@@ -192,21 +229,14 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.
 	}
 	if err := retry.Call(retryArgs); err != nil {
 		if !isAlreadyExists(err) {
-			return "", "", errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
-		// The service principal already exists, so we'll fall out
-		// and update the service principal's password credentials.
-		servicePrincipal, err = client.ServicePrincipalsWithAppId(to.Ptr(jujuApplicationId)).Get(sdkCtx, nil)
+		servicePrincipal, err = client.ServicePrincipalsWithAppId(to.Ptr(appId)).Get(sdkCtx, nil)
 		if err != nil {
-			return "", "", errors.Annotate(ReportableError(err), "looking for service principal")
+			return nil, errors.Annotatef(ReportableError(err), "looking for service principal for %s", label)
 		}
 	}
-
-	id, password, err := addPassword(servicePrincipal)
-	if err != nil {
-		return "", "", errors.Annotate(err, "creating service principal password")
-	}
-	return id, password, nil
+	return servicePrincipal, nil
 }
 
 func (c *ServicePrincipalCreator) preparePasswordCredential() (*models.PasswordCredential, error) {
