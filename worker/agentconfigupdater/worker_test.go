@@ -40,27 +40,39 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	})
 	s.agent = &mockAgent{
 		conf: mockConfig{
-			profile:               controller.DefaultMongoMemoryProfile,
-			snapChannel:           controller.DefaultJujuDBSnapChannel,
-			queryTracingEnabled:   controller.DefaultQueryTracingEnabled,
-			queryTracingThreshold: controller.DefaultQueryTracingThreshold,
+			profile:                  controller.DefaultMongoMemoryProfile,
+			snapChannel:              controller.DefaultJujuDBSnapChannel,
+			queryTracingEnabled:      controller.DefaultQueryTracingEnabled,
+			queryTracingThreshold:    controller.DefaultQueryTracingThreshold,
+			openTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
+			openTelemetryEndpoint:    "",
+			openTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
+			openTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
 		},
 	}
 	s.config = agentconfigupdater.WorkerConfig{
-		Agent:                 s.agent,
-		Hub:                   s.hub,
-		MongoProfile:          controller.DefaultMongoMemoryProfile,
-		JujuDBSnapChannel:     controller.DefaultJujuDBSnapChannel,
-		QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
-		QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
-		Logger:                s.logger,
+		Agent:                    s.agent,
+		Hub:                      s.hub,
+		MongoProfile:             controller.DefaultMongoMemoryProfile,
+		JujuDBSnapChannel:        controller.DefaultJujuDBSnapChannel,
+		QueryTracingEnabled:      controller.DefaultQueryTracingEnabled,
+		QueryTracingThreshold:    controller.DefaultQueryTracingThreshold,
+		OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
+		OpenTelemetryEndpoint:    "",
+		OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
+		OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
+		Logger:                   s.logger,
 	}
 	s.initialConfigMsg = controllermsg.ConfigChangedMessage{
 		Config: controller.Config{
-			controller.MongoMemoryProfile:    controller.DefaultMongoMemoryProfile,
-			controller.JujuDBSnapChannel:     controller.DefaultJujuDBSnapChannel,
-			controller.QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
-			controller.QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
+			controller.MongoMemoryProfile:       controller.DefaultMongoMemoryProfile,
+			controller.JujuDBSnapChannel:        controller.DefaultJujuDBSnapChannel,
+			controller.QueryTracingEnabled:      controller.DefaultQueryTracingEnabled,
+			controller.QueryTracingThreshold:    controller.DefaultQueryTracingThreshold,
+			controller.OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
+			controller.OpenTelemetryEndpoint:    "",
+			controller.OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
+			controller.OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
 		},
 	}
 }
@@ -239,6 +251,130 @@ func (s *WorkerSuite) TestUpdateQueryTracingThreshold(c *gc.C) {
 
 	d := time.Second * 2
 	newConfig.Config[controller.QueryTracingThreshold] = d.String()
+	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	err = workertest.CheckKilled(c, w)
+
+	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+}
+
+func (s *WorkerSuite) TestUpdateOpenTelemetryEnabled(c *gc.C) {
+	w, err := agentconfigupdater.NewWorker(s.config)
+	c.Assert(w, gc.NotNil)
+	c.Check(err, jc.ErrorIsNil)
+
+	newConfig := s.initialConfigMsg
+	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	// Query tracing enabled is the same, worker still alive.
+	workertest.CheckAlive(c, w)
+
+	newConfig.Config[controller.OpenTelemetryEnabled] = true
+	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	err = workertest.CheckKilled(c, w)
+
+	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+}
+
+func (s *WorkerSuite) TestUpdateOpenTelemetryEndpoint(c *gc.C) {
+	w, err := agentconfigupdater.NewWorker(s.config)
+	c.Assert(w, gc.NotNil)
+	c.Check(err, jc.ErrorIsNil)
+
+	newConfig := s.initialConfigMsg
+	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	// Query tracing enabled is the same, worker still alive.
+	workertest.CheckAlive(c, w)
+
+	newConfig.Config[controller.OpenTelemetryEndpoint] = "http://foo.bar"
+	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	err = workertest.CheckKilled(c, w)
+
+	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+}
+
+func (s *WorkerSuite) TestUpdateOpenTelemetryInsecure(c *gc.C) {
+	w, err := agentconfigupdater.NewWorker(s.config)
+	c.Assert(w, gc.NotNil)
+	c.Check(err, jc.ErrorIsNil)
+
+	newConfig := s.initialConfigMsg
+	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	// Query tracing enabled is the same, worker still alive.
+	workertest.CheckAlive(c, w)
+
+	newConfig.Config[controller.OpenTelemetryInsecure] = true
+	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	err = workertest.CheckKilled(c, w)
+
+	c.Assert(err, gc.Equals, jworker.ErrRestartAgent)
+}
+
+func (s *WorkerSuite) TestUpdateOpenTelemetryStackTraces(c *gc.C) {
+	w, err := agentconfigupdater.NewWorker(s.config)
+	c.Assert(w, gc.NotNil)
+	c.Check(err, jc.ErrorIsNil)
+
+	newConfig := s.initialConfigMsg
+	handled, err := s.hub.Publish(controllermsg.ConfigChanged, newConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case <-pubsub.Wait(handled):
+	case <-time.After(testing.LongWait):
+		c.Fatalf("event not handled")
+	}
+
+	// Query tracing enabled is the same, worker still alive.
+	workertest.CheckAlive(c, w)
+
+	newConfig.Config[controller.OpenTelemetryStackTraces] = true
 	handled, err = s.hub.Publish(controllermsg.ConfigChanged, newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	select {

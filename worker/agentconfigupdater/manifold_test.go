@@ -140,10 +140,13 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 				result := response.(*params.ControllerConfigResult)
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
-						"mongo-memory-profile":    "default",
-						"juju-db-snap-channel":    controller.DefaultJujuDBSnapChannel,
-						"query-tracing-enabled":   controller.DefaultQueryTracingEnabled,
-						"query-tracing-threshold": controller.DefaultQueryTracingThreshold,
+						"mongo-memory-profile":              "default",
+						"juju-db-snap-channel":              controller.DefaultJujuDBSnapChannel,
+						"query-tracing-enabled":             controller.DefaultQueryTracingEnabled,
+						"query-tracing-threshold":           controller.DefaultQueryTracingThreshold,
+						controller.OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
+						controller.OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
+						controller.OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
 					},
 				}
 			default:
@@ -227,10 +230,13 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 				result := response.(*params.ControllerConfigResult)
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
-						"mongo-memory-profile":    "default",
-						"juju-db-snap-channel":    controller.DefaultJujuDBSnapChannel,
-						"query-tracing-enabled":   controller.DefaultQueryTracingEnabled,
-						"query-tracing-threshold": controller.DefaultQueryTracingThreshold,
+						"mongo-memory-profile":              "default",
+						"juju-db-snap-channel":              controller.DefaultJujuDBSnapChannel,
+						"query-tracing-enabled":             controller.DefaultQueryTracingEnabled,
+						"query-tracing-threshold":           controller.DefaultQueryTracingThreshold,
+						controller.OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
+						controller.OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
+						controller.OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
 					},
 				}
 			default:
@@ -366,6 +372,18 @@ type mockConfig struct {
 
 	queryTracingThreshold    time.Duration
 	queryTracingThresholdSet bool
+
+	openTelemetryEnabled    bool
+	openTelemetryEnabledSet bool
+
+	openTelemetryEndpoint    string
+	openTelemetryEndpointSet bool
+
+	openTelemetryInsecure    bool
+	openTelemetryInsecureSet bool
+
+	openTelemetryStackTraces    bool
+	openTelemetryStackTracesSet bool
 }
 
 func (mc *mockConfig) Tag() names.Tag {
@@ -431,6 +449,42 @@ func (mc *mockConfig) QueryTracingThreshold() time.Duration {
 func (mc *mockConfig) SetQueryTracingThreshold(threshold time.Duration) {
 	mc.queryTracingThreshold = threshold
 	mc.queryTracingThresholdSet = true
+}
+
+func (mc *mockConfig) OpenTelemetryEnabled() bool {
+	return mc.openTelemetryEnabled
+}
+
+func (mc *mockConfig) SetOpenTelemetryEnabled(enabled bool) {
+	mc.openTelemetryEnabled = enabled
+	mc.openTelemetryEnabledSet = true
+}
+
+func (mc *mockConfig) OpenTelemetryEndpoint() string {
+	return mc.openTelemetryEndpoint
+}
+
+func (mc *mockConfig) SetOpenTelemetryEndpoint(endpoint string) {
+	mc.openTelemetryEndpoint = endpoint
+	mc.openTelemetryEndpointSet = true
+}
+
+func (mc *mockConfig) OpenTelemetryInsecure() bool {
+	return mc.openTelemetryInsecure
+}
+
+func (mc *mockConfig) SetOpenTelemetryInsecure(enabled bool) {
+	mc.openTelemetryInsecure = enabled
+	mc.openTelemetryInsecureSet = true
+}
+
+func (mc *mockConfig) OpenTelemetryStackTraces() bool {
+	return mc.openTelemetryStackTraces
+}
+
+func (mc *mockConfig) SetOpenTelemetryStackTraces(enabled bool) {
+	mc.openTelemetryStackTraces = enabled
+	mc.openTelemetryStackTracesSet = true
 }
 
 func (mc *mockConfig) LogDir() string {

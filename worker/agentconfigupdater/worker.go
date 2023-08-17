@@ -20,13 +20,17 @@ import (
 // WorkerConfig contains the information necessary to run
 // the agent config updater worker.
 type WorkerConfig struct {
-	Agent                 coreagent.Agent
-	Hub                   *pubsub.StructuredHub
-	MongoProfile          mongo.MemoryProfile
-	JujuDBSnapChannel     string
-	QueryTracingEnabled   bool
-	QueryTracingThreshold time.Duration
-	Logger                Logger
+	Agent                    coreagent.Agent
+	Hub                      *pubsub.StructuredHub
+	MongoProfile             mongo.MemoryProfile
+	JujuDBSnapChannel        string
+	QueryTracingEnabled      bool
+	QueryTracingThreshold    time.Duration
+	OpenTelemetryEnabled     bool
+	OpenTelemetryEndpoint    string
+	OpenTelemetryInsecure    bool
+	OpenTelemetryStackTraces bool
+	Logger                   Logger
 }
 
 // Validate ensures that the required values are set in the structure.
@@ -46,11 +50,15 @@ func (c *WorkerConfig) Validate() error {
 type agentConfigUpdater struct {
 	config WorkerConfig
 
-	tomb                  tomb.Tomb
-	mongoProfile          mongo.MemoryProfile
-	jujuDBSnapChannel     string
-	queryTracingEnabled   bool
-	queryTracingThreshold time.Duration
+	tomb                     tomb.Tomb
+	mongoProfile             mongo.MemoryProfile
+	jujuDBSnapChannel        string
+	queryTracingEnabled      bool
+	queryTracingThreshold    time.Duration
+	openTelemetryEnabled     bool
+	openTelemetryEndpoint    string
+	openTelemetryInsecure    bool
+	openTelemetryStackTraces bool
 }
 
 // NewWorker creates a new agent config updater worker.
@@ -61,11 +69,15 @@ func NewWorker(config WorkerConfig) (worker.Worker, error) {
 
 	started := make(chan struct{})
 	w := &agentConfigUpdater{
-		config:                config,
-		mongoProfile:          config.MongoProfile,
-		jujuDBSnapChannel:     config.JujuDBSnapChannel,
-		queryTracingEnabled:   config.QueryTracingEnabled,
-		queryTracingThreshold: config.QueryTracingThreshold,
+		config:                   config,
+		mongoProfile:             config.MongoProfile,
+		jujuDBSnapChannel:        config.JujuDBSnapChannel,
+		queryTracingEnabled:      config.QueryTracingEnabled,
+		queryTracingThreshold:    config.QueryTracingThreshold,
+		openTelemetryEnabled:     config.OpenTelemetryEnabled,
+		openTelemetryEndpoint:    config.OpenTelemetryEndpoint,
+		openTelemetryInsecure:    config.OpenTelemetryInsecure,
+		openTelemetryStackTraces: config.OpenTelemetryStackTraces,
 	}
 	w.tomb.Go(func() error {
 		return w.loop(started)
@@ -111,7 +123,27 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 	queryTracingThreshold := data.Config.QueryTracingThreshold()
 	queryTracingThresholdChanged := queryTracingThreshold != w.queryTracingThreshold
 
-	changeDetected := mongoProfileChanged || jujuDBSnapChannelChanged || queryTracingEnabledChanged || queryTracingThresholdChanged
+	openTelemetryEnabled := data.Config.OpenTelemetryEnabled()
+	openTelemetryEnabledChanged := openTelemetryEnabled != w.openTelemetryEnabled
+
+	openTelemetryEndpoint := data.Config.OpenTelemetryEndpoint()
+	openTelemetryEndpointChanged := openTelemetryEndpoint != w.openTelemetryEndpoint
+
+	openTelemetryInsecure := data.Config.OpenTelemetryInsecure()
+	openTelemetryInsecureChanged := openTelemetryInsecure != w.openTelemetryInsecure
+
+	openTelemetryStackTraces := data.Config.OpenTelemetryStackTraces()
+	openTelemetryStackTracesChanged := openTelemetryStackTraces != w.openTelemetryStackTraces
+
+	changeDetected := mongoProfileChanged ||
+		jujuDBSnapChannelChanged ||
+		queryTracingEnabledChanged ||
+		queryTracingThresholdChanged ||
+		openTelemetryEnabledChanged ||
+		openTelemetryEndpointChanged ||
+		openTelemetryInsecureChanged ||
+		openTelemetryStackTracesChanged
+
 	if !changeDetected {
 		// Nothing to do, all good.
 		return
@@ -133,6 +165,22 @@ func (w *agentConfigUpdater) onConfigChanged(topic string, data controllermsg.Co
 		if queryTracingThresholdChanged {
 			w.config.Logger.Debugf("setting agent config query tracing threshold: %v => %v", w.queryTracingThreshold, queryTracingThreshold)
 			setter.SetQueryTracingThreshold(queryTracingThreshold)
+		}
+		if openTelemetryEnabledChanged {
+			w.config.Logger.Debugf("setting agent config open telemetry enabled: %v => %v", w.openTelemetryEnabled, openTelemetryEnabled)
+			setter.SetOpenTelemetryEnabled(openTelemetryEnabled)
+		}
+		if openTelemetryEndpointChanged {
+			w.config.Logger.Debugf("setting agent config open telemetry endpoint: %v => %v", w.openTelemetryEndpoint, openTelemetryEndpoint)
+			setter.SetOpenTelemetryEndpoint(openTelemetryEndpoint)
+		}
+		if openTelemetryInsecureChanged {
+			w.config.Logger.Debugf("setting agent config open telemetry insecure: %v => %v", w.openTelemetryInsecure, openTelemetryInsecure)
+			setter.SetOpenTelemetryInsecure(openTelemetryInsecure)
+		}
+		if openTelemetryStackTracesChanged {
+			w.config.Logger.Debugf("setting agent config open telemetry stack traces: %v => %v", w.openTelemetryStackTraces, openTelemetryStackTraces)
+			setter.SetOpenTelemetryStackTraces(openTelemetryStackTraces)
 		}
 		return nil
 	})
