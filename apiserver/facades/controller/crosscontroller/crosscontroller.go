@@ -4,6 +4,8 @@
 package crosscontroller
 
 import (
+	"context"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
@@ -40,7 +42,7 @@ func NewCrossControllerAPI(
 
 // WatchControllerInfo creates a watcher that notifies when the API info
 // for the controller changes.
-func (api *CrossControllerAPI) WatchControllerInfo() (params.NotifyWatchResults, error) {
+func (api *CrossControllerAPI) WatchControllerInfo(ctx context.Context) (params.NotifyWatchResults, error) {
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, 1),
 	}
@@ -54,7 +56,7 @@ func (api *CrossControllerAPI) WatchControllerInfo() (params.NotifyWatchResults,
 }
 
 // ControllerInfo returns the API info for the controller.
-func (api *CrossControllerAPI) ControllerInfo() (params.ControllerAPIInfoResults, error) {
+func (api *CrossControllerAPI) ControllerInfo(ctx context.Context) (params.ControllerAPIInfoResults, error) {
 	results := params.ControllerAPIInfoResults{
 		Results: make([]params.ControllerAPIInfoResult, 1),
 	}

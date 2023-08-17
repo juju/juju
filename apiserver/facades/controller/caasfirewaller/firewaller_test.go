@@ -4,6 +4,8 @@
 package caasfirewaller_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -115,7 +117,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	openPortsChanges := []string{"port1", "port2"}
 	s.openPortsChanges <- openPortsChanges
 
-	results, err := s.facade.WatchOpenedPorts(params.Entities{
+	results, err := s.facade.WatchOpenedPorts(context.Background(), params.Entities{
 		Entities: []params.Entity{{
 			Tag: "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		}},
@@ -145,7 +147,7 @@ func (s *firewallerSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 		},
 	}
 
-	results, err := s.facade.GetOpenedPorts(params.Entity{
+	results, err := s.facade.GetOpenedPorts(context.Background(), params.Entity{
 		Tag: "application-gitlab",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -167,14 +169,14 @@ func (s *firewallerSuite) TestGetApplicationOpenedPorts(c *gc.C) {
 }
 
 type facadeSidecar interface {
-	IsExposed(args params.Entities) (params.BoolResults, error)
-	ApplicationsConfig(args params.Entities) (params.ApplicationGetConfigResults, error)
-	WatchApplications() (params.StringsWatchResult, error)
+	IsExposed(ctx context.Context, args params.Entities) (params.BoolResults, error)
+	ApplicationsConfig(ctx context.Context, args params.Entities) (params.ApplicationGetConfigResults, error)
+	WatchApplications(ctx context.Context) (params.StringsWatchResult, error)
 	Life(args params.Entities) (params.LifeResults, error)
 	Watch(args params.Entities) (params.NotifyWatchResults, error)
-	ApplicationCharmInfo(args params.Entity) (params.Charm, error)
-	WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error)
-	GetOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error)
+	ApplicationCharmInfo(ctx context.Context, args params.Entity) (params.Charm, error)
+	WatchOpenedPorts(ctx context.Context, args params.Entities) (params.StringsWatchResults, error)
+	GetOpenedPorts(ctx context.Context, arg params.Entity) (params.ApplicationOpenedPortsResults, error)
 }
 
 func (s *firewallerSuite) TestPermission(c *gc.C) {
@@ -188,7 +190,7 @@ func (s *firewallerSuite) TestPermission(c *gc.C) {
 func (s *firewallerSuite) TestWatchApplications(c *gc.C) {
 	applicationNames := []string{"db2", "hadoop"}
 	s.applicationsChanges <- applicationNames
-	result, err := s.facade.WatchApplications()
+	result, err := s.facade.WatchApplications(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.StringsWatcherId, gc.Equals, "1")
@@ -219,7 +221,7 @@ func (s *firewallerSuite) TestWatchApplication(c *gc.C) {
 
 func (s *firewallerSuite) TestIsExposed(c *gc.C) {
 	s.st.application.exposed = true
-	results, err := s.facade.IsExposed(params.Entities{
+	results, err := s.facade.IsExposed(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},
@@ -258,7 +260,7 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestApplicationConfig(c *gc.C) {
-	results, err := s.facade.ApplicationsConfig(params.Entities{
+	results, err := s.facade.ApplicationsConfig(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},

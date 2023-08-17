@@ -4,6 +4,7 @@
 package caasfirewaller
 
 import (
+	"context"
 	"sort"
 
 	"github.com/juju/errors"
@@ -29,17 +30,17 @@ type Facade struct {
 }
 
 // CharmInfo returns information about the requested charm.
-func (f *Facade) CharmInfo(args params.CharmURL) (params.Charm, error) {
+func (f *Facade) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm, error) {
 	return f.charmInfoAPI.CharmInfo(args)
 }
 
 // ApplicationCharmInfo returns information about an application's charm.
-func (f *Facade) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+func (f *Facade) ApplicationCharmInfo(ctx context.Context, args params.Entity) (params.Charm, error) {
 	return f.appCharmInfoAPI.ApplicationCharmInfo(args)
 }
 
 // IsExposed returns whether the specified applications are exposed.
-func (f *Facade) IsExposed(args params.Entities) (params.BoolResults, error) {
+func (f *Facade) IsExposed(ctx context.Context, args params.Entities) (params.BoolResults, error) {
 	results := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
@@ -67,7 +68,7 @@ func (f *Facade) isExposed(backend CAASFirewallerState, tagString string) (bool,
 }
 
 // ApplicationsConfig returns the config for the specified applications.
-func (f *Facade) ApplicationsConfig(args params.Entities) (params.ApplicationGetConfigResults, error) {
+func (f *Facade) ApplicationsConfig(ctx context.Context, args params.Entities) (params.ApplicationGetConfigResults, error) {
 	results := params.ApplicationGetConfigResults{
 		Results: make([]params.ConfigResult, len(args.Entities)),
 	}
@@ -93,7 +94,7 @@ func (f *Facade) getApplicationConfig(tagString string) (map[string]interface{},
 
 // WatchApplications starts a StringsWatcher to watch applications
 // deployed to this model.
-func (f *Facade) WatchApplications() (params.StringsWatchResult, error) {
+func (f *Facade) WatchApplications(ctx context.Context) (params.StringsWatchResult, error) {
 	watch := f.state.WatchApplications()
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
@@ -139,7 +140,7 @@ func newFacade(
 
 // WatchOpenedPorts returns a new StringsWatcher for each given
 // model tag.
-func (f *Facade) WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error) {
+func (f *Facade) WatchOpenedPorts(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -183,7 +184,7 @@ func (f *Facade) watchOneModelOpenedPorts(tag names.Tag) (string, []string, erro
 }
 
 // GetOpenedPorts returns all the opened ports for each given application tag.
-func (f *Facade) GetOpenedPorts(arg params.Entity) (params.ApplicationOpenedPortsResults, error) {
+func (f *Facade) GetOpenedPorts(ctx context.Context, arg params.Entity) (params.ApplicationOpenedPortsResults, error) {
 	result := params.ApplicationOpenedPortsResults{
 		Results: make([]params.ApplicationOpenedPortsResult, 1),
 	}

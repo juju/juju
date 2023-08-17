@@ -7,6 +7,8 @@
 package cleaner
 
 import (
+	"context"
+
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
@@ -20,12 +22,12 @@ type CleanerAPI struct {
 }
 
 // Cleanup triggers a state cleanup
-func (api *CleanerAPI) Cleanup() error {
+func (api *CleanerAPI) Cleanup(ctx context.Context) error {
 	return api.st.Cleanup()
 }
 
 // WatchCleanups watches for cleanups to be performed in state.
-func (api *CleanerAPI) WatchCleanups() (params.NotifyWatchResult, error) {
+func (api *CleanerAPI) WatchCleanups(ctx context.Context) (params.NotifyWatchResult, error) {
 	watch := api.st.WatchCleanups()
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{

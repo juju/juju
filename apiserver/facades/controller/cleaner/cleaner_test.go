@@ -4,6 +4,8 @@
 package cleaner_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -59,7 +61,7 @@ func (s *CleanerSuite) TestNewCleanerAPIRequiresController(c *gc.C) {
 }
 
 func (s *CleanerSuite) TestWatchCleanupsSuccess(c *gc.C) {
-	_, err := s.api.WatchCleanups()
+	_, err := s.api.WatchCleanups(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "WatchCleanups")
 }
@@ -68,21 +70,21 @@ func (s *CleanerSuite) TestWatchCleanupsFailure(c *gc.C) {
 	s.st.SetErrors(errors.New("boom!"))
 	s.st.watchCleanupsFails = true
 
-	result, err := s.api.WatchCleanups()
+	result, err := s.api.WatchCleanups(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error.Error(), gc.Equals, "boom!")
 	s.st.CheckCallNames(c, "WatchCleanups")
 }
 
 func (s *CleanerSuite) TestCleanupSuccess(c *gc.C) {
-	err := s.api.Cleanup()
+	err := s.api.Cleanup(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "Cleanup")
 }
 
 func (s *CleanerSuite) TestCleanupFailure(c *gc.C) {
 	s.st.SetErrors(errors.New("Boom!"))
-	err := s.api.Cleanup()
+	err := s.api.Cleanup(context.Background())
 	c.Assert(err, gc.ErrorMatches, "Boom!")
 	s.st.CheckCallNames(c, "Cleanup")
 }

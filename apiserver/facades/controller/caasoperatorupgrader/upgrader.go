@@ -4,6 +4,8 @@
 package caasoperatorupgrader
 
 import (
+	"context"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
@@ -40,7 +42,7 @@ func NewCAASOperatorUpgraderAPI(
 }
 
 // UpgradeOperator upgrades the operator for the specified agents.
-func (api *API) UpgradeOperator(arg params.KubernetesUpgradeArg) (params.ErrorResult, error) {
+func (api *API) UpgradeOperator(ctx context.Context, arg params.KubernetesUpgradeArg) (params.ErrorResult, error) {
 	serverErr := func(err error) params.ErrorResult {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}

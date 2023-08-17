@@ -4,6 +4,7 @@
 package charmrevisionupdater_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/charm/v11"
@@ -99,7 +100,7 @@ func (s *updaterSuite) TestCharmhubUpdate(c *gc.C) {
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := updater.UpdateLatestRevisions()
+	result, err := updater.UpdateLatestRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 }
@@ -176,7 +177,7 @@ func (s *updaterSuite) testCharmhubUpdateMetrics(c *gc.C, ctrl *gomock.Controlle
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := updater.UpdateLatestRevisions()
+	result, err := updater.UpdateLatestRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 }
@@ -220,7 +221,7 @@ func (s *updaterSuite) TestEmptyModelMetrics(c *gc.C) {
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = updater.UpdateLatestRevisions()
+	_, err = updater.UpdateLatestRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -242,7 +243,7 @@ func (s *updaterSuite) TestEmptyModelNoMetrics(c *gc.C) {
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = updater.UpdateLatestRevisions()
+	_, err = updater.UpdateLatestRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -301,7 +302,7 @@ func (s *updaterSuite) TestCharmhubUpdateWithResources(c *gc.C) {
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := updater.UpdateLatestRevisions()
+	result, err := updater.UpdateLatestRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 }
@@ -331,7 +332,7 @@ func (s *updaterSuite) TestCharmhubNoUpdate(c *gc.C) {
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(client), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := updater.UpdateLatestRevisions()
+	result, err := updater.UpdateLatestRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 }
@@ -351,7 +352,7 @@ func (s *updaterSuite) TestCharmNotInStore(c *gc.C) {
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPIState(s.state, s.clock, s.newCharmhubClient(charmhubClient), loggo.GetLogger("juju.apiserver.charmrevisionupdater"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := updater.UpdateLatestRevisions()
+	result, err := updater.UpdateLatestRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 }

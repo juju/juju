@@ -4,6 +4,8 @@
 package agenttools
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/version/v2"
@@ -127,7 +129,7 @@ func updateToolsAvailability(modelGetter ModelGetter, newEnviron newEnvironFunc,
 
 // UpdateToolsAvailable invokes a lookup and further update in environ
 // for new patches of the current tool versions.
-func (api *AgentToolsAPI) UpdateToolsAvailable() error {
+func (api *AgentToolsAPI) UpdateToolsAvailable(ctx context.Context) error {
 	if !api.authorizer.AuthController() {
 		return apiservererrors.ErrPerm
 	}

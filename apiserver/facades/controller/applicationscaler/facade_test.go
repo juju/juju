@@ -4,6 +4,8 @@
 package applicationscaler_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -33,7 +35,7 @@ func (s *FacadeSuite) TestNotModelManager(c *gc.C) {
 
 func (s *FacadeSuite) TestWatchError(c *gc.C) {
 	fix := newWatchFixture(c, false)
-	result, err := fix.Facade.Watch()
+	result, err := fix.Facade.Watch(context.Background())
 	c.Check(err, gc.ErrorMatches, "blammo")
 	c.Check(result, gc.DeepEquals, params.StringsWatchResult{})
 	c.Check(fix.Resources.Count(), gc.Equals, 0)
@@ -41,7 +43,7 @@ func (s *FacadeSuite) TestWatchError(c *gc.C) {
 
 func (s *FacadeSuite) TestWatchSuccess(c *gc.C) {
 	fix := newWatchFixture(c, true)
-	result, err := fix.Facade.Watch()
+	result, err := fix.Facade.Watch(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result.Changes, jc.DeepEquals, []string{"pow", "zap", "kerblooie"})
 	c.Check(fix.Resources.Count(), gc.Equals, 1)
@@ -51,7 +53,7 @@ func (s *FacadeSuite) TestWatchSuccess(c *gc.C) {
 
 func (s *FacadeSuite) TestRescaleNonsense(c *gc.C) {
 	fix := newRescaleFixture(c)
-	result := fix.Facade.Rescale(entities("burble plink"))
+	result := fix.Facade.Rescale(context.Background(), entities("burble plink"))
 	c.Assert(result.Results, gc.HasLen, 1)
 	err := result.Results[0].Error
 	c.Check(err, gc.ErrorMatches, `"burble plink" is not a valid tag`)
@@ -59,7 +61,7 @@ func (s *FacadeSuite) TestRescaleNonsense(c *gc.C) {
 
 func (s *FacadeSuite) TestRescaleUnauthorized(c *gc.C) {
 	fix := newRescaleFixture(c)
-	result := fix.Facade.Rescale(entities("unit-foo-27"))
+	result := fix.Facade.Rescale(context.Background(), entities("unit-foo-27"))
 	c.Assert(result.Results, gc.HasLen, 1)
 	err := result.Results[0].Error
 	c.Check(err, gc.ErrorMatches, "permission denied")
@@ -68,7 +70,7 @@ func (s *FacadeSuite) TestRescaleUnauthorized(c *gc.C) {
 
 func (s *FacadeSuite) TestRescaleNotFound(c *gc.C) {
 	fix := newRescaleFixture(c)
-	result := fix.Facade.Rescale(entities("application-missing"))
+	result := fix.Facade.Rescale(context.Background(), entities("application-missing"))
 	c.Assert(result.Results, gc.HasLen, 1)
 	err := result.Results[0].Error
 	c.Check(err, gc.ErrorMatches, "application not found")
@@ -77,7 +79,7 @@ func (s *FacadeSuite) TestRescaleNotFound(c *gc.C) {
 
 func (s *FacadeSuite) TestRescaleError(c *gc.C) {
 	fix := newRescaleFixture(c)
-	result := fix.Facade.Rescale(entities("application-error"))
+	result := fix.Facade.Rescale(context.Background(), entities("application-error"))
 	c.Assert(result.Results, gc.HasLen, 1)
 	err := result.Results[0].Error
 	c.Check(err, gc.ErrorMatches, "blammo")
@@ -85,7 +87,7 @@ func (s *FacadeSuite) TestRescaleError(c *gc.C) {
 
 func (s *FacadeSuite) TestRescaleSuccess(c *gc.C) {
 	fix := newRescaleFixture(c)
-	result := fix.Facade.Rescale(entities("application-expected"))
+	result := fix.Facade.Rescale(context.Background(), entities("application-expected"))
 	c.Assert(result.Results, gc.HasLen, 1)
 	err := result.Results[0].Error
 	c.Check(err, gc.IsNil)
@@ -93,7 +95,7 @@ func (s *FacadeSuite) TestRescaleSuccess(c *gc.C) {
 
 func (s *FacadeSuite) TestRescaleMultiple(c *gc.C) {
 	fix := newRescaleFixture(c)
-	result := fix.Facade.Rescale(entities("application-error", "application-expected"))
+	result := fix.Facade.Rescale(context.Background(), entities("application-error", "application-expected"))
 	c.Assert(result.Results, gc.HasLen, 2)
 	err0 := result.Results[0].Error
 	c.Check(err0, gc.ErrorMatches, "blammo")

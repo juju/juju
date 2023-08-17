@@ -159,7 +159,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 
 	c.Assert(err, jc.ErrorIsNil)
 	suspended := true
-	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
+	results, err := s.api.PublishRelationChanges(context.Background(), params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
 				Life:                    lifeValue,
@@ -280,7 +280,7 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 		}, bakery.Op{"offer-uuid", "consume"})
 
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.api.RegisterRemoteRelations(params.RegisterRemoteRelationArgs{
+	results, err := s.api.RegisterRemoteRelations(context.Background(), params.RegisterRemoteRelationArgs{
 		Relations: []params.RegisterRemoteRelationArg{{
 			ApplicationToken:  "app-token",
 			SourceModelTag:    coretesting.ModelTag.String(),
@@ -364,7 +364,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
+	results, err := s.api.PublishIngressNetworkChanges(context.Background(), params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{
 			{
 				RelationToken: "token-db2:db django:db",
@@ -407,7 +407,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
+	results, err := s.api.PublishIngressNetworkChanges(context.Background(), params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{
 			{
 				RelationToken: "token-db2:db django:db",
@@ -459,7 +459,7 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 			},
 		},
 	}
-	results, err := s.api.WatchEgressAddressesForRelations(args)
+	results, err := s.api.WatchEgressAddressesForRelations(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
@@ -508,7 +508,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 			},
 		},
 	}
-	results, err := s.api.WatchRelationsSuspendedStatus(args)
+	results, err := s.api.WatchRelationsSuspendedStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
@@ -551,7 +551,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *g
 	}
 
 	// First check that when not migrating, we see the relation as dead.
-	results, err := s.api.WatchRelationsSuspendedStatus(args)
+	results, err := s.api.WatchRelationsSuspendedStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -566,7 +566,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *g
 	// Now indicate that a migration is active
 	// and ensure that the error flows to us.
 	s.st.migrationActive = true
-	results, err = s.api.WatchRelationsSuspendedStatus(args)
+	results, err = s.api.WatchRelationsSuspendedStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error.Code, gc.Equals, params.CodeNotFound)
@@ -659,7 +659,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
+	results, err := s.api.PublishRelationChanges(context.Background(), params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
 				Life:                    life.Alive,
@@ -733,7 +733,7 @@ func (s *crossmodelRelationsSuite) TestResumeRelationPermissionCheck(c *gc.C) {
 		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
+	results, err := s.api.PublishRelationChanges(context.Background(), params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
 				Suspended:               ptr(false),
@@ -807,7 +807,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 		}, bakery.Op{"db2:db django:db", "relate"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.api.WatchRelationChanges(params.RemoteEntityArgs{
+	result, err := s.api.WatchRelationChanges(context.Background(), params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{{
 			Token:     "token-db2:db django:db",
 			Macaroons: macaroon.Slice{mac.M()},
@@ -902,7 +902,7 @@ func (s *crossmodelRelationsSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 			},
 		},
 	}
-	results, err := s.api.WatchConsumedSecretsChanges(args)
+	results, err := s.api.WatchConsumedSecretsChanges(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error, gc.IsNil)

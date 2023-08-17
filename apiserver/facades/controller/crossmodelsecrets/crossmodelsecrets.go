@@ -67,7 +67,7 @@ func NewCrossModelSecretsAPI(
 }
 
 // GetSecretAccessScope returns the tokens for the access scope of the specified secrets and consumers.
-func (s *CrossModelSecretsAPI) GetSecretAccessScope(args params.GetRemoteSecretAccessArgs) (params.StringResults, error) {
+func (s *CrossModelSecretsAPI) GetSecretAccessScope(ctx stdcontext.Context, args params.GetRemoteSecretAccessArgs) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Args)),
 	}
@@ -142,7 +142,7 @@ func (s *CrossModelSecretsAPI) checkRelationMacaroons(consumerTag names.Tag, mac
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.
-func (s *CrossModelSecretsAPI) GetSecretContentInfo(args params.GetRemoteSecretContentArgs) (params.SecretContentResults, error) {
+func (s *CrossModelSecretsAPI) GetSecretContentInfo(ctx stdcontext.Context, args params.GetRemoteSecretContentArgs) (params.SecretContentResults, error) {
 	result := params.SecretContentResults{
 		Results: make([]params.SecretContentResult, len(args.Args)),
 	}

@@ -4,6 +4,8 @@
 package applicationscaler
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -45,7 +47,7 @@ func NewFacade(backend Backend, res facade.Resources, auth facade.Authorizer) (*
 
 // Watch returns a watcher that sends the names of services whose
 // unit count may be below their configured minimum.
-func (facade *Facade) Watch() (params.StringsWatchResult, error) {
+func (facade *Facade) Watch(ctx context.Context) (params.StringsWatchResult, error) {
 	watch := facade.backend.WatchScaledServices()
 	if changes, ok := <-watch.Changes(); ok {
 		id := facade.resources.Register(watch)
@@ -59,7 +61,7 @@ func (facade *Facade) Watch() (params.StringsWatchResult, error) {
 
 // Rescale causes any supplied services to be scaled up to their
 // minimum size.
-func (facade *Facade) Rescale(args params.Entities) params.ErrorResults {
+func (facade *Facade) Rescale(ctx context.Context, args params.Entities) params.ErrorResults {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}

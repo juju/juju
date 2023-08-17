@@ -4,6 +4,8 @@
 package caasmodeloperator_test
 
 import (
+	"context"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -54,7 +56,7 @@ func (m *ModelOperatorSuite) SetUpTest(c *gc.C) {
 }
 
 func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
-	info, err := m.api.ModelOperatorProvisioningInfo()
+	info, err := m.api.ModelOperatorProvisioningInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConf, err := m.state.ControllerConfig()

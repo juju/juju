@@ -4,6 +4,7 @@
 package actionpruner_test
 
 import (
+	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -44,7 +45,7 @@ func (s *ActionPrunerSuite) TestPruneNonController(c *gc.C) {
 	s.context.Auth_ = testing.FakeAuthorizer{}
 	api, err := actionpruner.NewAPI(s.context)
 	c.Assert(err, jc.ErrorIsNil)
-	err = api.Prune(params.ActionPruneArgs{})
+	err = api.Prune(context.Background(), params.ActionPruneArgs{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -56,7 +57,7 @@ func (s *ActionPrunerSuite) TestPrune(c *gc.C) {
 		called = true
 		return nil
 	})
-	err := s.api.Prune(params.ActionPruneArgs{
+	err := s.api.Prune(context.Background(), params.ActionPruneArgs{
 		MaxHistoryTime: time.Hour,
 		MaxHistoryMB:   666,
 	})

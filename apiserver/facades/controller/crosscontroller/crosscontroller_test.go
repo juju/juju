@@ -4,6 +4,7 @@
 package crosscontroller_test
 
 import (
+	"context"
 	"errors"
 
 	jc "github.com/juju/testing/checkers"
@@ -53,7 +54,7 @@ func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *CrossControllerSuite) TestControllerInfo(c *gc.C) {
-	results, err := s.api.ControllerInfo()
+	results, err := s.api.ControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
 		[]params.ControllerAPIInfoResult{{
@@ -65,7 +66,7 @@ func (s *CrossControllerSuite) TestControllerInfo(c *gc.C) {
 
 func (s *CrossControllerSuite) TestControllerInfoWithDNSAddress(c *gc.C) {
 	s.publicDnsAddress = "publicDNSaddr"
-	results, err := s.api.ControllerInfo()
+	results, err := s.api.ControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
 		[]params.ControllerAPIInfoResult{{
@@ -79,7 +80,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *gc.C) {
 	s.localControllerInfo = func() ([]string, string, error) {
 		return nil, "", errors.New("nope")
 	}
-	results, err := s.api.ControllerInfo()
+	results, err := s.api.ControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
 		[]params.ControllerAPIInfoResult{{
@@ -90,7 +91,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *gc.C) {
 
 func (s *CrossControllerSuite) TestWatchControllerInfo(c *gc.C) {
 	s.watcher.changes <- struct{}{} // initial value
-	results, err := s.api.WatchControllerInfo()
+	results, err := s.api.WatchControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
 		[]params.NotifyWatchResult{{
@@ -104,7 +105,7 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *gc.C) {
 	s.watcher.tomb.Kill(errors.New("nope"))
 	close(s.watcher.changes)
 
-	results, err := s.api.WatchControllerInfo()
+	results, err := s.api.WatchControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
 		[]params.NotifyWatchResult{{

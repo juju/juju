@@ -4,6 +4,8 @@
 package caasoperatorupgrader_test
 
 import (
+	"context"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -50,7 +52,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 
 func (s *CAASProvisionerSuite) TestUpgradeOperator(c *gc.C) {
 	vers := version.MustParse("6.6.6")
-	result, err := s.api.UpgradeOperator(params.KubernetesUpgradeArg{
+	result, err := s.api.UpgradeOperator(context.Background(), params.KubernetesUpgradeArg{
 		AgentTag: s.authorizer.Tag.String(),
 		Version:  vers,
 	})
@@ -69,7 +71,7 @@ func (s *CAASProvisionerSuite) assertUpgradeController(c *gc.C, tag names.Tag) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	vers := version.MustParse("6.6.6")
-	result, err := api.UpgradeOperator(params.KubernetesUpgradeArg{
+	result, err := api.UpgradeOperator(context.Background(), params.KubernetesUpgradeArg{
 		AgentTag: s.authorizer.Tag.String(),
 		Version:  vers,
 	})

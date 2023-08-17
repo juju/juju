@@ -4,6 +4,7 @@
 package caasmodeloperator
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -56,7 +57,7 @@ func NewAPI(
 
 // ModelOperatorProvisioningInfo returns the information needed for provisioning
 // a new model operator into a caas cluster.
-func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) {
+func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOperatorInfo, error) {
 	var result params.ModelOperatorInfo
 	controllerConf, err := a.ctrlState.ControllerConfig()
 	if err != nil {
@@ -79,7 +80,7 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 				modelConfig.Name()))
 	}
 
-	apiAddresses, err := a.APIAddresses()
+	apiAddresses, err := a.APIAddresses(context.Background())
 	if err != nil && apiAddresses.Error != nil {
 		err = apiAddresses.Error
 	}
@@ -106,12 +107,12 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 // It is implemented here directly as a result of removing it from
 // embedded APIAddresser *without* bumping the facade version.
 // It should be blanked when this facade version is next incremented.
-func (a *API) ModelUUID() params.StringResult {
+func (a *API) ModelUUID(ctx context.Context) params.StringResult {
 	return params.StringResult{Result: a.state.ModelUUID()}
 }
 
 // APIHostPorts returns the API server addresses.
-func (u *API) APIHostPorts() (result params.APIHostPortsResult, err error) {
+func (u *API) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
 	controllerConfig, err := u.ctrlState.ControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
@@ -121,7 +122,7 @@ func (u *API) APIHostPorts() (result params.APIHostPortsResult, err error) {
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-func (u *API) APIAddresses() (result params.StringsResult, err error) {
+func (u *API) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
 	controllerConfig, err := u.ctrlState.ControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)

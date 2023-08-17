@@ -4,6 +4,8 @@
 package caasunitprovisioner
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -44,7 +46,7 @@ func NewFacade(
 
 // WatchApplicationsScale starts a NotifyWatcher to watch changes
 // to the applications' scale.
-func (f *Facade) WatchApplicationsScale(args params.Entities) (params.NotifyWatchResults, error) {
+func (f *Facade) WatchApplicationsScale(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	results := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
@@ -75,7 +77,7 @@ func (f *Facade) watchApplicationScale(tagString string) (string, error) {
 	return "", watcher.EnsureErr(w)
 }
 
-func (f *Facade) ApplicationsScale(args params.Entities) (params.IntResults, error) {
+func (f *Facade) ApplicationsScale(ctx context.Context, args params.Entities) (params.IntResults, error) {
 	results := params.IntResults{
 		Results: make([]params.IntResult, len(args.Entities)),
 	}
@@ -104,7 +106,7 @@ func (f *Facade) applicationScale(tagString string) (int, error) {
 }
 
 // ApplicationsTrust returns the trust status for specified applications in this model.
-func (f *Facade) ApplicationsTrust(args params.Entities) (params.BoolResults, error) {
+func (f *Facade) ApplicationsTrust(ctx context.Context, args params.Entities) (params.BoolResults, error) {
 	results := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
@@ -138,7 +140,7 @@ func (f *Facade) applicationTrust(tagString string) (bool, error) {
 
 // WatchApplicationsTrustHash starts a StringsWatcher to watch changes
 // to the applications' trust status.
-func (f *Facade) WatchApplicationsTrustHash(args params.Entities) (params.StringsWatchResults, error) {
+func (f *Facade) WatchApplicationsTrustHash(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -175,7 +177,7 @@ func (f *Facade) watchApplicationTrustHash(tagString string) (string, error) {
 
 // UpdateApplicationsService updates the Juju data model to reflect the given
 // service details of the specified application.
-func (f *Facade) UpdateApplicationsService(args params.UpdateApplicationServiceArgs) (params.ErrorResults, error) {
+func (f *Facade) UpdateApplicationsService(ctx context.Context, args params.UpdateApplicationServiceArgs) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
