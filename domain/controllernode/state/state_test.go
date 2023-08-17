@@ -50,18 +50,22 @@ func (s *stateSuite) TestCurateNodes(c *gc.C) {
 	c.Check(ids.Contains("3"), jc.IsTrue)
 }
 
-func (s *stateSuite) TestUpdateBootstrapNodeBindAddress(c *gc.C) {
-	err := NewState(testing.TxnRunnerFactory(s.TxnRunner())).UpdateBootstrapNodeBindAddress(
-		context.Background(), "192.168.5.60")
+func (s *stateSuite) TestUpdateUpdateDqliteNode(c *gc.C) {
+	err := NewState(testing.TxnRunnerFactory(s.TxnRunner())).UpdateDqliteNode(
+		context.Background(), "0", 12345, "192.168.5.60")
 	c.Assert(err, jc.ErrorIsNil)
 
-	row := s.DB().QueryRow("SELECT bind_address FROM controller_node WHERE controller_id = 0")
+	row := s.DB().QueryRow("SELECT dqlite_node_id, bind_address FROM controller_node WHERE controller_id = '0'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
-	var addr string
-	err = row.Scan(&addr)
+	var (
+		id   int
+		addr string
+	)
+	err = row.Scan(&id, &addr)
 	c.Assert(err, jc.ErrorIsNil)
 
+	c.Check(id, gc.Equals, 12345)
 	c.Check(addr, gc.Equals, "192.168.5.60")
 }
 

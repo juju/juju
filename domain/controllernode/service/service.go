@@ -13,7 +13,7 @@ import (
 // methods for controller node concerns.
 type State interface {
 	CurateNodes(context.Context, []string, []string) error
-	UpdateBootstrapNodeBindAddress(context.Context, string) error
+	UpdateDqliteNode(context.Context, string, uint64, string) error
 	SelectModelUUID(context.Context, string) (string, error)
 }
 
@@ -34,11 +34,11 @@ func (s *Service) CurateNodes(ctx context.Context, toAdd, toRemove []string) err
 	return errors.Annotatef(err, "curating controller codes; adding %v, removing %v", toAdd, toRemove)
 }
 
-// UpdateBootstrapNodeBindAddress sets the input address as the Dqlite
-// bind address of the original bootstrapped controller node.
-func (s *Service) UpdateBootstrapNodeBindAddress(ctx context.Context, addr string) error {
-	err := s.st.UpdateBootstrapNodeBindAddress(ctx, addr)
-	return errors.Annotatef(err, "updating bootstrap node bind address to %q", addr)
+// UpdateDqliteNode sets the Dqlite node ID and bind address for the input
+// controller ID.
+func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
+	err := s.st.UpdateDqliteNode(ctx, controllerID, nodeID, addr)
+	return errors.Annotatef(err, "updating Dqlite node details for %q", controllerID)
 }
 
 // IsModelKnownToController returns true if the input

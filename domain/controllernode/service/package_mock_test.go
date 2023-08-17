@@ -63,16 +63,16 @@ func (mr *MockStateMockRecorder) SelectModelUUID(arg0, arg1 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectModelUUID", reflect.TypeOf((*MockState)(nil).SelectModelUUID), arg0, arg1)
 }
 
-// UpdateBootstrapNodeBindAddress mocks base method.
-func (m *MockState) UpdateBootstrapNodeBindAddress(arg0 context.Context, arg1 string) error {
+// UpdateDqliteNode mocks base method.
+func (m *MockState) UpdateDqliteNode(arg0 context.Context, arg1 string, arg2 uint64, arg3 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateBootstrapNodeBindAddress", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdateDqliteNode", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateBootstrapNodeBindAddress indicates an expected call of UpdateBootstrapNodeBindAddress.
-func (mr *MockStateMockRecorder) UpdateBootstrapNodeBindAddress(arg0, arg1 interface{}) *gomock.Call {
+// UpdateDqliteNode indicates an expected call of UpdateDqliteNode.
+func (mr *MockStateMockRecorder) UpdateDqliteNode(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBootstrapNodeBindAddress", reflect.TypeOf((*MockState)(nil).UpdateBootstrapNodeBindAddress), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateDqliteNode", reflect.TypeOf((*MockState)(nil).UpdateDqliteNode), arg0, arg1, arg2, arg3)
 }

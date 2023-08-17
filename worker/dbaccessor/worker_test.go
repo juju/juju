@@ -32,7 +32,6 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTrackedDBKill()
 
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
@@ -53,7 +52,7 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer w.Kill()
+	defer workertest.DirtyKill(c, w)
 
 	// Topology is just us. We should reconfigure the node and shut down.
 	select {
@@ -72,7 +71,6 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectClock()
-	s.expectTrackedDBKill()
 
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
@@ -92,7 +90,7 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerError(c *gc.C) {
 	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer w.Kill()
+	defer workertest.DirtyKill(c, w)
 
 	// If there are multiple servers reported, we can't reason about our
 	// current state in a discrete fashion. The worker throws an error.
@@ -114,8 +112,9 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerError(c *gc.C) {
 func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	dbDone := make(chan struct{})
 	s.expectClock()
-	s.expectTrackedDBKill()
+	s.expectTrackedDBUpdateNodeAndKill(dbDone)
 
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
@@ -138,7 +137,10 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer w.Kill()
+	defer func() {
+		close(dbDone)
+		workertest.CleanKill(c, w)
+	}()
 	dbw := w.(*dbWorker)
 
 	// Without a bind address for ourselves we keep waiting.
@@ -197,15 +199,14 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 		"leader-id",
 		"leader-role",
 	})
-
-	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	dbDone := make(chan struct{})
 	s.expectClock()
-	s.expectTrackedDBKill()
+	s.expectTrackedDBUpdateNodeAndKill(dbDone)
 
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
@@ -229,18 +230,20 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer w.Kill()
+	defer func() {
+		close(dbDone)
+		workertest.CleanKill(c, w)
+	}()
 
 	ensureStartup(c, w.(*dbWorker))
-
-	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	dbDone := make(chan struct{})
 	s.expectClock()
-	s.expectTrackedDBKill()
+	s.expectTrackedDBUpdateNodeAndKill(dbDone)
 
 	dataDir := c.MkDir()
 	mgrExp := s.nodeManager.EXPECT()
@@ -260,7 +263,10 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer w.Kill()
+	defer func() {
+		close(dbDone)
+		workertest.CleanKill(c, w)
+	}()
 	dbw := w.(*dbWorker)
 
 	ensureStartup(c, dbw)
@@ -291,15 +297,14 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for cluster change to be processed")
 	}
-
-	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	dbDone := make(chan struct{})
 	s.expectClock()
-	s.expectTrackedDBKill()
+	s.expectTrackedDBUpdateNodeAndKill(dbDone)
 
 	dataDir := c.MkDir()
 	mgrExp := s.nodeManager.EXPECT()
@@ -347,7 +352,11 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
-	defer w.Kill()
+	defer func() {
+		close(dbDone)
+		err := workertest.CheckKilled(c, w)
+		c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
+	}()
 	dbw := w.(*dbWorker)
 
 	ensureStartup(c, dbw)
@@ -365,9 +374,6 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for cluster change to be processed")
 	}
-
-	err := workertest.CheckKilled(c, w)
-	c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
@@ -382,10 +388,18 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-// expectTrackedDBKill accommodates termination of the TrackedDB.
-// the expectations are soft, because the worker may not have called the
-// NewDBWorker function before it is killed.
-func (s *workerSuite) expectTrackedDBKill() {
+// expectTrackedDBKillUpdateNode encompasses:
+// - Use by the controller node service to update the node info.
+// - Kill and wait upon termination of the worker.
+// The input channel is used to ensure that the runner call to Wait does not
+// return until we are ready.
+// The Kill expectation is soft, because this can be done via parent catacomb,
+// rather than a direct call.
+func (s *workerSuite) expectTrackedDBUpdateNodeAndKill(done chan struct{}) {
+	s.trackedDB.EXPECT().StdTxn(gomock.Any(), gomock.Any())
 	s.trackedDB.EXPECT().Kill().AnyTimes()
-	s.trackedDB.EXPECT().Wait().Return(nil).AnyTimes()
+	s.trackedDB.EXPECT().Wait().DoAndReturn(func() error {
+		<-done
+		return nil
+	})
 }

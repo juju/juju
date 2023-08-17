@@ -32,6 +32,31 @@ import (
 	"github.com/juju/juju/worker/dbaccessor"
 )
 
+// dqliteAppIntegrationSuite defines a base suite for running integration
+// tests against the Dqlite database. It overrides the various methods to
+// prevent the creation of a new database for each test.
+type dqliteAppIntegrationSuite struct {
+	databasetesting.DqliteSuite
+}
+
+func (s *dqliteAppIntegrationSuite) TearDownSuite(c *gc.C) {
+	// We don't call s.DBSuite.TearDownSuite here because
+	// we don't want to double close the dqlite app.
+	s.IsolationSuite.TearDownSuite(c)
+}
+
+func (s *dqliteAppIntegrationSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	if !dqlite.Enabled {
+		c.Skip("This requires a dqlite server to be running")
+	}
+}
+
+func (s *dqliteAppIntegrationSuite) TearDownTest(c *gc.C) {
+	s.IsolationSuite.TearDownTest(c)
+}
+
 type integrationSuite struct {
 	dqliteAppIntegrationSuite
 
@@ -64,6 +89,16 @@ func (s *integrationSuite) SetUpTest(c *gc.C) {
 	logger := loggo.GetLogger("worker.dbaccessor.test")
 	nodeManager := database.NewNodeManager(agentConfig, logger, coredatabase.NoopSlowQueryLogger{})
 
+	db, err := s.DBApp().Open(context.Background(), coredatabase.ControllerNS)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = database.NewDBMigration(
+		&txnRunner{db}, logger, schema.ControllerDDL(s.DBApp().ID())).Apply(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
 	w, err := dbaccessor.NewWorker(dbaccessor.WorkerConfig{
 		NewApp: func(string, ...app.Option) (dbaccessor.DBApp, error) {
 			return dbaccessor.WrapApp(s.DBApp()), nil
@@ -81,16 +116,6 @@ func (s *integrationSuite) SetUpTest(c *gc.C) {
 	s.dbGetter = w
 	s.dbDeleter = w
 	s.worker = w
-
-	db, err := s.DBApp().Open(context.Background(), coredatabase.ControllerNS)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = database.NewDBMigration(
-		&txnRunner{db: db}, logger, schema.ControllerDDL(s.DBApp().ID())).Apply(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *integrationSuite) TearDownTest(c *gc.C) {
@@ -203,32 +228,6 @@ func (s *integrationSuite) TestWorkerDeletingKnownDBWithoutGetFirst(c *gc.C) {
 
 	_, err = s.dbGetter.GetDB("fred")
 	c.Assert(err, gc.ErrorMatches, `.*"fred" not found`)
-}
-
-// integrationSuite defines a base suite for running integration tests against
-// the dqlite database. It overrides the various methods to prevent the creation
-// of a new database for each test.
-type dqliteAppIntegrationSuite struct {
-	databasetesting.DqliteSuite
-}
-
-func (s *dqliteAppIntegrationSuite) TearDownSuite(c *gc.C) {
-	s.IsolationSuite.TearDownSuite(c)
-
-	// Note: we don't call s.DBSuite.TearDownSuite here because we don't want
-	// to double close the dqlite app.
-}
-
-func (s *dqliteAppIntegrationSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-
-	if !dqlite.Enabled {
-		c.Skip("This requires a dqlite server to be running")
-	}
-}
-
-func (s *dqliteAppIntegrationSuite) TearDownTest(c *gc.C) {
-	s.IsolationSuite.TearDownTest(c)
 }
 
 type txnRunner struct {

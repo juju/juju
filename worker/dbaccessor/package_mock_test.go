@@ -178,6 +178,20 @@ func (m *MockDBApp) EXPECT() *MockDBAppMockRecorder {
 	return m.recorder
 }
 
+// Address mocks base method.
+func (m *MockDBApp) Address() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Address")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Address indicates an expected call of Address.
+func (mr *MockDBAppMockRecorder) Address() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Address", reflect.TypeOf((*MockDBApp)(nil).Address))
+}
+
 // Client mocks base method.
 func (m *MockDBApp) Client(arg0 context.Context) (Client, error) {
 	m.ctrl.T.Helper()

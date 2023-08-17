@@ -125,6 +125,10 @@ func (*App) Client(context.Context) (*client.Client, error) {
 	return &client.Client{}, nil
 }
 
+func (*App) Address() string {
+	return ""
+}
+
 func (*App) Close() error {
 	return nil
 }
