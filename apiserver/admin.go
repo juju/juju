@@ -300,7 +300,7 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 		for _, authenticator := range a.srv.loginAuthenticators {
 			var err error
 			authInfo, err = authenticator.AuthenticateLoginRequest(ctx, a.root.serverHost, modelUUID, authParams)
-			if errors.Is(err, errors.NotFound) || errors.Is(err, errors.NotImplemented) {
+			if errors.Is(err, errors.NotFound) || errors.Is(err, errors.NotImplemented) || errors.Is(err, errors.NotSupported) {
 				continue
 			} else if err != nil {
 				return nil, a.handleAuthError(err)

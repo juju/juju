@@ -137,10 +137,12 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	serverHost string,
 	modelUUID string,
 	authParams authentication.AuthParams,
-) (authentication.AuthInfo, error) {
-	if authParams.Credentials == "" && len(authParams.Macaroons) == 0 {
-		return authentication.AuthInfo{}, errors.NewNotSupported(nil, "no credentials or macaroons")
-	}
+) (_ authentication.AuthInfo, err error) {
+	defer func() {
+		if errors.Is(err, apiservererrors.ErrNoCreds) {
+			err = errors.NewNotSupported(err, "")
+		}
+	}()
 
 	st, err := a.statePool.Get(modelUUID)
 	if err != nil {
