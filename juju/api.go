@@ -353,7 +353,7 @@ func updateControllerDetailsFromLogin(
 	if diffContents {
 		logger.Infof("API endpoints changed from %v to %v", details.APIEndpoints, newDetails.APIEndpoints)
 	} else if reordered {
-		logger.Debugf("API endpoints reordered from %v to %v", details.APIEndpoints, newDetails.APIEndpoints)
+		logger.Tracef("API endpoints reordered from %v to %v", details.APIEndpoints, newDetails.APIEndpoints)
 	}
 	err = store.UpdateController(controllerName, *newDetails)
 	return errors.Trace(err)
