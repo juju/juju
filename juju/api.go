@@ -149,7 +149,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 	if !apiInfo.SkipLogin {
 		if ok {
 			if accountDetails, err = args.Store.AccountDetails(args.ControllerName); err != nil {
-				if !errors.IsNotFound(err) {
+				if !errors.Is(err, errors.NotFound) {
 					logger.Errorf("cannot load local account information: %v", err)
 				}
 			} else {

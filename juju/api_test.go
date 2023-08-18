@@ -515,7 +515,7 @@ func newAPIConnectionFromNames(
 		OpenAPI:        apiOpen,
 	}
 	accountDetails, err := store.AccountDetails(controller)
-	if !errors.IsNotFound(err) {
+	if !errors.Is(err, errors.NotFound) {
 		c.Assert(err, jc.ErrorIsNil)
 		args.AccountDetails = accountDetails
 	}
