@@ -6,10 +6,6 @@ package uniter_test
 import (
 	"context"
 	"fmt"
-	"github.com/juju/juju/apiserver/common/cloudspec"
-	"github.com/juju/juju/apiserver/common/unitcommon"
-	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
-	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"time"
 
 	"github.com/juju/charm/v11"
@@ -27,10 +23,14 @@ import (
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/cloudspec"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
+	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
+	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/facades/agent/uniter/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"

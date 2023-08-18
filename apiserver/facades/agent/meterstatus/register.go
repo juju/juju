@@ -7,10 +7,6 @@ import (
 	"reflect"
 
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/domain"
-	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
-	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -24,12 +20,6 @@ func Register(registry facade.FacadeRegistry) {
 func newMeterStatusFacade(ctx facade.Context) (*MeterStatusAPI, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	controllerConfigGetter := controllerconfigservice.NewService(
-		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(ctx.ControllerDB)),
-		domain.NewWatcherFactory(
-			ctx.ControllerDB,
-			ctx.Logger().Child("controllerconfig"),
-		),
-	)
+	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
 	return NewMeterStatusAPI(controllerConfigGetter, ctx.State(), resources, authorizer, ctx.Logger().Child("meterstatus"))
 }

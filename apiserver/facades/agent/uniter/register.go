@@ -18,11 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
-	"github.com/juju/juju/core/changestream"
 	coreleadership "github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/domain"
-	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
-	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	"github.com/juju/juju/state"
 )
 
@@ -71,13 +67,7 @@ func NewUniterFacade(context facade.Context) (*UniterAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigService := controllerconfigservice.NewService(
-		controllerconfigstate.NewState(changestream.NewTxnRunnerFactory(context.ControllerDB)),
-		domain.NewWatcherFactory(
-			context.ControllerDB,
-			context.Logger().Child("controllerconfig"),
-		),
-	)
+	controllerConfigService := context.ServiceFactory().ControllerConfig()
 	msAPI, err := meterstatus.NewMeterStatusAPI(
 		controllerConfigService, st,
 		resources, authorizer,
