@@ -4,6 +4,7 @@
 package logfwd
 
 import (
+	"context"
 	"io"
 
 	"github.com/juju/errors"
@@ -52,7 +53,7 @@ func NewLogForwardingAPI(st LogForwardingState, auth facade.Authorizer) (*LogFor
 
 // GetLastSent is a bulk call that gets the log forwarding "last sent"
 // record ID for each requested target.
-func (api *LogForwardingAPI) GetLastSent(args params.LogForwardingGetLastSentParams) params.LogForwardingGetLastSentResults {
+func (api *LogForwardingAPI) GetLastSent(ctx context.Context, args params.LogForwardingGetLastSentParams) params.LogForwardingGetLastSentResults {
 	results := make([]params.LogForwardingGetLastSentResult, len(args.IDs))
 	for i, id := range args.IDs {
 		results[i] = api.get(id)
@@ -86,7 +87,7 @@ func (api *LogForwardingAPI) get(id params.LogForwardingID) params.LogForwarding
 
 // SetLastSent is a bulk call that sets the log forwarding "last sent"
 // record ID for each requested target.
-func (api *LogForwardingAPI) SetLastSent(args params.LogForwardingSetLastSentParams) params.ErrorResults {
+func (api *LogForwardingAPI) SetLastSent(ctx context.Context, args params.LogForwardingSetLastSentParams) params.ErrorResults {
 	results := make([]params.ErrorResult, len(args.Params), len(args.Params))
 	for i, arg := range args.Params {
 		results[i].Error = api.set(arg)

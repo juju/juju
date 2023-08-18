@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	"context"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -67,6 +69,7 @@ func (s *RemoteFirewallerSuite) TestWatchIngressAddressesForRelations(c *gc.C) {
 	s.st.EXPECT().KeyRelation("remote-db2:db django:db").Return(db2Relation, nil)
 
 	result, err := s.api.WatchIngressAddressesForRelations(
+		context.Background(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
 		}}},
@@ -92,6 +95,7 @@ func (s *RemoteFirewallerSuite) TestMacaroonForRelations(c *gc.C) {
 	s.st.EXPECT().GetMacaroon(entity).Return(mac, nil)
 
 	result, err := s.api.MacaroonForRelations(
+		context.Background(),
 		params.Entities{Entities: []params.Entity{{
 			Tag: entity.String(),
 		}}},
@@ -112,6 +116,7 @@ func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {
 	s.st.EXPECT().KeyRelation("remote-db2:db django:db").Return(db2Relation, nil)
 
 	result, err := s.api.SetRelationsStatus(
+		context.Background(),
 		params.SetStatus{Entities: []params.EntityStatusArgs{{
 			Tag:    entity.String(),
 			Status: "suspended",
@@ -169,7 +174,7 @@ func (s *FirewallerSuite) TestModelFirewallRules(c *gc.C) {
 	s.st.EXPECT().ControllerConfig().Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{}))
 	s.st.EXPECT().IsController().Return(false)
 
-	rules, err := s.api.ModelFirewallRules()
+	rules, err := s.api.ModelFirewallRules(context.Background())
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
@@ -193,7 +198,7 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
 	s.st.EXPECT().ControllerConfig().Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, ctrlAttrs))
 	s.st.EXPECT().IsController().Return(true)
 
-	rules, err := s.api.ModelFirewallRules()
+	rules, err := s.api.ModelFirewallRules(context.Background())
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rules, gc.DeepEquals, params.IngressRulesResult{Rules: []params.IngressRule{{
@@ -223,7 +228,7 @@ func (s *FirewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
 	s.st.EXPECT().WatchForModelConfigChanges().Return(w)
 	s.st.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 
-	result, err := s.api.WatchModelFirewallRules()
+	result, err := s.api.WatchModelFirewallRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.NotifyWatcherId, gc.Equals, "1")
@@ -287,7 +292,7 @@ func (s *FirewallerSuite) TestOpenedMachinePortRanges(c *gc.C) {
 			{Tag: names.NewMachineTag("0").String()},
 		},
 	}
-	res, err := s.api.OpenedMachinePortRanges(req)
+	res, err := s.api.OpenedMachinePortRanges(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
 
@@ -351,7 +356,7 @@ func (s *FirewallerSuite) TestAllSpaceInfos(c *gc.C) {
 	req := params.SpaceInfosParams{
 		FilterBySpaceIDs: []string{network.AlphaSpaceId, "42"},
 	}
-	res, err := s.api.SpaceInfos(req)
+	res, err := s.api.SpaceInfos(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Hydrate a network.SpaceInfos from the response

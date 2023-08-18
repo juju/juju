@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
@@ -355,7 +357,7 @@ func (s *firewallerBaseSuite) testWatchUnits(
 func (s *firewallerBaseSuite) testGetAssignedMachine(
 	c *gc.C,
 	facade interface {
-		GetAssignedMachine(args params.Entities) (params.StringResults, error)
+		GetAssignedMachine(ctx context.Context, args params.Entities) (params.StringResults, error)
 	},
 ) {
 	// Unassign a unit first.
@@ -367,7 +369,7 @@ func (s *firewallerBaseSuite) testGetAssignedMachine(
 		{Tag: s.units[1].Tag().String()},
 		{Tag: s.units[2].Tag().String()},
 	}})
-	result, err := facade.GetAssignedMachine(args)
+	result, err := facade.GetAssignedMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -390,7 +392,7 @@ func (s *firewallerBaseSuite) testGetAssignedMachine(
 	args = params.Entities{Entities: []params.Entity{
 		{Tag: s.units[2].Tag().String()},
 	}}
-	result, err = facade.GetAssignedMachine(args)
+	result, err = facade.GetAssignedMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{

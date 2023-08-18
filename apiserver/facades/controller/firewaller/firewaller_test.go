@@ -4,6 +4,7 @@
 package firewaller_test
 
 import (
+	"context"
 	"sort"
 	"time"
 
@@ -158,7 +159,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 		{Tag: s.application.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
-	result, err := s.firewaller.WatchOpenedPorts(args)
+	result, err := s.firewaller.WatchOpenedPorts(context.Background(), args)
 	sort.Strings(result.Results[0].Changes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
@@ -207,7 +208,7 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 		{Tag: s.units[0].Tag().String()},
 	}})
 
-	result, err := s.firewaller.AreManuallyProvisioned(args)
+	result, err := s.firewaller.AreManuallyProvisioned(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -241,7 +242,7 @@ func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.application.Tag().String()},
 	}})
-	result, err := s.firewaller.GetExposeInfo(args)
+	result, err := s.firewaller.GetExposeInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ExposeInfoResults{
 		Results: []params.ExposeInfoResult{
@@ -270,7 +271,7 @@ func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
 	args = params.Entities{Entities: []params.Entity{
 		{Tag: s.application.Tag().String()},
 	}}
-	result, err = s.firewaller.GetExposeInfo(args)
+	result, err = s.firewaller.GetExposeInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ExposeInfoResults{
 		Results: []params.ExposeInfoResult{
@@ -332,7 +333,7 @@ drain:
 		entities.Entities[i].Tag = tag.String()
 	}
 
-	got, err := s.firewaller.WatchSubnets(entities)
+	got, err := s.firewaller.WatchSubnets(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",

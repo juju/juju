@@ -44,7 +44,7 @@ func NewAPI(
 
 // WatchExternalControllers watches for the addition and removal of external
 // controller records to the local controller's database.
-func (api *ExternalControllerUpdaterAPI) WatchExternalControllers() (params.StringsWatchResults, error) {
+func (api *ExternalControllerUpdaterAPI) WatchExternalControllers(ctx context.Context) (params.StringsWatchResults, error) {
 	w, err := api.ecService.Watch()
 	if err != nil {
 		return params.StringsWatchResults{
@@ -70,7 +70,7 @@ func (api *ExternalControllerUpdaterAPI) WatchExternalControllers() (params.Stri
 }
 
 // ExternalControllerInfo returns the info for the specified external controllers.
-func (s *ExternalControllerUpdaterAPI) ExternalControllerInfo(args params.Entities) (params.ExternalControllerInfoResults, error) {
+func (s *ExternalControllerUpdaterAPI) ExternalControllerInfo(ctx context.Context, args params.Entities) (params.ExternalControllerInfoResults, error) {
 	result := params.ExternalControllerInfoResults{
 		Results: make([]params.ExternalControllerInfoResult, len(args.Entities)),
 	}
@@ -96,7 +96,7 @@ func (s *ExternalControllerUpdaterAPI) ExternalControllerInfo(args params.Entiti
 }
 
 // SetExternalControllerInfo saves the info for the specified external controllers.
-func (s *ExternalControllerUpdaterAPI) SetExternalControllerInfo(args params.SetExternalControllersInfoParams) (params.ErrorResults, error) {
+func (s *ExternalControllerUpdaterAPI) SetExternalControllerInfo(ctx context.Context, args params.SetExternalControllersInfoParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Controllers)),
 	}

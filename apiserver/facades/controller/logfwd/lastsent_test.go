@@ -4,6 +4,8 @@
 package logfwd_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -66,7 +68,7 @@ func (s *LastSentSuite) TestGetLastSentOne(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
 
-	res := api.GetLastSent(params.LogForwardingGetLastSentParams{
+	res := api.GetLastSent(context.Background(), params.LogForwardingGetLastSentParams{
 		IDs: []params.LogForwardingID{{
 			ModelTag: modelTag.String(),
 			Sink:     "spam",
@@ -95,7 +97,7 @@ func (s *LastSentSuite) TestGetLastSentBulk(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
 
-	res := api.GetLastSent(params.LogForwardingGetLastSentParams{
+	res := api.GetLastSent(context.Background(), params.LogForwardingGetLastSentParams{
 		IDs: []params.LogForwardingID{{
 			ModelTag: modelTag.String(),
 			Sink:     "spam",
@@ -139,7 +141,7 @@ func (s *LastSentSuite) TestSetLastSentOne(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
 
-	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
+	res := api.SetLastSent(context.Background(), params.LogForwardingSetLastSentParams{
 		Params: []params.LogForwardingSetLastSentParam{{
 			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag.String(),
@@ -171,7 +173,7 @@ func (s *LastSentSuite) TestSetLastSentBulk(c *gc.C) {
 	model := "deadbeef-2f18-4fd2-967d-db9663db7bea"
 	modelTag := names.NewModelTag(model)
 
-	res := api.SetLastSent(params.LogForwardingSetLastSentParams{
+	res := api.SetLastSent(context.Background(), params.LogForwardingSetLastSentParams{
 		Params: []params.LogForwardingSetLastSentParam{{
 			LogForwardingID: params.LogForwardingID{
 				ModelTag: modelTag.String(),

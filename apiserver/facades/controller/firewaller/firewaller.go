@@ -4,6 +4,7 @@
 package firewaller
 
 import (
+	"context"
 	"sort"
 	"strconv"
 
@@ -127,7 +128,7 @@ func NewStateFirewallerAPI(
 
 // WatchOpenedPorts returns a new StringsWatcher for each given
 // model tag.
-func (f *FirewallerAPI) WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error) {
+func (f *FirewallerAPI) WatchOpenedPorts(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
@@ -172,7 +173,7 @@ func (f *FirewallerAPI) watchOneModelOpenedPorts(tag names.Tag) (string, []strin
 
 // ModelFirewallRules returns the firewall rules that this model is
 // configured to open
-func (f *FirewallerAPI) ModelFirewallRules() (params.IngressRulesResult, error) {
+func (f *FirewallerAPI) ModelFirewallRules(ctx context.Context) (params.IngressRulesResult, error) {
 	cfg, err := f.st.ModelConfig()
 	if err != nil {
 		return params.IngressRulesResult{Error: apiservererrors.ServerError(err)}, nil
@@ -204,7 +205,7 @@ func (f *FirewallerAPI) ModelFirewallRules() (params.IngressRulesResult, error) 
 
 // WatchModelFirewallRules returns a NotifyWatcher that notifies of
 // potential changes to a model's configured firewall rules
-func (f *FirewallerAPI) WatchModelFirewallRules() (params.NotifyWatchResult, error) {
+func (f *FirewallerAPI) WatchModelFirewallRules(ctx context.Context) (params.NotifyWatchResult, error) {
 	watch, err := NewModelFirewallRulesWatcher(f.st)
 	if err != nil {
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
@@ -220,7 +221,7 @@ func (f *FirewallerAPI) WatchModelFirewallRules() (params.NotifyWatchResult, err
 
 // GetAssignedMachine returns the assigned machine tag (if any) for
 // each given unit.
-func (f *FirewallerAPI) GetAssignedMachine(args params.Entities) (params.StringResults, error) {
+func (f *FirewallerAPI) GetAssignedMachine(ctx context.Context, args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
@@ -314,13 +315,13 @@ func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineT
 // WatchEgressAddressesForRelations creates a watcher that notifies when addresses, from which
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
-func (f *FirewallerAPI) WatchEgressAddressesForRelations(relations params.Entities) (params.StringsWatchResults, error) {
+func (f *FirewallerAPI) WatchEgressAddressesForRelations(ctx context.Context, relations params.Entities) (params.StringsWatchResults, error) {
 	return firewall.WatchEgressAddressesForRelations(f.resources, f.st, relations)
 }
 
 // WatchIngressAddressesForRelations creates a watcher that returns the ingress networks
 // that have been recorded against the specified relations.
-func (f *FirewallerAPI) WatchIngressAddressesForRelations(relations params.Entities) (params.StringsWatchResults, error) {
+func (f *FirewallerAPI) WatchIngressAddressesForRelations(ctx context.Context, relations params.Entities) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
 		make([]params.StringsWatchResult, len(relations.Entities)),
 	}
@@ -357,7 +358,7 @@ func (f *FirewallerAPI) WatchIngressAddressesForRelations(relations params.Entit
 }
 
 // MacaroonForRelations returns the macaroon for the specified relations.
-func (f *FirewallerAPI) MacaroonForRelations(args params.Entities) (params.MacaroonResults, error) {
+func (f *FirewallerAPI) MacaroonForRelations(ctx context.Context, args params.Entities) (params.MacaroonResults, error) {
 	var result params.MacaroonResults
 	result.Results = make([]params.MacaroonResult, len(args.Entities))
 	for i, entity := range args.Entities {
@@ -377,7 +378,7 @@ func (f *FirewallerAPI) MacaroonForRelations(args params.Entities) (params.Macar
 }
 
 // SetRelationsStatus sets the status for the specified relations.
-func (f *FirewallerAPI) SetRelationsStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (f *FirewallerAPI) SetRelationsStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	var result params.ErrorResults
 	result.Results = make([]params.ErrorResult, len(args.Entities))
 	for i, entity := range args.Entities {
@@ -402,7 +403,7 @@ func (f *FirewallerAPI) SetRelationsStatus(args params.SetStatus) (params.ErrorR
 
 // AreManuallyProvisioned returns whether each given entity is
 // manually provisioned or not. Only machine tags are accepted.
-func (f *FirewallerAPI) AreManuallyProvisioned(args params.Entities) (params.BoolResults, error) {
+func (f *FirewallerAPI) AreManuallyProvisioned(ctx context.Context, args params.Entities) (params.BoolResults, error) {
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
@@ -429,7 +430,7 @@ func (f *FirewallerAPI) AreManuallyProvisioned(args params.Entities) (params.Boo
 // specified machines where each result is broken down by unit. The list of
 // opened ports for each unit is further grouped by endpoint name and includes
 // the subnet CIDRs that belong to the space that each endpoint is bound to.
-func (f *FirewallerAPI) OpenedMachinePortRanges(args params.Entities) (params.OpenMachinePortRangesResults, error) {
+func (f *FirewallerAPI) OpenedMachinePortRanges(ctx context.Context, args params.Entities) (params.OpenMachinePortRangesResults, error) {
 	result := params.OpenMachinePortRangesResults{
 		Results: make([]params.OpenMachinePortRangesResult, len(args.Entities)),
 	}
@@ -567,7 +568,7 @@ func mapUnitPortsAndResolveSubnetCIDRs(portRangesByEndpoint network.GroupedPortR
 
 // GetExposeInfo returns the expose flag and per-endpoint expose settings
 // for the specified applications.
-func (f *FirewallerAPI) GetExposeInfo(args params.Entities) (params.ExposeInfoResults, error) {
+func (f *FirewallerAPI) GetExposeInfo(ctx context.Context, args params.Entities) (params.ExposeInfoResults, error) {
 	canAccess, err := f.accessApplication()
 	if err != nil {
 		return params.ExposeInfoResults{}, err
@@ -610,7 +611,7 @@ func (f *FirewallerAPI) GetExposeInfo(args params.Entities) (params.ExposeInfoRe
 
 // SpaceInfos returns a comprehensive representation of either all spaces or
 // a filtered subset of the known spaces and their associated subnet details.
-func (f *FirewallerAPI) SpaceInfos(args params.SpaceInfosParams) (params.SpaceInfos, error) {
+func (f *FirewallerAPI) SpaceInfos(ctx context.Context, args params.SpaceInfosParams) (params.SpaceInfos, error) {
 	if !f.authorizer.AuthController() {
 		return params.SpaceInfos{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
@@ -640,7 +641,7 @@ func (f *FirewallerAPI) SpaceInfos(args params.SpaceInfosParams) (params.SpaceIn
 
 // WatchSubnets returns a new StringsWatcher that watches the specified
 // subnet tags or all tags if no entities are specified.
-func (f *FirewallerAPI) WatchSubnets(args params.Entities) (params.StringsWatchResult, error) {
+func (f *FirewallerAPI) WatchSubnets(ctx context.Context, args params.Entities) (params.StringsWatchResult, error) {
 	if !f.authorizer.AuthController() {
 		return params.StringsWatchResult{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}

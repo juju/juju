@@ -4,6 +4,8 @@
 package environupgrader_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -77,7 +79,7 @@ func (s *EnvironUpgraderSuite) TestAuthNonController(c *gc.C) {
 func (s *EnvironUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
 	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := facade.ModelEnvironVersion(params.Entities{
+	results, err := facade.ModelEnvironVersion(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: modelTag1.String()},
 			{Tag: modelTag2.String()},
@@ -106,7 +108,7 @@ func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 	s.providers.SetErrors(nil, errors.New("blargh"))
 	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := facade.ModelTargetEnvironVersion(params.Entities{
+	results, err := facade.ModelTargetEnvironVersion(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: modelTag1.String()},
 			{Tag: modelTag2.String()},
@@ -143,7 +145,7 @@ func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 func (s *EnvironUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
 	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := facade.SetModelEnvironVersion(params.SetModelEnvironVersions{
+	results, err := facade.SetModelEnvironVersion(context.Background(), params.SetModelEnvironVersions{
 		Models: []params.SetModelEnvironVersion{
 			{ModelTag: modelTag1.String(), Version: 1},
 			{ModelTag: "machine-0", Version: 0},
@@ -183,7 +185,7 @@ func (s *EnvironUpgraderSuite) TestSetModelStatus(c *gc.C) {
 
 	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := facade.SetModelStatus(args)
+	results, err := facade.SetModelStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, s.statusSetter.results)
 	s.backend.CheckNoCalls(c)

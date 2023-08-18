@@ -80,7 +80,7 @@ func NewAPI(
 // Watch starts watching for an active migration for the model
 // associated with the API connection. The returned id should be used
 // with the NotifyWatcher facade to receive events.
-func (api *API) Watch() params.NotifyWatchResult {
+func (api *API) Watch(ctx context.Context) params.NotifyWatchResult {
 	watch := api.backend.WatchForMigration()
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
@@ -94,7 +94,7 @@ func (api *API) Watch() params.NotifyWatchResult {
 
 // MigrationStatus returns the details and progress of the latest
 // model migration.
-func (api *API) MigrationStatus() (params.MasterMigrationStatus, error) {
+func (api *API) MigrationStatus(ctx context.Context) (params.MasterMigrationStatus, error) {
 	empty := params.MasterMigrationStatus{}
 
 	mig, err := api.backend.LatestMigration()
@@ -133,7 +133,7 @@ func (api *API) MigrationStatus() (params.MasterMigrationStatus, error) {
 
 // ModelInfo returns essential information about the model to be
 // migrated.
-func (api *API) ModelInfo() (params.MigrationModelInfo, error) {
+func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error) {
 	empty := params.MigrationModelInfo{}
 
 	name, err := api.backend.ModelName()
@@ -161,7 +161,7 @@ func (api *API) ModelInfo() (params.MigrationModelInfo, error) {
 
 // SourceControllerInfo returns the details required to connect to
 // the source controller for model migration.
-func (api *API) SourceControllerInfo() (params.MigrationSourceInfo, error) {
+func (api *API) SourceControllerInfo(ctx context.Context) (params.MigrationSourceInfo, error) {
 	empty := params.MigrationSourceInfo{}
 
 	localRelatedModels, err := api.backend.AllLocalRelatedModels()
@@ -198,7 +198,7 @@ func (api *API) SourceControllerInfo() (params.MigrationSourceInfo, error) {
 // SetPhase sets the phase of the active model migration. The provided
 // phase must be a valid phase value, for example QUIESCE" or
 // "ABORT". See the core/migration package for the complete list.
-func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
+func (api *API) SetPhase(ctx context.Context, args params.SetMigrationPhaseArgs) error {
 	mig, err := api.backend.LatestMigration()
 	if err != nil {
 		return errors.Annotate(err, "could not get migration")
@@ -215,7 +215,7 @@ func (api *API) SetPhase(args params.SetMigrationPhaseArgs) error {
 
 // Prechecks performs pre-migration checks on the model and
 // (source) controller.
-func (api *API) Prechecks(arg params.PrechecksArgs) error {
+func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
 	model, err := api.precheckBackend.Model()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model")
@@ -239,7 +239,7 @@ func (api *API) Prechecks(arg params.PrechecksArgs) error {
 // SetStatusMessage sets a human readable status message containing
 // information about the migration's progress. This will be shown in
 // status output shown to the end user.
-func (api *API) SetStatusMessage(args params.SetMigrationStatusMessageArgs) error {
+func (api *API) SetStatusMessage(ctx context.Context, args params.SetMigrationStatusMessageArgs) error {
 	mig, err := api.backend.LatestMigration()
 	if err != nil {
 		return errors.Annotate(err, "could not get migration")
@@ -277,13 +277,13 @@ func (api *API) Export(ctx context.Context) (params.SerializedModel, error) {
 
 // ProcessRelations processes any relations that need updating after an export.
 // This should help fix any remoteApplications that have been migrated.
-func (api *API) ProcessRelations(args params.ProcessRelations) error {
+func (api *API) ProcessRelations(ctx context.Context, args params.ProcessRelations) error {
 	return nil
 }
 
 // Reap removes all documents for the model associated with the API
 // connection.
-func (api *API) Reap() error {
+func (api *API) Reap(ctx context.Context) error {
 	mig, err := api.backend.LatestMigration()
 	if err != nil {
 		return errors.Trace(err)
@@ -300,7 +300,7 @@ func (api *API) Reap() error {
 
 // WatchMinionReports sets up a watcher which reports when a report
 // for a migration minion has arrived.
-func (api *API) WatchMinionReports() params.NotifyWatchResult {
+func (api *API) WatchMinionReports(ctx context.Context) params.NotifyWatchResult {
 	mig, err := api.backend.LatestMigration()
 	if err != nil {
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}
@@ -323,7 +323,7 @@ func (api *API) WatchMinionReports() params.NotifyWatchResult {
 
 // MinionReports returns details of the reports made by migration
 // minions to the controller for the current migration phase.
-func (api *API) MinionReports() (params.MinionReports, error) {
+func (api *API) MinionReports(ctx context.Context) (params.MinionReports, error) {
 	var out params.MinionReports
 
 	mig, err := api.backend.LatestMigration()
@@ -372,7 +372,7 @@ func (api *API) MinionReports() (params.MinionReports, error) {
 // MinionReportTimeout returns the configuration value for this controller that
 // indicates how long the migration master worker should wait for minions to
 // reported on phases of a migration.
-func (api *API) MinionReportTimeout() (params.StringResult, error) {
+func (api *API) MinionReportTimeout(ctx context.Context) (params.StringResult, error) {
 	cfg, err := api.backend.ControllerConfig()
 	if err != nil {
 		return params.StringResult{Error: apiservererrors.ServerError(err)}, nil

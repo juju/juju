@@ -4,6 +4,8 @@
 package environupgrader
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -62,7 +64,7 @@ func NewFacade(
 
 // ModelEnvironVersion returns the current version of the environ corresponding
 // to each specified model.
-func (f *Facade) ModelEnvironVersion(args params.Entities) (params.IntResults, error) {
+func (f *Facade) ModelEnvironVersion(ctx context.Context, args params.Entities) (params.IntResults, error) {
 	result := params.IntResults{
 		Results: make([]params.IntResult, len(args.Entities)),
 	}
@@ -93,7 +95,7 @@ func (f *Facade) modelEnvironVersion(arg params.Entity) (int, error) {
 // ModelTargetEnvironVersion returns the target version of the environ
 // corresponding to each specified model. The target version is the
 // environ provider's version.
-func (f *Facade) ModelTargetEnvironVersion(args params.Entities) (params.IntResults, error) {
+func (f *Facade) ModelTargetEnvironVersion(ctx context.Context, args params.Entities) (params.IntResults, error) {
 	result := params.IntResults{
 		Results: make([]params.IntResult, len(args.Entities)),
 	}
@@ -131,7 +133,7 @@ func (f *Facade) modelTargetEnvironVersion(arg params.Entity) (int, error) {
 
 // SetModelEnvironVersion sets the current version of the environ corresponding
 // to each specified model.
-func (f *Facade) SetModelEnvironVersion(args params.SetModelEnvironVersions) (params.ErrorResults, error) {
+func (f *Facade) SetModelEnvironVersion(ctx context.Context, args params.SetModelEnvironVersions) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Models)),
 	}
@@ -162,11 +164,11 @@ func (f *Facade) setModelEnvironVersion(arg params.SetModelEnvironVersion) error
 //
 // NOTE(axw) this is currently implemented in terms of state.Model.Watch, so
 // the client may be notified of changes unrelated to the environ version.
-func (f *Facade) WatchModelEnvironVersion(args params.Entities) (params.NotifyWatchResults, error) {
+func (f *Facade) WatchModelEnvironVersion(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	return f.entityWatcher.Watch(args)
 }
 
 // SetModelStatus sets the status of each given model.
-func (f *Facade) SetModelStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (f *Facade) SetModelStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	return f.statusSetter.SetStatus(args)
 }

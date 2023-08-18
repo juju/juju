@@ -4,6 +4,8 @@
 package externalcontrollerupdater_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -52,7 +54,7 @@ func (s *CrossControllerSuite) TestExternalControllerInfo(c *gc.C) {
 
 	api, err := externalcontrollerupdater.NewAPI(s.resources, ecService)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := api.ExternalControllerInfo(params.Entities{
+	results, err := api.ExternalControllerInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{coretesting.ControllerTag.String()},
 			{"controller-" + coretesting.ModelTag.Id()},
@@ -108,7 +110,7 @@ func (s *CrossControllerSuite) TestSetExternalControllerInfo(c *gc.C) {
 	api, err := externalcontrollerupdater.NewAPI(s.resources, ecService)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := api.SetExternalControllerInfo(params.SetExternalControllersInfoParams{
+	results, err := api.SetExternalControllerInfo(context.Background(), params.SetExternalControllersInfoParams{
 		[]params.SetExternalControllerInfoParams{{
 			params.ExternalControllerInfo{
 				ControllerTag: firstControllerTag,
@@ -156,7 +158,7 @@ func (s *CrossControllerSuite) TestWatchExternalControllers(c *gc.C) {
 
 	changes <- []string{"a", "b"} // initial value
 
-	results, err := api.WatchExternalControllers()
+	results, err := api.WatchExternalControllers(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.StringsWatchResults{
 		[]params.StringsWatchResult{{
@@ -184,7 +186,7 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *gc.C) {
 	api, err := externalcontrollerupdater.NewAPI(s.resources, ecService)
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := api.WatchExternalControllers()
+	results, err := api.WatchExternalControllers(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.StringsWatchResults{
 		[]params.StringsWatchResult{{

@@ -110,13 +110,13 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 		AgentVersion:           s.controllerVersion(c),
 		ControllerAgentVersion: s.controllerVersion(c),
 	}
-	err := api.Prechecks(args)
+	err := api.Prechecks(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *Suite) TestCACert(c *gc.C) {
 	api := s.mustNewAPI(c)
-	r, err := api.CACert()
+	r, err := api.CACert(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(r.Result), gc.Equals, jujutesting.CACert)
 }
@@ -132,7 +132,7 @@ func (s *Suite) TestPrechecksFail(c *gc.C) {
 	args := params.MigrationModelInfo{
 		AgentVersion: modelVersion,
 	}
-	err := api.Prechecks(args)
+	err := api.Prechecks(context.Background(), args)
 	c.Assert(err, gc.NotNil)
 }
 
@@ -151,7 +151,7 @@ func (s *Suite) TestAbort(c *gc.C) {
 	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 
-	err := api.Abort(params.ModelArgs{ModelTag: tag.String()})
+	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: tag.String()})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The model should no longer exist.
@@ -162,14 +162,14 @@ func (s *Suite) TestAbort(c *gc.C) {
 
 func (s *Suite) TestAbortNotATag(c *gc.C) {
 	api := s.mustNewAPI(c)
-	err := api.Abort(params.ModelArgs{ModelTag: "not-a-tag"})
+	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: "not-a-tag"})
 	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
 func (s *Suite) TestAbortMissingModel(c *gc.C) {
 	api := s.mustNewAPI(c)
 	newUUID := utils.MustNewUUID().String()
-	err := api.Abort(params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
+	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
 	c.Assert(err, gc.ErrorMatches, `model "`+newUUID+`" not found`)
 }
 
@@ -180,7 +180,7 @@ func (s *Suite) TestAbortNotImportingModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api := s.mustNewAPI(c)
-	err = api.Abort(params.ModelArgs{ModelTag: model.ModelTag().String()})
+	err = api.Abort(context.Background(), params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, gc.ErrorMatches, `migration mode for the model is not importing`)
 }
 
@@ -269,7 +269,7 @@ func (s *Suite) TestLatestLogTime(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api := s.mustNewAPI(c)
-	latest, err := api.LatestLogTime(params.ModelArgs{ModelTag: model.ModelTag().String()})
+	latest, err := api.LatestLogTime(context.Background(), params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(latest, gc.Equals, t)
 }
@@ -281,7 +281,7 @@ func (s *Suite) TestLatestLogTimeNeverSet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	api := s.mustNewAPI(c)
-	latest, err := api.LatestLogTime(params.ModelArgs{ModelTag: model.ModelTag().String()})
+	latest, err := api.LatestLogTime(context.Background(), params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(latest, gc.Equals, time.Time{})
 }
@@ -302,7 +302,7 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = api.AdoptResources(params.AdoptResourcesArgs{
+	err = api.AdoptResources(context.Background(), params.AdoptResourcesArgs{
 		ModelTag:                m.ModelTag().String(),
 		SourceControllerVersion: version.MustParse("3.2.1"),
 	})
@@ -331,7 +331,7 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = api.AdoptResources(params.AdoptResourcesArgs{
+	err = api.AdoptResources(context.Background(), params.AdoptResourcesArgs{
 		ModelTag:                m.ModelTag().String(),
 		SourceControllerVersion: version.MustParse("3.2.1"),
 	})
@@ -368,6 +368,7 @@ func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
+		context.Background(),
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
@@ -391,6 +392,7 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
+		context.Background(),
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
@@ -417,6 +419,7 @@ func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
+		context.Background(),
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
@@ -462,6 +465,7 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.CheckMachines(
+		context.Background(),
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})

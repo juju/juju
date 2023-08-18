@@ -4,6 +4,8 @@
 package instancepoller
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -115,6 +117,7 @@ func (a *InstancePollerAPI) getOneMachine(tag string, canAccess common.AuthFunc)
 // link layer devices (and their addresses) and merge in any missing
 // provider-specific information.
 func (a *InstancePollerAPI) SetProviderNetworkConfig(
+	ctx context.Context,
 	req params.SetProviderNetworkConfig,
 ) (params.SetProviderNetworkConfigResults, error) {
 	result := params.SetProviderNetworkConfigResults{
@@ -270,7 +273,7 @@ func spaceInfoForAddress(
 
 // ProviderAddresses returns the list of all known provider addresses
 // for each given entity. Only machine tags are accepted.
-func (a *InstancePollerAPI) ProviderAddresses(args params.Entities) (params.MachineAddressesResults, error) {
+func (a *InstancePollerAPI) ProviderAddresses(ctx context.Context, args params.Entities) (params.MachineAddressesResults, error) {
 	result := params.MachineAddressesResults{
 		Results: make([]params.MachineAddressesResult, len(args.Entities)),
 	}
@@ -299,7 +302,7 @@ func (a *InstancePollerAPI) ProviderAddresses(args params.Entities) (params.Mach
 
 // SetProviderAddresses updates the list of known provider addresses
 // for each given entity. Only machine tags are accepted.
-func (a *InstancePollerAPI) SetProviderAddresses(args params.SetMachinesAddresses) (params.ErrorResults, error) {
+func (a *InstancePollerAPI) SetProviderAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
 	}
@@ -328,7 +331,7 @@ func (a *InstancePollerAPI) SetProviderAddresses(args params.SetMachinesAddresse
 
 // InstanceStatus returns the instance status for each given entity.
 // Only machine tags are accepted.
-func (a *InstancePollerAPI) InstanceStatus(args params.Entities) (params.StatusResults, error) {
+func (a *InstancePollerAPI) InstanceStatus(ctx context.Context, args params.Entities) (params.StatusResults, error) {
 	result := params.StatusResults{
 		Results: make([]params.StatusResult, len(args.Entities)),
 	}
@@ -355,7 +358,7 @@ func (a *InstancePollerAPI) InstanceStatus(args params.Entities) (params.StatusR
 
 // SetInstanceStatus updates the instance status for each given entity.
 // Only machine tags are accepted.
-func (a *InstancePollerAPI) SetInstanceStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (a *InstancePollerAPI) SetInstanceStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -388,7 +391,7 @@ func (a *InstancePollerAPI) SetInstanceStatus(args params.SetStatus) (params.Err
 
 // AreManuallyProvisioned returns whether each given entity is
 // manually provisioned or not. Only machine tags are accepted.
-func (a *InstancePollerAPI) AreManuallyProvisioned(args params.Entities) (params.BoolResults, error) {
+func (a *InstancePollerAPI) AreManuallyProvisioned(ctx context.Context, args params.Entities) (params.BoolResults, error) {
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
 	}
