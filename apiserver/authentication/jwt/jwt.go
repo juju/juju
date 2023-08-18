@@ -88,7 +88,7 @@ func (j *JWTAuthenticator) AuthenticateLoginRequest(
 	authParams authentication.AuthParams,
 ) (authentication.AuthInfo, error) {
 	if authParams.Token == "" {
-		return authentication.AuthInfo{}, fmt.Errorf("auth token %w", errors.NotFound)
+		return authentication.AuthInfo{}, fmt.Errorf("auth token %w", errors.NotSupported)
 	}
 
 	token, entity, err := j.Parse(ctx, authParams.Token)
