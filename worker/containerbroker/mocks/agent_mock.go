@@ -348,6 +348,62 @@ func (mr *MockConfigMockRecorder) OldPassword() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OldPassword", reflect.TypeOf((*MockConfig)(nil).OldPassword))
 }
 
+// OpenTelemetryEnabled mocks base method.
+func (m *MockConfig) OpenTelemetryEnabled() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenTelemetryEnabled")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// OpenTelemetryEnabled indicates an expected call of OpenTelemetryEnabled.
+func (mr *MockConfigMockRecorder) OpenTelemetryEnabled() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenTelemetryEnabled", reflect.TypeOf((*MockConfig)(nil).OpenTelemetryEnabled))
+}
+
+// OpenTelemetryEndpoint mocks base method.
+func (m *MockConfig) OpenTelemetryEndpoint() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenTelemetryEndpoint")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// OpenTelemetryEndpoint indicates an expected call of OpenTelemetryEndpoint.
+func (mr *MockConfigMockRecorder) OpenTelemetryEndpoint() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenTelemetryEndpoint", reflect.TypeOf((*MockConfig)(nil).OpenTelemetryEndpoint))
+}
+
+// OpenTelemetryInsecure mocks base method.
+func (m *MockConfig) OpenTelemetryInsecure() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenTelemetryInsecure")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// OpenTelemetryInsecure indicates an expected call of OpenTelemetryInsecure.
+func (mr *MockConfigMockRecorder) OpenTelemetryInsecure() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenTelemetryInsecure", reflect.TypeOf((*MockConfig)(nil).OpenTelemetryInsecure))
+}
+
+// OpenTelemetryStackTraces mocks base method.
+func (m *MockConfig) OpenTelemetryStackTraces() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "OpenTelemetryStackTraces")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// OpenTelemetryStackTraces indicates an expected call of OpenTelemetryStackTraces.
+func (mr *MockConfigMockRecorder) OpenTelemetryStackTraces() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenTelemetryStackTraces", reflect.TypeOf((*MockConfig)(nil).OpenTelemetryStackTraces))
+}
+
 // QueryTracingEnabled mocks base method.
 func (m *MockConfig) QueryTracingEnabled() bool {
 	m.ctrl.T.Helper()

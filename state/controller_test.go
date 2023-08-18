@@ -70,6 +70,10 @@ func (s *ControllerSuite) TestControllerAndModelConfigInitialisation(c *gc.C) {
 		controller.ApplicationResourceDownloadLimit,
 		controller.QueryTracingEnabled,
 		controller.QueryTracingThreshold,
+		controller.OpenTelemetryEnabled,
+		controller.OpenTelemetryEndpoint,
+		controller.OpenTelemetryInsecure,
+		controller.OpenTelemetryStackTraces,
 	)
 	for _, controllerAttr := range controller.ControllerOnlyConfigAttributes {
 		v, ok := controllerSettings.Get(controllerAttr)

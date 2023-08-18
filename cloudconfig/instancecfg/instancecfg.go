@@ -500,6 +500,10 @@ func (cfg *InstanceConfig) AgentConfig(
 		configParams.AgentLogfileMaxSizeMB = cfg.ControllerConfig.AgentLogfileMaxSizeMB()
 		configParams.QueryTracingEnabled = cfg.ControllerConfig.QueryTracingEnabled()
 		configParams.QueryTracingThreshold = cfg.ControllerConfig.QueryTracingThreshold()
+		configParams.OpenTelemetryEnabled = cfg.ControllerConfig.OpenTelemetryEnabled()
+		configParams.OpenTelemetryEndpoint = cfg.ControllerConfig.OpenTelemetryEndpoint()
+		configParams.OpenTelemetryInsecure = cfg.ControllerConfig.OpenTelemetryInsecure()
+		configParams.OpenTelemetryStackTraces = cfg.ControllerConfig.OpenTelemetryStackTraces()
 	}
 	if cfg.Bootstrap == nil {
 		return agent.NewAgentConfig(configParams)

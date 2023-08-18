@@ -88,27 +88,46 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotate(err, "getting controller config")
 			}
 
-			logger := config.Logger
+			var (
+				logger        = config.Logger
+				currentConfig = agent.CurrentConfig()
+			)
 
 			// If the mongo memory profile from the controller config
 			// is different from the one in the agent config we need to
 			// restart the agent to apply the memory profile to the mongo
 			// service.
-			agentsMongoMemoryProfile := agent.CurrentConfig().MongoMemoryProfile()
+			agentsMongoMemoryProfile := currentConfig.MongoMemoryProfile()
 			configMongoMemoryProfile := mongo.MemoryProfile(controllerConfig.MongoMemoryProfile())
 			mongoProfileChanged := agentsMongoMemoryProfile != configMongoMemoryProfile
 
-			agentsJujuDBSnapChannel := agent.CurrentConfig().JujuDBSnapChannel()
+			agentsJujuDBSnapChannel := currentConfig.JujuDBSnapChannel()
 			configJujuDBSnapChannel := controllerConfig.JujuDBSnapChannel()
 			jujuDBSnapChannelChanged := agentsJujuDBSnapChannel != configJujuDBSnapChannel
 
-			agentsQueryTracingEnabled := agent.CurrentConfig().QueryTracingEnabled()
+			agentsQueryTracingEnabled := currentConfig.QueryTracingEnabled()
 			configQueryTracingEnabled := controllerConfig.QueryTracingEnabled()
 			queryTracingEnabledChanged := agentsQueryTracingEnabled != configQueryTracingEnabled
 
-			agentsQueryTracingThreshold := agent.CurrentConfig().QueryTracingThreshold()
+			agentsQueryTracingThreshold := currentConfig.QueryTracingThreshold()
 			configQueryTracingThreshold := controllerConfig.QueryTracingThreshold()
 			queryTracingThresholdChanged := agentsQueryTracingThreshold != configQueryTracingThreshold
+
+			agentsOpenTelemetryEnabled := currentConfig.OpenTelemetryEnabled()
+			configOpenTelemetryEnabled := controllerConfig.OpenTelemetryEnabled()
+			openTelemetryEnabledChanged := agentsOpenTelemetryEnabled != configOpenTelemetryEnabled
+
+			agentsOpenTelemetryEndpoint := currentConfig.OpenTelemetryEndpoint()
+			configOpenTelemetryEndpoint := controllerConfig.OpenTelemetryEndpoint()
+			openTelemetryEndpointChanged := agentsOpenTelemetryEndpoint != configOpenTelemetryEndpoint
+
+			agentsOpenTelemetryInsecure := currentConfig.OpenTelemetryInsecure()
+			configOpenTelemetryInsecure := controllerConfig.OpenTelemetryInsecure()
+			openTelemetryInsecureChanged := agentsOpenTelemetryInsecure != configOpenTelemetryInsecure
+
+			agentsOpenTelemetryStackTraces := currentConfig.OpenTelemetryStackTraces()
+			configOpenTelemetryStackTraces := controllerConfig.OpenTelemetryStackTraces()
+			openTelemetryStackTracesChanged := agentsOpenTelemetryStackTraces != configOpenTelemetryStackTraces
 
 			info, err := apiState.StateServingInfo()
 			if err != nil {
@@ -144,6 +163,22 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					logger.Debugf("setting agent config query tracing threshold: %d => %d", agentsQueryTracingThreshold, configQueryTracingThreshold)
 					config.SetQueryTracingThreshold(configQueryTracingThreshold)
 				}
+				if openTelemetryEnabledChanged {
+					logger.Debugf("setting open telemetry enabled: %t => %t", agentsOpenTelemetryEnabled, configOpenTelemetryEnabled)
+					config.SetOpenTelemetryEnabled(configOpenTelemetryEnabled)
+				}
+				if openTelemetryEndpointChanged {
+					logger.Debugf("setting open telemetry endpoint: %q => %q", agentsOpenTelemetryEndpoint, configOpenTelemetryEndpoint)
+					config.SetOpenTelemetryEndpoint(configOpenTelemetryEndpoint)
+				}
+				if openTelemetryInsecureChanged {
+					logger.Debugf("setting open telemetry insecure: %t => %t", agentsOpenTelemetryInsecure, configOpenTelemetryInsecure)
+					config.SetOpenTelemetryInsecure(configOpenTelemetryInsecure)
+				}
+				if openTelemetryStackTracesChanged {
+					logger.Debugf("setting open telemetry stack trace: %t => %t", agentsOpenTelemetryStackTraces, configOpenTelemetryStackTraces)
+					config.SetOpenTelemetryStackTraces(configOpenTelemetryStackTraces)
+				}
 
 				return nil
 			})
@@ -164,6 +199,18 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			} else if queryTracingThresholdChanged {
 				logger.Infof("restarting agent for new query tracing threshold")
 				return nil, jworker.ErrRestartAgent
+			} else if openTelemetryEnabledChanged {
+				logger.Infof("restarting agent for new open telemetry enabled")
+				return nil, jworker.ErrRestartAgent
+			} else if openTelemetryEndpointChanged {
+				logger.Infof("restarting agent for new open telemetry endpoint")
+				return nil, jworker.ErrRestartAgent
+			} else if openTelemetryInsecureChanged {
+				logger.Infof("restarting agent for new open telemetry insecure")
+				return nil, jworker.ErrRestartAgent
+			} else if openTelemetryStackTracesChanged {
+				logger.Infof("restarting agent for new open telemetry stack traces")
+				return nil, jworker.ErrRestartAgent
 			}
 
 			// Only get the hub if we are a controller and we haven't updated
@@ -175,13 +222,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			return NewWorker(WorkerConfig{
-				Agent:                 agent,
-				Hub:                   hub,
-				MongoProfile:          configMongoMemoryProfile,
-				JujuDBSnapChannel:     configJujuDBSnapChannel,
-				QueryTracingEnabled:   configQueryTracingEnabled,
-				QueryTracingThreshold: configQueryTracingThreshold,
-				Logger:                config.Logger,
+				Agent:                    agent,
+				Hub:                      hub,
+				MongoProfile:             configMongoMemoryProfile,
+				JujuDBSnapChannel:        configJujuDBSnapChannel,
+				QueryTracingEnabled:      configQueryTracingEnabled,
+				QueryTracingThreshold:    configQueryTracingThreshold,
+				OpenTelemetryEnabled:     configOpenTelemetryEnabled,
+				OpenTelemetryEndpoint:    configOpenTelemetryEndpoint,
+				OpenTelemetryInsecure:    configOpenTelemetryInsecure,
+				OpenTelemetryStackTraces: configOpenTelemetryStackTraces,
+				Logger:                   config.Logger,
 			})
 		},
 	}

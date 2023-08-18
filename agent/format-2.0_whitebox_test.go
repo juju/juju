@@ -86,6 +86,28 @@ func (*format_2_0Suite) TestQueryTracing(c *gc.C) {
 	c.Check(newConfig.QueryTracingThreshold(), gc.Equals, time.Second)
 }
 
+func (*format_2_0Suite) TestOpenTelemetry(c *gc.C) {
+	config := newTestConfig(c)
+	// configFilePath is not serialized as it is the location of the file.
+	config.configFilePath = ""
+
+	config.SetOpenTelemetryEnabled(true)
+	config.SetOpenTelemetryEndpoint("http://foo.bar")
+	config.SetOpenTelemetryInsecure(true)
+	config.SetOpenTelemetryStackTraces(true)
+
+	data, err := format_2_0.marshal(config)
+	c.Assert(err, jc.ErrorIsNil)
+	newConfig, err := format_2_0.unmarshal(data)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(newConfig, gc.DeepEquals, config)
+	c.Check(newConfig.OpenTelemetryEnabled(), jc.IsTrue)
+	c.Check(newConfig.OpenTelemetryEndpoint(), gc.Equals, "http://foo.bar")
+	c.Check(newConfig.OpenTelemetryInsecure(), jc.IsTrue)
+	c.Check(newConfig.OpenTelemetryStackTraces(), jc.IsTrue)
+}
+
 var agentConfig2_0Contents = `
 # format 2.0
 controller: controller-deadbeef-1bad-500d-9000-4b1d0d06f00d

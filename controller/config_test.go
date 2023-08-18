@@ -410,6 +410,24 @@ var newConfigTests = []struct {
 		controller.QueryTracingThreshold: "-1s",
 	},
 	expectError: `query-tracing-threshold value "-1s" must be a positive duration`,
+}, {
+	about: "invalid open telemetry tracing enabled value",
+	config: controller.Config{
+		controller.OpenTelemetryEnabled: "invalid",
+	},
+	expectError: `open-telemetry-enabled: expected bool, got string\("invalid"\)`,
+}, {
+	about: "invalid open telemetry tracing insecure value",
+	config: controller.Config{
+		controller.OpenTelemetryInsecure: "invalid",
+	},
+	expectError: `open-telemetry-insecure: expected bool, got string\("invalid"\)`,
+}, {
+	about: "invalid open telemetry tracing stack traces value",
+	config: controller.Config{
+		controller.OpenTelemetryStackTraces: "invalid",
+	},
+	expectError: `open-telemetry-stack-traces: expected bool, got string\("invalid"\)`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
@@ -978,4 +996,53 @@ func (s *ConfigSuite) TestQueryTraceThreshold(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cfg2.QueryTracingThreshold(), gc.Equals, time.Second*10)
+}
+
+func (s *ConfigSuite) TestOpenTelemetryEnabled(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cfg.OpenTelemetryEnabled(), gc.Equals, controller.DefaultOpenTelemetryEnabled)
+
+	cfg[controller.OpenTelemetryEnabled] = true
+	c.Assert(cfg.OpenTelemetryEnabled(), gc.Equals, true)
+}
+
+func (s *ConfigSuite) TestOpenTelemetryInsecure(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cfg.OpenTelemetryInsecure(), gc.Equals, controller.DefaultOpenTelemetryInsecure)
+
+	cfg[controller.OpenTelemetryInsecure] = true
+	c.Assert(cfg.OpenTelemetryInsecure(), gc.Equals, true)
+}
+
+func (s *ConfigSuite) TestOpenTelemetryStackTraces(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cfg.OpenTelemetryStackTraces(), gc.Equals, controller.DefaultOpenTelemetryStackTraces)
+
+	cfg[controller.OpenTelemetryStackTraces] = true
+	c.Assert(cfg.OpenTelemetryStackTraces(), gc.Equals, true)
+}
+
+func (s *ConfigSuite) TestOpenTelemetryEndpointSettingValue(c *gc.C) {
+	mURL := "http://meshuggah.com/endpoint"
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.OpenTelemetryEndpoint: mURL,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.OpenTelemetryEndpoint(), gc.Equals, mURL)
 }

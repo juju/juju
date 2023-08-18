@@ -58,6 +58,10 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ControllerResourceDownloadLimit:  schema.ForceInt(),
 	QueryTracingEnabled:              schema.Bool(),
 	QueryTracingThreshold:            schema.TimeDuration(),
+	OpenTelemetryEnabled:             schema.Bool(),
+	OpenTelemetryEndpoint:            schema.String(),
+	OpenTelemetryInsecure:            schema.Bool(),
+	OpenTelemetryStackTraces:         schema.Bool(),
 }, schema.Defaults{
 	AgentRateLimitMax:                schema.Omit,
 	AgentRateLimitRate:               schema.Omit,
@@ -105,6 +109,10 @@ var configChecker = schema.FieldMap(schema.Fields{
 	ControllerResourceDownloadLimit:  schema.Omit,
 	QueryTracingEnabled:              DefaultQueryTracingEnabled,
 	QueryTracingThreshold:            DefaultQueryTracingThreshold,
+	OpenTelemetryEnabled:             DefaultOpenTelemetryEnabled,
+	OpenTelemetryEndpoint:            schema.Omit,
+	OpenTelemetryInsecure:            DefaultOpenTelemetryInsecure,
+	OpenTelemetryStackTraces:         DefaultOpenTelemetryStackTraces,
 })
 
 // ConfigSchema holds information on all the fields defined by
@@ -301,5 +309,21 @@ Use "caas-image-repo" instead.`,
 		Description: `The minimum duration of a query for it to be traced. The lower the 
 threshold, the more queries will be output. A value of 0 means all queries 
 will be output if tracing is enabled.`,
+	},
+	OpenTelemetryEnabled: {
+		Type:        environschema.Tbool,
+		Description: `Enable open telemetry tracing`,
+	},
+	OpenTelemetryEndpoint: {
+		Type:        environschema.Tstring,
+		Description: `Endpoint open telemetry tracing`,
+	},
+	OpenTelemetryInsecure: {
+		Type:        environschema.Tbool,
+		Description: `Allows insecure endpoint for open telemetry tracing`,
+	},
+	OpenTelemetryStackTraces: {
+		Type:        environschema.Tbool,
+		Description: `Allows stack traces open telemetry tracing per span`,
 	},
 }

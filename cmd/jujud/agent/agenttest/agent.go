@@ -191,6 +191,11 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 
 			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
 			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
+
+			OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
+			OpenTelemetryEndpoint:    "",
+			OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
+			OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -262,6 +267,11 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			MongoMemoryProfile:    controller.DefaultMongoMemoryProfile,
 			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
 			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
+
+			OpenTelemetryEnabled:     controller.DefaultOpenTelemetryEnabled,
+			OpenTelemetryEndpoint:    "",
+			OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
+			OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
 		},
 		controller.StateServingInfo{
 			Cert:         coretesting.ServerCert,
