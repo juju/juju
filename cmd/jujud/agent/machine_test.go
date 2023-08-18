@@ -4,15 +4,10 @@
 package agent
 
 import (
-	"bufio"
-	"bytes"
 	stdcontext "context"
-	"database/sql"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -20,11 +15,9 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/lumberjack/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
-	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -32,40 +25,25 @@ import (
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/utils/v3/ssh"
 	sshtesting "github.com/juju/utils/v3/ssh/testing"
-	"github.com/juju/utils/v3/symlink"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/dependency"
-	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	agenterrors "github.com/juju/juju/agent/errors"
-	"github.com/juju/juju/api"
-	apimachiner "github.com/juju/juju/api/agent/machiner"
-	"github.com/juju/juju/api/base"
-	apiclient "github.com/juju/juju/api/client/client"
-	"github.com/juju/juju/api/client/machinemanager"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/mocks"
-	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/migration"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	envstorage "github.com/juju/juju/environs/storage"
@@ -73,8 +51,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/pubsub/apiserver"
-	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
@@ -83,11 +59,9 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
-	"github.com/juju/juju/worker/charmrevision"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
-	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/storageprovisioner"
 )
 
@@ -214,14 +188,6 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 	c.Assert(a.(*machineAgentCmd).machineId, gc.Equals, "42")
 }
 
-func (s *MachineSuite) TestRunInvalidMachineId(c *gc.C) {
-	c.Skip("agents don't yet distinguish between temporary and permanent errors")
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	_, agent := s.newAgent(c, m)
-	err := agent.Run(nil)
-	c.Assert(err, gc.ErrorMatches, "some error")
-}
-
 func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	ctx := cmdtesting.Context(c)
 	agentConf := FakeAgentConfig{}
@@ -290,42 +256,9 @@ func (s *MachineSuite) TestRunStop(c *gc.C) {
 	c.Assert(<-done, jc.ErrorIsNil)
 }
 
-func (s *MachineSuite) TestDyingMachine(c *gc.C) {
-	c.Skip("https://bugs.launchpad.net/juju/+bug/1881979")
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	done := make(chan error)
-	go func() {
-		done <- a.Run(nil)
-	}()
-	defer func() {
-		c.Check(a.Stop(), jc.ErrorIsNil)
-	}()
-	// Wait for configuration to be finished
-	<-a.WorkersStarted()
-	err := m.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	// Tearing down the dependency engine can take a non-trivial amount of
-	// time.
-	select {
-	case err := <-done:
-		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(coretesting.LongWait):
-		// This test intermittently fails and we haven't been able to determine
-		// why it gets wedged. So we will dump the goroutines before the fatal call.
-		buff := bytes.Buffer{}
-		err = pprof.Lookup("goroutine").WriteTo(&buff, 1)
-		c.Check(err, jc.ErrorIsNil)
-		c.Logf("\nagent didn't stop, here's what it was doing\n\n%s", buff)
-		c.Fatalf("timed out waiting for agent to terminate")
-	}
-	err = m.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Life(), gc.Equals, state.Dead)
-}
-
 func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
+	s.seedControllerConfig(c)
+
 	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	s.AgentSuite.PatchValue(&instancepoller.ShortPollCap, 500*time.Millisecond)
@@ -414,23 +347,6 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestCallsUseMultipleCPUs(c *gc.C) {
-	// All machine agents call UseMultipleCPUs.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	calledChan := make(chan struct{}, 1)
-	s.AgentSuite.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	defer a.Stop()
-
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-
-	// Wait for configuration to be finished
-	<-a.WorkersStarted()
-	s.assertChannelActive(c, calledChan, "UseMultipleCPUs() to be called")
-	c.Check(a.Stop(), jc.ErrorIsNil)
-}
-
 func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
 	c.Logf("waiting for unit %q to be provisioned", unit)
 	machineId, err := unit.AssignedMachineId()
@@ -475,6 +391,8 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 }
 
 func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
+	s.seedControllerConfig(c)
+
 	m, _, currentTools := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
@@ -483,6 +401,8 @@ func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 }
 
 func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
+	s.seedControllerConfig(c)
+
 	m, _, _ := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
@@ -498,403 +418,12 @@ func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
 	c.Assert(a.initialUpgradeCheckComplete.IsUnlocked(), jc.IsTrue)
 }
 
-func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
-	err := a.Stop()
-	if job == state.JobManageModel {
-		// When shutting down, the API server can be shut down before
-		// the other workers that connect to it, so they get an error so
-		// they then die, causing Stop to return an error.  It's not
-		// easy to control the actual error that's received in this
-		// circumstance so we just log it rather than asserting that it
-		// is not nil.
-		if err != nil {
-			c.Logf("error shutting down state manager: %v", err)
-		}
-	} else {
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	select {
-	case err := <-done:
-		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for agent to terminate")
-	}
-}
-
-func (s *MachineSuite) assertJobWithState(
-	c *gc.C,
-	job state.MachineJob,
-	preCheck func(),
-	postCheck func(agent.Config, *state.State, *MachineAgent),
-) {
-	paramsJob := job.ToParams()
-	if !paramsJob.NeedsState() {
-		c.Fatalf("%v does not use state", paramsJob)
-	}
-	s.assertAgentOpensState(c, job, preCheck, postCheck)
-}
-
-// assertAgentOpensState asserts that a machine agent started with the
-// given job. The agent's configuration and the agent's state.State are
-// then passed to the test function for further checking.
-func (s *MachineSuite) assertAgentOpensState(
-	c *gc.C, job state.MachineJob,
-	preCheck func(),
-	postCheck func(agent.Config, *state.State, *MachineAgent),
-) {
-	stm, conf, _ := s.primeAgent(c, job)
-	ctrl, a := s.newAgent(c, stm)
-	defer ctrl.Finish()
-	defer a.Stop()
-
-	if preCheck != nil {
-		preCheck()
-	} else if job == state.JobManageModel {
-		s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
-			Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
-		}).AnyTimes().Return(&exec.ExecResponse{Code: 0}, nil)
-	}
-
-	logger.Debugf("new agent %#v", a)
-
-	// All state jobs currently also run an APIWorker, so no
-	// need to check for that here, like in assertJobWithState.
-	st, done := s.waitForOpenState(c, a)
-	startAddressPublisher(s, c, a)
-
-	if postCheck != nil {
-		postCheck(conf, st, a)
-	}
-	s.waitStopped(c, job, a, done)
-}
-
-func (s *MachineSuite) waitForOpenState(c *gc.C, a *MachineAgent) (*state.State, chan error) {
-	agentAPIs := make(chan *state.State, 1)
-	s.AgentSuite.PatchValue(&reportOpenedState, func(st *state.State) {
-		select {
-		case agentAPIs <- st:
-		default:
-		}
-	})
-
-	done := make(chan error)
-	go func() {
-		done <- a.Run(cmdtesting.Context(c))
-	}()
-
-	select {
-	case agentAPI := <-agentAPIs:
-		c.Assert(agentAPI, gc.NotNil)
-		return agentAPI, done
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("API not opened")
-	}
-	panic("can't happen")
-}
-
-func (s *MachineSuite) TestManageModelServesAPI(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageModel, nil, func(conf agent.Config, agentState *state.State, a *MachineAgent) {
-		apiInfo, ok := conf.APIInfo()
-		c.Assert(ok, jc.IsTrue)
-		st, err := api.Open(apiInfo, fastDialOpts)
-		c.Assert(err, jc.ErrorIsNil)
-		defer st.Close()
-		m, err := apimachiner.NewClient(st).Machine(conf.Tag().(names.MachineTag))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(m.Life(), gc.Equals, life.Alive)
-	})
-}
-
-type noOpLogger struct{}
-
-func (noOpLogger) Warningf(string, ...interface{})  {}
-func (noOpLogger) Criticalf(string, ...interface{}) {}
-func (noOpLogger) Debugf(string, ...interface{})    {}
-func (noOpLogger) Tracef(string, ...interface{})    {}
-
-func (s *MachineSuite) TestIAASControllerPatchUpdateManagerFile(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageModel,
-		func() {
-			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
-				Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
-			}).Return(&exec.ExecResponse{Code: 0}, nil)
-		},
-		func(conf agent.Config, agentState *state.State, a *MachineAgent) {
-			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, jc.IsTrue)
-			st, err := api.Open(apiInfo, fastDialOpts)
-			c.Assert(err, jc.ErrorIsNil)
-			defer func() { _ = st.Close() }()
-			err = a.machineStartup(st, noOpLogger{})
-			c.Assert(err, jc.ErrorIsNil)
-		},
-	)
-}
-
-func (s *MachineSuite) TestIAASControllerPatchUpdateManagerFileErrored(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageModel,
-		func() {
-			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
-				Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
-			}).Return(nil, errors.New("unknown error"))
-		},
-		func(conf agent.Config, agentState *state.State, a *MachineAgent) {
-			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, jc.IsTrue)
-			st, err := api.Open(apiInfo, fastDialOpts)
-			c.Assert(err, jc.ErrorIsNil)
-			defer func() { _ = st.Close() }()
-			err = a.machineStartup(st, noOpLogger{})
-			c.Assert(err, gc.ErrorMatches, `unknown error`)
-		},
-	)
-}
-
-func (s *MachineSuite) TestIAASControllerPatchUpdateManagerFileNonZeroExitCode(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageModel,
-		func() {
-			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
-				Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
-			}).Return(&exec.ExecResponse{Code: 1, Stderr: []byte(`unknown error`)}, nil)
-		},
-		func(conf agent.Config, agentState *state.State, a *MachineAgent) {
-			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, jc.IsTrue)
-			st, err := api.Open(apiInfo, fastDialOpts)
-			c.Assert(err, jc.ErrorIsNil)
-			defer func() { _ = st.Close() }()
-			err = a.machineStartup(st, noOpLogger{})
-			c.Assert(err, gc.ErrorMatches, `cannot patch /etc/update-manager/release-upgrades: unknown error`)
-		},
-	)
-}
-
-func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
-	password := "shhh..."
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	user := f.MakeUser(c, &factory.UserParams{
-		Password: password,
-	})
-
-	st := s.ControllerModel(c).State()
-	err := st.UpdateControllerConfig(map[string]interface{}{
-		"audit-log-exclude-methods": "Client.FullStatus",
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertJobWithState(c, state.JobManageModel, nil, func(conf agent.Config, _ *state.State, _ *MachineAgent) {
-		logPath := filepath.Join(conf.LogDir(), "audit.log")
-
-		makeAPIRequest := func(doRequest func(*apiclient.Client)) {
-			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, jc.IsTrue)
-			apiInfo.Tag = user.Tag()
-			apiInfo.Password = password
-			st, err := api.Open(apiInfo, fastDialOpts)
-			c.Assert(err, jc.ErrorIsNil)
-			defer st.Close()
-			doRequest(apiclient.NewClient(st, coretesting.NoopLogger{}))
-		}
-		makeMachineAPIRequest := func(doRequest func(*machinemanager.Client)) {
-			apiInfo, ok := conf.APIInfo()
-			c.Assert(ok, jc.IsTrue)
-			apiInfo.Tag = user.Tag()
-			apiInfo.Password = password
-			st, err := api.Open(apiInfo, fastDialOpts)
-			c.Assert(err, jc.ErrorIsNil)
-			defer st.Close()
-			doRequest(machinemanager.NewClient(st))
-		}
-
-		// Make requests in separate API connections so they're separate conversations.
-		makeAPIRequest(func(client *apiclient.Client) {
-			_, err = client.Status(nil)
-			c.Assert(err, jc.ErrorIsNil)
-		})
-		makeMachineAPIRequest(func(client *machinemanager.Client) {
-			_, err = client.AddMachines([]params.AddMachineParams{{
-				Jobs: []coremodel.MachineJob{"JobHostUnits"},
-			}})
-			c.Assert(err, jc.ErrorIsNil)
-		})
-
-		// Check that there's a call to Client.AddMachinesV2 in the
-		// log, but no call to Client.FullStatus.
-		records := readAuditLog(c, logPath)
-		c.Assert(records, gc.HasLen, 3)
-		c.Assert(records[1].Request, gc.NotNil)
-		c.Assert(records[1].Request.Facade, gc.Equals, "MachineManager")
-		c.Assert(records[1].Request.Method, gc.Equals, "AddMachines")
-
-		// Now update the controller config to remove the exclusion.
-		err := st.UpdateControllerConfig(map[string]interface{}{
-			"audit-log-exclude-methods": "",
-		}, nil)
-		c.Assert(err, jc.ErrorIsNil)
-
-		prevRecords := len(records)
-
-		// We might need to wait until the controller config change is
-		// propagated to the apiserver.
-		for a := coretesting.LongAttempt.Start(); a.Next(); {
-			makeAPIRequest(func(client *apiclient.Client) {
-				_, err = client.Status(nil)
-				c.Assert(err, jc.ErrorIsNil)
-			})
-			// Check to see whether there are more logged requests.
-			records = readAuditLog(c, logPath)
-			if prevRecords < len(records) {
-				break
-			}
-		}
-		// Now there should also be a call to Client.FullStatus (and a response).
-		lastRequest := records[len(records)-2]
-		c.Assert(lastRequest.Request, gc.NotNil)
-		c.Assert(lastRequest.Request.Facade, gc.Equals, "Client")
-		c.Assert(lastRequest.Request.Method, gc.Equals, "FullStatus")
-	})
-}
-
-func readAuditLog(c *gc.C, logPath string) []auditlog.Record {
-	file, err := os.Open(logPath)
-	c.Assert(err, jc.ErrorIsNil)
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	var results []auditlog.Record
-	for scanner.Scan() {
-		var record auditlog.Record
-		err := json.Unmarshal(scanner.Bytes(), &record)
-		c.Assert(err, jc.ErrorIsNil)
-		results = append(results, record)
-	}
-	return results
-}
-
-func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
-	s.PatchValue(&mongo.IsMaster, func(session *mgo.Session, obj mongo.WithAddresses) (bool, error) {
-		addr := obj.Addresses()
-		for _, a := range addr {
-			if a.Value == "0.1.2.3" {
-				return true, nil
-			}
-		}
-		return false, nil
-	})
-	vers := coretesting.CurrentVersion()
-	vers.Minor--
-	m, _, _ := s.primeAgentVersion(c, vers, job)
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	ctx := cmdtesting.Context(c)
-	go func() { c.Check(a.Run(ctx), jc.ErrorIsNil) }()
-	defer func() {
-		logger.Infof("stopping machine agent")
-		c.Check(a.Stop(), jc.ErrorIsNil)
-		logger.Infof("stopped machine agent")
-	}()
-
-	timeout := time.After(coretesting.LongWait)
-	for done := false; !done; {
-		select {
-		case <-timeout:
-			c.Fatalf("timeout while waiting for agent version to be set")
-		case <-time.After(coretesting.ShortWait):
-			c.Log("Refreshing")
-			err := m.Refresh()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Log("Fetching agent tools")
-			agentTools, err := m.AgentTools()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Logf("(%v vs. %v)", agentTools.Version, jujuversion.Current)
-			if agentTools.Version.Minor != jujuversion.Current.Minor {
-				continue
-			}
-			c.Assert(agentTools.Version.Number, gc.DeepEquals, jujuversion.Current)
-			done = true
-		}
-	}
-}
-
 func (s *MachineSuite) TestAgentSetsToolsVersionManageModel(c *gc.C) {
 	s.assertAgentSetsToolsVersion(c, state.JobManageModel)
 }
 
 func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *gc.C) {
 	s.assertAgentSetsToolsVersion(c, state.JobHostUnits)
-}
-
-func (s *MachineSuite) TestManageModelRunsCleaner(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageModel, nil, func(conf agent.Config, agentState *state.State, a *MachineAgent) {
-		// Create an application and unit, and destroy the app.
-		f, release := s.NewFactory(c, s.ControllerModelUUID())
-		defer release()
-		app := f.MakeApplication(c, &factory.ApplicationParams{
-			Name:  "wordpress",
-			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-		})
-		unit, err := app.AddUnit(state.AddUnitParams{})
-		c.Assert(err, jc.ErrorIsNil)
-		err = app.Destroy()
-		c.Assert(err, jc.ErrorIsNil)
-
-		// Check the unit was not yet removed.
-		err = unit.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		w := unit.Watch()
-		defer worker.Stop(w)
-
-		// Wait for the unit to be removed.
-		timeout := time.After(coretesting.LongWait)
-		for done := false; !done; {
-			select {
-			case <-timeout:
-				c.Fatalf("unit not cleaned up")
-			case <-w.Changes():
-				err := unit.Refresh()
-				if errors.IsNotFound(err) {
-					done = true
-				} else {
-					c.Assert(err, jc.ErrorIsNil)
-				}
-			}
-		}
-	})
-}
-
-func (s *MachineSuite) TestJobManageModelRunsMinUnitsWorker(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageModel, nil, func(_ agent.Config, agentState *state.State, _ *MachineAgent) {
-		// Ensure that the MinUnits worker is alive by doing a simple check
-		// that it responds to state changes: add an application, set its minimum
-		// number of units to one, wait for the worker to add the missing unit.
-		f, release := s.NewFactory(c, s.ControllerModelUUID())
-		defer release()
-		app := f.MakeApplication(c, &factory.ApplicationParams{
-			Name:  "wordpress",
-			Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
-		})
-		err := app.SetMinUnits(1)
-		c.Assert(err, jc.ErrorIsNil)
-		w := app.Watch()
-		defer worker.Stop(w)
-
-		// Wait for the unit to be created.
-		timeout := time.After(longerWait)
-		for {
-			select {
-			case <-timeout:
-				c.Fatalf("unit not created")
-			case <-w.Changes():
-				units, err := app.AllUnits()
-				c.Assert(err, jc.ErrorIsNil)
-				if len(units) == 1 {
-					return
-				}
-			}
-		}
-	})
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
@@ -927,50 +456,6 @@ func (s *MachineSuite) TestMachineAgentRunsAuthorisedKeysWorker(c *gc.C) {
 			return
 		}
 	}
-}
-
-func (s *MachineSuite) TestMachineAgentSymlinks(c *gc.C) {
-	stm, _, _ := s.primeAgent(c, state.JobManageModel)
-	ctrl, a := s.newAgent(c, stm)
-	defer ctrl.Finish()
-	defer a.Stop()
-	_, done := s.waitForOpenState(c, a)
-
-	// Symlinks should have been created
-	for _, link := range jujudSymlinks {
-		_, err := os.Stat(utils.EnsureBaseDir(a.rootDir, link))
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf(link))
-	}
-
-	s.waitStopped(c, state.JobManageModel, a, done)
-}
-
-func (s *MachineSuite) TestMachineAgentSymlinkJujuExecExists(c *gc.C) {
-	stm, _, _ := s.primeAgent(c, state.JobManageModel)
-	ctrl, a := s.newAgent(c, stm)
-	defer ctrl.Finish()
-	defer a.Stop()
-
-	// Pre-create the symlinks, but pointing to the incorrect location.
-	a.rootDir = c.MkDir()
-	for _, link := range jujudSymlinks {
-		fullLink := utils.EnsureBaseDir(a.rootDir, link)
-		c.Assert(os.MkdirAll(filepath.Dir(fullLink), os.FileMode(0755)), jc.ErrorIsNil)
-		c.Assert(symlink.New("/nowhere/special", fullLink), jc.ErrorIsNil, gc.Commentf(link))
-	}
-
-	// Start the agent and wait for it be running.
-	_, done := s.waitForOpenState(c, a)
-
-	// juju-exec symlink should have been recreated.
-	for _, link := range jujudSymlinks {
-		fullLink := utils.EnsureBaseDir(a.rootDir, link)
-		linkTarget, err := symlink.Read(fullLink)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(linkTarget, gc.Not(gc.Equals), "/nowhere/special", gc.Commentf(link))
-	}
-
-	s.waitStopped(c, state.JobManageModel, a, done)
 }
 
 func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
@@ -1231,279 +716,6 @@ func (s *MachineSuite) TestMachineWorkers(c *gc.C) {
 	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait)
 }
 
-func (s *MachineSuite) TestControllerModelWorkers(c *gc.C) {
-	s.PatchValue(&charmrevision.NewAPIFacade, func(base.APICaller) (charmrevision.Facade, error) {
-		return noopRevisionUpdater{}, nil
-	})
-
-	uuid := s.ControllerModelUUID()
-
-	tracker := agenttest.NewEngineTracker()
-	instrumented := TrackModels(c, tracker, iaasModelManifolds)
-	s.PatchValue(&iaasModelManifolds, instrumented)
-
-	expectedWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
-
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, expectedWorkers)
-	s.assertJobWithState(c, state.JobManageModel, nil,
-		func(agent.Config, *state.State, *MachineAgent) {
-			agenttest.WaitMatch(c, matcher.Check, longerWait)
-		},
-	)
-}
-
-func (s *MachineSuite) TestHostedModelWorkers(c *gc.C) {
-	s.PatchValue(&charmrevision.NewAPIFacade, func(base.APICaller) (charmrevision.Facade, error) {
-		return noopRevisionUpdater{}, nil
-	})
-
-	// The dummy provider blows up in the face of multi-model
-	// scenarios so patch in a minimal environs.Environ that's good
-	// enough to allow the model workers to run.
-	s.PatchValue(&newEnvirons, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
-		return &minModelWorkersEnviron{}, nil
-	})
-
-	st, closer := s.setUpNewModel(c)
-	defer closer()
-
-	uuid := st.ModelUUID()
-
-	tracker := agenttest.NewEngineTracker()
-	instrumented := TrackModels(c, tracker, iaasModelManifolds)
-	s.PatchValue(&iaasModelManifolds, instrumented)
-
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
-		append(alwaysModelWorkers, aliveModelWorkers...))
-	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
-	})
-}
-
-func (s *MachineSuite) TestWorkersForHostedModelWithInvalidCredential(c *gc.C) {
-	// The dummy provider blows up in the face of multi-model
-	// scenarios so patch in a minimal environs.Environ that's good
-	// enough to allow the model workers to run.
-	loggo.GetLogger("juju.worker.dependency").SetLogLevel(loggo.TRACE)
-	s.PatchValue(&newEnvirons, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
-		return &minModelWorkersEnviron{}, nil
-	})
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	st := f.MakeModel(c, &factory.ModelParams{
-		ConfigAttrs: coretesting.Attrs{
-			"max-status-history-age":  "2h",
-			"max-status-history-size": "4M",
-			"max-action-results-age":  "2h",
-			"max-action-results-size": "4M",
-		},
-		CloudCredential: names.NewCloudCredentialTag("dummy/admin/default"),
-	})
-	defer func() {
-		err := st.Close()
-		c.Check(err, jc.ErrorIsNil)
-	}()
-
-	uuid := st.ModelUUID()
-
-	// invalidate cloud credential for this model
-	err := st.InvalidateModelCredential("coz i can")
-	c.Assert(err, jc.ErrorIsNil)
-
-	tracker := agenttest.NewEngineTracker()
-	instrumented := TrackModels(c, tracker, iaasModelManifolds)
-	s.PatchValue(&iaasModelManifolds, instrumented)
-
-	expectedWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
-	// Since this model's cloud credential is no longer valid,
-	// only the workers that don't require a valid credential should remain.
-	remainingWorkers := set.NewStrings(expectedWorkers...).Difference(
-		set.NewStrings(requireValidCredentialModelWorkers...))
-
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, remainingWorkers.SortedValues())
-	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
-	})
-}
-
-func (s *MachineSuite) TestWorkersForHostedModelWithDeletedCredential(c *gc.C) {
-	// The dummy provider blows up in the face of multi-model
-	// scenarios so patch in a minimal environs.Environ that's good
-	// enough to allow the model workers to run.
-	loggo.GetLogger("juju.worker.dependency").SetLogLevel(loggo.TRACE)
-	s.PatchValue(&newEnvirons, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
-		return &minModelWorkersEnviron{}, nil
-	})
-
-	credentialTag := names.NewCloudCredentialTag("dummy/admin/another")
-	err := s.ControllerModel(c).State().UpdateCloudCredential(credentialTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
-	c.Assert(err, jc.ErrorIsNil)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	st := f.MakeModel(c, &factory.ModelParams{
-		ConfigAttrs: coretesting.Attrs{
-			"max-status-history-age":  "2h",
-			"max-status-history-size": "4M",
-			"max-action-results-age":  "2h",
-			"max-action-results-size": "4M",
-			"logging-config":          "juju=debug;juju.worker.dependency=trace",
-		},
-		CloudCredential: credentialTag,
-	})
-	defer func() {
-		err := st.Close()
-		c.Check(err, jc.ErrorIsNil)
-	}()
-
-	uuid := st.ModelUUID()
-
-	// remove cloud credential used by this model but keep model reference to it
-	err = s.ControllerModel(c).State().RemoveCloudCredential(credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
-
-	tracker := agenttest.NewEngineTracker()
-	instrumented := TrackModels(c, tracker, iaasModelManifolds)
-	s.PatchValue(&iaasModelManifolds, instrumented)
-
-	expectedWorkers := append(alwaysModelWorkers, aliveModelWorkers...)
-	// Since this model's cloud credential is no longer valid,
-	// only the workers that don't require a valid credential should remain.
-	remainingWorkers := set.NewStrings(expectedWorkers...).Difference(
-		set.NewStrings(requireValidCredentialModelWorkers...))
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, remainingWorkers.SortedValues())
-
-	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
-	})
-}
-
-func (s *MachineSuite) TestMigratingModelWorkers(c *gc.C) {
-	st, closer := s.setUpNewModel(c)
-	defer closer()
-	uuid := st.ModelUUID()
-
-	tracker := agenttest.NewEngineTracker()
-
-	// Replace the real migrationmaster worker with a fake one which
-	// does nothing. This is required to make this test be reliable as
-	// the environment required for the migrationmaster to operate
-	// correctly is too involved to set up from here.
-	//
-	// TODO(mjs) - an alternative might be to provide a fake Facade
-	// and api.Open to the real migrationmaster but this test is
-	// awfully far away from the low level details of the worker.
-	origModelManifolds := iaasModelManifolds
-	modelManifoldsDisablingMigrationMaster := func(config model.ManifoldsConfig) dependency.Manifolds {
-		config.NewMigrationMaster = func(config migrationmaster.Config) (worker.Worker, error) {
-			return &nullWorker{dead: make(chan struct{})}, nil
-		}
-		return origModelManifolds(config)
-	}
-	instrumented := TrackModels(c, tracker, modelManifoldsDisablingMigrationMaster)
-	s.PatchValue(&iaasModelManifolds, instrumented)
-
-	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
-	_, err := st.CreateMigration(state.MigrationSpec{
-		InitiatedBy: names.NewUserTag("admin"),
-		TargetInfo: migration.TargetInfo{
-			ControllerTag: targetControllerTag,
-			Addrs:         []string{"1.2.3.4:5555"},
-			CACert:        "cert",
-			AuthTag:       names.NewUserTag("user"),
-			Password:      "password",
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid,
-		append(alwaysModelWorkers, migratingModelWorkers...))
-	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, ReallyLongWait)
-	})
-}
-
-func (s *MachineSuite) TestDyingModelCleanedUp(c *gc.C) {
-	st, closer := s.setUpNewModel(c)
-	defer closer()
-
-	timeout := time.After(ReallyLongWait)
-	s.assertJobWithState(c, state.JobManageModel, nil,
-		func(agent.Config, *state.State, *MachineAgent) {
-			m, err := st.Model()
-			c.Assert(err, jc.ErrorIsNil)
-			watch := m.Watch()
-			defer workertest.CleanKill(c, watch)
-
-			err = m.Destroy(state.DestroyModelParams{})
-			c.Assert(err, jc.ErrorIsNil)
-			for {
-				select {
-				case <-watch.Changes():
-					err := m.Refresh()
-					cause := errors.Cause(err)
-					if err == nil {
-						continue // still there
-					} else if errors.IsNotFound(cause) {
-						return // successfully removed
-					}
-					c.Assert(err, jc.ErrorIsNil) // guaranteed fail
-				case <-timeout:
-					c.Fatalf("timed out waiting for workers")
-				}
-			}
-		})
-}
-
-func (s *MachineSuite) TestModelWorkersRespectSingularResponsibilityFlag(c *gc.C) {
-	// Grab responsibility for the model on behalf of another machine.
-	uuid := s.ControllerModelUUID()
-	s.claimSingularLease(uuid)
-
-	// Then run a normal model-tracking test, just checking for
-	// a different set of workers.
-	tracker := agenttest.NewEngineTracker()
-	instrumented := TrackModels(c, tracker, iaasModelManifolds)
-	s.PatchValue(&iaasModelManifolds, instrumented)
-
-	matcher := agenttest.NewWorkerMatcher(c, tracker, uuid, alwaysModelWorkers)
-	s.assertJobWithState(c, state.JobManageModel, nil, func(agent.Config, *state.State, *MachineAgent) {
-		agenttest.WaitMatch(c, matcher.Check, longerWait)
-	})
-}
-
-func (s *MachineSuite) claimSingularLease(modelUUID string) {
-	s.InitialDBOps = append(s.InitialDBOps, func(ctx stdcontext.Context, db database.TxnRunner) error {
-		q := `
-INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
-VALUES (?, 0, ?, ?, 'machine-999-lxd-99', datetime('now'), datetime('now', '+100 seconds'))`[1:]
-
-		return db.StdTxn(ctx, func(ctx stdcontext.Context, tx *sql.Tx) error {
-			_, err := tx.ExecContext(ctx, q, utils.MustNewUUID().String(), modelUUID, modelUUID)
-			return err
-		})
-	})
-}
-
-func (s *MachineSuite) setUpNewModel(c *gc.C) (newSt *state.State, closer func()) {
-	// Create a new environment, tests can now watch if workers start for it.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	newSt = f.MakeModel(c, &factory.ModelParams{
-		ConfigAttrs: coretesting.Attrs{
-			"max-status-history-age":  "2h",
-			"max-status-history-size": "4M",
-			"max-action-results-age":  "2h",
-			"max-action-results-size": "4M",
-		},
-	})
-	return newSt, func() {
-		err := newSt.Close()
-		c.Check(err, jc.ErrorIsNil)
-	}
-}
-
 func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobManageModel)
 	ctrl, a := s.newAgent(c, m)
@@ -1518,56 +730,83 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
 }
 
-type nullWorker struct {
-	dead chan struct{}
+func (s *MachineSuite) seedControllerConfig(c *gc.C) {
+	ctrlConfigAttrs := coretesting.FakeControllerConfig()
+	for k, v := range s.ControllerConfigAttrs {
+		ctrlConfigAttrs[k] = v
+	}
+	s.InitialDBOps = append(s.InitialDBOps, func(ctx stdcontext.Context, db database.TxnRunner) error {
+		return bootstrap.InsertInitialControllerConfig(s.ControllerConfigAttrs)(ctx, db)
+	})
 }
 
-func (w *nullWorker) Kill() {
-	close(w.dead)
+func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
+	err := a.Stop()
+	if job == state.JobManageModel {
+		// When shutting down, the API server can be shut down before
+		// the other workers that connect to it, so they get an error so
+		// they then die, causing Stop to return an error.  It's not
+		// easy to control the actual error that's received in this
+		// circumstance so we just log it rather than asserting that it
+		// is not nil.
+		if err != nil {
+			c.Logf("error shutting down state manager: %v", err)
+		}
+	} else {
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	select {
+	case err := <-done:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for agent to terminate")
+	}
 }
 
-func (w *nullWorker) Wait() error {
-	<-w.dead
-	return nil
-}
+func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
+	s.seedControllerConfig(c)
 
-type cleanupSuite interface {
-	AddCleanup(func(*gc.C))
-}
-
-func startAddressPublisher(suite cleanupSuite, c *gc.C, agent *MachineAgent) {
-	// Start publishing a test API address on the central hub so that
-	// dependent workers can start. The other way of unblocking them
-	// would be to get the peergrouper healthy, but that has proved
-	// difficult - trouble getting the replicaset correctly
-	// configured.
-	stop := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-stop:
-				return
-			case <-time.After(500 * time.Millisecond):
-				hub := agent.centralHub
-				if hub == nil {
-					continue
-				}
-				sent, err := hub.Publish(apiserver.DetailsTopic, apiserver.Details{
-					Servers: map[string]apiserver.APIServer{
-						"0": {ID: "0", InternalAddress: serverAddress},
-					},
-				})
-				if err != nil {
-					c.Logf("error publishing address: %s", err)
-				}
-
-				// Ensure that it has been sent, before moving on.
-				select {
-				case <-pubsub.Wait(sent):
-				case <-time.After(testing.ShortWait):
-				}
+	s.PatchValue(&mongo.IsMaster, func(session *mgo.Session, obj mongo.WithAddresses) (bool, error) {
+		addr := obj.Addresses()
+		for _, a := range addr {
+			if a.Value == "0.1.2.3" {
+				return true, nil
 			}
 		}
+		return false, nil
+	})
+	vers := coretesting.CurrentVersion()
+	vers.Minor--
+	m, _, _ := s.primeAgentVersion(c, vers, job)
+	ctrl, a := s.newAgent(c, m)
+	defer ctrl.Finish()
+	ctx := cmdtesting.Context(c)
+	go func() { c.Check(a.Run(ctx), jc.ErrorIsNil) }()
+	defer func() {
+		logger.Infof("stopping machine agent")
+		c.Check(a.Stop(), jc.ErrorIsNil)
+		logger.Infof("stopped machine agent")
 	}()
-	suite.AddCleanup(func(c *gc.C) { close(stop) })
+
+	timeout := time.After(coretesting.LongWait)
+	for done := false; !done; {
+		select {
+		case <-timeout:
+			c.Fatalf("timeout while waiting for agent version to be set")
+		case <-time.After(coretesting.ShortWait):
+			c.Log("Refreshing")
+			err := m.Refresh()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Log("Fetching agent tools")
+			agentTools, err := m.AgentTools()
+			c.Assert(err, jc.ErrorIsNil)
+			c.Logf("(%v vs. %v)", agentTools.Version, jujuversion.Current)
+			if agentTools.Version.Minor != jujuversion.Current.Minor {
+				continue
+			}
+			c.Assert(agentTools.Version.Number, gc.DeepEquals, jujuversion.Current)
+			done = true
+		}
+	}
 }

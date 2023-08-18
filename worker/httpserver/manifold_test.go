@@ -4,6 +4,7 @@
 package httpserver_test
 
 import (
+	"context"
 	"crypto/tls"
 	"time"
 
@@ -22,26 +23,30 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	"github.com/juju/juju/pki"
 	pkitest "github.com/juju/juju/pki/test"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/httpserver"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
 
-	authority            pki.Authority
-	config               httpserver.ManifoldConfig
-	manifold             dependency.Manifold
-	context              dependency.Context
-	state                stubStateTracker
-	hub                  *pubsub.StructuredHub
-	mux                  *apiserverhttp.Mux
-	clock                *testclock.Clock
-	prometheusRegisterer stubPrometheusRegisterer
-	tlsConfig            *tls.Config
-	controllerConfig     controller.Config
+	authority              pki.Authority
+	config                 httpserver.ManifoldConfig
+	manifold               dependency.Manifold
+	context                dependency.Context
+	state                  stubStateTracker
+	hub                    *pubsub.StructuredHub
+	mux                    *apiserverhttp.Mux
+	clock                  *testclock.Clock
+	prometheusRegisterer   stubPrometheusRegisterer
+	tlsConfig              *tls.Config
+	controllerConfig       controller.Config
+	serviceFactory         servicefactory.ServiceFactory
+	controllerConfigGetter *controllerconfigservice.Service
 
 	stub testing.Stub
 }
@@ -65,6 +70,10 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		"controller-api-port": 2048,
 		"api-port-open-delay": "5s",
 	}
+	s.controllerConfigGetter = &controllerconfigservice.Service{}
+	s.serviceFactory = stubServiceFactory{
+		controllerConfigGetter: s.controllerConfigGetter,
+	}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
@@ -73,6 +82,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AuthorityName:        "authority",
 		HubName:              "hub",
 		StateName:            "state",
+		ServiceFactoryName:   "service-factory",
 		MuxName:              "mux",
 		APIServerName:        "api-server",
 		Clock:                s.clock,
@@ -93,12 +103,12 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"authority":      s.authority,
-		"state":          &s.state,
-		"hub":            s.hub,
-		"mux":            s.mux,
-		"raft-transport": nil,
-		"api-server":     nil,
+		"authority":       s.authority,
+		"state":           &s.state,
+		"hub":             s.hub,
+		"mux":             s.mux,
+		"api-server":      nil,
+		"service-factory": s.serviceFactory,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -106,8 +116,8 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 	return dt.StubContext(nil, resources)
 }
 
-func (s *ManifoldSuite) getControllerConfig(st *state.State) (controller.Config, error) {
-	s.stub.MethodCall(s, "GetControllerConfig", st)
+func (s *ManifoldSuite) getControllerConfig(_ context.Context, getter httpserver.ControllerConfigGetter) (controller.Config, error) {
+	s.stub.MethodCall(s, "GetControllerConfig", getter)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -139,6 +149,7 @@ var expectedInputs = []string{
 	"mux",
 	"hub",
 	"api-server",
+	"service-factory",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -187,38 +198,41 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 		expect string
 	}
 	tests := []test{{
-		func(cfg *httpserver.ManifoldConfig) { cfg.AgentName = "" },
-		"empty AgentName not valid",
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.AgentName = "" },
+		expect: "empty AgentName not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.AuthorityName = "" },
-		"empty AuthorityName not valid",
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.AuthorityName = "" },
+		expect: "empty AuthorityName not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.StateName = "" },
-		"empty StateName not valid",
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.StateName = "" },
+		expect: "empty StateName not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.MuxName = "" },
-		"empty MuxName not valid",
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.ServiceFactoryName = "" },
+		expect: "empty ServiceFactoryName not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.MuxShutdownWait = 0 },
-		"MuxShutdownWait 0s not valid",
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.MuxName = "" },
+		expect: "empty MuxName not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.LogDir = "" },
-		"empty LogDir not valid",
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.MuxShutdownWait = 0 },
+		expect: "MuxShutdownWait 0s not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.APIServerName = "" },
-		"empty APIServerName not valid",
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.LogDir = "" },
+		expect: "empty LogDir not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.PrometheusRegisterer = nil },
-		"nil PrometheusRegisterer not valid",
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.APIServerName = "" },
+		expect: "empty APIServerName not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.GetControllerConfig = nil },
-		"nil GetControllerConfig not valid",
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.PrometheusRegisterer = nil },
+		expect: "nil PrometheusRegisterer not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.NewTLSConfig = nil },
-		"nil NewTLSConfig not valid",
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.GetControllerConfig = nil },
+		expect: "nil GetControllerConfig not valid",
 	}, {
-		func(cfg *httpserver.ManifoldConfig) { cfg.NewWorker = nil },
-		"nil NewWorker not valid",
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.NewTLSConfig = nil },
+		expect: "nil NewTLSConfig not valid",
+	}, {
+		f:      func(cfg *httpserver.ManifoldConfig) { cfg.NewWorker = nil },
+		expect: "nil NewWorker not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
@@ -246,4 +260,13 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
+}
+
+type stubServiceFactory struct {
+	servicefactory.ServiceFactory
+	controllerConfigGetter *controllerconfigservice.Service
+}
+
+func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {
+	return s.controllerConfigGetter
 }

@@ -123,14 +123,10 @@ type AgentSuite struct {
 	InitialDBOps []func(context.Context, coredatabase.TxnRunner) error
 }
 
-func (s *AgentSuite) SetUpSuite(c *gc.C) {
-	s.ApiServerSuite.SetUpSuite(c)
-
-	s.InitialDBOps = make([]func(context.Context, coredatabase.TxnRunner) error, 0)
-}
-
 func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
+
+	s.InitialDBOps = make([]func(context.Context, coredatabase.TxnRunner) error, 0)
 
 	var err error
 	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c))

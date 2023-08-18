@@ -85,11 +85,11 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 	})
 	// We will log the failure to get the certificate, thus assuring us that we actually tried.
 	c.Assert(entries, jc.LogMatches, jc.SimpleMessages{{
-		loggo.INFO,
-		`getting certificate for server name "somewhere.example"`,
+		Level:   loggo.INFO,
+		Message: `getting certificate for server name "somewhere.example"`,
 	}, {
-		loggo.ERROR,
-		`.*cannot get autocert certificate for "somewhere.example": Get ["]?https://0\.1\.2\.3/no-autocert-here["]?: .*`,
+		Level:   loggo.ERROR,
+		Message: `.*cannot get autocert certificate for "somewhere.example": Get ["]?https://0\.1\.2\.3/no-autocert-here["]?: .*`,
 	}})
 }
 
@@ -121,8 +121,8 @@ func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 	})
 	// Check that we logged the mismatch.
 	c.Assert(entries, jc.LogMatches, jc.SimpleMessages{{
-		loggo.ERROR,
-		`.*cannot get autocert certificate for "somewhere.else": acme/autocert: host "somewhere.else" not configured in HostWhitelist`,
+		Level:   loggo.ERROR,
+		Message: `.*cannot get autocert certificate for "somewhere.else": acme/autocert: host "somewhere.else" not configured in HostWhitelist`,
 	}})
 }
 
@@ -145,8 +145,8 @@ func (s *certSuite) TestAutocertNoAutocertDNSName(c *gc.C) {
 	})
 	// Check that we never logged a failure to get the certificate.
 	c.Assert(entries, gc.Not(jc.LogMatches), jc.SimpleMessages{{
-		loggo.ERROR,
-		`.*cannot get autocert certificate.*`,
+		Level:   loggo.ERROR,
+		Message: `.*cannot get autocert certificate.*`,
 	}})
 }
 

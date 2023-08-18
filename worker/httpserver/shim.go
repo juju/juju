@@ -4,10 +4,11 @@
 package httpserver
 
 import (
+	"context"
+
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/state"
 )
 
 // NewWorkerShim calls through to NewWorker, and exists only
@@ -16,8 +17,13 @@ func NewWorkerShim(config Config) (worker.Worker, error) {
 	return NewWorker(config)
 }
 
+// ControllerConfigGetter is an interface that returns the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // GetControllerConfig gets the controller config from a *State - it
 // exists so we can test the manifold without a StateSuite.
-func GetControllerConfig(st *state.State) (controller.Config, error) {
-	return st.ControllerConfig()
+func GetControllerConfig(ctx context.Context, getter ControllerConfigGetter) (controller.Config, error) {
+	return getter.ControllerConfig(ctx)
 }
