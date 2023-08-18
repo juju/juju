@@ -276,8 +276,11 @@ func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter
 }
 
 func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
+	controllerConfig, err := s.ControllerModel(c).State().ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	addrs := network.NewSpaceAddresses("0.1.2.3")
-	err := machine.SetProviderAddresses(addrs...)
+	err = machine.SetProviderAddresses(controllerConfig, addrs...)
 	c.Assert(err, jc.ErrorIsNil)
 	// Set the addresses in the environ instance as well so that if the instance poller
 	// runs it won't overwrite them.

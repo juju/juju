@@ -19,11 +19,13 @@ import (
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 // mockState implements StateInterface and allows inspection of called
@@ -258,6 +260,12 @@ func (m *mockState) ApplyOperation(op state.ModelOperation) error {
 	return err
 }
 
+func (m *mockState) ControllerConfig() (controller.Config, error) {
+	m.MethodCall(m, "ControllerConfig")
+
+	return jujutesting.FakeControllerConfig(), nil
+}
+
 type machineInfo struct {
 	id                string
 	instanceId        instance.Id
@@ -323,7 +331,7 @@ func (m *mockMachine) ProviderAddresses() network.SpaceAddresses {
 }
 
 // SetProviderAddresses implements StateMachine.
-func (m *mockMachine) SetProviderAddresses(addrs ...network.SpaceAddress) error {
+func (m *mockMachine) SetProviderAddresses(controllerConfig controller.Config, addrs ...network.SpaceAddress) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
