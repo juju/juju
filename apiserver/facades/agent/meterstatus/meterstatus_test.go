@@ -35,10 +35,16 @@ type meterStatusSuite struct {
 	unit *state.Unit
 
 	status meterstatus.MeterStatus
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *meterStatusSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -55,7 +61,7 @@ func (s *meterStatusSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	status, err := meterstatus.NewMeterStatusAPI(s.ControllerModel(c).State(), s.resources, s.authorizer, loggo.GetLogger("juju.apiserver.meterstatus"))
+	status, err := meterstatus.NewMeterStatusAPI(s.controllerConfigGetter, s.ControllerModel(c).State(), s.resources, s.authorizer, loggo.GetLogger("juju.apiserver.meterstatus"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.status = status
 }
@@ -213,7 +219,7 @@ func (s *meterStatusSuite) setupMeterStatusAPI(c *gc.C, fn func(meterStatusAPIMo
 
 	mockAuthorizer.EXPECT().AuthUnitAgent().Return(true)
 
-	status, err := meterstatus.NewMeterStatusAPI(mockState, mockResources, mockAuthorizer, loggo.GetLogger("juju.apiserver.meterstatus"))
+	status, err := meterstatus.NewMeterStatusAPI(s.controllerConfigGetter, mockState, mockResources, mockAuthorizer, loggo.GetLogger("juju.apiserver.meterstatus"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	fn(meterStatusAPIMocks{

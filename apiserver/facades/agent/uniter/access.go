@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func applicationAccessor(authorizer facade.Authorizer, st *state.State) common.GetAuthFunc {
+func ApplicationAccessor(authorizer facade.Authorizer, st *state.State) common.GetAuthFunc {
 	return func() (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
 		case names.ApplicationTag:
@@ -36,7 +36,7 @@ func applicationAccessor(authorizer facade.Authorizer, st *state.State) common.G
 	}
 }
 
-func machineAccessor(authorizer facade.Authorizer, st *state.State) common.GetAuthFunc {
+func MachineAccessor(authorizer facade.Authorizer, st *state.State) common.GetAuthFunc {
 	return func() (common.AuthFunc, error) {
 		switch tag := authorizer.GetAuthTag().(type) {
 		// Application agents can't access machines.
@@ -63,7 +63,7 @@ func machineAccessor(authorizer facade.Authorizer, st *state.State) common.GetAu
 	}
 }
 
-func cloudSpecAccessor(authorizer facade.Authorizer, st *state.State) func() (func() bool, error) {
+func CloudSpecAccessor(authorizer facade.Authorizer, st *state.State) func() (func() bool, error) {
 	return func() (func() bool, error) {
 		var appName string
 		var err error

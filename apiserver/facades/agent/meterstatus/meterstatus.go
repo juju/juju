@@ -19,6 +19,11 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// ControllerConfigGetter defines the methods required to get the controller
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // MeterStatus defines the methods exported by the meter status API facade.
 type MeterStatus interface {
 	GetMeterStatus(ctx context.Context, args params.Entities) (params.MeterStatusResults, error)
@@ -26,8 +31,6 @@ type MeterStatus interface {
 }
 
 // MeterStatusState represents the state of an model required by the MeterStatus.
-//
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/meterstatus_mock.go github.com/juju/juju/apiserver/facades/agent/meterstatus MeterStatusState
 type MeterStatusState interface {
 	ApplyOperation(state.ModelOperation) error
 	ControllerConfig() (controller.Config, error)
@@ -53,6 +56,7 @@ type MeterStatusAPI struct {
 
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
 func NewMeterStatusAPI(
+	controllerConfigGetter ControllerConfigGetter,
 	st MeterStatusState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -68,7 +72,7 @@ func NewMeterStatusAPI(
 		accessUnit: accessUnit,
 		resources:  resources,
 		UnitStateAPI: common.NewUnitStateAPI(
-			unitStateShim{st},
+			unitStateShim{st, controllerConfigGetter},
 			resources,
 			authorizer,
 			accessUnit,
@@ -150,7 +154,8 @@ func (m *MeterStatusAPI) GetMeterStatus(ctx context.Context, args params.Entitie
 // unitStateShim adapts the state backend for this facade to make it compatible
 // with common.UnitStateAPI.
 type unitStateShim struct {
-	st MeterStatusState
+	st                     MeterStatusState
+	controllerConfigGetter ControllerConfigGetter
 }
 
 func (s unitStateShim) ApplyOperation(op state.ModelOperation) error {
@@ -158,7 +163,7 @@ func (s unitStateShim) ApplyOperation(op state.ModelOperation) error {
 }
 
 func (s unitStateShim) ControllerConfig() (controller.Config, error) {
-	return s.st.ControllerConfig()
+	return s.controllerConfigGetter.ControllerConfig(context.Background())
 }
 
 func (s unitStateShim) Unit(name string) (common.UnitStateUnit, error) {

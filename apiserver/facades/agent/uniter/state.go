@@ -42,7 +42,7 @@ type storageFilesystemInterface interface {
 	WatchFilesystemAttachment(names.Tag, names.FilesystemTag) state.NotifyWatcher
 }
 
-var getStorageState = func(st *state.State) (storageAccess, error) {
+var GetStorageState = func(st *state.State) (storageAccess, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, err
@@ -88,11 +88,11 @@ type Unit interface {
 	StorageConstraints() (map[string]state.StorageConstraints, error)
 }
 
-type stateShim struct {
+type StateShim struct {
 	*state.State
 }
 
-func (s stateShim) Unit(name string) (Unit, error) {
+func (s StateShim) Unit(name string) (Unit, error) {
 	return s.State.Unit(name)
 }
 

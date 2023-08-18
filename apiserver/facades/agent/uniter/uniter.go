@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -36,6 +37,11 @@ import (
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
+
+// ControllerConfigGetter defines the methods required to get the controller
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // UniterAPI implements the latest version (v18) of the Uniter API.
 type UniterAPI struct {
@@ -65,6 +71,8 @@ type UniterAPI struct {
 	accessMachine       common.GetAuthFunc
 	containerBrokerFunc caas.NewContainerBrokerFunc
 	*StorageAPI
+
+	controllerConfigGetter ControllerConfigGetter
 
 	// A cloud spec can only be accessed for the model of the unit or
 	// application that is authorised for this API facade.
@@ -1852,7 +1860,7 @@ func convertRelationSettings(settings map[string]interface{}) (params.Settings, 
 	return result, nil
 }
 
-func leadershipSettingsAccessorFactory(
+func LeadershipSettingsAccessorFactory(
 	st *state.State,
 	checker leadership.Checker,
 	resources facade.Resources,

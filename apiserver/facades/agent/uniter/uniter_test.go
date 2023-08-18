@@ -6,6 +6,10 @@ package uniter_test
 import (
 	"context"
 	"fmt"
+	"github.com/juju/juju/apiserver/common/cloudspec"
+	"github.com/juju/juju/apiserver/common/unitcommon"
+	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
+	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"time"
 
 	"github.com/juju/charm/v11"
@@ -17,6 +21,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/kr/pretty"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
@@ -27,6 +32,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
+	"github.com/juju/juju/apiserver/facades/agent/uniter/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -75,6 +81,8 @@ type uniterSuiteBase struct {
 	mysql             *state.Application
 	mysqlUnit         *state.Unit
 	leadershipChecker *fakeLeadershipChecker
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 type leadershipRevoker struct {
@@ -87,10 +95,15 @@ func (s *leadershipRevoker) RevokeLeadership(applicationId, unitId string) error
 }
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.Features: feature.RawK8sSpec,
 	}
 	s.WithLeaseManager = true
+
+	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfigAttrs, nil).AnyTimes()
 
 	s.ApiServerSuite.SetUpTest(c)
 
@@ -171,7 +184,132 @@ func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Aut
 	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
 	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
-	uniterAPI, err := uniter.NewUniterAPI(facadeContext)
+
+	//uniterAPI, err := uniter.NewUniterAPI(facadeContext)
+	authorizer := facadeContext.Auth()
+	st = facadeContext.State()
+	aClock := facadeContext.StatePool().Clock()
+	resources := facadeContext.Resources()
+	leadershipChecker, _ := facadeContext.LeadershipChecker()
+	leadershipRevoker, _ := facadeContext.LeadershipRevoker(st.ModelUUID())
+
+	accessUnit := unitcommon.UnitAccessor(authorizer, unitcommon.Backend(st))
+	accessApplication := uniter.ApplicationAccessor(authorizer, st)
+	accessMachine := uniter.MachineAccessor(authorizer, st)
+	accessCloudSpec := uniter.CloudSpecAccessor(authorizer, st)
+
+	m, _ := st.Model()
+
+	storageAccessor, _ := uniter.GetStorageState(st)
+	storageAPI, _ := uniter.NewStorageAPI(
+		uniter.StateShim{st}, storageAccessor, resources, accessUnit)
+
+	msAPI, _ := meterstatus.NewMeterStatusAPI(
+		s.controllerConfigGetter, st,
+		resources, authorizer,
+		facadeContext.Logger().Child("meterstatus"),
+	)
+	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
+
+	cloudSpec := cloudspec.NewCloudSpecV2(resources,
+		cloudspec.MakeCloudSpecGetterForModel(st),
+		cloudspec.MakeCloudSpecWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
+		common.AuthFuncForTag(m.ModelTag()),
+	)
+
+	systemState, _ := facadeContext.StatePool().SystemState()
+	secretsAPI, _ := secretsmanager.NewSecretManagerAPI(facadeContext)
+	logger := facadeContext.Logger().Child("uniter")
+
+	uniterAPI, err := uniter.NewUniterAPI(
+		common.NewLifeGetter(st, accessUnitOrApplication),
+		common.NewDeadEnsurer(st, common.RevokeLeadershipFunc(leadershipRevoker), accessUnit),
+		common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
+		common.NewAPIAddresser(systemState, resources),
+		common.NewModelWatcher(m, resources, authorizer),
+		common.NewRebootRequester(st, accessMachine),
+		common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		common.NewExternalUnitStateAPI(st, resources, authorizer, accessUnit, logger),
+		secretsAPI,
+		uniter.LeadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
+		msAPI,
+		uniter.NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),
+		uniter.NewStatusAPI(m, accessUnitOrApplication, leadershipChecker),
+		m, st, aClock, facadeContext.Cancel(),
+		authorizer, resources, leadershipChecker,
+		accessUnit, accessApplication, accessMachine, accessCloudSpec,
+		cloudSpec, storageAPI, logger,
+		s.controllerConfigGetter,
+	)
+
+	c.Assert(err, jc.ErrorIsNil)
+	return uniterAPI
+}
+
+func (s *uniterSuiteBase) newUniterAPIFromContext(c *gc.C, facadeContext facadetest.Context) *uniter.UniterAPI {
+	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
+
+	//uniterAPI, err := uniter.NewUniterAPI(facadeContext)
+	authorizer := facadeContext.Auth()
+	st := facadeContext.State()
+	aClock := facadeContext.StatePool().Clock()
+	resources := facadeContext.Resources()
+	leadershipChecker, _ := facadeContext.LeadershipChecker()
+	leadershipRevoker, _ := facadeContext.LeadershipRevoker(st.ModelUUID())
+
+	accessUnit := unitcommon.UnitAccessor(authorizer, unitcommon.Backend(st))
+	accessApplication := uniter.ApplicationAccessor(authorizer, st)
+	accessMachine := uniter.MachineAccessor(authorizer, st)
+	accessCloudSpec := uniter.CloudSpecAccessor(authorizer, st)
+
+	m, _ := st.Model()
+
+	storageAccessor, _ := uniter.GetStorageState(st)
+	storageAPI, _ := uniter.NewStorageAPI(
+		uniter.StateShim{st}, storageAccessor, resources, accessUnit)
+
+	msAPI, _ := meterstatus.NewMeterStatusAPI(
+		s.controllerConfigGetter, st,
+		resources, authorizer,
+		facadeContext.Logger().Child("meterstatus"),
+	)
+	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
+
+	cloudSpec := cloudspec.NewCloudSpecV2(resources,
+		cloudspec.MakeCloudSpecGetterForModel(st),
+		cloudspec.MakeCloudSpecWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
+		common.AuthFuncForTag(m.ModelTag()),
+	)
+
+	systemState, _ := facadeContext.StatePool().SystemState()
+	secretsAPI, _ := secretsmanager.NewSecretManagerAPI(facadeContext)
+	logger := facadeContext.Logger().Child("uniter")
+
+	uniterAPI, err := uniter.NewUniterAPI(
+		common.NewLifeGetter(st, accessUnitOrApplication),
+		common.NewDeadEnsurer(st, common.RevokeLeadershipFunc(leadershipRevoker), accessUnit),
+		common.NewAgentEntityWatcher(st, resources, accessUnitOrApplication),
+		common.NewAPIAddresser(systemState, resources),
+		common.NewModelWatcher(m, resources, authorizer),
+		common.NewRebootRequester(st, accessMachine),
+		common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		common.NewExternalUnitStateAPI(st, resources, authorizer, accessUnit, logger),
+		secretsAPI,
+		uniter.LeadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
+		msAPI,
+		uniter.NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),
+		uniter.NewStatusAPI(m, accessUnitOrApplication, leadershipChecker),
+		m, st, aClock, facadeContext.Cancel(),
+		authorizer, resources, leadershipChecker,
+		accessUnit, accessApplication, accessMachine, accessCloudSpec,
+		cloudSpec, storageAPI, logger,
+		s.controllerConfigGetter,
+	)
+
 	c.Assert(err, jc.ErrorIsNil)
 	return uniterAPI
 }
@@ -245,7 +383,7 @@ func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer.Tag = names.NewMachineTag("9")
 	context := s.facadeContext(c)
 	context.Auth_ = anAuthorizer
-	_, err := uniter.NewUniterAPI(context)
+	_, err := uniter.NewUniterFacade(context)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -4500,8 +4638,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	)
 
 	// Test-suite uses an older API version
-	api, err := uniter.NewUniterAPI(s.facadeContext(c))
-	c.Assert(err, jc.ErrorIsNil)
+	api := s.newUniterAPIFromContext(c, s.facadeContext(c))
 
 	result, err := api.CommitHookChanges(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4560,8 +4697,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
 	req, _ := b.Build()
 
 	// Test-suite uses an older API version
-	api, err := uniter.NewUniterAPI(s.facadeContext(c))
-	c.Assert(err, jc.ErrorIsNil)
+	api := s.newUniterAPIFromContext(c, s.facadeContext(c))
 
 	result, err := api.CommitHookChanges(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4712,8 +4848,8 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: unit.Tag(),
 	}
-	api, err := uniter.NewUniterAPI(s.facadeContext(c))
-	c.Assert(err, jc.ErrorIsNil)
+	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfigAttrs, nil).AnyTimes()
+	api := s.newUniterAPIFromContext(c, s.facadeContext(c))
 
 	result, err := api.CommitHookChanges(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4751,7 +4887,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 	req, _ := b.Build()
 
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
-	uniterAPI, err := uniter.NewUniterAPI(facadetest.Context{
+	uniterAPI := s.newUniterAPIFromContext(c, facadetest.Context{
 		State_:             cm.State(),
 		StatePool_:         s.StatePool(),
 		Resources_:         s.resources,
@@ -4759,7 +4895,6 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 		LeadershipChecker_: s.leadershipChecker,
 		ServiceFactory_:    servicefactorytesting.NewTestingServiceFactory(),
 	})
-	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := uniterAPI.CommitHookChanges(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4991,7 +5126,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 
-	_, err := uniter.NewUniterAPI(facadetest.Context{
+	_, err := uniter.NewUniterFacade(facadetest.Context{
 		State_:             s.ControllerModel(c).State(),
 		StatePool_:         s.StatePool(),
 		Resources_:         resources,
