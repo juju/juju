@@ -5,7 +5,7 @@ package juju
 
 import (
 	gc "gopkg.in/check.v1"
-	
+
 	jc "github.com/juju/testing/checkers"
 )
 
@@ -44,7 +44,7 @@ func (s *APIHelperSuite) TestMoveToFront(c *gc.C) {
 	for i, test := range moveToFrontTests {
 		c.Logf("test %d: moveToFront %q %v", i, test.item, test.items)
 		moveToFront(test.item, test.items)
-		c.Assert(test.items, jc.DeepEquals, test.expect)
+		c.Check(test.items, jc.DeepEquals, test.expect)
 	}
 }
 
