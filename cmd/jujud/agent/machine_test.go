@@ -414,23 +414,6 @@ func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestCallsUseMultipleCPUs(c *gc.C) {
-	// All machine agents call UseMultipleCPUs.
-	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	calledChan := make(chan struct{}, 1)
-	s.AgentSuite.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
-	ctrl, a := s.newAgent(c, m)
-	defer ctrl.Finish()
-	defer a.Stop()
-
-	go func() { c.Check(a.Run(nil), jc.ErrorIsNil) }()
-
-	// Wait for configuration to be finished
-	<-a.WorkersStarted()
-	s.assertChannelActive(c, calledChan, "UseMultipleCPUs() to be called")
-	c.Check(a.Stop(), jc.ErrorIsNil)
-}
-
 func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
 	c.Logf("waiting for unit %q to be provisioned", unit)
 	machineId, err := unit.AssignedMachineId()

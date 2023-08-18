@@ -104,7 +104,6 @@ var (
 	// be expressed as explicit dependencies, but nobody has yet had
 	// the intestinal fortitude to untangle this package. Be that
 	// person! Juju Needs You.
-	useMultipleCPUs   = utils.UseMultipleCPUs
 	reportOpenedState = func(*state.State) {}
 	getHostname       = os.Hostname
 
@@ -485,7 +484,7 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	defer a.Done(err)
 	a.ctx = ctx
-	useMultipleCPUs()
+
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
