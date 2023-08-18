@@ -5,6 +5,7 @@ package juju
 
 import (
 	gc "gopkg.in/check.v1"
+	
 	jc "github.com/juju/testing/checkers"
 )
 
