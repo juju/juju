@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -37,7 +36,6 @@ import (
 
 type NewAPIClientSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
-	mgotesting.MgoSuite
 	envtesting.ToolsFixture
 }
 
@@ -47,26 +45,22 @@ var _ = gc.Suite(&NewAPIClientSuite{})
 
 func (s *NewAPIClientSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *NewAPIClientSuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownSuite(c)
 }
 
 func (s *NewAPIClientSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.SetUpTest(c)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
 	s.PatchValue(&dummy.LogDir, c.MkDir())
 }
 
 func (s *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	dummy.Reset(c)
 	s.ToolsFixture.TearDownTest(c)
-	s.MgoSuite.TearDownTest(c)
 	s.FakeJujuXDGDataHomeSuite.TearDownTest(c)
 }
 
@@ -451,40 +445,6 @@ func (s *NewAPIClientSuite) TestEndpointFiltering(c *gc.C) {
 		"10.0.0.1:1234",
 		"0.1.2.3:1235",
 	})
-}
-
-var moveToFrontTests = []struct {
-	item   string
-	items  []string
-	expect []string
-}{{
-	item:   "x",
-	items:  []string{"y", "x"},
-	expect: []string{"x", "y"},
-}, {
-	item:   "z",
-	items:  []string{"y", "x"},
-	expect: []string{"y", "x"},
-}, {
-	item:   "y",
-	items:  []string{"y", "x"},
-	expect: []string{"y", "x"},
-}, {
-	item:   "x",
-	items:  []string{"y", "x", "z"},
-	expect: []string{"x", "y", "z"},
-}, {
-	item:   "d",
-	items:  []string{"a", "b", "c", "d", "e", "f"},
-	expect: []string{"d", "a", "b", "c", "e", "f"},
-}}
-
-func (s *NewAPIClientSuite) TestMoveToFront(c *gc.C) {
-	for i, test := range moveToFrontTests {
-		c.Logf("test %d: moveToFront %q %v", i, test.item, test.items)
-		juju.MoveToFront(test.item, test.items)
-		c.Assert(test.items, jc.DeepEquals, test.expect)
-	}
 }
 
 type testRootAPI struct {
