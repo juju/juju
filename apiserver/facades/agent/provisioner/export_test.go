@@ -22,5 +22,5 @@ func NewContainerProfileContext(result params.ContainerProfileResults, modelName
 }
 
 var (
-	NewProvisionerAPIV11 = newProvisionerAPIV11
+	NewProvisionerAPIV11 = NewProvisionerFacade
 )

@@ -43,7 +43,6 @@ func (s *meterStatusSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
 	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())

@@ -40,13 +40,11 @@ var _ = gc.Suite(&instanceTypesSuite{})
 func (s *instanceTypesSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin"), Controller: true}
 
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 }
 
 func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 
 	s.st = mocks.NewMockBackend(ctrl)
 	s.leadership = mocks.NewMockLeadership(ctrl)

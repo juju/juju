@@ -49,7 +49,6 @@ var _ = gc.Suite(&upgraderSuite{})
 
 func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
 	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 
 	s.ControllerModelConfigAttrs = map[string]interface{}{

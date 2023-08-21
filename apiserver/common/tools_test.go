@@ -602,6 +602,6 @@ func (s *getUrlSuite) TestToolsURLGetter(c *gc.C) {
 
 type controllerConfigGetter struct{}
 
-func (controllerConfigGetter) ControllerConfig() (controller.Config, error) {
+func (controllerConfigGetter) ControllerConfig(ctx context.Context) (controller.Config, error) {
 	return coretesting.FakeControllerConfig(), nil
 }

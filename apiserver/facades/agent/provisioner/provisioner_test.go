@@ -59,7 +59,7 @@ type provisionerSuite struct {
 
 	authorizer  apiservertesting.FakeAuthorizer
 	resources   *common.Resources
-	provisioner *provisioner.ProvisionerAPIV11
+	provisioner *provisioner.ProvisionerAPI
 }
 
 var _ = gc.Suite(&provisionerSuite{})
@@ -101,7 +101,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	s.resources = common.NewResources()
 
 	// Create a provisioner API for the machine.
-	provisionerAPI, err := provisioner.NewProvisionerAPIV11(facadetest.Context{
+	provisionerAPI, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:      s.authorizer,
 		State_:     st,
 		StatePool_: s.StatePool(),
@@ -134,7 +134,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 	anAuthorizer.Controller = true
 	// Works with a controller, which is not a machine agent.
 	st := s.ControllerModel(c).State()
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           anAuthorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),
@@ -146,7 +146,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 
 	// But fails with neither a machine agent or a controller.
 	anAuthorizer.Controller = false
-	aProvisioner, err = provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err = provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           anAuthorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),
@@ -224,7 +224,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
 	st := s.ControllerModel(c).State()
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           anAuthorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),
@@ -584,7 +584,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = names.NewMachineTag("1")
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -787,7 +787,7 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -1089,7 +1089,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	provisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -1215,7 +1215,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	provisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	provisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -1454,7 +1454,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -1508,7 +1508,7 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.Controller = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -1683,7 +1683,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),

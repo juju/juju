@@ -56,7 +56,7 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
-	api, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	api, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           s.authorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
@@ -77,7 +77,7 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 	st := s.ControllerModel(c).State()
-	api, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	api, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           s.authorizer,
 		State_:          st,
 		StatePool_:      s.StatePool(),

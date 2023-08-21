@@ -19,8 +19,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
@@ -36,6 +38,23 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 )
+
+// ControllerConfigGetter defines the methods required to get the controller
+type ControllerConfigGetter interface {
+	ControllerConfig(stdcontext.Context) (controller.Config, error)
+}
+
+// ExternalControllerService defines the methods that the controller
+// facade needs from the controller state.
+type ExternalControllerService interface {
+	// ControllerForModel returns the controller record that's associated
+	// with the modelUUID.
+	ControllerForModel(ctx stdcontext.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
+
+	// UpdateExternalController persists the input controller
+	// record.
+	UpdateExternalController(ctx stdcontext.Context, ec crossmodel.ControllerInfo) error
+}
 
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
@@ -71,8 +90,15 @@ type ProvisionerAPI struct {
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
-func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
-	authorizer := ctx.Auth()
+func NewProvisionerAPI(
+	controllerConfigGetter ControllerConfigGetter,
+	authorizer facade.Authorizer,
+	st *state.State,
+	systemState *state.State,
+	resources facade.Resources,
+	externalControllerService ExternalControllerService,
+	logger loggo.Logger,
+) (*ProvisionerAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -110,7 +136,6 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	getAuthOwner := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -134,15 +159,8 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}
 
-	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
-
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
 	callCtx := context.CallContext(st)
-	resources := ctx.Resources()
 	api := &ProvisionerAPI{
 		Remover:              common.NewRemover(st, nil, false, getAuthFunc),
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
@@ -155,7 +173,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			ctx.ServiceFactory().ExternalController(),
+			externalControllerService,
 		),
 		NetworkConfigAPI:        netConfigAPI,
 		st:                      st,
@@ -168,7 +186,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		getAuthFunc:             getAuthFunc,
 		getCanModify:            getCanModify,
 		providerCallContext:     callCtx,
-		logger:                  ctx.Logger().Child("provisioner"),
+		logger:                  logger,
 	}
 	if isCaasModel {
 		return api, nil

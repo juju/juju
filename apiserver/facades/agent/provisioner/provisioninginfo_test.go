@@ -683,7 +683,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
 	anAuthorizer.Tag = s.machines[0].Tag()
-	aProvisioner, err := provisioner.NewProvisionerAPI(facadetest.Context{
+	aProvisioner, err := provisioner.NewProvisionerFacade(facadetest.Context{
 		Auth_:           anAuthorizer,
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),

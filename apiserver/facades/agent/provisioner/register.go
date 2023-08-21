@@ -14,15 +14,24 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Provisioner", 11, func(ctx facade.Context) (facade.Facade, error) {
-		return newProvisionerAPIV11(ctx) // Relies on agent-set origin in SetHostMachineNetworkConfig.
+		return NewProvisionerFacade(ctx) // Relies on agent-set origin in SetHostMachineNetworkConfig.
 	}, reflect.TypeOf((*ProvisionerAPIV11)(nil)))
 }
 
-// newProvisionerAPIV11 creates a new server-side Provisioner API facade.
-func newProvisionerAPIV11(ctx facade.Context) (*ProvisionerAPIV11, error) {
-	provisionerAPI, err := NewProvisionerAPI(ctx)
+// NewProvisionerFacade creates a new server-side Provisioner API facade.
+func NewProvisionerFacade(ctx facade.Context) (*ProvisionerAPI, error) {
+	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+	authorizer := ctx.Auth()
+	st := ctx.State()
+
+	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &ProvisionerAPIV11{provisionerAPI}, nil
+
+	resources := ctx.Resources()
+	externalController := ctx.ServiceFactory().ExternalController()
+	logger := ctx.Logger().Child("provisioner")
+
+	return NewProvisionerAPI(controllerConfigGetter, authorizer, st, systemState, resources, externalController, logger)
 }
