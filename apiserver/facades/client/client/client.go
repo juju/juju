@@ -244,13 +244,16 @@ func (c *Client) FindTools(ctx stdcontext.Context, args params.FindToolsParams) 
 		return params.FindToolsResult{}, errors.Trace(err)
 	}
 
-	list, err := c.api.toolsFinder.FindAgents(common.FindAgentsParams{
-		Number:       args.Number,
-		MajorVersion: args.MajorVersion,
-		Arch:         args.Arch,
-		OSType:       args.OSType,
-		AgentStream:  args.AgentStream,
-	})
+	list, err := c.api.toolsFinder.FindAgents(
+		stdcontext.Background(),
+		common.FindAgentsParams{
+			Number:       args.Number,
+			MajorVersion: args.MajorVersion,
+			Arch:         args.Arch,
+			OSType:       args.OSType,
+			AgentStream:  args.AgentStream,
+		},
+	)
 	result := params.FindToolsResult{
 		List:  list,
 		Error: apiservererrors.ServerError(err),

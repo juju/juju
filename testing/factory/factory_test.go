@@ -4,6 +4,7 @@
 package factory_test
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"time"
@@ -514,7 +515,7 @@ func (s *factorySuite) TestMakeModelNil(c *gc.C) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := m.ModelConfig()
+	cfg, err := m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["default-base"], gc.Equals, "")
 	c.Assert(cfg.AllAttrs()["default-series"], gc.IsNil)
@@ -541,7 +542,7 @@ func (s *factorySuite) TestMakeModel(c *gc.C) {
 
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := m.ModelConfig()
+	cfg, err := m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["default-base"], gc.Equals, "ubuntu@22.04")
 }
@@ -568,7 +569,7 @@ func (s *factorySuite) TestMakeModelWithSeries(c *gc.C) {
 
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := m.ModelConfig()
+	cfg, err := m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["default-series"], gc.Equals, "jammy")
 }

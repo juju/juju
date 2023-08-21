@@ -97,7 +97,7 @@ type fakeStatusSetter struct {
 	err  error
 }
 
-func (f *fakeStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (f *fakeStatusSetter) SetStatus(_ context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	f.args = args
 	return f.res, f.err
 }

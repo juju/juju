@@ -78,7 +78,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 	}
 	// Check if changes are allowed and the command may proceed.
 	blockChecker := common.NewBlockChecker(st)
-	if err := blockChecker.ChangeAllowed(); err != nil {
+	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 

@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -59,7 +61,7 @@ func (u *UnitsWatcher) watchOneEntityUnits(canWatch AuthFunc, tag names.Tag) (pa
 
 // WatchUnits starts a StringsWatcher to watch all units belonging to
 // to any entity (machine or service) passed in args.
-func (u *UnitsWatcher) WatchUnits(args params.Entities) (params.StringsWatchResults, error) {
+func (u *UnitsWatcher) WatchUnits(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}

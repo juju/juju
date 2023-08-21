@@ -43,7 +43,7 @@ func (api *UserManagerAPI) hasControllerAdminAccess() (bool, error) {
 func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (params.AddUserResults, error) {
 	var result params.AddUserResults
 
-	if err := api.check.ChangeAllowed(); err != nil {
+	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -89,7 +89,7 @@ func (api *UserManagerAPI) AddUser(ctx context.Context, args params.AddUsers) (p
 func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entities) (params.ErrorResults, error) {
 	var deletions params.ErrorResults
 
-	if err := api.check.ChangeAllowed(); err != nil {
+	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return deletions, errors.Trace(err)
 	}
 
@@ -156,7 +156,7 @@ func (api *UserManagerAPI) EnableUser(ctx context.Context, users params.Entities
 		return params.ErrorResults{}, err
 	}
 
-	if err := api.check.ChangeAllowed(); err != nil {
+	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	return api.enableUserImpl(users, "enable", (*state.User).Enable)
@@ -169,7 +169,7 @@ func (api *UserManagerAPI) DisableUser(ctx context.Context, users params.Entitie
 		return params.ErrorResults{}, err
 	}
 
-	if err := api.check.ChangeAllowed(); err != nil {
+	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	return api.enableUserImpl(users, "disable", (*state.User).Disable)
@@ -354,7 +354,7 @@ func (api *UserManagerAPI) modelUserInfo(modelTag names.ModelTag) ([]params.Mode
 
 // SetPassword changes the stored password for the specified users.
 func (api *UserManagerAPI) SetPassword(ctx context.Context, args params.EntityPasswords) (params.ErrorResults, error) {
-	if err := api.check.ChangeAllowed(); err != nil {
+	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
@@ -403,7 +403,7 @@ func (api *UserManagerAPI) setPassword(arg params.EntityPassword) error {
 func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entities) (params.AddUserResults, error) {
 	var result params.AddUserResults
 
-	if err := api.check.ChangeAllowed(); err != nil {
+	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 

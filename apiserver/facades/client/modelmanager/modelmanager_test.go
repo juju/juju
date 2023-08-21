@@ -1742,7 +1742,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 
 func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 	// Check that we don't err out immediately if a model errs.
-	results, err := s.api.ModelStatus(params.Entities{Entities: []params.Entity{{
+	results, err := s.api.ModelStatus(stdcontext.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "bad-tag",
 	}, {
 		Tag: s.st.ModelTag().String(),
@@ -1752,7 +1752,7 @@ func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
 	// Check that we don't err out if a model errs even if some firsts in collection pass.
-	results, err = s.api.ModelStatus(params.Entities{Entities: []params.Entity{{
+	results, err = s.api.ModelStatus(stdcontext.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: s.st.ModelTag().String(),
 	}, {
 		Tag: "bad-tag",
@@ -1762,7 +1762,7 @@ func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
 	// Check that we return successfully if no errors.
-	results, err = s.api.ModelStatus(params.Entities{Entities: []params.Entity{{
+	results, err = s.api.ModelStatus(stdcontext.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: s.st.ModelTag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)

@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -35,27 +37,33 @@ func (s *statusGetterSuite) SetUpTest(c *gc.C) {
 func (s *statusGetterSuite) TestUnauthorized(c *gc.C) {
 	tag := names.NewMachineTag("42")
 	s.badTag = tag
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
-		tag.String(),
-	}}})
+	result, err := s.getter.Status(context.Background(),
+		params.Entities{Entities: []params.Entity{{
+			Tag: tag.String(),
+		}}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *statusGetterSuite) TestNotATag(c *gc.C) {
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
-		"not a tag",
-	}}})
+	result, err := s.getter.Status(context.Background(),
+		params.Entities{Entities: []params.Entity{{
+			Tag: "not a tag",
+		}}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, `"not a tag" is not a valid tag`)
 }
 
 func (s *statusGetterSuite) TestNotFound(c *gc.C) {
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
-		names.NewMachineTag("42").String(),
-	}}})
+	result, err := s.getter.Status(context.Background(),
+		params.Entities{Entities: []params.Entity{{
+			Tag: names.NewMachineTag("42").String(),
+		}}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeNotFound)
@@ -63,9 +71,11 @@ func (s *statusGetterSuite) TestNotFound(c *gc.C) {
 
 func (s *statusGetterSuite) TestGetMachineStatus(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
-		machine.Tag().String(),
-	}}})
+	result, err := s.getter.Status(context.Background(),
+		params.Entities{Entities: []params.Entity{{
+			Tag: machine.Tag().String(),
+		}}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	machineStatus := result.Results[0]
@@ -80,9 +90,11 @@ func (s *statusGetterSuite) TestGetUnitStatus(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
-		unit.Tag().String(),
-	}}})
+	result, err := s.getter.Status(context.Background(),
+		params.Entities{Entities: []params.Entity{{
+			Tag: unit.Tag().String(),
+		}}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	unitStatus := result.Results[0]
@@ -94,9 +106,11 @@ func (s *statusGetterSuite) TestGetApplicationStatus(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
-		app.Tag().String(),
-	}}})
+	result, err := s.getter.Status(context.Background(),
+		params.Entities{Entities: []params.Entity{{
+			Tag: app.Tag().String(),
+		}}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	appStatus := result.Results[0]
@@ -107,13 +121,15 @@ func (s *statusGetterSuite) TestGetApplicationStatus(c *gc.C) {
 func (s *statusGetterSuite) TestBulk(c *gc.C) {
 	s.badTag = names.NewMachineTag("42")
 	machine := s.Factory.MakeMachine(c, nil)
-	result, err := s.getter.Status(params.Entities{[]params.Entity{{
-		s.badTag.String(),
-	}, {
-		machine.Tag().String(),
-	}, {
-		"bad-tag",
-	}}})
+	result, err := s.getter.Status(context.Background(),
+		params.Entities{Entities: []params.Entity{{
+			Tag: s.badTag.String(),
+		}, {
+			Tag: machine.Tag().String(),
+		}, {
+			Tag: "bad-tag",
+		}}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
@@ -138,7 +154,7 @@ func (t *token) Check() error {
 }
 
 func (f *fakeLeadershipChecker) LeadershipCheck(applicationName, unitName string) leadership.Token {
-	return &token{f.isLeader}
+	return &token{isLeader: f.isLeader}
 }
 
 type statusBaseSuite struct {
@@ -150,7 +166,7 @@ type statusBaseSuite struct {
 func (s *statusBaseSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	s.badTag = nil
-	s.leadershipChecker = &fakeLeadershipChecker{true}
+	s.leadershipChecker = &fakeLeadershipChecker{isLeader: true}
 }
 
 func (s *statusBaseSuite) authFunc(tag names.Tag) bool {

@@ -54,7 +54,7 @@ func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *gc.C) {
 	defer close(notifyCh)
 	s.st.EXPECT().WatchForModelConfigChanges().Return(watcher)
 
-	s.st.EXPECT().ModelConfig().Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
+	s.st.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
 	c.Assert(err, jc.ErrorIsNil)
@@ -75,8 +75,8 @@ func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *gc.C) {
 
 	s.st.EXPECT().WatchForModelConfigChanges().Return(watcher)
 
-	s.st.EXPECT().ModelConfig().Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
-	s.st.EXPECT().ModelConfig().Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "192.168.0.0/24"}), nil)
+	s.st.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
+	s.st.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "192.168.0.0/24"}), nil)
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
 	c.Assert(err, jc.ErrorIsNil)
@@ -101,8 +101,8 @@ func (s *ModelFirewallRulesWatcherSuite) TestIrrelevantConfigChange(c *gc.C) {
 
 	s.st.EXPECT().WatchForModelConfigChanges().Return(watcher)
 
-	s.st.EXPECT().ModelConfig().Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
-	s.st.EXPECT().ModelConfig().Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
+	s.st.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
+	s.st.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
 
 	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
 	c.Assert(err, jc.ErrorIsNil)

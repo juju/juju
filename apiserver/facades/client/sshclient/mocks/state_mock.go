@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	sshclient "github.com/juju/juju/apiserver/facades/client/sshclient"
@@ -39,18 +40,18 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // CloudSpec mocks base method.
-func (m *MockBackend) CloudSpec() (cloudspec.CloudSpec, error) {
+func (m *MockBackend) CloudSpec(arg0 context.Context) (cloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudSpec")
+	ret := m.ctrl.Call(m, "CloudSpec", arg0)
 	ret0, _ := ret[0].(cloudspec.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CloudSpec indicates an expected call of CloudSpec.
-func (mr *MockBackendMockRecorder) CloudSpec() *gomock.Call {
+func (mr *MockBackendMockRecorder) CloudSpec(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockBackend)(nil).CloudSpec))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockBackend)(nil).CloudSpec), arg0)
 }
 
 // ControllerTag mocks base method.
@@ -113,18 +114,18 @@ func (mr *MockBackendMockRecorder) Model() *gomock.Call {
 }
 
 // ModelConfig mocks base method.
-func (m *MockBackend) ModelConfig() (*config.Config, error) {
+func (m *MockBackend) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig")
+	ret := m.ctrl.Call(m, "ModelConfig", arg0)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockBackendMockRecorder) ModelConfig() *gomock.Call {
+func (mr *MockBackendMockRecorder) ModelConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBackend)(nil).ModelConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBackend)(nil).ModelConfig), arg0)
 }
 
 // ModelTag mocks base method.

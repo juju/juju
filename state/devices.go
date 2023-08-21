@@ -4,6 +4,8 @@
 package state
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -51,7 +53,7 @@ func NewDeviceBackend(st *State) (*deviceBackend, error) {
 
 type deviceBackend struct {
 	mb          modelBackend
-	config      func() (*config.Config, error)
+	config      func(context.Context) (*config.Config, error)
 	application func(string) (*Application, error)
 	unit        func(string) (*Unit, error)
 	machine     func(string) (*Machine, error)

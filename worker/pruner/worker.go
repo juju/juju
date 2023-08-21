@@ -4,6 +4,7 @@
 package pruner
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -22,13 +23,11 @@ var (
 	_ logger = struct{}{}
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/mocks_facade.go github.com/juju/juju/worker/pruner Facade
-
 // Facade represents an API that implements status history pruning.
 type Facade interface {
 	Prune(time.Duration, int) error
 	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 }
 
 // PrunerWorker prunes status history or action records at regular intervals.
@@ -87,7 +86,7 @@ func (w *PrunerWorker) Work(getPrunerConfig func(*config.Config) (time.Duration,
 			if !ok {
 				return errors.New("model configuration watcher closed")
 			}
-			modelConfig, err := w.config.Facade.ModelConfig()
+			modelConfig, err := w.config.Facade.ModelConfig(context.TODO())
 			if err != nil {
 				return errors.Annotate(err, "cannot load model configuration")
 			}

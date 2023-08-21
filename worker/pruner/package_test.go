@@ -9,6 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/mocks_facade.go github.com/juju/juju/worker/pruner Facade
+
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }

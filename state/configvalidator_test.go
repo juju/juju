@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -84,7 +86,7 @@ func (s *ConfigValidatorSuite) TestUpdateModelConfigFailsOnConfigValidateError(c
 
 func (s *ConfigValidatorSuite) TestUpdateModelConfigUpdatesState(c *gc.C) {
 	s.updateModelConfig(c)
-	stateCfg, err := s.Model.ModelConfig()
+	stateCfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	newValidCfg, err := mockValidCfg()
 	c.Assert(err, jc.ErrorIsNil)

@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -70,21 +71,21 @@ func (*removeSuite) TestRemove(c *gc.C) {
 	}
 
 	r := common.NewRemover(st, afterDead, true, getCanModify)
-	entities := params.Entities{[]params.Entity{
-		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"}, {"unit-x-6"},
+	entities := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"}, {Tag: "unit-x-4"}, {Tag: "unit-x-5"}, {Tag: "unit-x-6"},
 	}}
-	result, err := r.Remove(entities)
+	result, err := r.Remove(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(afterDeadCalled, jc.IsTrue)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{&params.Error{Message: "x0 EnsureDead fails"}},
-			{&params.Error{Message: "x1 Remove fails"}},
-			{&params.Error{Message: `cannot remove entity "unit-x-2": still alive`}},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{&params.Error{Message: "x5 error"}},
-			{apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: "x0 EnsureDead fails"}},
+			{Error: &params.Error{Message: "x1 Remove fails"}},
+			{Error: &params.Error{Message: `cannot remove entity "unit-x-2": still alive`}},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: "x5 error"}},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -92,14 +93,14 @@ func (*removeSuite) TestRemove(c *gc.C) {
 	// get called.
 	afterDeadCalled = false
 	r = common.NewRemover(st, afterDead, false, getCanModify)
-	entities = params.Entities{[]params.Entity{{"unit-x-0"}, {"unit-x-1"}}}
-	result, err = r.Remove(entities)
+	entities = params.Entities{Entities: []params.Entity{{Tag: "unit-x-0"}, {Tag: "unit-x-1"}}}
+	result, err = r.Remove(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(afterDeadCalled, jc.IsFalse)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{&params.Error{Message: "x1 Remove fails"}},
+			{Error: nil},
+			{Error: &params.Error{Message: "x1 Remove fails"}},
 		},
 	})
 }
@@ -109,7 +110,7 @@ func (*removeSuite) TestRemoveError(c *gc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	r := common.NewRemover(&fakeState{}, nil, true, getCanModify)
-	_, err := r.Remove(params.Entities{[]params.Entity{{"x0"}}})
+	_, err := r.Remove(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
@@ -118,7 +119,7 @@ func (*removeSuite) TestRemoveNoArgsNoError(c *gc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	r := common.NewRemover(&fakeState{}, nil, true, getCanModify)
-	result, err := r.Remove(params.Entities{})
+	result, err := r.Remove(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

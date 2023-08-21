@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	api "github.com/juju/juju/api"
@@ -15,7 +16,7 @@ import (
 	relation "github.com/juju/juju/core/relation"
 	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
+	context0 "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
 	params "github.com/juju/juju/rpc/params"
 	firewaller0 "github.com/juju/juju/worker/firewaller"
@@ -108,18 +109,18 @@ func (mr *MockFirewallerAPIMockRecorder) Machine(arg0 interface{}) *gomock.Call 
 }
 
 // ModelConfig mocks base method.
-func (m *MockFirewallerAPI) ModelConfig() (*config.Config, error) {
+func (m *MockFirewallerAPI) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig")
+	ret := m.ctrl.Call(m, "ModelConfig", arg0)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockFirewallerAPIMockRecorder) ModelConfig() *gomock.Call {
+func (mr *MockFirewallerAPIMockRecorder) ModelConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockFirewallerAPI)(nil).ModelConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockFirewallerAPI)(nil).ModelConfig), arg0)
 }
 
 // ModelFirewallRules mocks base method.
@@ -444,7 +445,7 @@ func (m *MockEnvironFirewaller) EXPECT() *MockEnvironFirewallerMockRecorder {
 }
 
 // ClosePorts mocks base method.
-func (m *MockEnvironFirewaller) ClosePorts(arg0 context.ProviderCallContext, arg1 firewall.IngressRules) error {
+func (m *MockEnvironFirewaller) ClosePorts(arg0 context0.ProviderCallContext, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClosePorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -458,7 +459,7 @@ func (mr *MockEnvironFirewallerMockRecorder) ClosePorts(arg0, arg1 interface{}) 
 }
 
 // IngressRules mocks base method.
-func (m *MockEnvironFirewaller) IngressRules(arg0 context.ProviderCallContext) (firewall.IngressRules, error) {
+func (m *MockEnvironFirewaller) IngressRules(arg0 context0.ProviderCallContext) (firewall.IngressRules, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IngressRules", arg0)
 	ret0, _ := ret[0].(firewall.IngressRules)
@@ -473,7 +474,7 @@ func (mr *MockEnvironFirewallerMockRecorder) IngressRules(arg0 interface{}) *gom
 }
 
 // OpenPorts mocks base method.
-func (m *MockEnvironFirewaller) OpenPorts(arg0 context.ProviderCallContext, arg1 firewall.IngressRules) error {
+func (m *MockEnvironFirewaller) OpenPorts(arg0 context0.ProviderCallContext, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenPorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -510,7 +511,7 @@ func (m *MockEnvironModelFirewaller) EXPECT() *MockEnvironModelFirewallerMockRec
 }
 
 // CloseModelPorts mocks base method.
-func (m *MockEnvironModelFirewaller) CloseModelPorts(arg0 context.ProviderCallContext, arg1 firewall.IngressRules) error {
+func (m *MockEnvironModelFirewaller) CloseModelPorts(arg0 context0.ProviderCallContext, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloseModelPorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -524,7 +525,7 @@ func (mr *MockEnvironModelFirewallerMockRecorder) CloseModelPorts(arg0, arg1 int
 }
 
 // ModelIngressRules mocks base method.
-func (m *MockEnvironModelFirewaller) ModelIngressRules(arg0 context.ProviderCallContext) (firewall.IngressRules, error) {
+func (m *MockEnvironModelFirewaller) ModelIngressRules(arg0 context0.ProviderCallContext) (firewall.IngressRules, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelIngressRules", arg0)
 	ret0, _ := ret[0].(firewall.IngressRules)
@@ -539,7 +540,7 @@ func (mr *MockEnvironModelFirewallerMockRecorder) ModelIngressRules(arg0 interfa
 }
 
 // OpenModelPorts mocks base method.
-func (m *MockEnvironModelFirewaller) OpenModelPorts(arg0 context.ProviderCallContext, arg1 firewall.IngressRules) error {
+func (m *MockEnvironModelFirewaller) OpenModelPorts(arg0 context0.ProviderCallContext, arg1 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenModelPorts", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -576,7 +577,7 @@ func (m *MockEnvironInstances) EXPECT() *MockEnvironInstancesMockRecorder {
 }
 
 // Instances mocks base method.
-func (m *MockEnvironInstances) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
+func (m *MockEnvironInstances) Instances(arg0 context0.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -614,7 +615,7 @@ func (m *MockEnvironInstance) EXPECT() *MockEnvironInstanceMockRecorder {
 }
 
 // Addresses mocks base method.
-func (m *MockEnvironInstance) Addresses(arg0 context.ProviderCallContext) (network.ProviderAddresses, error) {
+func (m *MockEnvironInstance) Addresses(arg0 context0.ProviderCallContext) (network.ProviderAddresses, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Addresses", arg0)
 	ret0, _ := ret[0].(network.ProviderAddresses)
@@ -629,7 +630,7 @@ func (mr *MockEnvironInstanceMockRecorder) Addresses(arg0 interface{}) *gomock.C
 }
 
 // ClosePorts mocks base method.
-func (m *MockEnvironInstance) ClosePorts(arg0 context.ProviderCallContext, arg1 string, arg2 firewall.IngressRules) error {
+func (m *MockEnvironInstance) ClosePorts(arg0 context0.ProviderCallContext, arg1 string, arg2 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClosePorts", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -657,7 +658,7 @@ func (mr *MockEnvironInstanceMockRecorder) Id() *gomock.Call {
 }
 
 // IngressRules mocks base method.
-func (m *MockEnvironInstance) IngressRules(arg0 context.ProviderCallContext, arg1 string) (firewall.IngressRules, error) {
+func (m *MockEnvironInstance) IngressRules(arg0 context0.ProviderCallContext, arg1 string) (firewall.IngressRules, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IngressRules", arg0, arg1)
 	ret0, _ := ret[0].(firewall.IngressRules)
@@ -672,7 +673,7 @@ func (mr *MockEnvironInstanceMockRecorder) IngressRules(arg0, arg1 interface{}) 
 }
 
 // OpenPorts mocks base method.
-func (m *MockEnvironInstance) OpenPorts(arg0 context.ProviderCallContext, arg1 string, arg2 firewall.IngressRules) error {
+func (m *MockEnvironInstance) OpenPorts(arg0 context0.ProviderCallContext, arg1 string, arg2 firewall.IngressRules) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenPorts", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -686,7 +687,7 @@ func (mr *MockEnvironInstanceMockRecorder) OpenPorts(arg0, arg1, arg2 interface{
 }
 
 // Status mocks base method.
-func (m *MockEnvironInstance) Status(arg0 context.ProviderCallContext) instance.Status {
+func (m *MockEnvironInstance) Status(arg0 context0.ProviderCallContext) instance.Status {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Status", arg0)
 	ret0, _ := ret[0].(instance.Status)

@@ -4,6 +4,7 @@
 package factory
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -890,7 +891,7 @@ func (factory *Factory) currentCfg(c *gc.C) *config.Config {
 	model, err := factory.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	currentCfg, err := model.ModelConfig()
+	currentCfg, err := model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	return currentCfg

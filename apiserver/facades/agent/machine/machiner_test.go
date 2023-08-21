@@ -88,13 +88,13 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 			{Tag: "machine-0", Status: status.Stopped.String(), Info: "foobar"},
 			{Tag: "machine-42", Status: status.Started.String(), Info: "blah"},
 		}}
-	result, err := s.machiner.SetStatus(args)
+	result, err := s.machiner.SetStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -122,7 +122,7 @@ func (s *machinerSuite) TestLife(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
 	}}
-	result, err := s.machiner.Life(args)
+	result, err := s.machiner.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -142,13 +142,13 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
 	}}
-	result, err := s.machiner.EnsureDead(args)
+	result, err := s.machiner.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -163,10 +163,10 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	args = params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	}
-	result, err = s.machiner.EnsureDead(args)
+	result, err = s.machiner.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
+		Results: []params.ErrorResult{{Error: nil}},
 	})
 
 	// Verify Life is unchanged.
@@ -193,9 +193,9 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -222,7 +222,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
+			{Error: nil},
 		},
 	})
 	err = s.machine1.Refresh()
@@ -234,7 +234,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
+			{Error: nil},
 		},
 	})
 
@@ -272,7 +272,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
 	}}
-	result, err := s.machiner.Watch(args)
+	result, err := s.machiner.Watch(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -305,9 +305,9 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 

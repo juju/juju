@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,7 +32,7 @@ func (f *fakeModelMachinesWatcher) WatchModelMachines() state.StringsWatcher {
 	changes := make(chan []string, 1)
 	// Simulate initial event.
 	changes <- f.initial
-	return &fakeStringsWatcher{changes}
+	return &fakeStringsWatcher{changes: changes}
 }
 
 func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *gc.C) {
@@ -45,9 +47,9 @@ func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *gc.C) {
 		resources,
 		authorizer,
 	)
-	result, err := e.WatchModelMachines()
+	result, err := e.WatchModelMachines(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{"1", []string{"foo"}, nil})
+	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{StringsWatcherId: "1", Changes: []string{"foo"}, Error: nil})
 	c.Assert(resources.Count(), gc.Equals, 1)
 }
 
@@ -63,7 +65,7 @@ func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
 		resources,
 		authorizer,
 	)
-	_, err := e.WatchModelMachines()
+	_, err := e.WatchModelMachines(context.Background())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(resources.Count(), gc.Equals, 0)
 }

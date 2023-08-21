@@ -4,6 +4,8 @@
 package secretsdrain
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/secrets"
@@ -25,7 +27,7 @@ type SecretsState interface {
 
 // Model provides the subset of state.Model that is required by the secrets drain apis.
 type Model interface {
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 	Type() state.ModelType
 	WatchForModelConfigChanges() state.NotifyWatcher
 	UUID() string

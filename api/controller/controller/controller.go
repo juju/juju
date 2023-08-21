@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -76,7 +77,7 @@ func (c *Client) AllModels() ([]base.UserModel, error) {
 // CloudSpec returns a CloudSpec for the specified model.
 func (c *Client) CloudSpec(modelTag names.ModelTag) (environscloudspec.CloudSpec, error) {
 	api := cloudspec.NewCloudSpecAPI(c.facade, modelTag)
-	return api.CloudSpec()
+	return api.CloudSpec(context.Background())
 }
 
 // ModelConfig returns all model settings for the

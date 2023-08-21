@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"context"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -133,7 +135,7 @@ func (s *unitStateSuite) TestState(c *gc.C) {
 			{Tag: "unit-notfound-0"},
 		},
 	}
-	result, err := s.api.State(args)
+	result, err := s.api.State(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.UnitStateResults{
 		Results: []params.UnitStateResult{
@@ -167,7 +169,7 @@ func (s *unitStateSuite) TestSetStateUniterState(c *gc.C) {
 		},
 	}
 
-	result, err := s.api.SetState(args)
+	result, err := s.api.SetState(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{

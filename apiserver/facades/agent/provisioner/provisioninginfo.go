@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -32,7 +33,7 @@ import (
 
 // ProvisioningInfo returns the provisioning information for each given machine entity.
 // It supports all positive space constraints.
-func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
+func (api *ProvisionerAPI) ProvisioningInfo(ctx context.Context, args params.Entities) (params.ProvisioningInfoResults, error) {
 	result := params.ProvisioningInfoResults{
 		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
 	}
@@ -41,7 +42,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 		return result, errors.Trace(err)
 	}
 
-	env, err := environs.GetEnviron(api.configGetter, environs.New)
+	env, err := environs.GetEnviron(ctx, api.configGetter, environs.New)
 	if err != nil {
 		return result, errors.Annotate(err, "retrieving environ")
 	}
@@ -59,7 +60,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 		}
 		machine, err := api.getMachine(canAccess, tag)
 		if err == nil {
-			result.Results[i].Result, err = api.getProvisioningInfo(machine, env, allSpaceInfos)
+			result.Results[i].Result, err = api.getProvisioningInfo(ctx, machine, env, allSpaceInfos)
 		}
 
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -67,7 +68,9 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 	return result, nil
 }
 
-func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
+func (api *ProvisionerAPI) getProvisioningInfo(
+	ctx context.Context,
+	m *state.Machine,
 	env environs.Environ,
 	spaceInfos network.SpaceInfos,
 ) (*params.ProvisioningInfo, error) {
@@ -82,7 +85,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	}
 
 	var result params.ProvisioningInfo
-	if result, err = api.getProvisioningInfoBase(m, env, spaceBindings); err != nil {
+	if result, err = api.getProvisioningInfoBase(ctx, m, env, spaceBindings); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -98,7 +101,9 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 	return &result, nil
 }
 
-func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
+func (api *ProvisionerAPI) getProvisioningInfoBase(
+	ctx context.Context,
+	m *state.Machine,
 	env environs.Environ,
 	endpointBindings map[string]string,
 ) (params.ProvisioningInfo, error) {
@@ -132,7 +137,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 		}
 	}
 
-	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(m, env); err != nil {
+	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(ctx, m, env); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -156,7 +161,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 		isController = isController || result.Jobs[i].NeedsState()
 	}
 
-	if result.Tags, err = api.machineTags(m, isController); err != nil {
+	if result.Tags, err = api.machineTags(ctx, m, isController); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -167,6 +172,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 // provisioned with, and attached to, the machine. The client should ignore
 // parameters that it does not know how to handle.
 func (api *ProvisionerAPI) machineVolumeParams(
+	ctx context.Context,
 	m *state.Machine,
 	env environs.Environ,
 ) ([]params.VolumeParams, []params.VolumeAttachmentParams, error) {
@@ -181,7 +187,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 	if len(volumeAttachments) == 0 {
 		return nil, nil, nil
 	}
-	modelConfig, err := api.m.ModelConfig()
+	modelConfig, err := api.m.ModelConfig(ctx)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -256,7 +262,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 }
 
 // machineTags returns machine-specific tags to set on the instance.
-func (api *ProvisionerAPI) machineTags(m *state.Machine, isController bool) (map[string]string, error) {
+func (api *ProvisionerAPI) machineTags(ctx context.Context, m *state.Machine, isController bool) (map[string]string, error) {
 	// Names of all units deployed to the machine.
 	//
 	// TODO(axw) 2015-06-02 #1461358
@@ -275,7 +281,7 @@ func (api *ProvisionerAPI) machineTags(m *state.Machine, isController bool) (map
 	}
 	sort.Strings(unitNames)
 
-	cfg, err := api.m.ModelConfig()
+	cfg, err := api.m.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

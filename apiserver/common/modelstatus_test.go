@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -84,7 +86,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}},
 	}
-	result, err := api.ModelStatus(req)
+	result, err := api.ModelStatus(stdcontext.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
 }
@@ -108,7 +110,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: model.ModelTag().String()}},
 	}
-	_, err = api.ModelStatus(req)
+	_, err = api.ModelStatus(stdcontext.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -171,7 +173,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
 	}
-	results, err := s.modelStatusAPI.ModelStatus(req)
+	results, err := s.modelStatusAPI.ModelStatus(stdcontext.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -249,7 +251,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
 	}
-	results, err := s.modelStatusAPI.ModelStatus(req)
+	results, err := s.modelStatusAPI.ModelStatus(stdcontext.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
@@ -296,7 +298,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 			},
 		},
 	}
-	result, err := s.modelStatusAPI.ModelStatus(req)
+	result, err := s.modelStatusAPI.ModelStatus(stdcontext.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expected)
 }

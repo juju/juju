@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
@@ -34,43 +35,43 @@ func (m *MockBlockCheckerInterface) EXPECT() *MockBlockCheckerInterfaceMockRecor
 }
 
 // ChangeAllowed mocks base method.
-func (m *MockBlockCheckerInterface) ChangeAllowed() error {
+func (m *MockBlockCheckerInterface) ChangeAllowed(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChangeAllowed")
+	ret := m.ctrl.Call(m, "ChangeAllowed", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ChangeAllowed indicates an expected call of ChangeAllowed.
-func (mr *MockBlockCheckerInterfaceMockRecorder) ChangeAllowed() *gomock.Call {
+func (mr *MockBlockCheckerInterfaceMockRecorder) ChangeAllowed(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeAllowed", reflect.TypeOf((*MockBlockCheckerInterface)(nil).ChangeAllowed))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeAllowed", reflect.TypeOf((*MockBlockCheckerInterface)(nil).ChangeAllowed), arg0)
 }
 
 // DestroyAllowed mocks base method.
-func (m *MockBlockCheckerInterface) DestroyAllowed() error {
+func (m *MockBlockCheckerInterface) DestroyAllowed(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyAllowed")
+	ret := m.ctrl.Call(m, "DestroyAllowed", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DestroyAllowed indicates an expected call of DestroyAllowed.
-func (mr *MockBlockCheckerInterfaceMockRecorder) DestroyAllowed() *gomock.Call {
+func (mr *MockBlockCheckerInterfaceMockRecorder) DestroyAllowed(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyAllowed", reflect.TypeOf((*MockBlockCheckerInterface)(nil).DestroyAllowed))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyAllowed", reflect.TypeOf((*MockBlockCheckerInterface)(nil).DestroyAllowed), arg0)
 }
 
 // RemoveAllowed mocks base method.
-func (m *MockBlockCheckerInterface) RemoveAllowed() error {
+func (m *MockBlockCheckerInterface) RemoveAllowed(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveAllowed")
+	ret := m.ctrl.Call(m, "RemoveAllowed", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveAllowed indicates an expected call of RemoveAllowed.
-func (mr *MockBlockCheckerInterfaceMockRecorder) RemoveAllowed() *gomock.Call {
+func (mr *MockBlockCheckerInterfaceMockRecorder) RemoveAllowed(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllowed", reflect.TypeOf((*MockBlockCheckerInterface)(nil).RemoveAllowed))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllowed", reflect.TypeOf((*MockBlockCheckerInterface)(nil).RemoveAllowed), arg0)
 }

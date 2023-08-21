@@ -4,6 +4,7 @@
 package keymanager
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -62,11 +63,11 @@ func newKeyManagerAPI(
 
 type Model interface {
 	ModelTag() names.ModelTag
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 }
 
 type BlockChecker interface {
-	ChangeAllowed() error
-	RemoveAllowed() error
+	ChangeAllowed(context.Context) error
+	RemoveAllowed(context.Context) error
 }

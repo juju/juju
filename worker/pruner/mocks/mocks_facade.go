@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 	time "time"
 
@@ -37,18 +38,18 @@ func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 }
 
 // ModelConfig mocks base method.
-func (m *MockFacade) ModelConfig() (*config.Config, error) {
+func (m *MockFacade) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig")
+	ret := m.ctrl.Call(m, "ModelConfig", arg0)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockFacadeMockRecorder) ModelConfig() *gomock.Call {
+func (mr *MockFacadeMockRecorder) ModelConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockFacade)(nil).ModelConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockFacade)(nil).ModelConfig), arg0)
 }
 
 // Prune mocks base method.

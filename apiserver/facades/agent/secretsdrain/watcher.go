@@ -4,6 +4,8 @@
 package secretsdrain
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
@@ -22,14 +24,14 @@ type secretBackendModelConfigWatcher struct {
 	currentSecretBackend string
 }
 
-func newSecretBackendModelConfigWatcher(modelConfigGetter Model, src state.NotifyWatcher, logger loggo.Logger) (state.NotifyWatcher, error) {
+func newSecretBackendModelConfigWatcher(ctx context.Context, modelConfigGetter Model, src state.NotifyWatcher, logger loggo.Logger) (state.NotifyWatcher, error) {
 	w := &secretBackendModelConfigWatcher{
 		out:               make(chan struct{}),
 		src:               src,
 		modelConfigGetter: modelConfigGetter,
 		logger:            logger,
 	}
-	modelConfig, err := w.modelConfigGetter.ModelConfig()
+	modelConfig, err := w.modelConfigGetter.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -80,7 +82,7 @@ func (w *secretBackendModelConfigWatcher) loop() error {
 			if !ok {
 				return errors.Errorf("event watcher closed")
 			}
-			changed, err := w.isSecretBackendChanged()
+			changed, err := w.isSecretBackendChanged(context.TODO())
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -94,8 +96,8 @@ func (w *secretBackendModelConfigWatcher) loop() error {
 	}
 }
 
-func (w *secretBackendModelConfigWatcher) isSecretBackendChanged() (bool, error) {
-	modelConfig, err := w.modelConfigGetter.ModelConfig()
+func (w *secretBackendModelConfigWatcher) isSecretBackendChanged(ctx context.Context) (bool, error) {
+	modelConfig, err := w.modelConfigGetter.ModelConfig(ctx)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

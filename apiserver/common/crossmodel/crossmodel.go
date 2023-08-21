@@ -4,6 +4,7 @@
 package crossmodel
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -442,7 +443,7 @@ func RelationUnitSettings(backend Backend, ru params.RelationUnit) (params.Setti
 }
 
 // PublishIngressNetworkChange saves the specified ingress networks for a relation.
-func PublishIngressNetworkChange(backend Backend, relationTag names.Tag, change params.IngressNetworksChangeEvent) error {
+func PublishIngressNetworkChange(ctx context.Context, backend Backend, relationTag names.Tag, change params.IngressNetworksChangeEvent) error {
 	logger.Debugf("publish into model %v network change for %v: %#v", backend.ModelUUID(), relationTag, &change)
 
 	// Ensure the relation exists.
@@ -455,7 +456,7 @@ func PublishIngressNetworkChange(backend Backend, relationTag names.Tag, change 
 	}
 
 	logger.Debugf("relation %v requires ingress networks %v", rel, change.Networks)
-	if err := validateIngressNetworks(backend, change.Networks); err != nil {
+	if err := validateIngressNetworks(ctx, backend, change.Networks); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -463,13 +464,13 @@ func PublishIngressNetworkChange(backend Backend, relationTag names.Tag, change 
 	return err
 }
 
-func validateIngressNetworks(backend Backend, networks []string) error {
+func validateIngressNetworks(ctx context.Context, backend Backend, networks []string) error {
 	if len(networks) == 0 {
 		return nil
 	}
 
 	// Check that the required ingress is allowed.
-	cfg, err := backend.ModelConfig()
+	cfg, err := backend.ModelConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

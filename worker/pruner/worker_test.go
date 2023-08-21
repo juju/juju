@@ -4,6 +4,7 @@
 package pruner_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -135,7 +136,7 @@ func (f *fakeFacade) WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
 }
 
 // ModelConfig implements Facade
-func (f *fakeFacade) ModelConfig() (*config.Config, error) {
+func (f *fakeFacade) ModelConfig(_ context.Context) (*config.Config, error) {
 	return f.modelConfig, nil
 }
 

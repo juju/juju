@@ -171,18 +171,18 @@ func (s *withoutControllerSuite) TestSetPasswords(c *gc.C) {
 			{Tag: "application-bar", Password: "abc"},
 		},
 	}
-	results, err := s.provisioner.SetPasswords(args)
+	results, err := s.provisioner.SetPasswords(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{nil},
-			{nil},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -202,7 +202,7 @@ func (s *withoutControllerSuite) TestShortSetPasswords(c *gc.C) {
 			{Tag: s.machines[1].Tag().String(), Password: "xxx1"},
 		},
 	}
-	results, err := s.provisioner.SetPasswords(args)
+	results, err := s.provisioner.SetPasswords(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
@@ -263,7 +263,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 		{Tag: "unit-foo-0"},
 		{Tag: "application-bar"},
 	}}
-	result, err := aProvisioner.Life(args)
+	result, err := aProvisioner.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -296,7 +296,7 @@ func (s *withoutControllerSuite) TestLifeAsController(c *gc.C) {
 		{Tag: "unit-foo-0"},
 		{Tag: "application-bar"},
 	}}
-	result, err := s.provisioner.Life(args)
+	result, err := s.provisioner.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -315,7 +315,7 @@ func (s *withoutControllerSuite) TestLifeAsController(c *gc.C) {
 	err = s.machines[1].Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	result, err = s.provisioner.Life(params.Entities{
+	result, err = s.provisioner.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: s.machines[1].Tag().String()},
 		},
@@ -343,16 +343,16 @@ func (s *withoutControllerSuite) TestRemove(c *gc.C) {
 		{Tag: "unit-foo-0"},
 		{Tag: "application-bar"},
 	}}
-	result, err := s.provisioner.Remove(args)
+	result, err := s.provisioner.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{&params.Error{Message: `cannot remove entity "machine-0": still alive`}},
-			{nil},
-			{&params.Error{Message: `cannot remove entity "machine-2": still alive`}},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `cannot remove entity "machine-0": still alive`}},
+			{Error: nil},
+			{Error: &params.Error{Message: `cannot remove entity "machine-2": still alive`}},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -397,16 +397,16 @@ func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 			{Tag: "unit-foo-0", Status: status.Stopped.String(), Info: "foobar"},
 			{Tag: "application-bar", Status: status.Stopped.String(), Info: "foobar"},
 		}}
-	result, err := s.provisioner.SetStatus(args)
+	result, err := s.provisioner.SetStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -454,12 +454,12 @@ func (s *withoutControllerSuite) TestSetInstanceStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -509,12 +509,12 @@ func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -652,16 +652,16 @@ func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
 		{Tag: "unit-foo-0"},
 		{Tag: "application-bar"},
 	}}
-	result, err := s.provisioner.EnsureDead(args)
+	result, err := s.provisioner.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{nil},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -831,7 +831,7 @@ func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 		{Tag: "unit-foo-0"},
 		{Tag: "application-bar"},
 	}}
-	result, err := s.provisioner.Status(args)
+	result, err := s.provisioner.Status(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	// Zero out the updated timestamps so we can easily check the results.
 	for i, statusResult := range result.Results {
@@ -1347,15 +1347,15 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{&params.Error{
+			{Error: &params.Error{
 				Message: `cannot record provisioning info for "i-was": cannot set instance data for machine "0": already set`,
 			}},
-			{nil},
-			{nil},
-			{nil},
-			{apiservertesting.NotFoundError("machine 42")},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.NotFoundError("machine 42")},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -1414,7 +1414,7 @@ func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
 		{Tag: "unit-foo-0"},
 		{Tag: "application-bar"},
 	}}
-	result, err := s.provisioner.InstanceId(args)
+	result, err := s.provisioner.InstanceId(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -1431,7 +1431,7 @@ func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
 func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	got, err := s.provisioner.WatchModelMachines()
+	got, err := s.provisioner.WatchModelMachines(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -1463,7 +1463,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := aProvisioner.WatchModelMachines()
+	result, err := aProvisioner.WatchModelMachines(context.Background())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
@@ -1586,7 +1586,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		Https: "https://snap-proxy.example.com:9000",
 	}
 
-	cfg, err := s.ControllerModel(c).ModelConfig()
+	cfg, err := s.ControllerModel(c).ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.provisioner.ContainerConfig(context.Background())
 	c.Check(err, jc.ErrorIsNil)
@@ -1631,7 +1631,7 @@ func (s *withoutControllerSuite) TestContainerConfigLegacy(c *gc.C) {
 		NoProxy: "127.0.0.1,localhost,::1",
 	}
 
-	cfg, err := s.ControllerModel(c).ModelConfig()
+	cfg, err := s.ControllerModel(c).ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.provisioner.ContainerConfig(context.Background())
 	c.Check(err, jc.ErrorIsNil)

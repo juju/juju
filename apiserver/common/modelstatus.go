@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -40,7 +42,7 @@ func NewModelStatusAPI(backend ModelManagerBackend, authorizer facade.Authorizer
 }
 
 // ModelStatus returns a summary of the model.
-func (c *ModelStatusAPI) ModelStatus(req params.Entities) (params.ModelStatusResults, error) {
+func (c *ModelStatusAPI) ModelStatus(ctx context.Context, req params.Entities) (params.ModelStatusResults, error) {
 	models := req.Entities
 	status := make([]params.ModelStatus, len(models))
 	for i, model := range models {

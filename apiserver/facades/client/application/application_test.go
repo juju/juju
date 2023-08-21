@@ -1164,7 +1164,7 @@ func (s *applicationSuite) setupRelationScenario(c *gc.C) {
 func (s *applicationSuite) assertAddRelation(c *gc.C, endpoints, viaCIDRs []string) {
 	s.setupRelationScenario(c)
 
-	res, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: viaCIDRs})
+	res, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints, ViaCIDRs: viaCIDRs})
 	c.Assert(err, jc.ErrorIsNil)
 	// Show that the relation was added.
 	st := s.ControllerModel(c).State()
@@ -1222,7 +1222,7 @@ func (s *applicationSuite) TestBlockChangesAddRelation(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 	})
 	s.BlockAllChanges(c, "TestBlockChangesAddRelation")
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: []string{"wordpress", "mysql"}})
+	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: []string{"wordpress", "mysql"}})
 	s.AssertBlocked(c, err, "TestBlockChangesAddRelation")
 }
 
@@ -1242,7 +1242,7 @@ func (s *applicationSuite) TestCallWithOnlyOneEndpoint(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 	})
 	endpoints := []string{"wordpress"}
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
+	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
@@ -1258,7 +1258,7 @@ func (s *applicationSuite) TestCallWithOneEndpointTooMany(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "logging"}),
 	})
 	endpoints := []string{"wordpress", "mysql", "logging"}
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
+	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, "cannot relate 3 endpoints")
 }
 
@@ -1277,7 +1277,7 @@ func (s *applicationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 	_, err = st.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	// And try to add it again.
-	_, err = s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
+	_, err = s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation wordpress:db mysql:server`)
 }
 
@@ -1326,7 +1326,7 @@ func (s *applicationSuite) TestAddRemoteRelationVia(c *gc.C) {
 func (s *applicationSuite) TestAddRemoteRelationOnlyOneEndpoint(c *gc.C) {
 	s.setupRemoteApplication(c)
 	endpoints := []string{"hosted-mysql"}
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
+	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
@@ -1336,7 +1336,7 @@ func (s *applicationSuite) TestAlreadyAddedRemoteRelation(c *gc.C) {
 	s.assertAddRelation(c, endpoints, nil)
 
 	// And try to add it again.
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
+	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`cannot add relation "wordpress:db hosted-mysql:server": relation wordpress:db hosted-mysql:server`))
 }
 
@@ -1350,7 +1350,7 @@ func (s *applicationSuite) TestRemoteRelationInvalidEndpoint(c *gc.C) {
 	})
 
 	endpoints := []string{"wordpress", "hosted-mysql:nope"}
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
+	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, `saas application "hosted-mysql" has no "nope" relation`)
 }
 
@@ -1377,7 +1377,7 @@ func (s *applicationSuite) TestRemoteRelationNoMatchingEndpoint(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 	})
 	endpoints := []string{"wordpress", "hosted-db2"}
-	_, err = s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
+	_, err = s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
@@ -1389,7 +1389,7 @@ func (s *applicationSuite) TestRemoteRelationApplicationNotFound(c *gc.C) {
 		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
 	})
 	endpoints := []string{"wordpress", "unknown"}
-	_, err := s.applicationAPI.AddRelation(params.AddRelation{Endpoints: endpoints})
+	_, err := s.applicationAPI.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints})
 	c.Assert(err, gc.ErrorMatches, `application "unknown" not found`)
 }
 

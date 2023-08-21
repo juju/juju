@@ -188,7 +188,7 @@ func (api *MachinerAPI) APIHostPorts(ctx context.Context) (result params.APIHost
 		return result, errors.Trace(err)
 	}
 
-	return api.APIAddresser.APIHostPorts(controllerConfig)
+	return api.APIAddresser.APIHostPorts(ctx, controllerConfig)
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
@@ -198,5 +198,5 @@ func (api *MachinerAPI) APIAddresses(ctx context.Context) (result params.Strings
 		return result, errors.Trace(err)
 	}
 
-	return api.APIAddresser.APIAddresses(controllerConfig)
+	return api.APIAddresser.APIAddresses(ctx, controllerConfig)
 }

@@ -60,7 +60,7 @@ func (m *FanConfigurerAPI) WatchForFanConfigChanges(ctx context.Context) (params
 // FanConfig returns current FAN configuration.
 func (m *FanConfigurerAPI) FanConfig(ctx context.Context) (params.FanConfigResult, error) {
 	result := params.FanConfigResult{}
-	config, err := m.model.ModelConfig()
+	config, err := m.model.ModelConfig(ctx)
 	if err != nil {
 		return result, err
 	}

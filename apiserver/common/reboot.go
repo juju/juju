@@ -5,6 +5,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -39,7 +41,7 @@ func (r *RebootRequester) oneRequest(tag names.Tag) error {
 }
 
 // RequestReboot sets the reboot flag on the provided machines
-func (r *RebootRequester) RequestReboot(args params.Entities) (params.ErrorResults, error) {
+func (r *RebootRequester) RequestReboot(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -100,7 +102,7 @@ func (r *RebootActionGetter) getOneAction(tag names.Tag) (params.RebootAction, e
 // a reboot flag set on the machine parent or grandparent, will
 // cause the machine to shutdown (params.ShouldShutdown).
 // If no reboot flag is set, the machine should do nothing (params.ShouldDoNothing).
-func (r *RebootActionGetter) GetRebootAction(args params.Entities) (params.RebootActionResults, error) {
+func (r *RebootActionGetter) GetRebootAction(ctx context.Context, args params.Entities) (params.RebootActionResults, error) {
 	result := params.RebootActionResults{
 		Results: make([]params.RebootActionResult, len(args.Entities)),
 	}
@@ -152,7 +154,7 @@ func (r *RebootFlagClearer) clearOneFlag(tag names.Tag) error {
 }
 
 // ClearReboot will clear the reboot flag on provided machines, if it exists.
-func (r *RebootFlagClearer) ClearReboot(args params.Entities) (params.ErrorResults, error) {
+func (r *RebootFlagClearer) ClearReboot(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}

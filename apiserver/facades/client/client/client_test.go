@@ -407,7 +407,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		backend.EXPECT().Model().Return(model, nil),
-		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2}).
+		toolsFinder.EXPECT().FindAgents(context.Background(), common.FindAgentsParams{MajorVersion: 2}).
 			Return(simpleStreams, nil),
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
@@ -463,7 +463,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		backend.EXPECT().Model().Return(model, nil),
-		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2}).
+		toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{MajorVersion: 2}).
 			Return(simpleStreams, nil),
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9"), nil),
@@ -544,7 +544,8 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		backend.EXPECT().Model().Return(model, nil),
-		toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{MajorVersion: 2, AgentStream: envtools.DevelStream}).
+		toolsFinder.EXPECT().FindAgents(gomock.Any(),
+			common.FindAgentsParams{MajorVersion: 2, AgentStream: envtools.DevelStream}).
 			Return(simpleStreams, nil),
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9.1"), nil),

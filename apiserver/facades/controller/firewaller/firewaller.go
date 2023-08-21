@@ -174,7 +174,7 @@ func (f *FirewallerAPI) watchOneModelOpenedPorts(tag names.Tag) (string, []strin
 // ModelFirewallRules returns the firewall rules that this model is
 // configured to open
 func (f *FirewallerAPI) ModelFirewallRules(ctx context.Context) (params.IngressRulesResult, error) {
-	cfg, err := f.st.ModelConfig()
+	cfg, err := f.st.ModelConfig(ctx)
 	if err != nil {
 		return params.IngressRulesResult{Error: apiservererrors.ServerError(err)}, nil
 	}

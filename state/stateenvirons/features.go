@@ -4,6 +4,8 @@
 package stateenvirons
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/caas"
@@ -20,7 +22,7 @@ var (
 
 // SupportedFeatures returns the set of features that the model makes available
 // for charms to use.
-func SupportedFeatures(model Model, newEnviron environs.NewEnvironFunc) (assumes.FeatureSet, error) {
+func SupportedFeatures(ctx context.Context, model Model, newEnviron environs.NewEnvironFunc) (assumes.FeatureSet, error) {
 	var fs assumes.FeatureSet
 
 	// Models always include a feature flag for the current Juju version

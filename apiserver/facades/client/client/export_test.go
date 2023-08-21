@@ -4,6 +4,8 @@
 package client
 
 import (
+	"context"
+
 	"github.com/juju/juju/environs"
 )
 
@@ -13,6 +15,6 @@ var (
 	MatchSubnet     = matchSubnet
 )
 
-func SetNewEnviron(c *Client, newEnviron func() (environs.BootstrapEnviron, error)) {
+func SetNewEnviron(c *Client, newEnviron func(context.Context) (environs.BootstrapEnviron, error)) {
 	c.newEnviron = newEnviron
 }

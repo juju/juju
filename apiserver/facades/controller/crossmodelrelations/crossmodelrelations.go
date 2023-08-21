@@ -612,7 +612,7 @@ func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := commoncrossmodel.PublishIngressNetworkChange(api.st, relationTag, change); err != nil {
+		if err := commoncrossmodel.PublishIngressNetworkChange(ctx, api.st, relationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

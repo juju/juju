@@ -234,7 +234,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelCfg, err := model.ModelConfig()
+	newModelCfg, err := model.ModelConfig(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add in the cloud attributes.
@@ -263,7 +263,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(initialModel.Name(), gc.Equals, "hosted")
 	c.Assert(initialModel.CloudRegion(), gc.Equals, "dummy-region")
 	c.Assert(initialModel.EnvironVersion(), gc.Equals, 123)
-	hostedCfg, err := initialModel.ModelConfig()
+	hostedCfg, err := initialModel.ModelConfig(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
 	c.Assert(hasUnexpected, jc.IsFalse)

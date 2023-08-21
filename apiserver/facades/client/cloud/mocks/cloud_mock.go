@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	credentialcommon "github.com/juju/juju/apiserver/common/credentialcommon"
@@ -13,7 +14,7 @@ import (
 	controller "github.com/juju/juju/controller"
 	permission "github.com/juju/juju/core/permission"
 	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
+	context0 "github.com/juju/juju/environs/context"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
@@ -280,18 +281,18 @@ func (mr *MockBackendMockRecorder) Model() *gomock.Call {
 }
 
 // ModelConfig mocks base method.
-func (m *MockBackend) ModelConfig() (*config.Config, error) {
+func (m *MockBackend) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig")
+	ret := m.ctrl.Call(m, "ModelConfig", arg0)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockBackendMockRecorder) ModelConfig() *gomock.Call {
+func (mr *MockBackendMockRecorder) ModelConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBackend)(nil).ModelConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBackend)(nil).ModelConfig), arg0)
 }
 
 // RemoveCloud mocks base method.
@@ -564,11 +565,11 @@ func (m *MockModelPoolBackend) EXPECT() *MockModelPoolBackendMockRecorder {
 }
 
 // GetModelCallContext mocks base method.
-func (m *MockModelPoolBackend) GetModelCallContext(arg0 string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
+func (m *MockModelPoolBackend) GetModelCallContext(arg0 string) (credentialcommon.PersistentBackend, context0.ProviderCallContext, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelCallContext", arg0)
 	ret0, _ := ret[0].(credentialcommon.PersistentBackend)
-	ret1, _ := ret[1].(context.ProviderCallContext)
+	ret1, _ := ret[1].(context0.ProviderCallContext)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }

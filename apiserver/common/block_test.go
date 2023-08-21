@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -59,35 +61,35 @@ func (mock *blockCheckerSuite) GetBlockForType(t state.BlockType) (state.Block, 
 
 func (s *blockCheckerSuite) TestDestroyBlockChecker(c *gc.C) {
 	s.aBlock = s.destroy
-	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(), s.destroy.Message())
+	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(context.Background()), s.destroy.Message())
 
 	s.aBlock = s.remove
-	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(), s.remove.Message())
+	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(context.Background()), s.remove.Message())
 
 	s.aBlock = s.change
-	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(), s.change.Message())
+	s.assertErrorBlocked(c, true, s.blockchecker.DestroyAllowed(context.Background()), s.change.Message())
 }
 
 func (s *blockCheckerSuite) TestRemoveBlockChecker(c *gc.C) {
 	s.aBlock = s.destroy
-	s.assertErrorBlocked(c, false, s.blockchecker.RemoveAllowed(), s.destroy.Message())
+	s.assertErrorBlocked(c, false, s.blockchecker.RemoveAllowed(context.Background()), s.destroy.Message())
 
 	s.aBlock = s.remove
-	s.assertErrorBlocked(c, true, s.blockchecker.RemoveAllowed(), s.remove.Message())
+	s.assertErrorBlocked(c, true, s.blockchecker.RemoveAllowed(context.Background()), s.remove.Message())
 
 	s.aBlock = s.change
-	s.assertErrorBlocked(c, true, s.blockchecker.RemoveAllowed(), s.change.Message())
+	s.assertErrorBlocked(c, true, s.blockchecker.RemoveAllowed(context.Background()), s.change.Message())
 }
 
 func (s *blockCheckerSuite) TestChangeBlockChecker(c *gc.C) {
 	s.aBlock = s.destroy
-	s.assertErrorBlocked(c, false, s.blockchecker.ChangeAllowed(), s.destroy.Message())
+	s.assertErrorBlocked(c, false, s.blockchecker.ChangeAllowed(context.Background()), s.destroy.Message())
 
 	s.aBlock = s.remove
-	s.assertErrorBlocked(c, false, s.blockchecker.ChangeAllowed(), s.remove.Message())
+	s.assertErrorBlocked(c, false, s.blockchecker.ChangeAllowed(context.Background()), s.remove.Message())
 
 	s.aBlock = s.change
-	s.assertErrorBlocked(c, true, s.blockchecker.ChangeAllowed(), s.change.Message())
+	s.assertErrorBlocked(c, true, s.blockchecker.ChangeAllowed(context.Background()), s.change.Message())
 }
 
 func (s *blockCheckerSuite) assertErrorBlocked(c *gc.C, blocked bool, err error, msg string) {

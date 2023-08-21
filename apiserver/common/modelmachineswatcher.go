@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -42,7 +43,7 @@ func NewModelMachinesWatcher(st state.ModelMachinesWatcher, resources facade.Res
 // WatchModelMachines returns a StringsWatcher that notifies of
 // changes to the life cycles of the top level machines in the current
 // model.
-func (e *ModelMachinesWatcher) WatchModelMachines() (params.StringsWatchResult, error) {
+func (e *ModelMachinesWatcher) WatchModelMachines(ctx context.Context) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	if !e.authorizer.AuthController() {
 		return result, apiservererrors.ErrPerm
@@ -61,7 +62,7 @@ func (e *ModelMachinesWatcher) WatchModelMachines() (params.StringsWatchResult, 
 
 // WatchModelMachineStartTimes watches the non-container machines in the model
 // for changes to the Life or AgentStartTime fields and reports them as a batch.
-func (e *ModelMachinesWatcher) WatchModelMachineStartTimes() (params.StringsWatchResult, error) {
+func (e *ModelMachinesWatcher) WatchModelMachineStartTimes(ctx context.Context) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	if !e.authorizer.AuthController() {
 		return result, apiservererrors.ErrPerm

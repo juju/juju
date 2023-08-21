@@ -4,6 +4,7 @@
 package firewaller
 
 import (
+	stdcontext "context"
 	"io"
 
 	"github.com/juju/names/v4"
@@ -31,7 +32,7 @@ type FirewallerAPI interface {
 	WatchOpenedPorts() (watcher.StringsWatcher, error)
 	WatchModelFirewallRules() (watcher.NotifyWatcher, error)
 	ModelFirewallRules() (firewall.IngressRules, error)
-	ModelConfig() (*config.Config, error)
+	ModelConfig(stdcontext.Context) (*config.Config, error)
 	Machine(tag names.MachineTag) (Machine, error)
 	Unit(tag names.UnitTag) (Unit, error)
 	Relation(tag names.RelationTag) (*firewaller.Relation, error)

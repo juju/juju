@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -130,7 +131,7 @@ func (m *Machine) Tag() names.Tag {
 
 // ModelAgentVersion implements MachineProvisioner.ModelAgentVersion.
 func (m *Machine) ModelAgentVersion() (*version.Number, error) {
-	mc, err := m.st.ModelConfig()
+	mc, err := m.st.ModelConfig(context.Background())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -74,10 +74,10 @@ func (api *API) CreateSpaces(ctx stdcontext.Context, args params.CreateSpacesPar
 	if err != nil {
 		return results, err
 	}
-	if err := api.check.ChangeAllowed(); err != nil {
+	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
-	if err = api.checkSupportsSpaces(); err != nil {
+	if err = api.checkSupportsSpaces(ctx); err != nil {
 		return results, apiservererrors.ServerError(errors.Trace(err))
 	}
 
@@ -130,7 +130,7 @@ func (api *API) ListSpaces(ctx stdcontext.Context) (results params.ListSpacesRes
 		return results, err
 	}
 
-	err = api.checkSupportsSpaces()
+	err = api.checkSupportsSpaces(ctx)
 	if err != nil {
 		return results, apiservererrors.ServerError(errors.Trace(err))
 	}
@@ -171,7 +171,7 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 		return params.ShowSpaceResults{}, err
 	}
 
-	err = api.checkSupportsSpaces()
+	err = api.checkSupportsSpaces(ctx)
 	if err != nil {
 		return params.ShowSpaceResults{}, apiservererrors.ServerError(errors.Trace(err))
 	}
@@ -228,13 +228,13 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 
 // ReloadSpaces refreshes spaces from substrate
 func (api *API) ReloadSpaces(ctx stdcontext.Context) error {
-	return api.reloadSpacesAPI.ReloadSpaces()
+	return api.reloadSpacesAPI.ReloadSpaces(ctx)
 }
 
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
-func (api *API) checkSupportsSpaces() error {
-	env, err := environs.GetEnviron(api.backing, environs.New)
+func (api *API) checkSupportsSpaces(ctx stdcontext.Context) error {
+	env, err := environs.GetEnviron(ctx, api.backing, environs.New)
 	if err != nil {
 		return errors.Annotate(err, "getting environ")
 	}
@@ -282,15 +282,15 @@ func (api *API) applicationsBoundToSpace(spaceID string) ([]string, error) {
 
 // ensureSpacesAreMutable checks that the current user
 // is allowed to edit the Space topology.
-func (api *API) ensureSpacesAreMutable() error {
+func (api *API) ensureSpacesAreMutable(ctx stdcontext.Context) error {
 	err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
 	if err != nil {
 		return err
 	}
-	if err := api.check.ChangeAllowed(); err != nil {
+	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	if err = api.ensureSpacesNotProviderSourced(); err != nil {
+	if err = api.ensureSpacesNotProviderSourced(ctx); err != nil {
 		return apiservererrors.ServerError(errors.Trace(err))
 	}
 	return nil
@@ -300,8 +300,8 @@ func (api *API) ensureSpacesAreMutable() error {
 // NetworkingEnviron and also if it supports provider spaces.
 // An error is returned if it is the provider and not the Juju operator
 // that determines the space topology.
-func (api *API) ensureSpacesNotProviderSourced() error {
-	env, err := environs.GetEnviron(api.backing, environs.New)
+func (api *API) ensureSpacesNotProviderSourced(ctx stdcontext.Context) error {
+	env, err := environs.GetEnviron(ctx, api.backing, environs.New)
 	if err != nil {
 		return errors.Annotate(err, "retrieving environ")
 	}

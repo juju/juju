@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v4"
@@ -160,7 +162,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	s.openState(c, modelTag)
 
-	cfg, err = s.Model.ModelConfig()
+	cfg, err = s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	expected := cfg.AllAttrs()
 	for k, v := range config.ConfigDefaults() {
@@ -343,7 +345,7 @@ func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {
 	}
 	// Config as read from state has resources tags coerced to a map.
 	expected["resource-tags"] = map[string]string{}
-	cfg, err = s.Model.ModelConfig()
+	cfg, err = s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, expected)
 }
@@ -449,7 +451,7 @@ func (s *InitializeSuite) testBadModelConfig(c *gc.C, update map[string]interfac
 	c.Assert(err, gc.ErrorMatches, expect)
 
 	// ModelConfig remains inviolate.
-	cfg, err := s.Model.ModelConfig()
+	cfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	goodWithDefaults, err := config.New(config.UseDefaults, good.AllAttrs())
 	c.Assert(err, jc.ErrorIsNil)

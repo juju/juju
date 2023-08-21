@@ -4,6 +4,7 @@
 package state
 
 import (
+	stdcontext "context"
 	"fmt"
 	"net"
 	"strings"
@@ -19,7 +20,7 @@ import (
 // for the specific model if user hasn't set anything.
 func (m *Model) AutoConfigureContainerNetworking(environ environs.BootstrapEnviron) error {
 	updateAttrs := make(map[string]interface{})
-	modelConfig, err := m.ModelConfig()
+	modelConfig, err := m.ModelConfig(stdcontext.Background())
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/charm/v11"
@@ -64,7 +65,7 @@ type UnitAdder interface {
 }
 
 // DeployApplication takes a charm and various parameters and deploys it.
-func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicationParams) (Application, error) {
+func DeployApplication(ctx context.Context, st ApplicationDeployer, model Model, args DeployApplicationParams) (Application, error) {
 	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -82,7 +83,7 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 	}
 
 	// Enforce "assumes" requirements.
-	if err := assertCharmAssumptions(args.Charm.Meta().Assumes, model, st.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(ctx, args.Charm.Meta().Assumes, model, st.ControllerConfig); err != nil {
 		if !errors.IsNotSupported(err) || !args.Force {
 			return nil, errors.Trace(err)
 		}
@@ -214,12 +215,12 @@ func StateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
 	}, nil
 }
 
-func assertCharmAssumptions(assumesExprTree *assumes.ExpressionTree, model Model, ctrlCfgGetter func() (controller.Config, error)) error {
+func assertCharmAssumptions(ctx context.Context, assumesExprTree *assumes.ExpressionTree, model Model, ctrlCfgGetter func() (controller.Config, error)) error {
 	if assumesExprTree == nil {
 		return nil
 	}
 
-	featureSet, err := SupportedFeaturesGetter(model, environs.New)
+	featureSet, err := SupportedFeaturesGetter(ctx, model, environs.New)
 	if err != nil {
 		return errors.Annotate(err, "querying feature set supported by the model")
 	}

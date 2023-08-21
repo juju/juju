@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -55,7 +56,7 @@ type ModelManagerBackend interface {
 	Unit(name string) (*state.Unit, error)
 	Name() string
 	ModelTag() names.ModelTag
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	UserAccess(names.UserTag, names.Tag) (permission.UserAccess, error)
@@ -339,12 +340,12 @@ func (st modelManagerStateShim) AllVolumes() ([]state.Volume, error) {
 
 // ModelConfig returns the underlying model's config. Exposed here to satisfy the
 // ModelBackend interface.
-func (st modelManagerStateShim) ModelConfig() (*config.Config, error) {
+func (st modelManagerStateShim) ModelConfig(ctx context.Context) (*config.Config, error) {
 	model, err := st.State.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return model.ModelConfig()
+	return model.ModelConfig(ctx)
 }
 
 // [TODO: Eric Claude Jones] This method ignores an error for the purpose of

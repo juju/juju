@@ -155,7 +155,7 @@ func (s *APISuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
 	from, to := "bla", "blub"
 	args := s.getRenameArgs(from, to)
 
-	res, err := s.API.RenameSpace(args)
+	res, err := s.API.RenameSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("space %q already exists", to)
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -172,7 +172,7 @@ func (s *APISuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
 
 	args := s.getRenameArgs(from, to)
 
-	res, err := s.API.RenameSpace(args)
+	res, err := s.API.RenameSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedErr := fmt.Sprintf("retrieving space %q: %v", to, bamErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
@@ -190,7 +190,7 @@ func (s *APISuite) TestRenameSpaceErrorRename(c *gc.C) {
 
 	s.OpFactory.EXPECT().NewRenameSpaceOp(from, to).Return(nil, bamErr)
 
-	res, err := s.API.RenameSpace(args)
+	res, err := s.API.RenameSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, bamErr.Error())
 }
@@ -203,7 +203,7 @@ func (s *APISuite) TestRenameAlphaSpaceError(c *gc.C) {
 
 	args := s.getRenameArgs(from, to)
 
-	res, err := s.API.RenameSpace(args)
+	res, err := s.API.RenameSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, `the "alpha" space cannot be renamed`)
 }
@@ -219,7 +219,7 @@ func (s *APISuite) TestRenameSpaceSuccess(c *gc.C) {
 	s.Backing.EXPECT().ApplyOperation(s.renameSpaceOp).Return(nil)
 	args := s.getRenameArgs(from, to)
 
-	res, err := s.API.RenameSpace(args)
+	res, err := s.API.RenameSpace(stdcontext.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Error, gc.IsNil)
 }
@@ -232,7 +232,7 @@ func (s *APISuite) TestRenameSpaceErrorProviderSpacesSupport(c *gc.C) {
 
 	args := s.getRenameArgs(from, to)
 
-	res, err := s.API.RenameSpace(args)
+	res, err := s.API.RenameSpace(stdcontext.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "modifying provider-sourced spaces not supported")
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult(nil)})
 }
@@ -251,7 +251,7 @@ func (s *APISuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
 	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
 	s.Backing.EXPECT().ApplyOperation(nil).Return(nil)
 
-	res, err := s.API.RemoveSpace(args)
+	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{}}})
@@ -272,7 +272,7 @@ func (s *APISuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
 	s.OpFactory.EXPECT().NewRemoveSpaceOp(tag.Id()).Return(nil, nil)
 	s.Backing.EXPECT().ApplyOperation(nil).Return(nil)
 
-	res, err := s.API.RemoveSpace(args)
+	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{}}})
@@ -303,7 +303,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
 		Error:              nil,
 	}}}
 
-	res, err := s.API.RemoveSpace(args)
+	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, expected)
@@ -330,7 +330,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
 		Error:              nil,
 	}}}
 
-	res, err := s.API.RemoveSpace(args)
+	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, expected)
@@ -363,7 +363,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
 		Error:              nil,
 	}}}
 
-	res, err := s.API.RemoveSpace(args)
+	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Constraints, jc.SameContents, expected.Results[0].Constraints)
@@ -409,7 +409,7 @@ func (s *APISuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 		Error:              nil,
 	}}}
 
-	res, err := s.API.RemoveSpace(args)
+	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Constraints, jc.SameContents, expected.Results[0].Constraints)
@@ -438,7 +438,7 @@ func (s *APISuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
 
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{}}}
 
-	res, err := s.API.RemoveSpace(args)
+	res, err := s.API.RemoveSpace(stdcontext.Background(), args)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, expected)
@@ -452,7 +452,7 @@ func (s *APISuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) {
 
 	args, _ := s.getRemoveArgs(space, false)
 
-	_, err := s.API.RemoveSpace(args)
+	_, err := s.API.RemoveSpace(stdcontext.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "modifying provider-sourced spaces not supported")
 }
 
@@ -1115,12 +1115,12 @@ type mockBlockChecker struct {
 	jtesting.Stub
 }
 
-func (c *mockBlockChecker) ChangeAllowed() error {
+func (c *mockBlockChecker) ChangeAllowed(ctx stdcontext.Context) error {
 	c.MethodCall(c, "ChangeAllowed")
 	return c.NextErr()
 }
 
-func (c *mockBlockChecker) RemoveAllowed() error {
+func (c *mockBlockChecker) RemoveAllowed(ctx stdcontext.Context) error {
 	c.MethodCall(c, "RemoveAllowed")
 	return c.NextErr()
 }

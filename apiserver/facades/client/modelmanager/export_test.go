@@ -4,6 +4,8 @@
 package modelmanager
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 	gc "gopkg.in/check.v1"
 
@@ -18,7 +20,7 @@ func AuthCheck(c *gc.C, mm *ModelManagerAPI, user names.UserTag) bool {
 }
 
 func MockSupportedFeatures(fs assumes.FeatureSet) {
-	supportedFeaturesGetter = func(stateenvirons.Model, environs.NewEnvironFunc) (assumes.FeatureSet, error) {
+	supportedFeaturesGetter = func(context.Context, stateenvirons.Model, environs.NewEnvironFunc) (assumes.FeatureSet, error) {
 		return fs, nil
 	}
 }

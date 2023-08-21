@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -52,7 +54,7 @@ func (d *DeadEnsurer) ensureEntityDead(tag names.Tag) error {
 // EnsureDead calls EnsureDead on each given entity from state. It
 // will fail if the entity is not present. If it's Alive, nothing will
 // happen (see state/EnsureDead() for units or machines).
-func (d *DeadEnsurer) EnsureDead(args params.Entities) (params.ErrorResults, error) {
+func (d *DeadEnsurer) EnsureDead(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}

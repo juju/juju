@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -1107,7 +1108,7 @@ func (sb *storageBackend) newVolumeOps(doc volumeDoc, status statusDoc) []txn.Op
 
 func (sb *storageBackend) volumeParamsWithDefaults(params VolumeParams) (VolumeParams, error) {
 	if params.Pool == "" {
-		modelConfig, err := sb.config()
+		modelConfig, err := sb.config(context.Background())
 		if err != nil {
 			return VolumeParams{}, errors.Trace(err)
 		}

@@ -98,7 +98,7 @@ func (st *mockState) Model() (crossmodelrelations.Model, error) {
 	return &mockModel{}, nil
 }
 
-func (st *mockState) ModelConfig() (*config.Config, error) {
+func (st *mockState) ModelConfig(_ context.Context) (*config.Config, error) {
 	attrs := coretesting.FakeConfig().Merge(st.modelConfig)
 	return config.New(config.NoDefaults, attrs)
 }

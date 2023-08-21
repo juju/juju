@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/charm/v11/hooks"
@@ -34,7 +35,7 @@ type UnitStatusGetter interface {
 
 // UnitStatus returns the unit agent and workload status for a given
 // unit, with special handling for agent presence.
-func (c *ModelPresenceContext) UnitStatus(unit UnitStatusGetter) (agent StatusAndErr, workload StatusAndErr) {
+func (c *ModelPresenceContext) UnitStatus(ctx context.Context, unit UnitStatusGetter) (agent StatusAndErr, workload StatusAndErr) {
 	agent.Status, agent.Err = unit.AgentStatus()
 	workload.Status, workload.Err = unit.Status()
 	if !canBeLost(agent.Status, workload.Status) {

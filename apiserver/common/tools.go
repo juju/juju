@@ -34,7 +34,7 @@ type ToolsFindEntity interface {
 type ToolsURLGetter interface {
 	// ToolsURLs returns URLs for the tools with
 	// the specified binary version.
-	ToolsURLs(controller.Config, version.Binary) ([]string, error)
+	ToolsURLs(context.Context, controller.Config, version.Binary) ([]string, error)
 }
 
 // APIHostPortsForAgentsGetter is an interface providing
@@ -103,7 +103,7 @@ func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.T
 	if err != nil {
 		return result, err
 	}
-	agentVersion, err := t.getGlobalAgentVersion()
+	agentVersion, err := t.getGlobalAgentVersion(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -114,7 +114,7 @@ func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.T
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		agentToolsList, err := t.oneAgentTools(canRead, tag, agentVersion)
+		agentToolsList, err := t.oneAgentTools(ctx, canRead, tag, agentVersion)
 		if err == nil {
 			result.Results[i].ToolsList = agentToolsList
 		}
@@ -123,10 +123,10 @@ func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.T
 	return result, nil
 }
 
-func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, error) {
+func (t *ToolsGetter) getGlobalAgentVersion(ctx context.Context) (version.Number, error) {
 	// Get the Agent Version requested in the Model Config
 	nothing := version.Number{}
-	cfg, err := t.configGetter.ModelConfig()
+	cfg, err := t.configGetter.ModelConfig(ctx)
 	if err != nil {
 		return nothing, err
 	}
@@ -137,7 +137,7 @@ func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, error) {
 	return agentVersion, nil
 }
 
-func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number) (coretools.List, error) {
+func (t *ToolsGetter) oneAgentTools(ctx context.Context, canRead AuthFunc, tag names.Tag, agentVersion version.Number) (coretools.List, error) {
 	if !canRead(tag) {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -160,7 +160,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 		Arch:   existingTools.Version.Arch,
 	}
 
-	return t.toolsFinder.FindAgents(findParams)
+	return t.toolsFinder.FindAgents(ctx, findParams)
 }
 
 // ToolsSetter implements a common Tools method for use by various
@@ -244,7 +244,7 @@ type FindAgentsParams struct {
 
 // ToolsFinder defines methods for finding tools.
 type ToolsFinder interface {
-	FindAgents(args FindAgentsParams) (coretools.List, error)
+	FindAgents(context.Context, FindAgentsParams) (coretools.List, error)
 }
 
 // ControllerConfigGetter defines a method for getting the controller config.
@@ -280,8 +280,8 @@ func NewToolsFinder(
 
 // FindAgents calls findMatchingTools and then rewrites the URLs
 // using the provided ToolsURLGetter.
-func (f *toolsFinder) FindAgents(args FindAgentsParams) (coretools.List, error) {
-	list, err := f.findMatchingAgents(args)
+func (f *toolsFinder) FindAgents(ctx context.Context, args FindAgentsParams) (coretools.List, error) {
+	list, err := f.findMatchingAgents(ctx, args)
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +296,7 @@ func (f *toolsFinder) FindAgents(args FindAgentsParams) (coretools.List, error) 
 	// download and cache them if the client requests that version.
 	var fullList coretools.List
 	for _, baseTools := range list {
-		urls, err := f.urlGetter.ToolsURLs(controllerConfig, baseTools.Version)
+		urls, err := f.urlGetter.ToolsURLs(ctx, controllerConfig, baseTools.Version)
 		if err != nil {
 			return nil, err
 		}
@@ -313,7 +313,7 @@ func (f *toolsFinder) FindAgents(args FindAgentsParams) (coretools.List, error) 
 // matching the given parameters.
 // If an exact match is specified (number, ostype and arch) and is found in
 // agent storage, then simplestreams will not be searched.
-func (f *toolsFinder) findMatchingAgents(args FindAgentsParams) (result coretools.List, _ error) {
+func (f *toolsFinder) findMatchingAgents(ctx context.Context, args FindAgentsParams) (result coretools.List, _ error) {
 	exactMatch := args.Number != version.Zero && args.OSType != "" && args.Arch != ""
 
 	storageList, err := f.matchingStorageAgent(args)
@@ -326,7 +326,7 @@ func (f *toolsFinder) findMatchingAgents(args FindAgentsParams) (result coretool
 
 	// Look for tools in simplestreams too, but don't replace
 	// any versions found in storage.
-	env, err := f.newEnviron()
+	env, err := f.newEnviron(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -443,7 +443,7 @@ func NewToolsURLGetter(modelUUID string, a APIHostPortsForAgentsGetter) *toolsUR
 }
 
 // ToolsURLs returns a list of tools URLs pointing at an API server.
-func (t *toolsURLGetter) ToolsURLs(controllerConfig controller.Config, v version.Binary) ([]string, error) {
+func (t *toolsURLGetter) ToolsURLs(ctx context.Context, controllerConfig controller.Config, v version.Binary) ([]string, error) {
 	addrs, err := apiAddresses(controllerConfig, t.apiHostPortsGetter)
 	if err != nil {
 		return nil, err

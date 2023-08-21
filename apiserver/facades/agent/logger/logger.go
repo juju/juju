@@ -71,7 +71,7 @@ func (api *LoggerAPI) LoggingConfig(ctx context.Context, arg params.Entities) pa
 		return params.StringResults{}
 	}
 	results := make([]params.StringResult, len(arg.Entities))
-	config, configErr := api.model.ModelConfig()
+	config, configErr := api.model.ModelConfig(ctx)
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {

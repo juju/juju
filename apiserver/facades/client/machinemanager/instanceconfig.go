@@ -4,6 +4,7 @@
 package machinemanager
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/collections/set"
@@ -30,7 +31,7 @@ type InstanceConfigBackend interface {
 // is needed for configuring manual machines.
 // It is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
-func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
+func InstanceConfig(ctx context.Context, ctrlSt ControllerBackend, st InstanceConfigBackend, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state model")
@@ -66,11 +67,11 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
-	newEnviron := func() (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(configGetter, environs.New)
+	newEnviron := func(ctx context.Context) (environs.BootstrapEnviron, error) {
+		return environs.GetEnviron(ctx, configGetter, environs.New)
 	}
 	toolsFinder := common.NewToolsFinder(ctrlSt, configGetter, st, urlGetter, newEnviron)
-	toolsList, err := toolsFinder.FindAgents(common.FindAgentsParams{
+	toolsList, err := toolsFinder.FindAgents(ctx, common.FindAgentsParams{
 		Number: agentVersion,
 		OSType: machine.Base().OS,
 		Arch:   *hc.Arch,

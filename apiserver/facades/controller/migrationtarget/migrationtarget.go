@@ -116,6 +116,7 @@ func (api *API) Prechecks(ctx context.Context, model params.MigrationModelInfo) 
 		return errors.Annotate(err, "creating backend")
 	}
 	return migration.TargetPrecheck(
+		ctx,
 		backend,
 		migration.PoolShim(api.pool),
 		coremigration.ModelInfo{

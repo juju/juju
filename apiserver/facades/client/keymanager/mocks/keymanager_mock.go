@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	config "github.com/juju/juju/environs/config"
@@ -37,18 +38,18 @@ func (m *MockModel) EXPECT() *MockModelMockRecorder {
 }
 
 // ModelConfig mocks base method.
-func (m *MockModel) ModelConfig() (*config.Config, error) {
+func (m *MockModel) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig")
+	ret := m.ctrl.Call(m, "ModelConfig", arg0)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockModelMockRecorder) ModelConfig() *gomock.Call {
+func (mr *MockModelMockRecorder) ModelConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockModel)(nil).ModelConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockModel)(nil).ModelConfig), arg0)
 }
 
 // ModelTag mocks base method.
@@ -108,29 +109,29 @@ func (m *MockBlockChecker) EXPECT() *MockBlockCheckerMockRecorder {
 }
 
 // ChangeAllowed mocks base method.
-func (m *MockBlockChecker) ChangeAllowed() error {
+func (m *MockBlockChecker) ChangeAllowed(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChangeAllowed")
+	ret := m.ctrl.Call(m, "ChangeAllowed", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ChangeAllowed indicates an expected call of ChangeAllowed.
-func (mr *MockBlockCheckerMockRecorder) ChangeAllowed() *gomock.Call {
+func (mr *MockBlockCheckerMockRecorder) ChangeAllowed(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeAllowed", reflect.TypeOf((*MockBlockChecker)(nil).ChangeAllowed))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeAllowed", reflect.TypeOf((*MockBlockChecker)(nil).ChangeAllowed), arg0)
 }
 
 // RemoveAllowed mocks base method.
-func (m *MockBlockChecker) RemoveAllowed() error {
+func (m *MockBlockChecker) RemoveAllowed(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveAllowed")
+	ret := m.ctrl.Call(m, "RemoveAllowed", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveAllowed indicates an expected call of RemoveAllowed.
-func (mr *MockBlockCheckerMockRecorder) RemoveAllowed() *gomock.Call {
+func (mr *MockBlockCheckerMockRecorder) RemoveAllowed(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllowed", reflect.TypeOf((*MockBlockChecker)(nil).RemoveAllowed))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllowed", reflect.TypeOf((*MockBlockChecker)(nil).RemoveAllowed), arg0)
 }

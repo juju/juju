@@ -4,6 +4,8 @@
 package spaces
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
@@ -135,10 +137,10 @@ func (o *spaceRenameModelOp) getSettingsChanges(fromSpaceName, toName string) (s
 }
 
 // RenameSpace renames a space.
-func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults, error) {
+func (api *API) RenameSpace(ctx context.Context, args params.RenameSpacesParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{}
 
-	if err := api.ensureSpacesAreMutable(); err != nil {
+	if err := api.ensureSpacesAreMutable(ctx); err != nil {
 		return result, err
 	}
 

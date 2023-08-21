@@ -45,7 +45,7 @@ func NewControllerConfigAPI(
 }
 
 // ControllerConfig returns the controller's configuration.
-func (s *ControllerConfigAPI) ControllerConfig() (params.ControllerConfigResult, error) {
+func (s *ControllerConfigAPI) ControllerConfig(ctx context.Context) (params.ControllerConfigResult, error) {
 	result := params.ControllerConfigResult{}
 	config, err := s.st.ControllerConfig()
 	if err != nil {

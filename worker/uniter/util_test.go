@@ -258,7 +258,7 @@ func (ctx *testContext) expectHookContext(c *gc.C) {
 	ctx.api.EXPECT().CloudAPIVersion().Return("6.6.6", nil).AnyTimes()
 
 	cfg := coretesting.ModelConfig(c)
-	ctx.api.EXPECT().ModelConfig().Return(cfg, nil).AnyTimes()
+	ctx.api.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	m, err := ctx.unit.AssignedMachine()
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.api.EXPECT().OpenedMachinePortRangesByEndpoint(m).Return(nil, nil).AnyTimes()

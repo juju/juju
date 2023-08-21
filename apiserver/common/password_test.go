@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -130,19 +131,19 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 			Password: fmt.Sprintf("%spass", tag),
 		})
 	}
-	results, err := pc.SetPasswords(params.EntityPasswords{
+	results, err := pc.SetPasswords(context.Background(), params.EntityPasswords{
 		Changes: changes,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{&params.Error{Message: "x2 error"}},
-			{&params.Error{Message: "x3 error"}},
-			{nil},
-			{nil},
-			{nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: &params.Error{Message: "x2 error"}},
+			{Error: &params.Error{Message: "x3 error"}},
+			{Error: nil},
+			{Error: nil},
+			{Error: nil},
 		},
 	})
 	c.Check(st.entities[u("x/0")].(*fakeAuthenticator).pass, gc.Equals, "")
@@ -169,7 +170,7 @@ func (*passwordSuite) TestSetPasswordsError(c *gc.C) {
 			Password: fmt.Sprintf("%spass", tag),
 		})
 	}
-	_, err := pc.SetPasswords(params.EntityPasswords{Changes: changes})
+	_, err := pc.SetPasswords(context.Background(), params.EntityPasswords{Changes: changes})
 	c.Assert(err, gc.ErrorMatches, "splat")
 }
 
@@ -178,7 +179,7 @@ func (*passwordSuite) TestSetPasswordsNoArgsNoError(c *gc.C) {
 		return nil, fmt.Errorf("splat")
 	}
 	pc := common.NewPasswordChanger(&fakeState{}, getCanChange)
-	result, err := pc.SetPasswords(params.EntityPasswords{})
+	result, err := pc.SetPasswords(context.Background(), params.EntityPasswords{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	stdcontext "context"
 	"encoding/json"
 	"fmt"
@@ -441,7 +442,7 @@ func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := m.ModelConfig()
+	cfg, err := m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.bootstrapParams.ControllerModelConfig.AuthorizedKeys()+"\npublic-key")
 }
@@ -474,7 +475,7 @@ func (s *BootstrapSuite) TestInitializeModelToolsNotFound(c *gc.C) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err = m.ModelConfig()
+	cfg, err = m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

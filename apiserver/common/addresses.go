@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -38,7 +40,7 @@ func NewAPIAddresser(getter APIAddressAccessor, resources facade.Resources) *API
 }
 
 // APIHostPorts returns the API server addresses.
-func (a *APIAddresser) APIHostPorts(controllerConfig controller.Config) (params.APIHostPortsResult, error) {
+func (a *APIAddresser) APIHostPorts(ctx context.Context, controllerConfig controller.Config) (params.APIHostPortsResult, error) {
 	sSvrs, err := a.getter.APIHostPortsForAgents(controllerConfig)
 	if err != nil {
 		return params.APIHostPortsResult{}, err
@@ -56,7 +58,7 @@ func (a *APIAddresser) APIHostPorts(controllerConfig controller.Config) (params.
 }
 
 // WatchAPIHostPorts watches the API server addresses.
-func (a *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
+func (a *APIAddresser) WatchAPIHostPorts(ctx context.Context) (params.NotifyWatchResult, error) {
 	watch := a.getter.WatchAPIHostPortsForAgents()
 	if _, ok := <-watch.Changes(); ok {
 		return params.NotifyWatchResult{
@@ -67,7 +69,7 @@ func (a *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-func (a *APIAddresser) APIAddresses(controllerConfig controller.Config) (params.StringsResult, error) {
+func (a *APIAddresser) APIAddresses(ctx context.Context, controllerConfig controller.Config) (params.StringsResult, error) {
 	addrs, err := apiAddresses(controllerConfig, a.getter)
 	if err != nil {
 		return params.StringsResult{}, err

@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	params "github.com/juju/juju/rpc/params"
@@ -36,31 +37,31 @@ func (m *MockLeadership) EXPECT() *MockLeadershipMockRecorder {
 }
 
 // GetMachineApplicationNames mocks base method.
-func (m *MockLeadership) GetMachineApplicationNames(arg0 string) ([]string, error) {
+func (m *MockLeadership) GetMachineApplicationNames(arg0 context.Context, arg1 string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetMachineApplicationNames", arg0)
+	ret := m.ctrl.Call(m, "GetMachineApplicationNames", arg0, arg1)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetMachineApplicationNames indicates an expected call of GetMachineApplicationNames.
-func (mr *MockLeadershipMockRecorder) GetMachineApplicationNames(arg0 interface{}) *gomock.Call {
+func (mr *MockLeadershipMockRecorder) GetMachineApplicationNames(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineApplicationNames", reflect.TypeOf((*MockLeadership)(nil).GetMachineApplicationNames), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineApplicationNames", reflect.TypeOf((*MockLeadership)(nil).GetMachineApplicationNames), arg0, arg1)
 }
 
 // UnpinApplicationLeadersByName mocks base method.
-func (m *MockLeadership) UnpinApplicationLeadersByName(arg0 names.Tag, arg1 []string) (params.PinApplicationsResults, error) {
+func (m *MockLeadership) UnpinApplicationLeadersByName(arg0 context.Context, arg1 names.Tag, arg2 []string) (params.PinApplicationsResults, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnpinApplicationLeadersByName", arg0, arg1)
+	ret := m.ctrl.Call(m, "UnpinApplicationLeadersByName", arg0, arg1, arg2)
 	ret0, _ := ret[0].(params.PinApplicationsResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UnpinApplicationLeadersByName indicates an expected call of UnpinApplicationLeadersByName.
-func (mr *MockLeadershipMockRecorder) UnpinApplicationLeadersByName(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockLeadershipMockRecorder) UnpinApplicationLeadersByName(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnpinApplicationLeadersByName", reflect.TypeOf((*MockLeadership)(nil).UnpinApplicationLeadersByName), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnpinApplicationLeadersByName", reflect.TypeOf((*MockLeadership)(nil).UnpinApplicationLeadersByName), arg0, arg1, arg2)
 }

@@ -4,6 +4,8 @@
 package spaces
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -27,7 +29,7 @@ type ReloadSpacesEnviron interface {
 
 	// GetEnviron returns the environs.Environ ("provider") associated
 	// with the model.
-	GetEnviron(environs.EnvironConfigGetter, environs.NewEnvironFunc) (environs.Environ, error)
+	GetEnviron(stdcontext.Context, environs.EnvironConfigGetter, environs.NewEnvironFunc) (environs.Environ, error)
 }
 
 // EnvironSpaces defines methods for handling spaces within a environ setting.
@@ -64,11 +66,11 @@ func NewReloadSpacesAPI(state ReloadSpacesState,
 }
 
 // ReloadSpaces refreshes spaces from the substrate.
-func (api *ReloadSpacesAPI) ReloadSpaces() error {
-	if err := api.authorize(); err != nil {
+func (api *ReloadSpacesAPI) ReloadSpaces(ctx stdcontext.Context) error {
+	if err := api.authorize(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	env, err := api.environs.GetEnviron(api.environs, environs.New)
+	env, err := api.environs.GetEnviron(ctx, api.environs, environs.New)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -76,7 +78,7 @@ func (api *ReloadSpacesAPI) ReloadSpaces() error {
 }
 
 // ReloadSpacesAuthorizer represents a way to authorize reload spaces.
-type ReloadSpacesAuthorizer func() error
+type ReloadSpacesAuthorizer func(stdcontext.Context) error
 
 // AuthorizerState contains the methods used from state to authorize API
 // requests.
@@ -87,16 +89,17 @@ type AuthorizerState interface {
 
 // DefaultReloadSpacesAuthorizer creates a new ReloadSpacesAuthorizer for
 // handling reload spaces.
-func DefaultReloadSpacesAuthorizer(auth facade.Authorizer,
+func DefaultReloadSpacesAuthorizer(
+	auth facade.Authorizer,
 	check BlockChecker,
 	state AuthorizerState,
 ) ReloadSpacesAuthorizer {
-	return func() error {
+	return func(ctx stdcontext.Context) error {
 		err := auth.HasPermission(permission.WriteAccess, state.ModelTag())
 		if err != nil {
 			return err
 		}
-		if err := check.ChangeAllowed(); err != nil {
+		if err := check.ChangeAllowed(ctx); err != nil {
 			return errors.Trace(err)
 		}
 		return nil
@@ -110,8 +113,8 @@ type ReloadSpacesEnvirons struct {
 
 // GetEnviron returns the environs.Environ ("provider") associated
 // with the model.
-func (ReloadSpacesEnvirons) GetEnviron(st environs.EnvironConfigGetter, fn environs.NewEnvironFunc) (environs.Environ, error) {
-	return environs.GetEnviron(st, fn)
+func (ReloadSpacesEnvirons) GetEnviron(ctx stdcontext.Context, st environs.EnvironConfigGetter, fn environs.NewEnvironFunc) (environs.Environ, error) {
+	return environs.GetEnviron(ctx, st, fn)
 }
 
 // DefaultReloadSpacesEnvirons creates a new ReloadSpacesEnviron from state.
@@ -121,7 +124,7 @@ func DefaultReloadSpacesEnvirons(st *state.State) (ReloadSpacesEnvirons, error) 
 		return ReloadSpacesEnvirons{}, errors.Trace(err)
 	}
 	return ReloadSpacesEnvirons{
-		stateenvirons.EnvironConfigGetter{
+		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{
 			Model: m,
 		},
 	}, nil

@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"io"
@@ -104,6 +105,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 func (h *registerUserHandler) processPost(req *http.Request, st *state.State) (
 	names.UserTag, *params.SecretKeyLoginResponse, error,
 ) {
+	ctx := req.Context()
 
 	failure := func(err error) (names.UserTag, *params.SecretKeyLoginResponse, error) {
 		return names.UserTag{}, nil, err
@@ -159,7 +161,7 @@ func (h *registerUserHandler) processPost(req *http.Request, st *state.State) (
 
 	// Respond with the CA-cert and password, encrypted again with the
 	// secret key.
-	responsePayload, err := h.getSecretKeyLoginResponsePayload(st, userTag)
+	responsePayload, err := h.getSecretKeyLoginResponsePayload(ctx, st, userTag)
 	if err != nil {
 		return failure(errors.Trace(err))
 	}
@@ -177,9 +179,9 @@ func (h *registerUserHandler) processPost(req *http.Request, st *state.State) (
 	return userTag, response, nil
 }
 
-func getConnectorInfoer(model stateenvirons.Model) (environs.ConnectorInfo, error) {
+func getConnectorInfoer(ctx context.Context, model stateenvirons.Model) (environs.ConnectorInfo, error) {
 	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
-	environ, err := common.EnvironFuncForModel(model, configGetter)()
+	environ, err := common.EnvironFuncForModel(model, configGetter)(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -195,6 +197,7 @@ var GetConnectorInfoer = getConnectorInfoer
 // getSecretKeyLoginResponsePayload returns the information required by the
 // client to login to the controller securely.
 func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
+	ctx context.Context,
 	st *state.State, userTag names.UserTag,
 ) (*params.SecretKeyLoginResponsePayload, error) {
 	if !st.IsController() {
@@ -214,7 +217,7 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	connInfo, err := GetConnectorInfoer(model)
+	connInfo, err := GetConnectorInfoer(ctx, model)
 	if errors.Is(err, errors.NotSupported) { // Not all providers support this.
 		return &payload, nil
 	}

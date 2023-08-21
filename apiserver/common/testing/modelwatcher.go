@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -15,8 +17,8 @@ import (
 )
 
 type ModelWatcher interface {
-	WatchForModelConfigChanges() (params.NotifyWatchResult, error)
-	ModelConfig() (params.ModelConfigResult, error)
+	WatchForModelConfigChanges(context.Context) (params.NotifyWatchResult, error)
+	ModelConfig(context.Context) (params.ModelConfigResult, error)
 }
 
 type ModelWatcherTest struct {
@@ -42,10 +44,10 @@ func (s *ModelWatcherTest) AssertModelConfig(c *gc.C, modelWatcher ModelWatcher)
 	model, err := s.st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelConfig, err := model.ModelConfig()
+	modelConfig, err := model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := modelWatcher.ModelConfig()
+	result, err := modelWatcher.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	configAttributes := modelConfig.AllAttrs()
@@ -59,7 +61,7 @@ func (s *ModelWatcherTest) TestModelConfig(c *gc.C) {
 func (s *ModelWatcherTest) TestWatchForModelConfigChanges(c *gc.C) {
 	c.Assert(s.res.Count(), gc.Equals, 0)
 
-	result, err := s.modelWatcher.WatchForModelConfigChanges()
+	result, err := s.modelWatcher.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "1",

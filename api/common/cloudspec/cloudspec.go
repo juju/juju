@@ -4,6 +4,8 @@
 package cloudspec
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -49,7 +51,7 @@ func (api *CloudSpecAPI) WatchCloudSpecChanges() (watcher.NotifyWatcher, error) 
 
 // CloudSpec returns the cloud specification for the model associated
 // with the API facade.
-func (api *CloudSpecAPI) CloudSpec() (environscloudspec.CloudSpec, error) {
+func (api *CloudSpecAPI) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
 	var results params.CloudSpecResults
 	args := params.Entities{Entities: []params.Entity{{api.modelTag.String()}}}
 	err := api.facade.FacadeCall("CloudSpec", args, &results)

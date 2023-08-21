@@ -170,7 +170,7 @@ func (s *FirewallerSuite) TestModelFirewallRules(c *gc.C) {
 	modelAttrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
 	})
-	s.st.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, modelAttrs))
+	s.st.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, modelAttrs))
 	s.st.EXPECT().ControllerConfig().Return(controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, map[string]interface{}{}))
 	s.st.EXPECT().IsController().Return(false)
 
@@ -189,7 +189,7 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
 	modelAttrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		config.SSHAllowKey: "192.168.0.0/24,192.168.1.0/24",
 	})
-	s.st.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, modelAttrs))
+	s.st.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, modelAttrs))
 
 	ctrlAttrs := map[string]interface{}{
 		controller.APIPort:            17777,
@@ -226,7 +226,7 @@ func (s *FirewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
 	w.EXPECT().Kill().AnyTimes()
 
 	s.st.EXPECT().WatchForModelConfigChanges().Return(w)
-	s.st.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
+	s.st.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
 
 	result, err := s.api.WatchModelFirewallRules(context.Background())
 	c.Assert(err, jc.ErrorIsNil)

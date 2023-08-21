@@ -49,7 +49,7 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 		return s.applicationOffers
 	}
 
-	getEnviron := func(modelUUID string) (environs.Environ, error) {
+	getEnviron := func(ctx context.Context, modelUUID string) (environs.Environ, error) {
 		return s.env, nil
 	}
 	var err error
@@ -1140,7 +1140,7 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 		return &mockApplicationOffers{st: st.(*mockState)}
 	}
 
-	getEnviron := func(modelUUID string) (environs.Environ, error) {
+	getEnviron := func(ctx context.Context, modelUUID string) (environs.Environ, error) {
 		return s.env, nil
 	}
 	var err error
@@ -1158,10 +1158,13 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *gc.C) {
-	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
-		OfferURLs: params.OfferURLs{
-			OfferURLs: []string{"fred@external/prod.application:db"},
-		}})
+	results, err := s.api.GetConsumeDetails(
+		context.Background(),
+		params.ConsumeOfferDetailsArg{
+			OfferURLs: params.OfferURLs{
+				OfferURLs: []string{"fred@external/prod.application:db"},
+			}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error != nil, jc.IsTrue)
@@ -1178,10 +1181,13 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer.Tag = apiUser
-	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
-		OfferURLs: params.OfferURLs{
-			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
-		}})
+	results, err := s.api.GetConsumeDetails(
+		context.Background(),
+		params.ConsumeOfferDetailsArg{
+			OfferURLs: params.OfferURLs{
+				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+			}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []params.ConsumeOfferDetailsResult{{
 		Error: apiservererrors.ServerError(errors.NotFoundf("application offer %q", "fred@external/prod.hosted-mysql")),
@@ -1215,11 +1221,13 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser
 	} else {
 		s.authorizer.Tag = apiUser
 	}
-	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
-		UserTag: userTag,
-		OfferURLs: params.OfferURLs{
-			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
-		}},
+	results, err := s.api.GetConsumeDetails(
+		context.Background(),
+		params.ConsumeOfferDetailsArg{
+			UserTag: userTag,
+			OfferURLs: params.OfferURLs{
+				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+			}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -1268,11 +1276,14 @@ func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.authorizer.Tag = names.NewUserTag("joe-blow")
-	_, err = s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
-		UserTag: apiUser.String(),
-		OfferURLs: params.OfferURLs{
-			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
-		}})
+	_, err = s.api.GetConsumeDetails(
+		context.Background(),
+		params.ConsumeOfferDetailsArg{
+			UserTag: apiUser.String(),
+			OfferURLs: params.OfferURLs{
+				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+			}},
+	)
 	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
 }
 
@@ -1296,10 +1307,13 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 
 	s.authorizer.Tag = apiUser
 	s.authorizer.HasConsumeTag = apiUser
-	results, err := s.api.GetConsumeDetails(params.ConsumeOfferDetailsArg{
-		OfferURLs: params.OfferURLs{
-			OfferURLs: []string{"fred@external/prod.hosted-mysql"},
-		}},
+	results, err := s.api.GetConsumeDetails(
+		context.Background(),
+		params.ConsumeOfferDetailsArg{
+			OfferURLs: params.OfferURLs{
+				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
+			},
+		},
 	)
 
 	c.Assert(err, jc.ErrorIsNil)

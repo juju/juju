@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -56,7 +57,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 		{Tag: s.machines[0].Tag().String()},
 		{Tag: placementMachine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(args)
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
@@ -148,7 +149,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: machine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(args)
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(result.Results[0].Result, gc.NotNil)
@@ -177,7 +178,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 		{Tag: placementMachine.Tag().String()},
 	}}
 
-	result, err := s.provisioner.ProvisioningInfo(args)
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
@@ -262,7 +263,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: wordpressMachine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(args)
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
@@ -345,7 +346,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindingsAndNoAl
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: wordpressMachine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(args)
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.ProvisioningInfoResults{
@@ -400,7 +401,7 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: wordpressMachine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(args)
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.ProvisioningInfoResults{
@@ -457,7 +458,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 		{Tag: placementMachines[0].Tag().String()},
 		{Tag: placementMachines[1].Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(args)
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedErrorEmptySpace := `matching subnets to zones: ` +
@@ -494,7 +495,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: profileMachine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(args)
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
@@ -543,7 +544,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: placementMachine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(args)
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
@@ -611,7 +612,7 @@ func (s *withoutControllerSuite) TestStorageProviderVolumes(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: machine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(args)
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(result.Results[0].Result, gc.NotNil)
@@ -655,7 +656,7 @@ func (s *withoutControllerSuite) TestProviderInfoCloudInitUserData(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(args)
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Result.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
 		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
@@ -701,7 +702,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	}}
 
 	// Only machine 0 and containers therein can be accessed.
-	results, err := aProvisioner.ProvisioningInfo(args)
+	results, err := aProvisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)

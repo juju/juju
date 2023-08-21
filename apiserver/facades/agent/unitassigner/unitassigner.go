@@ -24,7 +24,7 @@ type assignerState interface {
 }
 
 type statusSetter interface {
-	SetStatus(args params.SetStatus) (params.ErrorResults, error)
+	SetStatus(context.Context, params.SetStatus) (params.ErrorResults, error)
 }
 
 // API implements the functionality for assigning units to machines.
@@ -93,5 +93,5 @@ func (a *API) WatchUnitAssignments(ctx context.Context) (params.StringsWatchResu
 // SetAgentStatus will set status for agents of Units passed in args, if one
 // of the args is not an Unit it will fail.
 func (a *API) SetAgentStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	return a.statusSetter.SetStatus(args)
+	return a.statusSetter.SetStatus(ctx, args)
 }

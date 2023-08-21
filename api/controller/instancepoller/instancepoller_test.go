@@ -4,6 +4,7 @@
 package instancepoller_test
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/names/v4"
@@ -126,7 +127,7 @@ func (s *InstancePollerSuite) TestModelConfigSuccess(c *gc.C) {
 	apiCaller := successAPICaller(c, "ModelConfig", nil, expectedResults)
 
 	api := instancepoller.NewAPI(apiCaller)
-	cfg, err := api.ModelConfig()
+	cfg, err := api.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(cfg, jc.DeepEquals, expectedConfig)
@@ -135,7 +136,7 @@ func (s *InstancePollerSuite) TestModelConfigSuccess(c *gc.C) {
 func (s *InstancePollerSuite) TestModelConfigClientError(c *gc.C) {
 	apiCaller := clientErrorAPICaller(c, "ModelConfig", nil)
 	api := instancepoller.NewAPI(apiCaller)
-	cfg, err := api.ModelConfig()
+	cfg, err := api.ModelConfig(context.Background())
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(cfg, gc.IsNil)
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
@@ -148,7 +149,7 @@ func (s *InstancePollerSuite) TestModelConfigServerError(c *gc.C) {
 	apiCaller := successAPICaller(c, "ModelConfig", nil, expectResults)
 
 	api := instancepoller.NewAPI(apiCaller)
-	cfg, err := api.ModelConfig()
+	cfg, err := api.ModelConfig(context.Background())
 	c.Assert(err, gc.NotNil) // the actual error doesn't matter
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(cfg, gc.IsNil)

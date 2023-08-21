@@ -4,6 +4,7 @@
 package firewaller
 
 import (
+	"context"
 	stdcontext "context"
 	"sort"
 	"time"
@@ -993,7 +994,7 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 
 	// If there's still too many after merging, look for any firewall whitelist.
 	if cidrs.Size() > maxAllowedCIDRS {
-		cfg, err := fw.firewallerApi.ModelConfig()
+		cfg, err := fw.firewallerApi.ModelConfig(context.TODO())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

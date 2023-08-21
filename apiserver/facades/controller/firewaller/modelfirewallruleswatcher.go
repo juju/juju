@@ -4,6 +4,8 @@
 package firewaller
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
@@ -55,7 +57,7 @@ func (w *modelFirewallRulesWatcher) loop() error {
 			if !ok {
 				return w.catacomb.ErrDying()
 			}
-			cfg, err := w.backend.ModelConfig()
+			cfg, err := w.backend.ModelConfig(context.TODO())
 			if err != nil {
 				return errors.Trace(err)
 			}

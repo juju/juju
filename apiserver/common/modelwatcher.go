@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -37,7 +39,7 @@ func NewModelWatcher(st state.ModelAccessor, resources facade.Resources, authori
 // Note that although the NotifyWatchResult contains an Error field,
 // it's not used because we are only returning a single watcher,
 // so we use the regular error return.
-func (m *ModelWatcher) WatchForModelConfigChanges() (params.NotifyWatchResult, error) {
+func (m *ModelWatcher) WatchForModelConfigChanges(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	watch := m.st.WatchForModelConfigChanges()
 	// Consume the initial event. Technically, API
@@ -53,9 +55,9 @@ func (m *ModelWatcher) WatchForModelConfigChanges() (params.NotifyWatchResult, e
 }
 
 // ModelConfig returns the current model's configuration.
-func (m *ModelWatcher) ModelConfig() (params.ModelConfigResult, error) {
+func (m *ModelWatcher) ModelConfig(ctx context.Context) (params.ModelConfigResult, error) {
 	result := params.ModelConfigResult{}
-	config, err := m.st.ModelConfig()
+	config, err := m.st.ModelConfig(ctx)
 	if err != nil {
 		return result, err
 	}

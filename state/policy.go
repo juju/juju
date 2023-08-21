@@ -4,6 +4,8 @@
 package state
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
@@ -109,7 +111,7 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 		return nil, errors.Annotate(err, "getting model")
 	}
 	if region := model.CloudRegion(); region != "" {
-		cfg, err := model.ModelConfig()
+		cfg, err := model.ModelConfig(stdcontext.Background())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

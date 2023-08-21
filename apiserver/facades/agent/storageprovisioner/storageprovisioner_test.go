@@ -295,7 +295,7 @@ func (s *iaasProvisionerSuite) TestHostedVolumes(c *gc.C) {
 	s.authorizer.Controller = false
 
 	results, err := s.api.Volumes(context.Background(), params.Entities{
-		Entities: []params.Entity{{"volume-0-0"}, {"volume-1"}, {"volume-42"}},
+		Entities: []params.Entity{{Tag: "volume-0-0"}, {Tag: "volume-1"}, {Tag: "volume-42"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.VolumeResults{
@@ -323,10 +323,10 @@ func (s *iaasProvisionerSuite) TestVolumesModel(c *gc.C) {
 
 	results, err := s.api.Volumes(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{"volume-0-0"},
-			{"volume-1"},
-			{"volume-2"},
-			{"volume-42"},
+			{Tag: "volume-0-0"},
+			{Tag: "volume-1"},
+			{Tag: "volume-2"},
+			{Tag: "volume-42"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -360,10 +360,10 @@ func (s *iaasProvisionerSuite) TestFilesystems(c *gc.C) {
 
 	results, err := s.api.Filesystems(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{"filesystem-0-0"},
-			{"filesystem-1"},
-			{"filesystem-2"},
-			{"filesystem-42"},
+			{Tag: "filesystem-0-0"},
+			{Tag: "filesystem-1"},
+			{Tag: "filesystem-2"},
+			{Tag: "filesystem-42"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -478,10 +478,10 @@ func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
 	s.setupVolumes(c)
 	results, err := s.api.VolumeParams(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{"volume-0-0"},
-			{"volume-1"},
-			{"volume-3"},
-			{"volume-42"},
+			{Tag: "volume-0-0"},
+			{Tag: "volume-1"},
+			{Tag: "volume-3"},
+			{Tag: "volume-42"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -614,11 +614,11 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 
 	results, err := s.api.RemoveVolumeParams(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{"volume-0-0"},
-			{storageVolume.Tag().String()},
-			{"volume-1"},
-			{"volume-3"},
-			{"volume-42"},
+			{Tag: "volume-0-0"},
+			{Tag: storageVolume.Tag().String()},
+			{Tag: "volume-1"},
+			{Tag: "volume-3"},
+			{Tag: "volume-42"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -648,7 +648,7 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
 	s.setupFilesystems(c)
 	results, err := s.api.FilesystemParams(context.Background(), params.Entities{
-		Entities: []params.Entity{{"filesystem-0-0"}, {"filesystem-1"}, {"filesystem-42"}},
+		Entities: []params.Entity{{Tag: "filesystem-0-0"}, {Tag: "filesystem-1"}, {Tag: "filesystem-42"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.FilesystemParamsResults{
@@ -740,11 +740,11 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 
 	results, err := s.api.RemoveFilesystemParams(context.Background(), params.Entities{
 		Entities: []params.Entity{
-			{"filesystem-0-0"},
-			{storageFilesystem.Tag().String()},
-			{"filesystem-1"},
-			{"filesystem-2"},
-			{"filesystem-42"},
+			{Tag: "filesystem-0-0"},
+			{Tag: storageFilesystem.Tag().String()},
+			{Tag: "filesystem-1"},
+			{Tag: "filesystem-2"},
+			{Tag: "filesystem-42"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1048,11 +1048,11 @@ func (s *iaasProvisionerSuite) TestWatchVolumes(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
-		{"machine-0"},
-		{names.NewModelTag(s.st.ModelUUID()).String()},
-		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
-		{"machine-1"},
-		{"machine-42"}},
+		{Tag: "machine-0"},
+		{Tag: names.NewModelTag(s.st.ModelUUID()).String()},
+		{Tag: "environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
+		{Tag: "machine-1"},
+		{Tag: "machine-42"}},
 	}
 	result, err := s.api.WatchVolumes(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1093,11 +1093,11 @@ func (s *iaasProvisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
-		{"machine-0"},
-		{names.NewModelTag(s.st.ModelUUID()).String()},
-		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
-		{"machine-1"},
-		{"machine-42"}},
+		{Tag: "machine-0"},
+		{Tag: names.NewModelTag(s.st.ModelUUID()).String()},
+		{Tag: "environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
+		{Tag: "machine-1"},
+		{Tag: "machine-42"}},
 	}
 	result, err := s.api.WatchVolumeAttachments(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1154,11 +1154,11 @@ func (s *iaasProvisionerSuite) TestWatchFilesystems(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
-		{"machine-0"},
-		{names.NewModelTag(s.st.ModelUUID()).String()},
-		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
-		{"machine-1"},
-		{"machine-42"}},
+		{Tag: "machine-0"},
+		{Tag: names.NewModelTag(s.st.ModelUUID()).String()},
+		{Tag: "environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
+		{Tag: "machine-1"},
+		{Tag: "machine-42"}},
 	}
 	result, err := s.api.WatchFilesystems(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1199,11 +1199,11 @@ func (s *iaasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
-		{"machine-0"},
-		{names.NewModelTag(s.st.ModelUUID()).String()},
-		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
-		{"machine-1"},
-		{"machine-42"}},
+		{Tag: "machine-0"},
+		{Tag: names.NewModelTag(s.st.ModelUUID()).String()},
+		{Tag: "environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
+		{Tag: "machine-1"},
+		{Tag: "machine-42"}},
 	}
 	result, err := s.api.WatchFilesystemAttachments(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1260,10 +1260,10 @@ func (s *iaasProvisionerSuite) TestWatchBlockDevices(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
-		{"machine-0"},
-		{"application-mysql"},
-		{"machine-1"},
-		{"machine-42"}},
+		{Tag: "machine-0"},
+		{Tag: "application-mysql"},
+		{Tag: "machine-1"},
+		{Tag: "machine-42"}},
 	}
 	results, err := s.api.WatchBlockDevices(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1416,8 +1416,8 @@ func (s *iaasProvisionerSuite) TestVolumeBlockDevicesPlanBlockInfoSet(c *gc.C) {
 func (s *iaasProvisionerSuite) TestLife(c *gc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
-	args := params.Entities{Entities: []params.Entity{{"volume-0-0"}, {"volume-1"}, {"volume-42"}}}
-	result, err := s.api.Life(args)
+	args := params.Entities{Entities: []params.Entity{{Tag: "volume-0-0"}, {Tag: "volume-1"}, {Tag: "volume-42"}}}
+	result, err := s.api.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -1464,8 +1464,8 @@ func (s *iaasProvisionerSuite) TestAttachmentLife(c *gc.C) {
 func (s *iaasProvisionerSuite) TestEnsureDead(c *gc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
-	args := params.Entities{Entities: []params.Entity{{"volume-0-0"}, {"volume-1"}, {"volume-42"}}}
-	result, err := s.api.EnsureDead(args)
+	args := params.Entities{Entities: []params.Entity{{Tag: "volume-0-0"}, {Tag: "volume-1"}, {Tag: "volume-42"}}}
+	result, err := s.api.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(wallyworld) - this test will be updated when EnsureDead is supported
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
@@ -1481,8 +1481,8 @@ func (s *iaasProvisionerSuite) TestRemoveVolumesController(c *gc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 	args := params.Entities{Entities: []params.Entity{
-		{"volume-1-0"}, {"volume-1"}, {"volume-2"}, {"volume-42"},
-		{"volume-invalid"}, {"machine-0"},
+		{Tag: "volume-1-0"}, {Tag: "volume-1"}, {Tag: "volume-2"}, {Tag: "volume-42"},
+		{Tag: "volume-invalid"}, {Tag: "machine-0"},
 	}}
 
 	err := s.storageBackend.DetachVolume(names.NewMachineTag("0"), names.NewVolumeTag("1"), false)
@@ -1509,8 +1509,8 @@ func (s *iaasProvisionerSuite) TestRemoveVolumesController(c *gc.C) {
 func (s *iaasProvisionerSuite) TestRemoveFilesystemsController(c *gc.C) {
 	s.setupFilesystems(c)
 	args := params.Entities{Entities: []params.Entity{
-		{"filesystem-1-0"}, {"filesystem-1"}, {"filesystem-2"}, {"filesystem-42"},
-		{"filesystem-invalid"}, {"machine-0"},
+		{Tag: "filesystem-1-0"}, {Tag: "filesystem-1"}, {Tag: "filesystem-2"}, {Tag: "filesystem-42"},
+		{Tag: "filesystem-invalid"}, {Tag: "machine-0"},
 	}}
 
 	err := s.storageBackend.DetachFilesystem(names.NewMachineTag("0"), names.NewFilesystemTag("1"))
@@ -1539,8 +1539,8 @@ func (s *iaasProvisionerSuite) TestRemoveVolumesMachineAgent(c *gc.C) {
 	s.setupVolumes(c)
 	s.authorizer.Controller = false
 	args := params.Entities{Entities: []params.Entity{
-		{"volume-0-0"}, {"volume-0-42"}, {"volume-42"},
-		{"volume-invalid"}, {"machine-0"},
+		{Tag: "volume-0-0"}, {Tag: "volume-0-42"}, {Tag: "volume-42"},
+		{Tag: "volume-invalid"}, {Tag: "machine-0"},
 	}}
 
 	err := s.storageBackend.DestroyVolume(names.NewVolumeTag("0/0"), false)
@@ -1567,8 +1567,8 @@ func (s *iaasProvisionerSuite) TestRemoveFilesystemsMachineAgent(c *gc.C) {
 	s.setupFilesystems(c)
 	s.authorizer.Controller = false
 	args := params.Entities{Entities: []params.Entity{
-		{"filesystem-0-0"}, {"filesystem-0-42"}, {"filesystem-42"},
-		{"filesystem-invalid"}, {"machine-0"},
+		{Tag: "filesystem-0-0"}, {Tag: "filesystem-0-42"}, {Tag: "filesystem-42"},
+		{Tag: "filesystem-invalid"}, {Tag: "machine-0"},
 	}}
 
 	err := s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("0/0"), false)
@@ -1678,10 +1678,10 @@ func (s *caasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
-		{"application-mariadb"},
-		{names.NewModelTag(s.st.ModelUUID()).String()},
-		{"environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
-		{"unit-mysql-0"}},
+		{Tag: "application-mariadb"},
+		{Tag: names.NewModelTag(s.st.ModelUUID()).String()},
+		{Tag: "environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
+		{Tag: "unit-mysql-0"}},
 	}
 	result, err := s.api.WatchFilesystemAttachments(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1761,8 +1761,8 @@ func (s *caasProvisionerSuite) TestRemoveFilesystemsApplicationAgent(c *gc.C) {
 	s.setupFilesystems(c)
 	s.authorizer.Controller = false
 	args := params.Entities{Entities: []params.Entity{
-		{"filesystem-42"},
-		{"filesystem-invalid"}, {"machine-0"},
+		{Tag: "filesystem-42"},
+		{Tag: "filesystem-invalid"}, {Tag: "machine-0"},
 	}}
 
 	err := s.storageBackend.DestroyFilesystem(names.NewFilesystemTag("0"), false)
@@ -1783,8 +1783,8 @@ func (s *caasProvisionerSuite) TestRemoveFilesystemsApplicationAgent(c *gc.C) {
 
 func (s *caasProvisionerSuite) TestFilesystemLife(c *gc.C) {
 	s.setupFilesystems(c)
-	args := params.Entities{Entities: []params.Entity{{"filesystem-0"}, {"filesystem-1"}, {"filesystem-42"}}}
-	result, err := s.api.Life(args)
+	args := params.Entities{Entities: []params.Entity{{Tag: "filesystem-0"}, {Tag: "filesystem-1"}, {Tag: "filesystem-42"}}}
+	result, err := s.api.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{

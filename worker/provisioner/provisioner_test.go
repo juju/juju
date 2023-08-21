@@ -67,7 +67,7 @@ func (s *CommonProvisionerSuite) expectStartup(c *gc.C) {
 	s.controllerAPI.EXPECT().WatchForModelConfigChanges().Return(watchCfg, nil)
 
 	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{config.ProvisionerHarvestModeKey: config.HarvestDestroyed.String()})
-	s.controllerAPI.EXPECT().ModelConfig().Return(cfg, nil).MaxTimes(2)
+	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).MaxTimes(2)
 
 	s.provisionerStarted = make(chan bool)
 	controllerCfg := coretesting.FakeControllerConfig()
@@ -118,7 +118,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	attrs[config.ProvisionerHarvestModeKey] = config.HarvestDestroyed.String()
 	modelCfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.controllerAPI.EXPECT().ModelConfig().Return(modelCfg, nil)
+	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
 
 	if !container {
 		s.broker.EXPECT().SetConfig(modelCfg).Return(nil)
@@ -164,7 +164,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 	}
 	modelCfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.controllerAPI.EXPECT().ModelConfig().Return(modelCfg, nil)
+	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
 
 	if !container {
 		s.broker.EXPECT().SetConfig(modelCfg).Return(nil)

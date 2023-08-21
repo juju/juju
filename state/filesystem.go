@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"regexp"
@@ -1160,7 +1161,7 @@ func (sb *storageBackend) newFilesystemOps(doc filesystemDoc, status statusDoc) 
 
 func (sb *storageBackend) filesystemParamsWithDefaults(params FilesystemParams) (FilesystemParams, error) {
 	if params.Pool == "" {
-		modelConfig, err := sb.config()
+		modelConfig, err := sb.config(context.Background())
 		if err != nil {
 			return FilesystemParams{}, errors.Trace(err)
 		}

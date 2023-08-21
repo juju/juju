@@ -54,7 +54,7 @@ func (h *RetryStrategyAPI) RetryStrategy(ctx context.Context, args params.Entiti
 	if err != nil {
 		return params.RetryStrategyResults{}, errors.Trace(err)
 	}
-	config, err := h.model.ModelConfig()
+	config, err := h.model.ModelConfig(ctx)
 	if err != nil {
 		return params.RetryStrategyResults{}, errors.Trace(err)
 	}

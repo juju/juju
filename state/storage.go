@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -111,7 +112,7 @@ func NewStorageBackend(st *State) (*storageBackend, error) {
 
 type storageBackend struct {
 	mb              modelBackend
-	config          func() (*config.Config, error)
+	config          func(context.Context) (*config.Config, error)
 	application     func(string) (*Application, error)
 	allApplications func() ([]*Application, error)
 	unit            func(string) (*Unit, error)
@@ -316,7 +317,7 @@ func (sb *storageBackend) RemoveStoragePool(poolName string) error {
 	// TODO: Improve the data model to have a count of in use pools so we can
 	// make these checks as an assert and not queries.
 	var inUse bool
-	cfg, err := sb.config()
+	cfg, err := sb.config(context.Background())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1945,7 +1946,7 @@ var ErrNoDefaultStoragePool = fmt.Errorf("no storage pool specified and no defau
 // addDefaultStorageConstraints fills in default constraint values, replacing any empty/missing values
 // in the specified constraints.
 func addDefaultStorageConstraints(sb *storageBackend, allCons map[string]StorageConstraints, charmMeta *charm.Meta) error {
-	conf, err := sb.config()
+	conf, err := sb.config(context.Background())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2143,7 +2144,7 @@ func (sb *storageBackend) addStorageForUnitOps(
 
 		// Populate missing configuration parameters with defaults.
 		if cons.Pool == "" || cons.Size == 0 {
-			modelConfig, err := sb.config()
+			modelConfig, err := sb.config(context.Background())
 			if err != nil {
 				return nil, nil, errors.Trace(err)
 			}

@@ -150,6 +150,7 @@ type ConfigSource interface {
 }
 
 func (m *ModelManagerAPI) newModelConfig(
+	ctx context.Context,
 	cloudSpec environscloudspec.CloudSpec,
 	args params.ModelCreateArgs,
 	source ConfigSource,
@@ -188,7 +189,7 @@ func (m *ModelManagerAPI) newModelConfig(
 			if jujucloud.CloudTypeIsCAAS(cloudSpec.Type) {
 				return tools.List{&tools.Tools{Version: version.Binary{Number: n}}}, nil
 			}
-			toolsList, err := m.toolsFinder.FindAgents(common.FindAgentsParams{
+			toolsList, err := m.toolsFinder.FindAgents(ctx, common.FindAgentsParams{
 				Number: n,
 			})
 			if err != nil {
@@ -337,22 +338,26 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	var model common.Model
 	if jujucloud.CloudIsCAAS(cloud) {
 		model, err = m.newCAASModel(
+			ctx,
 			cloudSpec,
 			args,
 			controllerModel,
 			cloudTag,
 			cloudRegionName,
 			cloudCredentialTag,
-			ownerTag)
+			ownerTag,
+		)
 	} else {
 		model, err = m.newModel(
+			ctx,
 			cloudSpec,
 			args,
 			controllerModel,
 			cloudTag,
 			cloudRegionName,
 			cloudCredentialTag,
-			ownerTag)
+			ownerTag,
+		)
 	}
 	if err != nil {
 		return result, errors.Trace(err)
@@ -364,10 +369,11 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Trace(err)
 	}
 
-	return m.getModelInfo(model.ModelTag(), false)
+	return m.getModelInfo(ctx, model.ModelTag(), false)
 }
 
 func (m *ModelManagerAPI) newCAASModel(
+	ctx context.Context,
 	cloudSpec environscloudspec.CloudSpec,
 	createArgs params.ModelCreateArgs,
 	controllerModel common.Model,
@@ -376,7 +382,7 @@ func (m *ModelManagerAPI) newCAASModel(
 	cloudCredentialTag names.CloudCredentialTag,
 	ownerTag names.UserTag,
 ) (_ common.Model, err error) {
-	newConfig, err := m.newModelConfig(cloudSpec, createArgs, controllerModel)
+	newConfig, err := m.newModelConfig(ctx, cloudSpec, createArgs, controllerModel)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create config")
 	}
@@ -434,6 +440,7 @@ Please choose a different model name.
 }
 
 func (m *ModelManagerAPI) newModel(
+	ctx context.Context,
 	cloudSpec environscloudspec.CloudSpec,
 	createArgs params.ModelCreateArgs,
 	controllerModel common.Model,
@@ -442,7 +449,7 @@ func (m *ModelManagerAPI) newModel(
 	cloudCredentialTag names.CloudCredentialTag,
 	ownerTag names.UserTag,
 ) (common.Model, error) {
-	newConfig, err := m.newModelConfig(cloudSpec, createArgs, controllerModel)
+	newConfig, err := m.newModelConfig(ctx, cloudSpec, createArgs, controllerModel)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create config")
 	}
@@ -782,7 +789,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			}
 		}
 
-		err = errors.Trace(common.DestroyModel(st, destroyStorage, force, maxWait, timeout))
+		err = errors.Trace(common.DestroyModel(ctx, st, destroyStorage, force, maxWait, timeout))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -824,7 +831,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
-		modelInfo, err := m.getModelInfo(tag, true)
+		modelInfo, err := m.getModelInfo(ctx, tag, true)
 		if err != nil {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
@@ -854,7 +861,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 	return results, nil
 }
 
-func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (params.ModelInfo, error) {
+func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, withSecrets bool) (params.ModelInfo, error) {
 	st, release, err := m.state.GetBackend(tag.Id())
 	if errors.IsNotFound(err) {
 		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
@@ -1005,7 +1012,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag, withSecrets bool) (pa
 		}
 	}
 
-	fs, err := supportedFeaturesGetter(model, environs.New)
+	fs, err := supportedFeaturesGetter(ctx, model, environs.New)
 	if err != nil {
 		return params.ModelInfo{}, err
 	}
@@ -1222,23 +1229,23 @@ func (m *ModelManagerAPI) modelDefaults(cloud string) params.ModelDefaultsResult
 // SetModelDefaults writes new values for the specified default model settings.
 func (m *ModelManagerAPI) SetModelDefaults(ctx context.Context, args params.SetModelDefaults) (params.ErrorResults, error) {
 	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Config))}
-	if err := m.check.ChangeAllowed(); err != nil {
+	if err := m.check.ChangeAllowed(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
 	for i, arg := range args.Config {
 		results.Results[i].Error = apiservererrors.ServerError(
-			m.setModelDefaults(arg),
+			m.setModelDefaults(ctx, arg),
 		)
 	}
 	return results, nil
 }
 
-func (m *ModelManagerAPI) setModelDefaults(args params.ModelDefaultValues) error {
+func (m *ModelManagerAPI) setModelDefaults(ctx context.Context, args params.ModelDefaultValues) error {
 	if !m.isAdmin {
 		return apiservererrors.ErrPerm
 	}
 
-	if err := m.check.ChangeAllowed(); err != nil {
+	if err := m.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	// Make sure we don't allow changing agent-version.
@@ -1264,7 +1271,7 @@ func (m *ModelManagerAPI) UnsetModelDefaults(ctx context.Context, args params.Un
 		return results, apiservererrors.ErrPerm
 	}
 
-	if err := m.check.ChangeAllowed(); err != nil {
+	if err := m.check.ChangeAllowed(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
 
@@ -1303,7 +1310,7 @@ func (m *ModelManagerAPI) makeRegionSpec(cloudTag, r string) (*environscloudspec
 // ChangeModelCredential changes cloud credential reference for models.
 // These new cloud credentials must already exist on the controller.
 func (m *ModelManagerAPI) ChangeModelCredential(ctx context.Context, args params.ChangeModelCredentialsParams) (params.ErrorResults, error) {
-	if err := m.check.ChangeAllowed(); err != nil {
+	if err := m.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 

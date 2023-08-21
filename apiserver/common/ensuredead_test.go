@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -66,7 +67,7 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 	entities := params.Entities{[]params.Entity{
 		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"},
 	}}
-	result, err := d.EnsureDead(entities)
+	result, err := d.EnsureDead(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(afterDeadCalled, jc.IsTrue)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
@@ -86,7 +87,7 @@ func (*deadEnsurerSuite) TestEnsureDeadError(c *gc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	d := common.NewDeadEnsurer(&fakeState{}, nil, getCanModify)
-	_, err := d.EnsureDead(params.Entities{[]params.Entity{{"x0"}}})
+	_, err := d.EnsureDead(context.Background(), params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
@@ -95,7 +96,7 @@ func (*removeSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	d := common.NewDeadEnsurer(&fakeState{}, nil, getCanModify)
-	result, err := d.EnsureDead(params.Entities{})
+	result, err := d.EnsureDead(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

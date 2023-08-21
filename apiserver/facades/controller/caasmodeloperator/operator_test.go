@@ -72,7 +72,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 	model, err := m.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelConfig, err := model.ModelConfig()
+	modelConfig, err := model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	vers, ok := modelConfig.AgentVersion()

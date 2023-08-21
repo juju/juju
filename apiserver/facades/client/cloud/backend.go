@@ -4,6 +4,8 @@
 package cloud
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
@@ -20,7 +22,7 @@ type Backend interface {
 
 	ControllerTag() names.ControllerTag
 	Model() (Model, error)
-	ModelConfig() (*config.Config, error)
+	ModelConfig(stdcontext.Context) (*config.Config, error)
 	User(tag names.UserTag) (User, error)
 
 	CloudCredentials(user names.UserTag, cloudName string) (map[string]state.Credential, error)
@@ -52,13 +54,13 @@ func NewStateBackend(st *state.State) Backend {
 	return stateShim{st}
 }
 
-func (s stateShim) ModelConfig() (*config.Config, error) {
+func (s stateShim) ModelConfig(ctx stdcontext.Context) (*config.Config, error) {
 	model, err := s.State.Model()
 	if err != nil {
 		return nil, err
 	}
 
-	cfg, err := model.ModelConfig()
+	cfg, err := model.ModelConfig(ctx)
 	if err != nil {
 		return nil, err
 	}

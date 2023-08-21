@@ -4,6 +4,7 @@
 package state
 
 import (
+	stdcontext "context"
 	"fmt"
 	"sort"
 	"time"
@@ -1401,7 +1402,7 @@ func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 	m, err := s.state.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := m.ModelConfig()
+	cfg, err := m.ModelConfig(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	expectedModelSettings := cfg.AllAttrs()
 	expectedModelSettings["http-proxy"] = "http://invalid"

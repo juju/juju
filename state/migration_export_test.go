@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"math/rand"
@@ -2649,7 +2650,7 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 
 	err = s.Model.UpdateModelConfig(map[string]interface{}{config.SecretBackendKey: "myvault"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	mCfg, err := s.Model.ModelConfig()
+	mCfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault")
 

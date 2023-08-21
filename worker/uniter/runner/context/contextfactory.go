@@ -4,6 +4,7 @@
 package context
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"time"
@@ -373,7 +374,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 
 	// TODO(fwereade) 23-10-2014 bug 1384572
 	// Nothing here should ever be getting the environ config directly.
-	modelConfig, err := f.client.ModelConfig()
+	modelConfig, err := f.client.ModelConfig(context.TODO())
 	if err != nil {
 		return err
 	}

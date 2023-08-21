@@ -774,7 +774,7 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 				return errors.Trace(err)
 			}
 			blockChecker := common.NewBlockChecker(st)
-			if err := blockChecker.ChangeAllowed(); err != nil {
+			if err := blockChecker.ChangeAllowed(req.Context()); err != nil {
 				return errors.Trace(err)
 			}
 			return nil

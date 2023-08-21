@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -57,8 +58,8 @@ type NetworkInfoBase struct {
 
 // NewNetworkInfo initialises and returns a new NetworkInfo
 // based on the input state and unit tag.
-func NewNetworkInfo(st *state.State, tag names.UnitTag, logger loggo.Logger) (NetworkInfo, error) {
-	n, err := NewNetworkInfoForStrategy(st, tag, defaultRetryFactory, net.LookupHost, logger)
+func NewNetworkInfo(ctx context.Context, st *state.State, tag names.UnitTag, logger loggo.Logger) (NetworkInfo, error) {
+	n, err := NewNetworkInfoForStrategy(ctx, st, tag, defaultRetryFactory, net.LookupHost, logger)
 	return n, errors.Trace(err)
 }
 
@@ -66,13 +67,14 @@ func NewNetworkInfo(st *state.State, tag names.UnitTag, logger loggo.Logger) (Ne
 // based on the input state and unit tag, allowing further specification of
 // behaviour via the input retry factory and host resolver.
 func NewNetworkInfoForStrategy(
+	ctx context.Context,
 	st *state.State, tag names.UnitTag, retryFactory func() retry.CallArgs, lookupHost func(string) ([]string, error), logger loggo.Logger,
 ) (NetworkInfo, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg, err := model.ModelConfig()
+	cfg, err := model.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

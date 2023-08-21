@@ -45,7 +45,7 @@ type RemoteRelationsState interface {
 // required by the remote firewaller facade
 type ControllerConfigAPI interface {
 	// ControllerConfig returns the controller's configuration.
-	ControllerConfig() (params.ControllerConfigResult, error)
+	ControllerConfig(context.Context) (params.ControllerConfigResult, error)
 
 	// ControllerAPIInfoForModels returns the controller api connection details for the specified models.
 	ControllerAPIInfoForModels(ctx context.Context, args params.Entities) (params.ControllerAPIInfoResults, error)

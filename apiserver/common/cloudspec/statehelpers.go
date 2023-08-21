@@ -4,6 +4,8 @@
 package cloudspec
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -37,7 +39,7 @@ func MakeCloudSpecGetter(pool Pool) func(names.ModelTag) (environscloudspec.Clou
 		// both state and model but only model.
 		// TODO (manadart 2018-02-15): This potentially frees the state from
 		// the pool. Release is called, but the state reference survives.
-		return stateenvirons.EnvironConfigGetter{Model: m}.CloudSpec()
+		return stateenvirons.EnvironConfigGetter{Model: m}.CloudSpec(context.TODO())
 	}
 }
 
@@ -56,7 +58,7 @@ func MakeCloudSpecGetterForModel(st *state.State) func(names.ModelTag) (environs
 		if tag.Id() != st.ModelUUID() {
 			return environscloudspec.CloudSpec{}, errors.New("cannot get cloud spec for this model")
 		}
-		return configGetter.CloudSpec()
+		return configGetter.CloudSpec(context.TODO())
 	}
 }
 

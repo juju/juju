@@ -114,7 +114,7 @@ func (s *SecretsDrainSuite) assertGetSecretsToDrain(
 	}
 	cfg, err := config.New(config.NoDefaults, configAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.model.EXPECT().ModelConfig().Return(cfg, nil)
+	s.model.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 	s.model.EXPECT().Type().Return(modelType)
 
 	s.model.EXPECT().ControllerUUID().Return(coretesting.ControllerTag.Id())
@@ -343,7 +343,7 @@ func (s *SecretsDrainSuite) TestWatchSecretBackendChanged(c *gc.C) {
 	}
 	cfg, err := config.New(config.NoDefaults, configAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.model.EXPECT().ModelConfig().Return(cfg, nil).Times(2)
+	s.model.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).Times(2)
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("11", nil)
 

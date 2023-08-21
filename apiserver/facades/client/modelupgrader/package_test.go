@@ -4,6 +4,7 @@
 package modelupgrader
 
 import (
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/version/v2"
@@ -22,12 +23,13 @@ func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
-func (m *ModelUpgraderAPI) FindAgents(args common.FindAgentsParams) (coretools.Versions, error) {
-	return m.findAgents(args)
+func (m *ModelUpgraderAPI) FindAgents(ctx context.Context, args common.FindAgentsParams) (coretools.Versions, error) {
+	return m.findAgents(ctx, args)
 }
 
 func (m *ModelUpgraderAPI) DecideVersion(
+	ctx context.Context,
 	currentVersion version.Number, args common.FindAgentsParams,
 ) (_ version.Number, err error) {
-	return m.decideVersion(currentVersion, args)
+	return m.decideVersion(ctx, currentVersion, args)
 }

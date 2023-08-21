@@ -68,12 +68,12 @@ func (g EnvironConfigGetter) CloudAPIVersion(spec environscloudspec.CloudSpec) (
 }
 
 // ModelConfig implements environs.EnvironConfigGetter.
-func (g EnvironConfigGetter) ModelConfig() (*config.Config, error) {
+func (g EnvironConfigGetter) ModelConfig(ctx context.Context) (*config.Config, error) {
 	return g.Config()
 }
 
 // CloudSpec implements environs.EnvironConfigGetter.
-func (g EnvironConfigGetter) CloudSpec() (environscloudspec.CloudSpec, error) {
+func (g EnvironConfigGetter) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
 	return CloudSpecForModel(g.Model)
 }
 
@@ -104,7 +104,7 @@ type NewEnvironFunc = func(Model) (environs.Environ, error)
 func GetNewEnvironFunc(newEnviron environs.NewEnvironFunc) NewEnvironFunc {
 	return func(m Model) (environs.Environ, error) {
 		g := EnvironConfigGetter{Model: m}
-		return environs.GetEnviron(g, newEnviron)
+		return environs.GetEnviron(context.TODO(), g, newEnviron)
 	}
 }
 
@@ -117,7 +117,7 @@ type NewCAASBrokerFunc = func(Model) (caas.Broker, error)
 func GetNewCAASBrokerFunc(newBroker caas.NewContainerBrokerFunc) NewCAASBrokerFunc {
 	return func(m Model) (caas.Broker, error) {
 		g := EnvironConfigGetter{Model: m}
-		cloudSpec, err := g.CloudSpec()
+		cloudSpec, err := g.CloudSpec(context.TODO())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

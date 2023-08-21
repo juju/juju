@@ -4,6 +4,7 @@
 package cloudspec_test
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/testing"
@@ -57,7 +58,7 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 		return nil
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
-	cloudSpec, err := api.CloudSpec()
+	cloudSpec, err := api.CloudSpec(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	credential := cloud.NewCredential(
@@ -114,7 +115,7 @@ func (s *CloudSpecSuite) TestCloudSpecOverallError(c *gc.C) {
 		return expect
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
-	_, err := api.CloudSpec()
+	_, err := api.CloudSpec(context.Background())
 	c.Assert(err, gc.Equals, expect)
 }
 
@@ -124,7 +125,7 @@ func (s *CloudSpecSuite) TestCloudSpecResultCountMismatch(c *gc.C) {
 		return nil
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
-	_, err := api.CloudSpec()
+	_, err := api.CloudSpec(context.Background())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
@@ -142,7 +143,7 @@ func (s *CloudSpecSuite) TestCloudSpecResultError(c *gc.C) {
 		return nil
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
-	_, err := api.CloudSpec()
+	_, err := api.CloudSpec(context.Background())
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(err, gc.ErrorMatches, "API request failed: dang")
 }
@@ -158,6 +159,6 @@ func (s *CloudSpecSuite) TestCloudSpecInvalidCloudSpec(c *gc.C) {
 		return nil
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
-	_, err := api.CloudSpec()
+	_, err := api.CloudSpec(context.Background())
 	c.Assert(err, gc.ErrorMatches, "validating CloudSpec: empty Type not valid")
 }

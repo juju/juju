@@ -4,6 +4,7 @@
 package subnets
 
 import (
+	stdcontext "context"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -88,7 +89,7 @@ func allZones(ctx context.ProviderCallContext, api Backing, logger loggo.Logger)
 // provider (if supported) and then updates the persisted list of zones in
 // state, returning them as well on success.
 func updateZones(ctx context.ProviderCallContext, api Backing) (network.AvailabilityZones, error) {
-	zoned, err := zonedEnviron(api)
+	zoned, err := zonedEnviron(ctx, api)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -106,8 +107,8 @@ func updateZones(ctx context.ProviderCallContext, api Backing) (network.Availabi
 // zonedEnviron returns a providercommon.ZonedEnviron instance from the current
 // model config. If the model does not support zones, an error satisfying
 // errors.IsNotSupported() will be returned.
-func zonedEnviron(api Backing) (providercommon.ZonedEnviron, error) {
-	env, err := environs.GetEnviron(api, environs.New)
+func zonedEnviron(ctx stdcontext.Context, api Backing) (providercommon.ZonedEnviron, error) {
+	env, err := environs.GetEnviron(ctx, api, environs.New)
 	if err != nil {
 		return nil, errors.Annotate(err, "opening environment")
 	}

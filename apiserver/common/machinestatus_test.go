@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/names/v4"
@@ -35,7 +36,7 @@ func (s *MachineStatusSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MachineStatusSuite) checkUntouched(c *gc.C) {
-	agent, err := s.ctx.MachineStatus(s.machine)
+	agent, err := s.ctx.MachineStatus(context.Background(), s.machine)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(agent.Status, jc.DeepEquals, s.machine.status)
 }
@@ -47,13 +48,13 @@ func (s *MachineStatusSuite) TestNormal(c *gc.C) {
 func (s *MachineStatusSuite) TestErrors(c *gc.C) {
 	s.machine.statusErr = errors.New("status error")
 
-	_, err := s.ctx.MachineStatus(s.machine)
+	_, err := s.ctx.MachineStatus(context.Background(), s.machine)
 	c.Assert(err, gc.ErrorMatches, "status error")
 }
 
 func (s *MachineStatusSuite) TestDown(c *gc.C) {
 	s.ctx.Presence = agentDown(names.NewMachineTag(s.machine.Id()).String())
-	agent, err := s.ctx.MachineStatus(s.machine)
+	agent, err := s.ctx.MachineStatus(context.Background(), s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(agent, jc.DeepEquals, status.StatusInfo{
 		Status:  status.Down,

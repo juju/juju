@@ -4,6 +4,8 @@
 package lifeflag_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -32,7 +34,7 @@ func (*FacadeSuite) TestLifeBadEntity(c *gc.C) {
 	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.Life(entities("archibald snookums"))
+	results, err := facade.Life(context.Background(), entities("archibald snookums"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -48,7 +50,7 @@ func (*FacadeSuite) TestLifeAuthFailure(c *gc.C) {
 	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.Life(entities("unit-foo-1"))
+	results, err := facade.Life(context.Background(), entities("unit-foo-1"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -61,7 +63,7 @@ func (*FacadeSuite) TestLifeNotFound(c *gc.C) {
 	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.Life(modelEntity())
+	results, err := facade.Life(context.Background(), modelEntity())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -74,7 +76,7 @@ func (*FacadeSuite) TestLifeSuccess(c *gc.C) {
 	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
 	c.Check(err, jc.ErrorIsNil)
 
-	results, err := facade.Life(modelEntity())
+	results, err := facade.Life(context.Background(), modelEntity())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{{Life: life.Dying}},
@@ -86,7 +88,7 @@ func (*FacadeSuite) TestWatchBadEntity(c *gc.C) {
 	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.Watch(entities("archibald snookums"))
+	results, err := facade.Watch(context.Background(), entities("archibald snookums"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -102,7 +104,7 @@ func (*FacadeSuite) TestWatchAuthFailure(c *gc.C) {
 	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.Watch(entities("unit-foo-1"))
+	results, err := facade.Watch(context.Background(), entities("unit-foo-1"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -115,7 +117,7 @@ func (*FacadeSuite) TestWatchNotFound(c *gc.C) {
 	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
 	c.Assert(err, jc.ErrorIsNil)
 
-	results, err := facade.Watch(modelEntity())
+	results, err := facade.Watch(context.Background(), modelEntity())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -128,7 +130,7 @@ func (*FacadeSuite) TestWatchBadWatcher(c *gc.C) {
 	facade, err := lifeflag.NewFacade(backend, nil, auth(true))
 	c.Check(err, jc.ErrorIsNil)
 
-	results, err := facade.Watch(modelEntity())
+	results, err := facade.Watch(context.Background(), modelEntity())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
@@ -142,7 +144,7 @@ func (*FacadeSuite) TestWatchSuccess(c *gc.C) {
 	facade, err := lifeflag.NewFacade(backend, resources, auth(true))
 	c.Check(err, jc.ErrorIsNil)
 
-	results, err := facade.Watch(modelEntity())
+	results, err := facade.Watch(context.Background(), modelEntity())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results, jc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{{NotifyWatcherId: "1"}},

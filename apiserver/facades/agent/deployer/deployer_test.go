@@ -163,7 +163,7 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
 	}}
-	result, err := s.deployer.WatchUnits(args)
+	result, err := s.deployer.WatchUnits(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(result.Results[0].Changes)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
@@ -195,7 +195,7 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 			{Tag: "unit-fake-42", Password: "abc-12345678901234567890"},
 		},
 	}
-	results, err := s.deployer.SetPasswords(args)
+	results, err := s.deployer.SetPasswords(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -222,7 +222,7 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	err = s.subordinate0.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	results, err = s.deployer.SetPasswords(params.EntityPasswords{
+	results, err = s.deployer.SetPasswords(context.Background(), params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: "unit-logging-0", Password: "blah-12345678901234567890"},
 		},
@@ -230,7 +230,7 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
@@ -251,7 +251,7 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 		{Tag: "unit-logging-0"},
 		{Tag: "unit-fake-42"},
 	}}
-	result, err := s.deployer.Life(args)
+	result, err := s.deployer.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -270,7 +270,7 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 	err = s.subordinate0.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	result, err = s.deployer.Life(params.Entities{
+	result, err = s.deployer.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "unit-logging-0"},
 		},
@@ -294,7 +294,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 		{Tag: "unit-logging-0"},
 		{Tag: "unit-fake-42"},
 	}}
-	result, err := s.deployer.Remove(args)
+	result, err := s.deployer.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -323,7 +323,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	args = params.Entities{
 		Entities: []params.Entity{{Tag: "unit-logging-0"}},
 	}
-	result, err = s.deployer.Remove(args)
+	result, err = s.deployer.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
@@ -334,7 +334,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Make sure the subordinate is detected as removed.
-	result, err = s.deployer.Remove(args)
+	result, err = s.deployer.Remove(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: apiservertesting.ErrUnauthorized}},

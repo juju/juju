@@ -46,7 +46,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			h.sendError(resp, err)
 			return
 		}
-		modelConfig, err := model.ModelConfig()
+		modelConfig, err := model.ModelConfig(req.Context())
 		if err != nil {
 			h.sendError(resp, err)
 			return

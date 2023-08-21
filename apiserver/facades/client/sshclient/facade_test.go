@@ -330,7 +330,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil),
 		backend.EXPECT().Model().Return(model, nil),
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
-		backend.EXPECT().CloudSpec().Return(cloudSpec, nil),
+		backend.EXPECT().CloudSpec(gomock.Any()).Return(cloudSpec, nil),
 	)
 	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -406,7 +406,7 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mo
 		authorizer.EXPECT().AuthClient().Return(true),
 		backend.EXPECT().Model().Return(model, nil),
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
-		backend.EXPECT().CloudSpec().Return(cloudSpec, nil),
+		backend.EXPECT().CloudSpec(gomock.Any()).Return(cloudSpec, nil),
 		model.EXPECT().Config().Return(nil, nil),
 		broker.EXPECT().GetSecretToken(k8sprovider.ExecRBACResourceName).Return("token", nil),
 	)
@@ -450,7 +450,7 @@ func (backend *mockBackend) ModelTag() names.ModelTag {
 	return testing.ModelTag
 }
 
-func (backend *mockBackend) CloudSpec() (environscloudspec.CloudSpec, error) {
+func (backend *mockBackend) CloudSpec(context.Context) (environscloudspec.CloudSpec, error) {
 	return environscloudspec.CloudSpec{}, errors.NotImplementedf("CloudSpec")
 }
 
@@ -462,7 +462,7 @@ func (backend *mockBackend) ControllerTag() names.ControllerTag {
 	return testing.ControllerTag
 }
 
-func (backend *mockBackend) ModelConfig() (*config.Config, error) {
+func (backend *mockBackend) ModelConfig(context.Context) (*config.Config, error) {
 	backend.stub.AddCall("ModelConfig")
 	attrs := testing.FakeConfig()
 	attrs["proxy-ssh"] = backend.proxySSH

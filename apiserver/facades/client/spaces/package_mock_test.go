@@ -5,6 +5,7 @@
 package spaces
 
 import (
+	context "context"
 	reflect "reflect"
 
 	set "github.com/juju/collections/set"
@@ -16,7 +17,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
+	context0 "github.com/juju/juju/environs/context"
 	space "github.com/juju/juju/environs/space"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v3/txn"
@@ -152,18 +153,18 @@ func (mr *MockBackingMockRecorder) ApplyOperation(arg0 interface{}) *gomock.Call
 }
 
 // CloudSpec mocks base method.
-func (m *MockBacking) CloudSpec() (cloudspec.CloudSpec, error) {
+func (m *MockBacking) CloudSpec(arg0 context.Context) (cloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudSpec")
+	ret := m.ctrl.Call(m, "CloudSpec", arg0)
 	ret0, _ := ret[0].(cloudspec.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CloudSpec indicates an expected call of CloudSpec.
-func (mr *MockBackingMockRecorder) CloudSpec() *gomock.Call {
+func (mr *MockBackingMockRecorder) CloudSpec(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockBacking)(nil).CloudSpec))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockBacking)(nil).CloudSpec), arg0)
 }
 
 // ConstraintsBySpaceName mocks base method.
@@ -211,18 +212,18 @@ func (mr *MockBackingMockRecorder) IsController() *gomock.Call {
 }
 
 // ModelConfig mocks base method.
-func (m *MockBacking) ModelConfig() (*config.Config, error) {
+func (m *MockBacking) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig")
+	ret := m.ctrl.Call(m, "ModelConfig", arg0)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockBackingMockRecorder) ModelConfig() *gomock.Call {
+func (mr *MockBackingMockRecorder) ModelConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBacking)(nil).ModelConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBacking)(nil).ModelConfig), arg0)
 }
 
 // ModelTag mocks base method.
@@ -308,31 +309,31 @@ func (m *MockBlockChecker) EXPECT() *MockBlockCheckerMockRecorder {
 }
 
 // ChangeAllowed mocks base method.
-func (m *MockBlockChecker) ChangeAllowed() error {
+func (m *MockBlockChecker) ChangeAllowed(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChangeAllowed")
+	ret := m.ctrl.Call(m, "ChangeAllowed", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ChangeAllowed indicates an expected call of ChangeAllowed.
-func (mr *MockBlockCheckerMockRecorder) ChangeAllowed() *gomock.Call {
+func (mr *MockBlockCheckerMockRecorder) ChangeAllowed(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeAllowed", reflect.TypeOf((*MockBlockChecker)(nil).ChangeAllowed))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeAllowed", reflect.TypeOf((*MockBlockChecker)(nil).ChangeAllowed), arg0)
 }
 
 // RemoveAllowed mocks base method.
-func (m *MockBlockChecker) RemoveAllowed() error {
+func (m *MockBlockChecker) RemoveAllowed(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveAllowed")
+	ret := m.ctrl.Call(m, "RemoveAllowed", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveAllowed indicates an expected call of RemoveAllowed.
-func (mr *MockBlockCheckerMockRecorder) RemoveAllowed() *gomock.Call {
+func (mr *MockBlockCheckerMockRecorder) RemoveAllowed(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllowed", reflect.TypeOf((*MockBlockChecker)(nil).RemoveAllowed))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllowed", reflect.TypeOf((*MockBlockChecker)(nil).RemoveAllowed), arg0)
 }
 
 // MockMachine is a mock of Machine interface.
@@ -1108,17 +1109,17 @@ func (m *MockReloadSpaces) EXPECT() *MockReloadSpacesMockRecorder {
 }
 
 // ReloadSpaces mocks base method.
-func (m *MockReloadSpaces) ReloadSpaces() error {
+func (m *MockReloadSpaces) ReloadSpaces(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReloadSpaces")
+	ret := m.ctrl.Call(m, "ReloadSpaces", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReloadSpaces indicates an expected call of ReloadSpaces.
-func (mr *MockReloadSpacesMockRecorder) ReloadSpaces() *gomock.Call {
+func (mr *MockReloadSpacesMockRecorder) ReloadSpaces(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadSpaces", reflect.TypeOf((*MockReloadSpaces)(nil).ReloadSpaces))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadSpaces", reflect.TypeOf((*MockReloadSpaces)(nil).ReloadSpaces), arg0)
 }
 
 // MockReloadSpacesState is a mock of ReloadSpacesState interface.
@@ -1257,48 +1258,48 @@ func (m *MockReloadSpacesEnviron) EXPECT() *MockReloadSpacesEnvironMockRecorder 
 }
 
 // CloudSpec mocks base method.
-func (m *MockReloadSpacesEnviron) CloudSpec() (cloudspec.CloudSpec, error) {
+func (m *MockReloadSpacesEnviron) CloudSpec(arg0 context.Context) (cloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudSpec")
+	ret := m.ctrl.Call(m, "CloudSpec", arg0)
 	ret0, _ := ret[0].(cloudspec.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CloudSpec indicates an expected call of CloudSpec.
-func (mr *MockReloadSpacesEnvironMockRecorder) CloudSpec() *gomock.Call {
+func (mr *MockReloadSpacesEnvironMockRecorder) CloudSpec(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockReloadSpacesEnviron)(nil).CloudSpec))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockReloadSpacesEnviron)(nil).CloudSpec), arg0)
 }
 
 // GetEnviron mocks base method.
-func (m *MockReloadSpacesEnviron) GetEnviron(arg0 environs.EnvironConfigGetter, arg1 environs.NewEnvironFunc) (environs.Environ, error) {
+func (m *MockReloadSpacesEnviron) GetEnviron(arg0 context.Context, arg1 environs.EnvironConfigGetter, arg2 environs.NewEnvironFunc) (environs.Environ, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEnviron", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetEnviron", arg0, arg1, arg2)
 	ret0, _ := ret[0].(environs.Environ)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetEnviron indicates an expected call of GetEnviron.
-func (mr *MockReloadSpacesEnvironMockRecorder) GetEnviron(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockReloadSpacesEnvironMockRecorder) GetEnviron(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnviron", reflect.TypeOf((*MockReloadSpacesEnviron)(nil).GetEnviron), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnviron", reflect.TypeOf((*MockReloadSpacesEnviron)(nil).GetEnviron), arg0, arg1, arg2)
 }
 
 // ModelConfig mocks base method.
-func (m *MockReloadSpacesEnviron) ModelConfig() (*config.Config, error) {
+func (m *MockReloadSpacesEnviron) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig")
+	ret := m.ctrl.Call(m, "ModelConfig", arg0)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockReloadSpacesEnvironMockRecorder) ModelConfig() *gomock.Call {
+func (mr *MockReloadSpacesEnvironMockRecorder) ModelConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockReloadSpacesEnviron)(nil).ModelConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockReloadSpacesEnviron)(nil).ModelConfig), arg0)
 }
 
 // MockEnvironSpaces is a mock of EnvironSpaces interface.
@@ -1325,7 +1326,7 @@ func (m *MockEnvironSpaces) EXPECT() *MockEnvironSpacesMockRecorder {
 }
 
 // ReloadSpaces mocks base method.
-func (m *MockEnvironSpaces) ReloadSpaces(arg0 context.ProviderCallContext, arg1 ReloadSpacesState, arg2 environs.BootstrapEnviron) error {
+func (m *MockEnvironSpaces) ReloadSpaces(arg0 context0.ProviderCallContext, arg1 ReloadSpacesState, arg2 environs.BootstrapEnviron) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReloadSpaces", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

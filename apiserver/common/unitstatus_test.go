@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/names/v4"
@@ -44,7 +45,7 @@ func (s *UnitStatusSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) checkUntouched(c *gc.C) {
-	agent, workload := s.ctx.UnitStatus(s.unit)
+	agent, workload := s.ctx.UnitStatus(context.Background(), s.unit)
 	c.Check(agent.Status, jc.DeepEquals, s.unit.agentStatus)
 	c.Check(agent.Err, jc.ErrorIsNil)
 	c.Check(workload.Status, jc.DeepEquals, s.unit.status)
@@ -52,7 +53,7 @@ func (s *UnitStatusSuite) checkUntouched(c *gc.C) {
 }
 
 func (s *UnitStatusSuite) checkLost(c *gc.C) {
-	agent, workload := s.ctx.UnitStatus(s.unit)
+	agent, workload := s.ctx.UnitStatus(context.Background(), s.unit)
 	c.Check(agent.Status, jc.DeepEquals, status.StatusInfo{
 		Status:  status.Lost,
 		Message: "agent is not communicating with the server",
@@ -79,7 +80,7 @@ func (s *UnitStatusSuite) TestErrors(c *gc.C) {
 	s.unit.agentStatusErr = errors.New("agent status error")
 	s.unit.statusErr = errors.New("status error")
 
-	agent, workload := s.ctx.UnitStatus(s.unit)
+	agent, workload := s.ctx.UnitStatus(context.Background(), s.unit)
 	c.Check(agent.Err, gc.ErrorMatches, "agent status error")
 	c.Check(workload.Err, gc.ErrorMatches, "status error")
 }
@@ -101,7 +102,7 @@ func (s *UnitStatusSuite) TestLostTerminated(c *gc.C) {
 
 	s.ctx.Presence = agentDown(s.unit.Tag().String())
 
-	agent, workload := s.ctx.UnitStatus(s.unit)
+	agent, workload := s.ctx.UnitStatus(context.Background(), s.unit)
 	c.Check(agent.Status, jc.DeepEquals, status.StatusInfo{
 		Status:  status.Lost,
 		Message: "agent is not communicating with the server",
@@ -121,7 +122,7 @@ func (s *UnitStatusSuite) TestCAASLostTerminated(c *gc.C) {
 
 	s.ctx.Presence = agentDown(names.NewApplicationTag(s.unit.app).String())
 
-	agent, workload := s.ctx.UnitStatus(s.unit)
+	agent, workload := s.ctx.UnitStatus(context.Background(), s.unit)
 	c.Check(agent.Status, jc.DeepEquals, status.StatusInfo{
 		Status:  status.Lost,
 		Message: "agent is not communicating with the server",

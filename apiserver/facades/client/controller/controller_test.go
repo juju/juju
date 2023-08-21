@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"context"
 	stdcontext "context"
 	"encoding/json"
 	"regexp"
@@ -327,7 +328,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 }
 
 func (s *controllerSuite) TestControllerConfig(c *gc.C) {
-	cfg, err := s.controller.ControllerConfig()
+	cfg, err := s.controller.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	cfgFromDB, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -350,7 +351,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 			ServiceFactory_: s.serviceFactory,
 		})
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := controller.ControllerConfig()
+	cfg, err := controller.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	cfgFromDB, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
@@ -930,7 +931,7 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	// Check that we don't err out immediately if a model errs.
-	results, err := s.controller.ModelStatus(params.Entities{Entities: []params.Entity{{
+	results, err := s.controller.ModelStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "bad-tag",
 	}, {
 		Tag: s.Model.ModelTag().String(),
@@ -940,7 +941,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
 	// Check that we don't err out if a model errs even if some firsts in collection pass.
-	results, err = s.controller.ModelStatus(params.Entities{Entities: []params.Entity{{
+	results, err = s.controller.ModelStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: s.Model.ModelTag().String(),
 	}, {
 		Tag: "bad-tag",
@@ -950,7 +951,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
 	// Check that we return successfully if no errors.
-	results, err = s.controller.ModelStatus(params.Entities{Entities: []params.Entity{{
+	results, err = s.controller.ModelStatus(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: s.Model.ModelTag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)

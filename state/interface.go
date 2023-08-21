@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/names/v4"
@@ -19,7 +20,7 @@ import (
 // EntityFinder is implemented by *State. See State.FindEntity
 // for documentation on the method.
 type EntityFinder interface {
-	FindEntity(tag names.Tag) (Entity, error)
+	FindEntity(names.Tag) (Entity, error)
 }
 
 // Entity represents any entity that can be returned
@@ -95,7 +96,7 @@ type CloudAccessor interface {
 // config changes, and read the model config.
 type ModelAccessor interface {
 	WatchForModelConfigChanges() NotifyWatcher
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 }
 
 // UnitsWatcher defines the methods needed to retrieve an entity (a

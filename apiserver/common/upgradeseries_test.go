@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"context"
+
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -84,7 +86,7 @@ func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotificationsUnitTag(c *gc.C)
 		{Tag: names.NewUnitTag("mysql/2").String()},
 		{Tag: s.unitTag1.String()},
 	}}
-	watches, err := api.WatchUpgradeSeriesNotifications(args)
+	watches, err := api.WatchUpgradeSeriesNotifications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -109,6 +111,7 @@ func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotificationsMachineTag(c *gc
 	mockMachine.EXPECT().WatchUpgradeSeriesNotifications().Return(upgradeSeriesWatcher, nil)
 
 	watches, err := api.WatchUpgradeSeriesNotifications(
+		context.Background(),
 		params.Entities{
 			Entities: []params.Entity{
 				{Tag: s.machineTag1.String()},
@@ -147,7 +150,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTag(c *gc.C) {
 			},
 		},
 	}
-	watches, err := api.SetUpgradeSeriesUnitStatus(args)
+	watches, err := api.SetUpgradeSeriesUnitStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -174,7 +177,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTagWithInvalidStatus(
 			},
 		},
 	}
-	watches, err := api.SetUpgradeSeriesUnitStatus(args)
+	watches, err := api.SetUpgradeSeriesUnitStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -200,7 +203,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusUnitTagWithSameStatus(c *
 			},
 		},
 	}
-	watches, err := api.SetUpgradeSeriesUnitStatus(args)
+	watches, err := api.SetUpgradeSeriesUnitStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watches, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{}},
@@ -223,7 +226,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusUnitTag(c *gc.C) {
 		},
 	}
 
-	results, err := api.UpgradeSeriesUnitStatus(args)
+	results, err := api.UpgradeSeriesUnitStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UpgradeSeriesStatusResults{
 		Results: []params.UpgradeSeriesStatusResult{

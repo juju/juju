@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -444,7 +445,7 @@ func (st *State) SaveProviderSubnets(subnets []network.SubnetInfo, spaceID strin
 	if err != nil {
 		return errors.Trace(err)
 	}
-	cfg, err := m.ModelConfig()
+	cfg, err := m.ModelConfig(context.Background())
 	if err != nil {
 		return errors.Trace(err)
 	}

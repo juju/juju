@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/charm/v11"
@@ -67,8 +68,8 @@ type Backend interface {
 // the application facade. This is implemented by
 // apiserver/common.BlockChecker.
 type BlockChecker interface {
-	ChangeAllowed() error
-	RemoveAllowed() error
+	ChangeAllowed(context.Context) error
+	RemoveAllowed(context.Context) error
 }
 
 // Application defines a subset of the functionality provided by the
@@ -215,7 +216,7 @@ type Model interface {
 	Tag() names.Tag
 	Type() state.ModelType
 	UUID() string
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 	AgentVersion() (version.Number, error)
 	OpenedPortRangesForMachine(string) (state.MachinePortRanges, error)
 	// The following methods are required for querying the featureset

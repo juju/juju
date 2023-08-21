@@ -31,12 +31,12 @@ type Facade struct {
 
 // CharmInfo returns information about the requested charm.
 func (f *Facade) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm, error) {
-	return f.charmInfoAPI.CharmInfo(args)
+	return f.charmInfoAPI.CharmInfo(ctx, args)
 }
 
 // ApplicationCharmInfo returns information about an application's charm.
 func (f *Facade) ApplicationCharmInfo(ctx context.Context, args params.Entity) (params.Charm, error) {
-	return f.appCharmInfoAPI.ApplicationCharmInfo(args)
+	return f.appCharmInfoAPI.ApplicationCharmInfo(ctx, args)
 }
 
 // IsExposed returns whether the specified applications are exposed.

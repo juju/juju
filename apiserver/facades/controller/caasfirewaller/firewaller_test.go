@@ -172,8 +172,8 @@ type facadeSidecar interface {
 	IsExposed(ctx context.Context, args params.Entities) (params.BoolResults, error)
 	ApplicationsConfig(ctx context.Context, args params.Entities) (params.ApplicationGetConfigResults, error)
 	WatchApplications(ctx context.Context) (params.StringsWatchResult, error)
-	Life(args params.Entities) (params.LifeResults, error)
-	Watch(args params.Entities) (params.NotifyWatchResults, error)
+	Life(ctx context.Context, args params.Entities) (params.LifeResults, error)
+	Watch(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error)
 	ApplicationCharmInfo(ctx context.Context, args params.Entity) (params.Charm, error)
 	WatchOpenedPorts(ctx context.Context, args params.Entities) (params.StringsWatchResults, error)
 	GetOpenedPorts(ctx context.Context, arg params.Entity) (params.ApplicationOpenedPortsResults, error)
@@ -200,7 +200,7 @@ func (s *firewallerSuite) TestWatchApplications(c *gc.C) {
 func (s *firewallerSuite) TestWatchApplication(c *gc.C) {
 	s.appExposedChanges <- struct{}{}
 
-	results, err := s.facade.Watch(params.Entities{
+	results, err := s.facade.Watch(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "unit-gitlab-0"},
@@ -240,7 +240,7 @@ func (s *firewallerSuite) TestIsExposed(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestLife(c *gc.C) {
-	results, err := s.facade.Life(params.Entities{
+	results, err := s.facade.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{
 			{Tag: "application-gitlab"},
 			{Tag: "machine-0"},

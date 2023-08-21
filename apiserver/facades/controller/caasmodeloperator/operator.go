@@ -68,7 +68,7 @@ func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOp
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	modelConfig, err := model.ModelConfig()
+	modelConfig, err := model.ModelConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -118,7 +118,7 @@ func (u *API) APIHostPorts(ctx context.Context) (result params.APIHostPortsResul
 		return result, errors.Trace(err)
 	}
 
-	return u.APIAddresser.APIHostPorts(controllerConfig)
+	return u.APIAddresser.APIHostPorts(ctx, controllerConfig)
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
@@ -128,5 +128,5 @@ func (u *API) APIAddresses(ctx context.Context) (result params.StringsResult, er
 		return result, errors.Trace(err)
 	}
 
-	return u.APIAddresser.APIAddresses(controllerConfig)
+	return u.APIAddresser.APIAddresses(ctx, controllerConfig)
 }

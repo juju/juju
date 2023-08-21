@@ -4,6 +4,8 @@
 package migration
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
@@ -43,7 +45,7 @@ func (s *precheckShim) AgentVersion() (version.Number, error) {
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
-	cfg, err := model.ModelConfig()
+	cfg, err := model.ModelConfig(context.TODO())
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}

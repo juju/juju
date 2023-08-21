@@ -4,6 +4,8 @@
 package caasmodeloperator
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -28,7 +30,7 @@ type CAASControllerState interface {
 }
 
 type Model interface {
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 }
 
 type stateShim struct {
