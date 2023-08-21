@@ -616,8 +616,10 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 		}
 
 		// Otherwise there is no deterministic course of action.
-		// Play it safe and throw out.
-		return errors.Errorf("unable to reconcile current controller and Dqlite cluster status")
+		// We don't want to throw an error here, because it can result in churn
+		// when entering HA. Just try again to start.
+		log.Infof("unable to reconcile current controller and Dqlite cluster status; reattempting node start-up")
+		return errors.Trace(w.startExistingDqliteNode())
 	}
 
 	// Otherwise this is a node added by enabling HA,

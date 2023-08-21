@@ -70,7 +70,7 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 	c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
 }
 
-func (s *workerSuite) TestStartupTimeoutMultipleControllerError(c *gc.C) {
+func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -78,29 +78,32 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerError(c *gc.C) {
 	s.expectTrackedDBKill()
 
 	mgrExp := s.nodeManager.EXPECT()
-	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
+	mgrExp.EnsureDataDir().Return(c.MkDir(), nil).Times(2)
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil).Times(3)
-	mgrExp.WithTLSOption().Return(nil, nil)
-	mgrExp.WithLogFuncOption().Return(nil)
-	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil).Times(4)
 
-	// App gets started, we time out waiting, then we close it.
+	// We expect 2 attempts to start.
+	mgrExp.WithTLSOption().Return(nil, nil).Times(2)
+	mgrExp.WithLogFuncOption().Return(nil).Times(2)
+	mgrExp.WithTracingOption().Return(nil).Times(2)
+
+	// App gets started, we time out waiting, then we close it both times.
 	appExp := s.dbApp.EXPECT()
-	appExp.Ready(gomock.Any()).Return(context.DeadlineExceeded)
-	appExp.Close().Return(nil)
+	appExp.Ready(gomock.Any()).Return(context.DeadlineExceeded).Times(2)
+	appExp.Close().Return(nil).Times(2)
 
 	// We expect to request API details.
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
-	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil)
+	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil).Times(2)
 
 	w := s.newWorker(c)
-	defer w.Kill()
+	defer workertest.CleanKill(c, w)
+	dbw := w.(*dbWorker)
 
 	// If there are multiple servers reported, we can't reason about our
 	// current state in a discrete fashion. The worker throws an error.
 	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+	case dbw.apiServerChanges <- apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
 			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
@@ -110,8 +113,13 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerError(c *gc.C) {
 		c.Fatal("timed out waiting for cluster change to be processed")
 	}
 
-	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "unable to reconcile current controller and Dqlite cluster status")
+	// At this point, the Dqlite node is not started.
+	// The worker is waiting for legitimate server detail messages.
+	select {
+	case <-dbw.dbReady:
+		c.Fatal("Dqlite node should not be started yet.")
+	case <-time.After(testing.ShortWait):
+	}
 }
 
 func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
