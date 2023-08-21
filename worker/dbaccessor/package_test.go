@@ -5,7 +5,7 @@ package dbaccessor
 
 import (
 	"testing"
-	time "time"
+	"time"
 
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
@@ -97,7 +97,23 @@ func (s *baseSuite) expectTrackedDBKill() {
 	s.trackedDB.EXPECT().Wait().Return(nil).AnyTimes()
 }
 
+func (s *baseSuite) expectNodeStartupAndShutdown() {
+	appExp := s.dbApp.EXPECT()
+	appExp.Ready(gomock.Any()).Return(nil)
+	appExp.Client(gomock.Any()).Return(s.client, nil).MinTimes(1)
+	appExp.ID().Return(uint64(666))
+	appExp.Close().Return(nil)
+}
+
 type dbBaseSuite struct {
 	databasetesting.ControllerSuite
 	baseSuite
+}
+
+func ensureStartup(c *gc.C, w *dbWorker) {
+	select {
+	case <-w.dbReady:
+	case <-time.After(jujutesting.LongWait):
+		c.Fatal("timed out waiting for Dqlite node start")
+	}
 }
