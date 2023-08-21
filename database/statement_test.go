@@ -56,3 +56,19 @@ func (s *statementSuite) TestMakeBindArgs(c *gc.C) {
 	binds := MakeBindArgs(2, 3)
 	c.Assert(binds, gc.Equals, "(?, ?), (?, ?), (?, ?)")
 }
+
+func (s *statementSuite) TestMapKeysToPlaceHolder(c *gc.C) {
+	args := map[string]string{
+		"foo": "1",
+		"bar": "2",
+	}
+	binds, vals := MapKeysToPlaceHolder(args)
+	c.Check(binds, gc.Equals, "?,?")
+	c.Check(vals, gc.DeepEquals, []any{"foo", "bar"})
+}
+
+func (s *statementSuite) TestNilMapKeysToPlaceHolder(c *gc.C) {
+	binds, vals := MapKeysToPlaceHolder(map[string]string(nil))
+	c.Check(binds, gc.Equals, "")
+	c.Check(vals, gc.HasLen, 0)
+}

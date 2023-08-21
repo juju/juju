@@ -35,6 +35,15 @@ func SliceToPlaceholderTransform[T any](in []T, trans func(T) any) (string, []an
 	}), ","), vals
 }
 
+// MapKeysToPlaceHolder invokes SliceToPlaceholder on the keys of the map.
+func MapKeysToPlaceHolder[T any](in map[string]T) (string, []any) {
+	var keys []string
+	for key := range in {
+		keys = append(keys, key)
+	}
+	return SliceToPlaceholder(keys)
+}
+
 // MakeBindArgs returns a string of bind args for a given number of columns and
 // rows.
 func MakeBindArgs(columns, rows int) string {

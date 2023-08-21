@@ -50,6 +50,8 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"auth_type",
 		"cloud_auth_type",
 		"cloud_ca_cert",
+		"cloud_credential",
+		"cloud_credential_attributes",
 		"cloud_defaults",
 		"cloud_region",
 		"cloud_region_defaults",
