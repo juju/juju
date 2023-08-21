@@ -70,7 +70,7 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 	c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
 }
 
-func (s *workerSuite) TestStartupTimeoutMultipleControllerError(c *gc.C) {
+func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectAnyLogs()
@@ -78,29 +78,32 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerError(c *gc.C) {
 	s.expectTrackedDBKill()
 
 	mgrExp := s.nodeManager.EXPECT()
-	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
+	mgrExp.EnsureDataDir().Return(c.MkDir(), nil).Times(2)
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil).Times(3)
-	mgrExp.WithTLSOption().Return(nil, nil)
-	mgrExp.WithLogFuncOption().Return(nil)
-	mgrExp.WithTracingOption().Return(nil)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil).Times(4)
 
-	// App gets started, we time out waiting, then we close it.
+	// We expect 2 attempts to start.
+	mgrExp.WithTLSOption().Return(nil, nil).Times(2)
+	mgrExp.WithLogFuncOption().Return(nil).Times(2)
+	mgrExp.WithTracingOption().Return(nil).Times(2)
+
+	// App gets started, we time out waiting, then we close it both times.
 	appExp := s.dbApp.EXPECT()
-	appExp.Ready(gomock.Any()).Return(context.DeadlineExceeded)
-	appExp.Close().Return(nil)
+	appExp.Ready(gomock.Any()).Return(context.DeadlineExceeded).Times(2)
+	appExp.Close().Return(nil).Times(2)
 
 	// We expect to request API details.
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
-	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil)
+	s.hub.EXPECT().Publish(apiserver.DetailsRequestTopic, gomock.Any()).Return(func() {}, nil).Times(2)
 
 	w := s.newWorker(c)
-	defer w.Kill()
+	defer workertest.CleanKill(c, w)
+	dbw := w.(*dbWorker)
 
 	// If there are multiple servers reported, we can't reason about our
 	// current state in a discrete fashion. The worker throws an error.
 	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+	case dbw.apiServerChanges <- apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
 			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
@@ -110,8 +113,13 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerError(c *gc.C) {
 		c.Fatal("timed out waiting for cluster change to be processed")
 	}
 
-	err := workertest.CheckKilled(c, w)
-	c.Assert(err, gc.ErrorMatches, "unable to reconcile current controller and Dqlite cluster status")
+	// At this point, the Dqlite node is not started.
+	// The worker is waiting for legitimate server detail messages.
+	select {
+	case <-dbw.dbReady:
+		c.Fatal("Dqlite node should not be started yet.")
+	case <-time.After(testing.ShortWait):
+	}
 }
 
 func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
@@ -133,7 +141,8 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(true)
+	s.expectNodeStartupAndShutdown()
+	s.dbApp.EXPECT().Handover(gomock.Any()).Return(nil)
 
 	// When we are starting up as a new node,
 	// we request details immediately.
@@ -142,10 +151,11 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
+	dbw := w.(*dbWorker)
 
 	// Without a bind address for ourselves we keep waiting.
 	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+	case dbw.apiServerChanges <- apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {ID: "0"},
 			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
@@ -169,7 +179,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	// At this point, the Dqlite node is not started.
 	// The worker is waiting for legitimate server detail messages.
 	select {
-	case <-sync:
+	case <-dbw.dbReady:
 		c.Fatal("Dqlite node should not be started yet.")
 	case <-time.After(testing.ShortWait):
 	}
@@ -187,11 +197,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 		c.Fatal("timed out waiting for cluster change to be processed")
 	}
 
-	select {
-	case <-sync:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for Dqlite node start")
-	}
+	ensureStartup(c, dbw)
 
 	s.client.EXPECT().Leader(gomock.Any()).Return(&dqlite.NodeInfo{
 		ID:      1,
@@ -230,18 +236,15 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(true)
+	s.expectNodeStartupAndShutdown()
+	s.dbApp.EXPECT().Handover(gomock.Any()).Return(nil)
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	select {
-	case <-sync:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for Dqlite node start")
-	}
+	ensureStartup(c, w.(*dbWorker))
 
 	workertest.CleanKill(c, w)
 }
@@ -266,24 +269,21 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	sync := s.expectNodeStartupAndShutdown(false)
+	s.expectNodeStartupAndShutdown()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
+	dbw := w.(*dbWorker)
 
-	select {
-	case <-sync:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for Dqlite node start")
-	}
+	ensureStartup(c, dbw)
 
 	// At this point we have started successfully.
 	// Push a message onto the API details channel.
 	// A single server does not cause a binding change.
 	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+	case dbw.apiServerChanges <- apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
 		},
@@ -295,7 +295,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	// Multiple servers still do not cause a binding change
 	// if there is no internal address to bind to.
 	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+	case dbw.apiServerChanges <- apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {ID: "0"},
 			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
@@ -357,23 +357,20 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	// Although the shut-down check for IsBootstrappedNode returns false,
 	// this call to shut-down is actually run before reconfiguring the node.
 	// When the loop exits, the node is already set to nil.
-	sync := s.expectNodeStartupAndShutdown(false)
+	s.expectNodeStartupAndShutdown()
 
 	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
+	dbw := w.(*dbWorker)
 
-	select {
-	case <-sync:
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for Dqlite node start")
-	}
+	ensureStartup(c, dbw)
 
 	// At this point we have started successfully.
 	// Push a message onto the API details channel to simulate a move into HA.
 	select {
-	case w.(*dbWorker).apiServerChanges <- apiserver.Details{
+	case dbw.apiServerChanges <- apiserver.Details{
 		Servers: map[string]apiserver.APIServer{
 			"0": {ID: "0", InternalAddress: "10.6.6.6:1234"},
 			"1": {ID: "1", InternalAddress: "10.6.6.7:1234"},
@@ -392,26 +389,6 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 	s.nodeManager = NewMockNodeManager(ctrl)
 	return ctrl
-}
-
-func (s *workerSuite) expectNodeStartupAndShutdown(handover bool) chan struct{} {
-	sync := make(chan struct{})
-
-	appExp := s.dbApp.EXPECT()
-	appExp.Ready(gomock.Any()).Return(nil)
-	appExp.Client(gomock.Any()).Return(s.client, nil).MinTimes(1)
-	appExp.ID().DoAndReturn(func() uint64 {
-		close(sync)
-		return uint64(666)
-	})
-
-	if handover {
-		appExp.Handover(gomock.Any()).Return(nil)
-	}
-
-	appExp.Close().Return(nil)
-
-	return sync
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
