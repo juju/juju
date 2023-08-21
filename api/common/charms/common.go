@@ -390,7 +390,7 @@ func (c *charmImpl) Revision() int {
 
 func convertCharmManifest(input *params.CharmManifest) (*charm.Manifest, error) {
 	if input == nil {
-		return &charm.Manifest{}, nil
+		return nil, nil
 	}
 	res := []charm.Base(nil)
 	for _, v := range input.Bases {

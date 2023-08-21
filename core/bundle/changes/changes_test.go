@@ -900,6 +900,193 @@ func (s *changesSuite) TestSimpleBundle(c *gc.C) {
 	s.assertParseData(c, content, expected)
 }
 
+func (s *changesSuite) TestSimpleBundleWithBases(c *gc.C) {
+	content := `
+        applications:
+            mediawiki:
+                charm: ch:mediawiki
+                base: ubuntu@20.04
+                num_units: 1
+                expose: true
+                options:
+                    debug: false
+                annotations:
+                    gui-x: "609"
+                    gui-y: "-15"
+                resources:
+                    data: 3
+            mysql:
+                charm: ch:mysql
+                base: ubuntu@20.04
+                num_units: 1
+                resources:
+                  data: "./resources/data.tar"
+        default-base: ubuntu@22.04
+        relations:
+            - - mediawiki:db
+              - mysql:db
+        `
+	expected := []record{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Params: bundlechanges.AddCharmParams{
+			Charm:  "ch:mediawiki",
+			Series: "focal",
+		},
+		GUIArgs: []interface{}{"ch:mediawiki", "focal", ""},
+		Args: map[string]interface{}{
+			"charm":  "ch:mediawiki",
+			"series": "focal",
+		},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Params: bundlechanges.AddApplicationParams{
+			Charm:       "$addCharm-0",
+			Application: "mediawiki",
+			Series:      "focal",
+			Options:     map[string]interface{}{"debug": false},
+			Resources:   map[string]int{"data": 3},
+		},
+		GUIArgs: []interface{}{
+			"$addCharm-0",
+			"focal",
+			"mediawiki",
+			map[string]interface{}{"debug": false},
+			"",
+			map[string]string{},
+			map[string]string{},
+			map[string]int{"data": 3},
+			0,
+			"",
+		},
+		Args: map[string]interface{}{
+			"application": "mediawiki",
+			"charm":       "$addCharm-0",
+			"options": map[string]interface{}{
+				"debug": false,
+			},
+			"resources": map[string]interface{}{
+				"data": float64(3),
+			},
+			"series": "focal",
+		},
+		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "expose-2",
+		Method: "expose",
+		Params: bundlechanges.ExposeParams{
+			Application: "$deploy-1",
+		},
+		GUIArgs: []interface{}{"$deploy-1", nil},
+		Args: map[string]interface{}{
+			"application": "$deploy-1",
+		},
+		Requires: []string{"deploy-1"},
+	}, {
+		Id:     "setAnnotations-3",
+		Method: "setAnnotations",
+		Params: bundlechanges.SetAnnotationsParams{
+			Id:          "$deploy-1",
+			EntityType:  bundlechanges.ApplicationType,
+			Annotations: map[string]string{"gui-x": "609", "gui-y": "-15"},
+		},
+		GUIArgs: []interface{}{
+			"$deploy-1",
+			"application",
+			map[string]string{"gui-x": "609", "gui-y": "-15"},
+		},
+		Args: map[string]interface{}{
+			"annotations": map[string]interface{}{
+				"gui-x": "609",
+				"gui-y": "-15",
+			},
+			"entity-type": "application",
+			"id":          "$deploy-1",
+		},
+		Requires: []string{"deploy-1"},
+	}, {
+		Id:     "addCharm-4",
+		Method: "addCharm",
+		Params: bundlechanges.AddCharmParams{
+			Charm:  "ch:mysql",
+			Series: "focal",
+		},
+		GUIArgs: []interface{}{"ch:mysql", "focal", ""},
+		Args: map[string]interface{}{
+			"charm":  "ch:mysql",
+			"series": "focal",
+		},
+	}, {
+		Id:     "deploy-5",
+		Method: "deploy",
+		Params: bundlechanges.AddApplicationParams{
+			Charm:          "$addCharm-4",
+			Application:    "mysql",
+			Series:         "focal",
+			LocalResources: map[string]string{"data": "./resources/data.tar"},
+		},
+		GUIArgs: []interface{}{
+			"$addCharm-4",
+			"focal",
+			"mysql",
+			map[string]interface{}{},
+			"",
+			map[string]string{},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Args: map[string]interface{}{
+			"application": "mysql",
+			"charm":       "$addCharm-4",
+			"local-resources": map[string]interface{}{
+				"data": "./resources/data.tar",
+			},
+			"series": "focal",
+		},
+		Requires: []string{"addCharm-4"},
+	}, {
+		Id:     "addRelation-6",
+		Method: "addRelation",
+		Params: bundlechanges.AddRelationParams{
+			Endpoint1: "$deploy-1:db",
+			Endpoint2: "$deploy-5:db",
+		},
+		GUIArgs: []interface{}{"$deploy-1:db", "$deploy-5:db"},
+		Args: map[string]interface{}{
+			"endpoint1": "$deploy-1:db",
+			"endpoint2": "$deploy-5:db",
+		},
+		Requires: []string{"deploy-1", "deploy-5"},
+	}, {
+		Id:     "addUnit-7",
+		Method: "addUnit",
+		Params: bundlechanges.AddUnitParams{
+			Application: "$deploy-1",
+		},
+		GUIArgs: []interface{}{"$deploy-1", nil},
+		Args: map[string]interface{}{
+			"application": "$deploy-1",
+		},
+		Requires: []string{"deploy-1"},
+	}, {
+		Id:     "addUnit-8",
+		Method: "addUnit",
+		Params: bundlechanges.AddUnitParams{
+			Application: "$deploy-5",
+		},
+		GUIArgs: []interface{}{"$deploy-5", nil},
+		Args: map[string]interface{}{
+			"application": "$deploy-5",
+		},
+		Requires: []string{"deploy-5"},
+	}}
+
+	s.assertParseData(c, content, expected)
+}
+
 func (s *changesSuite) TestSimpleBundleWithDevices(c *gc.C) {
 	content := `
         applications:

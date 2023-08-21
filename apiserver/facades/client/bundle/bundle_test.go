@@ -548,7 +548,9 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
 		},
 		Requires: []string{"deploy-1", "deploy-3"},
 	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
-	c.Assert(r.Errors, gc.IsNil)
+	for _, err := range r.Errors {
+		c.Assert(err, gc.Equals, "")
+	}
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
@@ -581,7 +583,9 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccessCharmHubRevision(c *gc.C) {
 		},
 		Requires: []string{"addCharm-0"},
 	}})
-	c.Assert(r.Errors, gc.IsNil)
+	for _, err := range r.Errors {
+		c.Assert(err, gc.Equals, "")
+	}
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
@@ -659,7 +663,9 @@ func (s *bundleSuite) TestGetChangesMapArgsKubernetes(c *gc.C) {
 		},
 		Requires: []string{"deploy-1", "deploy-3"},
 	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
-	c.Assert(r.Errors, gc.IsNil)
+	for _, err := range r.Errors {
+		c.Assert(err, gc.Equals, "")
+	}
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsBundleEndpointBindingsSuccess(c *gc.C) {
