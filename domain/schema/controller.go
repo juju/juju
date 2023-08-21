@@ -24,7 +24,7 @@ func ControllerDDL(nodeID uint64) *schema.Schema {
 		// 2. We want to insert the initial node before creating the change_log
 		//    triggers as there is no need to produce a change stream event
 		//    from what is a bootstrap activity.
-		controllerNodeTable,
+		controllerNodeSchema,
 		controllerNodeEntry(nodeID),
 		changeLogTriggersForTable("controller_node", "controller_id", 2),
 		modelMigrationSchema,
@@ -280,7 +280,7 @@ CREATE TABLE controller_config (
 );`)
 }
 
-func controllerNodeTable() schema.Patch {
+func controllerNodeSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE controller_node (
     controller_id  TEXT PRIMARY KEY, 
@@ -292,7 +292,21 @@ CREATE UNIQUE INDEX idx_controller_node_dqlite_node
 ON controller_node (dqlite_node_id);
 
 CREATE UNIQUE INDEX idx_controller_node_bind_address
-ON controller_node (bind_address);`)
+ON controller_node (bind_address);
+
+CREATE TABLE api_address (
+    uuid            TEXT PRIMARY KEY,
+    controller_id   TEXT,
+    address         TEXT,
+    agent_usage     BOOLEAN,
+    CONSTRAINT      fk_model_migration_target_controller
+        FOREIGN KEY (controller_id)
+        REFERENCES  controller_node(controller_id)
+);
+
+CREATE UNIQUE INDEX idx_api_address
+ON api_address (controller_id, address);
+`)
 }
 
 func controllerNodeEntry(nodeID uint64) func() schema.Patch {

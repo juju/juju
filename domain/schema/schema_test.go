@@ -68,6 +68,7 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 
 		// Controller nodes
 		"controller_node",
+		"api_address",
 
 		// Model migration
 		"model_migration",
