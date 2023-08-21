@@ -42,7 +42,7 @@ import (
 )
 
 // Import the database agnostic model representation into the database.
-func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err error) {
+func (ctrl *Controller) Import(model description.Model, controllerConfig controller.Config) (_ *Model, _ *State, err error) {
 	st, err := ctrl.pool.SystemState()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -188,7 +188,7 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.machines(); err != nil {
 		return nil, nil, errors.Annotate(err, "machines")
 	}
-	if err := restore.applications(); err != nil {
+	if err := restore.applications(controllerConfig); err != nil {
 		return nil, nil, errors.Annotate(err, "applications")
 	}
 	if err := restore.remoteApplications(); err != nil {
@@ -843,13 +843,8 @@ func (i *importer) makeAddresses(addrs []description.Address) []address {
 	return result
 }
 
-func (i *importer) applications() error {
+func (i *importer) applications(controllerConfig controller.Config) error {
 	i.logger.Debugf("importing applications")
-
-	ctrlCfg, err := i.st.ControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
 
 	// Ensure we import principal applications first, so that
 	// subordinate units can refer to the principal ones.
@@ -865,7 +860,7 @@ func (i *importer) applications() error {
 	i.charmOrigins = make(map[string]*CharmOrigin, len(principals)+len(subordinates))
 
 	for _, s := range append(principals, subordinates...) {
-		if err := i.application(s, ctrlCfg); err != nil {
+		if err := i.application(s, controllerConfig); err != nil {
 			i.logger.Errorf("error importing application %s: %s", s.Name(), err)
 			return errors.Annotate(err, s.Name())
 		}

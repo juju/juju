@@ -133,6 +133,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 			CloudRegion:             "dummy-region",
 			CloudCredential:         userPassCredentialTag,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
+			ControllerConfig:        controllerCfg,
 		},
 		Cloud: cloud.Cloud{
 			Name: "dummy",

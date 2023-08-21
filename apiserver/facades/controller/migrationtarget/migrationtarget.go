@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
 	coremigration "github.com/juju/juju/core/migration"
@@ -31,7 +32,8 @@ type ModelImporter interface {
 	ImportModel(ctx context.Context, bytes []byte) (*state.Model, *state.State, error)
 }
 
-// ExternalControllerService provides a subset of the external controller domain service methods.
+// ExternalControllerService provides a subset of the external controller
+// domain service methods.
 type ExternalControllerService interface {
 	// ControllerForModel returns the controller record that's associated
 	// with the modelUUID.
@@ -40,6 +42,13 @@ type ExternalControllerService interface {
 	// UpdateExternalController persists the input controller
 	// record.
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
+}
+
+// ControllerConfigService provides a subset of the controller config domain
+// service methods.
+type ControllerConfigService interface {
+	// ControllerConfig returns the controller config.
+	ControllerConfig(context.Context) (controller.Config, error)
 }
 
 // API implements the API required for the model migration
@@ -65,16 +74,19 @@ type APIV1 struct {
 func NewAPI(
 	ctx facade.Context,
 	authorizer facade.Authorizer,
+	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
 	getEnviron stateenvirons.NewEnvironFunc,
 	getCAASBroker stateenvirons.NewCAASBrokerFunc,
 ) (*API, error) {
-	st := ctx.State()
-	pool := ctx.StatePool()
+	var (
+		st   = ctx.State()
+		pool = ctx.StatePool()
 
-	scope := modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil)
-	controller := state.NewController(pool)
-	modelImporter := migration.NewModelImporter(controller, scope)
+		scope         = modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil)
+		controller    = state.NewController(pool)
+		modelImporter = migration.NewModelImporter(controller, scope, controllerConfigService)
+	)
 
 	return &API{
 		state:                     st,

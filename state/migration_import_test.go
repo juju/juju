@@ -69,7 +69,10 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, _, err = s.Controller.Import(out)
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, _, err = s.Controller.Import(out, ctrlCfg)
 	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
 }
 
@@ -111,7 +114,10 @@ func (s *MigrationImportSuite) importModelDescription(
 	uuid := utils.MustNewUUID().String()
 	in := newModel(desc, uuid, "new")
 
-	newModel, newSt, err := s.Controller.Import(in)
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	newModel, newSt, err := s.Controller.Import(in, ctrlCfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AddCleanup(func(c *gc.C) {
@@ -154,7 +160,10 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	newModel, newSt, err := s.Controller.Import(in)
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	newModel, newSt, err := s.Controller.Import(in, ctrlCfg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
@@ -949,7 +958,10 @@ func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	_, newSt, err := s.Controller.Import(in)
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt, err := s.Controller.Import(in, ctrlCfg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 
@@ -1019,7 +1031,10 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	_, newSt, err := s.Controller.Import(in)
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt, err := s.Controller.Import(in, ctrlCfg)
 	c.Assert(err, jc.ErrorIsNil)
 	// add the cleanup here to close the model.
 	s.AddCleanup(func(c *gc.C) {
@@ -2548,7 +2563,10 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	_, newSt, err := s.Controller.Import(in)
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt, err := s.Controller.Import(in, ctrlCfg)
 	if err == nil {
 		defer newSt.Close()
 	}
@@ -2618,7 +2636,10 @@ func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	_, newSt, err := s.Controller.Import(in)
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt, err := s.Controller.Import(in, ctrlCfg)
 	if err == nil {
 		defer newSt.Close()
 	}
@@ -2815,6 +2836,9 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 	testModel, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	newConfig := testModel.Config()
 	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
 	newConfig["name"] = "something-new"
@@ -2828,7 +2852,7 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 		Cloud:              testModel.Cloud(),
 		CloudRegion:        testModel.CloudRegion(),
 	})
-	imported, newSt, err := s.Controller.Import(noTypeModel)
+	imported, newSt, err := s.Controller.Import(noTypeModel, ctrlCfg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = newSt.Close() }()
 
@@ -2850,6 +2874,9 @@ func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, tool
 	testModel, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	newConfig := testModel.Config()
 	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
 	newConfig["name"] = "something-new"
@@ -2864,7 +2891,7 @@ func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, tool
 		Cloud:          testModel.Cloud(),
 		CloudRegion:    testModel.CloudRegion(),
 	})
-	imported, newSt, err := s.Controller.Import(importModel)
+	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = newSt.Close() }()
 
@@ -3190,14 +3217,20 @@ func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
 	err = backendStore.DeleteSecretBackend("foo", true)
 	c.Assert(err, jc.ErrorIsNil)
 
+	ctrlCfg, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
-	_, _, err = s.Controller.Import(in)
+	_, _, err = s.Controller.Import(in, ctrlCfg)
 	c.Assert(err, gc.ErrorMatches, "secrets: target controller does not have all required secret backends set up")
 }
 
 func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
 	testModel, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrlCfg, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	newConfig := testModel.Config()
@@ -3213,7 +3246,7 @@ func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
 		Cloud:          testModel.Cloud(),
 		CloudRegion:    testModel.CloudRegion(),
 	})
-	imported, newSt, err := s.Controller.Import(importModel)
+	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = newSt.Close() }()
 

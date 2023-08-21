@@ -43,20 +43,15 @@ type Suite struct {
 	statetesting.StateSuite
 	authorizer *apiservertesting.FakeAuthorizer
 
+	controllerConfigService   *MockControllerConfigService
 	externalControllerService *MockExternalControllerService
-	facadeContext             facadetest.Context
-	callContext               environscontext.ProviderCallContext
-	leaders                   map[string]string
+
+	facadeContext facadetest.Context
+	callContext   environscontext.ProviderCallContext
+	leaders       map[string]string
 }
 
 var _ = gc.Suite(&Suite{})
-
-func (s *Suite) setUpMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-
-	s.externalControllerService = NewMockExternalControllerService(ctrl)
-	return ctrl
-}
 
 func (s *Suite) SetUpTest(c *gc.C) {
 	// Set up InitialConfig with a dummy provider configuration. This
@@ -66,22 +61,11 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	// The call to StateSuite's SetUpTest uses s.InitialConfig so
 	// it has to happen here.
 	s.StateSuite.SetUpTest(c)
-
-	s.authorizer = &apiservertesting.FakeAuthorizer{
-		Tag:      s.Owner,
-		AdminTag: s.Owner,
-	}
-	s.callContext = environscontext.NewEmptyCloudCallContext()
-	s.facadeContext = facadetest.Context{
-		State_:     s.State,
-		StatePool_: s.StatePool,
-		Auth_:      s.authorizer,
-	}
-
-	s.leaders = map[string]string{}
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 2)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -102,6 +86,8 @@ func (s *Suite) importModel(c *gc.C, api *migrationtarget.API) names.ModelTag {
 }
 
 func (s *Suite) TestPrechecks(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	api := s.mustNewAPI(c)
 	args := params.MigrationModelInfo{
 		UUID:                   "uuid",
@@ -115,6 +101,8 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 }
 
 func (s *Suite) TestCACert(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	api := s.mustNewAPI(c)
 	r, err := api.CACert(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,6 +110,8 @@ func (s *Suite) TestCACert(c *gc.C) {
 }
 
 func (s *Suite) TestPrechecksFail(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	controllerVersion := s.controllerVersion(c)
 
 	// Set the model version ahead of the controller.
@@ -137,6 +127,8 @@ func (s *Suite) TestPrechecksFail(c *gc.C) {
 }
 
 func (s *Suite) TestImport(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 	// Check the model was imported.
@@ -148,6 +140,8 @@ func (s *Suite) TestImport(c *gc.C) {
 }
 
 func (s *Suite) TestAbort(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	api := s.mustNewAPI(c)
 	tag := s.importModel(c, api)
 
@@ -161,12 +155,16 @@ func (s *Suite) TestAbort(c *gc.C) {
 }
 
 func (s *Suite) TestAbortNotATag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	api := s.mustNewAPI(c)
 	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: "not-a-tag"})
 	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
 func (s *Suite) TestAbortMissingModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	api := s.mustNewAPI(c)
 	newUUID := utils.MustNewUUID().String()
 	err := api.Abort(context.Background(), params.ModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
@@ -174,6 +172,8 @@ func (s *Suite) TestAbortMissingModel(c *gc.C) {
 }
 
 func (s *Suite) TestAbortNotImportingModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
@@ -185,8 +185,7 @@ func (s *Suite) TestAbortNotImportingModel(c *gc.C) {
 }
 
 func (s *Suite) TestActivate(c *gc.C) {
-	ctrl := s.setUpMocks(c)
-	ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	sourceModel := "deadbeef-0bad-400d-8000-4b1d0d06f666"
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
@@ -233,12 +232,16 @@ func (s *Suite) TestActivate(c *gc.C) {
 }
 
 func (s *Suite) TestActivateNotATag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	api := s.mustNewAPI(c)
 	err := api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: "not-a-tag"})
 	c.Assert(err, gc.ErrorMatches, `"not-a-tag" is not a valid tag`)
 }
 
 func (s *Suite) TestActivateMissingModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	api := s.mustNewAPI(c)
 	newUUID := utils.MustNewUUID().String()
 	err := api.Activate(context.Background(), params.ActivateModelArgs{ModelTag: names.NewModelTag(newUUID).String()})
@@ -246,6 +249,8 @@ func (s *Suite) TestActivateMissingModel(c *gc.C) {
 }
 
 func (s *Suite) TestActivateNotImportingModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
@@ -257,6 +262,8 @@ func (s *Suite) TestActivateNotImportingModel(c *gc.C) {
 }
 
 func (s *Suite) TestLatestLogTime(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
@@ -275,6 +282,8 @@ func (s *Suite) TestLatestLogTime(c *gc.C) {
 }
 
 func (s *Suite) TestLatestLogTimeNeverSet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 	model, err := st.Model()
@@ -287,6 +296,8 @@ func (s *Suite) TestLatestLogTimeNeverSet(c *gc.C) {
 }
 
 func (s *Suite) TestAdoptIAASResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -316,6 +327,8 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 }
 
 func (s *Suite) TestAdoptCAASResources(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
 
@@ -345,6 +358,8 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 }
 
 func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -375,6 +390,8 @@ func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
 }
 
 func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -399,6 +416,8 @@ func (s *Suite) TestCheckMachinesHandlesContainers(c *gc.C) {
 }
 
 func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
@@ -426,6 +445,8 @@ func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
 }
 
 func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	owner := s.Factory.MakeUser(c, nil)
 	err := s.State.AddCloud(cloud.Cloud{
 		Name:      "manual",
@@ -471,9 +492,39 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
+func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
+
+	s.externalControllerService = NewMockExternalControllerService(ctrl)
+
+	s.authorizer = &apiservertesting.FakeAuthorizer{
+		Tag:      s.Owner,
+		AdminTag: s.Owner,
+	}
+	s.callContext = environscontext.NewEmptyCloudCallContext()
+	s.facadeContext = facadetest.Context{
+		State_:     s.State,
+		StatePool_: s.StatePool,
+		Auth_:      s.authorizer,
+	}
+
+	s.leaders = map[string]string{}
+
+	return ctrl
+}
+
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc) (*migrationtarget.API, error) {
-	api, err := migrationtarget.NewAPI(&s.facadeContext, s.authorizer, s.externalControllerService, environFunc, brokerFunc)
-	return api, err
+	return migrationtarget.NewAPI(
+		&s.facadeContext,
+		s.authorizer,
+		s.controllerConfigService,
+		s.externalControllerService,
+		environFunc,
+		brokerFunc,
+	)
 }
 
 func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {

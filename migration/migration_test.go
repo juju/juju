@@ -16,19 +16,24 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
+	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
 
 type ImportSuite struct {
 	testing.IsolationSuite
+
+	controllerConfigGetter *MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&ImportSuite{})
@@ -38,10 +43,12 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ImportSuite) TestBadBytes(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	bytes := []byte("not a model")
 	scope := modelmigration.NewScope(nil, nil)
 	controller := &fakeImporter{}
-	importer := migration.NewModelImporter(controller, scope)
+	importer := migration.NewModelImporter(controller, scope, s.controllerConfigGetter)
 	model, st, err := importer.ImportModel(context.Background(), bytes)
 	c.Check(st, gc.IsNil)
 	c.Check(model, gc.IsNil)
@@ -111,7 +118,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	m := &state.Model{}
 	controller := &fakeImporter{st: st, m: m}
 	scope := modelmigration.NewScope(nil, nil)
-	importer := migration.NewModelImporter(controller, scope)
+	importer := migration.NewModelImporter(controller, scope, s.controllerConfigGetter)
 	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controller.model.Tag().Id(), gc.Equals, "bd3fae18-5ea1-4bc5-8837-45400cf1f8f6")
@@ -120,6 +127,8 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 }
 
 func (s *ImportSuite) TestImportModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.exportImport(c, map[string]string{})
 }
 
@@ -239,14 +248,25 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 		"cannot upload charms: charm local:foo/bar-2 unexpectedly assigned local:foo/bar-1")
 }
 
-type fakeImporter struct {
-	model description.Model
-	st    *state.State
-	m     *state.Model
+func (s *ImportSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
+	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
+
+	return ctrl
 }
 
-func (i *fakeImporter) Import(model description.Model) (*state.Model, *state.State, error) {
+type fakeImporter struct {
+	model            description.Model
+	st               *state.State
+	m                *state.Model
+	controllerConfig controller.Config
+}
+
+func (i *fakeImporter) Import(model description.Model, controllerConfig controller.Config) (*state.Model, *state.State, error) {
 	i.model = model
+	i.controllerConfig = controllerConfig
 	return i.m, i.st, nil
 }
 
