@@ -134,6 +134,8 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}
 
+	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -176,7 +178,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		return environs.GetEnviron(ctx, configGetter, environs.New)
 	}
 	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
-	api.toolsFinder = common.NewToolsFinder(st, configGetter, st, urlGetter, newEnviron)
+	api.toolsFinder = common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
 	api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
 }

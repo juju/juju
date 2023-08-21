@@ -45,6 +45,7 @@ type upgraderSuite struct {
 var _ = gc.Suite(&upgraderSuite{})
 
 func (s *upgraderSuite) SetUpTest(c *gc.C) {
+
 	s.ControllerModelConfigAttrs = map[string]interface{}{
 		"agent-version": coretesting.CurrentVersion().Number.String(),
 	}

@@ -12,7 +12,6 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -25,7 +24,6 @@ import (
 type UnitStateBackend interface {
 	ApplyOperation(state.ModelOperation) error
 	Unit(string) (UnitStateUnit, error)
-	ControllerConfig() (controller.Config, error)
 }
 
 // UnitStateUnit describes unit-receiver state methods required
@@ -49,11 +47,9 @@ func (s UnitStateState) Unit(name string) (UnitStateUnit, error) {
 	return s.St.Unit(name)
 }
 
-func (s UnitStateState) ControllerConfig() (controller.Config, error) {
-	return s.St.ControllerConfig()
-}
-
 type UnitStateAPI struct {
+	controllerConfigGetter ControllerConfigGetter
+
 	backend   UnitStateBackend
 	resources facade.Resources
 
@@ -65,18 +61,20 @@ type UnitStateAPI struct {
 
 // NewExternalUnitStateAPI can be used for API registration.
 func NewExternalUnitStateAPI(
+	controllerConfigGetter ControllerConfigGetter,
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit GetAuthFunc,
 	logger loggo.Logger,
 ) *UnitStateAPI {
-	return NewUnitStateAPI(UnitStateState{St: st}, resources, authorizer, accessUnit, logger)
+	return NewUnitStateAPI(controllerConfigGetter, UnitStateState{St: st}, resources, authorizer, accessUnit, logger)
 }
 
 // NewUnitStateAPI returns a new UnitStateAPI. Currently both
 // GetAuthFuncs can used to determine current permissions.
 func NewUnitStateAPI(
+	controllerConfigGetter ControllerConfigGetter,
 	backend UnitStateBackend,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -84,10 +82,11 @@ func NewUnitStateAPI(
 	logger loggo.Logger,
 ) *UnitStateAPI {
 	return &UnitStateAPI{
-		backend:    backend,
-		resources:  resources,
-		accessUnit: accessUnit,
-		logger:     logger,
+		controllerConfigGetter: controllerConfigGetter,
+		backend:                backend,
+		resources:              resources,
+		accessUnit:             accessUnit,
+		logger:                 logger,
 	}
 }
 
@@ -142,7 +141,7 @@ func (u *UnitStateAPI) SetState(ctx context.Context, args params.SetUnitStateArg
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	ctrlCfg, err := u.backend.ControllerConfig()
+	ctrlCfg, err := u.controllerConfigGetter.ControllerConfig(ctx)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

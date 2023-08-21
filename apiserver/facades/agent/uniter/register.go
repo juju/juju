@@ -67,9 +67,9 @@ func NewUniterFacade(context facade.Context) (*UniterAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigService := context.ServiceFactory().ControllerConfig()
+	controllerConfigGetter := context.ServiceFactory().ControllerConfig()
 	msAPI, err := meterstatus.NewMeterStatusAPI(
-		controllerConfigService, st,
+		controllerConfigGetter, st,
 		resources, authorizer,
 		context.Logger().Child("meterstatus"),
 	)
@@ -103,7 +103,7 @@ func NewUniterFacade(context facade.Context) (*UniterAPI, error) {
 		common.NewModelWatcher(m, resources, authorizer),
 		common.NewRebootRequester(st, accessMachine),
 		common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
-		common.NewExternalUnitStateAPI(st, resources, authorizer, accessUnit, logger),
+		common.NewExternalUnitStateAPI(controllerConfigGetter, st, resources, authorizer, accessUnit, logger),
 		secretsAPI,
 		LeadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		msAPI,
@@ -113,7 +113,7 @@ func NewUniterFacade(context facade.Context) (*UniterAPI, error) {
 		authorizer, resources, leadershipChecker,
 		accessUnit, accessApplication, accessMachine, accessCloudSpec,
 		cloudSpec, storageAPI, logger,
-		controllerConfigService,
+		controllerConfigGetter,
 	)
 }
 

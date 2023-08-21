@@ -47,7 +47,7 @@ var (
 
 type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (caas.Broker, error)
 
-// ModelManagerService defines a interface for interacting with the underlying
+// ModelManagerService defines an interface for interacting with the underlying
 // state.
 type ModelManagerService interface {
 	Create(context.Context, modelmanagerservice.UUID) error

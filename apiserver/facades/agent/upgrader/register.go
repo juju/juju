@@ -45,6 +45,8 @@ func newUpgraderFacade(ctx facade.Context) (Upgrader, error) {
 		return nil, errors.Trace(err)
 	}
 
+	controlleConfigGetter := ctx.ServiceFactory().ControllerConfig()
+
 	ctrlSt, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -52,11 +54,11 @@ func newUpgraderFacade(ctx facade.Context) (Upgrader, error) {
 	resources := ctx.Resources()
 	switch tag.(type) {
 	case names.MachineTag, names.ControllerAgentTag, names.ApplicationTag, names.ModelTag:
-		return NewUpgraderAPI(ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"))
+		return NewUpgraderAPI(controlleConfigGetter, ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"))
 	case names.UnitTag:
 		if model.Type() == state.ModelTypeCAAS {
 			// For sidecar applications.
-			return NewUpgraderAPI(ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"))
+			return NewUpgraderAPI(controlleConfigGetter, ctrlSt, st, resources, auth, ctx.Logger().Child("upgrader"))
 		}
 		return NewUnitUpgraderAPI(ctx)
 	}

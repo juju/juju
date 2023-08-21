@@ -30,7 +30,7 @@ type MeterStatus interface {
 	WatchMeterStatus(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error)
 }
 
-// MeterStatusState represents the state of an model required by the MeterStatus.
+// MeterStatusState represents the state of a model required by the MeterStatus.
 type MeterStatusState interface {
 	ApplyOperation(state.ModelOperation) error
 	ControllerConfig() (controller.Config, error)
@@ -72,7 +72,8 @@ func NewMeterStatusAPI(
 		accessUnit: accessUnit,
 		resources:  resources,
 		UnitStateAPI: common.NewUnitStateAPI(
-			unitStateShim{st, controllerConfigGetter},
+			controllerConfigGetter,
+			unitStateShim{st},
 			resources,
 			authorizer,
 			accessUnit,
@@ -154,16 +155,11 @@ func (m *MeterStatusAPI) GetMeterStatus(ctx context.Context, args params.Entitie
 // unitStateShim adapts the state backend for this facade to make it compatible
 // with common.UnitStateAPI.
 type unitStateShim struct {
-	st                     MeterStatusState
-	controllerConfigGetter ControllerConfigGetter
+	st MeterStatusState
 }
 
 func (s unitStateShim) ApplyOperation(op state.ModelOperation) error {
 	return s.st.ApplyOperation(op)
-}
-
-func (s unitStateShim) ControllerConfig() (controller.Config, error) {
-	return s.controllerConfigGetter.ControllerConfig(context.Background())
 }
 
 func (s unitStateShim) Unit(name string) (common.UnitStateUnit, error) {
