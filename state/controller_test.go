@@ -195,7 +195,10 @@ func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses
 
 	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.SetMachineAddresses(network.NewSpaceAddress("192.168.9.9")), jc.ErrorIsNil)
+
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("192.168.9.9")), jc.ErrorIsNil)
 
 	err = s.State.UpdateControllerConfig(map[string]interface{}{
 		controller.JujuManagementSpace: "mgmt-space",
@@ -214,7 +217,10 @@ func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c 
 	addr := network.NewSpaceAddress("192.168.9.9")
 	addr.SpaceID = sp.Id()
 
-	c.Assert(m.SetProviderAddresses(addr), jc.ErrorIsNil)
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(m.SetProviderAddresses(controllerConfig, addr), jc.ErrorIsNil)
 
 	err = s.State.UpdateControllerConfig(map[string]interface{}{
 		controller.JujuManagementSpace: "mgmt-space",
@@ -248,13 +254,16 @@ func (s *ControllerSuite) TestSetMachineAddressesControllerCharm(c *gc.C) {
 		Machine:     controller,
 	})
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	addresses := network.NewSpaceAddresses("10.0.0.1")
-	err = controller.SetMachineAddresses(addresses...)
+	err = controller.SetMachineAddresses(controllerConfig, addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Updating a worker machine does not affect charm config.
 	addresses = network.NewSpaceAddresses("10.0.0.2")
-	err = worker.SetMachineAddresses(addresses...)
+	err = worker.SetMachineAddresses(controllerConfig, addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg, err := controllerApp.CharmConfig(model.GenerationMaster)

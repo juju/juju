@@ -164,7 +164,7 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 			continue
 		}
 
-		modified, err := maybeUpdateMachineProviderAddresses(machine, newSpaceAddrs)
+		modified, err := maybeUpdateMachineProviderAddresses(a.st, machine, newSpaceAddrs)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -184,13 +184,18 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(
 	return result, nil
 }
 
-func maybeUpdateMachineProviderAddresses(m StateMachine, newSpaceAddrs network.SpaceAddresses) (bool, error) {
+func maybeUpdateMachineProviderAddresses(st StateInterface, m StateMachine, newSpaceAddrs network.SpaceAddresses) (bool, error) {
 	curSpaceAddrs := m.ProviderAddresses()
 	if curSpaceAddrs.EqualTo(newSpaceAddrs) {
 		return false, nil
 	}
 
-	return true, m.SetProviderAddresses(newSpaceAddrs...)
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	return true, m.SetProviderAddresses(controllerConfig, newSpaceAddrs...)
 }
 
 func (a *InstancePollerAPI) mergeLinkLayer(m StateMachine, devs network.InterfaceInfos) error {
@@ -310,6 +315,12 @@ func (a *InstancePollerAPI) SetProviderAddresses(ctx context.Context, args param
 	if err != nil {
 		return result, err
 	}
+
+	controllerConfig, err := a.st.ControllerConfig()
+	if err != nil {
+		return result, err
+	}
+
 	for i, arg := range args.MachineAddresses {
 		machine, err := a.getOneMachine(arg.Tag, canAccess)
 		if err != nil {
@@ -322,7 +333,7 @@ func (a *InstancePollerAPI) SetProviderAddresses(ctx context.Context, args param
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := machine.SetProviderAddresses(addrsToSet...); err != nil {
+		if err := machine.SetProviderAddresses(controllerConfig, addrsToSet...); err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}

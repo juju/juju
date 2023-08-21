@@ -379,7 +379,9 @@ func (factory *Factory) makeMachineReturningPassword(c *gc.C, params *MachinePar
 	err = machine.SetPassword(params.Password)
 	c.Assert(err, jc.ErrorIsNil)
 	if len(params.Addresses) > 0 {
-		err := machine.SetProviderAddresses(params.Addresses...)
+		controllerConfig, err := factory.st.ControllerConfig()
+		c.Assert(err, jc.ErrorIsNil)
+		err = machine.SetProviderAddresses(controllerConfig, params.Addresses...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	current := testing.CurrentVersion()

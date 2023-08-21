@@ -85,6 +85,10 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 	if err != nil {
 		return results, err
 	}
+	controllerConfig, err := api.st.ControllerConfig()
+	if err != nil {
+		return results, err
+	}
 	for i, arg := range args.MachineAddresses {
 		m, err := api.getMachine(arg.Tag, canModify)
 		if err != nil {
@@ -96,7 +100,7 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := m.SetMachineAddresses(addresses...); err != nil {
+		if err := m.SetMachineAddresses(controllerConfig, addresses...); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 		}
 	}

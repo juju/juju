@@ -5,6 +5,7 @@ package instancepoller
 
 import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -18,7 +19,7 @@ type StateMachine interface {
 
 	InstanceId() (instance.Id, error)
 	ProviderAddresses() network.SpaceAddresses
-	SetProviderAddresses(...network.SpaceAddress) error
+	SetProviderAddresses(controller.Config, ...network.SpaceAddress) error
 	InstanceStatus() (status.StatusInfo, error)
 	SetInstanceStatus(status.StatusInfo) error
 	SetStatus(status.StatusInfo) error
@@ -39,6 +40,8 @@ type StateInterface interface {
 
 	// ApplyOperation applies a given ModelOperation to the model.
 	ApplyOperation(state.ModelOperation) error
+
+	ControllerConfig() (controller.Config, error)
 }
 
 type machineShim struct {
@@ -86,9 +89,9 @@ func (s stateShim) Machine(id string) (StateMachine, error) {
 		return nil, err
 	}
 
-	return machineShim{m}, nil
+	return machineShim{Machine: m}, nil
 }
 
 var getState = func(st *state.State, m *state.Model) StateInterface {
-	return stateShim{st, m}
+	return stateShim{State: st, Model: m}
 }

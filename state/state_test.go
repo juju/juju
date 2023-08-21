@@ -777,8 +777,11 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	machines[3], err = s.State.Machine("3")
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 	for i, m := range machines {
 		err := m.SetProviderAddresses(
+			controllerConfig,
 			network.NewSpaceAddress(fmt.Sprintf("10.0.0.%d", i), network.WithScope(network.ScopeCloudLocal)),
 			network.NewSpaceAddress("::1", network.WithScope(network.ScopeCloudLocal)),
 			network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeMachineLocal)),

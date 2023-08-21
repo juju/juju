@@ -1822,7 +1822,9 @@ func (s *MachineSuite) TestSetProviderAddresses(c *gc.C) {
 			SpaceID: "1",
 		},
 	}
-	err = machine.SetProviderAddresses(addresses...)
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetProviderAddresses(controllerConfig, addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1836,13 +1838,16 @@ func (s *MachineSuite) TestSetProviderAddressesWithContainers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// When setting all addresses the subnet addresses have to be
 	// filtered out.
 	addresses := network.NewSpaceAddresses(
 		"127.0.0.1",
 		"8.8.8.8",
 	)
-	err = machine.SetProviderAddresses(addresses...)
+	err = machine.SetProviderAddresses(controllerConfig, addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1864,9 +1869,11 @@ func (s *MachineSuite) TestSetProviderAddressesOnContainer(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 	// When setting all addresses the subnet address has to accepted.
 	addresses := network.NewSpaceAddresses("127.0.0.1")
-	err = container.SetProviderAddresses(addresses...)
+	err = container.SetProviderAddresses(controllerConfig, addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = container.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1880,8 +1887,10 @@ func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 	addresses := network.NewSpaceAddresses("127.0.0.1", "8.8.8.8")
-	err = machine.SetMachineAddresses(addresses...)
+	err = machine.SetMachineAddresses(controllerConfig, addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1895,16 +1904,18 @@ func (s *MachineSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 	// Add some machine addresses initially to make sure they're removed.
 	addresses := network.NewSpaceAddresses("127.0.0.1", "8.8.8.8")
-	err = machine.SetMachineAddresses(addresses...)
+	err = machine.SetMachineAddresses(controllerConfig, addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.MachineAddresses(), gc.HasLen, 2)
 
 	// Make call with empty address list.
-	err = machine.SetMachineAddresses()
+	err = machine.SetMachineAddresses(controllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1916,7 +1927,8 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
-
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 	providerAddresses := network.NewSpaceAddresses(
 		"127.0.0.2",
 		"8.8.8.8",
@@ -1927,7 +1939,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 		"127.0.0.2",
 		"example.org",
 	)
-	err = machine.SetProviderAddresses(providerAddresses...)
+	err = machine.SetProviderAddresses(controllerConfig, providerAddresses...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machineAddresses := network.NewSpaceAddresses(
@@ -1939,7 +1951,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 		"::1",
 		"fd00::1",
 	)
-	err = machine.SetMachineAddresses(machineAddresses...)
+	err = machine.SetMachineAddresses(controllerConfig, machineAddresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1973,14 +1985,17 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeDifferent(c *gc.C
 	addr0 := network.NewSpaceAddress("127.0.0.1")
 	addr1 := network.NewSpaceAddress("8.8.8.8")
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	defer state.SetBeforeHooks(c, s.State, func() {
 		machine, err := s.State.Machine(machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
-		err = machine.SetProviderAddresses(addr1, addr0)
+		err = machine.SetProviderAddresses(controllerConfig, addr1, addr0)
 		c.Assert(err, jc.ErrorIsNil)
 	}).Check()
 
-	err = machine.SetProviderAddresses(addr0, addr1)
+	err = machine.SetProviderAddresses(controllerConfig, addr0, addr1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), jc.SameContents, network.SpaceAddresses{addr0, addr1})
 }
@@ -1996,18 +2011,21 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeEqual(c *gc.C) {
 	addr0 := network.NewSpaceAddress("127.0.0.1")
 	addr1 := network.NewSpaceAddress("8.8.8.8")
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	var revno1 int64
 	defer state.SetBeforeHooks(c, s.State, func() {
 		machine, err := s.State.Machine(machine.Id())
 		c.Assert(err, jc.ErrorIsNil)
-		err = machine.SetProviderAddresses(addr0, addr1)
+		err = machine.SetProviderAddresses(controllerConfig, addr0, addr1)
 		c.Assert(err, jc.ErrorIsNil)
 		revno1, err = state.TxnRevno(s.State, "machines", machineDocID)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(revno1, jc.GreaterThan, revno0)
 	}).Check()
 
-	err = machine.SetProviderAddresses(addr0, addr1)
+	err = machine.SetProviderAddresses(controllerConfig, addr0, addr1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Doc will be updated; concurrent changes are explicitly ignored.
@@ -2026,18 +2044,21 @@ func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
 	addr0 := network.NewSpaceAddress("127.0.0.1")
 	addr1 := network.NewSpaceAddress("8.8.8.8")
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Set addresses to [addr0] initially. We'll get a separate Machine
 	// object to update addresses, to ensure that the in-memory cache of
 	// addresses does not prevent the initial Machine from updating
 	// addresses back to the original value.
-	err = machine.SetProviderAddresses(addr0)
+	err = machine.SetProviderAddresses(controllerConfig, addr0)
 	c.Assert(err, jc.ErrorIsNil)
 	revno0, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine2, err := s.State.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine2.SetProviderAddresses(addr1)
+	err = machine2.SetProviderAddresses(controllerConfig, addr1)
 	c.Assert(err, jc.ErrorIsNil)
 	revno1, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2045,7 +2066,7 @@ func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
 	c.Assert(machine.Addresses(), jc.SameContents, network.SpaceAddresses{addr0})
 	c.Assert(machine2.Addresses(), jc.SameContents, network.SpaceAddresses{addr1})
 
-	err = machine.SetProviderAddresses(addr0)
+	err = machine.SetProviderAddresses(controllerConfig, addr0)
 	c.Assert(err, jc.ErrorIsNil)
 	revno2, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2101,7 +2122,10 @@ func (s *MachineSuite) TestPublicAddress(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
@@ -2113,7 +2137,10 @@ func (s *MachineSuite) TestPrivateAddress(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.1"))
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PrivateAddress()
@@ -2125,14 +2152,17 @@ func (s *MachineSuite) TestPublicAddressBetterMatch(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.1"))
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PublicAddress()
@@ -2144,14 +2174,17 @@ func (s *MachineSuite) TestPrivateAddressBetterMatch(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.1"))
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PrivateAddress()
@@ -2163,14 +2196,17 @@ func (s *MachineSuite) TestPublicAddressChanges(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "8.8.8.8")
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.4.4"))
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PublicAddress()
@@ -2182,14 +2218,17 @@ func (s *MachineSuite) TestPrivateAddressChanges(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.2"))
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
 
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.1"))
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PrivateAddress()
@@ -2201,7 +2240,10 @@ func (s *MachineSuite) TestAddressesDeadMachine(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("10.0.0.2"), network.NewSpaceAddress("8.8.4.4"))
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.2"), network.NewSpaceAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PrivateAddress()
@@ -2229,7 +2271,10 @@ func (s *MachineSuite) TestStablePrivateAddress(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.2"))
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PrivateAddress()
@@ -2238,7 +2283,7 @@ func (s *MachineSuite) TestStablePrivateAddress(c *gc.C) {
 
 	// Now add an address that would previously have sorted before the
 	// default.
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.1"), network.NewSpaceAddress("10.0.0.2"))
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.1"), network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert the address is unchanged.
@@ -2251,7 +2296,10 @@ func (s *MachineSuite) TestStablePublicAddress(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
@@ -2260,7 +2308,7 @@ func (s *MachineSuite) TestStablePublicAddress(c *gc.C) {
 
 	// Now add an address that would previously have sorted before the
 	// default.
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.4.4"), network.NewSpaceAddress("8.8.8.8"))
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.4.4"), network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Assert the address is unchanged.
@@ -2273,9 +2321,12 @@ func (s *MachineSuite) TestAddressesRaceMachineFirst(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	changeAddresses := jujutxn.TestHook{
 		Before: func() {
-			err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.8.8"))
+			err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"))
 			c.Assert(err, jc.ErrorIsNil)
 			address, err := machine.PublicAddress()
 			c.Assert(err, jc.ErrorIsNil)
@@ -2287,7 +2338,7 @@ func (s *MachineSuite) TestAddressesRaceMachineFirst(c *gc.C) {
 	}
 	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
 
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("8.8.4.4"))
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err = s.State.Machine(machine.Id())
@@ -2304,9 +2355,12 @@ func (s *MachineSuite) TestAddressesRaceProviderFirst(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	changeAddresses := jujutxn.TestHook{
 		Before: func() {
-			err = machine.SetMachineAddresses(network.NewSpaceAddress("10.0.0.1"))
+			err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.1"))
 			c.Assert(err, jc.ErrorIsNil)
 			address, err := machine.PublicAddress()
 			c.Assert(err, jc.ErrorIsNil)
@@ -2318,7 +2372,7 @@ func (s *MachineSuite) TestAddressesRaceProviderFirst(c *gc.C) {
 	}
 	defer state.SetTestHooks(c, s.State, changeAddresses).Check()
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.4.4"))
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	machine, err = s.State.Machine(machine.Id())
@@ -2335,7 +2389,10 @@ func (s *MachineSuite) TestPrivateAddressPrefersProvider(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.2"))
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
@@ -2345,7 +2402,7 @@ func (s *MachineSuite) TestPrivateAddressPrefersProvider(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("10.0.0.1"))
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PublicAddress()
@@ -2360,7 +2417,10 @@ func (s *MachineSuite) TestPublicAddressPrefersProvider(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.2"))
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
@@ -2370,7 +2430,7 @@ func (s *MachineSuite) TestPublicAddressPrefersProvider(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "10.0.0.2")
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.4.4"))
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PublicAddress()
@@ -2385,7 +2445,10 @@ func (s *MachineSuite) TestAddressesPrefersProviderBoth(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.1"))
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err := machine.PublicAddress()
@@ -2395,7 +2458,7 @@ func (s *MachineSuite) TestAddressesPrefersProviderBoth(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addr.Value, gc.Equals, "10.0.0.1")
 
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("8.8.4.4"), network.NewSpaceAddress("10.0.0.2"))
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.4.4"), network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	addr, err = machine.PublicAddress()
@@ -2821,28 +2884,31 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Set machine addresses: reported.
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("abc"))
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("abc"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set provider addresses eclipsing machine addresses: reported.
-	err = machine.SetProviderAddresses(network.NewSpaceAddress("abc", network.WithScope(network.ScopePublic)))
+	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("abc", network.WithScope(network.ScopePublic)))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set same machine eclipsed by provider addresses: not reported.
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("abc", network.WithScope(network.ScopeCloudLocal)))
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("abc", network.WithScope(network.ScopeCloudLocal)))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
 	// Set different machine addresses: reported.
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("def"))
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("def"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	// Set different provider addresses: reported.
-	err = machine.SetMachineAddresses(network.NewSpaceAddress("def", network.WithScope(network.ScopePublic)))
+	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("def", network.WithScope(network.ScopePublic)))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
