@@ -31,12 +31,18 @@ type instanceTypesSuite struct {
 	st         *mocks.MockBackend
 	leadership *mocks.MockLeadership
 	api        *machinemanager.MachineManagerAPI
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&instanceTypesSuite{})
 
 func (s *instanceTypesSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin"), Controller: true}
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 }
 
 func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
@@ -45,7 +51,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 	s.st = mocks.NewMockBackend(ctrl)
 	s.leadership = mocks.NewMockLeadership(ctrl)
 	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
+	s.api, err = machinemanager.NewMachineManagerAPI(s.controllerConfigGetter, s.st,
 		nil,
 		nil,
 		machinemanager.ModelAuthorizer{
