@@ -95,7 +95,10 @@ func FromData(config ChangesConfig) ([]Change, error) {
 
 	var addedMachines map[string]*AddMachineChange
 	if resolver.bundle.Type != kubernetes {
-		addedMachines = resolver.handleMachines()
+		addedMachines, err = resolver.handleMachines()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	deployedBundleApps := alreadyDeployedApplicationsFromBundle(model, config.Bundle.Applications)

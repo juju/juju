@@ -33,7 +33,16 @@ type resolver struct {
 func (r *resolver) handleApplications() (map[string]string, error) {
 	add := r.changes.add
 	applications := r.bundle.Applications
-	defaultSeries := r.bundle.Series
+
+	var defaultSeries string
+	if r.bundle.Series != "" {
+		defaultSeries = r.bundle.Series
+	} else if r.bundle.DefaultBase != "" {
+		var err error
+		if defaultSeries, err = baseToSeries(r.bundle.DefaultBase); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 	existing := r.model
 
 	charms := make(map[string]string, len(applications))
@@ -405,11 +414,20 @@ func equalStringSlice(a, b []string) bool {
 
 // handleMachines populates the change set with "addMachines" records.
 // This function also handles adding machine annotations.
-func (r *resolver) handleMachines() map[string]*AddMachineChange {
+func (r *resolver) handleMachines() (map[string]*AddMachineChange, error) {
 	add := r.changes.add
 	machines := r.bundle.Machines
-	defaultSeries := r.bundle.Series
 	existing := r.model
+
+	var defaultSeries string
+	if r.bundle.Series != "" {
+		defaultSeries = r.bundle.Series
+	} else if r.bundle.DefaultBase != "" {
+		var err error
+		if defaultSeries, err = baseToSeries(r.bundle.DefaultBase); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
 
 	addedMachines := make(map[string]*AddMachineChange, len(machines))
 	// Iterate over the map using its sorted keys so that results are
@@ -427,11 +445,15 @@ func (r *resolver) handleMachines() map[string]*AddMachineChange {
 		if machine == nil {
 			machine = &charm.MachineSpec{}
 		}
-		series := machine.Series
-		if series == "" {
-			series = defaultSeries
+		series := defaultSeries
+		if machine.Series != "" {
+			series = machine.Series
+		} else if machine.Base != "" {
+			var err error
+			if series, err = baseToSeries(machine.Base); err != nil {
+				return nil, errors.Trace(err)
+			}
 		}
-
 		var id string
 		var target string
 		var requires []string
@@ -469,7 +491,7 @@ func (r *resolver) handleMachines() map[string]*AddMachineChange {
 			}, requires...))
 		}
 	}
-	return addedMachines
+	return addedMachines, nil
 }
 
 // handleRelations populates the change set with "addRelation" records.
@@ -1140,11 +1162,22 @@ func (r *resolver) handleUnits(addedApplications map[string]string, addedMachine
 		machChangeIDs.Add(v.Id())
 	}
 
+	var defaultSeries string
+	if r.bundle.Series != "" {
+		defaultSeries = r.bundle.Series
+	} else if r.bundle.DefaultBase != "" {
+		var err error
+		defaultSeries, err = baseToSeries(r.bundle.DefaultBase)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	processor := &unitProcessor{
 		add:                        r.changes.add,
 		existing:                   r.model,
 		bundle:                     r.bundle,
-		defaultSeries:              r.bundle.Series,
+		defaultSeries:              defaultSeries,
 		logger:                     r.logger,
 		addedApplications:          addedApplications,
 		addedMachines:              addedMachines,
@@ -1260,6 +1293,9 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 	if application.Series != "" {
 		return application.Series, nil
 	}
+	if application.Base != "" {
+		return baseToSeries(application.Base)
+	}
 
 	// Handle local charm paths.
 	if charm.IsValidLocalCharmOrBundlePath(application.Charm) {
@@ -1293,6 +1329,18 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 		return charmURL.Series, nil
 	}
 	return defaultSeries, nil
+}
+
+func baseToSeries(b string) (string, error) {
+	base, err := corebase.ParseBaseFromString(b)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	series, err := corebase.GetSeriesFromBase(base)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return series, nil
 }
 
 // parseEndpoint creates an endpoint from its string representation.

@@ -210,6 +210,7 @@ func (b *BundleAPI) GetChangesMapArgs(args params.BundleChangesParams) (params.B
 	}
 	return b.doGetBundleChangesMapArgs(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
 		results.Changes = make([]*params.BundleChangesMapArgs, len(changes))
+		results.Errors = make([]string, len(changes))
 		for i, c := range changes {
 			args, err := c.Args()
 			if err != nil {
