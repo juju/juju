@@ -27,6 +27,7 @@ func newFacade(ctx facade.Context) (*API, error) {
 	}
 	return NewAPI(
 		&stateShim{State: st, Model: model},
+		ctx.ServiceFactory().ControllerConfig(),
 		ctx.Auth(),
 		ctx.MachineTag(),
 		ctx.DataDir(),
