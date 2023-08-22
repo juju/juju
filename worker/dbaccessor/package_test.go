@@ -131,7 +131,7 @@ type dbBaseSuite struct {
 func ensureStartup(c *gc.C, w *dbWorker) {
 	select {
 	case <-w.dbReady:
-	case <-time.After(jujujujutesting.LongWait):
+	case <-time.After(jujutesting.LongWait):
 		c.Fatal("timed out waiting for Dqlite node start")
 	}
 }
