@@ -17,31 +17,27 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/worker/v3/workertest"
 	"github.com/kr/pretty"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/apiserver/common"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/controller"
-	coreapplication "github.com/juju/juju/core/application"
 	coreconfig "github.com/juju/juju/core/config"
-	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju/testing"
@@ -75,6 +71,8 @@ type uniterSuiteBase struct {
 	mysql             *state.Application
 	mysqlUnit         *state.Unit
 	leadershipChecker *fakeLeadershipChecker
+
+	controllerConfig *MockControllerConfigGetter
 }
 
 type leadershipRevoker struct {
@@ -93,6 +91,13 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.WithLeaseManager = true
 
 	s.ApiServerSuite.SetUpTest(c)
+}
+
+func (s *uniterSuiteBase) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.controllerConfig = NewMockControllerConfigGetter(ctrl)
+	s.controllerConfig.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 
 	s.setupState(c)
 
@@ -110,9 +115,11 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	s.leadershipChecker = &fakeLeadershipChecker{false}
+	s.leadershipChecker = &fakeLeadershipChecker{isLeader: false}
 	s.uniter = s.newUniterAPI(c, s.ControllerModel(c).State(), s.authorizer)
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
+
+	return ctrl
 }
 
 // setupState creates 2 machines, 2 services and adds a unit to each service.
@@ -171,7 +178,7 @@ func (s *uniterSuiteBase) newUniterAPI(c *gc.C, st *state.State, auth facade.Aut
 	facadeContext.State_ = st
 	facadeContext.Auth_ = auth
 	facadeContext.LeadershipRevoker_ = s.leadershipRevoker
-	uniterAPI, err := uniter.NewUniterAPI(facadeContext)
+	uniterAPI, err := uniter.NewUniterAPI(facadeContext, s.controllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	return uniterAPI
 }
@@ -241,16 +248,20 @@ type uniterSuite struct {
 var _ = gc.Suite(&uniterSuite{})
 
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("9")
 	context := s.facadeContext(c)
 	context.Auth_ = anAuthorizer
-	_, err := uniter.NewUniterAPI(context)
+	_, err := uniter.NewUniterAPI(context, s.controllerConfig)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *uniterSuite) TestSetStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Executing,
@@ -277,9 +288,9 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -296,6 +307,8 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetAgentStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Executing,
@@ -322,9 +335,9 @@ func (s *uniterSuite) TestSetAgentStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -341,6 +354,8 @@ func (s *uniterSuite) TestSetAgentStatus(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetUnitStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Active,
@@ -367,9 +382,9 @@ func (s *uniterSuite) TestSetUnitStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -386,6 +401,8 @@ func (s *uniterSuite) TestSetUnitStatus(c *gc.C) {
 }
 
 func (s *uniterSuite) TestLife(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Add a relation wordpress-mysql.
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
@@ -458,6 +475,8 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 }
 
 func (s *uniterSuite) TestEnsureDead(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
 	c.Assert(s.mysqlUnit.Life(), gc.Equals, state.Alive)
 
@@ -470,9 +489,9 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -490,7 +509,7 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 	result, err = s.uniter.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
+		Results: []params.ErrorResult{{Error: nil}},
 	})
 	c.Assert(s.leadershipRevoker.revoked.Contains(s.wordpressUnit.Name()), jc.IsTrue)
 
@@ -501,6 +520,8 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatch(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -546,6 +567,8 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 }
 
 func (s *uniterSuite) TestPublicAddress(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Try first without setting an address.
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -567,11 +590,8 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 	})
 
 	// Now set it an try again.
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine0.SetProviderAddresses(
-		controllerConfig,
+		coretesting.FakeControllerConfig(),
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopePublic)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -591,6 +611,8 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 }
 
 func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -611,11 +633,8 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 	})
 
 	// Now set it and try again.
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine0.SetProviderAddresses(
-		controllerConfig,
+		coretesting.FakeControllerConfig(),
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -637,11 +656,10 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 // TestNetworkInfoSpaceless is in uniterSuite and not uniterNetworkInfoSuite since we don't want
 // all the spaces set up.
 func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine0.SetProviderAddresses(
-		controllerConfig,
+	defer s.setupMocks(c).Finish()
+
+	err := s.machine0.SetProviderAddresses(
+		coretesting.FakeControllerConfig(),
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -680,6 +698,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAvailabilityZone(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.PatchValue(uniter.GetZone, func(st *state.State, tag names.Tag) (string, error) {
 		return "a_zone", nil
 	})
@@ -698,6 +718,8 @@ func (s *uniterSuite) TestAvailabilityZone(c *gc.C) {
 }
 
 func (s *uniterSuite) TestResolvedAPIV6(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, jc.ErrorIsNil)
 	mode := s.wordpressUnit.Resolved()
@@ -720,6 +742,8 @@ func (s *uniterSuite) TestResolvedAPIV6(c *gc.C) {
 }
 
 func (s *uniterSuite) TestClearResolved(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, jc.ErrorIsNil)
 	mode := s.wordpressUnit.Resolved()
@@ -734,9 +758,9 @@ func (s *uniterSuite) TestClearResolved(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -748,6 +772,8 @@ func (s *uniterSuite) TestClearResolved(c *gc.C) {
 }
 
 func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Add a subordinate to wordpressUnit.
 	_, _, subordinate := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
 
@@ -791,6 +817,8 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 }
 
 func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Try first without any subordinates for wordpressUnit.
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -826,6 +854,8 @@ func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
 }
 
 func (s *uniterSuite) TestDestroy(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -837,9 +867,9 @@ func (s *uniterSuite) TestDestroy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -849,6 +879,8 @@ func (s *uniterSuite) TestDestroy(c *gc.C) {
 }
 
 func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Add two subordinates to wordpressUnit.
 	_, _, loggingSub := s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
 	_, _, monitoringSub := s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
@@ -869,9 +901,9 @@ func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -885,6 +917,8 @@ func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
 }
 
 func (s *uniterSuite) TestCharmURL(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Set wordpressUnit's charm URL first.
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -926,6 +960,8 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	charmURL := s.wordpressUnit.CharmURL()
 	c.Assert(charmURL, gc.IsNil)
 
@@ -938,9 +974,9 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -954,6 +990,8 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWorkloadVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Set wordpressUnit's workload version first.
 	err := s.wordpressUnit.SetWorkloadVersion("capulet")
 	c.Assert(err, jc.ErrorIsNil)
@@ -983,6 +1021,8 @@ func (s *uniterSuite) TestWorkloadVersion(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetWorkloadVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	currentVersion, err := s.wordpressUnit.WorkloadVersion()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentVersion, gc.Equals, "")
@@ -996,9 +1036,9 @@ func (s *uniterSuite) TestSetWorkloadVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -1011,6 +1051,8 @@ func (s *uniterSuite) TestSetWorkloadVersion(c *gc.C) {
 }
 
 func (s *uniterSuite) TestCharmModifiedVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "application-mysql"},
 		{Tag: "application-wordpress"},
@@ -1030,6 +1072,8 @@ func (s *uniterSuite) TestCharmModifiedVersion(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.wordpress.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "sauceror central"})
@@ -1066,6 +1110,8 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	schema := environschema.Fields{
 		"trust": environschema.Attr{Type: environschema.Tbool},
 	}
@@ -1106,6 +1152,8 @@ func (s *uniterSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 }
 
 func (s *uniterSuite) TestLogActionMessage(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	operationID, err := s.ControllerModel(c).EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	anAction, err := s.ControllerModel(c).AddAction(s.wordpressUnit, operationID, "fakeaction", nil, nil, nil)
@@ -1140,6 +1188,8 @@ func (s *uniterSuite) TestLogActionMessage(c *gc.C) {
 }
 
 func (s *uniterSuite) TestLogActionMessageAborting(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	operationID, err := s.ControllerModel(c).EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	anAction, err := s.ControllerModel(c).AddAction(s.wordpressUnit, operationID, "fakeaction", nil, nil, nil)
@@ -1170,6 +1220,8 @@ func (s *uniterSuite) TestLogActionMessageAborting(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1218,6 +1270,8 @@ func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1256,6 +1310,8 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsMalformedTag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "ewenit-mysql-0"},
 	}}
@@ -1269,6 +1325,8 @@ func (s *uniterSuite) TestWatchActionNotificationsMalformedTag(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsMalformedUnitName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-01"},
 	}}
@@ -1282,6 +1340,8 @@ func (s *uniterSuite) TestWatchActionNotificationsMalformedUnitName(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsNotUnit(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	operationID, err := s.ControllerModel(c).EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.ControllerModel(c).AddAction(s.mysqlUnit, operationID, "fakeaction", nil, nil, nil)
@@ -1299,6 +1359,8 @@ func (s *uniterSuite) TestWatchActionNotificationsNotUnit(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-nonexistentgarbage-0"},
 	}}
@@ -1312,6 +1374,8 @@ func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
 }
 
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	res, err := s.uniter.SetCharmURL(context.Background(), params.EntitiesCharmURL{
 		Entities: []params.EntityCharmURL{
 			{
@@ -1345,6 +1409,8 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchUnitRelations(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -1373,6 +1439,8 @@ func (s *uniterSuite) TestWatchUnitRelations(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -1430,6 +1498,8 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -1492,6 +1562,8 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 }
 
 func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -1603,6 +1675,8 @@ func findSubordinateUnit(c *gc.C, subApp *state.Application, principalUnit *stat
 }
 
 func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -1625,6 +1699,8 @@ func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
 }
 
 func (s *uniterSuite) TestCurrentModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	model := s.ControllerModel(c)
 	result, err := s.uniter.CurrentModel(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1637,6 +1713,8 @@ func (s *uniterSuite) TestCurrentModel(c *gc.C) {
 }
 
 func (s *uniterSuite) TestActions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	parallel := false
 	executionGroup := "group"
 	var actionTests = []struct {
@@ -1702,6 +1780,8 @@ func (s *uniterSuite) TestActions(c *gc.C) {
 }
 
 func (s *uniterSuite) TestActionsNotPresent(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	uuid, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
@@ -1719,6 +1799,8 @@ func (s *uniterSuite) TestActionsNotPresent(c *gc.C) {
 }
 
 func (s *uniterSuite) TestActionsWrongUnit(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Action doesn't match unit.
 	mysqlUnitAuthorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.mysqlUnit.Tag(),
@@ -1741,6 +1823,8 @@ func (s *uniterSuite) TestActionsWrongUnit(c *gc.C) {
 }
 
 func (s *uniterSuite) TestActionsPermissionDenied(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	operationID, err := s.ControllerModel(c).EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.ControllerModel(c).AddAction(s.mysqlUnit, operationID, "fakeaction", nil, nil, nil)
@@ -1757,6 +1841,8 @@ func (s *uniterSuite) TestActionsPermissionDenied(c *gc.C) {
 }
 
 func (s *uniterSuite) TestFinishActionsSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	testName := "fakeaction"
 	testOutput := map[string]interface{}{"output": "completed fakeaction successfully"}
 
@@ -1791,6 +1877,8 @@ func (s *uniterSuite) TestFinishActionsSuccess(c *gc.C) {
 }
 
 func (s *uniterSuite) TestFinishActionsFailure(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	testName := "fakeaction"
 	testError := "fakeaction was a dismal failure"
 
@@ -1826,6 +1914,8 @@ func (s *uniterSuite) TestFinishActionsFailure(c *gc.C) {
 }
 
 func (s *uniterSuite) TestFinishActionsAuthAccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	operationID, err := s.ControllerModel(c).EnqueueOperation("a test", 2)
 	c.Assert(err, jc.ErrorIsNil)
 	good, err := s.ControllerModel(c).AddAction(s.wordpressUnit, operationID, "fakeaction", nil, nil, nil)
@@ -1869,6 +1959,8 @@ func (s *uniterSuite) TestFinishActionsAuthAccess(c *gc.C) {
 }
 
 func (s *uniterSuite) TestBeginActions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	ten_seconds_ago := time.Now().Add(-10 * time.Second)
 	operationID, err := s.ControllerModel(c).EnqueueOperation("a test", 1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1896,6 +1988,8 @@ func (s *uniterSuite) TestBeginActions(c *gc.C) {
 }
 
 func (s *uniterSuite) TestRelation(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	wpEp, err := rel.Endpoint("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1937,6 +2031,8 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 }
 
 func (s *uniterSuite) TestRelationById(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	c.Assert(rel.Id(), gc.Equals, 0)
 	wpEp, err := rel.Endpoint("wordpress")
@@ -1973,6 +2069,8 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 }
 
 func (s *uniterSuite) TestProviderType(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	cfg, err := s.ControllerModel(c).ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1982,12 +2080,11 @@ func (s *uniterSuite) TestProviderType(c *gc.C) {
 }
 
 func (s *uniterSuite) TestEnterScope(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Set wordpressUnit's private address first.
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.machine0.SetProviderAddresses(
-		controllerConfig,
+	err := s.machine0.SetProviderAddresses(
+		coretesting.FakeControllerConfig(),
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2014,17 +2111,17 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -2040,6 +2137,8 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 }
 
 func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -2119,6 +2218,8 @@ func countRelationScopes(c *gc.C, st *state.State, rel *state.Relation) int {
 }
 
 func (s *uniterSuite) TestLeaveScope(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2146,17 +2247,17 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{apiservertesting.ErrUnauthorized},
-			{&params.Error{Message: `"bar" is not a valid tag`}},
-			{apiservertesting.ErrUnauthorized},
-			{&params.Error{Message: `"application-wordpress" is not a valid unit tag`}},
-			{&params.Error{Message: `"application-mysql" is not a valid unit tag`}},
-			{&params.Error{Message: `"user-foo" is not a valid unit tag`}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: nil},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `"bar" is not a valid tag`}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{Message: `"application-wordpress" is not a valid unit tag`}},
+			{Error: &params.Error{Message: `"application-mysql" is not a valid unit tag`}},
+			{Error: &params.Error{Message: `"user-foo" is not a valid unit tag`}},
 		},
 	})
 
@@ -2168,6 +2269,8 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 }
 
 func (s *uniterSuite) TestRelationsSuspended(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2188,12 +2291,12 @@ func (s *uniterSuite) TestRelationsSuspended(c *gc.C) {
 
 	args := params.Entities{
 		Entities: []params.Entity{
-			{s.wordpressUnit.Tag().String()},
-			{s.mysqlUnit.Tag().String()},
-			{"unit-unknown-1"},
-			{"application-wordpress"},
-			{"machine-0"},
-			{rel.Tag().String()},
+			{Tag: s.wordpressUnit.Tag().String()},
+			{Tag: s.mysqlUnit.Tag().String()},
+			{Tag: "unit-unknown-1"},
+			{Tag: "application-wordpress"},
+			{Tag: "machine-0"},
+			{Tag: rel.Tag().String()},
 		},
 	}
 	expect := params.RelationUnitStatusResults{
@@ -2227,6 +2330,8 @@ func (s *uniterSuite) TestRelationsSuspended(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2236,7 +2341,7 @@ func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
 	s.leadershipChecker.isLeader = false
 	args := params.RelationStatusArgs{
 		Args: []params.RelationStatusArg{
-			{s.wordpressUnit.Tag().String(), rel.Id(), params.Suspended, "message"},
+			{UnitTag: s.wordpressUnit.Tag().String(), RelationId: rel.Id(), Status: params.Suspended, Message: "message"},
 		},
 	}
 	result, err := s.uniter.SetRelationStatus(context.Background(), args)
@@ -2245,6 +2350,8 @@ func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	err := rel.SetStatus(status.StatusInfo{Status: status.Suspending, Message: "going, going"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2275,10 +2382,10 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 
 	args := params.RelationStatusArgs{
 		Args: []params.RelationStatusArg{
-			{s.wordpressUnit.Tag().String(), rel.Id(), params.Suspended, "message"},
+			{UnitTag: s.wordpressUnit.Tag().String(), RelationId: rel.Id(), Status: params.Suspended, Message: "message"},
 			// This arg omits the explicit unit tag to test older servers.
 			{RelationId: rel2.Id(), Status: params.Suspended, Message: "gone"},
-			{s.wordpressUnit.Tag().String(), rel3.Id(), params.Broken, ""},
+			{UnitTag: s.wordpressUnit.Tag().String(), RelationId: rel3.Id(), Status: params.Broken, Message: ""},
 			{RelationId: 4},
 		},
 	}
@@ -2309,6 +2416,8 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 }
 
 func (s *uniterSuite) TestReadSettings(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2363,6 +2472,8 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 }
 
 func (s *uniterSuite) TestReadSettingsForApplicationWhenNotLeader(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2393,6 +2504,8 @@ func (s *uniterSuite) TestReadSettingsForApplicationWhenNotLeader(c *gc.C) {
 }
 
 func (s *uniterSuite) TestReadSettingsForApplicationInPeerRelation(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -2440,6 +2553,8 @@ func (s *uniterSuite) TestReadSettingsForApplicationInPeerRelation(c *gc.C) {
 }
 
 func (s *uniterSuite) TestReadLocalApplicationSettingsWhenNotLeader(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2465,6 +2580,8 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsWhenNotLeader(c *gc.C) {
 }
 
 func (s *uniterSuite) TestReadLocalApplicationSettingsForAnotherApplicationAsAnOperator(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2492,6 +2609,8 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsForAnotherApplicationAsAnO
 }
 
 func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelation(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -2537,6 +2656,8 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelation(c *gc.C) {
 }
 
 func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelationAsAnOperator(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -2583,6 +2704,8 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelationAsAnOperator
 }
 
 func (s *uniterSuite) TestReadSettingsWithNonStringValuesFails(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2608,6 +2731,8 @@ func (s *uniterSuite) TestReadSettingsWithNonStringValuesFails(c *gc.C) {
 }
 
 func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2704,6 +2829,8 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 }
 
 func (s *uniterSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -2756,6 +2883,8 @@ func (s *uniterSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
 }
 
 func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2783,6 +2912,8 @@ func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
 }
 
 func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -2831,6 +2962,8 @@ func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) 
 }
 
 func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelationSidecar(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	_, cm, app, unit := s.setupCAASModel(c)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
@@ -2867,6 +3000,8 @@ func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelationSide
 }
 
 func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Add a relation between wordpress and mysql and enter scope with
 	// mysqlUnit.
 	rel := s.addRelation(c, "wordpress", "mysql")
@@ -2903,7 +3038,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	expectChanges := params.RelationUnitsChange{
 		Changed: map[string]params.UnitSettings{
-			"mysql/0": {changed.Version},
+			"mysql/0": {Version: changed.Version},
 		},
 		AppChanged: map[string]int64{
 			"mysql": 0,
@@ -2984,13 +3119,13 @@ func (s *uniterSuite) assertRUWChange(c *gc.C, w common.RelationUnitsWatcher, ch
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	hostPorts := []network.SpaceHostPorts{
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
 	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.SetAPIHostPorts(controllerConfig, hostPorts)
+	err := st.SetAPIHostPorts(coretesting.FakeControllerConfig(), hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.APIAddresses(context.Background())
@@ -3001,6 +3136,8 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -3041,6 +3178,8 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
 }
 
 func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	_, cm, _, _ := s.setupCAASModel(c)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
@@ -3082,7 +3221,9 @@ func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 }
 
 func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
+	defer s.setupMocks(c).Finish()
+
+	args := params.Entities{Entities: []params.Entity{{Tag: s.mysqlUnit.Tag().String()}}}
 	result, err := s.uniter.GetMeterStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -3092,6 +3233,8 @@ func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
 }
 
 func (s *uniterSuite) TestGetMeterStatusBadTag(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	tags := []string{
 		"user-admin",
 		"unit-nosuchunit",
@@ -3133,6 +3276,8 @@ func (s *uniterSuite) addRelatedApplication(c *gc.C, firstSvc, relatedApp string
 }
 
 func (s *uniterSuite) TestRequestReboot(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.machine0.Tag().String()},
 		{Tag: s.machine1.Tag().String()},
@@ -3177,6 +3322,8 @@ func checkUnorderedActionIdsEqual(c *gc.C, ids []string, results params.StringsW
 }
 
 func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -3238,6 +3385,8 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 }
 
 func (s *uniterSuite) TestUnitStatus(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	now := time.Now()
 	sInfo := status.StatusInfo{
 		Status:  status.Maintenance,
@@ -3285,6 +3434,8 @@ func (s *uniterSuite) TestUnitStatus(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -3316,6 +3467,8 @@ func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
 }
 
 func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Verify no ports are opened yet on the machine (or unit).
 	machinePortRanges, err := s.machine0.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3350,17 +3503,17 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 		"unit-mysql-1": {
 			{
 				Endpoint:   "server",
-				PortRanges: []params.PortRange{{3306, 3306, "tcp"}},
+				PortRanges: []params.PortRange{{FromPort: 3306, ToPort: 3306, Protocol: "tcp"}},
 			},
 		},
 		"unit-wordpress-0": {
 			{
 				Endpoint:   "",
-				PortRanges: []params.PortRange{{100, 200, "tcp"}},
+				PortRanges: []params.PortRange{{FromPort: 100, ToPort: 200, Protocol: "tcp"}},
 			},
 			{
 				Endpoint:   "monitoring-port",
-				PortRanges: []params.PortRange{{10, 20, "udp"}},
+				PortRanges: []params.PortRange{{FromPort: 10, ToPort: 20, Protocol: "udp"}},
 			},
 		},
 	}
@@ -3381,6 +3534,8 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSLALevel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	err := s.ControllerModel(c).State().SetSLA("essential", "bob", []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -3393,12 +3548,10 @@ func (s *uniterSuite) setupRemoteRelationScenario(c *gc.C) (names.Tag, *state.Re
 	s.makeRemoteWordpress(c)
 
 	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Set mysql's addresses first.
-	err = s.machine1.SetProviderAddresses(
-		controllerConfig,
+	err := s.machine1.SetProviderAddresses(
+		coretesting.FakeControllerConfig(),
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic)),
 	)
@@ -3416,6 +3569,8 @@ func (s *uniterSuite) setupRemoteRelationScenario(c *gc.C) (names.Tag, *state.Re
 }
 
 func (s *uniterSuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
 	thisUniter := s.makeMysqlUniter(c)
@@ -3440,17 +3595,15 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
 }
 
 func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
 	thisUniter := s.makeMysqlUniter(c)
 
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	// Set mysql's addresses - no public address.
-	err = s.machine1.SetProviderAddresses(
-		controllerConfig,
+	err := s.machine1.SetProviderAddresses(
+		coretesting.FakeControllerConfig(),
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3476,6 +3629,8 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
 }
 
 func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
 	// Check model attributes are overridden by setting up a value.
@@ -3509,6 +3664,8 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 }
 
 func (s *uniterSuite) TestModelEgressSubnets(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
 	err := s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
@@ -3559,13 +3716,15 @@ func (s *uniterSuite) makeRemoteWordpress(c *gc.C) {
 }
 
 func (s *uniterSuite) TestRefresh(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	args := params.Entities{
 		Entities: []params.Entity{
-			{s.wordpressUnit.Tag().String()},
-			{s.mysqlUnit.Tag().String()},
-			{s.mysql.Tag().String()},
-			{s.machine0.Tag().String()},
-			{"some-word"},
+			{Tag: s.wordpressUnit.Tag().String()},
+			{Tag: s.mysqlUnit.Tag().String()},
+			{Tag: s.mysql.Tag().String()},
+			{Tag: s.machine0.Tag().String()},
+			{Tag: "some-word"},
 		},
 	}
 	expect := params.UnitRefreshResults{
@@ -3583,12 +3742,16 @@ func (s *uniterSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *uniterSuite) TestRefreshNoArgs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	results, err := s.uniter.Refresh(context.Background(), params.Entities{Entities: []params.Entity{}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UnitRefreshResults{Results: []params.UnitRefreshResult{}})
 }
 
 func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	_, cm, app, unit := s.setupCAASModel(c)
 	st := cm.State()
 
@@ -3630,6 +3793,8 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
 }
 
 func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	_, cm, app, unit := s.setupCAASModel(c)
 	st := cm.State()
 
@@ -3673,910 +3838,9 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 	})
 }
 
-type unitMetricBatchesSuite struct {
-	uniterSuiteBase
-	*commontesting.ModelWatcherTest
-	uniter *uniter.UniterAPI
-
-	meteredApplication *state.Application
-	meteredCharm       *state.Charm
-	meteredUnit        *state.Unit
-}
-
-var _ = gc.Suite(&unitMetricBatchesSuite{})
-
-func (s *unitMetricBatchesSuite) SetUpTest(c *gc.C) {
-	s.uniterSuiteBase.SetUpTest(c)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	s.meteredCharm = f.MakeCharm(c, &factory.CharmParams{
-		Name: "metered",
-		URL:  "ch:amd64/quantal/metered",
-	})
-	s.meteredApplication = f.MakeApplication(c, &factory.ApplicationParams{
-		Charm: s.meteredCharm,
-	})
-	s.meteredUnit = f.MakeUnit(c, &factory.UnitParams{
-		Application: s.meteredApplication,
-		SetCharmURL: true,
-	})
-
-	meteredAuthorizer := apiservertesting.FakeAuthorizer{
-		Tag: s.meteredUnit.Tag(),
-	}
-	st := s.ControllerModel(c).State()
-	s.uniter = s.newUniterAPI(c, st, meteredAuthorizer)
-
-	s.ModelWatcherTest = commontesting.NewModelWatcherTest(
-		s.uniter,
-		st,
-		s.resources,
-	)
-}
-
-func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
-	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
-
-	result, err := s.uniter.AddMetricBatches(context.Background(), params.MetricBatchParams{
-		Batches: []params.MetricBatchParam{{
-			Tag: s.meteredUnit.Tag().String(),
-			Batch: params.MetricBatch{
-				UUID:     uuid,
-				CharmURL: s.meteredCharm.String(),
-				Created:  time.Now(),
-				Metrics:  metrics,
-			}}}},
-	)
-
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	batch, err := s.ControllerModel(c).State().MetricBatch(uuid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(batch.UUID(), gc.Equals, uuid)
-	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.String())
-	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
-	storedMetrics := batch.Metrics()
-	c.Assert(storedMetrics, gc.HasLen, 1)
-	c.Assert(storedMetrics[0].Key, gc.Equals, metrics[0].Key)
-	c.Assert(storedMetrics[0].Value, gc.Equals, metrics[0].Value)
-}
-
-func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
-	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
-
-	result, err := s.uniter.AddMetricBatches(context.Background(), params.MetricBatchParams{
-		Batches: []params.MetricBatchParam{{
-			Tag: s.meteredUnit.Tag().String(),
-			Batch: params.MetricBatch{
-				UUID:     uuid,
-				CharmURL: s.meteredCharm.String(),
-				Created:  time.Now(),
-				Metrics:  metrics,
-			}}}})
-
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{{nil}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	batch, err := s.ControllerModel(c).State().MetricBatch(uuid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(batch.UUID(), gc.Equals, uuid)
-	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.String())
-	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
-	storedMetrics := batch.Metrics()
-	c.Assert(storedMetrics, gc.HasLen, 1)
-	c.Assert(storedMetrics[0].Key, gc.Equals, metrics[0].Key)
-	c.Assert(storedMetrics[0].Value, gc.Equals, metrics[0].Value)
-}
-
-func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	unit2 := f.MakeUnit(c, &factory.UnitParams{Application: s.meteredApplication, SetCharmURL: true})
-
-	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
-	uuid := utils.MustNewUUID().String()
-
-	tests := []struct {
-		about  string
-		tag    string
-		expect string
-	}{{
-		about:  "different unit",
-		tag:    unit2.Tag().String(),
-		expect: "permission denied",
-	}, {
-		about:  "user tag",
-		tag:    names.NewLocalUserTag("admin").String(),
-		expect: `"user-admin" is not a valid unit tag`,
-	}, {
-		about:  "machine tag",
-		tag:    names.NewMachineTag("0").String(),
-		expect: `"machine-0" is not a valid unit tag`,
-	}}
-
-	for i, test := range tests {
-		c.Logf("test %d: %s", i, test.about)
-		result, err := s.uniter.AddMetricBatches(context.Background(), params.MetricBatchParams{
-			Batches: []params.MetricBatchParam{{
-				Tag: test.tag,
-				Batch: params.MetricBatch{
-					UUID:     uuid,
-					CharmURL: "",
-					Created:  time.Now(),
-					Metrics:  metrics,
-				}}}})
-
-		if test.expect == "" {
-			c.Assert(result.OneError(), jc.ErrorIsNil)
-		} else {
-			c.Assert(result.OneError(), gc.ErrorMatches, test.expect)
-		}
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = s.ControllerModel(c).State().MetricBatch(uuid)
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	}
-}
-
-type uniterNetworkInfoSuite struct {
-	uniterSuiteBase
-	mysqlCharm *state.Charm
-	st         *state.State
-}
-
-var _ = gc.Suite(&uniterNetworkInfoSuite{})
-
-func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
-	s.ControllerConfigAttrs = map[string]interface{}{
-		controller.Features: feature.RawK8sSpec,
-	}
-
-	s.uniterSuiteBase.ApiServerSuite.SetUpTest(c)
-	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
-
-	net := map[string][]string{
-		"public":     {"8.8.0.0/16", "240.0.0.0/12"},
-		"internal":   {"10.0.0.0/24"},
-		"wp-default": {"100.64.0.0/16"},
-		"database":   {"192.168.1.0/24"},
-		"layertwo":   nil,
-	}
-
-	s.st = s.ControllerModel(c).State()
-	for spaceName, cidrs := range net {
-		space, err := s.st.AddSpace(spaceName, "", nil, false)
-		c.Assert(err, jc.ErrorIsNil)
-
-		for _, cidr := range cidrs {
-			_, err = s.st.AddSubnet(network.SubnetInfo{
-				CIDR:    cidr,
-				SpaceID: space.Id(),
-			})
-			c.Assert(err, jc.ErrorIsNil)
-		}
-	}
-
-	s.machine0 = s.addProvisionedMachineWithDevicesAndAddresses(c, 10)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	s.wpCharm = f.MakeCharm(c, &factory.CharmParams{
-		Name: "wordpress-extra-bindings",
-		URL:  "ch:amd64/quantal/wordpress-extra-bindings-4",
-	})
-	var err error
-	s.wordpress, err = s.st.AddApplication(state.AddApplicationArgs{
-		Name:        "wordpress",
-		Charm:       s.wpCharm,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "12.10/stable"}},
-		EndpointBindings: map[string]string{
-			"db":        "internal",   // relation name
-			"admin-api": "public",     // extra-binding name
-			"foo-bar":   "layertwo",   // extra-binding to L2
-			"":          "wp-default", // explicitly specified default space
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
-		Application: s.wordpress,
-		Machine:     s.machine0,
-	})
-
-	s.machine1 = s.addProvisionedMachineWithDevicesAndAddresses(c, 20)
-
-	s.mysqlCharm = f.MakeCharm(c, &factory.CharmParams{
-		Name: "mysql",
-	})
-	s.mysql = f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "mysql",
-		Charm: s.mysqlCharm,
-		EndpointBindings: map[string]string{
-			"server": "database",
-		},
-	})
-	s.wordpressUnit = f.MakeUnit(c, &factory.UnitParams{
-		Application: s.wordpress,
-		Machine:     s.machine0,
-	})
-	s.mysqlUnit = f.MakeUnit(c, &factory.UnitParams{
-		Application: s.mysql,
-		Machine:     s.machine1,
-	})
-
-	// Create the resource registry separately to track invocations to
-	// Register.
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-
-	s.leadershipChecker = &fakeLeadershipChecker{false}
-	s.setupUniterAPIForUnit(c, s.wordpressUnit)
-}
-
-func (s *uniterNetworkInfoSuite) addProvisionedMachineWithDevicesAndAddresses(c *gc.C, addrSuffix int) *state.Machine {
-	machine, err := s.st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetInstanceInfo("i-am", "", "fake_nonce", nil, nil, nil, nil, nil, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	devicesArgs, devicesAddrs := s.makeMachineDevicesAndAddressesArgs(addrSuffix)
-	c.Assert(machine.SetLinkLayerDevices(devicesArgs...), jc.ErrorIsNil)
-	c.Assert(machine.SetDevicesAddresses(devicesAddrs...), jc.ErrorIsNil)
-
-	machineAddrs, err := machine.AllDeviceAddresses()
-	c.Assert(err, jc.ErrorIsNil)
-
-	netAddrs := make([]network.SpaceAddress, len(machineAddrs))
-	for i, addr := range machineAddrs {
-		netAddrs[i] = network.NewSpaceAddress(addr.Value())
-	}
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProviderAddresses(controllerConfig, netAddrs...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return machine
-}
-
-func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix int) ([]state.LinkLayerDeviceArgs, []state.LinkLayerDeviceAddress) {
-	return []state.LinkLayerDeviceArgs{{
-			Name:       "eth0",
-			Type:       network.EthernetDevice,
-			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:50", addrSuffix),
-		}, {
-			Name:       "eth0.100",
-			Type:       network.VLAN8021QDevice,
-			ParentName: "eth0",
-			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:50", addrSuffix),
-		}, {
-			Name:       "eth1",
-			Type:       network.EthernetDevice,
-			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:51", addrSuffix),
-		}, {
-			Name:       "eth1.100",
-			Type:       network.VLAN8021QDevice,
-			ParentName: "eth1",
-			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:51", addrSuffix),
-		}, {
-			Name:       "eth2",
-			Type:       network.EthernetDevice,
-			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:52", addrSuffix),
-		}, {
-			Name:       "eth3",
-			Type:       network.EthernetDevice,
-			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:53", addrSuffix),
-		}, {
-			Name:       "eth4",
-			Type:       network.EthernetDevice,
-			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:54", addrSuffix),
-		}, {
-			Name:       "fan-1",
-			Type:       network.EthernetDevice,
-			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:55", addrSuffix),
-		}},
-		[]state.LinkLayerDeviceAddress{{
-			DeviceName:   "eth0",
-			ConfigMethod: network.ConfigStatic,
-			CIDRAddress:  fmt.Sprintf("8.8.8.%d/16", addrSuffix),
-		}, {
-			DeviceName:   "eth0.100",
-			ConfigMethod: network.ConfigStatic,
-			CIDRAddress:  fmt.Sprintf("10.0.0.%d/24", addrSuffix),
-		}, {
-			DeviceName:   "eth1",
-			ConfigMethod: network.ConfigStatic,
-			CIDRAddress:  fmt.Sprintf("8.8.4.%d/16", addrSuffix),
-		}, {
-			DeviceName:   "eth1",
-			ConfigMethod: network.ConfigStatic,
-			CIDRAddress:  fmt.Sprintf("8.8.4.%d/16", addrSuffix+1),
-		}, {
-			DeviceName:   "eth1.100",
-			ConfigMethod: network.ConfigStatic,
-			CIDRAddress:  fmt.Sprintf("10.0.0.%d/24", addrSuffix+1),
-		}, {
-			DeviceName:   "eth2",
-			ConfigMethod: network.ConfigStatic,
-			CIDRAddress:  fmt.Sprintf("100.64.0.%d/16", addrSuffix),
-		}, {
-			DeviceName:   "eth4",
-			ConfigMethod: network.ConfigStatic,
-			CIDRAddress:  fmt.Sprintf("192.168.1.%d/24", addrSuffix),
-		}, {
-			DeviceName:   "fan-1",
-			ConfigMethod: network.ConfigStatic,
-			CIDRAddress:  fmt.Sprintf("240.1.1.%d/12", addrSuffix),
-		}}
-}
-
-func (s *uniterNetworkInfoSuite) setupUniterAPIForUnit(c *gc.C, givenUnit *state.Unit) {
-	// Create a FakeAuthorizer so we can check permissions, set up assuming the
-	// given unit agent has logged in.
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: givenUnit.Tag(),
-	}
-	s.uniter = s.newUniterAPI(c, s.st, s.authorizer)
-}
-
-func (s *uniterNetworkInfoSuite) addRelationAndAssertInScope(c *gc.C) {
-	// Add a relation between wordpress and mysql and enter scope with
-	// mysqlUnit.
-	rel := s.addRelation(c, "wordpress", "mysql")
-	wpRelUnit, err := rel.Unit(s.wordpressUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = wpRelUnit.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, wpRelUnit, true)
-}
-
-func (s *uniterNetworkInfoSuite) TestNetworkInfoPermissions(c *gc.C) {
-	s.addRelationAndAssertInScope(c)
-	var tests = []struct {
-		Name   string
-		Arg    params.NetworkInfoParams
-		Result params.NetworkInfoResults
-		Error  string
-	}{
-		{
-			"Wrong unit name",
-			params.NetworkInfoParams{Unit: "unit-foo-0", Endpoints: []string{"foo"}},
-			params.NetworkInfoResults{},
-			"permission denied",
-		},
-		{
-			"Invalid tag",
-			params.NetworkInfoParams{Unit: "invalid", Endpoints: []string{"db-client"}},
-			params.NetworkInfoResults{},
-			`"invalid" is not a valid tag`,
-		},
-		{
-			"No access to unit",
-			params.NetworkInfoParams{Unit: "unit-mysql-0", Endpoints: []string{"juju-info"}},
-			params.NetworkInfoResults{},
-			"permission denied",
-		},
-		{
-			"Unknown binding name",
-			params.NetworkInfoParams{Unit: s.wordpressUnit.Tag().String(), Endpoints: []string{"unknown"}},
-			params.NetworkInfoResults{
-				Results: map[string]params.NetworkInfoResult{
-					"unknown": {
-						Error: &params.Error{
-							Code:    params.CodeNotValid,
-							Message: `undefined for unit charm: endpoint "unknown" not valid`,
-						},
-					},
-				},
-			},
-			"",
-		},
-	}
-
-	for _, test := range tests {
-		c.Logf("Testing %s", test.Name)
-		result, err := s.uniter.NetworkInfo(context.Background(), test.Arg)
-		if test.Error != "" {
-			c.Check(err, gc.ErrorMatches, test.Error)
-		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Check(result, jc.DeepEquals, test.Result)
-		}
-	}
-}
-
-func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDefaultSpace(c *gc.C) {
-	s.addRelationAndAssertInScope(c)
-
-	args := params.NetworkInfoParams{
-		Unit:      s.wordpressUnit.Tag().String(),
-		Endpoints: []string{"db", "admin-api", "db-client"},
-	}
-	// For the relation "wordpress:db mysql:server" we expect to see only
-	// ifaces in the "internal" space, where the "db" endpoint itself
-	// is bound to.
-	expectedConfigWithRelationName := params.NetworkInfoResult{
-		Info: []params.NetworkInfo{
-			{
-				MACAddress:    "00:11:22:33:10:50",
-				InterfaceName: "eth0.100",
-				Addresses: []params.InterfaceAddress{
-					{Address: "10.0.0.10", CIDR: "10.0.0.0/24"},
-				},
-			},
-			{
-				MACAddress:    "00:11:22:33:10:51",
-				InterfaceName: "eth1.100",
-				Addresses: []params.InterfaceAddress{
-					{Address: "10.0.0.11", CIDR: "10.0.0.0/24"},
-				},
-			},
-		},
-		EgressSubnets:    []string{"10.0.0.10/32"},
-		IngressAddresses: []string{"10.0.0.10", "10.0.0.11"},
-	}
-	// For the "admin-api" extra-binding we expect to see only interfaces from
-	// the "public" space.
-	expectedConfigWithExtraBindingName := params.NetworkInfoResult{
-		Info: []params.NetworkInfo{
-			{
-				MACAddress:    "00:11:22:33:10:51",
-				InterfaceName: "eth1",
-				Addresses: []params.InterfaceAddress{
-					{Address: "8.8.4.10", CIDR: "8.8.0.0/16"},
-					{Address: "8.8.4.11", CIDR: "8.8.0.0/16"},
-				},
-			},
-			{
-				MACAddress:    "00:11:22:33:10:50",
-				InterfaceName: "eth0",
-				Addresses: []params.InterfaceAddress{
-					{Address: "8.8.8.10", CIDR: "8.8.0.0/16"},
-				},
-			},
-			{
-				MACAddress:    "00:11:22:33:10:55",
-				InterfaceName: "fan-1",
-				Addresses: []params.InterfaceAddress{
-					{Address: "240.1.1.10", CIDR: "240.0.0.0/12"},
-				},
-			},
-		},
-		// Egress is based on the first ingress address.
-		// Addresses are sorted, with fan always last.
-		EgressSubnets:    []string{"8.8.4.10/32"},
-		IngressAddresses: []string{"8.8.4.10", "8.8.4.11", "8.8.8.10", "240.1.1.10"},
-	}
-
-	// For the "db-client" extra-binding we expect to see interfaces from default
-	// "wp-default" space
-	expectedConfigWithDefaultSpace := params.NetworkInfoResult{
-		Info: []params.NetworkInfo{
-			{
-				MACAddress:    "00:11:22:33:10:52",
-				InterfaceName: "eth2",
-				Addresses: []params.InterfaceAddress{
-					{Address: "100.64.0.10", CIDR: "100.64.0.0/16"},
-				},
-			},
-		},
-		EgressSubnets:    []string{"100.64.0.10/32"},
-		IngressAddresses: []string{"100.64.0.10"},
-	}
-
-	result, err := s.uniter.NetworkInfo(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
-		Results: map[string]params.NetworkInfoResult{
-			"db":        expectedConfigWithRelationName,
-			"admin-api": expectedConfigWithExtraBindingName,
-			"db-client": expectedConfigWithDefaultSpace,
-		},
-	})
-}
-
-func (s *uniterNetworkInfoSuite) TestNetworkInfoL2Binding(c *gc.C) {
-	c.Skip("L2 not supported yet")
-	s.addRelationAndAssertInScope(c)
-
-	args := params.NetworkInfoParams{
-		Unit:      s.wordpressUnit.Tag().String(),
-		Endpoints: []string{"foo-bar"},
-	}
-
-	expectedInfo := params.NetworkInfoResult{
-		Info: []params.NetworkInfo{
-			{
-				MACAddress:    "00:11:22:33:10:50",
-				InterfaceName: "eth2",
-			},
-		},
-	}
-
-	result, err := s.uniter.NetworkInfo(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
-		Results: map[string]params.NetworkInfoResult{
-			"foo-bar": expectedInfo,
-		},
-	})
-}
-
-func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc.C) {
-	// Since wordpressUnit has explicit binding for "db", switch the API to
-	// mysqlUnit and check "mysql:server" uses the machine preferred private
-	// address.
-	s.setupUniterAPIForUnit(c, s.mysqlUnit)
-	rel := s.addRelation(c, "mysql", "wordpress")
-	mysqlRelUnit, err := rel.Unit(s.mysqlUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRelUnit.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, mysqlRelUnit, true)
-
-	args := params.NetworkInfoParams{
-		Unit:      s.mysqlUnit.Tag().String(),
-		Endpoints: []string{"server"},
-	}
-
-	expectedInfo := params.NetworkInfoResult{
-		Info: []params.NetworkInfo{
-			{
-				MACAddress:    "00:11:22:33:20:54",
-				InterfaceName: "eth4",
-				Addresses: []params.InterfaceAddress{
-					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
-				},
-			},
-		},
-		EgressSubnets:    []string{"192.168.1.20/32"},
-		IngressAddresses: []string{"192.168.1.20"},
-	}
-
-	result, err := s.uniter.NetworkInfo(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
-		Results: map[string]params.NetworkInfoResult{
-			"server": expectedInfo,
-		},
-	})
-}
-
-func (s *uniterNetworkInfoSuite) TestNetworkInfoForJujuInfoDefaultSpace(c *gc.C) {
-	s.setupUniterAPIForUnit(c, s.mysqlUnit)
-
-	m, err := s.st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.UpdateModelConfig(map[string]interface{}{"default-space": "database"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := params.NetworkInfoParams{
-		Unit:      s.mysqlUnit.Tag().String(),
-		Endpoints: []string{"juju-info"},
-	}
-
-	expectedInfo := params.NetworkInfoResult{
-		Info: []params.NetworkInfo{
-			{
-				MACAddress:    "00:11:22:33:20:54",
-				InterfaceName: "eth4",
-				Addresses: []params.InterfaceAddress{
-					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
-				},
-			},
-		},
-		EgressSubnets:    []string{"192.168.1.20/32"},
-		IngressAddresses: []string{"192.168.1.20"},
-	}
-
-	result, err := s.uniter.NetworkInfo(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
-		Results: map[string]params.NetworkInfoResult{
-			"juju-info": expectedInfo,
-		},
-	})
-}
-
-func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBinding(c *gc.C) {
-	// If a network info call is made in the context of a relation, and the
-	// endpoint of that relation is bound to the non default space, we
-	// provide the ingress addresses as those belonging to the space.
-	s.setupUniterAPIForUnit(c, s.mysqlUnit)
-	_, err := s.st.AddRemoteApplication(state.AddRemoteApplicationParams{
-		SourceModel: coretesting.ModelTag,
-		Name:        "wordpress-remote",
-		Endpoints:   []charm.Relation{{Name: "db", Interface: "mysql", Role: "requirer"}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	rel := s.addRelation(c, "mysql", "wordpress-remote")
-	mysqlRelUnit, err := rel.Unit(s.mysqlUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRelUnit.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, mysqlRelUnit, true)
-
-	// Relation specific egress subnets override model config.
-	err = s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	relEgress := state.NewRelationEgressNetworks(s.st)
-	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	relId := rel.Id()
-	args := params.NetworkInfoParams{
-		Unit:       s.mysqlUnit.Tag().String(),
-		Endpoints:  []string{"server"},
-		RelationId: &relId,
-	}
-
-	expectedInfo := params.NetworkInfoResult{
-		Info: []params.NetworkInfo{
-			{
-				MACAddress:    "00:11:22:33:20:54",
-				InterfaceName: "eth4",
-				Addresses: []params.InterfaceAddress{
-					{Address: "192.168.1.20", CIDR: "192.168.1.0/24"},
-				},
-			},
-		},
-		EgressSubnets:    []string{"192.168.1.0/24"},
-		IngressAddresses: []string{"192.168.1.20"},
-	}
-
-	result, err := s.uniter.NetworkInfo(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
-		Results: map[string]params.NetworkInfoResult{
-			"server": expectedInfo,
-		},
-	})
-}
-
-func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBinding(c *gc.C) {
-	// If a network info call is made in the context of a relation, and the
-	// endpoint of that relation is not bound, or bound to the default space, we
-	// provide the ingress address relevant to the relation: public for CMR.
-	_, err := s.st.AddRemoteApplication(state.AddRemoteApplicationParams{
-		SourceModel: coretesting.ModelTag,
-		Name:        "wordpress-remote",
-		Endpoints:   []charm.Relation{{Name: "db", Interface: "mysql", Role: "requirer"}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	// Recreate mysql app without endpoint binding.
-	s.mysql = f.MakeApplication(c, &factory.ApplicationParams{
-		Name:  "mysql-default",
-		Charm: s.mysqlCharm,
-	})
-	s.mysqlUnit = f.MakeUnit(c, &factory.UnitParams{
-		Application: s.mysql,
-		Machine:     s.machine1,
-	})
-	s.setupUniterAPIForUnit(c, s.mysqlUnit)
-
-	rel := s.addRelation(c, "mysql-default", "wordpress-remote")
-	mysqlRelUnit, err := rel.Unit(s.mysqlUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlRelUnit.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, mysqlRelUnit, true)
-
-	// Relation specific egress subnets override model config.
-	err = s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	relEgress := state.NewRelationEgressNetworks(s.st)
-	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	relId := rel.Id()
-	args := params.NetworkInfoParams{
-		Unit:       s.mysqlUnit.Tag().String(),
-		Endpoints:  []string{"server"},
-		RelationId: &relId,
-	}
-
-	// Since it is a remote relation, the expected ingress address is set to the
-	// machine's public address.
-	expectedIngressAddress, err := s.machine1.PublicAddress()
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedInfo := params.NetworkInfoResult{
-		Info: []params.NetworkInfo{
-			{
-				MACAddress:    "00:11:22:33:20:50",
-				InterfaceName: "eth0.100",
-				Addresses: []params.InterfaceAddress{
-					{Address: "10.0.0.20", CIDR: "10.0.0.0/24"},
-				},
-			},
-		},
-		EgressSubnets:    []string{"192.168.1.0/24"},
-		IngressAddresses: []string{expectedIngressAddress.Value},
-	}
-
-	result, err := s.uniter.NetworkInfo(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
-		Results: map[string]params.NetworkInfoResult{
-			"server": expectedInfo,
-		},
-	})
-}
-
-func (s *uniterNetworkInfoSuite) TestUpdateNetworkInfo(c *gc.C) {
-	s.addRelationAndAssertInScope(c)
-
-	// Clear network settings from all relation units
-	relList, err := s.wordpressUnit.RelationsJoined()
-	c.Assert(err, gc.IsNil)
-	for _, rel := range relList {
-		relUnit, err := rel.Unit(s.wordpressUnit)
-		c.Assert(err, gc.IsNil)
-		relSettings, err := relUnit.Settings()
-		c.Assert(err, gc.IsNil)
-		relSettings.Delete("private-address")
-		relSettings.Delete("ingress-address")
-		relSettings.Delete("egress-subnets")
-		_, err = relSettings.Write()
-		c.Assert(err, gc.IsNil)
-	}
-
-	// Making an UpdateNetworkInfo call should re-generate them for us.
-	args := params.Entities{
-		Entities: []params.Entity{
-			{
-				Tag: s.wordpressUnit.Tag().String(),
-			},
-		},
-	}
-
-	res, err := s.uniter.UpdateNetworkInfo(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.OneError(), gc.IsNil)
-
-	// Validate settings
-	for _, rel := range relList {
-		relUnit, err := rel.Unit(s.wordpressUnit)
-		c.Assert(err, gc.IsNil)
-		relSettings, err := relUnit.Settings()
-		c.Assert(err, gc.IsNil)
-		relMap := relSettings.Map()
-		c.Assert(relMap["private-address"], gc.Equals, "10.0.0.10")
-		c.Assert(relMap["ingress-address"], gc.Equals, "10.0.0.10")
-		c.Assert(relMap["egress-subnets"], gc.Equals, "10.0.0.10/32")
-	}
-}
-
-func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
-	s.addRelationAndAssertInScope(c)
-
-	s.leadershipChecker.isLeader = true
-
-	// Clear network settings from all relation units
-	relList, err := s.wordpressUnit.RelationsJoined()
-	c.Assert(err, gc.IsNil)
-	for _, rel := range relList {
-		relUnit, err := rel.Unit(s.wordpressUnit)
-		c.Assert(err, gc.IsNil)
-		relSettings, err := relUnit.Settings()
-		c.Assert(err, gc.IsNil)
-		relSettings.Delete("private-address")
-		relSettings.Delete("ingress-address")
-		relSettings.Delete("egress-subnets")
-		relSettings.Set("some", "settings")
-		_, err = relSettings.Write()
-		c.Assert(err, gc.IsNil)
-	}
-
-	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
-	b.UpdateNetworkInfo()
-	b.UpdateRelationUnitSettings(relList[0].Tag().String(), params.Settings{"just": "added"}, params.Settings{"app_data": "updated"})
-	// Manipulate ports for one of the charm's endpoints.
-	b.OpenPortRange("monitoring-port", network.MustParsePortRange("80-81/tcp"))
-	b.OpenPortRange("monitoring-port", network.MustParsePortRange("7337/tcp")) // same port closed below; this should be a no-op
-	b.ClosePortRange("monitoring-port", network.MustParsePortRange("7337/tcp"))
-	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
-	req, _ := b.Build()
-
-	// Add some extra args to test error handling
-	req.Args = append(req.Args,
-		params.CommitHookChangesArg{Tag: "not-a-unit-tag"},
-		params.CommitHookChangesArg{Tag: "unit-mysql-0"}, // not accessible by current user
-		params.CommitHookChangesArg{Tag: "unit-notfound-0"},
-	)
-
-	// Test-suite uses an older API version
-	api, err := uniter.NewUniterAPI(s.facadeContext(c))
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := api.CommitHookChanges(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify expected wordpress unit state
-	relUnit, err := relList[0].Unit(s.wordpressUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	relSettings, err := relUnit.Settings()
-	c.Assert(err, jc.ErrorIsNil)
-	expRelSettings := map[string]interface{}{
-		// Network info injected due to the "UpdateNetworkInfo" request
-		"egress-subnets":  "10.0.0.10/32",
-		"ingress-address": "10.0.0.10",
-		"private-address": "10.0.0.10",
-		// Pre-existing setting
-		"some": "settings",
-		// Setting added due to update relation settings request
-		"just": "added",
-	}
-	c.Assert(relSettings.Map(), jc.DeepEquals, expRelSettings, gc.Commentf("composed model operations did not yield expected result for unit relation settings"))
-
-	unitPortRanges, err := s.wordpressUnit.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitPortRanges.UniquePortRanges(), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
-	c.Assert(unitPortRanges.ForEndpoint("monitoring-port"), jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}}, gc.Commentf("unit ports where not opened for the requested endpoint"))
-
-	unitState, err := s.wordpressUnit.State()
-	c.Assert(err, jc.ErrorIsNil)
-	charmState, _ := unitState.CharmState()
-	c.Assert(charmState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
-
-	appCfg, err := relList[0].ApplicationSettings(s.wordpress.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appCfg, gc.DeepEquals, map[string]interface{}{"app_data": "updated"}, gc.Commentf("application data not updated by leader unit"))
-}
-
-func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
-	s.addRelationAndAssertInScope(c)
-
-	// Make it so we're not the leader.
-	s.leadershipChecker.isLeader = false
-
-	relList, err := s.wordpressUnit.RelationsJoined()
-	c.Assert(err, gc.IsNil)
-
-	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
-	b.UpdateRelationUnitSettings(relList[0].Tag().String(), nil, params.Settings{"can't": "touch this!"})
-	req, _ := b.Build()
-
-	// Test-suite uses an older API version
-	api, err := uniter.NewUniterAPI(s.facadeContext(c))
-	c.Assert(err, jc.ErrorIsNil)
-
-	result, err := api.CommitHookChanges(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: &params.Error{Message: `checking leadership continuity: "wordpress/1" is not leader of "wordpress"`}},
-		},
-	})
-}
-
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
 	s.leadershipChecker.isLeader = true
 	st := s.ControllerModel(c).State()
@@ -4675,6 +3939,8 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 }
 
 func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
@@ -4712,7 +3978,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: unit.Tag(),
 	}
-	api, err := uniter.NewUniterAPI(s.facadeContext(c))
+	api, err := uniter.NewUniterAPI(s.facadeContext(c), s.controllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := api.CommitHookChanges(context.Background(), req)
@@ -4739,6 +4005,8 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 }
 
 func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	_, cm, app, unit := s.setupCAASModel(c)
 
 	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
@@ -4758,7 +4026,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
 		ServiceFactory_:    servicefactorytesting.NewTestingServiceFactory(),
-	})
+	}, s.controllerConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := uniterAPI.CommitHookChanges(context.Background(), req)
@@ -4781,37 +4049,9 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 	})
 }
 
-func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
-	_, cm, _, unit := s.setupCAASModel(c)
-
-	s.leadershipChecker.isLeader = true
-
-	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
-	b.UpdateNetworkInfo()
-	b.UpdateCharmState(map[string]string{"charm-key": "charm-value"})
-
-	req, _ := b.Build()
-
-	s.st = cm.State()
-	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
-	uniterAPI := s.newUniterAPI(c, s.st, s.authorizer)
-
-	result, err := uniterAPI.CommitHookChanges(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-		},
-	})
-
-	// Verify expected unit state
-	unitState, err := unit.State()
-	c.Assert(err, jc.ErrorIsNil)
-	charmState, _ := unitState.CharmState()
-	c.Assert(charmState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
-}
-
 func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 
 	f, release := s.NewFactory(c, cm.UUID())
@@ -4870,6 +4110,8 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 }
 
 func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	_, cm, wp, wpUnit := s.setupCAASModel(c)
 
 	f, release := s.NewFactory(c, cm.UUID())
@@ -4920,112 +4162,9 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 }
 
 func (s *uniterSuite) TestGetCloudSpecDeniesAccessWhenNotTrusted(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	result, err := s.uniter.CloudSpec(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.CloudSpecResult{Error: apiservertesting.ErrUnauthorized})
-}
-
-type cloudSpecUniterSuite struct {
-	uniterSuiteBase
-}
-
-var _ = gc.Suite(&cloudSpecUniterSuite{})
-
-func (s *cloudSpecUniterSuite) SetUpTest(c *gc.C) {
-	s.uniterSuiteBase.SetUpTest(c)
-
-	// Update the application config for wordpress so that it is authorised to
-	// retrieve its cloud spec.
-	conf := map[string]interface{}{coreapplication.TrustConfigOptionName: true}
-	fields := map[string]environschema.Attr{coreapplication.TrustConfigOptionName: {Type: environschema.Tbool}}
-	defaults := map[string]interface{}{coreapplication.TrustConfigOptionName: false}
-	err := s.wordpress.UpdateApplicationConfig(conf, nil, fields, defaults)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
-	result, err := s.uniter.CloudSpec(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Result.Name, gc.Equals, "dummy")
-
-	exp := map[string]string{
-		"username": "dummy",
-		"password": "secret",
-	}
-	c.Assert(result.Result.Credential.Attributes, gc.DeepEquals, exp)
-}
-
-type fakeBroker struct {
-	caas.Broker
-}
-
-func (*fakeBroker) APIVersion() (string, error) {
-	return "6.66", nil
-}
-
-func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
-	_, cm, _, _ := s.setupCAASModel(c)
-
-	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
-	uniter.SetNewContainerBrokerFunc(uniterAPI, func(context.Context, environs.OpenParams) (caas.Broker, error) {
-		return &fakeBroker{}, nil
-	})
-
-	result, err := uniterAPI.CloudAPIVersion(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResult{
-		Result: "6.66",
-	})
-}
-
-type uniterAPIErrorSuite struct {
-	testing.ApiServerSuite
-}
-
-var _ = gc.Suite(&uniterAPIErrorSuite{})
-
-func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
-	uniter.PatchGetStorageStateError(s, errors.New("kaboom"))
-
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-
-	_, err := uniter.NewUniterAPI(facadetest.Context{
-		State_:             s.ControllerModel(c).State(),
-		StatePool_:         s.StatePool(),
-		Resources_:         resources,
-		Auth_:              apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("nomatter/0")},
-		LeadershipChecker_: &fakeLeadershipChecker{false},
-	})
-
-	c.Assert(err, gc.ErrorMatches, "kaboom")
-}
-
-type fakeToken struct {
-	err error
-}
-
-func (t *fakeToken) Check() error {
-	return t.err
-}
-
-type fakeLeadershipChecker struct {
-	isLeader bool
-}
-
-type token struct {
-	isLeader          bool
-	unit, application string
-}
-
-func (t *token) Check() error {
-	if !t.isLeader {
-		return leadership.NewNotLeaderError(t.unit, t.application)
-	}
-	return nil
-}
-
-func (f *fakeLeadershipChecker) LeadershipCheck(applicationName, unitName string) leadership.Token {
-	return &token{f.isLeader, unitName, applicationName}
 }

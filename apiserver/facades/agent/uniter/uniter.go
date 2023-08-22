@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -33,6 +34,12 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
+
+// ControllerConfigGetter is an interface that provides the controller
+// configuration for the model.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
@@ -52,18 +59,19 @@ type UniterAPI struct {
 	*secretsmanager.SecretsManagerAPI
 	meterstatus.MeterStatus
 
-	lxdProfileAPI       *LXDProfileAPIv2
-	m                   *state.Model
-	st                  *state.State
-	clock               clock.Clock
-	cancel              <-chan struct{}
-	auth                facade.Authorizer
-	resources           facade.Resources
-	leadershipChecker   leadership.Checker
-	accessUnit          common.GetAuthFunc
-	accessApplication   common.GetAuthFunc
-	accessMachine       common.GetAuthFunc
-	containerBrokerFunc caas.NewContainerBrokerFunc
+	lxdProfileAPI          *LXDProfileAPIv2
+	m                      *state.Model
+	st                     *state.State
+	controllerConfigGetter ControllerConfigGetter
+	clock                  clock.Clock
+	cancel                 <-chan struct{}
+	auth                   facade.Authorizer
+	resources              facade.Resources
+	leadershipChecker      leadership.Checker
+	accessUnit             common.GetAuthFunc
+	accessApplication      common.GetAuthFunc
+	accessMachine          common.GetAuthFunc
+	containerBrokerFunc    caas.NewContainerBrokerFunc
 	*StorageAPI
 
 	// A cloud spec can only be accessed for the model of the unit or
@@ -2505,7 +2513,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		return errors.Trace(err)
 	}
 
-	ctrlCfg, err := u.st.ControllerConfig()
+	ctrlCfg, err := u.controllerConfigGetter.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2714,7 +2722,7 @@ func (u *UniterAPI) CanApplyLXDProfile(ctx context.Context, args params.Entities
 
 // APIHostPorts returns the API server addresses.
 func (u *UniterAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := u.st.ControllerConfig()
+	controllerConfig, err := u.controllerConfigGetter.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -2724,7 +2732,7 @@ func (u *UniterAPI) APIHostPorts(ctx context.Context) (result params.APIHostPort
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (u *UniterAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := u.st.ControllerConfig()
+	controllerConfig, err := u.controllerConfigGetter.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

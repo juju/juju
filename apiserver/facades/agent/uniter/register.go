@@ -20,12 +20,12 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Uniter", 18, func(ctx facade.Context) (facade.Facade, error) {
-		return newUniterAPI(ctx)
+		return newUniterAPI(ctx, ctx.ServiceFactory().ControllerConfig())
 	}, reflect.TypeOf((*UniterAPI)(nil)))
 }
 
 // newUniterAPI creates a new instance of the core Uniter API.
-func newUniterAPI(context facade.Context) (*UniterAPI, error) {
+func newUniterAPI(context facade.Context, controllerConfigGetter ControllerConfigGetter) (*UniterAPI, error) {
 	authorizer := context.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -57,7 +57,7 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	storageAPI, err := newStorageAPI(
-		stateShim{st}, storageAccessor, resources, accessUnit)
+		stateShim{State: st}, storageAccessor, resources, accessUnit)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -102,19 +102,20 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		// own status *and* its application's? This is not a pleasing arrangement.
 		StatusAPI: NewStatusAPI(m, accessUnitOrApplication, leadershipChecker),
 
-		m:                 m,
-		st:                st,
-		clock:             aClock,
-		cancel:            context.Cancel(),
-		auth:              authorizer,
-		resources:         resources,
-		leadershipChecker: leadershipChecker,
-		accessUnit:        accessUnit,
-		accessApplication: accessApplication,
-		accessMachine:     accessMachine,
-		accessCloudSpec:   accessCloudSpec,
-		cloudSpecer:       cloudSpec,
-		StorageAPI:        storageAPI,
-		logger:            logger,
+		m:                      m,
+		st:                     st,
+		controllerConfigGetter: controllerConfigGetter,
+		clock:                  aClock,
+		cancel:                 context.Cancel(),
+		auth:                   authorizer,
+		resources:              resources,
+		leadershipChecker:      leadershipChecker,
+		accessUnit:             accessUnit,
+		accessApplication:      accessApplication,
+		accessMachine:          accessMachine,
+		accessCloudSpec:        accessCloudSpec,
+		cloudSpecer:            cloudSpec,
+		StorageAPI:             storageAPI,
+		logger:                 logger,
 	}, nil
 }

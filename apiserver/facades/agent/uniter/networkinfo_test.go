@@ -61,11 +61,8 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	err = machine.SetProviderAddresses(
-		controllerConfig,
+		coretesting.FakeControllerConfig(),
 		network.NewSpaceAddress("10.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic)),
 	)
@@ -142,13 +139,10 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	// We need at least one address on the machine itself, because these are
 	// retrieved up-front to use as a fallback when we fail to locate addresses
 	// on link-layer devices.
-	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("10.2.3.4/16"))
+	err = machine.SetProviderAddresses(coretesting.FakeControllerConfig(), network.NewSpaceAddress("10.2.3.4/16"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.addDevicesWithAddresses(c, machine, "10.2.3.4/16", "100.2.3.4/24")
@@ -204,13 +198,10 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 
 	ip := "10.2.3.4/16"
 
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	// We need at least one address on the machine itself, because these are
 	// retrieved up-front to use as a fallback when we fail to locate addresses
 	// on link-layer devices.
-	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress(ip))
+	err = machine.SetProviderAddresses(coretesting.FakeControllerConfig(), network.NewSpaceAddress(ip))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create a NIC and bridge, but also add the IP to the NIC to simulate
@@ -257,13 +248,8 @@ func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(
 	host := "host.at.somewhere"
 	ip := "100.2.3.4"
 
-	st := s.ControllerModel(c).State()
-
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	addr := network.NewSpaceAddress(host)
-	err = machine.SetProviderAddresses(controllerConfig, addr)
+	err = machine.SetProviderAddresses(coretesting.FakeControllerConfig(), addr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	lookup := func(addr string) ([]string, error) {
@@ -379,16 +365,13 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	addresses := []network.SpaceAddress{
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("2.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("10.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic)),
 	}
-	err = machine.SetProviderAddresses(controllerConfig, addresses...)
+	err = machine.SetProviderAddresses(coretesting.FakeControllerConfig(), addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.addDevicesWithAddresses(c, machine, "1.2.3.4/16", "2.2.3.4/16", "10.2.3.4/16", "4.3.2.1/16")
@@ -421,11 +404,8 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	err = machine.SetProviderAddresses(
-		controllerConfig,
+		coretesting.FakeControllerConfig(),
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 		network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic)),
 	)
@@ -452,11 +432,8 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	err = machine.SetProviderAddresses(
-		controllerConfig,
+		coretesting.FakeControllerConfig(),
 		network.NewSpaceAddress("1.2.3.4", network.WithScope(network.ScopeCloudLocal)),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -482,9 +459,6 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	retryFactory := func() retry.CallArgs {
 		return retry.CallArgs{
 			Clock:       clock.WallClock,
@@ -494,7 +468,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 				// Set the address after one failed retrieval attempt.
 				if attempt == 1 {
 					err := machine.SetProviderAddresses(
-						controllerConfig,
+						coretesting.FakeControllerConfig(),
 						network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopePublic)),
 					)
 					c.Assert(err, jc.ErrorIsNil)
@@ -524,9 +498,6 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 	machine, err := st.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	// The first attempt is for the public address.
 	// The retry we supply for this fails quickly.
 	// The second is for the private address fallback.
@@ -550,7 +521,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 				// Set the private address after one failed retrieval attempt.
 				if attempt == 1 {
 					err := machine.SetProviderAddresses(
-						controllerConfig,
+						coretesting.FakeControllerConfig(),
 						network.NewSpaceAddress("4.3.2.1", network.WithScope(network.ScopeCloudLocal)),
 					)
 					c.Assert(err, jc.ErrorIsNil)
@@ -776,11 +747,8 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 	s.createNICWithIP(c, machine, network.EthernetDevice, "eth1", "10.10.0.20/24")
 	s.createNICWithIP(c, machine, network.EthernetDevice, "eth2", "10.20.0.20/24")
 
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	err = machine.SetMachineAddresses(
-		controllerConfig,
+		coretesting.FakeControllerConfig(),
 		network.NewSpaceAddress("10.0.0.20", network.WithScope(network.ScopePublic)),
 		network.NewSpaceAddress("10.10.0.20", network.WithScope(network.ScopePublic)),
 		network.NewSpaceAddress("10.10.0.30", network.WithScope(network.ScopePublic)),
@@ -848,11 +816,8 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	s.createNICWithIP(c, machine, network.EthernetDevice, "eth1", "10.10.0.20/24")
 	s.createNICWithIP(c, machine, network.EthernetDevice, "eth2", "10.20.0.20/24")
 
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
 	err = machine.SetMachineAddresses(
-		controllerConfig,
+		coretesting.FakeControllerConfig(),
 		network.NewSpaceAddress("10.0.0.20", network.WithScope(network.ScopePublic)),
 		network.NewSpaceAddress("10.10.0.20", network.WithScope(network.ScopePublic)),
 		network.NewSpaceAddress("10.10.0.30", network.WithScope(network.ScopePublic)),

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
-	"github.com/juju/juju/apiserver/facades/agent/uniter/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/rpc/params"
@@ -33,14 +32,14 @@ func (s *lxdProfileSuite) SetUpTest(c *gc.C) {
 	s.unitTag1 = names.NewUnitTag("mysql/1")
 }
 
-func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*uniter.LXDProfileAPI, *gomock.Controller, *mocks.MockLXDProfileBackend) {
+func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*uniter.LXDProfileAPI, *gomock.Controller, *MockLXDProfileBackend) {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: tag,
 	}
 
 	ctrl := gomock.NewController(c)
-	mockBackend := mocks.NewMockLXDProfileBackend(ctrl)
+	mockBackend := NewMockLXDProfileBackend(ctrl)
 
 	unitAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
@@ -65,8 +64,8 @@ func (s *lxdProfileSuite) TestWatchLXDProfileUpgradeNotifications(c *gc.C) {
 	}
 	lxdProfileWatcher.changes <- []string{lxdprofile.EmptyStatus}
 
-	mockMachine1 := mocks.NewMockLXDProfileMachine(ctrl)
-	mockUnit1 := mocks.NewMockLXDProfileUnit(ctrl)
+	mockMachine1 := NewMockLXDProfileMachine(ctrl)
+	mockUnit1 := NewMockLXDProfileUnit(ctrl)
 
 	mockBackend.EXPECT().Machine(s.machineTag1.Id()).Return(mockMachine1, nil)
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil)
@@ -101,7 +100,7 @@ func (s *lxdProfileSuite) TestWatchUnitLXDProfileUpgradeNotifications(c *gc.C) {
 	}
 	lxdProfileWatcher.changes <- []string{lxdprofile.EmptyStatus}
 
-	mockUnit1 := mocks.NewMockLXDProfileUnit(ctrl)
+	mockUnit1 := NewMockLXDProfileUnit(ctrl)
 	mockBackend.EXPECT().Unit(s.unitTag1.Id()).Return(mockUnit1, nil)
 	mockUnit1.EXPECT().WatchLXDProfileUpgradeNotifications().Return(lxdProfileWatcher, nil)
 

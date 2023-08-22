@@ -34,7 +34,7 @@ func NewModelWatcherTest(
 	st *state.State,
 	resources *common.Resources,
 ) *ModelWatcherTest {
-	return &ModelWatcherTest{modelWatcher, st, resources}
+	return &ModelWatcherTest{modelWatcher: modelWatcher, st: st, res: resources}
 }
 
 // AssertModelConfig provides a method to test the config from the
