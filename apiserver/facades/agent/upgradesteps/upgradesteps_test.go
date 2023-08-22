@@ -7,16 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
-	"github.com/juju/juju/apiserver/facades/agent/upgradesteps/mocks"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
@@ -28,11 +25,12 @@ import (
 type upgradeStepsSuite struct {
 	jujutesting.BaseSuite
 
-	api        *upgradesteps.UpgradeStepsAPI
-	authorizer *facademocks.MockAuthorizer
-	entity     *mocks.MockEntity
-	resources  *facademocks.MockResources
-	state      *mocks.MockUpgradeStepsState
+	api              *upgradesteps.UpgradeStepsAPI
+	authorizer       *MockAuthorizer
+	entity           *MockEntity
+	resources        *MockResources
+	state            *MockUpgradeStepsState
+	ctrlConfigGetter *MockControllerConfigGetter
 }
 
 type machineUpgradeStepsSuite struct {
@@ -40,7 +38,7 @@ type machineUpgradeStepsSuite struct {
 
 	tag     names.Tag
 	arg     params.Entity
-	machine *mocks.MockMachine
+	machine *MockMachine
 }
 
 var _ = gc.Suite(&machineUpgradeStepsSuite{})
@@ -111,8 +109,8 @@ type unitUpgradeStepsSuite struct {
 	upgradeStepsSuite
 	tag1  names.Tag
 	tag2  names.Tag
-	unit1 *mocks.MockUnit
-	unit2 *mocks.MockUnit
+	unit1 *MockUnit
+	unit2 *MockUnit
 }
 
 var _ = gc.Suite(&unitUpgradeStepsSuite{})
@@ -171,14 +169,15 @@ func (s *unitUpgradeStepsSuite) TestWriteAgentStateError(c *gc.C) {
 }
 
 func (s *upgradeStepsSuite) setup(c *gc.C) *gomock.Controller {
-	ctlr := gomock.NewController(c)
+	ctrl := gomock.NewController(c)
 
-	s.authorizer = facademocks.NewMockAuthorizer(ctlr)
-	s.entity = mocks.NewMockEntity(ctlr)
-	s.state = mocks.NewMockUpgradeStepsState(ctlr)
-	s.resources = facademocks.NewMockResources(ctlr)
+	s.authorizer = NewMockAuthorizer(ctrl)
+	s.entity = NewMockEntity(ctrl)
+	s.state = NewMockUpgradeStepsState(ctrl)
+	s.resources = NewMockResources(ctrl)
+	s.ctrlConfigGetter = NewMockControllerConfigGetter(ctrl)
 
-	return ctlr
+	return ctrl
 }
 
 func (s *upgradeStepsSuite) expectAuthCalls() {
@@ -188,14 +187,20 @@ func (s *upgradeStepsSuite) expectAuthCalls() {
 }
 
 func (s *upgradeStepsSuite) setupFacadeAPI(c *gc.C) {
-	api, err := upgradesteps.NewUpgradeStepsAPI(s.state, s.resources, s.authorizer, loggo.GetLogger("juju.apiserver.upgradesteps"))
+	api, err := upgradesteps.NewUpgradeStepsAPI(
+		s.state,
+		s.ctrlConfigGetter,
+		s.resources,
+		s.authorizer,
+		jujutesting.NewCheckLogger(c),
+	)
 	c.Assert(err, gc.IsNil)
 	s.api = api
 }
 
 func (s *machineUpgradeStepsSuite) setup(c *gc.C) *gomock.Controller {
 	ctlr := s.upgradeStepsSuite.setup(c)
-	s.machine = mocks.NewMockMachine(ctlr)
+	s.machine = NewMockMachine(ctlr)
 
 	s.expectAuthCalls()
 	s.expectFindEntityMachine()
@@ -238,8 +243,8 @@ func (s *machineUpgradeStepsSuite) expectSetModificationStatus(err error) {
 
 func (s *unitUpgradeStepsSuite) setup(c *gc.C) *gomock.Controller {
 	ctlr := s.upgradeStepsSuite.setup(c)
-	s.unit1 = mocks.NewMockUnit(ctlr)
-	s.unit2 = mocks.NewMockUnit(ctlr)
+	s.unit1 = NewMockUnit(ctlr)
+	s.unit2 = NewMockUnit(ctlr)
 
 	s.expectAuthCalls()
 	s.expectFindEntityUnits()
@@ -274,7 +279,7 @@ func (s *unitUpgradeStepsSuite) expectSetAndApplyStateOperation(err1, err2 error
 		controller.MaxAgentStateSize: 456,
 	}
 
-	s.state.EXPECT().ControllerConfig().Return(ctrlCfg, nil)
+	s.ctrlConfigGetter.EXPECT().ControllerConfig(context.Background()).Return(ctrlCfg, nil)
 
 	expLimits := state.UnitStateSizeLimits{
 		MaxCharmStateSize: 123,
