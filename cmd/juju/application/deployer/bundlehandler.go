@@ -247,7 +247,7 @@ func (h *bundleHandler) makeModel(
 	bundleMachines map[string]string,
 ) error {
 	// Initialize the unit status.
-	status, err := h.deployAPI.Status(nil)
+	status, err := h.deployAPI.Status(nil, false)
 	if err != nil {
 		return errors.Annotate(err, "cannot get model status")
 	}

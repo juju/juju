@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	corebase "github.com/juju/juju/core/base"
@@ -211,6 +212,12 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 			})
 	}
 	return results
+}
+
+// FullStatus gives the information needed for juju status over the api
+func (c *ClientV6) FullStatus(args params.StatusParams) (params.FullStatus, error) {
+	args.IncludeStorage = false
+	return c.Client.FullStatus(args)
 }
 
 // FullStatus gives the information needed for juju status over the api
@@ -445,6 +452,72 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if err != nil {
 		return noStatus, errors.Annotate(err, "cannot determine model status")
 	}
+
+	var storageDetails []params.StorageDetails
+	var filesystemDetails []params.FilesystemDetails
+	var volumeDetails []params.VolumeDetails
+
+	if args.IncludeStorage {
+		unitToMachine := func(unitTag names.UnitTag) (names.MachineTag, error) {
+			unit, ok := context.allAppsUnitsCharmBindings.allUnits[unitTag.Id()]
+			if !ok {
+				return names.MachineTag{}, errors.NotFoundf("unit %v", unitTag)
+			}
+			machine, err := unit.AssignedMachineId()
+			if err != nil {
+				return names.MachineTag{}, errors.Trace(err)
+			}
+			return names.NewMachineTag(machine), nil
+		}
+
+		storageInstances, err := c.api.storageAccessor.AllStorageInstances()
+		if err != nil {
+			return noStatus, errors.Annotate(err, "cannot list all storage instances")
+		}
+		storageDetails = make([]params.StorageDetails, 0, len(storageInstances))
+		for _, storageInstance := range storageInstances {
+			storageDetail, err := storagecommon.StorageDetails(c.api.storageAccessor, unitToMachine, storageInstance)
+			if err != nil {
+				return noStatus, errors.Annotatef(err, "cannot convert storage details for %v", storageInstance.Tag())
+			}
+			storageDetails = append(storageDetails, *storageDetail)
+		}
+
+		filesystems, err := c.api.storageAccessor.AllFilesystems()
+		if err != nil {
+			return noStatus, errors.Annotate(err, "cannot list all filesystems")
+		}
+		filesystemDetails = make([]params.FilesystemDetails, 0, len(filesystems))
+		for _, filesystem := range filesystems {
+			attachments, err := c.api.storageAccessor.FilesystemAttachments(filesystem.FilesystemTag())
+			if err != nil {
+				return noStatus, errors.Trace(err)
+			}
+			filesystemDetail, err := storagecommon.FilesystemDetails(c.api.storageAccessor, unitToMachine, filesystem, attachments)
+			if err != nil {
+				return noStatus, errors.Annotatef(err, "cannot convert filesystem details for %v", filesystem.Tag())
+			}
+			filesystemDetails = append(filesystemDetails, *filesystemDetail)
+		}
+
+		volumes, err := c.api.storageAccessor.AllVolumes()
+		if err != nil {
+			return noStatus, errors.Annotate(err, "cannot list all volumes")
+		}
+		volumeDetails = make([]params.VolumeDetails, 0, len(volumes))
+		for _, volume := range volumes {
+			attachments, err := c.api.storageAccessor.VolumeAttachments(volume.VolumeTag())
+			if err != nil {
+				return noStatus, errors.Trace(err)
+			}
+			volumeDetail, err := storagecommon.VolumeDetails(c.api.storageAccessor, unitToMachine, volume, attachments)
+			if err != nil {
+				return noStatus, errors.Annotatef(err, "cannot convert volume details for %v", volume.Tag())
+			}
+			volumeDetails = append(volumeDetails, *volumeDetail)
+		}
+	}
+
 	return params.FullStatus{
 		Model:               modelStatus,
 		Machines:            context.processMachines(),
@@ -454,6 +527,9 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		Relations:           context.processRelations(),
 		ControllerTimestamp: context.controllerTimestamp,
 		Branches:            context.processBranches(),
+		Storage:             storageDetails,
+		Filesystems:         filesystemDetails,
+		Volumes:             volumeDetails,
 	}, nil
 }
 
@@ -566,8 +642,11 @@ type applicationStatusInfo struct {
 	// application: application name -> application
 	applications map[string]*state.Application
 
-	// units: units name -> units
+	// units: application name -> units name -> units
 	units map[string]map[string]*state.Unit
+
+	// allUnits: unit name -> unit
+	allUnits map[string]*state.Unit
 
 	// latestcharm: charm URL -> charm
 	latestCharms map[charm.URL]*state.Charm
@@ -803,6 +882,7 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 		return applicationStatusInfo{}, err
 	}
 	allUnitsByApp := make(map[string]map[string]*state.Unit)
+	allUnits := make(map[string]*state.Unit)
 	for _, unit := range units {
 		appName := unit.ApplicationName()
 
@@ -813,6 +893,8 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 				unit.Name(): unit,
 			}
 		}
+
+		allUnits[unit.Name()] = unit
 	}
 
 	endpointBindings, err := model.AllEndpointBindings()
@@ -884,6 +966,7 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 	return applicationStatusInfo{
 		applications:     appMap,
 		units:            unitMap,
+		allUnits:         allUnits,
 		latestCharms:     latestCharms,
 		endpointBindings: allBindingsByApp,
 		lxdProfiles:      lxdProfiles,

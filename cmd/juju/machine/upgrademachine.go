@@ -94,7 +94,7 @@ type UpgradeMachineAPI interface {
 }
 
 type StatusAPI interface {
-	Status(pattern []string) (*params.FullStatus, error)
+	Status(pattern []string, includeStorage bool) (*params.FullStatus, error)
 }
 
 // upgradeMachineCommand is responsible for updating the base of an application
@@ -335,7 +335,7 @@ func (c *upgradeMachineCommand) UpgradePrepare(ctx *cmd.Context) (err error) {
 
 func (c *upgradeMachineCommand) retrieveUnits() ([]string, error) {
 	// get the units for a given machine.
-	fullStatus, err := c.statusClient.Status(nil)
+	fullStatus, err := c.statusClient.Status(nil, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

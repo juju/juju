@@ -18,7 +18,7 @@ import (
 
 // statusAPI defines the API methods for the machines and show-machine commands.
 type statusAPI interface {
-	Status(pattern []string) (*params.FullStatus, error)
+	Status(pattern []string, includeStorage bool) (*params.FullStatus, error)
 	Close() error
 }
 
@@ -65,7 +65,7 @@ func (c *baselistMachinesCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	fullStatus, err := apiclient.Status(nil)
+	fullStatus, err := apiclient.Status(nil, false)
 	if err != nil {
 		if fullStatus == nil {
 			// Status call completely failed, there is nothing to report

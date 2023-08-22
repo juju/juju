@@ -238,7 +238,7 @@ type sshProvider interface {
 	setLeaderAPI(leaderAPI LeaderAPI)
 	setHostChecker(checker jujussh.ReachableChecker)
 	resolveTarget(string) (*resolvedTarget, error)
-	maybePopulateTargetViaField(*resolvedTarget, func([]string) (*params.FullStatus, error)) error
+	maybePopulateTargetViaField(*resolvedTarget, func([]string, bool) (*params.FullStatus, error)) error
 	maybeResolveLeaderUnit(string) (string, error)
 	ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	copy(Context) error

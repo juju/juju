@@ -50,7 +50,7 @@ type sshMachine struct {
 }
 
 type statusClient interface {
-	Status(patterns []string) (*params.FullStatus, error)
+	Status(patterns []string, includeStorage bool) (*params.FullStatus, error)
 }
 
 type sshAPIClient interface {
@@ -551,8 +551,8 @@ func (c *sshMachine) AllowInterspersedFlags() bool {
 	return false
 }
 
-func (c *sshMachine) maybePopulateTargetViaField(target *resolvedTarget, statusGetter func([]string) (*params.FullStatus, error)) error {
-	status, err := statusGetter(nil)
+func (c *sshMachine) maybePopulateTargetViaField(target *resolvedTarget, statusGetter func([]string, bool) (*params.FullStatus, error)) error {
+	status, err := statusGetter(nil, false)
 	if err != nil {
 		return errors.Trace(err)
 	}

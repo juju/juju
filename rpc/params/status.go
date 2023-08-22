@@ -16,7 +16,8 @@ import (
 
 // StatusParams holds parameters for the Status call.
 type StatusParams struct {
-	Patterns []string `json:"patterns"`
+	Patterns       []string `json:"patterns"`
+	IncludeStorage bool     `json:"include-storage,omitempty"`
 }
 
 // TODO(ericsnow) Add FullStatusResult.
@@ -31,6 +32,9 @@ type FullStatus struct {
 	Relations           []RelationStatus                   `json:"relations"`
 	ControllerTimestamp *time.Time                         `json:"controller-timestamp"`
 	Branches            map[string]BranchStatus            `json:"branches"`
+	Storage             []StorageDetails                   `json:"storage,omitempty"`
+	Filesystems         []FilesystemDetails                `json:"filesystems,omitempty"`
+	Volumes             []VolumeDetails                    `json:"volumes,omitempty"`
 }
 
 // IsEmpty checks all collections on FullStatus to determine if the status is empty.
