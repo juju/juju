@@ -12,11 +12,13 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
+	"github.com/juju/juju/apiserver/facades/agent/deployer/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -56,12 +58,18 @@ type deployerSuite struct {
 	resources *common.Resources
 	deployer  *deployer.DeployerAPI
 	revoker   *mockLeadershipRevoker
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&deployerSuite{})
 
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfigAttrs, nil).AnyTimes()
 
 	// The two known machines now contain the following units:
 	// machine 0 (not authorized): mysql/1 (principal1)
@@ -118,15 +126,24 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 	s.revoker = &mockLeadershipRevoker{revoked: set.NewStrings()}
 	// Create a deployer API for machine 1.
+
 	deployer, err := deployer.NewDeployerAPI(
-		facadetest.Context{
-			Auth_:              s.authorizer,
-			Resources_:         s.resources,
-			State_:             st,
-			StatePool_:         s.StatePool(),
-			LeadershipRevoker_: s.revoker,
-		},
+		s.controllerConfigGetter,
+		s.authorizer,
+		st,
+		s.resources,
+		s.revoker,
+		st,
 	)
+	//deployer, err := deployer.NewDeployerFacade(
+	//	facadetest.Context{
+	//		Auth_:              s.authorizer,
+	//		Resources_:         s.resources,
+	//		State_:             st,
+	//		StatePool_:         s.StatePool(),
+	//		LeadershipRevoker_: s.revoker,
+	//	},
+	//)
 	c.Assert(err, jc.ErrorIsNil)
 	s.deployer = deployer
 }
@@ -134,7 +151,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = testing.AdminUser
-	aDeployer, err := deployer.NewDeployerAPI(
+	aDeployer, err := deployer.NewDeployerFacade(
 		facadetest.Context{
 			Auth_:              anAuthorizer,
 			LeadershipRevoker_: s.revoker,
@@ -334,8 +351,10 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *deployerSuite) TestConnectionInfo(c *gc.C) {
+	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfigAttrs, nil).AnyTimes()
+
 	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := s.controllerConfigGetter.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine0.SetProviderAddresses(controllerConfig,

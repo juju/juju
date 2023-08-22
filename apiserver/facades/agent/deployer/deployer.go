@@ -5,12 +5,13 @@ package deployer
 
 import (
 	"context"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/leadership"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -18,6 +19,11 @@ import (
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
+
+// ControllerConfigGetter is the interface that the facade needs to get controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // DeployerAPI provides access to the Deployer API facade.
 type DeployerAPI struct {
@@ -28,24 +34,21 @@ type DeployerAPI struct {
 	*common.UnitsWatcher
 	*common.StatusSetter
 
-	st         *state.State
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	controllerConfigGetter ControllerConfigGetter
+	st                     *state.State
+	resources              facade.Resources
+	authorizer             facade.Authorizer
 }
 
 // NewDeployerAPI creates a new server-side DeployerAPI facade.
-func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
-	authorizer := ctx.Auth()
-	if !authorizer.AuthMachineAgent() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	st := ctx.State()
-	resources := ctx.Resources()
-	leadershipRevoker, err := ctx.LeadershipRevoker(st.ModelUUID())
-	if err != nil {
-		return nil, errors.Annotate(err, "getting leadership client")
-	}
+func NewDeployerAPI(
+	controllerConfigGetter ControllerConfigGetter,
+	authorizer facade.Authorizer,
+	st *state.State,
+	resources facade.Resources,
+	leadershipRevoker leadership.Revoker,
+	systemState *state.State,
+) (*DeployerAPI, error) {
 	getAuthFunc := func() (common.AuthFunc, error) {
 		// Get all units of the machine and cache them.
 		thisMachineTag := authorizer.GetAuthTag()
@@ -68,20 +71,18 @@ func NewDeployerAPI(ctx facade.Context) (*DeployerAPI, error) {
 	getCanWatch := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	systemState, err := ctx.StatePool().SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+
 	return &DeployerAPI{
-		Remover:         common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc),
-		PasswordChanger: common.NewPasswordChanger(st, getAuthFunc),
-		LifeGetter:      common.NewLifeGetter(st, getAuthFunc),
-		APIAddresser:    common.NewAPIAddresser(systemState, resources),
-		UnitsWatcher:    common.NewUnitsWatcher(st, resources, getCanWatch),
-		StatusSetter:    common.NewStatusSetter(st, getAuthFunc),
-		st:              st,
-		resources:       resources,
-		authorizer:      authorizer,
+		Remover:                common.NewRemover(st, common.RevokeLeadershipFunc(leadershipRevoker), true, getAuthFunc),
+		PasswordChanger:        common.NewPasswordChanger(st, getAuthFunc),
+		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
+		APIAddresser:           common.NewAPIAddresser(systemState, resources),
+		UnitsWatcher:           common.NewUnitsWatcher(st, resources, getCanWatch),
+		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
+		controllerConfigGetter: controllerConfigGetter,
+		st:                     st,
+		resources:              resources,
+		authorizer:             authorizer,
 	}, nil
 }
 
@@ -113,7 +114,7 @@ func (d *DeployerAPI) ModelUUID() params.StringResult {
 
 // APIHostPorts returns the API server addresses.
 func (d *DeployerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := d.st.ControllerConfig()
+	controllerConfig, err := d.controllerConfigGetter.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -123,7 +124,7 @@ func (d *DeployerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPo
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (d *DeployerAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := d.st.ControllerConfig()
+	controllerConfig, err := d.controllerConfigGetter.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

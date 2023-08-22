@@ -4,6 +4,8 @@
 package deployer
 
 import (
+	"github.com/juju/errors"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"reflect"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -12,11 +14,30 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Deployer", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return newAPI(ctx)
+		return NewDeployerFacade(ctx)
 	}, reflect.TypeOf((*DeployerAPI)(nil)))
 }
 
-// newAPI creates a new server-side DeployerAPI facade.
-func newAPI(ctx facade.Context) (*DeployerAPI, error) {
-	return NewDeployerAPI(ctx)
+// NewDeployerFacade creates a new server-side DeployerAPI facade.
+func NewDeployerFacade(ctx facade.Context) (*DeployerAPI, error) {
+	authorizer := ctx.Auth()
+	if !authorizer.AuthMachineAgent() {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	st := ctx.State()
+	resources := ctx.Resources()
+	leadershipRevoker, err := ctx.LeadershipRevoker(st.ModelUUID())
+	if err != nil {
+		return nil, errors.Annotate(err, "getting leadership client")
+	}
+
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+
+	return NewDeployerAPI(controllerConfigGetter, authorizer, st, resources, leadershipRevoker, systemState)
 }
