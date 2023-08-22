@@ -195,8 +195,6 @@ func PermissionFromToken(token jwt.Token, subject names.Tag) (permission.Access,
 		validate = permission.ValidateControllerAccess
 	case names.ModelTagKind:
 		validate = permission.ValidateModelAccess
-	case names.ApplicationOfferTagKind:
-
 	case names.CloudTagKind:
 		validate = permission.ValidateCloudAccess
 	default:
