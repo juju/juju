@@ -146,8 +146,8 @@ enable network ports to be opened.
 
 Further reading:
 
-    https://juju.is/docs/relations
-    https://juju.is/docs/cross-model-relations
+    https://juju.is/docs/juju/integration
+    https://juju.is/docs/juju/cross-model-integration
 `
 
 const integrateExamples = `
