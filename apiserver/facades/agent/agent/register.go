@@ -39,6 +39,8 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
+	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+
 	resources := ctx.Resources()
 	return &AgentAPI{
 		PasswordChanger:   common.NewPasswordChanger(st, getCanChange),
@@ -56,8 +58,9 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		st:        st,
-		auth:      auth,
-		resources: resources,
+		controllerConfigGetter: controllerConfigGetter,
+		st:                     st,
+		auth:                   auth,
+		resources:              resources,
 	}, nil
 }

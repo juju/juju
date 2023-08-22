@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
@@ -23,6 +24,11 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
+
+// ControllerConfigGetter is the interface that gets ControllerConfig form DB.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // AgentAPI implements the version 3 of the API provided to an agent.
 type AgentAPI struct {
@@ -32,9 +38,10 @@ type AgentAPI struct {
 	*common.ControllerConfigAPI
 	cloudspec.CloudSpecer
 
-	st        *state.State
-	auth      facade.Authorizer
-	resources facade.Resources
+	controllerConfigGetter ControllerConfigGetter
+	st                     *state.State
+	auth                   facade.Authorizer
+	resources              facade.Resources
 }
 
 func (api *AgentAPI) GetEntities(ctx context.Context, args params.Entities) params.AgentGetEntitiesResults {
@@ -89,7 +96,7 @@ func (api *AgentAPI) StateServingInfo(ctx context.Context) (result params.StateS
 		return params.StateServingInfo{}, errors.Trace(err)
 	}
 	// ControllerAPIPort comes from the controller config.
-	config, err := api.st.ControllerConfig()
+	config, err := api.controllerConfigGetter.ControllerConfig(ctx)
 	if err != nil {
 		return params.StateServingInfo{}, errors.Trace(err)
 	}
