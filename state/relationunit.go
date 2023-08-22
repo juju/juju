@@ -147,10 +147,24 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	}
 
 	// Now run the complete transaction, or figure out why we can't.
-	if err := ru.st.db().RunTransaction(ops); err != txn.ErrAborted {
-		return err
+	// Note: We retry the complete transaction, because when EnterScope is
+	// called concurrently (it's the case when concurrent calls to the
+	// EnterScope facade are done) the transactions might fail with
+	// WriteConflict errors, which is transient and should be retried.
+	for i := 0; i < 3; i++ {
+		err := ru.st.db().RunTransaction(ops)
+		if err == txn.ErrAborted {
+			rulogger.Debugf("transaction %+v was aborted with error: %s, retrying attempt %d", ops, err, i)
+			continue
+		} else if err != nil {
+			rulogger.Errorf("transaction %+v failed, error: %s", err)
+			return err
+		}
+		break
 	}
+
 	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
+		rulogger.Errorf("finding relation scopes id %s failed, error: %s", ruKey, err)
 		return err
 	} else if count != 0 {
 		// The scope document exists, so we're actually already in scope.
@@ -165,6 +179,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	relations, rCloser := db.GetCollection(relationsC)
 	defer rCloser()
 	if alive, err := isAliveWithSession(relations, relationDocID); err != nil {
+		rulogger.Errorf("checking liveness on relations (doc id %s) failed, error: %s", relationDocID, err)
 		return err
 	} else if !alive {
 		return stateerrors.ErrCannotEnterScope
@@ -173,6 +188,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		units, uCloser := db.GetCollection(unitsC)
 		defer uCloser()
 		if alive, err := isAliveWithSession(units, ru.unitName); err != nil {
+			rulogger.Errorf("checking liveness on units (doc id %s) failed, error: %s", ru.unitName, err)
 			return err
 		} else if !alive {
 			return stateerrors.ErrCannotEnterScope
@@ -182,6 +198,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		// case, we will be unable to enter scope until that unit is gone.
 		if existingSubName != "" {
 			if alive, err := isAliveWithSession(units, existingSubName); err != nil {
+				rulogger.Errorf("checking liveness on units (doc id %s) failed, error: %s", existingSubName, err)
 				return err
 			} else if !alive {
 				return stateerrors.ErrCannotEnterScopeYet
@@ -195,6 +212,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// touching that doc under our feet) and we should bail out.
 	prefix := fmt.Sprintf("cannot enter scope for unit %q in relation %q: ", ru.unitName, ru.relation)
 	if changed, err := settingsChanged(); err != nil {
+		rulogger.Errorf("updating settings failed, error: %s", err)
 		return err
 	} else if changed {
 		return fmt.Errorf(prefix + "concurrent settings change detected")
@@ -202,6 +220,10 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 
 	// Apparently, all our assertions should have passed, but the txn was
 	// aborted: something is really seriously wrong.
+	// Note: We also get to this error if the transaction was aborted
+	// due to WriteConflict errors, since mgo will only retry a limited (3)
+	// number of times the transactions that fail with write conflict
+	// errors and aborting them afterwards.
 	return fmt.Errorf(prefix + "inconsistent state in EnterScope")
 }
 
