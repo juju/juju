@@ -5,7 +5,6 @@ package migration_test
 
 import (
 	"context"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -106,7 +105,6 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	backend := newFakeBackend()
 	hasUpgradeSeriesLocks := true
 	backend.hasUpgradeSeriesLocks = &hasUpgradeSeriesLocks
-	backend.machineCountForSeriesWin = map[string]int{"win10": 1, "win7": 2}
 	backend.machineCountForSeriesUbuntu = map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}
 	agentVersion := version.MustParse("2.9.35")
 	backend.model.agentVersion = &agentVersion
@@ -129,7 +127,6 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 cannot migrate to controller due to issues:
 "foo/model-1":
 - unexpected upgrade series lock found
-- the model hosts deprecated windows machine(s): win10(1) win7(2)
 - the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
@@ -138,7 +135,6 @@ func (*SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	backend := newFakeBackend()
 	hasUpgradeSeriesLocks := true
 	backend.hasUpgradeSeriesLocks = &hasUpgradeSeriesLocks
-	backend.machineCountForSeriesWin = map[string]int{"win10": 1, "win7": 2}
 	backend.machineCountForSeriesUbuntu = map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}
 	agentVersion := version.MustParse("2.9.31")
 	backend.model.agentVersion = &agentVersion
@@ -156,7 +152,6 @@ func (*SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 cannot migrate to controller due to issues:
 "foo/model-1":
 - unexpected upgrade series lock found
-- the model hosts deprecated windows machine(s): win10(1) win7(2)
 - the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)`[1:])
 }
 
@@ -848,7 +843,6 @@ type fakeBackend struct {
 	hasUpgradeSeriesLocks    *bool
 	hasUpgradeSeriesLocksErr error
 
-	machineCountForSeriesWin    map[string]int
 	machineCountForSeriesUbuntu map[string]int
 	machineCountForSeriesErr    error
 
@@ -907,12 +901,6 @@ func (b *fakeBackend) HasUpgradeSeriesLocks() (bool, error) {
 }
 
 func (b *fakeBackend) MachineCountForBase(base ...state.Base) (map[string]int, error) {
-	if strings.HasPrefix(base[0].Channel, "win") {
-		if b.machineCountForSeriesWin == nil {
-			return nil, nil
-		}
-		return b.machineCountForSeriesWin, b.machineCountForSeriesErr
-	}
 	if b.machineCountForSeriesUbuntu == nil {
 		return nil, nil
 	}

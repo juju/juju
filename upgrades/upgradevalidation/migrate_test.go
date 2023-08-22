@@ -4,7 +4,6 @@
 package upgradevalidation_test
 
 import (
-	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -17,11 +16,6 @@ import (
 	"github.com/juju/juju/upgrades/upgradevalidation"
 	"github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )
-
-var winVersions = []string{
-	"win2008r2", "win2012", "win2012hv", "win2012hvr2", "win2012r2", "win2012r2",
-	"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
-}
 
 var ubuntuVersions = []string{
 	"12.04",
@@ -117,10 +111,7 @@ func (s *migrateSuite) setupMocks(c *gc.C) (*gomock.Controller, environscloudspe
 	// - check no upgrade series in process.
 	s.st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
 	// - check if the model has win machines;
-	s.st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	s.st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
-	// - check no charm store charms
-	s.st.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
 
 	return ctrl, cloudSpec.CloudSpec
 }
