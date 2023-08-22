@@ -5,6 +5,7 @@ package database
 
 import (
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -57,18 +58,27 @@ func (s *statementSuite) TestMakeBindArgs(c *gc.C) {
 	c.Assert(binds, gc.Equals, "(?, ?), (?, ?), (?, ?)")
 }
 
-func (s *statementSuite) TestMapKeysToPlaceHolder(c *gc.C) {
-	args := map[string]string{
-		"foo": "1",
-		"bar": "2",
-	}
-	binds, vals := MapKeysToPlaceHolder(args)
-	c.Check(binds, gc.Equals, "?,?")
-	c.Check(vals, gc.DeepEquals, []any{"foo", "bar"})
+func (s *statementSuite) TestEmptyMakeQueryCondition(c *gc.C) {
+	condition, args := MakeQueryCondition(nil)
+	c.Assert(condition, gc.Equals, "")
+	c.Assert(args, gc.HasLen, 0)
 }
 
-func (s *statementSuite) TestNilMapKeysToPlaceHolder(c *gc.C) {
-	binds, vals := MapKeysToPlaceHolder(map[string]string(nil))
-	c.Check(binds, gc.Equals, "")
-	c.Check(vals, gc.HasLen, 0)
+func (s *statementSuite) TestMakeQueryConditionSingle(c *gc.C) {
+	condition, args := MakeQueryCondition(map[string]any{
+		"t1.col": "",
+		"t2.col": "foo",
+	})
+	c.Assert(condition, gc.Equals, "t2.col = ?")
+	c.Assert(args, jc.DeepEquals, []any{"foo"})
+}
+
+func (s *statementSuite) TestMakeQueryConditionMultiple(c *gc.C) {
+	condition, args := MakeQueryCondition(map[string]any{
+		"t1.col": "",
+		"t2.col": "foo",
+		"t3.col": 123,
+	})
+	c.Assert(condition, gc.Equals, "t2.col = ? AND t3.col = ?")
+	c.Assert(args, jc.DeepEquals, []any{"foo", 123})
 }

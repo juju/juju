@@ -35,15 +35,6 @@ func SliceToPlaceholderTransform[T any](in []T, trans func(T) any) (string, []an
 	}), ","), vals
 }
 
-// MapKeysToPlaceHolder invokes SliceToPlaceholder on the keys of the map.
-func MapKeysToPlaceHolder[T any](in map[string]T) (string, []any) {
-	var keys []string
-	for key := range in {
-		keys = append(keys, key)
-	}
-	return SliceToPlaceholder(keys)
-}
-
 // MakeBindArgs returns a string of bind args for a given number of columns and
 // rows.
 func MakeBindArgs(columns, rows int) string {
@@ -55,4 +46,18 @@ func MakeBindArgs(columns, rows int) string {
 		r = append(r, fmt.Sprintf("(%s)", c))
 	}
 	return strings.Join(r, ", ")
+}
+
+// MakeQueryCondition creates a SQL query condition where each
+// of the non-empty map values become an AND operator.
+func MakeQueryCondition(columnValues map[string]any) (_ string, args []any) {
+	var terms []string
+	for col, value := range columnValues {
+		if value == "" {
+			continue
+		}
+		terms = append(terms, col+" = ?")
+		args = append(args, value)
+	}
+	return strings.Join(terms, " AND "), args
 }
