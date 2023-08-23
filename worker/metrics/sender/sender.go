@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/agent/metricsadder"
-	csender "github.com/juju/juju/common/sender"
+	csender "github.com/juju/juju/internal/sender"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/metrics/spool"
 )
