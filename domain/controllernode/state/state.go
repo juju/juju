@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"strconv"
 
 	"github.com/juju/errors"
 
@@ -73,7 +74,7 @@ WHERE  controller_id = ?
 AND    (dqlite_node_id != ? OR bind_address != ?)`
 
 	return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, nodeID, addr, controllerID, nodeID, addr)
+		_, err := tx.ExecContext(ctx, q, nodeID, addr, controllerID, strconv.FormatUint(nodeID, 10), addr)
 		return errors.Trace(err)
 	}))
 }

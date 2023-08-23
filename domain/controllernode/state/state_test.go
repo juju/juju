@@ -59,13 +59,13 @@ func (s *stateSuite) TestUpdateUpdateDqliteNode(c *gc.C) {
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var (
-		id   int
+		id   uint64
 		addr string
 	)
 	err = row.Scan(&id, &addr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(id, gc.Equals, 12345)
+	c.Check(id, gc.Equals, uint64(12345))
 	c.Check(addr, gc.Equals, "192.168.5.60")
 }
 
