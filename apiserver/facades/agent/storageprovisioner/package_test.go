@@ -5,7 +5,9 @@ package storageprovisioner_test
 
 import (
 	stdtesting "testing"
+	"time"
 
+	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
 
@@ -13,4 +15,25 @@ import (
 
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
+}
+
+const (
+	dontWait = time.Duration(0)
+)
+
+type byMachineAndEntity []params.MachineStorageId
+
+func (b byMachineAndEntity) Len() int {
+	return len(b)
+}
+
+func (b byMachineAndEntity) Less(i, j int) bool {
+	if b[i].MachineTag == b[j].MachineTag {
+		return b[i].AttachmentTag < b[j].AttachmentTag
+	}
+	return b[i].MachineTag < b[j].MachineTag
+}
+
+func (b byMachineAndEntity) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
 }
