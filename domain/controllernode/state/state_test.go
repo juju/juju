@@ -51,8 +51,12 @@ func (s *stateSuite) TestCurateNodes(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpdateUpdateDqliteNode(c *gc.C) {
+	// This value would cause a driver error to be emitted if we
+	// tried to pass it directly as a uint64 query parameter.
+	nodeID := uint64(15237855465837235027)
+
 	err := NewState(testing.TxnRunnerFactory(s.TxnRunner())).UpdateDqliteNode(
-		context.Background(), "0", 12345, "192.168.5.60")
+		context.Background(), "0", nodeID, "192.168.5.60")
 	c.Assert(err, jc.ErrorIsNil)
 
 	row := s.DB().QueryRow("SELECT dqlite_node_id, bind_address FROM controller_node WHERE controller_id = '0'")
@@ -65,7 +69,7 @@ func (s *stateSuite) TestUpdateUpdateDqliteNode(c *gc.C) {
 	err = row.Scan(&id, &addr)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(id, gc.Equals, uint64(12345))
+	c.Check(id, gc.Equals, nodeID)
 	c.Check(addr, gc.Equals, "192.168.5.60")
 }
 
