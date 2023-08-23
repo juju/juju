@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/observability/probe"
+	"github.com/juju/juju/internal/observability/probe"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets"
 	"github.com/juju/juju/worker/common/reboot"

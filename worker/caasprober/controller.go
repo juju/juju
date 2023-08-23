@@ -12,7 +12,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/observability/probe"
+	"github.com/juju/juju/internal/observability/probe"
 )
 
 type Mux interface {

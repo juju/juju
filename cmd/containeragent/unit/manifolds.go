@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/observability/probe"
+	"github.com/juju/juju/internal/observability/probe"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
