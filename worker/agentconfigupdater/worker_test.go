@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	controllermsg "github.com/juju/juju/pubsub/controller"
+	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agentconfigupdater"
 )

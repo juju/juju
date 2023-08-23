@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/pubsub/controller"
+	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/servicefactory"
 )

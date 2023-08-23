@@ -18,7 +18,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/rpc/params"
 )
 

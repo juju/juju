@@ -19,9 +19,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corepresence "github.com/juju/juju/core/presence"
-	"github.com/juju/juju/pubsub/apiserver"
-	"github.com/juju/juju/pubsub/centralhub"
-	"github.com/juju/juju/pubsub/forwarder"
+	"github.com/juju/juju/internal/pubsub/apiserver"
+	"github.com/juju/juju/internal/pubsub/centralhub"
+	"github.com/juju/juju/internal/pubsub/forwarder"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/presence"
 )

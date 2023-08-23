@@ -17,7 +17,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/pubsub/forwarder"
+	"github.com/juju/juju/internal/pubsub/forwarder"
 	"github.com/juju/juju/rpc/params"
 )
 

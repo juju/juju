@@ -11,7 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	message "github.com/juju/juju/pubsub/agent"
+	message "github.com/juju/juju/internal/pubsub/agent"
 	"github.com/juju/juju/worker/caasunitsmanager"
 	"github.com/juju/juju/worker/caasunitsmanager/mocks"
 )

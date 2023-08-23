@@ -3,7 +3,7 @@
 
 package apiserver
 
-import "github.com/juju/juju/pubsub/common"
+import "github.com/juju/juju/internal/pubsub/common"
 
 // DetailsTopic is the topic name for the published message when the details
 // of the api servers change. This message is normally published by the

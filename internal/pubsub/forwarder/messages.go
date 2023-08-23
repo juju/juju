@@ -3,7 +3,7 @@
 
 package forwarder
 
-import "github.com/juju/juju/pubsub/common"
+import "github.com/juju/juju/internal/pubsub/common"
 
 const (
 	// ConnectTopic is published when a connection is established between

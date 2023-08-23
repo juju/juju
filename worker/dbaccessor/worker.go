@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/database/dqlite"
 	"github.com/juju/juju/domain/controllernode/service"
 	"github.com/juju/juju/domain/controllernode/state"
-	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/internal/pubsub/apiserver"
 )
 
 const (

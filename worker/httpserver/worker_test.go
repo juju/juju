@@ -26,7 +26,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/internal/pubsub/apiserver"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/httpserver"
 )
