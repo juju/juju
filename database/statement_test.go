@@ -4,6 +4,7 @@
 package database
 
 import (
+	"github.com/canonical/sqlair"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -69,8 +70,8 @@ func (s *statementSuite) TestMakeQueryConditionSingle(c *gc.C) {
 		"t1.col": "",
 		"t2.col": "foo",
 	})
-	c.Assert(condition, gc.Equals, "t2.col = ?")
-	c.Assert(args, jc.DeepEquals, []any{"foo"})
+	c.Assert(condition, gc.Equals, "t2.col = $M.t2_col")
+	c.Assert(args, jc.DeepEquals, sqlair.M{"t2_col": "foo"})
 }
 
 func (s *statementSuite) TestMakeQueryConditionMultiple(c *gc.C) {
@@ -79,6 +80,9 @@ func (s *statementSuite) TestMakeQueryConditionMultiple(c *gc.C) {
 		"t2.col": "foo",
 		"t3.col": 123,
 	})
-	c.Assert(condition, gc.Equals, "t2.col = ? AND t3.col = ?")
-	c.Assert(args, jc.DeepEquals, []any{"foo", 123})
+	if condition != "t2.col = $M.t2_col AND t3.col = $M.t3_col" &&
+		condition != "t3.col = $M.t3_col AND t2.col = $M.t2_col" {
+		c.Fatalf("unexpected condition: %q", condition)
+	}
+	c.Assert(args, jc.DeepEquals, sqlair.M{"t2_col": "foo", "t3_col": 123})
 }

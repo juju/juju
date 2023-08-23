@@ -16,8 +16,6 @@ func ControllerDDL(nodeID uint64) *schema.Schema {
 		cloudSchema,
 		changeLogTriggersForTable("cloud", "uuid", 7),
 		changeLogTriggersForTable("cloud_credential", "uuid", 8),
-		// TODO(wallyworld) - need to support composite primary keys
-		// changeLogTriggersForTable("cloud_credential_attributes", "uuid,key", 9),
 		externalControllerSchema,
 		changeLogTriggersForTable("external_controller", "uuid", 1),
 		modelListSchema,
@@ -108,8 +106,7 @@ INSERT INTO change_log_namespace VALUES
     (5, 'model_migration_minion_sync', 'model migration minion sync changes based on the UUID'),
     (6, 'upgrade_info', 'upgrade info changes based on the UUID'),
     (7, 'cloud', 'cloud changes based on the UUID'),
-    (8, 'cloud_credential', 'cloud credential changes based on the UUID'),
-    (9, 'cloud_credential_attribute', 'cloud credential attribute changes based on the uuid and key');
+    (8, 'cloud_credential', 'cloud credential changes based on the UUID')
 `)
 }
 
@@ -251,6 +248,7 @@ CREATE TABLE cloud_credential (
         revoked             BOOLEAN,
         invalid             BOOLEAN,
         invalid_reason      TEXT,
+        CONSTRAINT chk_name_empty CHECK (name != ""),
         CONSTRAINT          fk_cloud_credential_cloud
             FOREIGN KEY         (cloud_uuid)
             REFERENCES          cloud(uuid)

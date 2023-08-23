@@ -7,11 +7,18 @@ import (
 	ctx "context"
 	"regexp"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/database/testing"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -19,12 +26,16 @@ import (
 
 type credentialSuite struct {
 	schematesting.ControllerSuite
+
+	events chan []changestream.ChangeEvent
 }
 
 var _ = gc.Suite(&credentialSuite{})
 
 func (s *credentialSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
+
+	s.events = make(chan []changestream.ChangeEvent, 1)
 
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 	s.addCloud(c, st, cloud.Cloud{
@@ -64,6 +75,31 @@ func (s *credentialSuite) TestUpdateCloudCredentialNew(c *gc.C) {
 	out, err := st.CloudCredential(ctx, "foobar", "stratus", "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, cred)
+}
+
+func (s *credentialSuite) TestUpdateCloudCredentialNoValues(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+
+	cred := cloud.NewNamedCredential("foobar", cloud.AccessKeyAuthType, map[string]string{}, true)
+	ctx := ctx.Background()
+	err := st.UpsertCloudCredential(ctx, "foobar", "stratus", "bob", cred)
+	c.Assert(err, jc.ErrorIsNil)
+
+	out, err := st.CloudCredential(ctx, "foobar", "stratus", "bob")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, jc.DeepEquals, cred)
+}
+
+func (s *credentialSuite) TestUpdateCloudCredentialMissingName(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+
+	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
+		"foo": "foo val",
+		"bar": "bar val",
+	})
+	ctx := ctx.Background()
+	err := st.UpsertCloudCredential(ctx, "", "stratus", "bob", cred)
+	c.Assert(err, gc.ErrorMatches, "updating credential: credential name cannot be empty")
 }
 
 func (s *credentialSuite) TestCreateInvalidCredential(c *gc.C) {
@@ -248,7 +284,7 @@ func (s *credentialSuite) TestAllCloudCredentialsNotFound(c *gc.C) {
 	c.Assert(out, gc.IsNil)
 }
 
-func (s *credentialSuite) createCloudCredential(c *gc.C, st *State, cloudName, userName, credentialName string) cloud.Credential {
+func (s *credentialSuite) createCloudCredential(c *gc.C, st *State, credentialName, cloudName, userName string) cloud.Credential {
 	authType := cloud.AccessKeyAuthType
 	attributes := map[string]string{
 		"foo": "foo val",
@@ -270,21 +306,24 @@ func (s *credentialSuite) createCloudCredential(c *gc.C, st *State, cloudName, u
 func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
-	one := s.createCloudCredential(c, st, "cirrus", "bob", "foobar")
-	two := s.createCloudCredential(c, st, "stratus", "bob", "foobar")
+	one := s.createCloudCredential(c, st, "foobar", "cirrus", "bob")
+	two := s.createCloudCredential(c, st, "foobar", "stratus", "bob")
 
 	// Added to make sure it is not returned.
-	s.createCloudCredential(c, st, "cumulus", "mary", "foobar")
+	s.createCloudCredential(c, st, "foobar", "cumulus", "mary")
 
 	out, err := st.AllCloudCredentials(ctx.Background(), "bob")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.DeepEquals, []cloud.Credential{one, two})
+	c.Assert(out, jc.DeepEquals, []CloudCredential{
+		{Credential: one, CloudName: "cirrus"},
+		{Credential: two, CloudName: "stratus"},
+	})
 }
 
 func (s *credentialSuite) TestInvalidateCloudCredential(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
-	one := s.createCloudCredential(c, st, "cirrus", "bob", "foobar")
+	one := s.createCloudCredential(c, st, "foobar", "cirrus", "bob")
 	c.Assert(one.Invalid, jc.IsFalse)
 
 	ctx := ctx.Background()
@@ -304,4 +343,66 @@ func (s *credentialSuite) TestInvalidateCloudCredentialNotFound(c *gc.C) {
 	ctx := ctx.Background()
 	err := st.InvalidateCloudCredential(ctx, "foobar", "cirrus", "bob", "reason")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+type watcherFunc func(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error)
+
+func (f watcherFunc) NewValueWatcher(
+	namespace, changeValue string, changeMask changestream.ChangeType,
+) (watcher.NotifyWatcher, error) {
+	return f(namespace, changeValue, changeMask)
+}
+
+func (s *credentialSuite) watcherFunc(c *gc.C, expectedChangeValue string) watcherFunc {
+	return func(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error) {
+		c.Assert(namespace, gc.Equals, "cloud_credential")
+		c.Assert(changeMask, gc.Equals, changestream.All)
+		c.Assert(changeValue, gc.Equals, expectedChangeValue)
+
+		factory := testing.StubFactory(s.TxnRunner(), s.events)
+		db, err := factory()
+		if err != nil {
+			return nil, err
+		}
+		base := eventsource.NewBaseWatcher(db, loggo.GetLogger("test"))
+		return eventsource.NewValueWatcher(base, namespace, changeValue, changeMask), nil
+	}
+}
+
+type stubEvent struct {
+	changestream.ChangeEvent
+}
+
+func (s *credentialSuite) TestWatchCredentialNotFound(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+
+	ctx := ctx.Background()
+	_, err := st.WatchCredential(ctx, s.watcherFunc(c, ""), "foobar", "cirrus", "bob")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *credentialSuite) TestWatchCredential(c *gc.C) {
+	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	s.createCloudCredential(c, st, "foobar", "cirrus", "bob")
+
+	var uuid string
+	err := s.TxnRunner().Txn(ctx.Background(), func(ctx ctx.Context, tx *sqlair.TX) error {
+		var err error
+		uuid, err = st.credentialUUID(ctx, tx, "foobar", "cirrus", "bob")
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := ctx.Background()
+	w, err := st.WatchCredential(ctx, s.watcherFunc(c, uuid), "foobar", "cirrus", "bob")
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
+
+	wc := watchertest.NewNotifyWatcherC(c, w)
+	wc.AssertOneChange() // Initial event.
+
+	s.events <- []changestream.ChangeEvent{stubEvent{}}
+	wc.AssertOneChange()
+
+	workertest.CleanKill(c, w)
 }

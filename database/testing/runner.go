@@ -105,3 +105,44 @@ func (constSubscription) Unsubscribe() {}
 func (constSubscription) Done() <-chan struct{} {
 	return make(<-chan struct{})
 }
+
+// StubFactory returns a changestream.WatchableDB factory function from a database.TxnRunner
+// and a supplied event channel that can be used to trigger the watcher.
+func StubFactory(runner coredatabase.TxnRunner, events chan []changestream.ChangeEvent) func() (changestream.WatchableDB, error) {
+	return func() (changestream.WatchableDB, error) {
+		return &stubWatchableDB{
+			TxnRunner: runner,
+			events:    events,
+		}, nil
+	}
+}
+
+type stubWatchableDB struct {
+	coredatabase.TxnRunner
+	events chan []changestream.ChangeEvent
+}
+
+// Subscribe returns a subscription that can receive events from
+// a change stream according to the input subscription options.
+func (s *stubWatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+	return &stubSubscription{events: s.events}, nil
+}
+
+type stubSubscription struct {
+	events chan []changestream.ChangeEvent
+}
+
+// Changes returns the channel that the subscription will receive events on.
+func (s *stubSubscription) Changes() <-chan []changestream.ChangeEvent {
+	return s.events
+}
+
+// Unsubscribe removes the subscription from the event queue.
+func (*stubSubscription) Unsubscribe() {}
+
+// Done provides a way to know from the consumer side if the underlying
+// subscription has been terminated. This is useful to know if the
+// event queue has been killed.
+func (*stubSubscription) Done() <-chan struct{} {
+	return make(<-chan struct{})
+}

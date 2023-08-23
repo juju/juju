@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher"
@@ -33,9 +34,52 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	}
 }
 
+func credentialKeyMap(name, cloudName, owner string) sqlair.M {
+	return sqlair.M{
+		"credential_name": name,
+		"cloud_name":      cloudName,
+		"owner":           owner,
+	}
+}
+
+func (st *State) credentialUUID(ctx context.Context, tx *sqlair.TX, name, cloudName, owner string) (string, error) {
+	selectQ := `
+SELECT &M.uuid FROM cloud_credential
+WHERE  cloud_credential.name = $M.credential_name
+AND    cloud_credential.owner_uuid = $M.owner
+AND    cloud_credential.cloud_uuid = (
+    SELECT uuid FROM cloud
+    WHERE name = $M.cloud_name
+)`
+
+	selectStmt, err := sqlair.Prepare(selectQ, sqlair.M{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	uuid := sqlair.M{}
+	err = tx.Query(ctx, selectStmt, credentialKeyMap(name, cloudName, owner)).Get(&uuid)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("cloud credential %s/%s/%s %w%w", cloudName, owner, name, errors.NotFound, errors.Hide(err))
+	} else if err != nil {
+		return "", fmt.Errorf("fetching cloud credential %s/%s/%s: %w", cloudName, owner, name, err)
+	}
+	return uuid["uuid"].(string), nil
+}
+
 // UpsertCloudCredential adds or updates a cloud credential with the given tag.
-func (st *State) UpsertCloudCredential(ctx context.Context, name, cloud, owner string, credential cloud.Credential) error {
+func (st *State) UpsertCloudCredential(ctx context.Context, name, cloudName, owner string, credential cloud.Credential) error {
 	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	q := `
+SELECT  cloud_credential.uuid AS &M.uuid
+FROM    cloud_credential
+        JOIN cloud ON cloud_credential.cloud_uuid = cloud.uuid
+WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_name AND cloud_credential.owner_uuid = $M.owner
+`
+	stmt, err := sqlair.Prepare(q, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -44,23 +88,9 @@ func (st *State) UpsertCloudCredential(ctx context.Context, name, cloud, owner s
 		// Get the credential UUID - either existing or make a new one.
 		// TODO(wallyworld) - implement owner as a FK when users are modelled.
 
-		q := `
-SELECT  cloud_credential.uuid AS &M.uuid
-FROM    cloud_credential
-        JOIN cloud ON cloud_credential.cloud_uuid = cloud.uuid
-WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_name AND cloud_credential.owner_uuid = $M.owner
-`
-		stmt, err := sqlair.Prepare(q, sqlair.M{})
-		if err != nil {
-			return errors.Trace(err)
-		}
 		result := sqlair.M{}
-		err = tx.Query(ctx, stmt, sqlair.M{
-			"credential_name": name,
-			"cloud_name":      cloud,
-			"owner":           owner,
-		}).Get(result)
-		if err != nil && err != sqlair.ErrNoRows {
+		err = tx.Query(ctx, stmt, credentialKeyMap(name, cloudName, owner)).Get(result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Trace(err)
 		}
 		credentialUUID, ok := result["uuid"].(string)
@@ -71,7 +101,7 @@ WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_nam
 			credentialUUID = utils.MustNewUUID().String()
 		}
 
-		if err := upsertCredential(ctx, tx, credentialUUID, name, cloud, owner, credential); err != nil {
+		if err := upsertCredential(ctx, tx, credentialUUID, name, cloudName, owner, credential); err != nil {
 			return errors.Annotate(err, "updating credential")
 		}
 
@@ -96,14 +126,14 @@ func upsertCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string,
 	insertQuery := `
 INSERT INTO cloud_credential (uuid, name, cloud_uuid, auth_type_id, owner_uuid, revoked, invalid, invalid_reason)
 VALUES (
-    $CloudCredential.uuid,
-    $CloudCredential.name,
-    $CloudCredential.cloud_uuid,
-    $CloudCredential.auth_type_id,
-    $CloudCredential.owner_uuid,
-    $CloudCredential.revoked,
-    $CloudCredential.invalid,
-    $CloudCredential.invalid_reason
+    $Credential.uuid,
+    $Credential.name,
+    $Credential.cloud_uuid,
+    $Credential.auth_type_id,
+    $Credential.owner_uuid,
+    $Credential.revoked,
+    $Credential.invalid,
+    $Credential.invalid_reason
 )
 ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
                                 cloud_uuid=excluded.cloud_uuid,
@@ -114,14 +144,14 @@ ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
                                 invalid_reason=excluded.invalid_reason
 `
 
-	insertStmt, err := sqlair.Prepare(insertQuery, CloudCredential{})
+	insertStmt, err := sqlair.Prepare(insertQuery, Credential{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	err = tx.Query(ctx, insertStmt, dbCredential).Run()
 	if database.IsErrConstraintCheck(err) {
-		return fmt.Errorf("%w credential name cannot be empty%w", errors.NotValid, errors.Hide(err))
+		return fmt.Errorf("credential name cannot be empty%w%w", errors.Hide(errors.NotValid), errors.Hide(err))
 	} else if err != nil {
 		return errors.Trace(err)
 	}
@@ -146,25 +176,25 @@ WHERE        cloud_credential_uuid = $M.uuid
 	}
 
 	insertQuery := `
-INSERT INTO cloud_credential_attributes (cloud_credential_uuid, key, value)
+INSERT INTO cloud_credential_attributes
 VALUES (
-    $M.credential_uuid,
-    $M.key,
-    $M.value
+    $CredentialAttribute.cloud_credential_uuid,
+    $CredentialAttribute.key,
+    $CredentialAttribute.value
 )
 ON CONFLICT(cloud_credential_uuid, key) DO UPDATE SET key=excluded.key,
                                                       value=excluded.value
 `
-	insertStmt, err := sqlair.Prepare(insertQuery, sqlair.M{})
+	insertStmt, err := sqlair.Prepare(insertQuery, CredentialAttribute{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	for key, value := range attr {
-		if err := tx.Query(ctx, insertStmt, sqlair.M{
-			"credential_uuid": credentialUUID,
-			"key":             key,
-			"value":           value,
+		if err := tx.Query(ctx, insertStmt, CredentialAttribute{
+			CredentialUUID: credentialUUID,
+			Key:            key,
+			Value:          value,
 		}).Run(); err != nil {
 			return errors.Trace(err)
 		}
@@ -172,8 +202,8 @@ ON CONFLICT(cloud_credential_uuid, key) DO UPDATE SET key=excluded.key,
 	return nil
 }
 
-func dbCredentialFromCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string, name, cloudName, owner string, credential cloud.Credential) (*CloudCredential, error) {
-	cred := &CloudCredential{
+func dbCredentialFromCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string, name, cloudName, owner string, credential cloud.Credential) (*Credential, error) {
+	cred := &Credential{
 		ID:         credentialUUID,
 		Name:       name,
 		AuthTypeID: -1,
@@ -184,13 +214,13 @@ func dbCredentialFromCredential(ctx context.Context, tx *sqlair.TX, credentialUU
 		InvalidReason: credential.InvalidReason,
 	}
 
-	q := "SELECT uuid AS &CloudCredential.cloud_uuid FROM cloud WHERE name = $M.cloud_name"
-	stmt, err := sqlair.Prepare(q, CloudCredential{}, sqlair.M{})
+	q := "SELECT uuid AS &Credential.cloud_uuid FROM cloud WHERE name = $Cloud.name"
+	stmt, err := sqlair.Prepare(q, Credential{}, dbcloud.Cloud{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	err = tx.Query(ctx, stmt, sqlair.M{"cloud_name": cloudName}).Get(cred)
+	err = tx.Query(ctx, stmt, dbcloud.Cloud{Name: cloudName}).Get(cred)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -218,15 +248,15 @@ SELECT &AuthType.*
 FROM   auth_type
 JOIN   cloud_auth_type ON auth_type.id = cloud_auth_type.auth_type_id
 JOIN   cloud ON cloud_auth_type.cloud_uuid = cloud.uuid
-WHERE  cloud.name = $M.cloud_name
+WHERE  cloud.name = $Cloud.name
 `
-	stmt, err := sqlair.Prepare(authTypeQuery, dbcloud.AuthType{}, sqlair.M{})
+	stmt, err := sqlair.Prepare(authTypeQuery, dbcloud.AuthType{}, dbcloud.Cloud{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var result dbcloud.AuthTypes
-	err = tx.Query(ctx, stmt, sqlair.M{"cloud_name": cloudName}).GetAll(&result)
+	err = tx.Query(ctx, stmt, dbcloud.Cloud{Name: cloudName}).GetAll(&result)
 	return result, errors.Trace(err)
 }
 
@@ -237,21 +267,29 @@ func (st *State) InvalidateCloudCredential(ctx context.Context, name, cloudName,
 		return errors.Trace(err)
 	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		q := `
+	q := `
 UPDATE cloud_credential
-SET    invalid = true, invalid_reason = ?
-WHERE  cloud_credential.name = ?
-AND    cloud_credential.owner_uuid = ?
+SET    invalid = true, invalid_reason = $M.invalid_reason
+WHERE  cloud_credential.name = $M.credential_name
+AND    cloud_credential.owner_uuid = $M.owner
 AND    cloud_credential.cloud_uuid = (
     SELECT uuid FROM cloud
-    WHERE name = ?
+    WHERE name = $M.cloud_name
 )`
-		r, err := tx.ExecContext(ctx, q, reason, name, owner, cloudName)
+	stmt, err := sqlair.Prepare(q, sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var outcome sqlair.Outcome
+		terms := credentialKeyMap(name, cloudName, owner)
+		terms["invalid_reason"] = reason
+		err = tx.Query(ctx, stmt, terms).Get(&outcome)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		n, err := r.RowsAffected()
+		n, err := outcome.Result().RowsAffected()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -271,8 +309,8 @@ func (st *State) CloudCredentials(ctx context.Context, owner, cloudName string) 
 		return nil, errors.Trace(err)
 	}
 
-	var creds []cloud.Credential
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	var creds []CloudCredential
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		creds, err = st.loadCloudCredentials(ctx, tx, "", cloudName, owner)
 		return errors.Trace(err)
@@ -282,20 +320,20 @@ func (st *State) CloudCredentials(ctx context.Context, owner, cloudName string) 
 	}
 	result := make(map[string]cloud.Credential)
 	for _, cred := range creds {
-		result[cred.Label] = cred
+		result[cred.Credential.Label] = cred.Credential
 	}
 	return result, nil
 }
 
-// CloudCredential returns the cloud credential for the given tag.
+// CloudCredential returns the cloud credential for the given details.
 func (st *State) CloudCredential(ctx context.Context, name, cloudName, owner string) (cloud.Credential, error) {
 	db, err := st.DB()
 	if err != nil {
 		return cloud.Credential{}, errors.Trace(err)
 	}
 
-	var creds []cloud.Credential
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	var creds []CloudCredential
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		creds, err = st.loadCloudCredentials(ctx, tx, name, cloudName, owner)
 		return errors.Trace(err)
@@ -309,30 +347,20 @@ func (st *State) CloudCredential(ctx context.Context, name, cloudName, owner str
 	if len(creds) > 1 {
 		return cloud.Credential{}, errors.Errorf("expected 1 credential, got %d", len(creds))
 	}
-	return creds[0], errors.Trace(err)
-}
-
-type credentialInfo struct {
-	id            string
-	name          string
-	revoked       bool
-	invalid       bool
-	invalidReason string
-	authType      string
-	cloudName     string
-	owner         string
+	return creds[0].Credential, errors.Trace(err)
 }
 
 type credentialAttrs map[string]string
 
-func (st *State) loadCloudCredentials(ctx context.Context, tx *sql.Tx, name, cloudName, owner string) ([]cloud.Credential, error) {
+func (st *State) loadCloudCredentials(ctx context.Context, tx *sqlair.TX, name, cloudName, owner string) ([]CloudCredential, error) {
 	credQuery := `
-SELECT cloud_credential.uuid, cloud_credential.name,
+SELECT (cloud_credential.uuid, cloud_credential.name,
        cloud_credential.revoked, cloud_credential.invalid, 
        cloud_credential.invalid_reason, 
-       cloud_credential.owner_uuid AS owner,
-       auth_type.type AS auth_type, cloud.name AS cloud_name,
-       cloud_credential_attributes.key, cloud_credential_attributes.value
+       cloud_credential.owner_uuid) AS &Credential.*,
+       auth_type.type AS &AuthType.*,
+       cloud.name AS &Cloud.*,
+       (cloud_credential_attributes.key, cloud_credential_attributes.value) AS &CredentialAttribute.*
 FROM   cloud_credential
        JOIN auth_type ON cloud_credential.auth_type_id = auth_type.id
        JOIN cloud ON cloud_credential.cloud_uuid = cloud.uuid
@@ -340,71 +368,56 @@ FROM   cloud_credential
             ON cloud_credential_attributes.cloud_credential_uuid = cloud_credential.uuid
 `
 
+	types := []any{
+		Credential{},
+		dbcloud.AuthType{},
+		dbcloud.Cloud{},
+		CredentialAttribute{},
+	}
 	condition, args := database.MakeQueryCondition(map[string]any{
 		"cloud_credential.name":       name,
 		"cloud.name":                  cloudName,
 		"cloud_credential.owner_uuid": owner,
 	})
-	if len(condition) > 0 {
-		credQuery = credQuery + "\nWHERE " + condition
+	if len(args) > 0 {
+		credQuery = credQuery + "WHERE " + condition
+		types = append(types, sqlair.M{})
 	}
 
-	rows, err := tx.QueryContext(ctx, credQuery, args...)
-	if err != nil && err != sql.ErrNoRows {
+	credStmt, err := sqlair.Prepare(credQuery, types...)
+	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	var result []cloud.Credential
-	recordResult := func(info *credentialInfo, attrs credentialAttrs) {
-		cred := cloud.NewNamedCredential(info.name, cloud.AuthType(info.authType), attrs, info.revoked)
-		cred.Invalid = info.invalid
-		cred.InvalidReason = info.invalidReason
-		result = append(result, cred)
 	}
 
 	var (
-		current *credentialInfo
-		attrs   = make(credentialAttrs)
+		dbRows      Credentials
+		dbAuthTypes []dbcloud.AuthType
+		dbclouds    []dbcloud.Cloud
+		keyValues   []CredentialAttribute
 	)
-	for rows.Next() {
-		var (
-			dbCredential credentialInfo
-			key, value   string
-		)
-		if err := rows.Scan(
-			&dbCredential.id, &dbCredential.name, &dbCredential.revoked, &dbCredential.invalid, &dbCredential.invalidReason,
-			&dbCredential.owner, &dbCredential.authType, &dbCredential.cloudName,
-			&key, &value,
-		); err != nil {
-			return nil, errors.Trace(err)
-		}
-		if current != nil && dbCredential.id != current.id {
-			recordResult(current, attrs)
-			attrs = make(credentialAttrs)
-		}
-		attrs[key] = value
-		current = &dbCredential
+	err = tx.Query(ctx, credStmt, args).GetAll(&dbRows, &dbAuthTypes, &dbclouds, &keyValues)
+	if err != nil {
+		return nil, errors.Annotate(err, "loading cloud credentials")
 	}
-	if current != nil {
-		recordResult(current, attrs)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return result, nil
+	return dbRows.hydrate(dbAuthTypes, dbclouds, keyValues)
+}
+
+// CloudCredential represents a credential and the cloud it belongs to.
+type CloudCredential struct {
+	Credential cloud.Credential
+	CloudName  string
 }
 
 // AllCloudCredentials returns all cloud credentials stored on the controller
 // for a given user.
-func (st *State) AllCloudCredentials(ctx context.Context, owner string) ([]cloud.Credential, error) {
+func (st *State) AllCloudCredentials(ctx context.Context, owner string) ([]CloudCredential, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var result []cloud.Credential
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	var result []CloudCredential
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		result, err = st.loadCloudCredentials(ctx, tx, "", "", owner)
 		return errors.Trace(err)
@@ -425,40 +438,60 @@ func (st *State) RemoveCloudCredential(ctx context.Context, name, cloudName, own
 		return errors.Trace(err)
 	}
 
-	selectStmt := `
-SELECT uuid FROM cloud_credential
-WHERE  cloud_credential.name = ?
-AND    cloud_credential.owner_uuid = ?
-AND    cloud_credential.cloud_uuid = (
-    SELECT uuid FROM cloud
-    WHERE name = ?
-)`
-
-	credAttrDelete := `
+	credAttrDeleteQ := `
 DELETE FROM cloud_credential_attributes
-WHERE  cloud_credential_attributes.cloud_credential_uuid = ?
+WHERE  cloud_credential_attributes.cloud_credential_uuid = $M.uuid
 `
 
-	credDelete := `
+	credDeleteQ := `
 DELETE FROM cloud_credential
-WHERE  cloud_credential.uuid = ?
+WHERE  cloud_credential.uuid = $M.uuid
 `
 
-	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		var uuid string
-		row := tx.QueryRowContext(ctx, selectStmt, name, owner, cloudName)
-		if err := row.Scan(&uuid); err == sql.ErrNoRows {
-			return fmt.Errorf("cloud credential %s/%s/%s %w%w", cloudName, owner, name, errors.NotFound, errors.Hide(err))
-		} else if err != nil {
-			return fmt.Errorf("fetching cloud credential %s/%s/%s: %w", cloudName, owner, name, err)
-		}
+	credAttrDeleteStmt, err := sqlair.Prepare(credAttrDeleteQ, sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	credDeleteStmt, err := sqlair.Prepare(credDeleteQ, sqlair.M{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-		if _, err := tx.ExecContext(ctx, credAttrDelete, uuid); err != nil {
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		uuid, err := st.credentialUUID(ctx, tx, name, cloudName, owner)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		uuidMap := sqlair.M{"uuid": uuid}
+		if err := tx.Query(ctx, credAttrDeleteStmt, uuidMap).Run(); err != nil {
 			return errors.Annotate(err, "deleting credential attributes")
 		}
-		_, err = tx.ExecContext(ctx, credDelete, uuid)
+		err = tx.Query(ctx, credDeleteStmt, uuidMap).Run()
 		return errors.Annotate(err, "deleting credential")
 	})
+}
+
+// WatchCredential returns a new NotifyWatcher watching for changes to the specified credential.
+func (st *State) WatchCredential(
+	ctx context.Context,
+	getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
+	name, cloudName, owner string,
+) (watcher.NotifyWatcher, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var result watcher.NotifyWatcher
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		uuid, err := st.credentialUUID(ctx, tx, name, cloudName, owner)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		result, err = getWatcher("cloud_credential", uuid, changestream.All)
+		return errors.Trace(err)
+	})
+	return result, err
 }
 
 // TODO(wallyworld) - implement the following methods
@@ -481,13 +514,5 @@ func (st *State) CredentialModelsAndOwnerAccess(ctx context.Context, name, cloud
 
 // RemoveModelsCredential clears out given credential reference from all models that have it.
 func (st *State) RemoveModelsCredential(ctx context.Context, name, cloudName, owner string) error {
-	return nil
-}
-
-// TODO(wallyworld) - implement once watcher supports composite keys
-
-// WatchCredential returns a new NotifyWatcher watching for
-// changes to the specified credential.
-func (st *State) WatchCredential(name, cloudName, owner string) watcher.NotifyWatcher {
 	return nil
 }

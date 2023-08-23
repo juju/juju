@@ -3,9 +3,16 @@
 
 package state
 
+import (
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/cloud"
+	dbcloud "github.com/juju/juju/domain/cloud/state"
+)
+
 // These structs represent the persistent cloud credential entity schema in the database.
 
-type CloudCredential struct {
+type Credential struct {
 	// ID holds the cloud credential document key.
 	ID string `db:"uuid"`
 
@@ -40,4 +47,55 @@ type CloudCredential struct {
 	// This can range from cloud messages such as an expired credential to
 	// commercial reasons set via CLI or api calls.
 	InvalidReason string `db:"invalid_reason"`
+}
+
+type Credentials []Credential
+
+func (rows Credentials) hydrate(authTypes []dbcloud.AuthType, clouds []dbcloud.Cloud, keyValues []CredentialAttribute) ([]CloudCredential, error) {
+	if n := len(rows); n != len(authTypes) || n != len(keyValues) || n != len(clouds) {
+		// Should never happen.
+		return nil, errors.New("row length mismatch")
+	}
+
+	var result []CloudCredential
+	recordResult := func(row *Credential, authType, cloudName string, attrs credentialAttrs) {
+		cred := cloud.NewNamedCredential(row.Name, cloud.AuthType(authType), attrs, row.Revoked)
+		cred.Invalid = row.Invalid
+		cred.InvalidReason = row.InvalidReason
+		result = append(result, CloudCredential{Credential: cred, CloudName: cloudName})
+	}
+
+	var (
+		current             *Credential
+		authType, cloudName string
+		attrs               = make(credentialAttrs)
+	)
+	for i, row := range rows {
+		if current != nil && row.ID != current.ID {
+			recordResult(current, authType, cloudName, attrs)
+			attrs = make(credentialAttrs)
+		}
+		authType = authTypes[i].Type
+		cloudName = clouds[i].Name
+		if keyValues[i].Key != "" {
+			attrs[keyValues[i].Key] = keyValues[i].Value
+		}
+		rowCopy := row
+		current = &rowCopy
+	}
+	if current != nil {
+		recordResult(current, authType, cloudName, attrs)
+	}
+	return result, nil
+}
+
+type CredentialAttribute struct {
+	// CredentialUUID holds the parent cloud credential document key.
+	CredentialUUID string `db:"cloud_credential_uuid"`
+
+	// Key is the attribute key.
+	Key string `db:"key"`
+
+	// Value is the attribute value.
+	Value string `db:"value"`
 }
