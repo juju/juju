@@ -40,14 +40,14 @@ func newFacadeV4(ctx facade.Context) (*StorageProvisionerAPIv4, error) {
 	}
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
 
-	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+	controllerConfigService := ctx.ServiceFactory().ControllerConfig()
 
 	backend, storageBackend, err := NewStateBackends(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return NewStorageProvisionerAPIv4(
-		controllerConfigGetter,
+		controllerConfigService,
 		backend, storageBackend,
 		ctx.Resources(), ctx.Auth(),
 		registry, pm,
