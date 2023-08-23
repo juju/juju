@@ -126,6 +126,27 @@ func (s *integrationSuite) TearDownTest(c *gc.C) {
 	s.dqliteAppIntegrationSuite.TearDownTest(c)
 }
 
+func (s *integrationSuite) TestWorkerSetsNodeIDAndAddress(c *gc.C) {
+	db, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		nodeID uint64
+		addr   string
+	)
+	err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, "SELECT dqlite_node_id, bind_address FROM controller_node WHERE controller_id = '0'")
+		if err := row.Scan(&nodeID, &addr); err != nil {
+			return err
+		}
+		return row.Err()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(nodeID, gc.Not(gc.Equals), uint64(0))
+	c.Check(addr, gc.Equals, "127.0.0.1")
+}
+
 func (s *integrationSuite) TestWorkerAccessingControllerDB(c *gc.C) {
 	db, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
 	c.Assert(err, jc.ErrorIsNil)

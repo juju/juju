@@ -538,7 +538,12 @@ func (w *dbWorker) initialiseDqlite(options ...app.Option) error {
 	// Once initialised, set the details for the node.
 	// This is a no-op if the details are unchanged.
 	// We do this before serving any other requests.
-	if err := w.nodeService().UpdateDqliteNode(ctx, w.cfg.ControllerID, w.dbApp.ID(), w.dbApp.Address()); err != nil {
+	addr, _, err := net.SplitHostPort(w.dbApp.Address())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := w.nodeService().UpdateDqliteNode(ctx, w.cfg.ControllerID, w.dbApp.ID(), addr); err != nil {
 		return errors.Trace(err)
 	}
 

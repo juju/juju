@@ -98,7 +98,7 @@ func (s *baseSuite) expectNodeStartupAndShutdown() {
 	appExp.Ready(gomock.Any()).Return(nil)
 	appExp.Client(gomock.Any()).Return(s.client, nil).MinTimes(1)
 	appExp.ID().Return(uint64(666)).MinTimes(1)
-	appExp.Address().Return("192.168.6.6")
+	appExp.Address().Return("192.168.6.6:17666")
 	appExp.Close().Return(nil)
 }
 
