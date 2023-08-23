@@ -4,10 +4,11 @@
 package deployer
 
 import (
-	"github.com/juju/errors"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"reflect"
 
+	"github.com/juju/errors"
+
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
