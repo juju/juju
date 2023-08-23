@@ -4,20 +4,13 @@
 package machine_test
 
 import (
-	stdtesting "testing"
-
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
-
-func Test(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type commonSuite struct {
 	testing.ApiServerSuite

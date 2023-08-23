@@ -21,10 +21,12 @@ func Register(registry facade.FacadeRegistry) {
 // newMachinerAPI creates a new instance of the Machiner API.
 func newMachinerAPI(ctx facade.Context) (*MachinerAPI, error) {
 	systemState, err := ctx.StatePool().SystemState()
+	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return NewMachinerAPIForState(
+		controllerConfigGetter,
 		systemState,
 		ctx.State(),
 		ctx.Resources(),
