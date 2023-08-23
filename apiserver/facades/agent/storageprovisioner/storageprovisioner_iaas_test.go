@@ -8,6 +8,13 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
@@ -24,12 +31,6 @@ import (
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
-	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type iaasProvisionerSuite struct {

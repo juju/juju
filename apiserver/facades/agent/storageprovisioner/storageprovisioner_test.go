@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
-	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -44,7 +43,7 @@ type provisionerSuite struct {
 	api            *storageprovisioner.StorageProvisionerAPIv4
 	storageBackend storageprovisioner.StorageBackend
 
-	controllerConfigGetter *mocks.MockControllerConfigGetter
+	controllerConfigGetter *MockControllerConfigGetter
 }
 
 func (s *provisionerSuite) SetUpTest(c *gc.C) {
@@ -63,7 +62,7 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 func (s *provisionerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
 	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil).AnyTimes()
 
 	return ctrl

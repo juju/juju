@@ -7,6 +7,13 @@ import (
 	"context"
 	"sort"
 
+	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -20,12 +27,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/loggo"
-	"github.com/juju/names/v4"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3/workertest"
-	"go.uber.org/mock/gomock"
-	gc "gopkg.in/check.v1"
 )
 
 type caasProvisionerSuite struct {
