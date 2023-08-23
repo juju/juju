@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -25,6 +26,11 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// ControllerConfigGetter is the interface that the facade needs to get controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
 type StorageProvisionerAPIv4 struct {
 	*common.LifeGetter
@@ -32,6 +38,7 @@ type StorageProvisionerAPIv4 struct {
 	*common.InstanceIdGetter
 	*common.StatusSetter
 
+	controllerConfigGetter   ControllerConfigGetter
 	st                       Backend
 	sb                       StorageBackend
 	resources                facade.Resources
@@ -48,6 +55,7 @@ type StorageProvisionerAPIv4 struct {
 
 // NewStorageProvisionerAPIv4 creates a new server-side StorageProvisioner v3 facade.
 func NewStorageProvisionerAPIv4(
+	controllerConfigGetter ControllerConfigGetter,
 	st Backend,
 	sb StorageBackend,
 	resources facade.Resources,
@@ -208,6 +216,7 @@ func NewStorageProvisionerAPIv4(
 		InstanceIdGetter: common.NewInstanceIdGetter(st, getMachineAuthFunc),
 		StatusSetter:     common.NewStatusSetter(st, getStorageEntityAuthFunc),
 
+		controllerConfigGetter:   controllerConfigGetter,
 		st:                       st,
 		sb:                       sb,
 		resources:                resources,
@@ -730,7 +739,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
-	controllerCfg, err := s.st.ControllerConfig()
+	controllerCfg, err := s.controllerConfigGetter.ControllerConfig(ctx)
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
@@ -882,7 +891,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
-	controllerCfg, err := s.st.ControllerConfig()
+	controllerCfg, err := s.controllerConfigGetter.ControllerConfig(ctx)
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
