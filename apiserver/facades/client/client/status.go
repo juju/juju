@@ -309,6 +309,21 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	}
 	context.branches = fetchBranches(c.api.modelCache)
 
+	if args.IncludeStorage {
+		context.storageInstances, err = c.api.storageAccessor.AllStorageInstances()
+		if err != nil {
+			return noStatus, errors.Annotate(err, "cannot list all storage instances")
+		}
+		context.filesystems, err = c.api.storageAccessor.AllFilesystems()
+		if err != nil {
+			return noStatus, errors.Annotate(err, "cannot list all filesystems")
+		}
+		context.volumes, err = c.api.storageAccessor.AllVolumes()
+		if err != nil {
+			return noStatus, errors.Annotate(err, "cannot list all volumes")
+		}
+	}
+
 	logger.Tracef("Applications: %v", context.allAppsUnitsCharmBindings.applications)
 	logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
 	logger.Tracef("Offers: %v", context.offers)
@@ -446,6 +461,56 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		// Filter branches
 		context.branches = filterBranches(context.branches, matchedApps,
 			matchedUnits.Union(set.NewStrings(args.Patterns...)))
+
+		matchedStorageTags := set.NewStrings()
+		matchedStorageInstances := []state.StorageInstance{}
+		for _, storageInstance := range context.storageInstances {
+			owner, ok := storageInstance.Owner()
+			if !ok {
+				continue
+			}
+			matched := false
+			switch tag := owner.(type) {
+			case names.UnitTag:
+				matched = matchedUnits.Contains(tag.Id())
+			case names.ApplicationTag:
+				matched = matchedApps.Contains(tag.Id())
+			}
+			if !matched {
+				continue
+			}
+			matchedStorageInstances = append(matchedStorageInstances, storageInstance)
+			matchedStorageTags.Add(storageInstance.StorageTag().Id())
+		}
+		context.storageInstances = matchedStorageInstances
+
+		matchedFilesystems := []state.Filesystem{}
+		for _, filesystem := range context.filesystems {
+			storageTag, err := filesystem.Storage()
+			if errors.Is(err, errors.NotAssigned) {
+				continue
+			} else if err != nil {
+				return noStatus, errors.Trace(err)
+			}
+			if matchedStorageTags.Contains(storageTag.Id()) {
+				matchedFilesystems = append(matchedFilesystems, filesystem)
+			}
+		}
+		context.filesystems = matchedFilesystems
+
+		matchedVolumes := []state.Volume{}
+		for _, volume := range context.volumes {
+			storageTag, err := volume.StorageInstance()
+			if errors.Is(err, errors.NotAssigned) {
+				continue
+			} else if err != nil {
+				return noStatus, errors.Trace(err)
+			}
+			if matchedStorageTags.Contains(storageTag.Id()) {
+				matchedVolumes = append(matchedVolumes, volume)
+			}
+		}
+		context.volumes = matchedVolumes
 	}
 
 	modelStatus, err := c.modelStatus()
@@ -456,65 +521,18 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	var storageDetails []params.StorageDetails
 	var filesystemDetails []params.FilesystemDetails
 	var volumeDetails []params.VolumeDetails
-
 	if args.IncludeStorage {
-		unitToMachine := func(unitTag names.UnitTag) (names.MachineTag, error) {
-			unit, ok := context.allAppsUnitsCharmBindings.allUnits[unitTag.Id()]
-			if !ok {
-				return names.MachineTag{}, errors.NotFoundf("unit %v", unitTag)
-			}
-			machine, err := unit.AssignedMachineId()
-			if err != nil {
-				return names.MachineTag{}, errors.Trace(err)
-			}
-			return names.NewMachineTag(machine), nil
-		}
-
-		storageInstances, err := c.api.storageAccessor.AllStorageInstances()
+		storageDetails, err = context.processStorage(c.api.storageAccessor)
 		if err != nil {
-			return noStatus, errors.Annotate(err, "cannot list all storage instances")
+			return noStatus, errors.Annotate(err, "cannot process storage instances")
 		}
-		storageDetails = make([]params.StorageDetails, 0, len(storageInstances))
-		for _, storageInstance := range storageInstances {
-			storageDetail, err := storagecommon.StorageDetails(c.api.storageAccessor, unitToMachine, storageInstance)
-			if err != nil {
-				return noStatus, errors.Annotatef(err, "cannot convert storage details for %v", storageInstance.Tag())
-			}
-			storageDetails = append(storageDetails, *storageDetail)
-		}
-
-		filesystems, err := c.api.storageAccessor.AllFilesystems()
+		filesystemDetails, err = context.processFilesystems(c.api.storageAccessor)
 		if err != nil {
-			return noStatus, errors.Annotate(err, "cannot list all filesystems")
+			return noStatus, errors.Annotate(err, "cannot process filesystems")
 		}
-		filesystemDetails = make([]params.FilesystemDetails, 0, len(filesystems))
-		for _, filesystem := range filesystems {
-			attachments, err := c.api.storageAccessor.FilesystemAttachments(filesystem.FilesystemTag())
-			if err != nil {
-				return noStatus, errors.Trace(err)
-			}
-			filesystemDetail, err := storagecommon.FilesystemDetails(c.api.storageAccessor, unitToMachine, filesystem, attachments)
-			if err != nil {
-				return noStatus, errors.Annotatef(err, "cannot convert filesystem details for %v", filesystem.Tag())
-			}
-			filesystemDetails = append(filesystemDetails, *filesystemDetail)
-		}
-
-		volumes, err := c.api.storageAccessor.AllVolumes()
+		volumeDetails, err = context.processVolumes(c.api.storageAccessor)
 		if err != nil {
-			return noStatus, errors.Annotate(err, "cannot list all volumes")
-		}
-		volumeDetails = make([]params.VolumeDetails, 0, len(volumes))
-		for _, volume := range volumes {
-			attachments, err := c.api.storageAccessor.VolumeAttachments(volume.VolumeTag())
-			if err != nil {
-				return noStatus, errors.Trace(err)
-			}
-			volumeDetail, err := storagecommon.VolumeDetails(c.api.storageAccessor, unitToMachine, volume, attachments)
-			if err != nil {
-				return noStatus, errors.Annotatef(err, "cannot convert volume details for %v", volume.Tag())
-			}
-			volumeDetails = append(volumeDetails, *volumeDetail)
+			return noStatus, errors.Annotate(err, "cannot process volumes")
 		}
 	}
 
@@ -708,6 +726,11 @@ type statusContext struct {
 	spaceInfos network.SpaceInfos
 
 	primaryHAMachine *names.MachineTag
+
+	// Optional storage info.
+	storageInstances []state.StorageInstance
+	volumes          []state.Volume
+	filesystems      []state.Filesystem
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -1767,6 +1790,62 @@ func (c *statusContext) processBranches() map[string]params.BranchStatus {
 		}
 	}
 	return branchMap
+}
+
+func (c *statusContext) unitToMachine(unitTag names.UnitTag) (names.MachineTag, error) {
+	unit, ok := c.allAppsUnitsCharmBindings.allUnits[unitTag.Id()]
+	if !ok {
+		return names.MachineTag{}, errors.NotFoundf("unit %v", unitTag)
+	}
+	machine, err := unit.AssignedMachineId()
+	if err != nil {
+		return names.MachineTag{}, errors.Trace(err)
+	}
+	return names.NewMachineTag(machine), nil
+}
+
+func (c *statusContext) processStorage(storageAccessor StorageInterface) ([]params.StorageDetails, error) {
+	storageDetails := make([]params.StorageDetails, 0, len(c.storageInstances))
+	for _, storageInstance := range c.storageInstances {
+		storageDetail, err := storagecommon.StorageDetails(storageAccessor, c.unitToMachine, storageInstance)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot convert storage details for %v", storageInstance.Tag())
+		}
+		storageDetails = append(storageDetails, *storageDetail)
+	}
+	return storageDetails, nil
+}
+
+func (c *statusContext) processFilesystems(storageAccessor StorageInterface) ([]params.FilesystemDetails, error) {
+	filesystemDetails := make([]params.FilesystemDetails, 0, len(c.filesystems))
+	for _, filesystem := range c.filesystems {
+		attachments, err := storageAccessor.FilesystemAttachments(filesystem.FilesystemTag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		filesystemDetail, err := storagecommon.FilesystemDetails(storageAccessor, c.unitToMachine, filesystem, attachments)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot convert filesystem details for %v", filesystem.Tag())
+		}
+		filesystemDetails = append(filesystemDetails, *filesystemDetail)
+	}
+	return filesystemDetails, nil
+}
+
+func (c *statusContext) processVolumes(storageAccessor StorageInterface) ([]params.VolumeDetails, error) {
+	volumeDetails := make([]params.VolumeDetails, 0, len(c.volumes))
+	for _, volume := range c.volumes {
+		attachments, err := storageAccessor.VolumeAttachments(volume.VolumeTag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		volumeDetail, err := storagecommon.VolumeDetails(storageAccessor, c.unitToMachine, volume, attachments)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot convert volume details for %v", volume.Tag())
+		}
+		volumeDetails = append(volumeDetails, *volumeDetail)
+	}
+	return volumeDetails, nil
 }
 
 type lifer interface {

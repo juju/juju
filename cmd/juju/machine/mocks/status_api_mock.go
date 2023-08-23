@@ -35,16 +35,16 @@ func (m *MockStatusAPI) EXPECT() *MockStatusAPIMockRecorder {
 }
 
 // Status mocks base method.
-func (m *MockStatusAPI) Status(arg0 []string) (*params.FullStatus, error) {
+func (m *MockStatusAPI) Status(arg0 []string, arg1 bool) (*params.FullStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status", arg0)
+	ret := m.ctrl.Call(m, "Status", arg0, arg1)
 	ret0, _ := ret[0].(*params.FullStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Status indicates an expected call of Status.
-func (mr *MockStatusAPIMockRecorder) Status(arg0 interface{}) *gomock.Call {
+func (mr *MockStatusAPIMockRecorder) Status(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockStatusAPI)(nil).Status), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockStatusAPI)(nil).Status), arg0, arg1)
 }
