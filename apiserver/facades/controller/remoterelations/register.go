@@ -27,11 +27,15 @@ func newAPI(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	service := ctx.ServiceFactory().ExternalController()
+	var (
+		serviceFactory            = ctx.ServiceFactory()
+		controllerConfigService   = serviceFactory.ControllerConfig()
+		externalControllerService = serviceFactory.ExternalController()
+	)
 	return NewRemoteRelationsAPI(
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
-		service,
-		common.NewControllerConfigAPI(systemState, service),
+		externalControllerService,
+		common.NewControllerConfigAPI(systemState, controllerConfigService, externalControllerService),
 		ctx.Resources(), ctx.Auth(),
 		ctx.Logger().ChildWithLabels("remoterelations", corelogger.CMR),
 	)

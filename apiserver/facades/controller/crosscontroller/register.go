@@ -4,6 +4,7 @@
 package crosscontroller
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -23,17 +24,24 @@ func Register(registry facade.FacadeRegistry) {
 // backed by global state.
 func newStateCrossControllerAPI(ctx facade.Context) (*CrossControllerAPI, error) {
 	st := ctx.State()
+	serviceFactory := ctx.ServiceFactory()
+	controllerConfigService := serviceFactory.ControllerConfig()
+
 	return NewCrossControllerAPI(
 		ctx.Resources(),
-		func() ([]string, string, error) {
-			return common.StateControllerInfo(st)
+		func(ctx context.Context) ([]string, string, error) {
+			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
+			if err != nil {
+				return nil, "", errors.Trace(err)
+			}
+			return common.StateControllerInfo(st, controllerConfig)
 		},
-		func() (string, error) {
-			config, err := st.ControllerConfig()
+		func(ctx context.Context) (string, error) {
+			controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 			if err != nil {
 				return "", errors.Trace(err)
 			}
-			return config.PublicDNSAddress(), nil
+			return controllerConfig.PublicDNSAddress(), nil
 		},
 		st.WatchAPIHostPortsForClients,
 	)

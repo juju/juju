@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-type localControllerInfoFunc func() ([]string, string, error)
-type publicDNSAddressFunc func() (string, error)
+type localControllerInfoFunc func(context.Context) ([]string, string, error)
+type publicDNSAddressFunc func(context.Context) (string, error)
 type watchLocalControllerInfoFunc func() state.NotifyWatcher
 
 // CrossControllerAPI provides access to the CrossModelRelations API facade.
@@ -60,12 +60,12 @@ func (api *CrossControllerAPI) ControllerInfo(ctx context.Context) (params.Contr
 	results := params.ControllerAPIInfoResults{
 		Results: make([]params.ControllerAPIInfoResult, 1),
 	}
-	addrs, caCert, err := api.localControllerInfo()
+	addrs, caCert, err := api.localControllerInfo(ctx)
 	if err != nil {
 		results.Results[0].Error = apiservererrors.ServerError(err)
 		return results, nil
 	}
-	publicDNSAddress, err := api.publicDNSAddress()
+	publicDNSAddress, err := api.publicDNSAddress(ctx)
 	if err != nil {
 		results.Results[0].Error = apiservererrors.ServerError(err)
 		return results, nil

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/crossmodel"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
@@ -41,10 +42,23 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// ControllerConfigGetter is the interface that wraps the ControllerConfig method.
-type ControllerConfigGetter interface {
+// ControllerConfigService is the interface that wraps the ControllerConfig
+// method.
+type ControllerConfigService interface {
 	ControllerConfig(context.Context) (corecontroller.Config, error)
 	UpdateControllerConfig(context.Context, corecontroller.Config, []string) error
+}
+
+// ExternalControllerService defines the methods that the controller
+// facade needs from the controller state.
+type ExternalControllerService interface {
+	// ControllerForModel returns the controller record that's associated
+	// with the modelUUID.
+	ControllerForModel(ctx context.Context, modelUUID string) (*crossmodel.ControllerInfo, error)
+
+	// UpdateExternalController persists the input controller
+	// record.
+	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
 }
 
 // ControllerAPI provides the Controller API.
@@ -53,14 +67,14 @@ type ControllerAPI struct {
 	*common.ModelStatusAPI
 	cloudspec.CloudSpecer
 
-	state             Backend
-	statePool         *state.StatePool
-	authorizer        facade.Authorizer
-	apiUser           names.UserTag
-	resources         facade.Resources
-	presence          facade.Presence
-	hub               facade.Hub
-	ctrlConfigService ControllerConfigGetter
+	state                   Backend
+	statePool               *state.StatePool
+	authorizer              facade.Authorizer
+	apiUser                 names.UserTag
+	resources               facade.Resources
+	presence                facade.Presence
+	hub                     facade.Hub
+	controllerConfigService ControllerConfigService
 
 	multiwatcherFactory multiwatcher.Factory
 	logger              loggo.Logger
@@ -81,8 +95,8 @@ func NewControllerAPI(
 	hub facade.Hub,
 	factory multiwatcher.Factory,
 	logger loggo.Logger,
-	ctrlConfigService ControllerConfigGetter,
-	externalCtrlService common.ExternalControllerService,
+	controllerConfigService ControllerConfigService,
+	externalControllerService ExternalControllerService,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -99,7 +113,8 @@ func NewControllerAPI(
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			externalCtrlService,
+			controllerConfigService,
+			externalControllerService,
 		),
 		ModelStatusAPI: common.NewModelStatusAPI(
 			common.NewModelManagerBackend(model, pool),
@@ -114,16 +129,16 @@ func NewControllerAPI(
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		state:               stateShim{st},
-		statePool:           pool,
-		authorizer:          authorizer,
-		apiUser:             apiUser,
-		resources:           resources,
-		presence:            presence,
-		hub:                 hub,
-		multiwatcherFactory: factory,
-		logger:              logger,
-		ctrlConfigService:   ctrlConfigService,
+		state:                   stateShim{st},
+		statePool:               pool,
+		authorizer:              authorizer,
+		apiUser:                 apiUser,
+		resources:               resources,
+		presence:                presence,
+		hub:                     hub,
+		multiwatcherFactory:     factory,
+		logger:                  logger,
+		controllerConfigService: controllerConfigService,
 	}, nil
 }
 
@@ -220,6 +235,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 // dashboardConnectionInforForIAAS returns a dashboard connection for a Juju
 // dashboard deployed on IAAS.
 func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
+	ctx context.Context,
 	appName string,
 	appSettings map[string]interface{},
 ) (*params.DashboardConnectionSSHTunnel, error) {
@@ -249,7 +265,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 		return nil, errors.Trace(err)
 	}
 	modelName := model.Name()
-	ctrCfg, err := c.ctrlConfigService.ControllerConfig(context.Background())
+	ctrCfg, err := c.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -305,6 +321,7 @@ func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.Das
 
 			if model.Type() != state.ModelTypeCAAS {
 				sshConnection, err := c.dashboardConnectionInfoForIAAS(
+					ctx,
 					related.ApplicationName,
 					appSettings)
 				rval.SSHConnection = sshConnection
@@ -675,7 +692,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		ctx,
 		hostedState.State, systemState,
 		&targetInfo, c.presence,
-		c.ctrlConfigService,
+		c.controllerConfigService,
 	); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -742,13 +759,13 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 		return errors.Trace(err)
 	}
 	// Write Controller Config to DQLite.
-	if err := c.ctrlConfigService.UpdateControllerConfig(context.Background(), args.Config, nil); err != nil {
+	if err := c.controllerConfigService.UpdateControllerConfig(ctx, args.Config, nil); err != nil {
 		return errors.Trace(err)
 	}
 	// TODO(thumper): add a version to controller config to allow for
 	// simultaneous updates and races in publishing, potentially across
 	// HA servers.
-	cfg, err := c.ctrlConfigService.ControllerConfig(context.Background())
+	cfg, err := c.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -768,7 +785,7 @@ var runMigrationPrechecks = func(
 	st, ctlrSt *state.State,
 	targetInfo *coremigration.TargetInfo,
 	presence facade.Presence,
-	ctrlConfigService ControllerConfigGetter,
+	controllerConfigService ControllerConfigService,
 ) error {
 	// Check model and source controller.
 	backend, err := migration.PrecheckShim(st, ctlrSt)
@@ -788,7 +805,7 @@ var runMigrationPrechecks = func(
 	}
 
 	// Check target controller.
-	modelInfo, srcUserList, err := makeModelInfo(ctx, st, ctlrSt, ctrlConfigService)
+	modelInfo, srcUserList, err := makeModelInfo(ctx, st, ctlrSt, controllerConfigService)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -887,7 +904,11 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, ctrlConfigService ControllerConfigGetter) (coremigration.ModelInfo, userList, error) {
+func makeModelInfo(
+	ctx context.Context,
+	st, ctlrSt *state.State,
+	controllerConfigService ControllerConfigService,
+) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
 	var ul userList
 
@@ -923,7 +944,7 @@ func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, ctrlConfigServi
 	}
 	controllerVersion, _ := controllerConfig.AgentVersion()
 
-	coreConf, err := ctrlConfigService.ControllerConfig(context.Background())
+	coreConf, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return empty, userList{}, errors.Trace(err)
 	}

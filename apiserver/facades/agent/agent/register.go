@@ -39,7 +39,8 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+	serviceFactory := ctx.ServiceFactory()
+	controllerConfigGetter := serviceFactory.ControllerConfig()
 
 	resources := ctx.Resources()
 	return &AgentAPI{
@@ -48,7 +49,8 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 		ModelWatcher:      common.NewModelWatcher(model, resources, auth),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			ctx.ServiceFactory().ExternalController(),
+			controllerConfigGetter,
+			serviceFactory.ExternalController(),
 		),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,

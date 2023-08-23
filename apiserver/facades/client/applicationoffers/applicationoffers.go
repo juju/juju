@@ -37,7 +37,7 @@ type OffersAPI struct {
 func createOffersAPI(
 	getApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers,
 	getEnviron environFromModelFunc,
-	getControllerInfo func() ([]string, string, error),
+	getControllerInfo func(context.Context) ([]string, string, error),
 	backend Backend,
 	statePool StatePool,
 	authorizer facade.Authorizer,
@@ -441,7 +441,7 @@ func (api *OffersAPI) getConsumeDetails(ctx context.Context, user names.UserTag,
 		return consumeResults, apiservererrors.ServerError(err)
 	}
 
-	addrs, caCert, err := api.getControllerInfo()
+	addrs, caCert, err := api.getControllerInfo(ctx)
 	if err != nil {
 		return consumeResults, apiservererrors.ServerError(err)
 	}

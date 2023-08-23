@@ -24,11 +24,13 @@ func newFacade(ctx facade.Context) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
+	serviceFactory := ctx.ServiceFactory()
 	return &Facade{
 		auth: authorizer,
 		controllerConfigAPI: common.NewControllerConfigAPI(
 			ctx.State(),
-			ctx.ServiceFactory().ExternalController(),
+			serviceFactory.ControllerConfig(),
+			serviceFactory.ExternalController(),
 		),
 	}, nil
 }

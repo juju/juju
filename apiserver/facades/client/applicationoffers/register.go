@@ -44,8 +44,14 @@ func newOffersAPI(facadeContext facade.Context) (*OffersAPI, error) {
 	}
 
 	st := facadeContext.State()
-	getControllerInfo := func() ([]string, string, error) {
-		return common.StateControllerInfo(st)
+	serviceFactory := facadeContext.ServiceFactory()
+	controllerConfigService := serviceFactory.ControllerConfig()
+	getControllerInfo := func(ctx context.Context) ([]string, string, error) {
+		controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
+		if err != nil {
+			return nil, "", errors.Trace(err)
+		}
+		return common.StateControllerInfo(st, controllerConfig)
 	}
 
 	authContext := facadeContext.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value

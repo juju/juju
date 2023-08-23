@@ -1022,7 +1022,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	found, err := s.api.FindApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found, jc.DeepEquals, params.QueryApplicationOffersResults{
-		[]params.ApplicationOfferAdminDetails{
+		Results: []params.ApplicationOfferAdminDetails{
 			{
 				ApplicationOfferDetails: params.ApplicationOfferDetails{
 					SourceModelTag:         testing.ModelTag.String(),
@@ -1163,7 +1163,8 @@ func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *gc.C) {
 		params.ConsumeOfferDetailsArg{
 			OfferURLs: params.OfferURLs{
 				OfferURLs: []string{"fred@external/prod.application:db"},
-			}},
+			},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -1186,7 +1187,8 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 		params.ConsumeOfferDetailsArg{
 			OfferURLs: params.OfferURLs{
 				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
-			}},
+			},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []params.ConsumeOfferDetailsResult{{
@@ -1282,7 +1284,8 @@ func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {
 			UserTag: apiUser.String(),
 			OfferURLs: params.OfferURLs{
 				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
-			}},
+			},
+		},
 	)
 	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
 }

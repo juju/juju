@@ -141,6 +141,8 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
 	callCtx := context.CallContext(st)
 	resources := ctx.Resources()
+
+	serviceFactory := ctx.ServiceFactory()
 	api := &ProvisionerAPI{
 		Remover:              common.NewRemover(st, nil, false, getAuthFunc),
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
@@ -153,7 +155,8 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			ctx.ServiceFactory().ExternalController(),
+			serviceFactory.ControllerConfig(),
+			serviceFactory.ExternalController(),
 		),
 		NetworkConfigAPI:        netConfigAPI,
 		st:                      st,

@@ -36,12 +36,12 @@ var _ = gc.Suite(&remoteRelationsSuite{})
 type remoteRelationsSuite struct {
 	coretesting.BaseSuite
 
-	resources  *common.Resources
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mocks.MockRemoteRelationsState
-	ecService  *mocks.MockExternalControllerService
-	cc         *mocks.MockControllerConfigAPI
-	api        *remoterelations.API
+	resources                 *common.Resources
+	authorizer                *apiservertesting.FakeAuthorizer
+	st                        *mocks.MockRemoteRelationsState
+	externalControllerService *mocks.MockExternalControllerService
+	cc                        *mocks.MockControllerConfigAPI
+	api                       *remoterelations.API
 }
 
 func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
@@ -61,9 +61,9 @@ func (s *remoteRelationsSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = mocks.NewMockRemoteRelationsState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
-	s.ecService = mocks.NewMockExternalControllerService(ctrl)
+	s.externalControllerService = mocks.NewMockExternalControllerService(ctrl)
 	api, err := remoterelations.NewRemoteRelationsAPI(
-		s.st, s.ecService, s.cc, s.resources, s.authorizer,
+		s.st, s.externalControllerService, s.cc, s.resources, s.authorizer,
 		loggo.GetLogger("test"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,9 +97,9 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	s.st.EXPECT().WatchRemoteApplicationRelations("hadoop").Return(nil, errors.NotFoundf(`application "hadoop"`))
 
 	results, err := s.api.WatchRemoteApplicationRelations(context.Background(), params.Entities{Entities: []params.Entity{
-		{"application-db2"},
-		{"application-hadoop"},
-		{"machine-42"},
+		{Tag: "application-db2"},
+		{Tag: "application-hadoop"},
+		{Tag: "machine-42"},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, jc.DeepEquals, []params.StringsWatchResult{{
@@ -170,10 +170,10 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 
 	s.st.EXPECT().KeyRelation("hadoop:db db2:db").Return(nil, errors.NotFoundf(`relation "hadoop:db db2:db"`))
 
-	results, err := s.api.WatchLocalRelationChanges(context.Background(), params.Entities{[]params.Entity{
-		{"relation-django:db#db2:db"},
-		{"relation-hadoop:db#db2:db"},
-		{"machine-42"},
+	results, err := s.api.WatchLocalRelationChanges(context.Background(), params.Entities{Entities: []params.Entity{
+		{Tag: "relation-django:db#db2:db"},
+		{Tag: "relation-hadoop:db#db2:db"},
+		{Tag: "machine-42"},
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	uc := 666
@@ -207,13 +207,13 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 	}})
 
 	djangoRelation.CheckCalls(c, []testing.StubCall{
-		{"Endpoints", []interface{}{}},
-		{"Endpoints", []interface{}{}},
-		{"WatchUnits", []interface{}{"django"}},
-		{"Endpoints", []interface{}{}},
-		{"ApplicationSettings", []interface{}{"django"}},
-		{"Unit", []interface{}{"django/0"}},
-		{"UnitCount", []interface{}{}},
+		{FuncName: "Endpoints", Args: []interface{}{}},
+		{FuncName: "Endpoints", Args: []interface{}{}},
+		{FuncName: "WatchUnits", Args: []interface{}{"django"}},
+		{FuncName: "Endpoints", Args: []interface{}{}},
+		{FuncName: "ApplicationSettings", Args: []interface{}{"django"}},
+		{FuncName: "Unit", Args: []interface{}{"django/0"}},
+		{FuncName: "UnitCount", Args: []interface{}{}},
 	})
 }
 
@@ -529,11 +529,11 @@ func (s *remoteRelationsSuite) TestUpdateControllersForModels(c *gc.C) {
 		ModelUUIDs:    []string{mod2},
 	}
 
-	s.ecService.EXPECT().UpdateExternalController(
+	s.externalControllerService.EXPECT().UpdateExternalController(
 		gomock.Any(),
 		c1,
 	).Return(errors.New("whack"))
-	s.ecService.EXPECT().UpdateExternalController(
+	s.externalControllerService.EXPECT().UpdateExternalController(
 		gomock.Any(),
 		c2,
 	).Return(nil)
