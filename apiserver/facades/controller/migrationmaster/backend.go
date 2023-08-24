@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/migration"
+	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/state"
 )
 

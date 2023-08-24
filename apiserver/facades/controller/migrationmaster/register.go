@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/migration"
+	"github.com/juju/juju/internal/migration"
 )
 
 // Register is called to expose a package of facades onto a given registry.

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/migration"
+	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"

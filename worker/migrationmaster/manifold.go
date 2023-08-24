@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/http"
-	"github.com/juju/juju/migration"
+	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/worker/fortress"
 )
 
