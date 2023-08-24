@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"reflect"
 	"strconv"
 	"time"
 
@@ -22,7 +21,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
@@ -97,31 +95,8 @@ func (ctrl *Controller) Import(model description.Model, controllerConfig control
 			return nil, nil, errors.NotValidf("cloud credential ID %q", credID)
 		}
 		credTag := names.NewCloudCredentialTag(credID)
-
-		existingCreds, err := st.CloudCredential(credTag)
-
-		if errors.IsNotFound(err) {
-			credential := cloud.NewCredential(
-				cloud.AuthType(creds.AuthType()),
-				creds.Attributes())
-			if err := st.UpdateCloudCredential(credTag, credential); err != nil {
-				return nil, nil, errors.Trace(err)
-			}
-		} else if err != nil {
-			return nil, nil, errors.Trace(err)
-		} else {
-			// ensure existing creds match
-			if existingCreds.AuthType != creds.AuthType() {
-				return nil, nil, errors.Errorf("credential auth type mismatch: %q != %q", existingCreds.AuthType, creds.AuthType())
-			}
-			if !reflect.DeepEqual(existingCreds.Attributes, creds.Attributes()) {
-				return nil, nil, errors.Errorf("credential attribute mismatch: %v != %v", existingCreds.Attributes, creds.Attributes())
-			}
-			if existingCreds.Revoked {
-				return nil, nil, errors.Errorf("credential %q is revoked", credID)
-			}
-		}
-
+		// We used to load the credential here to check it but
+		// that is now done using the new domain/credential importer.
 		args.CloudCredential = credTag
 	}
 	dbModel, newSt, err := ctrl.NewModel(args)

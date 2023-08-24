@@ -145,19 +145,8 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string) (descri
 		return nil, errors.Trace(err)
 	}
 	export.model = description.NewModel(args)
-	if credsTag, credsSet := dbModel.CloudCredentialTag(); credsSet && !cfg.SkipCredentials {
-		creds, err := st.CloudCredential(credsTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		export.model.SetCloudCredential(description.CloudCredentialArgs{
-			Owner:      credsTag.Owner(),
-			Cloud:      credsTag.Cloud(),
-			Name:       credsTag.Name(),
-			AuthType:   creds.AuthType,
-			Attributes: creds.Attributes,
-		})
-	}
+	// We used to export the model credential here but that is now done
+	// using the new domain/credential exporter.
 	modelKey := dbModel.globalKey()
 	export.model.SetAnnotations(export.getAnnotations(modelKey))
 	if err := export.sequences(); err != nil {
