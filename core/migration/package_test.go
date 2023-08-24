@@ -29,6 +29,6 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/life",
 		"core/network",
 		"core/resources",
-		"docker",
+		"internal/docker",
 	})
 }

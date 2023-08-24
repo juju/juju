@@ -20,7 +20,7 @@ import (
 )
 
 const defaultSeries = "bionic"
-const localCharmRepo = "../testcharms/charm-repo"
+const localCharmRepo = "../../testcharms/charm-repo"
 
 type DownloadSuite struct {
 	testing.IsolationSuite

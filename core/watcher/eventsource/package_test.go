@@ -42,7 +42,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/secrets",
 		"core/status",
 		"core/watcher",
-		"docker",
+		"internal/docker",
 	})
 
 }
