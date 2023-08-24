@@ -198,7 +198,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForHostMachineTarget(c 
 		host: "10.0.0.1",
 	}
 
-	statusGetter := func(_ []string) (*params.FullStatus, error) {
+	statusGetter := func(_ []string, _ bool) (*params.FullStatus, error) {
 		return &params.FullStatus{
 			Machines: map[string]params.MachineStatus{
 				"0": {
@@ -221,7 +221,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 		host: "252.66.6.42",
 	}
 
-	statusGetter := func(_ []string) (*params.FullStatus, error) {
+	statusGetter := func(_ []string, _ bool) (*params.FullStatus, error) {
 		return &params.FullStatus{
 			Machines: map[string]params.MachineStatus{
 				"0": {

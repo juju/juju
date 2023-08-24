@@ -180,7 +180,7 @@ func opClientDestroyRelation(c *gc.C, st api.Connection, _ *state.State) (func()
 }
 
 func opClientStatus(c *gc.C, st api.Connection, _ *state.State) (func(), error) {
-	status, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
+	status, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil, false)
 	if err != nil {
 		c.Check(status, gc.IsNil)
 		return func() {}, err

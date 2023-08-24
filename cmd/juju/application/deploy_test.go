@@ -2316,8 +2316,8 @@ func (f *fakeDeployAPI) GetBundle(url *charm.URL, _ commoncharm.Origin, _ string
 	return results[0].(charm.Bundle), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) Status(patterns []string) (*params.FullStatus, error) {
-	results := f.MethodCall(f, "Status", patterns)
+func (f *fakeDeployAPI) Status(patterns []string, includeStorage bool) (*params.FullStatus, error) {
+	results := f.MethodCall(f, "Status", patterns, includeStorage)
 	return results[0].(*params.FullStatus), jujutesting.TypeAssertError(results[1])
 }
 

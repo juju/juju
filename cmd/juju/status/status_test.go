@@ -134,7 +134,7 @@ type fakeStatusAPI struct {
 	errors []error
 }
 
-func (f *fakeStatusAPI) Status(_ []string) (*params.FullStatus, error) {
+func (f *fakeStatusAPI) Status(_ []string, _ bool) (*params.FullStatus, error) {
 	if len(f.errors) > 0 {
 		err, rest := f.errors[0], f.errors[1:]
 		f.errors = rest

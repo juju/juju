@@ -5015,13 +5015,15 @@ func (s *StatusSuite) setupMigrationTest(c *gc.C) *state.State {
 }
 
 type fakeAPIClient struct {
-	statusReturn *params.FullStatus
-	patternsUsed []string
-	closeCalled  bool
+	statusReturn   *params.FullStatus
+	patternsUsed   []string
+	includeStorage bool
+	closeCalled    bool
 }
 
-func (a *fakeAPIClient) Status(patterns []string) (*params.FullStatus, error) {
+func (a *fakeAPIClient) Status(patterns []string, includeStorage bool) (*params.FullStatus, error) {
 	a.patternsUsed = patterns
+	a.includeStorage = includeStorage
 	return a.statusReturn, nil
 }
 

@@ -642,7 +642,7 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 
 		// Make requests in separate API connections so they're separate conversations.
 		makeAPIRequest(func(client *apiclient.Client) {
-			_, err = client.Status(nil)
+			_, err = client.Status(nil, false)
 			c.Assert(err, jc.ErrorIsNil)
 		})
 		makeMachineAPIRequest(func(client *machinemanager.Client) {
@@ -672,7 +672,7 @@ func (s *MachineSuite) TestManageModelAuditsAPI(c *gc.C) {
 		// propagated to the apiserver.
 		for a := coretesting.LongAttempt.Start(); a.Next(); {
 			makeAPIRequest(func(client *apiclient.Client) {
-				_, err = client.Status(nil)
+				_, err = client.Status(nil, false)
 				c.Assert(err, jc.ErrorIsNil)
 			})
 			// Check to see whether there are more logged requests.

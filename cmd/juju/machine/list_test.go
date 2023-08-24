@@ -26,7 +26,7 @@ func newMachineListCommand() cmd.Command {
 
 type fakeStatusAPI struct{}
 
-func (*fakeStatusAPI) Status(c []string) (*params.FullStatus, error) {
+func (*fakeStatusAPI) Status(c []string, includeStorage bool) (*params.FullStatus, error) {
 	result := &params.FullStatus{
 		Model: params.ModelStatusInfo{
 			Name:    "dummyenv",
