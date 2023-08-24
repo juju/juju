@@ -20,7 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
-	bundlechanges "github.com/juju/juju/core/bundle/changes"
+	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 )
 
 type changesSuite struct {

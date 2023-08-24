@@ -13,10 +13,10 @@ import (
 	"github.com/juju/names/v4"
 
 	corebase "github.com/juju/juju/core/base"
-	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
+	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/storage"
 )

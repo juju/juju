@@ -15,9 +15,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/application/bundle/mocks"
-	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	bundlechanges "github.com/juju/juju/internal/bundle/changes"
 	"github.com/juju/juju/rpc/params"
 )
 
