@@ -73,8 +73,14 @@ SET    dqlite_node_id = ?,
 WHERE  controller_id = ?
 AND    (dqlite_node_id != ? OR bind_address != ?)`
 
+	// uint64 values with the high bit set cause the driver to throw an error,
+	// so we parse them as strings. The node_id is defined as being TEXT,
+	// which makes no difference - it can still be scanned directly into
+	// uint64 when querying the table.
+	nodeStr := strconv.FormatUint(nodeID, 10)
+
 	return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, nodeID, addr, controllerID, strconv.FormatUint(nodeID, 10), addr)
+		_, err := tx.ExecContext(ctx, q, nodeStr, addr, controllerID, nodeStr, addr)
 		return errors.Trace(err)
 	}))
 }
