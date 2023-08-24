@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/downloader"
+	"github.com/juju/juju/internal/downloader"
 	"github.com/juju/juju/worker/s3caller"
 )
 

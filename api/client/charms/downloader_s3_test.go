@@ -13,7 +13,7 @@ import (
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/client/charms/mocks"
-	"github.com/juju/juju/downloader"
+	"github.com/juju/juju/internal/downloader"
 )
 
 type charmS3DownloaderSuite struct {
