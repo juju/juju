@@ -12,7 +12,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 
 	"github.com/juju/juju/core/payloads"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 )
 
 // payloadDoc is the top-level document for payloads.

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/internal/mongo/utils"
 )
 
 // cloudGlobalKey will return the key for a given cloud.

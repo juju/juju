@@ -9,7 +9,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 )
 
 // refcountDoc holds a reference count. Refcounts are important to juju

@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"

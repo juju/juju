@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/state/bakerystorage"
 )
 

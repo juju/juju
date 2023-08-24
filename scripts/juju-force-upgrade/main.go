@@ -16,7 +16,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/state"
 	jversion "github.com/juju/juju/version"
 )

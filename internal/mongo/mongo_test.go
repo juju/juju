@@ -21,9 +21,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/packaging"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/snap"
 	coretesting "github.com/juju/juju/testing"

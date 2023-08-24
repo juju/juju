@@ -12,7 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 )
 
 type MongodFinderSuite struct {

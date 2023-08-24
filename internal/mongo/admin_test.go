@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/packaging"
-	"github.com/juju/juju/mongo"
 	coretesting "github.com/juju/juju/testing"
 )
 

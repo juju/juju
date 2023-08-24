@@ -11,7 +11,7 @@ import (
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
-	mgoutils "github.com/juju/juju/mongo/utils"
+	mgoutils "github.com/juju/juju/internal/mongo/utils"
 )
 
 // unitStateDoc records the state persisted by the charm executing in the unit.

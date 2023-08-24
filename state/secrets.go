@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/internal/mongo/utils"
 	"github.com/juju/juju/state/watcher"
 )
 

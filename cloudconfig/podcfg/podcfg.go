@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")

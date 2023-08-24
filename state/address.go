@@ -17,7 +17,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 )
 
 const (

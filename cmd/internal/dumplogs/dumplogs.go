@@ -26,8 +26,8 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/mongo"
 	corenames "github.com/juju/juju/juju/names"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 )
 

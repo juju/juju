@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
 )

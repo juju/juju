@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"

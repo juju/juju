@@ -35,7 +35,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/status"
-	mgoutils "github.com/juju/juju/mongo/utils"
+	mgoutils "github.com/juju/juju/internal/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/tools"
 )

@@ -15,7 +15,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/mongo/mongometrics"
+	"github.com/juju/juju/internal/mongo/mongometrics"
 )
 
 type DialCollectorSuite struct {

@@ -46,8 +46,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service/pebble/plan"
 	"github.com/juju/juju/version"
 )

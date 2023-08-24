@@ -13,7 +13,7 @@ import (
 	"github.com/juju/retry"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 )
 
 // InitiateMongoParams holds parameters for the MaybeInitiateMongo call.

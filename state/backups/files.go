@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	corebackups "github.com/juju/juju/core/backups"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 )
 
 // TODO(ericsnow) lp-1392876

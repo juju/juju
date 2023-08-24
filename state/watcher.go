@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
 	corewatcher "github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/state/watcher"
 )
 
