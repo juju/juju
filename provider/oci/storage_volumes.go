@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/storage"
 	allProvidersCommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/oci/common"
-	"github.com/juju/juju/storage"
 )
 
 func mibToGib(m uint64) uint64 {

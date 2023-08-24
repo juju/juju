@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/tools"
 )
 

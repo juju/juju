@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 )
 
 // MachineTemplate holds attributes that are to be associated

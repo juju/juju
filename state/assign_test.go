@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/internal/storage/poolmanager"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
 )
 
 type AssignSuite struct {

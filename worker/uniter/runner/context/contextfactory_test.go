@@ -16,8 +16,8 @@ import (
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner/context"

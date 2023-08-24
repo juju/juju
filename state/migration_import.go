@@ -34,11 +34,11 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/poolmanager"
+	"github.com/juju/juju/internal/storage/provider"
 	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/tools"
 )
 

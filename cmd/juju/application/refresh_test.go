@@ -42,10 +42,10 @@ import (
 	"github.com/juju/juju/core/network"
 	coreresouces "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )

@@ -17,9 +17,9 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
-	"github.com/juju/juju/storage"
 )
 
 const (

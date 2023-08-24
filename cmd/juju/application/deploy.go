@@ -38,8 +38,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/storage"
 	apiparams "github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 )
 
 // SpacesAPI defines the necessary API methods needed for listing spaces.

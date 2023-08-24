@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 )
 
 type volumeSuite struct {

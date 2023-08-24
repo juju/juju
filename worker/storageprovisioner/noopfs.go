@@ -5,7 +5,7 @@ package storageprovisioner
 
 import (
 	environscontext "github.com/juju/juju/environs/context"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 )
 
 // noopFilesystemSource is an implementation of storage.FilesystemSource

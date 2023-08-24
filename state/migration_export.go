@@ -26,9 +26,9 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/storage/poolmanager"
 	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state/migrations"
-	"github.com/juju/juju/storage/poolmanager"
 )
 
 // The following exporter type is being refactored. This is to better model the

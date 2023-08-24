@@ -17,12 +17,12 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing/factory"
 )
 

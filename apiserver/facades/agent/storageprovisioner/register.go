@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/storage/poolmanager"
 )
 
 // Register is called to expose a package of facades onto a given registry.

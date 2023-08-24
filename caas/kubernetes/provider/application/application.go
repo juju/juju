@@ -47,8 +47,8 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/juju/osenv"
-	jujustorage "github.com/juju/juju/storage"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.application")

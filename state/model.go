@@ -26,8 +26,8 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/mongo/utils"
+	"github.com/juju/juju/internal/storage"
 	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/storage"
 )
 
 // modelGlobalKey is the key for the model, its

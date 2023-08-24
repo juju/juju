@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.application.deployer")

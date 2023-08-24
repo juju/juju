@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/gce"
 	"github.com/juju/juju/provider/gce/google"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/version"
 )
 

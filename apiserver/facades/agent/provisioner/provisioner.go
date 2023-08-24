@@ -29,12 +29,12 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/network/containerizer"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
 )
 
 // ProvisionerAPI provides access to the Provisioner API facade.

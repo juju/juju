@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 )
 
 // Context is the interface that all hook helper commands

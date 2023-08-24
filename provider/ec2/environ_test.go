@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 )
 
 // Ensure EC2 provider supports the expected interfaces,

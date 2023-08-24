@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/common/mocks"
 	"github.com/juju/juju/provider/openstack"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 

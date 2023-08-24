@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	jujustorage "github.com/juju/juju/storage"
+	jujustorage "github.com/juju/juju/internal/storage"
 )
 
 func StorageEC2(vs jujustorage.VolumeSource) Client {

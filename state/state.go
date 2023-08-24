@@ -35,10 +35,10 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/storage"
 	jujuversion "github.com/juju/juju/version"
 )
 

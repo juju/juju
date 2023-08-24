@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/api/agent/diskmanager"
 	"github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
 

@@ -13,13 +13,13 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/poolmanager"
+	"github.com/juju/juju/internal/storage/provider"
+	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
-	dummystorage "github.com/juju/juju/storage/provider/dummy"
 )
 
 type VolumeStateSuite struct {

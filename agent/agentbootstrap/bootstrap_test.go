@@ -32,10 +32,10 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/poolmanager"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )

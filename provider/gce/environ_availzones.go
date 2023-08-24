@@ -10,8 +10,8 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/gce/google"
-	"github.com/juju/juju/storage"
 )
 
 // AvailabilityZones returns all availability zones in the environment.

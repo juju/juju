@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	jujustorage "github.com/juju/juju/storage"
+	jujustorage "github.com/juju/juju/internal/storage"
 )
 
 type allInstancesFunc func(context.ProviderCallContext) ([]instances.Instance, error)

@@ -39,7 +39,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/service/common"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/tools"
 )
 

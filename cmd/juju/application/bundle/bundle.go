@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 )
 
 // This file contains functionality required by both the application

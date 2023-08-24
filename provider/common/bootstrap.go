@@ -40,8 +40,8 @@ import (
 	"github.com/juju/juju/environs/models"
 	"github.com/juju/juju/environs/simplestreams"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/poolmanager"
 	coretools "github.com/juju/juju/tools"
 )
 

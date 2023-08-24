@@ -22,10 +22,10 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/poolmanager"
+	"github.com/juju/juju/internal/storage/provider"
 	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	"github.com/juju/juju/storage/provider"
 )
 
 // StorageInstance represents the state of a unit or application-wide storage

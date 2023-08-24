@@ -36,8 +36,8 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 )
 
 func newRefreshCommand() *refreshCommand {

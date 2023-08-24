@@ -47,11 +47,11 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )

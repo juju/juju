@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/gce/google"
-	"github.com/juju/juju/storage"
 )
 
 const (

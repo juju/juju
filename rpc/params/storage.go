@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 )
 
 // MachineBlockDevices holds a machine tag and the block devices present

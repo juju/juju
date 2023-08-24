@@ -17,7 +17,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/tools"
 )
 

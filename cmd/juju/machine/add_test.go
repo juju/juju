@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 

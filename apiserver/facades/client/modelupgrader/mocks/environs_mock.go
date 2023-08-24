@@ -11,7 +11,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	context "github.com/juju/juju/environs/context"
-	storage "github.com/juju/juju/storage"
+	storage "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
 

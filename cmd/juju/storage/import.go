@@ -13,8 +13,8 @@ import (
 	apistorage "github.com/juju/juju/api/client/storage"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/storage"
 )
 
 // NewImportFilesystemCommand returns a command used to import a filesystem.

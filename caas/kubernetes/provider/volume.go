@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/status"
-	jujustorage "github.com/juju/juju/storage"
+	jujustorage "github.com/juju/juju/internal/storage"
 )
 
 // StorageProviderTypes is defined on the jujustorage.ProviderRegistry interface.

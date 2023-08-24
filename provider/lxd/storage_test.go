@@ -13,8 +13,8 @@ import (
 
 	containerlxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/lxd"
-	"github.com/juju/juju/storage"
 )
 
 type storageSuite struct {

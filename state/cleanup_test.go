@@ -23,11 +23,11 @@ import (
 	"github.com/juju/juju/core/instance"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/status"
+	corestorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/testing"
-	corestorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing/factory"
 )
 

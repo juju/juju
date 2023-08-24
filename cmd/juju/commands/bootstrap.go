@@ -51,13 +51,13 @@ import (
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/internal/proxy"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
 	jujuversion "github.com/juju/juju/version"
 )
 

@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/storage"
 )
 
 var (

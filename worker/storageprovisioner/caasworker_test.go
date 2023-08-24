@@ -18,8 +18,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/storageprovisioner"
 )

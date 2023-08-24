@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/api/agent/storageprovisioner"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/worker/common"
 )
 

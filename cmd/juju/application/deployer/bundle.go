@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/bundle"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 )
 
 type deployBundle struct {
