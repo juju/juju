@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"sort"
@@ -886,7 +887,7 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 			// model's UUID. We accept anything for now, to cater
 			// both for past usage, and for potentially supporting aliases.
 			logger.Warningf("model-tag does not match current model UUID: %q != %q", id, model.UUID())
-			conf, err := model.ModelConfig()
+			conf, err := model.ModelConfig(context.Background())
 			if err != nil {
 				logger.Warningf("ModelConfig failed: %v", err)
 			} else if id != conf.Name() {

@@ -4,6 +4,7 @@
 package undertaker_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -168,7 +169,7 @@ func (m *mockModel) Watch() state.NotifyWatcher {
 	return nil
 }
 
-func (m *mockModel) ModelConfig() (*config.Config, error) {
+func (m *mockModel) ModelConfig(context.Context) (*config.Config, error) {
 	return &m.modelConfig, nil
 }
 

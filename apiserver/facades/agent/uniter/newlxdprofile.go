@@ -4,6 +4,8 @@
 package uniter
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -28,7 +30,7 @@ type LXDProfileBackendV2 interface {
 }
 
 type LXDProfileModelV2 interface {
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 	Type() state.ModelType
 }
 
@@ -244,7 +246,7 @@ func (u *LXDProfileAPIv2) getOneLXDProfileName(unit LXDProfileUnitV2, machine LX
 //   - this is an IAAS model,
 //   - the unit is not on a manual machine,
 //   - the provider type is "lxd" or it's an lxd container.
-func (u *LXDProfileAPIv2) CanApplyLXDProfile(args params.Entities) (params.BoolResults, error) {
+func (u *LXDProfileAPIv2) CanApplyLXDProfile(ctx context.Context, args params.Entities) (params.BoolResults, error) {
 	u.logger.Tracef("Starting CanApplyLXDProfile with %+v", args)
 	result := params.BoolResults{
 		Results: make([]params.BoolResult, len(args.Entities)),
@@ -253,7 +255,7 @@ func (u *LXDProfileAPIv2) CanApplyLXDProfile(args params.Entities) (params.BoolR
 	if err != nil {
 		return params.BoolResults{}, err
 	}
-	providerType, mType, err := u.getModelTypeProviderType()
+	providerType, mType, err := u.getModelTypeProviderType(ctx)
 	if err != nil {
 		return params.BoolResults{}, err
 	}
@@ -309,12 +311,12 @@ func (u *LXDProfileAPIv2) getOneCanApplyLXDProfile(machine LXDProfileMachineV2, 
 	return false, nil
 }
 
-func (u *LXDProfileAPIv2) getModelTypeProviderType() (string, state.ModelType, error) {
+func (u *LXDProfileAPIv2) getModelTypeProviderType(ctx context.Context) (string, state.ModelType, error) {
 	m, err := u.backend.Model()
 	if err != nil {
 		return "", "", err
 	}
-	cfg, err := m.ModelConfig()
+	cfg, err := m.ModelConfig(ctx)
 	if err != nil {
 		return "", "", err
 	}

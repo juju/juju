@@ -122,7 +122,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	if isCaasModel {
 		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
 	} else {
-		env, err = environs.GetEnviron(configGetter, environs.New)
+		env, err = environs.GetEnviron(stdcontext.TODO(), configGetter, environs.New)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -172,8 +172,8 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		return api, nil
 	}
 
-	newEnviron := func() (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(configGetter, environs.New)
+	newEnviron := func(ctx stdcontext.Context) (environs.BootstrapEnviron, error) {
+		return environs.GetEnviron(ctx, configGetter, environs.New)
 	}
 	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
 	api.toolsFinder = common.NewToolsFinder(st, configGetter, st, urlGetter, newEnviron)
@@ -323,7 +323,7 @@ func (api *ProvisionerAPI) ContainerManagerConfig(ctx stdcontext.Context, args p
 	cfg := make(map[string]string)
 	cfg[container.ConfigModelUUID] = api.st.ModelUUID()
 
-	mConfig, err := api.m.ModelConfig()
+	mConfig, err := api.m.ModelConfig(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -348,7 +348,7 @@ func (api *ProvisionerAPI) ContainerManagerConfig(ctx stdcontext.Context, args p
 // needed for container cloud-init.
 func (api *ProvisionerAPI) ContainerConfig(ctx stdcontext.Context) (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
-	cfg, err := api.m.ModelConfig()
+	cfg, err := api.m.ModelConfig(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -653,7 +653,7 @@ func (api *ProvisionerAPI) Constraints(ctx stdcontext.Context, args params.Entit
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (api *ProvisionerAPI) FindTools(ctx stdcontext.Context, args params.FindToolsParams) (params.FindToolsResult, error) {
-	list, err := api.toolsFinder.FindAgents(common.FindAgentsParams{
+	list, err := api.toolsFinder.FindAgents(ctx, common.FindAgentsParams{
 		Number:      args.Number,
 		Arch:        args.Arch,
 		OSType:      args.OSType,
@@ -786,7 +786,7 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(ctx stdcontext.Context,
 	params.MachineNetworkConfigResults,
 	error,
 ) {
-	return api.prepareOrGetContainerInterfaceInfo(args, false)
+	return api.prepareOrGetContainerInterfaceInfo(ctx, args, false)
 }
 
 // TODO (manadart 2020-07-23): This method is not used and can be removed when
@@ -799,7 +799,7 @@ func (api *ProvisionerAPI) GetContainerInterfaceInfo(ctx stdcontext.Context, arg
 	params.MachineNetworkConfigResults,
 	error,
 ) {
-	return api.prepareOrGetContainerInterfaceInfo(args, true)
+	return api.prepareOrGetContainerInterfaceInfo(ctx, args, true)
 }
 
 // perContainerHandler is the interface we need to trigger processing on
@@ -828,8 +828,8 @@ type perContainerHandler interface {
 	ConfigType() string
 }
 
-func (api *ProvisionerAPI) processEachContainer(args params.Entities, handler perContainerHandler) error {
-	env, hostMachine, canAccess, err := api.prepareContainerAccessEnvironment()
+func (api *ProvisionerAPI) processEachContainer(ctx stdcontext.Context, args params.Entities, handler perContainerHandler) error {
+	env, hostMachine, canAccess, err := api.prepareContainerAccessEnvironment(ctx)
 	if err != nil {
 		// Overall error
 		return errors.Trace(err)
@@ -955,25 +955,26 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 }
 
 func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
+	ctx stdcontext.Context,
 	args params.Entities, maintain bool,
 ) (params.MachineNetworkConfigResults, error) {
-	ctx := &prepareOrGetContext{
+	c := &prepareOrGetContext{
 		result: params.MachineNetworkConfigResults{
 			Results: make([]params.MachineNetworkConfigResult, len(args.Entities)),
 		},
 		maintain: maintain,
 	}
 
-	if err := api.processEachContainer(args, ctx); err != nil {
-		return ctx.result, errors.Trace(err)
+	if err := api.processEachContainer(ctx, args, c); err != nil {
+		return c.result, errors.Trace(err)
 	}
-	return ctx.result, nil
+	return c.result, nil
 }
 
 // prepareContainerAccessEnvironment retrieves the environment, host machine, and access
 // for working with containers.
-func (api *ProvisionerAPI) prepareContainerAccessEnvironment() (environs.Environ, *state.Machine, common.AuthFunc, error) {
-	env, err := environs.GetEnviron(api.configGetter, environs.New)
+func (api *ProvisionerAPI) prepareContainerAccessEnvironment(ctx stdcontext.Context) (environs.Environ, *state.Machine, common.AuthFunc, error) {
+	env, err := environs.GetEnviron(ctx, api.configGetter, environs.New)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
 	}
@@ -1040,16 +1041,16 @@ func (ctx *hostChangesContext) ConfigType() string {
 // HostChangesForContainers returns the set of changes that need to be done
 // to the host machine to prepare it for the containers to be created.
 // Pass in a list of the containers that you want the changes for.
-func (api *ProvisionerAPI) HostChangesForContainers(stdcontext stdcontext.Context, args params.Entities) (params.HostNetworkChangeResults, error) {
-	ctx := &hostChangesContext{
+func (api *ProvisionerAPI) HostChangesForContainers(ctx stdcontext.Context, args params.Entities) (params.HostNetworkChangeResults, error) {
+	c := &hostChangesContext{
 		result: params.HostNetworkChangeResults{
 			Results: make([]params.HostNetworkChange, len(args.Entities)),
 		},
 	}
-	if err := api.processEachContainer(args, ctx); err != nil {
-		return ctx.result, errors.Trace(err)
+	if err := api.processEachContainer(ctx, args, c); err != nil {
+		return c.result, errors.Trace(err)
 	}
-	return ctx.result, nil
+	return c.result, nil
 }
 
 type containerProfileContext struct {
@@ -1111,17 +1112,17 @@ func (ctx *containerProfileContext) ConfigType() string {
 // container based on the charms deployed to the container. It accepts container
 // tags as arguments. Unlike machineLXDProfileNames which has the environ
 // write the lxd profiles and returns the names of profiles already written.
-func (api *ProvisionerAPI) GetContainerProfileInfo(stdcontext stdcontext.Context, args params.Entities) (params.ContainerProfileResults, error) {
-	ctx := &containerProfileContext{
+func (api *ProvisionerAPI) GetContainerProfileInfo(ctx stdcontext.Context, args params.Entities) (params.ContainerProfileResults, error) {
+	c := &containerProfileContext{
 		result: params.ContainerProfileResults{
 			Results: make([]params.ContainerProfileResult, len(args.Entities)),
 		},
 		modelName: api.m.Name(),
 	}
-	if err := api.processEachContainer(args, ctx); err != nil {
-		return ctx.result, errors.Trace(err)
+	if err := api.processEachContainer(ctx, args, c); err != nil {
+		return c.result, errors.Trace(err)
 	}
-	return ctx.result, nil
+	return c.result, nil
 }
 
 // InstanceStatus returns the instance status for each given entity.
@@ -1295,7 +1296,7 @@ func (api *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess
 }
 
 func (api *ProvisionerAPI) SetHostMachineNetworkConfig(ctx stdcontext.Context, args params.SetMachineNetworkConfig) error {
-	return api.SetObservedNetworkConfig(args)
+	return api.SetObservedNetworkConfig(ctx, args)
 }
 
 // CACert returns the certificate used to validate the state connection.
@@ -1346,7 +1347,7 @@ func (api *ProvisionerAPI) APIHostPorts(ctx stdcontext.Context) (result params.A
 		return result, errors.Trace(err)
 	}
 
-	return api.APIAddresser.APIHostPorts(controllerConfig)
+	return api.APIAddresser.APIHostPorts(ctx, controllerConfig)
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
@@ -1356,5 +1357,5 @@ func (api *ProvisionerAPI) APIAddresses(ctx stdcontext.Context) (result params.S
 		return result, errors.Trace(err)
 	}
 
-	return api.APIAddresser.APIAddresses(controllerConfig)
+	return api.APIAddresser.APIAddresses(ctx, controllerConfig)
 }

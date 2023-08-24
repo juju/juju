@@ -18,5 +18,5 @@ type Facade struct {
 }
 
 func (f *Facade) ControllerConfig(ctx context.Context) (params.ControllerConfigResult, error) {
-	return f.controllerConfigAPI.ControllerConfig()
+	return f.controllerConfigAPI.ControllerConfig(ctx)
 }

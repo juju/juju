@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -96,13 +97,13 @@ func (s *ModelConfigSuite) TestModelConfig(c *gc.C) {
 		"authorized-keys": "different-keys",
 		"arbitrary-key":   "shazam!",
 	}
-	cfg, err := s.Model.ModelConfig()
+	cfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err = cfg.Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	oldCfg, err := s.Model.ModelConfig()
+	oldCfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(oldCfg, jc.DeepEquals, cfg)
@@ -219,7 +220,7 @@ func (s *ModelConfigSuite) TestUpdateModelConfigRemoveInherited(c *gc.C) {
 
 	err = s.Model.UpdateModelConfig(nil, []string{"apt-mirror", "arbitrary-key", "providerAttrdummy", "whimsy-key"})
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := s.Model.ModelConfig()
+	cfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://cloud-mirror")
@@ -248,7 +249,7 @@ func (s *ModelConfigSuite) TestUpdateModelConfigCoerce(c *gc.C) {
 	}
 	c.Assert(tagsMap, gc.DeepEquals, expectedTags)
 
-	cfg, err := s.Model.ModelConfig()
+	cfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["resource-tags"], gc.DeepEquals, expectedTags)
 }
@@ -267,7 +268,7 @@ func (s *ModelConfigSuite) TestUpdateModelConfigPreferredOverRemove(c *gc.C) {
 		"providerAttrdummy": "pork",
 	}, []string{"apt-mirror", "arbitrary-key"})
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := s.Model.ModelConfig()
+	cfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	allAttrs := cfg.AllAttrs()
 	c.Assert(allAttrs["apt-mirror"], gc.Equals, "http://another-mirror")
@@ -310,13 +311,13 @@ func (s *ModelConfigSourceSuite) TestModelConfigWhenSetOverridesControllerValue(
 	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := s.Model.ModelConfig()
+	cfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.AllAttrs()["apt-mirror"], gc.Equals, "http://anothermirror")
 }
 
 func (s *ModelConfigSourceSuite) TestControllerModelConfigForksControllerValue(c *gc.C) {
-	modelCfg, err := s.Model.ModelConfig()
+	modelCfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://cloud-mirror")
 
@@ -327,7 +328,7 @@ func (s *ModelConfigSourceSuite) TestControllerModelConfigForksControllerValue(c
 	_, err = localControllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelCfg, err = s.Model.ModelConfig()
+	modelCfg, err = s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://cloud-mirror")
 }
@@ -354,7 +355,7 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelCfg, err := m.ModelConfig()
+	modelCfg, err := m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
 
@@ -365,7 +366,7 @@ func (s *ModelConfigSourceSuite) TestNewModelConfigForksControllerValue(c *gc.C)
 	_, err = localCloudSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelCfg, err = m.ModelConfig()
+	modelCfg, err = m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelCfg.AllAttrs()["apt-mirror"], gc.Equals, "http://mirror")
 }
@@ -398,7 +399,7 @@ func (s *ModelConfigSourceSuite) assertModelConfigValues(c *gc.C, modelCfg *conf
 }
 
 func (s *ModelConfigSourceSuite) TestModelConfigValues(c *gc.C) {
-	modelCfg, err := s.Model.ModelConfig()
+	modelCfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttributes := set.NewStrings("name", "apt-mirror", "logging-config", "authorized-keys", "resource-tags")
 	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("http-proxy"))
@@ -411,7 +412,7 @@ func (s *ModelConfigSourceSuite) TestModelConfigUpdateSource(c *gc.C) {
 	}
 	err := s.Model.UpdateModelConfig(attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	modelCfg, err := s.Model.ModelConfig()
+	modelCfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	modelAttributes := set.NewStrings("name", "http-proxy", "logging-config", "authorized-keys", "resource-tags")
 	s.assertModelConfigValues(c, modelCfg, modelAttributes, set.NewStrings("apt-mirror"))

@@ -104,7 +104,7 @@ func fakeClassifyDetachedStorage(
 	return destroyed, detached, nil
 }
 
-func fakeSupportedFeaturesGetter(stateenvirons.Model, environs.NewEnvironFunc) (coreassumes.FeatureSet, error) {
+func fakeSupportedFeaturesGetter(context.Context, stateenvirons.Model, environs.NewEnvironFunc) (coreassumes.FeatureSet, error) {
 	return coreassumes.FeatureSet{}, nil
 }
 
@@ -165,8 +165,8 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	s.storageAccess.EXPECT().FilesystemAccess().Return(nil).AnyTimes()
 
 	s.blockChecker = mocks.NewMockBlockChecker(ctrl)
-	s.blockChecker.EXPECT().ChangeAllowed().Return(s.changeAllowed).AnyTimes()
-	s.blockChecker.EXPECT().RemoveAllowed().Return(s.removeAllowed).AnyTimes()
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(s.changeAllowed).AnyTimes()
+	s.blockChecker.EXPECT().RemoveAllowed(gomock.Any()).Return(s.removeAllowed).AnyTimes()
 
 	s.model = mocks.NewMockModel(ctrl)
 	s.model.EXPECT().ModelTag().Return(coretesting.ModelTag).AnyTimes()
@@ -199,7 +199,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		func(application.Charm) *state.Charm {
 			return nil
 		},
-		func(_ application.ApplicationDeployer, _ application.Model, p application.DeployApplicationParams) (application.Application, error) {
+		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, p application.DeployApplicationParams) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},
@@ -1623,7 +1623,7 @@ func (s *ApplicationSuite) expectDefaultK8sModelConfig() {
 		"operator-storage": "k8s-operator-storage",
 		"workload-storage": "k8s-storage",
 	})
-	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
+	s.model.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
 }
 
 func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
@@ -1748,7 +1748,7 @@ func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"workload-storage": "k8s-storage",
 	})
-	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
+	s.model.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1780,7 +1780,7 @@ func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"workload-storage": "k8s-storage",
 	})
-	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
+	s.model.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -1807,7 +1807,7 @@ func (s *ApplicationSuite) TestDeployCAASModelSidecarCharmNeedsNoOperatorStorage
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"workload-storage": "k8s-storage",
 	})
-	s.model.EXPECT().ModelConfig().Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
+	s.model.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
 
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
@@ -2574,7 +2574,7 @@ func (s *ApplicationSuite) TestRemoteRelationBadCIDR(c *gc.C) {
 		ApplicationName: "hosted-mysql",
 	}}, nil)
 	endpoints := []string{"wordpress", "hosted-mysql:nope"}
-	_, err := s.api.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"bad.cidr"}})
+	_, err := s.api.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"bad.cidr"}})
 	c.Assert(err, gc.ErrorMatches, `invalid CIDR address: bad.cidr`)
 }
 
@@ -2589,7 +2589,7 @@ func (s *ApplicationSuite) TestNonRemoteRelationCIDR(c *gc.C) {
 	s.backend.EXPECT().RemoteApplication("wordpress").Return(nil, errors.NotFound)
 	s.backend.EXPECT().RemoteApplication("mysql").Return(nil, errors.NotFound)
 	endpoints := []string{"wordpress", "mysql"}
-	_, err := s.api.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"10.10.0.0/16"}})
+	_, err := s.api.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"10.10.0.0/16"}})
 	c.Assert(err, gc.ErrorMatches, `integration via subnets for non cross model relations not supported`)
 }
 
@@ -2602,7 +2602,7 @@ func (s *ApplicationSuite) TestRemoteRelationDisAllowedCIDR(c *gc.C) {
 		ApplicationName: "hosted-mysql",
 	}}, nil)
 	endpoints := []string{"wordpress", "hosted-mysql:nope"}
-	_, err := s.api.AddRelation(params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"0.0.0.0/0"}})
+	_, err := s.api.AddRelation(context.Background(), params.AddRelation{Endpoints: endpoints, ViaCIDRs: []string{"0.0.0.0/0"}})
 	c.Assert(err, gc.ErrorMatches, `CIDR "0.0.0.0/0" not allowed`)
 }
 

@@ -14,8 +14,8 @@ import (
 
 // EnvironConfigGetter exposes a model configuration to its clients.
 type EnvironConfigGetter interface {
-	ModelConfig() (*config.Config, error)
-	CloudSpec() (environscloudspec.CloudSpec, error)
+	ModelConfig(context.Context) (*config.Config, error)
+	CloudSpec(context.Context) (environscloudspec.CloudSpec, error)
 }
 
 // NewEnvironFunc is the type of a function that, given a model config,
@@ -24,20 +24,20 @@ type NewEnvironFunc func(context.Context, OpenParams) (Environ, error)
 
 // GetEnviron returns the environs.Environ ("provider") associated
 // with the model.
-func GetEnviron(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, error) {
-	env, _, err := GetEnvironAndCloud(st, newEnviron)
+func GetEnviron(ctx context.Context, st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, error) {
+	env, _, err := GetEnvironAndCloud(ctx, st, newEnviron)
 	return env, err
 }
 
 // GetEnvironAndCloud returns the environs.Environ ("provider") and cloud associated
 // with the model.
-func GetEnvironAndCloud(st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, *environscloudspec.CloudSpec, error) {
-	modelConfig, err := st.ModelConfig()
+func GetEnvironAndCloud(ctx context.Context, st EnvironConfigGetter, newEnviron NewEnvironFunc) (Environ, *environscloudspec.CloudSpec, error) {
+	modelConfig, err := st.ModelConfig(ctx)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "retrieving model config")
 	}
 
-	cloudSpec, err := st.CloudSpec()
+	cloudSpec, err := st.CloudSpec(ctx)
 	if err != nil {
 		return nil, nil, errors.Annotatef(
 			err, "retrieving cloud spec for model %q (%s)", modelConfig.Name(), modelConfig.UUID())

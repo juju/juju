@@ -40,7 +40,7 @@ func (*fakeModelAccessor) WatchForModelConfigChanges() state.NotifyWatcher {
 	return apiservertesting.NewFakeNotifyWatcher()
 }
 
-func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {
+func (f *fakeModelAccessor) ModelConfig(ctx context.Context) (*config.Config, error) {
 	if f.modelConfigError != nil {
 		return nil, f.modelConfigError
 	}

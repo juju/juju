@@ -4,6 +4,8 @@
 package provisioner_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -63,7 +65,7 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := api.ProvisioningInfo(s.getTestMachinesTags(c))
+	result, err := api.ProvisioningInfo(context.Background(), s.getTestMachinesTags(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := make([][]params.CloudImageMetadata, len(s.machines))
@@ -95,7 +97,7 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	result, err := api.ProvisioningInfo(s.getTestMachinesTags(c))
+	result, err := api.ProvisioningInfo(context.Background(), s.getTestMachinesTags(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertImageMetadataResults(c, result, expected...)

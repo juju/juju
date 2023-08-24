@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"sort"
@@ -4212,7 +4213,7 @@ func (s *StateSuite) TestWatchRemoteRelationsDiesOnStateClose(c *gc.C) {
 
 func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	// Get the agent-version set in the model.
-	modelConfig, err := s.Model.ModelConfig()
+	modelConfig, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -4294,7 +4295,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config
 	// Get the agent-version set in the model.
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := m.ModelConfig()
+	modelConfig, err := m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -4331,7 +4332,7 @@ func (s *StateSuite) changeEnviron(c *gc.C, modelConfig *config.Config, name str
 func assertAgentVersion(c *gc.C, st *state.State, vers, stream string) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := m.ModelConfig()
+	modelConfig, err := m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -4461,7 +4462,7 @@ func (s *StateSuite) TestSetModelAgentVersionMixedVersions(c *gc.C) {
 
 func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	// Get the agent-version set in the model.
-	modelConfig, err := s.Model.ModelConfig()
+	modelConfig, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
@@ -4490,7 +4491,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {
 	// SetModelAgentVersion call failing.
 
 	// Get the agent-version set in the model.
-	modelConfig, err := s.Model.ModelConfig()
+	modelConfig, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	agentVersion, ok := modelConfig.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

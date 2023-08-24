@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"time"
@@ -212,7 +213,7 @@ func (c *Client) StatusHistory(request params.StatusHistoryRequests) params.Stat
 }
 
 // FullStatus gives the information needed for juju status over the api
-func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error) {
+func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (params.FullStatus, error) {
 	if err := c.checkCanRead(); err != nil {
 		return params.FullStatus{}, err
 	}
@@ -446,8 +447,8 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	}
 	return params.FullStatus{
 		Model:               modelStatus,
-		Machines:            context.processMachines(),
-		Applications:        context.processApplications(),
+		Machines:            context.processMachines(ctx),
+		Applications:        context.processApplications(ctx),
 		RemoteApplications:  context.processRemoteApplications(),
 		Offers:              context.processOffers(),
 		Relations:           context.processRelations(),
@@ -995,7 +996,7 @@ func fetchBranches(m *state.Model) (map[string]*state.Generation, error) {
 	return branches, nil
 }
 
-func (c *statusContext) processMachines() map[string]params.MachineStatus {
+func (c *statusContext) processMachines(ctx context.Context) map[string]params.MachineStatus {
 	machinesMap := make(map[string]params.MachineStatus)
 	aCache := make(map[string]params.MachineStatus)
 	for id, machines := range c.machines {
@@ -1006,7 +1007,7 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 
 		// Element 0 is assumed to be the top-level machine.
 		tlMachine := machines[0]
-		hostStatus := c.makeMachineStatus(tlMachine, c.allAppsUnitsCharmBindings)
+		hostStatus := c.makeMachineStatus(ctx, tlMachine, c.allAppsUnitsCharmBindings)
 		machinesMap[id] = hostStatus
 		aCache[id] = hostStatus
 
@@ -1018,7 +1019,7 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 				continue
 			}
 
-			aStatus := c.makeMachineStatus(machine, c.allAppsUnitsCharmBindings)
+			aStatus := c.makeMachineStatus(ctx, machine, c.allAppsUnitsCharmBindings)
 			parent.Containers[machine.Id()] = aStatus
 			aCache[machine.Id()] = aStatus
 		}
@@ -1026,8 +1027,11 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 	return machinesMap
 }
 
-func (c *statusContext) makeMachineStatus(machine *state.Machine,
-	appStatusInfo applicationStatusInfo) (status params.MachineStatus) {
+func (c *statusContext) makeMachineStatus(
+	ctx context.Context,
+	machine *state.Machine,
+	appStatusInfo applicationStatusInfo,
+) (status params.MachineStatus) {
 	machineID := machine.Id()
 	ipAddresses := c.ipAddresses[machineID]
 	spaces := c.spaces[machineID]
@@ -1035,7 +1039,7 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine,
 
 	var err error
 	status.Id = machineID
-	agentStatus := c.processMachine(machine)
+	agentStatus := c.processMachine(ctx, machine)
 	status.AgentStatus = agentStatus
 
 	mBase := machine.Base()
@@ -1230,15 +1234,15 @@ func paramsJobsFromJobs(jobs []state.MachineJob) []model.MachineJob {
 	return paramsJobs
 }
 
-func (context *statusContext) processApplications() map[string]params.ApplicationStatus {
+func (context *statusContext) processApplications(ctx context.Context) map[string]params.ApplicationStatus {
 	applicationsMap := make(map[string]params.ApplicationStatus)
 	for _, app := range context.allAppsUnitsCharmBindings.applications {
-		applicationsMap[app.Name()] = context.processApplication(app)
+		applicationsMap[app.Name()] = context.processApplication(ctx, app)
 	}
 	return applicationsMap
 }
 
-func (context *statusContext) processApplication(application *state.Application) params.ApplicationStatus {
+func (context *statusContext) processApplication(ctx context.Context, application *state.Application) params.ApplicationStatus {
 	applicationCharm, _, err := application.Charm()
 	if err != nil {
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
@@ -1298,7 +1302,7 @@ func (context *statusContext) processApplication(application *state.Application)
 	}
 	units := context.allAppsUnitsCharmBindings.units[application.Name()]
 	if application.IsPrincipal() {
-		processedStatus.Units = context.processUnits(units, applicationCharm.String())
+		processedStatus.Units = context.processUnits(ctx, units, applicationCharm.String())
 	}
 
 	applicationStatus := status.StatusInfo{Status: status.Unknown}
@@ -1473,10 +1477,10 @@ func (context *statusContext) processUnitMeterStatuses(units map[string]*state.U
 	return nil
 }
 
-func (context *statusContext) processUnits(units map[string]*state.Unit, applicationCharm string) map[string]params.UnitStatus {
+func (context *statusContext) processUnits(ctx context.Context, units map[string]*state.Unit, applicationCharm string) map[string]params.UnitStatus {
 	unitsMap := make(map[string]params.UnitStatus)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = context.processUnit(unit, applicationCharm)
+		unitsMap[unit.Name()] = context.processUnit(ctx, unit, applicationCharm)
 	}
 	return unitsMap
 }
@@ -1506,7 +1510,7 @@ func (context *statusContext) unitPublicAddress(unit *state.Unit) string {
 	return addr.Value
 }
 
-func (context *statusContext) processUnit(unit *state.Unit, applicationCharm string) params.UnitStatus {
+func (context *statusContext) processUnit(ctx context.Context, unit *state.Unit, applicationCharm string) params.UnitStatus {
 	var result params.UnitStatus
 	if context.model.Type() == state.ModelTypeIAAS {
 		result.PublicAddress = context.unitPublicAddress(unit)
@@ -1547,7 +1551,7 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 		logger.Debugf("error fetching workload version: %v", err)
 	}
 
-	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(unit)
+	result.AgentStatus, result.WorkloadStatus = context.processUnitAndAgentStatus(ctx, unit)
 
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		result.Subordinates = make(map[string]params.UnitStatus)
@@ -1566,7 +1570,7 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 				} else {
 					logger.Debugf("error fetching subordinate application charm for %q", subUnit.ApplicationName())
 				}
-				result.Subordinates[name] = context.processUnit(subUnit, subUnitAppCharm)
+				result.Subordinates[name] = context.processUnit(ctx, subUnit, subUnitAppCharm)
 			}
 		}
 	}
@@ -1669,9 +1673,9 @@ func (c *contextUnit) Status() (status.StatusInfo, error) {
 }
 
 // processUnitAndAgentStatus retrieves status information for both unit and unitAgents.
-func (c *statusContext) processUnitAndAgentStatus(unit *state.Unit) (agentStatus, workloadStatus params.DetailedStatus) {
-	wrapped := &contextUnit{unit, c}
-	agent, workload := c.presence.UnitStatus(wrapped)
+func (c *statusContext) processUnitAndAgentStatus(ctx context.Context, unit *state.Unit) (agentStatus, workloadStatus params.DetailedStatus) {
+	wrapped := &contextUnit{Unit: unit, context: c}
+	agent, workload := c.presence.UnitStatus(ctx, wrapped)
 	populateStatusFromStatusInfoAndErr(&agentStatus, agent.Status, agent.Err)
 	populateStatusFromStatusInfoAndErr(&workloadStatus, workload.Status, workload.Err)
 
@@ -1708,9 +1712,9 @@ func (c *contextMachine) Status() (status.StatusInfo, error) {
 
 // processMachine retrieves version and status information for the given machine.
 // It also returns deprecated legacy status information.
-func (c *statusContext) processMachine(machine *state.Machine) (out params.DetailedStatus) {
-	wrapped := &contextMachine{machine, c}
-	statusInfo, err := c.presence.MachineStatus(wrapped)
+func (c *statusContext) processMachine(ctx context.Context, machine *state.Machine) (out params.DetailedStatus) {
+	wrapped := &contextMachine{Machine: machine, context: c}
+	statusInfo, err := c.presence.MachineStatus(ctx, wrapped)
 	populateStatusFromStatusInfoAndErr(&out, statusInfo, err)
 
 	out.Life = processLife(machine)

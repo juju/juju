@@ -117,7 +117,7 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 	s.uniter.EXPECT().CloudAPIVersion().Return("6.6.6", nil).AnyTimes()
 
 	cfg := coretesting.ModelConfig(c)
-	s.uniter.EXPECT().ModelConfig().Return(cfg, nil).AnyTimes()
+	s.uniter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
 	s.payloads = mocks.NewMockPayloadAPIClient(ctrl)
 	s.payloads.EXPECT().List().Return(nil, nil).AnyTimes()

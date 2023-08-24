@@ -39,7 +39,7 @@ type remoteRelationsSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *mocks.MockRemoteRelationsState
-	ecService  *mocks.MockECService
+	ecService  *mocks.MockExternalControllerService
 	cc         *mocks.MockControllerConfigAPI
 	api        *remoterelations.API
 }
@@ -61,7 +61,7 @@ func (s *remoteRelationsSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = mocks.NewMockRemoteRelationsState(ctrl)
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
-	s.ecService = mocks.NewMockECService(ctrl)
+	s.ecService = mocks.NewMockExternalControllerService(ctrl)
 	api, err := remoterelations.NewRemoteRelationsAPI(
 		s.st, s.ecService, s.cc, s.resources, s.authorizer,
 		loggo.GetLogger("test"),

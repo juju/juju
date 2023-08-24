@@ -4,6 +4,7 @@
 package migration_test
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -43,6 +44,7 @@ var _ = gc.Suite(&SourcePrecheckSuite{})
 
 func sourcePrecheck(backend migration.PrecheckBackend) error {
 	return migration.SourcePrecheck(
+		context.Background(),
 		backend, allAlivePresence(), allAlivePresence(),
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "lxd"}, nil
@@ -54,6 +56,7 @@ func (*SourcePrecheckSuite) TestSuccess(c *gc.C) {
 	backend := newHappyBackend()
 	backend.controllerBackend = newHappyBackend()
 	err := migration.SourcePrecheck(
+		context.Background(),
 		backend, allAlivePresence(), allAlivePresence(),
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "lxd"}, nil
@@ -112,6 +115,7 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	server.EXPECT().ServerVersion().Return("4.0")
 
 	err := migration.SourcePrecheck(
+		context.Background(),
 		backend, allAlivePresence(), allAlivePresence(),
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return cloudSpec.CloudSpec, nil
@@ -137,6 +141,7 @@ func (*SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	backend.model.name = "model-1"
 	backend.model.owner = names.NewUserTag("foo")
 	err := migration.SourcePrecheck(
+		context.Background(),
 		backend, allAlivePresence(), allAlivePresence(),
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "lxd"}, nil
@@ -219,6 +224,7 @@ func (s *SourcePrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	modelPresence := downAgentPresence("machine-1")
 	controllerPresence := allAlivePresence()
 	err := migration.SourcePrecheck(
+		context.Background(),
 		backend, modelPresence, controllerPresence,
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "foo"}, nil
@@ -339,6 +345,7 @@ func (s *SourcePrecheckSuite) TestUnitLost(c *gc.C) {
 	modelPresence := downAgentPresence("unit-foo-0")
 	controllerPresence := allAlivePresence()
 	err := migration.SourcePrecheck(
+		context.Background(),
 		backend, modelPresence, controllerPresence,
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return environscloudspec.CloudSpec{Type: "foo"}, nil
@@ -490,7 +497,7 @@ func (s *TargetPrecheckSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *TargetPrecheckSuite) runPrecheck(backend migration.PrecheckBackend) error {
-	return migration.TargetPrecheck(backend, nil, s.modelInfo, allAlivePresence())
+	return migration.TargetPrecheck(context.Background(), backend, nil, s.modelInfo, allAlivePresence())
 }
 
 func (s *TargetPrecheckSuite) TestSuccess(c *gc.C) {
@@ -657,7 +664,7 @@ func (s *TargetPrecheckSuite) TestProvisioningMachine(c *gc.C) {
 func (s *TargetPrecheckSuite) TestDownMachineAgent(c *gc.C) {
 	backend := newHappyBackend()
 	modelPresence := downAgentPresence("machine-1")
-	err := migration.TargetPrecheck(backend, nil, s.modelInfo, modelPresence)
+	err := migration.TargetPrecheck(context.Background(), backend, nil, s.modelInfo, modelPresence)
 	c.Assert(err.Error(), gc.Equals, "machine 1 agent not functioning at this time (down)")
 }
 
@@ -674,7 +681,7 @@ func (s *TargetPrecheckSuite) TestModelNameAlreadyInUse(c *gc.C) {
 	}
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
-	err := migration.TargetPrecheck(backend, pool, s.modelInfo, allAlivePresence())
+	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, allAlivePresence())
 	c.Assert(err, gc.ErrorMatches, "model named \"model-name\" already exists")
 }
 
@@ -690,7 +697,7 @@ func (s *TargetPrecheckSuite) TestModelNameOverlapOkForDifferentOwner(c *gc.C) {
 	}
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
-	err := migration.TargetPrecheck(backend, pool, s.modelInfo, allAlivePresence())
+	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, allAlivePresence())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -702,7 +709,7 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExists(c *gc.C) {
 	}
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
-	err := migration.TargetPrecheck(backend, pool, s.modelInfo, allAlivePresence())
+	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, allAlivePresence())
 	c.Assert(err.Error(), gc.Equals, "model with same UUID already exists (model-uuid)")
 }
 
@@ -718,7 +725,7 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *gc.C) {
 	}
 	backend := newFakeBackend()
 	backend.models = pool.uuids()
-	err := migration.TargetPrecheck(backend, pool, s.modelInfo, allAlivePresence())
+	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, allAlivePresence())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

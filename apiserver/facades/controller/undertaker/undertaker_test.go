@@ -169,7 +169,7 @@ func (s *undertakerSuite) TestDeadRemoveModel(c *gc.C) {
 func (s *undertakerSuite) TestModelConfig(c *gc.C) {
 	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel")
 
-	cfg, err := hostedAPI.ModelConfig()
+	cfg, err := hostedAPI.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, gc.NotNil)
 }
@@ -177,12 +177,15 @@ func (s *undertakerSuite) TestModelConfig(c *gc.C) {
 func (s *undertakerSuite) TestSetStatus(c *gc.C) {
 	mock, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel")
 
-	results, err := hostedAPI.SetStatus(params.SetStatus{
-		Entities: []params.EntityStatusArgs{{
-			mock.model.Tag().String(), status.Destroying.String(),
-			"woop", map[string]interface{}{"da": "ta"},
-		}},
-	})
+	results, err := hostedAPI.SetStatus(
+		context.Background(),
+		params.SetStatus{
+			Entities: []params.EntityStatusArgs{{
+				Tag: mock.model.Tag().String(), Status: status.Destroying.String(),
+				Info: "woop", Data: map[string]interface{}{"da": "ta"},
+			}},
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.IsNil)
@@ -193,12 +196,15 @@ func (s *undertakerSuite) TestSetStatus(c *gc.C) {
 
 func (s *undertakerSuite) TestSetStatusControllerPermissions(c *gc.C) {
 	_, hostedAPI := s.setupStateAndAPI(c, true, "hostedmodel")
-	results, err := hostedAPI.SetStatus(params.SetStatus{
-		Entities: []params.EntityStatusArgs{{
-			"model-6ada782f-bcd4-454b-a6da-d1793fbcb35e", status.Destroying.String(),
-			"woop", map[string]interface{}{"da": "ta"},
-		}},
-	})
+	results, err := hostedAPI.SetStatus(
+		context.Background(),
+		params.SetStatus{
+			Entities: []params.EntityStatusArgs{{
+				Tag: "model-6ada782f-bcd4-454b-a6da-d1793fbcb35e", Status: status.Destroying.String(),
+				Info: "woop", Data: map[string]interface{}{"da": "ta"},
+			}},
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, ".*not found")
@@ -206,12 +212,15 @@ func (s *undertakerSuite) TestSetStatusControllerPermissions(c *gc.C) {
 
 func (s *undertakerSuite) TestSetStatusNonControllerPermissions(c *gc.C) {
 	_, hostedAPI := s.setupStateAndAPI(c, false, "hostedmodel")
-	results, err := hostedAPI.SetStatus(params.SetStatus{
-		Entities: []params.EntityStatusArgs{{
-			"model-6ada782f-bcd4-454b-a6da-d1793fbcb35e", status.Destroying.String(),
-			"woop", map[string]interface{}{"da": "ta"},
-		}},
-	})
+	results, err := hostedAPI.SetStatus(
+		context.Background(),
+		params.SetStatus{
+			Entities: []params.EntityStatusArgs{{
+				Tag: "model-6ada782f-bcd4-454b-a6da-d1793fbcb35e", Status: status.Destroying.String(),
+				Info: "woop", Data: map[string]interface{}{"da": "ta"},
+			}},
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, "permission denied")
 }

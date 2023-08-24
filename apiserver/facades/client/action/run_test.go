@@ -4,6 +4,8 @@
 package action_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -68,6 +70,7 @@ func (s *runSuite) TestBlockRunOnAllMachines(c *gc.C) {
 	// block all changes
 	s.BlockAllChanges(c, "TestBlockRunOnAllMachines")
 	_, err := s.client.RunOnAllMachines(
+		context.Background(),
 		params.RunParams{
 			Commands: "hostname",
 			Timeout:  testing.LongWait,
@@ -79,6 +82,7 @@ func (s *runSuite) TestBlockRunMachineAndApplication(c *gc.C) {
 	// block all changes
 	s.BlockAllChanges(c, "TestBlockRunMachineAndApplication")
 	_, err := s.client.Run(
+		context.Background(),
 		params.RunParams{
 			Commands:     "hostname",
 			Timeout:      testing.LongWait,
@@ -119,6 +123,7 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 	s.addUnit(c, magic)
 
 	s.client.Run(
+		context.Background(),
 		params.RunParams{
 			Commands:       "hostname",
 			Machines:       []string{"0"},
@@ -172,6 +177,7 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 	s.addUnit(c, magic)
 
 	s.client.Run(
+		context.Background(),
 		params.RunParams{
 			Commands:        "hostname",
 			Applications:    []string{"magic"},
@@ -218,6 +224,7 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 	s.addMachine(c)
 
 	s.client.RunOnAllMachines(
+		context.Background(),
 		params.RunParams{
 			Commands:       "hostname",
 			Timeout:        testing.LongWait,
@@ -250,13 +257,13 @@ func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.Run(params.RunParams{})
+	_, err = client.Run(context.Background(), params.RunParams{})
 	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
 
 	auth.AdminTag = alpha
 	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.Run(params.RunParams{})
+	_, err = client.Run(context.Background(), params.RunParams{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -269,12 +276,12 @@ func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.RunOnAllMachines(params.RunParams{})
+	_, err = client.RunOnAllMachines(context.Background(), params.RunParams{})
 	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
 
 	auth.AdminTag = alpha
 	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.RunOnAllMachines(params.RunParams{})
+	_, err = client.RunOnAllMachines(context.Background(), params.RunParams{})
 	c.Assert(err, jc.ErrorIsNil)
 }

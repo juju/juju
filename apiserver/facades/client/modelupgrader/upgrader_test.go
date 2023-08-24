@@ -131,7 +131,7 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 		coretesting.ControllerTag,
 		s.statePool,
 		s.toolsFinder,
-		func() (environs.BootstrapEnviron, error) {
+		func(ctx stdcontext.Context) (environs.BootstrapEnviron, error) {
 			return s.bootstrapEnviron, nil
 		},
 		s.blockChecker, s.authoriser, s.callContext,
@@ -176,7 +176,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelWithChangeNotAllowed(c *gc.C) {
 	ctrl, api := s.getModelUpgraderAPI(c)
 	defer ctrl.Finish()
 
-	s.blockChecker.EXPECT().ChangeAllowed().Return(errors.Errorf("the operation has been blocked"))
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(errors.Errorf("the operation has been blocked"))
 
 	_, err := api.UpgradeModel(
 		stdcontext.Background(),
@@ -218,16 +218,18 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	state1.EXPECT().Release()
 
 	s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil)
-	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	// Decide/validate target version.
 	ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil)
 	ctrlModel.EXPECT().Life().Return(state.Alive)
 	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
 	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
-		Number:        version.MustParse("3.9.99"),
-		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
+	s.toolsFinder.EXPECT().FindAgents(
+		gomock.Any(),
+		common.FindAgentsParams{
+			Number:        version.MustParse("3.9.99"),
+			ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
 		[]*coretools.Tools{
 			{Version: version.MustParseBinary("3.9.99-ubuntu-amd64")},
 		}, nil,
@@ -345,14 +347,14 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 	state1.EXPECT().Release()
 
 	s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil)
-	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	// Decide/validate target version.
 	ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil)
 	ctrlModel.EXPECT().Life().Return(state.Alive)
 	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.1"), nil)
 	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number:        version.MustParse("3.9.99"),
 		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
 		[]*coretools.Tools{
@@ -451,14 +453,14 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 
 	s.statePool.EXPECT().Get(ctrlModelTag.Id()).Return(ctrlState, nil)
 
-	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	// Decide/validate target version.
 	ctrlState.EXPECT().ControllerConfig().Return(controllerCfg, nil)
 	ctrlModel.EXPECT().Life().Return(state.Alive)
 	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	ctrlModel.EXPECT().Type().Return(state.ModelTypeIAAS)
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number:        version.MustParse("3.9.99"),
 		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
 		[]*coretools.Tools{
@@ -577,7 +579,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 
 	var agentStream string
 
-	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	// Decide/validate target version.
 	st.EXPECT().ControllerConfig().Return(controllerCfg, nil)
@@ -587,7 +589,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	model.EXPECT().IsControllerModel().Return(false)
 	s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil)
 	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.99"), nil)
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number:        version.MustParse("3.9.99"),
 		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
 		[]*coretools.Tools{
@@ -657,7 +659,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 
 	ctrlModel := mocks.NewMockModel(ctrl)
 
-	s.blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	s.blockChecker.EXPECT().ChangeAllowed(stdcontext.Background()).Return(nil)
 
 	// Decide/validate target version.
 	st.EXPECT().ControllerConfig().Return(controllerCfg, nil)
@@ -667,7 +669,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	model.EXPECT().IsControllerModel().Return(false)
 	s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil)
 	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse("3.9.99"), nil)
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number:        version.MustParse("3.9.99"),
 		ControllerCfg: controllerCfg, ModelType: state.ModelTypeIAAS}).Return(
 		[]*coretools.Tools{
@@ -722,7 +724,7 @@ func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	st.EXPECT().Release()
 
 	gomock.InOrder(
-		s.blockChecker.EXPECT().ChangeAllowed().Return(nil),
+		s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil),
 		s.statePool.EXPECT().Get(modelUUID).Return(st, nil),
 		st.EXPECT().AbortCurrentUpgrade().Return(nil),
 	)
@@ -738,10 +740,10 @@ func (s *modelUpgradeSuite) TestFindToolsIAAS(c *gc.C) {
 		{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
 	}
 
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		MajorVersion: 2, ModelType: state.ModelTypeIAAS}).Return(simpleStreams, nil)
 
-	result, err := api.FindAgents(common.FindAgentsParams{MajorVersion: 2, ModelType: state.ModelTypeIAAS})
+	result, err := api.FindAgents(stdcontext.Background(), common.FindAgentsParams{MajorVersion: 2, ModelType: state.ModelTypeIAAS})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
@@ -764,10 +766,13 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 
 	gomock.InOrder(
-		s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
-			MajorVersion: 2, MinorVersion: 9,
-			ModelType: state.ModelTypeCAAS,
-		}).Return(simpleStreams, nil),
+		s.toolsFinder.EXPECT().FindAgents(
+			gomock.Any(),
+			common.FindAgentsParams{
+				MajorVersion: 2, MinorVersion: 9,
+				ModelType: state.ModelTypeCAAS,
+			},
+		).Return(simpleStreams, nil),
 		s.registryProvider.EXPECT().Tags("jujud-operator").Return(coretools.Versions{
 			image.NewImageInfo(version.MustParse("2.9.8")),
 			image.NewImageInfo(version.MustParse("2.9.9")),
@@ -783,7 +788,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
-	result, err := api.FindAgents(common.FindAgentsParams{MajorVersion: 2, MinorVersion: 9, ModelType: state.ModelTypeCAAS})
+	result, err := api.FindAgents(stdcontext.Background(), common.FindAgentsParams{MajorVersion: 2, MinorVersion: 9, ModelType: state.ModelTypeCAAS})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
@@ -807,10 +812,11 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 
 	gomock.InOrder(
-		s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
-			Number:    version.MustParse("2.9.10"),
-			ModelType: state.ModelTypeCAAS,
-		}).Return(simpleStreams, nil),
+		s.toolsFinder.EXPECT().FindAgents(gomock.Any(),
+			common.FindAgentsParams{
+				Number:    version.MustParse("2.9.10"),
+				ModelType: state.ModelTypeCAAS,
+			}).Return(simpleStreams, nil),
 		s.registryProvider.EXPECT().Tags("jujud-operator").Return(coretools.Versions{
 			image.NewImageInfo(version.MustParse("2.9.8")),
 			image.NewImageInfo(version.MustParse("2.9.9")),
@@ -823,7 +829,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
-	result, err := api.FindAgents(common.FindAgentsParams{
+	result, err := api.FindAgents(stdcontext.Background(), common.FindAgentsParams{
 		Number: version.MustParse("2.9.10"), ModelType: state.ModelTypeCAAS})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
@@ -848,7 +854,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	s.PatchValue(&coreos.HostOS, func() coreos.OSType { return coreos.Ubuntu })
 
 	gomock.InOrder(
-		s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+		s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 			MajorVersion: 2, MinorVersion: 9, AgentStream: envtools.DevelStream,
 			ModelType: state.ModelTypeCAAS,
 		}).Return(simpleStreams, nil),
@@ -869,10 +875,12 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
-	result, err := api.FindAgents(common.FindAgentsParams{
-		MajorVersion: 2, MinorVersion: 9, AgentStream: envtools.DevelStream,
-		ModelType: state.ModelTypeCAAS,
-	})
+	result, err := api.FindAgents(
+		stdcontext.Background(),
+		common.FindAgentsParams{
+			MajorVersion: 2, MinorVersion: 9, AgentStream: envtools.DevelStream,
+			ModelType: state.ModelTypeCAAS,
+		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
 		&coretools.Tools{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
@@ -890,12 +898,13 @@ func (s *modelUpgradeSuite) TestDecideVersionFindToolUseAgentVersionMajorMinor(c
 	model := mocks.NewMockModel(ctrl)
 	st.EXPECT().Model().AnyTimes().Return(model, nil)
 
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		MajorVersion: 3, MinorVersion: 666,
 		ModelType: state.ModelTypeIAAS,
 	}).Return(nil, errors.New(`fail to exit early`))
 
 	targetVersion, err := api.DecideVersion(
+		stdcontext.Background(),
 		version.MustParse("3.9.99"), common.FindAgentsParams{
 			MajorVersion: 3, MinorVersion: 666, ModelType: state.ModelTypeIAAS},
 	)
@@ -911,12 +920,13 @@ func (s *modelUpgradeSuite) TestDecideVersionFindToolUseTargetMajor(c *gc.C) {
 	model := mocks.NewMockModel(ctrl)
 	st.EXPECT().Model().AnyTimes().Return(model, nil)
 
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number:    version.MustParse("4.9.99"),
 		ModelType: state.ModelTypeIAAS,
 	}).Return(nil, errors.New(`fail to exit early`))
 
 	targetVersion, err := api.DecideVersion(
+		stdcontext.Background(),
 		version.MustParse("3.9.99"),
 		common.FindAgentsParams{Number: version.MustParse("4.9.99"), ModelType: state.ModelTypeIAAS},
 	)
@@ -936,11 +946,12 @@ func (s *modelUpgradeSuite) TestDecideVersionValidateAndUseTargetVersion(c *gc.C
 		{Version: version.MustParseBinary("3.9.98-ubuntu-amd64")},
 	}
 
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		Number: version.MustParse("3.9.98"), ModelType: state.ModelTypeIAAS,
 	}).Return(simpleStreams, nil)
 
 	targetVersion, err := api.DecideVersion(
+		stdcontext.Background(),
 		version.MustParse("2.9.99"),
 		common.FindAgentsParams{
 			Number: version.MustParse("3.9.98"), ModelType: state.ModelTypeIAAS},
@@ -964,12 +975,13 @@ func (s *modelUpgradeSuite) TestDecideVersionNewestMinor(c *gc.C) {
 		{Version: version.MustParseBinary("3.666.0-ubuntu-amd64")},
 	}
 
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		MajorVersion: 2,
 		ModelType:    state.ModelTypeIAAS,
 	}).Return(simpleStreams, nil)
 
 	targetVersion, err := api.DecideVersion(
+		stdcontext.Background(),
 		version.MustParse("2.9.99"),
 		common.FindAgentsParams{
 			MajorVersion: 2, MinorVersion: 0,
@@ -992,12 +1004,13 @@ func (s *modelUpgradeSuite) TestDecideVersionIgnoresNewerMajor(c *gc.C) {
 		{Version: version.MustParseBinary("3.666.0-ubuntu-amd64")},
 	}
 
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		MajorVersion: 2,
 		ModelType:    state.ModelTypeIAAS,
 	}).Return(simpleStreams, nil)
 
 	targetVersion, err := api.DecideVersion(
+		stdcontext.Background(),
 		version.MustParse("2.9.99"),
 		common.FindAgentsParams{
 			MajorVersion: 2,

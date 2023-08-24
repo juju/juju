@@ -1118,7 +1118,7 @@ func (u *UniterAPI) CurrentModel(ctx context.Context) (params.ModelResult, error
 // addresses, this might be completely unnecessary though.
 func (u *UniterAPI) ProviderType(ctx context.Context) (params.StringResult, error) {
 	result := params.StringResult{}
-	cfg, err := u.m.ModelConfig()
+	cfg, err := u.m.ModelConfig(ctx)
 	if err == nil {
 		result.Result = cfg.Type()
 	}
@@ -1157,7 +1157,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 			return nil
 		}
 
-		netInfo, err := NewNetworkInfo(u.st, unitTag, u.logger)
+		netInfo, err := NewNetworkInfo(ctx, u.st, unitTag, u.logger)
 		if err != nil {
 			return err
 		}
@@ -1964,7 +1964,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	netInfo, err := NewNetworkInfo(u.st, unitTag, u.logger)
+	netInfo, err := NewNetworkInfo(ctx, u.st, unitTag, u.logger)
 	if err != nil {
 		return params.NetworkInfoResults{}, err
 	}
@@ -2070,7 +2070,7 @@ func (u *UniterAPI) CloudSpec(ctx context.Context) (params.CloudSpecResult, erro
 		return params.CloudSpecResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 
-	return u.cloudSpecer.GetCloudSpec(u.m.Tag().(names.ModelTag)), nil
+	return u.cloudSpecer.GetCloudSpec(ctx, u.m.Tag().(names.ModelTag)), nil
 }
 
 // GoalStates returns information of charm units and relations.
@@ -2360,7 +2360,7 @@ func (u *UniterAPI) CloudAPIVersion(ctx context.Context) (params.StringResult, e
 	result := params.StringResult{}
 
 	configGetter := stateenvirons.EnvironConfigGetter{Model: u.m, NewContainerBroker: u.containerBrokerFunc}
-	spec, err := configGetter.CloudSpec()
+	spec, err := configGetter.CloudSpec(ctx)
 	if err != nil {
 		return result, apiservererrors.ServerError(err)
 	}
@@ -2393,7 +2393,7 @@ func (u *UniterAPI) UpdateNetworkInfo(ctx context.Context, args params.Entities)
 			continue
 		}
 
-		if err = u.updateUnitNetworkInfo(unitTag); err != nil {
+		if err = u.updateUnitNetworkInfo(ctx, unitTag); err != nil {
 			res[i].Error = apiservererrors.ServerError(err)
 		}
 	}
@@ -2401,20 +2401,20 @@ func (u *UniterAPI) UpdateNetworkInfo(ctx context.Context, args params.Entities)
 	return params.ErrorResults{Results: res}, nil
 }
 
-func (u *UniterAPI) updateUnitNetworkInfo(unitTag names.UnitTag) error {
+func (u *UniterAPI) updateUnitNetworkInfo(ctx context.Context, unitTag names.UnitTag) error {
 	unit, err := u.getUnit(unitTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	modelOp, err := u.updateUnitNetworkInfoOperation(unitTag, unit)
+	modelOp, err := u.updateUnitNetworkInfoOperation(ctx, unitTag, unit)
 	if err != nil {
 		return err
 	}
 	return u.st.ApplyOperation(modelOp)
 }
 
-func (u *UniterAPI) updateUnitNetworkInfoOperation(unitTag names.UnitTag, unit *state.Unit) (state.ModelOperation, error) {
+func (u *UniterAPI) updateUnitNetworkInfoOperation(ctx context.Context, unitTag names.UnitTag, unit *state.Unit) (state.ModelOperation, error) {
 	joinedRelations, err := unit.RelationsJoined()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2432,7 +2432,7 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(unitTag names.UnitTag, unit *
 			return nil, errors.Trace(err)
 		}
 
-		netInfo, err := NewNetworkInfo(u.st, unitTag, u.logger)
+		netInfo, err := NewNetworkInfo(ctx, u.st, unitTag, u.logger)
 		if err != nil {
 			return nil, err
 		}
@@ -2487,7 +2487,7 @@ func (u *UniterAPI) CommitHookChanges(ctx context.Context, args params.CommitHoo
 			continue
 		}
 
-		if err := u.commitHookChangesForOneUnit(unitTag, arg, canAccessUnit, canAccessApp); err != nil {
+		if err := u.commitHookChangesForOneUnit(ctx, unitTag, arg, canAccessUnit, canAccessApp); err != nil {
 			// Log quota-related errors to aid operators
 			if errors.IsQuotaLimitExceeded(err) {
 				u.logger.Errorf("%s: %v", unitTag, err)
@@ -2499,7 +2499,7 @@ func (u *UniterAPI) CommitHookChanges(ctx context.Context, args params.CommitHoo
 	return params.ErrorResults{Results: res}, nil
 }
 
-func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes params.CommitHookChangesArg, canAccessUnit, canAccessApp common.AuthFunc) error {
+func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag names.UnitTag, changes params.CommitHookChangesArg, canAccessUnit, canAccessApp common.AuthFunc) error {
 	unit, err := u.getUnit(unitTag)
 	if err != nil {
 		return errors.Trace(err)
@@ -2513,7 +2513,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	var modelOps []state.ModelOperation
 
 	if changes.UpdateNetworkInfo {
-		modelOp, err := u.updateUnitNetworkInfoOperation(unitTag, unit)
+		modelOp, err := u.updateUnitNetworkInfoOperation(ctx, unitTag, unit)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -2709,7 +2709,7 @@ func (u *UniterAPI) LXDProfileRequired(ctx context.Context, args params.CharmURL
 
 // CanApplyLXDProfile is a shim to call the LXDProfileAPIv2 version of this method.
 func (u *UniterAPI) CanApplyLXDProfile(ctx context.Context, args params.Entities) (params.BoolResults, error) {
-	return u.lxdProfileAPI.CanApplyLXDProfile(args)
+	return u.lxdProfileAPI.CanApplyLXDProfile(ctx, args)
 }
 
 // APIHostPorts returns the API server addresses.
@@ -2719,7 +2719,7 @@ func (u *UniterAPI) APIHostPorts(ctx context.Context) (result params.APIHostPort
 		return result, errors.Trace(err)
 	}
 
-	return u.APIAddresser.APIHostPorts(controllerConfig)
+	return u.APIAddresser.APIHostPorts(ctx, controllerConfig)
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
@@ -2729,5 +2729,5 @@ func (u *UniterAPI) APIAddresses(ctx context.Context) (result params.StringsResu
 		return result, errors.Trace(err)
 	}
 
-	return u.APIAddresser.APIAddresses(controllerConfig)
+	return u.APIAddresser.APIAddresses(ctx, controllerConfig)
 }

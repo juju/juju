@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// ECService provides a subset of the external controller domain
+// ExternalControllerService provides a subset of the external controller domain
 // service methods.
-type ECService interface {
+type ExternalControllerService interface {
 	// UpdateExternalController persists the input controller
 	// record and associates it with the input model UUIDs.
 	UpdateExternalController(ctx context.Context, ec crossmodel.ControllerInfo) error
@@ -34,7 +34,7 @@ type ECService interface {
 type API struct {
 	ControllerConfigAPI
 	st         RemoteRelationsState
-	ecService  ECService
+	ecService  ExternalControllerService
 	resources  facade.Resources
 	authorizer facade.Authorizer
 	logger     loggo.Logger
@@ -43,7 +43,7 @@ type API struct {
 // NewRemoteRelationsAPI returns a new server-side API facade.
 func NewRemoteRelationsAPI(
 	st RemoteRelationsState,
-	ecService ECService,
+	ecService ExternalControllerService,
 	controllerCfgAPI ControllerConfigAPI,
 	resources facade.Resources,
 	authorizer facade.Authorizer,

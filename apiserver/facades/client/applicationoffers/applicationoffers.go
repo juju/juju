@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-type environFromModelFunc func(string) (environs.Environ, error)
+type environFromModelFunc func(context.Context, string) (environs.Environ, error)
 
 // OffersAPI implements the cross model interface and is the concrete
 // implementation of the api end point.
@@ -148,7 +148,7 @@ func (api *OffersAPI) makeAddOfferArgsFromParams(user names.UserTag, backend Bac
 func (api *OffersAPI) ListApplicationOffers(ctx context.Context, filters params.OfferFilters) (params.QueryApplicationOffersResults, error) {
 	var result params.QueryApplicationOffersResults
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
-	offers, err := api.getApplicationOffersDetails(user, filters, permission.AdminAccess)
+	offers, err := api.getApplicationOffersDetails(ctx, user, filters, permission.AdminAccess)
 	if err != nil {
 		return result, apiservererrors.ServerError(err)
 	}
@@ -315,10 +315,10 @@ func (api *OffersAPI) revokeOfferAccess(backend Backend, offerTag names.Applicat
 // ApplicationOffers gets details about remote applications that match given URLs.
 func (api *OffersAPI) ApplicationOffers(ctx context.Context, urls params.OfferURLs) (params.ApplicationOffersResults, error) {
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
-	return api.getApplicationOffers(user, urls)
+	return api.getApplicationOffers(ctx, user, urls)
 }
 
-func (api *OffersAPI) getApplicationOffers(user names.UserTag, urls params.OfferURLs) (params.ApplicationOffersResults, error) {
+func (api *OffersAPI) getApplicationOffers(ctx context.Context, user names.UserTag, urls params.OfferURLs) (params.ApplicationOffersResults, error) {
 	var results params.ApplicationOffersResults
 	results.Results = make([]params.ApplicationOfferResult, len(urls.OfferURLs))
 
@@ -354,7 +354,7 @@ func (api *OffersAPI) getApplicationOffers(user names.UserTag, urls params.Offer
 	if len(filters) == 0 {
 		return results, nil
 	}
-	offers, err := api.getApplicationOffersDetails(user, params.OfferFilters{filters}, permission.ReadAccess)
+	offers, err := api.getApplicationOffersDetails(ctx, user, params.OfferFilters{Filters: filters}, permission.ReadAccess)
 	if err != nil {
 		return results, apiservererrors.ServerError(err)
 	}
@@ -403,7 +403,7 @@ func (api *OffersAPI) FindApplicationOffers(ctx context.Context, filters params.
 		filtersToUse = filters
 	}
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
-	offers, err := api.getApplicationOffersDetails(user, filtersToUse, permission.ReadAccess)
+	offers, err := api.getApplicationOffersDetails(ctx, user, filtersToUse, permission.ReadAccess)
 	if err != nil {
 		return result, apiservererrors.ServerError(err)
 	}
@@ -413,7 +413,7 @@ func (api *OffersAPI) FindApplicationOffers(ctx context.Context, filters params.
 
 // GetConsumeDetails returns the details necessary to pass to another model
 // to allow the specified args user to consume the offers represented by the args URLs.
-func (api *OffersAPI) GetConsumeDetails(args params.ConsumeOfferDetailsArg) (params.ConsumeOfferDetailsResults, error) {
+func (api *OffersAPI) GetConsumeDetails(ctx context.Context, args params.ConsumeOfferDetailsArg) (params.ConsumeOfferDetailsResults, error) {
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	// Prefer args user if provided.
 	if args.UserTag != "" {
@@ -427,16 +427,16 @@ func (api *OffersAPI) GetConsumeDetails(args params.ConsumeOfferDetailsArg) (par
 			return params.ConsumeOfferDetailsResults{}, errors.Trace(err)
 		}
 	}
-	return api.getConsumeDetails(user, args.OfferURLs)
+	return api.getConsumeDetails(ctx, user, args.OfferURLs)
 }
 
 // getConsumeDetails returns the details necessary to pass to another model to
 // to allow the specified user to consume the specified offers represented by the urls.
-func (api *OffersAPI) getConsumeDetails(user names.UserTag, urls params.OfferURLs) (params.ConsumeOfferDetailsResults, error) {
+func (api *OffersAPI) getConsumeDetails(ctx context.Context, user names.UserTag, urls params.OfferURLs) (params.ConsumeOfferDetailsResults, error) {
 	var consumeResults params.ConsumeOfferDetailsResults
 	results := make([]params.ConsumeOfferDetailsResult, len(urls.OfferURLs))
 
-	offers, err := api.getApplicationOffers(user, urls)
+	offers, err := api.getApplicationOffers(ctx, user, urls)
 	if err != nil {
 		return consumeResults, apiservererrors.ServerError(err)
 	}
@@ -506,11 +506,11 @@ func (api *OffersAPI) RemoteApplicationInfo(ctx context.Context, args params.Off
 	results := make([]params.RemoteApplicationInfoResult, len(args.OfferURLs))
 	user := api.Authorizer.GetAuthTag().(names.UserTag)
 	for i, url := range args.OfferURLs {
-		info, err := api.oneRemoteApplicationInfo(user, url)
+		info, err := api.oneRemoteApplicationInfo(ctx, user, url)
 		results[i].Result = info
 		results[i].Error = apiservererrors.ServerError(err)
 	}
-	return params.RemoteApplicationInfoResults{results}, nil
+	return params.RemoteApplicationInfoResults{Results: results}, nil
 }
 
 func (api *OffersAPI) filterFromURL(url *jujucrossmodel.OfferURL) params.OfferFilter {
@@ -522,7 +522,7 @@ func (api *OffersAPI) filterFromURL(url *jujucrossmodel.OfferURL) params.OfferFi
 	return f
 }
 
-func (api *OffersAPI) oneRemoteApplicationInfo(user names.UserTag, urlStr string) (*params.RemoteApplicationInfo, error) {
+func (api *OffersAPI) oneRemoteApplicationInfo(ctx context.Context, user names.UserTag, urlStr string) (*params.RemoteApplicationInfo, error) {
 	url, err := jujucrossmodel.ParseOfferURL(urlStr)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -531,8 +531,9 @@ func (api *OffersAPI) oneRemoteApplicationInfo(user names.UserTag, urlStr string
 	// We need at least read access to the model to see the application details.
 	// 	offer, err := api.offeredApplicationDetails(url, permission.ReadAccess)
 	offers, err := api.getApplicationOffersDetails(
+		ctx,
 		user,
-		params.OfferFilters{[]params.OfferFilter{api.filterFromURL(url)}}, permission.ConsumeAccess)
+		params.OfferFilters{Filters: []params.OfferFilter{api.filterFromURL(url)}}, permission.ConsumeAccess)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

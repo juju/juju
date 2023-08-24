@@ -5,13 +5,14 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	constraints "github.com/juju/juju/core/constraints"
 	environs "github.com/juju/juju/environs"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
+	context0 "github.com/juju/juju/environs/context"
 	storage "github.com/juju/juju/storage"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -40,33 +41,33 @@ func (m *MockEnvironConfigGetter) EXPECT() *MockEnvironConfigGetterMockRecorder 
 }
 
 // CloudSpec mocks base method.
-func (m *MockEnvironConfigGetter) CloudSpec() (cloudspec.CloudSpec, error) {
+func (m *MockEnvironConfigGetter) CloudSpec(arg0 context.Context) (cloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudSpec")
+	ret := m.ctrl.Call(m, "CloudSpec", arg0)
 	ret0, _ := ret[0].(cloudspec.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CloudSpec indicates an expected call of CloudSpec.
-func (mr *MockEnvironConfigGetterMockRecorder) CloudSpec() *gomock.Call {
+func (mr *MockEnvironConfigGetterMockRecorder) CloudSpec(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockEnvironConfigGetter)(nil).CloudSpec))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockEnvironConfigGetter)(nil).CloudSpec), arg0)
 }
 
 // ModelConfig mocks base method.
-func (m *MockEnvironConfigGetter) ModelConfig() (*config.Config, error) {
+func (m *MockEnvironConfigGetter) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig")
+	ret := m.ctrl.Call(m, "ModelConfig", arg0)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockEnvironConfigGetterMockRecorder) ModelConfig() *gomock.Call {
+func (mr *MockEnvironConfigGetterMockRecorder) ModelConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockEnvironConfigGetter)(nil).ModelConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockEnvironConfigGetter)(nil).ModelConfig), arg0)
 }
 
 // MockBootstrapEnviron is a mock of BootstrapEnviron interface.
@@ -93,7 +94,7 @@ func (m *MockBootstrapEnviron) EXPECT() *MockBootstrapEnvironMockRecorder {
 }
 
 // Bootstrap mocks base method.
-func (m *MockBootstrapEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 context.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (m *MockBootstrapEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 context0.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*environs.BootstrapResult)
@@ -122,7 +123,7 @@ func (mr *MockBootstrapEnvironMockRecorder) Config() *gomock.Call {
 }
 
 // ConstraintsValidator mocks base method.
-func (m *MockBootstrapEnviron) ConstraintsValidator(arg0 context.ProviderCallContext) (constraints.Validator, error) {
+func (m *MockBootstrapEnviron) ConstraintsValidator(arg0 context0.ProviderCallContext) (constraints.Validator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsValidator", arg0)
 	ret0, _ := ret[0].(constraints.Validator)
@@ -137,7 +138,7 @@ func (mr *MockBootstrapEnvironMockRecorder) ConstraintsValidator(arg0 interface{
 }
 
 // Create mocks base method.
-func (m *MockBootstrapEnviron) Create(arg0 context.ProviderCallContext, arg1 environs.CreateParams) error {
+func (m *MockBootstrapEnviron) Create(arg0 context0.ProviderCallContext, arg1 environs.CreateParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -151,7 +152,7 @@ func (mr *MockBootstrapEnvironMockRecorder) Create(arg0, arg1 interface{}) *gomo
 }
 
 // Destroy mocks base method.
-func (m *MockBootstrapEnviron) Destroy(arg0 context.ProviderCallContext) error {
+func (m *MockBootstrapEnviron) Destroy(arg0 context0.ProviderCallContext) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
@@ -165,7 +166,7 @@ func (mr *MockBootstrapEnvironMockRecorder) Destroy(arg0 interface{}) *gomock.Ca
 }
 
 // DestroyController mocks base method.
-func (m *MockBootstrapEnviron) DestroyController(arg0 context.ProviderCallContext, arg1 string) error {
+func (m *MockBootstrapEnviron) DestroyController(arg0 context0.ProviderCallContext, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyController", arg0, arg1)
 	ret0, _ := ret[0].(error)

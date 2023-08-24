@@ -4,6 +4,7 @@
 package crossmodel
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/charm/v11"
@@ -28,7 +29,7 @@ type Backend interface {
 	ModelTag() names.ModelTag
 
 	// ModelConfig returns the complete config for the model
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 
 	// AllModelUUIDs returns the UUIDs of all models in the controller.
 	AllModelUUIDs() ([]string, error)

@@ -5,6 +5,7 @@ package caasapplicationprovisioner_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"strings"
@@ -168,7 +169,7 @@ func (m *mockModel) UUID() string {
 	return coretesting.ModelTag.Id()
 }
 
-func (m *mockModel) ModelConfig() (*config.Config, error) {
+func (m *mockModel) ModelConfig(_ context.Context) (*config.Config, error) {
 	m.MethodCall(m, "ModelConfig")
 	attrs := coretesting.FakeConfig()
 	attrs["operator-storage"] = "k8s-storage"

@@ -4,6 +4,8 @@
 package spaces
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
@@ -19,14 +21,14 @@ import (
 // ReloadSpaces offers a version 1 of the ReloadSpacesAPI.
 type ReloadSpaces interface {
 	// ReloadSpaces refreshes spaces from the substrate.
-	ReloadSpaces() error
+	ReloadSpaces(context.Context) error
 }
 
 // BlockChecker defines the block-checking functionality required by
 // the spaces facade. This is implemented by apiserver/common.BlockChecker.
 type BlockChecker interface {
-	ChangeAllowed() error
-	RemoveAllowed() error
+	ChangeAllowed(context.Context) error
+	RemoveAllowed(context.Context) error
 }
 
 // Address is an indirection for state.Address.

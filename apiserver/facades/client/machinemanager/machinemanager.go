@@ -38,11 +38,11 @@ var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
 type Leadership interface {
 	// GetMachineApplicationNames returns the applications associated with a
 	// machine.
-	GetMachineApplicationNames(string) ([]string, error)
+	GetMachineApplicationNames(context.Context, string) ([]string, error)
 
 	// UnpinApplicationLeadersByName takes a slice of application names and
 	// attempts to unpin them accordingly.
-	UnpinApplicationLeadersByName(names.Tag, []string) (params.PinApplicationsResults, error)
+	UnpinApplicationLeadersByName(context.Context, names.Tag, []string) (params.PinApplicationsResults, error)
 }
 
 // Authorizer checks to see if an operation can be performed.
@@ -193,7 +193,7 @@ func (mm *MachineManagerAPI) AddMachines(ctx context.Context, args params.AddMac
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return results, err
 	}
-	if err := mm.check.ChangeAllowed(); err != nil {
+	if err := mm.check.ChangeAllowed(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
 	for i, p := range args.MachineParams {
@@ -327,7 +327,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	icfg, err := InstanceConfig(st, mm.st, args.MachineId, args.Nonce, args.DataDir)
+	icfg, err := InstanceConfig(ctx, st, mm.st, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",
@@ -374,7 +374,7 @@ func (mm *MachineManagerAPI) RetryProvisioning(ctx context.Context, p params.Ret
 		return params.ErrorResults{}, err
 	}
 
-	if err := mm.check.ChangeAllowed(); err != nil {
+	if err := mm.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	result := params.ErrorResults{}
@@ -440,7 +440,7 @@ func (mm *MachineManagerAPI) DestroyMachineWithParams(ctx context.Context, args 
 	for i, tag := range args.MachineTags {
 		entities.Entities[i].Tag = tag
 	}
-	return mm.destroyMachine(entities, args.Force, args.Keep, args.DryRun, common.MaxWait(args.MaxWait))
+	return mm.destroyMachine(ctx, entities, args.Force, args.Keep, args.DryRun, common.MaxWait(args.MaxWait))
 }
 
 // DestroyMachineWithParams removes a set of machines from the model.
@@ -449,14 +449,14 @@ func (mm *MachineManagerV9) DestroyMachineWithParams(ctx context.Context, args p
 	for i, tag := range args.MachineTags {
 		entities.Entities[i].Tag = tag
 	}
-	return mm.destroyMachine(entities, args.Force, args.Keep, false, common.MaxWait(args.MaxWait))
+	return mm.destroyMachine(ctx, entities, args.Force, args.Keep, false, common.MaxWait(args.MaxWait))
 }
 
-func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, dryRun bool, maxWait time.Duration) (params.DestroyMachineResults, error) {
+func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Entities, force, keep, dryRun bool, maxWait time.Duration) (params.DestroyMachineResults, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.DestroyMachineResults{}, err
 	}
-	if err := mm.check.RemoveAllowed(); err != nil {
+	if err := mm.check.RemoveAllowed(ctx); err != nil {
 		return params.DestroyMachineResults{}, err
 	}
 	results := make([]params.DestroyMachineResult, len(args.Entities))
@@ -497,7 +497,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 			continue
 		}
 		if force || dryRun {
-			info.DestroyedContainers, err = mm.destoryContainer(containers, force, keep, dryRun, maxWait)
+			info.DestroyedContainers, err = mm.destoryContainer(ctx, containers, force, keep, dryRun, maxWait)
 			if err != nil {
 				fail(err)
 				continue
@@ -528,7 +528,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 			continue
 		}
 
-		applicationNames, err := mm.leadership.GetMachineApplicationNames(machineTag.Id())
+		applicationNames, err := mm.leadership.GetMachineApplicationNames(ctx, machineTag.Id())
 		if err != nil {
 			fail(err)
 			continue
@@ -558,7 +558,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 		// still prevent another leadership change. The work around for this
 		// case until we provide the ability for the operator to unpin via the
 		// CLI, is to remove the raft logs manually.
-		unpinResults, err := mm.leadership.UnpinApplicationLeadersByName(machineTag, applicationNames)
+		unpinResults, err := mm.leadership.UnpinApplicationLeadersByName(ctx, machineTag, applicationNames)
 		if err != nil {
 			mm.logger.Warningf("could not unpin application leaders for machine %s with error %v", machineTag.Id(), err)
 		}
@@ -574,7 +574,7 @@ func (mm *MachineManagerAPI) destroyMachine(args params.Entities, force, keep, d
 	return params.DestroyMachineResults{Results: results}, nil
 }
 
-func (mm *MachineManagerAPI) destoryContainer(containers []string, force, keep, dryRun bool, maxWait time.Duration) ([]params.DestroyMachineResult, error) {
+func (mm *MachineManagerAPI) destoryContainer(ctx context.Context, containers []string, force, keep, dryRun bool, maxWait time.Duration) ([]params.DestroyMachineResult, error) {
 	if containers == nil || len(containers) == 0 {
 		return nil, nil
 	}
@@ -582,7 +582,7 @@ func (mm *MachineManagerAPI) destoryContainer(containers []string, force, keep, 
 	for i, container := range containers {
 		entities.Entities[i] = params.Entity{Tag: names.NewMachineTag(container).String()}
 	}
-	results, err := mm.destroyMachine(entities, force, keep, dryRun, maxWait)
+	results, err := mm.destroyMachine(ctx, entities, force, keep, dryRun, maxWait)
 	return results.Results, err
 }
 
@@ -667,7 +667,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(ctx context.Context, arg param
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	if err := mm.check.ChangeAllowed(); err != nil {
+	if err := mm.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResult{}, err
 	}
 	if err := mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, arg.Channel, arg.Force); err != nil {
@@ -682,7 +682,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesComplete(ctx context.Context, arg para
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.ErrorResult{}, err
 	}
-	if err := mm.check.ChangeAllowed(); err != nil {
+	if err := mm.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResult{}, err
 	}
 	err := mm.upgradeSeriesAPI.Complete(arg.Entity.Tag)

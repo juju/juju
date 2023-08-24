@@ -1581,7 +1581,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C
 	}
 	cfg, err := config.New(config.UseDefaults, attr)
 	c.Assert(err, jc.ErrorIsNil)
-	s.firewaller.EXPECT().ModelConfig().Return(cfg, nil).AnyTimes()
+	s.firewaller.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 	var ingress []string
 	for i := 1; i < 30; i++ {
 		ingress = append(ingress, fmt.Sprintf("10.%d.0.1/32", i))

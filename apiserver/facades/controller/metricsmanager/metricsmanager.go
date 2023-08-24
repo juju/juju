@@ -218,7 +218,7 @@ func (api *MetricsManagerAPI) SendMetrics(ctx context.Context, args params.Entit
 		}
 		defer release()
 
-		txVendorMetrics, err := transmitVendorMetrics(api.model)
+		txVendorMetrics, err := transmitVendorMetrics(ctx, api.model)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -250,8 +250,8 @@ func (api *MetricsManagerAPI) getModelState(tag names.Tag) (*state.State, func()
 	return st.State, st.Release, nil
 }
 
-func transmitVendorMetrics(m *state.Model) (bool, error) {
-	cfg, err := m.ModelConfig()
+func transmitVendorMetrics(ctx context.Context, m *state.Model) (bool, error) {
+	cfg, err := m.ModelConfig(ctx)
 	if err != nil {
 		return false, errors.Annotatef(err, "failed to get model config for %s", m.ModelTag())
 	}

@@ -101,7 +101,7 @@ func (d *DeployerAPI) ConnectionInfo(ctx context.Context) (result params.Deploye
 
 // SetStatus sets the status of the specified entities.
 func (d *DeployerAPI) SetStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
-	return d.StatusSetter.SetStatus(args)
+	return d.StatusSetter.SetStatus(ctx, args)
 }
 
 // ModelUUID returns the model UUID that this facade is deploying into.
@@ -119,7 +119,7 @@ func (d *DeployerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPo
 		return result, errors.Trace(err)
 	}
 
-	return d.APIAddresser.APIHostPorts(controllerConfig)
+	return d.APIAddresser.APIHostPorts(ctx, controllerConfig)
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
@@ -129,7 +129,7 @@ func (d *DeployerAPI) APIAddresses(ctx context.Context) (result params.StringsRe
 		return result, errors.Trace(err)
 	}
 
-	return d.APIAddresser.APIAddresses(controllerConfig)
+	return d.APIAddresser.APIAddresses(ctx, controllerConfig)
 }
 
 // getAllUnits returns a list of all principal and subordinate units

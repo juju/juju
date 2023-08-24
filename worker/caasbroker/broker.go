@@ -27,8 +27,8 @@ var _ logger = struct{}{}
 // ConfigAPI exposes a model configuration and a watch constructor
 // that allows clients to be informed of changes to the configuration.
 type ConfigAPI interface {
-	CloudSpec() (environscloudspec.CloudSpec, error)
-	ModelConfig() (*config.Config, error)
+	CloudSpec(context.Context) (environscloudspec.CloudSpec, error)
+	ModelConfig(context.Context) (*config.Config, error)
 	ControllerConfig() (controller.Config, error)
 	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
 	WatchCloudSpecChanges() (watcher.NotifyWatcher, error)
@@ -76,11 +76,11 @@ func NewTracker(config Config) (*Tracker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudSpec, err := config.ConfigAPI.CloudSpec()
+	cloudSpec, err := config.ConfigAPI.CloudSpec(context.TODO())
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get cloud information")
 	}
-	cfg, err := config.ConfigAPI.ModelConfig()
+	cfg, err := config.ConfigAPI.ModelConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -158,7 +158,7 @@ func (t *Tracker) loop() error {
 				return errors.New("model config watch closed")
 			}
 			logger.Debugf("reloading model config")
-			modelConfig, err := t.config.ConfigAPI.ModelConfig()
+			modelConfig, err := t.config.ConfigAPI.ModelConfig(context.TODO())
 			if err != nil {
 				return errors.Annotate(err, "cannot read model config")
 			}
@@ -169,7 +169,7 @@ func (t *Tracker) loop() error {
 			if !ok {
 				return errors.New("cloud watch closed")
 			}
-			cloudSpec, err := t.config.ConfigAPI.CloudSpec()
+			cloudSpec, err := t.config.ConfigAPI.CloudSpec(context.TODO())
 			if err != nil {
 				return errors.Annotate(err, "cannot read model config")
 			}

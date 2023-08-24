@@ -4,6 +4,7 @@
 package action
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -20,12 +21,12 @@ import (
 
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
-func (a *ActionAPI) Run(run params.RunParams) (results params.EnqueuedActions, err error) {
+func (a *ActionAPI) Run(ctx context.Context, run params.RunParams) (results params.EnqueuedActions, err error) {
 	if err := a.checkCanAdmin(); err != nil {
 		return results, err
 	}
 
-	if err := a.check.ChangeAllowed(); err != nil {
+	if err := a.check.ChangeAllowed(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
 
@@ -50,12 +51,12 @@ func (a *ActionAPI) Run(run params.RunParams) (results params.EnqueuedActions, e
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
-func (a *ActionAPI) RunOnAllMachines(run params.RunParams) (results params.EnqueuedActions, err error) {
+func (a *ActionAPI) RunOnAllMachines(ctx context.Context, run params.RunParams) (results params.EnqueuedActions, err error) {
 	if err := a.checkCanAdmin(); err != nil {
 		return results, err
 	}
 
-	if err := a.check.ChangeAllowed(); err != nil {
+	if err := a.check.ChangeAllowed(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
 

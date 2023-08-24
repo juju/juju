@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -91,7 +93,7 @@ func NewUnitStateAPI(
 
 // State returns the state persisted by the charm running in this unit
 // and the state internal to the uniter for this unit.
-func (u *UnitStateAPI) State(args params.Entities) (params.UnitStateResults, error) {
+func (u *UnitStateAPI) State(ctx context.Context, args params.Entities) (params.UnitStateResults, error) {
 	canAccess, err := u.accessUnit()
 	if err != nil {
 		return params.UnitStateResults{}, errors.Trace(err)
@@ -134,7 +136,7 @@ func (u *UnitStateAPI) State(args params.Entities) (params.UnitStateResults, err
 
 // SetState sets the state persisted by the charm running in this unit
 // and the state internal to the uniter for this unit.
-func (u *UnitStateAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResults, error) {
+func (u *UnitStateAPI) SetState(ctx context.Context, args params.SetUnitStateArgs) (params.ErrorResults, error) {
 	canAccess, err := u.accessUnit()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)

@@ -60,7 +60,7 @@ type API struct {
 // Backend defines the model state methods this facade needs,
 // so they can be mocked for testing.
 type Backend interface {
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 	WatchForModelConfigChanges() state.NotifyWatcher
 }
 
@@ -152,9 +152,9 @@ func (api *API) authEntities(args params.Entities) (params.ErrorResults, bool) {
 	return result, ok
 }
 
-func (api *API) proxyConfig() params.ProxyConfigResult {
+func (api *API) proxyConfig(ctx context.Context) params.ProxyConfigResult {
 	var result params.ProxyConfigResult
-	config, err := api.backend.ModelConfig()
+	config, err := api.backend.ModelConfig(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result
@@ -200,7 +200,7 @@ func (api *API) ProxyConfig(ctx context.Context, args params.Entities) params.Pr
 	errors, ok := api.authEntities(args)
 
 	if ok {
-		result = api.proxyConfig()
+		result = api.proxyConfig(ctx)
 	}
 
 	results := params.ProxyConfigResults{

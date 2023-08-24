@@ -4,6 +4,8 @@
 package charms
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
@@ -68,7 +70,7 @@ func NewCharmInfoAPI(st State, authorizer facade.Authorizer) (*CharmInfoAPI, err
 
 // CharmInfo returns information about the requested charm.
 // NOTE: thumper 2016-06-29, this is not a bulk call and probably should be.
-func (a *CharmInfoAPI) CharmInfo(args params.CharmURL) (params.Charm, error) {
+func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm, error) {
 	if err := checkCanRead(a.authorizer, a.state); err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
@@ -100,7 +102,7 @@ func NewApplicationCharmInfoAPI(st State, authorizer facade.Authorizer) (*Applic
 }
 
 // ApplicationCharmInfo fetches charm information for an application.
-func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
+func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args params.Entity) (params.Charm, error) {
 	if err := checkCanRead(a.authorizer, a.state); err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}

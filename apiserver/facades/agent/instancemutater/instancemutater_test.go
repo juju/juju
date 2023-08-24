@@ -125,7 +125,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLife(c *gc.C) {
 	})
 	facade := s.facadeAPIForScenario(c)
 
-	results, err := facade.Life(params.Entities{
+	results, err := facade.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-0"}},
 	})
 	c.Assert(err, gc.IsNil)
@@ -146,7 +146,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidType(c *gc.C) {
 	s.expectLife(s.machineTag)
 	facade := s.facadeAPIForScenario(c)
 
-	results, err := facade.Life(params.Entities{
+	results, err := facade.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "user-0"}},
 	})
 	c.Assert(err, gc.IsNil)
@@ -176,7 +176,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithParentId(c *gc.C) {
 	})
 	facade := s.facadeAPIForScenario(c)
 
-	results, err := facade.Life(params.Entities{
+	results, err := facade.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-0-lxd-0"}},
 	})
 	c.Assert(err, gc.IsNil)
@@ -199,7 +199,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithInvalidParentId(c *gc.C) {
 	s.expectLife(machineTag)
 	facade := s.facadeAPIForScenario(c)
 
-	results, err := facade.Life(params.Entities{
+	results, err := facade.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1-lxd-0"}},
 	})
 	c.Assert(err, gc.IsNil)

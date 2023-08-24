@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"time"
 
@@ -273,7 +273,7 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 			{Tag: "unit-wordpress-0", Status: status.Rebooting.String(), Info: "foobar"},
 			{Tag: "unit-foo-42", Status: status.Active.String(), Info: "blah"},
 		}}
-	result, err := s.uniter.SetStatus(args)
+	result, err := s.uniter.SetStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -318,7 +318,7 @@ func (s *uniterSuite) TestSetAgentStatus(c *gc.C) {
 			{Tag: "unit-wordpress-0", Status: status.Executing.String(), Info: "foobar"},
 			{Tag: "unit-foo-42", Status: status.Rebooting.String(), Info: "blah"},
 		}}
-	result, err := s.uniter.SetAgentStatus(args)
+	result, err := s.uniter.SetAgentStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -363,7 +363,7 @@ func (s *uniterSuite) TestSetUnitStatus(c *gc.C) {
 			{Tag: "unit-wordpress-0", Status: status.Terminated.String(), Info: "foobar"},
 			{Tag: "unit-foo-42", Status: status.Active.String(), Info: "blah"},
 		}}
-	result, err := s.uniter.SetUnitStatus(args)
+	result, err := s.uniter.SetUnitStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -435,7 +435,7 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 		{Tag: "relation-svc1.rel1#svc2.rel2"},
 		// {Tag: "relation-blah"},
 	}}
-	result, err := s.uniter.Life(args)
+	result, err := s.uniter.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -466,7 +466,7 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := s.uniter.EnsureDead(args)
+	result, err := s.uniter.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -487,7 +487,7 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 	args = params.Entities{
 		Entities: []params.Entity{{Tag: "unit-wordpress-0"}},
 	}
-	result, err = s.uniter.EnsureDead(args)
+	result, err = s.uniter.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{nil}},
@@ -515,7 +515,7 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 		// tags, not strings, which is coming soon.
 		// {Tag: "just-foo"},
 	}}
-	result, err := s.uniter.Watch(args)
+	result, err := s.uniter.Watch(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -556,7 +556,7 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 		Code:    params.CodeNoAddressSet,
 		Message: `"unit-wordpress-0" has no public address set`,
 	}
-	result, err := s.uniter.PublicAddress(stdcontext.Background(), args)
+	result, err := s.uniter.PublicAddress(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -579,7 +579,7 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 	c.Assert(address.Value, gc.Equals, "1.2.3.4")
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err = s.uniter.PublicAddress(stdcontext.Background(), args)
+	result, err = s.uniter.PublicAddress(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -600,7 +600,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 		Code:    params.CodeNoAddressSet,
 		Message: `"unit-wordpress-0" has no private address set`,
 	}
-	result, err := s.uniter.PrivateAddress(stdcontext.Background(), args)
+	result, err := s.uniter.PrivateAddress(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -623,7 +623,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(address.Value, gc.Equals, "1.2.3.4")
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err = s.uniter.PrivateAddress(stdcontext.Background(), args)
+	result, err = s.uniter.PrivateAddress(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -669,7 +669,7 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 		IngressAddresses: []string{privateAddress.Value},
 	}
 
-	result, err := s.uniter.NetworkInfo(stdcontext.Background(), args)
+	result, err := s.uniter.NetworkInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
@@ -687,7 +687,7 @@ func (s *uniterSuite) TestAvailabilityZone(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-wordpress-0"},
 	}}
-	result, err := s.uniter.AvailabilityZone(stdcontext.Background(), args)
+	result, err := s.uniter.AvailabilityZone(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result, gc.DeepEquals, params.StringResults{
@@ -708,7 +708,7 @@ func (s *uniterSuite) TestResolvedAPIV6(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := s.uniter.Resolved(stdcontext.Background(), args)
+	result, err := s.uniter.Resolved(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ResolvedModeResults{
 		Results: []params.ResolvedModeResult{
@@ -730,7 +730,7 @@ func (s *uniterSuite) TestClearResolved(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := s.uniter.ClearResolved(stdcontext.Background(), args)
+	result, err := s.uniter.ClearResolved(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -762,7 +762,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 		{Tag: subordinate.Tag().String()},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := s.uniter.GetPrincipal(stdcontext.Background(), args)
+	result, err := s.uniter.GetPrincipal(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
 		Results: []params.StringBoolResult{
@@ -778,7 +778,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	subAuthorizer.Tag = subordinate.Tag()
 	subUniter := s.newUniterAPI(c, s.ControllerModel(c).State(), subAuthorizer)
 
-	result, err = subUniter.GetPrincipal(stdcontext.Background(), args)
+	result, err = subUniter.GetPrincipal(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
 		Results: []params.StringBoolResult{
@@ -798,7 +798,7 @@ func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
 		{Tag: "unit-logging-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := s.uniter.HasSubordinates(stdcontext.Background(), args)
+	result, err := s.uniter.HasSubordinates(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -813,7 +813,7 @@ func (s *uniterSuite) TestHasSubordinates(c *gc.C) {
 	s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
 	s.addRelatedApplication(c, "wordpress", "monitoring", s.wordpressUnit)
 
-	result, err = s.uniter.HasSubordinates(stdcontext.Background(), args)
+	result, err = s.uniter.HasSubordinates(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -833,7 +833,7 @@ func (s *uniterSuite) TestDestroy(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := s.uniter.Destroy(stdcontext.Background(), args)
+	result, err := s.uniter.Destroy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -865,7 +865,7 @@ func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := s.uniter.DestroyAllSubordinates(stdcontext.Background(), args)
+	result, err := s.uniter.DestroyAllSubordinates(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -909,7 +909,7 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 		// tags, not strings, which is coming soon.
 		// {Tag: "just-foo"},
 	}}
-	result, err := s.uniter.CharmURL(stdcontext.Background(), args)
+	result, err := s.uniter.CharmURL(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
 		Results: []params.StringBoolResult{
@@ -934,7 +934,7 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 		{Tag: "unit-wordpress-0", CharmURL: s.wpCharm.String()},
 		{Tag: "unit-foo-42", CharmURL: "ch:amd64/quantal/foo-321"},
 	}}
-	result, err := s.uniter.SetCharmURL(stdcontext.Background(), args)
+	result, err := s.uniter.SetCharmURL(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -969,7 +969,7 @@ func (s *uniterSuite) TestWorkloadVersion(c *gc.C) {
 		{Tag: "just-foo"},
 	}}
 
-	result, err := s.uniter.WorkloadVersion(stdcontext.Background(), args)
+	result, err := s.uniter.WorkloadVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -992,7 +992,7 @@ func (s *uniterSuite) TestSetWorkloadVersion(c *gc.C) {
 		{Tag: "unit-wordpress-0", WorkloadVersion: "shiro"},
 		{Tag: "unit-foo-42", WorkloadVersion: "pidge"},
 	}}
-	result, err := s.uniter.SetWorkloadVersion(stdcontext.Background(), args)
+	result, err := s.uniter.SetWorkloadVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -1017,7 +1017,7 @@ func (s *uniterSuite) TestCharmModifiedVersion(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "application-foo"},
 	}}
-	result, err := s.uniter.CharmModifiedVersion(stdcontext.Background(), args)
+	result, err := s.uniter.CharmModifiedVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.IntResults{
 		Results: []params.IntResult{
@@ -1041,7 +1041,7 @@ func (s *uniterSuite) TestWatchConfigSettingsHash(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := s.uniter.WatchConfigSettingsHash(stdcontext.Background(), args)
+	result, err := s.uniter.WatchConfigSettingsHash(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -1081,7 +1081,7 @@ func (s *uniterSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := s.uniter.WatchTrustConfigSettingsHash(stdcontext.Background(), args)
+	result, err := s.uniter.WatchTrustConfigSettingsHash(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -1122,7 +1122,7 @@ func (s *uniterSuite) TestLogActionMessage(c *gc.C) {
 		{Tag: wrongAction.Tag().String(), Value: "world"},
 		{Tag: "foo-42", Value: "mars"},
 	}}
-	result, err := s.uniter.LogActionsMessages(stdcontext.Background(), args)
+	result, err := s.uniter.LogActionsMessages(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -1154,7 +1154,7 @@ func (s *uniterSuite) TestLogActionMessageAborting(c *gc.C) {
 	args := params.ActionMessageParams{Messages: []params.EntityString{
 		{Tag: anAction.Tag().String(), Value: "hello"},
 	}}
-	result, err := s.uniter.LogActionsMessages(stdcontext.Background(), args)
+	result, err := s.uniter.LogActionsMessages(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -1180,7 +1180,7 @@ func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := s.uniter.WatchActionNotifications(stdcontext.Background(), args)
+	result, err := s.uniter.WatchActionNotifications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -1234,7 +1234,7 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 	}}
 
-	results, err := s.uniter.WatchActionNotifications(stdcontext.Background(), args)
+	results, err := s.uniter.WatchActionNotifications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	checkUnorderedActionIdsEqual(c, []string{action1.Id(), action2.Id()}, results)
@@ -1259,7 +1259,7 @@ func (s *uniterSuite) TestWatchActionNotificationsMalformedTag(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "ewenit-mysql-0"},
 	}}
-	results, err := s.uniter.WatchActionNotifications(stdcontext.Background(), args)
+	results, err := s.uniter.WatchActionNotifications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.NotNil)
 	c.Assert(len(results.Results), gc.Equals, 1)
@@ -1272,7 +1272,7 @@ func (s *uniterSuite) TestWatchActionNotificationsMalformedUnitName(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-01"},
 	}}
-	results, err := s.uniter.WatchActionNotifications(stdcontext.Background(), args)
+	results, err := s.uniter.WatchActionNotifications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.NotNil)
 	c.Assert(len(results.Results), gc.Equals, 1)
@@ -1289,7 +1289,7 @@ func (s *uniterSuite) TestWatchActionNotificationsNotUnit(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: action.Tag().String()},
 	}}
-	results, err := s.uniter.WatchActionNotifications(stdcontext.Background(), args)
+	results, err := s.uniter.WatchActionNotifications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.NotNil)
 	c.Assert(len(results.Results), gc.Equals, 1)
@@ -1302,7 +1302,7 @@ func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-nonexistentgarbage-0"},
 	}}
-	results, err := s.uniter.WatchActionNotifications(stdcontext.Background(), args)
+	results, err := s.uniter.WatchActionNotifications(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.NotNil)
 	c.Assert(len(results.Results), gc.Equals, 1)
@@ -1312,7 +1312,7 @@ func (s *uniterSuite) TestWatchActionNotificationsPermissionDenied(c *gc.C) {
 }
 
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {
-	res, err := s.uniter.SetCharmURL(stdcontext.Background(), params.EntitiesCharmURL{
+	res, err := s.uniter.SetCharmURL(context.Background(), params.EntitiesCharmURL{
 		Entities: []params.EntityCharmURL{
 			{
 				Tag:      s.wordpressUnit.Tag().String(),
@@ -1333,7 +1333,7 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-42"},
 	}}
-	result, err := s.uniter.ConfigSettings(stdcontext.Background(), args)
+	result, err := s.uniter.ConfigSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ConfigSettingsResults{
 		Results: []params.ConfigSettingsResult{
@@ -1352,7 +1352,7 @@ func (s *uniterSuite) TestWatchUnitRelations(c *gc.C) {
 		{Tag: "unit-wordpress-0"},
 		{Tag: "unit-foo-0"},
 	}}
-	result, err := s.uniter.WatchUnitRelations(stdcontext.Background(), args)
+	result, err := s.uniter.WatchUnitRelations(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
 	c.Assert(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
@@ -1394,7 +1394,7 @@ func (s *uniterSuite) TestWatchSubordinateUnitRelations(c *gc.C) {
 	subAuthorizer.Tag = mysqlLogUnit.Tag()
 	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), subAuthorizer)
 
-	result, err := uniterAPI.WatchUnitRelations(stdcontext.Background(), params.Entities{
+	result, err := uniterAPI.WatchUnitRelations(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: mysqlLogUnit.Tag().String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1462,7 +1462,7 @@ func (s *uniterSuite) TestWatchUnitRelationsSubordinateWithGlobalEndpoint(c *gc.
 	subAuthorizer.Tag = mysqlLogUnit.Tag()
 	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), subAuthorizer)
 
-	result, err := uniterAPI.WatchUnitRelations(stdcontext.Background(), params.Entities{
+	result, err := uniterAPI.WatchUnitRelations(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: mysqlLogUnit.Tag().String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1524,7 +1524,7 @@ func (s *uniterSuite) TestWatchUnitRelationsWithSubSubRelation(c *gc.C) {
 	subAuthorizer.Tag = monUnit.Tag()
 	uniterAPI := s.newUniterAPI(c, s.ControllerModel(c).State(), subAuthorizer)
 
-	result, err := uniterAPI.WatchUnitRelations(stdcontext.Background(), params.Entities{
+	result, err := uniterAPI.WatchUnitRelations(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: monUnit.Tag().String()}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1613,7 +1613,7 @@ func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
 		{URL: s.wpCharm.String()},
 		{URL: dummyCharm.String()},
 	}}
-	result, err := s.uniter.CharmArchiveSha256(stdcontext.Background(), args)
+	result, err := s.uniter.CharmArchiveSha256(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -1626,7 +1626,7 @@ func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
 
 func (s *uniterSuite) TestCurrentModel(c *gc.C) {
 	model := s.ControllerModel(c)
-	result, err := s.uniter.CurrentModel(stdcontext.Background())
+	result, err := s.uniter.CurrentModel(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	expected := params.ModelResult{
 		Name: model.Name(),
@@ -1691,7 +1691,7 @@ func (s *uniterSuite) TestActions(c *gc.C) {
 				Tag: actionTag.String(),
 			}},
 		}
-		results, err := s.uniter.Actions(stdcontext.Background(), args)
+		results, err := s.uniter.Actions(context.Background(), args)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(results.Results, gc.HasLen, 1)
 
@@ -1709,7 +1709,7 @@ func (s *uniterSuite) TestActionsNotPresent(c *gc.C) {
 			Tag: names.NewActionTag(uuid.String()).String(),
 		}},
 	}
-	results, err := s.uniter.Actions(stdcontext.Background(), args)
+	results, err := s.uniter.Actions(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -1734,7 +1734,7 @@ func (s *uniterSuite) TestActionsWrongUnit(c *gc.C) {
 			Tag: action.Tag().String(),
 		}},
 	}
-	actions, err := mysqlUnitFacade.Actions(stdcontext.Background(), args)
+	actions, err := mysqlUnitFacade.Actions(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions.Results), gc.Equals, 1)
 	c.Assert(actions.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
@@ -1750,7 +1750,7 @@ func (s *uniterSuite) TestActionsPermissionDenied(c *gc.C) {
 			Tag: action.Tag().String(),
 		}},
 	}
-	actions, err := s.uniter.Actions(stdcontext.Background(), args)
+	actions, err := s.uniter.Actions(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(actions.Results), gc.Equals, 1)
 	c.Assert(actions.Results[0].Error, jc.Satisfies, params.IsCodeUnauthorized)
@@ -1776,7 +1776,7 @@ func (s *uniterSuite) TestFinishActionsSuccess(c *gc.C) {
 			Results:   testOutput,
 		}},
 	}
-	res, err := s.uniter.FinishActions(stdcontext.Background(), actionResults)
+	res, err := s.uniter.FinishActions(context.Background(), actionResults)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 
@@ -1811,7 +1811,7 @@ func (s *uniterSuite) TestFinishActionsFailure(c *gc.C) {
 			Message:   testError,
 		}},
 	}
-	res, err := s.uniter.FinishActions(stdcontext.Background(), actionResults)
+	res, err := s.uniter.FinishActions(context.Background(), actionResults)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 
@@ -1853,7 +1853,7 @@ func (s *uniterSuite) TestFinishActionsAuthAccess(c *gc.C) {
 	}
 
 	// Invoke FinishActions
-	res, err := s.uniter.FinishActions(stdcontext.Background(), actionResults)
+	res, err := s.uniter.FinishActions(context.Background(), actionResults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify permissions errors for actions queued on different unit
@@ -1880,7 +1880,7 @@ func (s *uniterSuite) TestBeginActions(c *gc.C) {
 	c.Assert(len(running), gc.Equals, 0, gc.Commentf("expected no running actions, got %d", len(running)))
 
 	args := params.Entities{Entities: []params.Entity{{Tag: good.ActionTag().String()}}}
-	res, err := s.uniter.BeginActions(stdcontext.Background(), args)
+	res, err := s.uniter.BeginActions(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(res.Results), gc.Equals, 1)
 	c.Assert(res.Results[0].Error, gc.IsNil)
@@ -1910,7 +1910,7 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 		{Relation: "foo", Unit: "bar"},
 		{Relation: "unit-wordpress-0", Unit: rel.Tag().String()},
 	}}
-	result, err := s.uniter.Relation(stdcontext.Background(), args)
+	result, err := s.uniter.Relation(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
@@ -1949,7 +1949,7 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 	args := params.RelationIds{
 		RelationIds: []int{-1, rel.Id(), otherRel.Id(), 42, 234},
 	}
-	result, err := s.uniter.RelationById(stdcontext.Background(), args)
+	result, err := s.uniter.RelationById(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
@@ -1973,10 +1973,10 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 }
 
 func (s *uniterSuite) TestProviderType(c *gc.C) {
-	cfg, err := s.ControllerModel(c).ModelConfig()
+	cfg, err := s.ControllerModel(c).ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.uniter.ProviderType(stdcontext.Background())
+	result, err := s.uniter.ProviderType(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResult{Result: cfg.Type()})
 }
@@ -2010,7 +2010,7 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "application-mysql"},
 		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
-	result, err := s.uniter.EnterScope(stdcontext.Background(), args)
+	result, err := s.uniter.EnterScope(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -2099,7 +2099,7 @@ func (s *uniterSuite) TestEnterScopeIgnoredForInvalidPrincipals(c *gc.C) {
 		Relation: mysqlRel.Tag().String(),
 		Unit:     wpLoggingU.Tag().String(),
 	}}}
-	result, err := uniterAPI.EnterScope(stdcontext.Background(), args)
+	result, err := uniterAPI.EnterScope(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
@@ -2142,7 +2142,7 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "application-mysql"},
 		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
-	result, err := s.uniter.LeaveScope(stdcontext.Background(), args)
+	result, err := s.uniter.LeaveScope(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -2216,7 +2216,7 @@ func (s *uniterSuite) TestRelationsSuspended(c *gc.C) {
 		},
 	}
 	check := func() {
-		result, err := s.uniter.RelationsStatus(stdcontext.Background(), args)
+		result, err := s.uniter.RelationsStatus(context.Background(), args)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(result, gc.DeepEquals, expect)
 	}
@@ -2239,7 +2239,7 @@ func (s *uniterSuite) TestSetRelationsStatusNotLeader(c *gc.C) {
 			{s.wordpressUnit.Tag().String(), rel.Id(), params.Suspended, "message"},
 		},
 	}
-	result, err := s.uniter.SetRelationStatus(stdcontext.Background(), args)
+	result, err := s.uniter.SetRelationStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.OneError(), gc.ErrorMatches, `"wordpress/0" is not leader of "wordpress"`)
 }
@@ -2301,7 +2301,7 @@ func (s *uniterSuite) TestSetRelationsStatusLeader(c *gc.C) {
 
 	s.leadershipChecker.isLeader = true
 
-	result, err := s.uniter.SetRelationStatus(stdcontext.Background(), args)
+	result, err := s.uniter.SetRelationStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expect)
 	check(rel, status.Suspended, "message")
@@ -2339,7 +2339,7 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "application-mysql"},
 		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
-	result, err := s.uniter.ReadSettings(stdcontext.Background(), args)
+	result, err := s.uniter.ReadSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
@@ -2383,7 +2383,7 @@ func (s *uniterSuite) TestReadSettingsForApplicationWhenNotLeader(c *gc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: rel.Tag().String(), Unit: "application-wordpress"},
 	}}
-	result, err := s.uniter.ReadSettings(stdcontext.Background(), args)
+	result, err := s.uniter.ReadSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
@@ -2428,7 +2428,7 @@ func (s *uniterSuite) TestReadSettingsForApplicationInPeerRelation(c *gc.C) {
 		Relation: rel.Tag().String(),
 		Unit:     "application-riak",
 	}}}
-	result, err := uniter.ReadSettings(stdcontext.Background(), args)
+	result, err := uniter.ReadSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
@@ -2460,7 +2460,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsWhenNotLeader(c *gc.C) {
 		Relation: rel.Tag().String(),
 		Unit:     "unit-wordpress-1",
 	}
-	_, err = s.uniter.ReadLocalApplicationSettings(stdcontext.Background(), arg)
+	_, err = s.uniter.ReadLocalApplicationSettings(context.Background(), arg)
 	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 }
 
@@ -2487,7 +2487,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsForAnotherApplicationAsAnO
 		Relation: rel.Tag().String(),
 		Unit:     "unit-wordpress-0",
 	}
-	_, err = uniter.ReadLocalApplicationSettings(stdcontext.Background(), arg)
+	_, err = uniter.ReadLocalApplicationSettings(context.Background(), arg)
 	c.Assert(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm, gc.Commentf("expected ErrPerm due to mismatch in logged in app and inferred app from provided unit name"))
 }
 
@@ -2527,7 +2527,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelation(c *gc.C) {
 		Relation: rel.Tag().String(),
 		Unit:     "unit-riak-0",
 	}
-	result, err := uniter.ReadLocalApplicationSettings(stdcontext.Background(), arg)
+	result, err := uniter.ReadLocalApplicationSettings(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResult{
 		Settings: params.Settings{
@@ -2573,7 +2573,7 @@ func (s *uniterSuite) TestReadLocalApplicationSettingsInPeerRelationAsAnOperator
 		Relation: rel.Tag().String(),
 		Unit:     "unit-riak-0",
 	}
-	result, err := uniter.ReadLocalApplicationSettings(stdcontext.Background(), arg)
+	result, err := uniter.ReadLocalApplicationSettings(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResult{
 		Settings: params.Settings{
@@ -2598,7 +2598,7 @@ func (s *uniterSuite) TestReadSettingsWithNonStringValuesFails(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-wordpress-0"},
 	}}
 	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
-	result, err := s.uniter.ReadSettings(stdcontext.Background(), args)
+	result, err := s.uniter.ReadSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
@@ -2634,7 +2634,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), LocalUnit: "application-mysql", RemoteUnit: "foo"},
 		{Relation: rel.Tag().String(), LocalUnit: "user-foo", RemoteUnit: "unit-wordpress-0"},
 	}}
-	result, err := s.uniter.ReadRemoteSettings(stdcontext.Background(), args)
+	result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
 
 	// We don't set the remote unit settings on purpose
 	// to test the error.
@@ -2687,7 +2687,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 			}},
 		},
 	}
-	result, err = s.uniter.ReadRemoteSettings(stdcontext.Background(), args)
+	result, err = s.uniter.ReadRemoteSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expect)
 
@@ -2698,7 +2698,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysqlUnit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
-	result, err = s.uniter.ReadRemoteSettings(stdcontext.Background(), args)
+	result, err = s.uniter.ReadRemoteSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expect)
 }
@@ -2750,7 +2750,7 @@ func (s *uniterSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	}
-	result, err := s.uniter.ReadRemoteSettings(stdcontext.Background(), args)
+	result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, expect)
 }
@@ -2773,7 +2773,7 @@ func (s *uniterSuite) TestReadRemoteSettingsWithNonStringValuesFails(c *gc.C) {
 		RemoteUnit: "unit-mysql-0",
 	}}}
 	expectErr := `unexpected relation setting "invalid-bool": expected string, got bool`
-	result, err := s.uniter.ReadRemoteSettings(stdcontext.Background(), args)
+	result, err := s.uniter.ReadRemoteSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
@@ -2819,7 +2819,7 @@ func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) 
 		LocalUnit:  "unit-riak-0",
 		RemoteUnit: "application-riak",
 	}}}
-	result, err := uniter.ReadRemoteSettings(stdcontext.Background(), args)
+	result, err := uniter.ReadRemoteSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
@@ -2855,7 +2855,7 @@ func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelationSide
 		LocalUnit:  unit.Tag().String(),
 		RemoteUnit: unit2.Tag().String(),
 	}}}
-	result, err := uniterAPI.ReadRemoteSettings(stdcontext.Background(), args)
+	result, err := uniterAPI.ReadRemoteSettings(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
@@ -2891,7 +2891,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "application-mysql"},
 		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
-	result, err := s.uniter.WatchRelationUnits(stdcontext.Background(), args)
+	result, err := s.uniter.WatchRelationUnits(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	// UnitSettings versions are volatile, so we don't check them.
 	// We just make sure the keys of the Changed field are as
@@ -2993,7 +2993,7 @@ func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
 	err = st.SetAPIHostPorts(controllerConfig, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.uniter.APIAddresses(stdcontext.Background())
+	result, err := s.uniter.APIAddresses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
 		Result: []string{"0.1.2.3:1234"},
@@ -3010,7 +3010,7 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "application-wordpress"},
 	}}
-	result, err := s.uniter.WatchUnitAddressesHash(stdcontext.Background(), args)
+	result, err := s.uniter.WatchUnitAddressesHash(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -3054,7 +3054,7 @@ func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 
 	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
 
-	result, err := uniterAPI.WatchUnitAddressesHash(stdcontext.Background(), args)
+	result, err := uniterAPI.WatchUnitAddressesHash(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -3083,7 +3083,7 @@ func (s *uniterSuite) TestWatchCAASUnitAddressesHash(c *gc.C) {
 
 func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
-	result, err := s.uniter.GetMeterStatus(stdcontext.Background(), args)
+	result, err := s.uniter.GetMeterStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
@@ -3103,7 +3103,7 @@ func (s *uniterSuite) TestGetMeterStatusBadTag(c *gc.C) {
 	for i, tag := range tags {
 		args.Entities[i] = params.Entity{Tag: tag}
 	}
-	result, err := s.uniter.GetMeterStatus(stdcontext.Background(), args)
+	result, err := s.uniter.GetMeterStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(tags))
 	for i, result := range result.Results {
@@ -3139,7 +3139,7 @@ func (s *uniterSuite) TestRequestReboot(c *gc.C) {
 		{Tag: "bogus"},
 		{Tag: "nasty-tag"},
 	}}
-	errResult, err := s.uniter.RequestReboot(args)
+	errResult, err := s.uniter.RequestReboot(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -3262,7 +3262,7 @@ func (s *uniterSuite) TestUnitStatus(c *gc.C) {
 			{Tag: "machine-1"},
 			{Tag: "invalid"},
 		}}
-	result, err := s.uniter.UnitStatus(args)
+	result, err := s.uniter.UnitStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	// Zero out the updated timestamps so we can easily check the results.
 	for i, statusResult := range result.Results {
@@ -3297,7 +3297,7 @@ func (s *uniterSuite) TestAssignedMachine(c *gc.C) {
 		{Tag: "application-foo"},
 		{Tag: "relation-svc1.rel1#svc2.rel2"},
 	}}
-	result, err := s.uniter.AssignedMachine(stdcontext.Background(), args)
+	result, err := s.uniter.AssignedMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -3364,7 +3364,7 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 			},
 		},
 	}
-	result, err := s.uniter.OpenedMachinePortRangesByEndpoint(stdcontext.Background(), args)
+	result, err := s.uniter.OpenedMachinePortRangesByEndpoint(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.OpenPortRangesByEndpointResults{
 		Results: []params.OpenPortRangesByEndpointResult{
@@ -3384,7 +3384,7 @@ func (s *uniterSuite) TestSLALevel(c *gc.C) {
 	err := s.ControllerModel(c).State().SetSLA("essential", "bob", []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := s.uniter.SLALevel(stdcontext.Background())
+	result, err := s.uniter.SLALevel(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResult{Result: "essential"})
 }
@@ -3422,7 +3422,7 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelation(c *gc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: "unit-mysql-0"},
 	}}
-	result, err := thisUniter.EnterScope(stdcontext.Background(), args)
+	result, err := thisUniter.EnterScope(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
@@ -3458,7 +3458,7 @@ func (s *uniterSuite) TestPrivateAddressWithRemoteRelationNoPublic(c *gc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: "unit-mysql-0"},
 	}}
-	result, err := thisUniter.EnterScope(stdcontext.Background(), args)
+	result, err := thisUniter.EnterScope(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
@@ -3491,7 +3491,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 		{Relation: relTag.String(), Unit: "unit-mysql-0"},
 	}}
 
-	result, err := thisUniter.EnterScope(stdcontext.Background(), args)
+	result, err := thisUniter.EnterScope(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
@@ -3518,7 +3518,7 @@ func (s *uniterSuite) TestModelEgressSubnets(c *gc.C) {
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: relTag.String(), Unit: "unit-mysql-0"},
 	}}
-	result, err := thisUniter.EnterScope(stdcontext.Background(), args)
+	result, err := thisUniter.EnterScope(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{Error: nil}},
@@ -3577,13 +3577,13 @@ func (s *uniterSuite) TestRefresh(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	}
-	results, err := s.uniter.Refresh(stdcontext.Background(), args)
+	results, err := s.uniter.Refresh(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, expect)
 }
 
 func (s *uniterSuite) TestRefreshNoArgs(c *gc.C) {
-	results, err := s.uniter.Refresh(stdcontext.Background(), params.Entities{Entities: []params.Entity{}})
+	results, err := s.uniter.Refresh(context.Background(), params.Entities{Entities: []params.Entity{}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.UnitRefreshResults{Results: []params.UnitRefreshResult{}})
 }
@@ -3620,7 +3620,7 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
 
 	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
 
-	result, err := uniterAPI.OpenedApplicationPortRangesByEndpoint(stdcontext.Background(), arg)
+	result, err := uniterAPI.OpenedApplicationPortRangesByEndpoint(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ApplicationOpenedPortsResults{
 		Results: []params.ApplicationOpenedPortsResult{
@@ -3660,7 +3660,7 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 
 	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
 
-	result, err := uniterAPI.OpenedPortRangesByEndpoint(stdcontext.Background())
+	result, err := uniterAPI.OpenedPortRangesByEndpoint(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.OpenPortRangesByEndpointResults{
 		Results: []params.OpenPortRangesByEndpointResult{
@@ -3720,7 +3720,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
 	uuid := utils.MustNewUUID().String()
 
-	result, err := s.uniter.AddMetricBatches(stdcontext.Background(), params.MetricBatchParams{
+	result, err := s.uniter.AddMetricBatches(context.Background(), params.MetricBatchParams{
 		Batches: []params.MetricBatchParam{{
 			Tag: s.meteredUnit.Tag().String(),
 			Batch: params.MetricBatch{
@@ -3751,7 +3751,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 	metrics := []params.Metric{{Key: "pings", Value: "5", Time: time.Now().UTC()}}
 	uuid := utils.MustNewUUID().String()
 
-	result, err := s.uniter.AddMetricBatches(stdcontext.Background(), params.MetricBatchParams{
+	result, err := s.uniter.AddMetricBatches(context.Background(), params.MetricBatchParams{
 		Batches: []params.MetricBatchParam{{
 			Tag: s.meteredUnit.Tag().String(),
 			Batch: params.MetricBatch{
@@ -3806,7 +3806,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
-		result, err := s.uniter.AddMetricBatches(stdcontext.Background(), params.MetricBatchParams{
+		result, err := s.uniter.AddMetricBatches(context.Background(), params.MetricBatchParams{
 			Batches: []params.MetricBatchParam{{
 				Tag: test.tag,
 				Batch: params.MetricBatch{
@@ -4085,7 +4085,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoPermissions(c *gc.C) {
 
 	for _, test := range tests {
 		c.Logf("Testing %s", test.Name)
-		result, err := s.uniter.NetworkInfo(stdcontext.Background(), test.Arg)
+		result, err := s.uniter.NetworkInfo(context.Background(), test.Arg)
 		if test.Error != "" {
 			c.Check(err, gc.ErrorMatches, test.Error)
 		} else {
@@ -4174,7 +4174,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 		IngressAddresses: []string{"100.64.0.10"},
 	}
 
-	result, err := s.uniter.NetworkInfo(stdcontext.Background(), args)
+	result, err := s.uniter.NetworkInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
@@ -4203,7 +4203,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoL2Binding(c *gc.C) {
 		},
 	}
 
-	result, err := s.uniter.NetworkInfo(stdcontext.Background(), args)
+	result, err := s.uniter.NetworkInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
@@ -4243,7 +4243,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 		IngressAddresses: []string{"192.168.1.20"},
 	}
 
-	result, err := s.uniter.NetworkInfo(stdcontext.Background(), args)
+	result, err := s.uniter.NetworkInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
@@ -4279,7 +4279,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForJujuInfoDefaultSpace(c *gc.C)
 		IngressAddresses: []string{"192.168.1.20"},
 	}
 
-	result, err := s.uniter.NetworkInfo(stdcontext.Background(), args)
+	result, err := s.uniter.NetworkInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
@@ -4334,7 +4334,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBin
 		IngressAddresses: []string{"192.168.1.20"},
 	}
 
-	result, err := s.uniter.NetworkInfo(stdcontext.Background(), args)
+	result, err := s.uniter.NetworkInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
@@ -4408,7 +4408,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 		IngressAddresses: []string{expectedIngressAddress.Value},
 	}
 
-	result, err := s.uniter.NetworkInfo(stdcontext.Background(), args)
+	result, err := s.uniter.NetworkInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
@@ -4444,7 +4444,7 @@ func (s *uniterNetworkInfoSuite) TestUpdateNetworkInfo(c *gc.C) {
 		},
 	}
 
-	res, err := s.uniter.UpdateNetworkInfo(stdcontext.Background(), args)
+	res, err := s.uniter.UpdateNetworkInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.OneError(), gc.IsNil)
 
@@ -4503,7 +4503,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	api, err := uniter.NewUniterAPI(s.facadeContext(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := api.CommitHookChanges(stdcontext.Background(), req)
+	result, err := api.CommitHookChanges(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -4563,7 +4563,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
 	api, err := uniter.NewUniterAPI(s.facadeContext(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := api.CommitHookChanges(stdcontext.Background(), req)
+	result, err := api.CommitHookChanges(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -4647,7 +4647,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	}})
 	req, _ := b.Build()
 
-	result, err := s.uniter.CommitHookChanges(stdcontext.Background(), req)
+	result, err := s.uniter.CommitHookChanges(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -4715,7 +4715,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	api, err := uniter.NewUniterAPI(s.facadeContext(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := api.CommitHookChanges(stdcontext.Background(), req)
+	result, err := api.CommitHookChanges(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -4761,7 +4761,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := uniterAPI.CommitHookChanges(stdcontext.Background(), req)
+	result, err := uniterAPI.CommitHookChanges(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -4796,7 +4796,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
 	uniterAPI := s.newUniterAPI(c, s.st, s.authorizer)
 
-	result, err := uniterAPI.CommitHookChanges(stdcontext.Background(), req)
+	result, err := uniterAPI.CommitHookChanges(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -4864,7 +4864,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	}
 
 	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
-	result, err := uniterAPI.NetworkInfo(stdcontext.Background(), args)
+	result, err := uniterAPI.NetworkInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results["db"], jc.DeepEquals, expectedResult)
 }
@@ -4914,13 +4914,13 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	}
 
 	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
-	result, err := uniterAPI.NetworkInfo(stdcontext.Background(), args)
+	result, err := uniterAPI.NetworkInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Results["db"], jc.DeepEquals, expectedResult)
 }
 
 func (s *uniterSuite) TestGetCloudSpecDeniesAccessWhenNotTrusted(c *gc.C) {
-	result, err := s.uniter.CloudSpec(stdcontext.Background())
+	result, err := s.uniter.CloudSpec(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.CloudSpecResult{Error: apiservertesting.ErrUnauthorized})
 }
@@ -4944,7 +4944,7 @@ func (s *cloudSpecUniterSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
-	result, err := s.uniter.CloudSpec(stdcontext.Background())
+	result, err := s.uniter.CloudSpec(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result.Name, gc.Equals, "dummy")
@@ -4968,11 +4968,11 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 	_, cm, _, _ := s.setupCAASModel(c)
 
 	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
-	uniter.SetNewContainerBrokerFunc(uniterAPI, func(stdcontext.Context, environs.OpenParams) (caas.Broker, error) {
+	uniter.SetNewContainerBrokerFunc(uniterAPI, func(context.Context, environs.OpenParams) (caas.Broker, error) {
 		return &fakeBroker{}, nil
 	})
 
-	result, err := uniterAPI.CloudAPIVersion(stdcontext.Background())
+	result, err := uniterAPI.CloudAPIVersion(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResult{
 		Result: "6.66",

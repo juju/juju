@@ -4,6 +4,8 @@
 package stateenvirons
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -37,7 +39,7 @@ func (s *featuresSuite) TestSupportedFeaturesWithIncompatibleEnviron(c *gc.C) {
 		jujuVersion: jujuVersion,
 		modelType:   state.ModelTypeIAAS,
 	}
-	fs, err := SupportedFeatures(m, nil)
+	fs, err := SupportedFeatures(context.Background(), m, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []assumes.Feature{
@@ -64,7 +66,7 @@ func (s *featuresSuite) TestSupportedFeaturesWithCompatibleIAASEnviron(c *gc.C) 
 		jujuVersion: jujuVersion,
 		modelType:   state.ModelTypeIAAS,
 	}
-	fs, err := SupportedFeatures(m, nil)
+	fs, err := SupportedFeatures(context.Background(), m, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []assumes.Feature{
@@ -93,7 +95,7 @@ func (s *featuresSuite) TestSupportedFeaturesWithCompatibleCAASEnviron(c *gc.C) 
 		jujuVersion: jujuVersion,
 		modelType:   state.ModelTypeCAAS,
 	}
-	fs, err := SupportedFeatures(m, nil)
+	fs, err := SupportedFeatures(context.Background(), m, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []assumes.Feature{

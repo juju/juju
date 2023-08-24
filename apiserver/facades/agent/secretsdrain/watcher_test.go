@@ -4,6 +4,7 @@
 package secretsdrain_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/loggo"
@@ -39,9 +40,9 @@ func (s *SecretsDrainSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 	s.modelConfigChangesWatcher.EXPECT().Changes().Return(ch).AnyTimes()
 
 	gomock.InOrder(
-		s.model.EXPECT().ModelConfig().DoAndReturn(
+		s.model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
 			// Initail call to get the current secret backend.
-			func() (*config.Config, error) {
+			func(_ context.Context) (*config.Config, error) {
 				configAttrs := map[string]interface{}{
 					"name":           "some-name",
 					"type":           "some-type",
@@ -53,9 +54,9 @@ func (s *SecretsDrainSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 				return cfg, nil
 			},
 		),
-		s.model.EXPECT().ModelConfig().DoAndReturn(
+		s.model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
 			// Call to get the current secret backend after the first change(no change, but we always send the initial event).
-			func() (*config.Config, error) {
+			func(_ context.Context) (*config.Config, error) {
 				configAttrs := map[string]interface{}{
 					"name":           "some-name",
 					"type":           "some-type",
@@ -67,9 +68,9 @@ func (s *SecretsDrainSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 				return cfg, nil
 			},
 		),
-		s.model.EXPECT().ModelConfig().DoAndReturn(
+		s.model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
 			// Call to get the current secret backend after the first change(no change, we won'ts send the event).
-			func() (*config.Config, error) {
+			func(_ context.Context) (*config.Config, error) {
 				configAttrs := map[string]interface{}{
 					"name":           "some-name",
 					"type":           "some-type",
@@ -81,9 +82,9 @@ func (s *SecretsDrainSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 				return cfg, nil
 			},
 		),
-		s.model.EXPECT().ModelConfig().DoAndReturn(
+		s.model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
 			// Call to get the current secret backend after the second change - backend changed.
-			func() (*config.Config, error) {
+			func(_ context.Context) (*config.Config, error) {
 				configAttrs := map[string]interface{}{
 					"name":           "some-name",
 					"type":           "some-type",
@@ -98,7 +99,7 @@ func (s *SecretsDrainSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 		),
 	)
 
-	w, err := secretsdrain.NewSecretBackendModelConfigWatcher(s.model, s.modelConfigChangesWatcher, loggo.GetLogger("juju.apiserver.secretsdrain"))
+	w, err := secretsdrain.NewSecretBackendModelConfigWatcher(context.Background(), s.model, s.modelConfigChangesWatcher, loggo.GetLogger("juju.apiserver.secretsdrain"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
 

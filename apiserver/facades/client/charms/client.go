@@ -76,7 +76,7 @@ type API struct {
 
 // CharmInfo returns information about the requested charm.
 func (a *API) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm, error) {
-	return a.charmInfoAPI.CharmInfo(args)
+	return a.charmInfoAPI.CharmInfo(ctx, args)
 }
 
 func (a *API) checkCanRead() error {

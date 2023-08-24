@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	provisioner "github.com/juju/juju/api/agent/provisioner"
@@ -342,18 +343,18 @@ func (mr *MockControllerAPIMockRecorder) ControllerConfig() *gomock.Call {
 }
 
 // ModelConfig mocks base method.
-func (m *MockControllerAPI) ModelConfig() (*config.Config, error) {
+func (m *MockControllerAPI) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig")
+	ret := m.ctrl.Call(m, "ModelConfig", arg0)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockControllerAPIMockRecorder) ModelConfig() *gomock.Call {
+func (mr *MockControllerAPIMockRecorder) ModelConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockControllerAPI)(nil).ModelConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockControllerAPI)(nil).ModelConfig), arg0)
 }
 
 // ModelUUID mocks base method.

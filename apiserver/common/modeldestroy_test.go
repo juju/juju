@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -44,10 +45,10 @@ func (s *destroyModelSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *destroyModelSuite) TestDestroyModelSendsMetrics(c *gc.C) {
-	err := common.DestroyModel(s.modelManager, nil, nil, nil, nil)
+	err := common.DestroyModel(context.Background(), s.modelManager, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.metricSender.CheckCalls(c, []jtesting.StubCall{
-		{"SendMetrics", []interface{}{s.modelManager}},
+		{FuncName: "SendMetrics", Args: []interface{}{s.modelManager}},
 	})
 }
 
@@ -78,14 +79,14 @@ func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage, force *boo
 	s.modelManager.ResetCalls()
 	s.modelManager.models[0].ResetCalls()
 
-	err := common.DestroyModel(s.modelManager, destroyStorage, force, maxWait, timeout)
+	err := common.DestroyModel(context.Background(), s.modelManager, destroyStorage, force, maxWait, timeout)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
-		{"GetBlockForType", []interface{}{state.DestroyBlock}},
-		{"GetBlockForType", []interface{}{state.RemoveBlock}},
-		{"GetBlockForType", []interface{}{state.ChangeBlock}},
-		{"Model", nil},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.DestroyBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.RemoveBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.ChangeBlock}},
+		{FuncName: "Model", Args: nil},
 	})
 
 	expectedModelCalls := []jtesting.StubCall{{"Destroy", []interface{}{state.DestroyModelParams{
@@ -105,7 +106,7 @@ func (s *destroyModelSuite) testDestroyModel(c *gc.C, destroyStorage, force *boo
 func (s *destroyModelSuite) TestDestroyModelBlocked(c *gc.C) {
 	s.modelManager.SetErrors(errors.New("nope"))
 
-	err := common.DestroyModel(s.modelManager, nil, nil, nil, nil)
+	err := common.DestroyModel(context.Background(), s.modelManager, nil, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "nope")
 
 	s.modelManager.CheckCallNames(c, "GetBlockForType")
@@ -118,7 +119,7 @@ func (s *destroyModelSuite) TestDestroyModelIgnoresErrorsWithForce(c *gc.C) {
 	)
 
 	true_ := true
-	err := common.DestroyModel(s.modelManager, nil, &true_, nil, nil)
+	err := common.DestroyModel(context.Background(), s.modelManager, nil, &true_, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCallNames(c, "GetBlockForType", "GetBlockForType", "GetBlockForType", "Model")
@@ -130,7 +131,7 @@ func (s *destroyModelSuite) TestDestroyModelNotIgnoreErrorsrWithForce(c *gc.C) {
 		stateerrors.PersistentStorageError,
 	)
 	true_ := true
-	err := common.DestroyModel(s.modelManager, nil, &true_, nil, nil)
+	err := common.DestroyModel(context.Background(), s.modelManager, nil, &true_, nil, nil)
 	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
 
 	s.modelManager.CheckCallNames(c, "GetBlockForType", "GetBlockForType", "GetBlockForType", "Model")
@@ -139,24 +140,24 @@ func (s *destroyModelSuite) TestDestroyModelNotIgnoreErrorsrWithForce(c *gc.C) {
 
 func (s *destroyModelSuite) TestDestroyControllerNonControllerModel(c *gc.C) {
 	s.modelManager.models[0].tag = s.modelManager.models[1].tag
-	err := common.DestroyController(s.modelManager, false, nil, nil, nil, nil)
+	err := common.DestroyController(context.Background(), s.modelManager, false, nil, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `expected state for controller model UUID deadbeef-0bad-400d-8000-4b1d0d06f33d, got deadbeef-0bad-400d-8000-4b1d0d06f00d`)
 }
 
 func (s *destroyModelSuite) TestDestroyController(c *gc.C) {
-	err := common.DestroyController(s.modelManager, false, nil, nil, nil, nil)
+	err := common.DestroyController(context.Background(), s.modelManager, false, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
-		{"ControllerModelTag", nil},
-		{"GetBlockForType", []interface{}{state.DestroyBlock}},
-		{"GetBlockForType", []interface{}{state.RemoveBlock}},
-		{"GetBlockForType", []interface{}{state.ChangeBlock}},
-		{"Model", nil},
+		{FuncName: "ControllerModelTag", Args: nil},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.DestroyBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.RemoveBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.ChangeBlock}},
+		{FuncName: "Model", Args: nil},
 	})
 	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
-		{"Status", nil},
-		{"Destroy", []interface{}{state.DestroyModelParams{
+		{FuncName: "Status", Args: nil},
+		{FuncName: "Destroy", Args: []interface{}{state.DestroyModelParams{
 			MaxWait: common.MaxWait(nil),
 		}}},
 	})
@@ -164,19 +165,19 @@ func (s *destroyModelSuite) TestDestroyController(c *gc.C) {
 
 func (s *destroyModelSuite) TestDestroyControllerReleaseStorage(c *gc.C) {
 	destroyStorage := false
-	err := common.DestroyController(s.modelManager, false, &destroyStorage, nil, nil, nil)
+	err := common.DestroyController(context.Background(), s.modelManager, false, &destroyStorage, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
-		{"ControllerModelTag", nil},
-		{"GetBlockForType", []interface{}{state.DestroyBlock}},
-		{"GetBlockForType", []interface{}{state.RemoveBlock}},
-		{"GetBlockForType", []interface{}{state.ChangeBlock}},
-		{"Model", nil},
+		{FuncName: "ControllerModelTag", Args: nil},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.DestroyBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.RemoveBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.ChangeBlock}},
+		{FuncName: "Model", Args: nil},
 	})
 	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
-		{"Status", nil},
-		{"Destroy", []interface{}{state.DestroyModelParams{
+		{FuncName: "Status", Args: nil},
+		{FuncName: "Destroy", Args: []interface{}{state.DestroyModelParams{
 			DestroyStorage: &destroyStorage,
 			MaxWait:        common.MaxWait(nil),
 		}}},
@@ -187,18 +188,18 @@ func (s *destroyModelSuite) TestDestroyControllerForce(c *gc.C) {
 	force := true
 	timeout := time.Hour
 	maxWait := time.Second
-	err := common.DestroyController(s.modelManager, false, nil, &force, &maxWait, &timeout)
+	err := common.DestroyController(context.Background(), s.modelManager, false, nil, &force, &maxWait, &timeout)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
-		{"ControllerModelTag", nil},
-		{"GetBlockForType", []interface{}{state.DestroyBlock}},
-		{"GetBlockForType", []interface{}{state.RemoveBlock}},
-		{"GetBlockForType", []interface{}{state.ChangeBlock}},
-		{"Model", nil},
+		{FuncName: "ControllerModelTag", Args: nil},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.DestroyBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.RemoveBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.ChangeBlock}},
+		{FuncName: "Model", Args: nil},
 	})
 	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
-		{"Destroy", []interface{}{state.DestroyModelParams{
+		{FuncName: "Destroy", Args: []interface{}{state.DestroyModelParams{
 			Force:   &force,
 			Timeout: &timeout,
 			MaxWait: maxWait,
@@ -207,40 +208,40 @@ func (s *destroyModelSuite) TestDestroyControllerForce(c *gc.C) {
 }
 
 func (s *destroyModelSuite) TestDestroyControllerDestroyHostedModels(c *gc.C) {
-	err := common.DestroyController(s.modelManager, true, nil, nil, nil, nil)
+	err := common.DestroyController(context.Background(), s.modelManager, true, nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.modelManager.CheckCalls(c, []jtesting.StubCall{
-		{"ControllerModelTag", nil},
-		{"AllModelUUIDs", nil},
+		{FuncName: "ControllerModelTag", Args: nil},
+		{FuncName: "AllModelUUIDs", Args: nil},
 
-		{"GetBackend", []interface{}{s.modelManager.models[0].tag.Id()}},
-		{"GetBlockForType", []interface{}{state.DestroyBlock}},
-		{"GetBlockForType", []interface{}{state.RemoveBlock}},
-		{"GetBlockForType", []interface{}{state.ChangeBlock}},
+		{FuncName: "GetBackend", Args: []interface{}{s.modelManager.models[0].tag.Id()}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.DestroyBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.RemoveBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.ChangeBlock}},
 
-		{"GetBackend", []interface{}{s.modelManager.models[1].tag.Id()}},
-		{"GetBlockForType", []interface{}{state.DestroyBlock}},
-		{"GetBlockForType", []interface{}{state.RemoveBlock}},
-		{"GetBlockForType", []interface{}{state.ChangeBlock}},
+		{FuncName: "GetBackend", Args: []interface{}{s.modelManager.models[1].tag.Id()}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.DestroyBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.RemoveBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.ChangeBlock}},
 
-		{"GetBlockForType", []interface{}{state.DestroyBlock}},
-		{"GetBlockForType", []interface{}{state.RemoveBlock}},
-		{"GetBlockForType", []interface{}{state.ChangeBlock}},
-		{"Model", nil},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.DestroyBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.RemoveBlock}},
+		{FuncName: "GetBlockForType", Args: []interface{}{state.ChangeBlock}},
+		{FuncName: "Model", Args: nil},
 	})
 	s.modelManager.models[0].CheckCalls(c, []jtesting.StubCall{
-		{"Status", nil},
-		{"Destroy", []interface{}{state.DestroyModelParams{
+		{FuncName: "Status", Args: nil},
+		{FuncName: "Destroy", Args: []interface{}{state.DestroyModelParams{
 			DestroyHostedModels: true,
 			MaxWait:             common.MaxWait(nil),
 		}}},
 	})
 	s.metricSender.CheckCalls(c, []jtesting.StubCall{
 		// One call per hosted model, and one for the controller model.
-		{"SendMetrics", []interface{}{s.modelManager}},
-		{"SendMetrics", []interface{}{s.modelManager}},
-		{"SendMetrics", []interface{}{s.modelManager}},
+		{FuncName: "SendMetrics", Args: []interface{}{s.modelManager}},
+		{FuncName: "SendMetrics", Args: []interface{}{s.modelManager}},
+		{FuncName: "SendMetrics", Args: []interface{}{s.modelManager}},
 	})
 }
 
@@ -254,7 +255,7 @@ func (s *destroyModelSuite) TestDestroyControllerModelErrs(c *gc.C) {
 		nil, // for GetBlockForType, 1st model
 		errors.NotFoundf("pretend I am not here"), // for GetBackend, 2nd model
 	)
-	err := common.DestroyController(s.modelManager, true, nil, nil, nil, nil)
+	err := common.DestroyController(context.Background(), s.modelManager, true, nil, nil, nil, nil)
 	// Processing continued despite one model erring out.
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -265,7 +266,7 @@ func (s *destroyModelSuite) TestDestroyControllerModelErrs(c *gc.C) {
 		nil,                            // for GetBlockForType, 1st model
 		errors.New("I have a problem"), // for GetBackend, 2nd model
 	)
-	err = common.DestroyController(s.modelManager, true, nil, nil, nil, nil)
+	err = common.DestroyController(context.Background(), s.modelManager, true, nil, nil, nil, nil)
 	// Processing erred out since a model seriously failed.
 	c.Assert(err, gc.ErrorMatches, "I have a problem")
 }
@@ -273,7 +274,7 @@ func (s *destroyModelSuite) TestDestroyControllerModelErrs(c *gc.C) {
 func (s *destroyModelSuite) TestDestroyModelWithInvalidCredentialWithoutForce(c *gc.C) {
 	s.modelManager.models[0].currentStatus = status.StatusInfo{Status: status.Suspended}
 
-	err := common.DestroyModel(s.modelManager, nil, nil, nil, nil)
+	err := common.DestroyModel(context.Background(), s.modelManager, nil, nil, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "invalid cloud credential, use --force")
 }
 
@@ -287,7 +288,7 @@ type testMetricSender struct {
 	jtesting.Stub
 }
 
-func (t *testMetricSender) SendMetrics(st metricsender.ModelBackend) error {
+func (t *testMetricSender) SendMetrics(_ context.Context, st metricsender.ModelBackend) error {
 	t.MethodCall(t, "SendMetrics", st)
 	return t.NextErr()
 }

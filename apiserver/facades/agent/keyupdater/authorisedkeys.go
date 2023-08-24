@@ -91,7 +91,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(ctx context.Context, arg params.Entitie
 
 	// For now, authorised keys are global, common to all machines.
 	var keys []string
-	config, configErr := api.model.ModelConfig()
+	config, configErr := api.model.ModelConfig(ctx)
 	if configErr == nil {
 		keys = ssh.SplitAuthorisedKeys(config.AuthorizedKeys())
 	}

@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -23,14 +24,14 @@ var disallowedModelConfigAttrs = [...]string{
 }
 
 // ModelConfig returns the complete config for the model
-func (m *Model) ModelConfig() (*config.Config, error) {
+func (m *Model) ModelConfig(context.Context) (*config.Config, error) {
 	return getModelConfig(m.st.db(), m.UUID())
 }
 
 // AgentVersion returns the agent version for the model config.
 // If no agent version is found, it returns NotFound error.
 func (m *Model) AgentVersion() (version.Number, error) {
-	cfg, err := m.ModelConfig()
+	cfg, err := m.ModelConfig(context.Background())
 	if err != nil {
 		return version.Number{}, errors.Trace(err)
 	}
@@ -210,7 +211,7 @@ func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface
 	if err != nil {
 		return errors.Trace(err)
 	}
-	oldConfig, err := model.ModelConfig()
+	oldConfig, err := model.ModelConfig(context.Background())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -237,7 +238,7 @@ func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface
 // ModelConfigValues returns the config values for the model represented
 // by this state.
 func (model *Model) ModelConfigValues() (config.ConfigValues, error) {
-	cfg, err := model.ModelConfig()
+	cfg, err := model.ModelConfig(context.Background())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -378,7 +379,7 @@ func (m *Model) UpdateModelConfig(updateAttrs map[string]interface{}, removeAttr
 		return errors.Annotatef(err, "model %q", m.UUID())
 	}
 
-	oldConfig, err := m.ModelConfig()
+	oldConfig, err := m.ModelConfig(context.Background())
 	if err != nil {
 		return errors.Trace(err)
 	}

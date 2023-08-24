@@ -116,7 +116,7 @@ func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *gc.C
 func (s *InstancePollerSuite) TestModelConfigFailure(c *gc.C) {
 	s.st.SetErrors(errors.New("boom"))
 
-	result, err := s.api.ModelConfig()
+	result, err := s.api.ModelConfig(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(result, jc.DeepEquals, params.ModelConfigResult{})
 
@@ -127,7 +127,7 @@ func (s *InstancePollerSuite) TestModelConfigSuccess(c *gc.C) {
 	modelConfig := jujutesting.ModelConfig(c)
 	s.st.SetConfig(c, modelConfig)
 
-	result, err := s.api.ModelConfig()
+	result, err := s.api.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ModelConfigResult{
 		Config: modelConfig.AllAttrs(),
@@ -141,7 +141,7 @@ func (s *InstancePollerSuite) TestWatchForModelConfigChangesFailure(c *gc.C) {
 	// closed channel by setting an error.
 	s.st.SetErrors(errors.New("boom"))
 
-	result, err := s.api.WatchForModelConfigChanges()
+	result, err := s.api.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{})
 
@@ -150,7 +150,7 @@ func (s *InstancePollerSuite) TestWatchForModelConfigChangesFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestWatchForModelConfigChangesSuccess(c *gc.C) {
-	result, err := s.api.WatchForModelConfigChanges()
+	result, err := s.api.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{
 		Error: nil, NotifyWatcherId: "1",
@@ -189,12 +189,12 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *gc.C) {
 	s.assertMachineWatcherFails(c, "WatchModelMachineStartTimes", s.api.WatchModelMachineStartTimes)
 }
 
-func (s *InstancePollerSuite) assertMachineWatcherFails(c *gc.C, watchFacadeName string, getWatcherFn func() (params.StringsWatchResult, error)) {
+func (s *InstancePollerSuite) assertMachineWatcherFails(c *gc.C, watchFacadeName string, getWatcherFn func(context.Context) (params.StringsWatchResult, error)) {
 	// Force the Changes() method of the mock watcher to return a
 	// closed channel by setting an error.
 	s.st.SetErrors(errors.Errorf("boom"))
 
-	result, err := getWatcherFn()
+	result, err := getWatcherFn(context.Background())
 	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines: boom")
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{})
 
@@ -202,7 +202,7 @@ func (s *InstancePollerSuite) assertMachineWatcherFails(c *gc.C, watchFacadeName
 	s.st.CheckCallNames(c, watchFacadeName)
 }
 
-func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeName string, getWatcherFn func() (params.StringsWatchResult, error)) {
+func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeName string, getWatcherFn func(context.Context) (params.StringsWatchResult, error)) {
 	// Add a couple of machines.
 	s.st.SetMachineInfo(c, machineInfo{id: "2"})
 	s.st.SetMachineInfo(c, machineInfo{id: "1"})
@@ -212,7 +212,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 		StringsWatcherId: "1",
 		Changes:          []string{"1", "2"}, // initial event (sorted ids)
 	}
-	result, err := getWatcherFn()
+	result, err := getWatcherFn(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expectedResult)
 
@@ -232,7 +232,7 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 	s.st.CheckCallNames(c, watchFacadeName)
 
 	// Add another watcher to verify events coalescence.
-	result, err = getWatcherFn()
+	result, err = getWatcherFn(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult.StringsWatcherId = "2"
 	c.Assert(result, jc.DeepEquals, expectedResult)
@@ -265,7 +265,7 @@ func (s *InstancePollerSuite) TestLifeSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Alive})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", life: state.Dying})
 
-	result, err := s.api.Life(s.mixedEntities)
+	result, err := s.api.Life(context.Background(), s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -298,7 +298,7 @@ func (s *InstancePollerSuite) TestLifeFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "2", life: state.Dead})
 	s.st.SetMachineInfo(c, machineInfo{id: "3", life: state.Dying})
 
-	result, err := s.api.Life(s.machineEntities)
+	result, err := s.api.Life(context.Background(), s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -318,7 +318,7 @@ func (s *InstancePollerSuite) TestInstanceIdSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceId: "i-foo"})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceId: ""})
 
-	result, err := s.api.InstanceId(s.mixedEntities)
+	result, err := s.api.InstanceId(context.Background(), s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -350,7 +350,7 @@ func (s *InstancePollerSuite) TestInstanceIdFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceId: ""})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceId: "i-bar"})
 
-	result, err := s.api.InstanceId(s.machineEntities)
+	result, err := s.api.InstanceId(context.Background(), s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -382,7 +382,7 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1", status: s1})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", status: s2})
 
-	result, err := s.api.Status(s.mixedEntities)
+	result, err := s.api.Status(context.Background(), s.mixedEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
@@ -419,7 +419,7 @@ func (s *InstancePollerSuite) TestStatusFailure(c *gc.C) {
 	s.st.SetMachineInfo(c, machineInfo{id: "1"})
 	s.st.SetMachineInfo(c, machineInfo{id: "2"})
 
-	result, err := s.api.Status(s.machineEntities)
+	result, err := s.api.Status(context.Background(), s.machineEntities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{

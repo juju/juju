@@ -41,8 +41,8 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// ControllerCOnfiger is the interface that wraps the ControllerConfig method.
-type ControllerConfiger interface {
+// ControllerConfigGetter is the interface that wraps the ControllerConfig method.
+type ControllerConfigGetter interface {
 	ControllerConfig(context.Context) (corecontroller.Config, error)
 	UpdateControllerConfig(context.Context, corecontroller.Config, []string) error
 }
@@ -60,7 +60,7 @@ type ControllerAPI struct {
 	resources         facade.Resources
 	presence          facade.Presence
 	hub               facade.Hub
-	ctrlConfigService ControllerConfiger
+	ctrlConfigService ControllerConfigGetter
 
 	multiwatcherFactory multiwatcher.Factory
 	logger              loggo.Logger
@@ -81,7 +81,7 @@ func NewControllerAPI(
 	hub facade.Hub,
 	factory multiwatcher.Factory,
 	logger loggo.Logger,
-	ctrlConfigService ControllerConfiger,
+	ctrlConfigService ControllerConfigGetter,
 	externalCtrlService common.ExternalControllerService,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
@@ -153,7 +153,7 @@ func (c *ControllerAPI) ControllerVersion(ctx context.Context) (params.Controlle
 func (c *ControllerAPI) IdentityProviderURL(ctx context.Context) (params.StringResult, error) {
 	var result params.StringResult
 
-	cfgRes, err := c.ControllerConfig()
+	cfgRes, err := c.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -181,11 +181,12 @@ func (c *ControllerAPI) MongoVersion(ctx context.Context) (params.StringResult, 
 // dashboardConnectionInforForCAAS returns a dashboard connection for a Juju
 // dashboard deployed on CAAS.
 func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
+	ctx context.Context,
 	m *state.Model,
 	applicationName string,
 ) (*params.Proxy, error) {
 	configGetter := stateenvirons.EnvironConfigGetter{Model: m}
-	environ, err := common.EnvironFuncForModel(m, configGetter)()
+	environ, err := common.EnvironFuncForModel(m, configGetter)(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -310,7 +311,7 @@ func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.Das
 				return rval, err
 			}
 
-			proxyConnection, err := c.dashboardConnectionInfoForCAAS(model, related.ApplicationName)
+			proxyConnection, err := c.dashboardConnectionInfoForCAAS(ctx, model, related.ApplicationName)
 			rval.ProxyConnection = proxyConnection
 			return rval, err
 		}
@@ -498,7 +499,7 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		} else {
 			config.Config = modelConf.AllAttrs()
 		}
-		cloudSpec := c.GetCloudSpec(model.ModelTag())
+		cloudSpec := c.GetCloudSpec(ctx, model.ModelTag())
 		if config.Error == nil {
 			config.CloudSpec = cloudSpec.Result
 			config.Error = cloudSpec.Error
@@ -610,7 +611,7 @@ func (c *ControllerAPI) InitiateMigration(ctx context.Context, reqArgs params.In
 	for i, spec := range reqArgs.Specs {
 		result := &out.Results[i]
 		result.ModelTag = spec.ModelTag
-		id, err := c.initiateOneMigration(spec)
+		id, err := c.initiateOneMigration(ctx, spec)
 		if err != nil {
 			result.Error = apiservererrors.ServerError(err)
 		} else {
@@ -620,7 +621,7 @@ func (c *ControllerAPI) InitiateMigration(ctx context.Context, reqArgs params.In
 	return out, nil
 }
 
-func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string, error) {
+func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.MigrationSpec) (string, error) {
 	modelTag, err := names.ParseModelTag(spec.ModelTag)
 	if err != nil {
 		return "", errors.Annotate(err, "model tag")
@@ -671,6 +672,7 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 		return "", errors.Trace(err)
 	}
 	if err := runMigrationPrechecks(
+		ctx,
 		hostedState.State, systemState,
 		&targetInfo, c.presence,
 		c.ctrlConfigService,
@@ -762,7 +764,11 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 // information in targetInfo as needed based on information
 // retrieved from the target controller.
 var runMigrationPrechecks = func(
-	st, ctlrSt *state.State, targetInfo *coremigration.TargetInfo, presence facade.Presence, ctrlConfigService ControllerConfiger,
+	ctx context.Context,
+	st, ctlrSt *state.State,
+	targetInfo *coremigration.TargetInfo,
+	presence facade.Presence,
+	ctrlConfigService ControllerConfigGetter,
 ) error {
 	// Check model and source controller.
 	backend, err := migration.PrecheckShim(st, ctlrSt)
@@ -773,6 +779,7 @@ var runMigrationPrechecks = func(
 	controllerPresence := presence.ModelPresence(ctlrSt.ModelUUID())
 
 	if err := migration.SourcePrecheck(
+		ctx,
 		backend,
 		modelPresence, controllerPresence,
 		cloudspec.MakeCloudSpecGetterForModel(st),
@@ -781,7 +788,7 @@ var runMigrationPrechecks = func(
 	}
 
 	// Check target controller.
-	modelInfo, srcUserList, err := makeModelInfo(st, ctlrSt, ctrlConfigService)
+	modelInfo, srcUserList, err := makeModelInfo(ctx, st, ctlrSt, ctrlConfigService)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -880,7 +887,7 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func makeModelInfo(st, ctlrSt *state.State, ctrlConfigService ControllerConfiger) (coremigration.ModelInfo, userList, error) {
+func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, ctrlConfigService ControllerConfigGetter) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
 	var ul userList
 
@@ -899,7 +906,7 @@ func makeModelInfo(st, ctlrSt *state.State, ctrlConfigService ControllerConfiger
 	}
 
 	// Retrieve agent version for the model.
-	conf, err := model.ModelConfig()
+	conf, err := model.ModelConfig(ctx)
 	if err != nil {
 		return empty, userList{}, errors.Trace(err)
 	}

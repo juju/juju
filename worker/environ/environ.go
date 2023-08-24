@@ -73,7 +73,7 @@ func NewTracker(config Config) (*Tracker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	environ, spec, err := environs.GetEnvironAndCloud(config.Observer, config.NewEnvironFunc)
+	environ, spec, err := environs.GetEnvironAndCloud(context.TODO(), config.Observer, config.NewEnvironFunc)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -141,7 +141,7 @@ func (t *Tracker) loop() (err error) {
 				return errors.New("environ config watch closed")
 			}
 			logger.Debugf("reloading environ config")
-			modelConfig, err := t.config.Observer.ModelConfig()
+			modelConfig, err := t.config.Observer.ModelConfig(context.TODO())
 			if err != nil {
 				return errors.Annotate(err, "reading model config")
 			}
@@ -152,7 +152,7 @@ func (t *Tracker) loop() (err error) {
 			if !ok {
 				return errors.New("cloud watch closed")
 			}
-			cloudSpec, err := t.config.Observer.CloudSpec()
+			cloudSpec, err := t.config.Observer.CloudSpec(context.TODO())
 			if err != nil {
 				return errors.Annotate(err, "reading environ cloud spec")
 			}

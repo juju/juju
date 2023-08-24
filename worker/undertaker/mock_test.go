@@ -76,7 +76,7 @@ func (mock *mockFacade) RemoveModel() error {
 	return mock.stub.NextErr()
 }
 
-func (mock *mockFacade) ModelConfig() (*config.Config, error) {
+func (mock *mockFacade) ModelConfig(_ context.Context) (*config.Config, error) {
 	mock.stub.AddCall("ModelConfig")
 	cfg, _ := config.New(config.NoDefaults, map[string]interface{}{
 		"uuid": "00000000-0000-0000-0000-000000000000",
@@ -85,7 +85,7 @@ func (mock *mockFacade) ModelConfig() (*config.Config, error) {
 	return cfg, mock.stub.NextErr()
 }
 
-func (mock *mockFacade) CloudSpec() (cloudspec.CloudSpec, error) {
+func (mock *mockFacade) CloudSpec(_ context.Context) (cloudspec.CloudSpec, error) {
 	mock.stub.AddCall("CloudSpec")
 	return cloudspec.CloudSpec{}, mock.stub.NextErr()
 }

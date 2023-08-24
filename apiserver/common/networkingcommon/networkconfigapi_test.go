@@ -4,6 +4,8 @@
 package networkingcommon_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
@@ -51,10 +53,13 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigMachineNotFoundPermissi
 
 	s.state.EXPECT().Machine("1").Return(nil, errors.NotFoundf("nope"))
 
-	err := s.NewNetworkConfigAPI(s.state, s.getModelOp).SetObservedNetworkConfig(params.SetMachineNetworkConfig{
-		Tag:    "machine-1",
-		Config: nil,
-	})
+	err := s.NewNetworkConfigAPI(s.state, s.getModelOp).SetObservedNetworkConfig(
+		context.Background(),
+		params.SetMachineNetworkConfig{
+			Tag:    "machine-1",
+			Config: nil,
+		},
+	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -569,10 +574,13 @@ func (s *networkConfigSuite) expectMachine() {
 }
 
 func (s *networkConfigSuite) callAPI(c *gc.C, config []params.NetworkConfig) {
-	c.Assert(s.NewNetworkConfigAPI(s.state, s.getModelOp).SetObservedNetworkConfig(params.SetMachineNetworkConfig{
-		Tag:    s.tag.String(),
-		Config: config,
-	}), jc.ErrorIsNil)
+	c.Assert(s.NewNetworkConfigAPI(s.state, s.getModelOp).SetObservedNetworkConfig(
+		context.Background(),
+		params.SetMachineNetworkConfig{
+			Tag:    s.tag.String(),
+			Config: config,
+		},
+	), jc.ErrorIsNil)
 }
 
 func (s *networkConfigSuite) getModelOp(

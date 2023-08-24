@@ -75,7 +75,7 @@ func (a *API) MachineStatus(ctx context.Context, args params.Entities) (params.U
 
 	results := make([]params.UpgradeSeriesStatusResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
+		machine, err := a.authAndGetMachine(ctx, entity.Tag, canAccess)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -103,7 +103,7 @@ func (a *API) SetMachineStatus(ctx context.Context, args params.UpgradeSeriesSta
 
 	results := make([]params.ErrorResult, len(args.Params))
 	for i, param := range args.Params {
-		machine, err := a.authAndGetMachine(param.Entity.Tag, canAccess)
+		machine, err := a.authAndGetMachine(ctx, param.Entity.Tag, canAccess)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -132,7 +132,7 @@ func (a *API) CurrentSeries(ctx context.Context, args params.Entities) (params.S
 
 	results := make([]params.StringResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
+		machine, err := a.authAndGetMachine(ctx, entity.Tag, canAccess)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -161,7 +161,7 @@ func (a *API) TargetSeries(ctx context.Context, args params.Entities) (params.St
 
 	results := make([]params.StringResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
+		machine, err := a.authAndGetMachine(ctx, entity.Tag, canAccess)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -188,7 +188,7 @@ func (a *API) StartUnitCompletion(ctx context.Context, args params.UpgradeSeries
 		return params.ErrorResults{}, err
 	}
 	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
+		machine, err := a.authAndGetMachine(ctx, entity.Tag, canAccess)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -215,7 +215,7 @@ func (a *API) FinishUpgradeSeries(ctx context.Context, args params.UpdateChannel
 		return params.ErrorResults{}, err
 	}
 	for i, arg := range args.Args {
-		machine, err := a.authAndGetMachine(arg.Entity.Tag, canAccess)
+		machine, err := a.authAndGetMachine(ctx, arg.Entity.Tag, canAccess)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -253,18 +253,18 @@ func (a *API) FinishUpgradeSeries(ctx context.Context, args params.UpdateChannel
 // their upgrade-machine preparation, and are ready to be stopped and have their
 // unit agent services converted for the target series.
 func (a *API) UnitsPrepared(ctx context.Context, args params.Entities) (params.EntitiesResults, error) {
-	result, err := a.unitsInState(args, model.UpgradeSeriesPrepareCompleted)
+	result, err := a.unitsInState(ctx, args, model.UpgradeSeriesPrepareCompleted)
 	return result, errors.Trace(err)
 }
 
 // UnitsCompleted returns the units running on this machine that have completed
 // the upgrade-machine workflow and are in their normal running state.
 func (a *API) UnitsCompleted(ctx context.Context, args params.Entities) (params.EntitiesResults, error) {
-	result, err := a.unitsInState(args, model.UpgradeSeriesCompleted)
+	result, err := a.unitsInState(ctx, args, model.UpgradeSeriesCompleted)
 	return result, errors.Trace(err)
 }
 
-func (a *API) unitsInState(args params.Entities, status model.UpgradeSeriesStatus) (params.EntitiesResults, error) {
+func (a *API) unitsInState(ctx context.Context, args params.Entities, status model.UpgradeSeriesStatus) (params.EntitiesResults, error) {
 	result := params.EntitiesResults{}
 
 	canAccess, err := a.AccessMachine()
@@ -274,7 +274,7 @@ func (a *API) unitsInState(args params.Entities, status model.UpgradeSeriesStatu
 
 	results := make([]params.EntitiesResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
+		machine, err := a.authAndGetMachine(ctx, entity.Tag, canAccess)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -299,7 +299,7 @@ func (a *API) unitsInState(args params.Entities, status model.UpgradeSeriesStatu
 	return result, nil
 }
 
-func (a *API) authAndGetMachine(entityTag string, canAccess common.AuthFunc) (common.UpgradeSeriesMachine, error) {
+func (a *API) authAndGetMachine(ctx context.Context, entityTag string, canAccess common.AuthFunc) (common.UpgradeSeriesMachine, error) {
 	tag, err := names.ParseMachineTag(entityTag)
 	if err != nil {
 		return nil, err
@@ -307,25 +307,25 @@ func (a *API) authAndGetMachine(entityTag string, canAccess common.AuthFunc) (co
 	if !canAccess(tag) {
 		return nil, apiservererrors.ErrPerm
 	}
-	return a.GetMachine(tag)
+	return a.GetMachine(ctx, tag)
 }
 
 // PinnedLeadership returns all pinned applications and the entities that
 // require their pinned behaviour, for leadership in the current model.
 func (a *API) PinnedLeadership(ctx context.Context) (params.PinnedLeadershipResult, error) {
-	return a.leadership.PinnedLeadership()
+	return a.leadership.PinnedLeadership(ctx)
 }
 
 // PinMachineApplications pins leadership for applications represented by units
 // running on the auth'd machine.
 func (a *API) PinMachineApplications(ctx context.Context) (params.PinApplicationsResults, error) {
-	return a.leadership.PinApplicationLeaders()
+	return a.leadership.PinApplicationLeaders(ctx)
 }
 
 // UnpinMachineApplications unpins leadership for applications represented by
 // units running on the auth'd machine.
 func (a *API) UnpinMachineApplications(ctx context.Context) (params.PinApplicationsResults, error) {
-	return a.leadership.UnpinApplicationLeaders()
+	return a.leadership.UnpinApplicationLeaders(ctx)
 }
 
 // SetInstanceStatus sets the status of the machine.
@@ -339,7 +339,7 @@ func (a *API) SetInstanceStatus(ctx context.Context, args params.SetStatus) (par
 
 	results := make([]params.ErrorResult, len(args.Entities))
 	for i, entity := range args.Entities {
-		machine, err := a.authAndGetMachine(entity.Tag, canAccess)
+		machine, err := a.authAndGetMachine(ctx, entity.Tag, canAccess)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue

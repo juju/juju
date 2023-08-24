@@ -4,6 +4,8 @@
 package backups
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
@@ -29,7 +31,7 @@ type Backend interface {
 	ModelTag() names.ModelTag
 	ModelType() state.ModelType
 	ControllerTag() names.ControllerTag
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 	ControllerConfig() (controller.Config, error)
 	StateServingInfo() (controller.StateServingInfo, error)
 	ControllerNodes() ([]state.ControllerNode, error)
@@ -67,7 +69,7 @@ func NewAPI(backend Backend, authorizer facade.Authorizer, machineTag names.Tag,
 		return nil, errors.NotSupportedf("backups on kubernetes controllers")
 	}
 
-	modelConfig, err := backend.ModelConfig()
+	modelConfig, err := backend.ModelConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

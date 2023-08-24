@@ -7,6 +7,7 @@
 package instancepoller_test
 
 import (
+	"context"
 	"sort"
 	"sync"
 	"time"
@@ -88,7 +89,7 @@ func (m *mockState) WatchForModelConfigChanges() state.NotifyWatcher {
 }
 
 // ModelConfig implements StateInterface.
-func (m *mockState) ModelConfig() (*config.Config, error) {
+func (m *mockState) ModelConfig(_ context.Context) (*config.Config, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

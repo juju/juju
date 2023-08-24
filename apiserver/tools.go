@@ -373,7 +373,7 @@ func (h *toolsUploadHandler) processPost(r *http.Request, st *state.State) (*too
 	logger.Debugf("request to upload agent binaries: %s", toolsVersion)
 	toolsVersions := []version.Binary{toolsVersion}
 	serverRoot := h.getServerRoot(r, query, st)
-	return h.handleUpload(r.Body, toolsVersions, serverRoot, st)
+	return h.handleUpload(r.Context(), r.Body, toolsVersions, serverRoot, st)
 }
 
 func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st *state.State) string {
@@ -382,10 +382,10 @@ func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values, st
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.
-func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.Binary, serverRoot string, st *state.State) (*tools.Tools, error) {
+func (h *toolsUploadHandler) handleUpload(ctx context.Context, r io.Reader, toolsVersions []version.Binary, serverRoot string, st *state.State) (*tools.Tools, error) {
 	// Check if changes are allowed and the command may proceed.
 	blockChecker := common.NewBlockChecker(st)
-	if err := blockChecker.ChangeAllowed(); err != nil {
+	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return nil, errors.Trace(err)
 	}
 	storage, err := st.ToolsStorage()

@@ -155,7 +155,7 @@ func (s *retryStrategySuite) assertRetryStrategy(c *gc.C, tag string) {
 func (s *retryStrategySuite) setRetryStrategy(c *gc.C, automaticallyRetryHooks bool) {
 	err := s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{"automatically-retry-hooks": automaticallyRetryHooks}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := s.ControllerModel(c).ModelConfig()
+	modelConfig, err := s.ControllerModel(c).ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(modelConfig.AutomaticallyRetryHooks(), gc.Equals, automaticallyRetryHooks)
 }

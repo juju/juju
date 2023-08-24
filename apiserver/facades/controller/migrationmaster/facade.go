@@ -229,6 +229,7 @@ func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
 		return errors.Trace(err)
 	}
 	return migration.SourcePrecheck(
+		ctx,
 		api.precheckBackend,
 		api.presence.ModelPresence(model.UUID()),
 		api.presence.ModelPresence(controllerModel.UUID()),

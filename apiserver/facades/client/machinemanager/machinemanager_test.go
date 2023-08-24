@@ -238,8 +238,8 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 func (s *DestroyMachineManagerSuite) expectUnpinAppLeaders(id string) {
 	machineTag := names.NewMachineTag(id)
 
-	s.leadership.EXPECT().GetMachineApplicationNames(id).Return([]string{"foo-app-1"}, nil)
-	s.leadership.EXPECT().UnpinApplicationLeadersByName(machineTag, []string{"foo-app-1"}).Return(params.PinApplicationsResults{}, nil)
+	s.leadership.EXPECT().GetMachineApplicationNames(gomock.Any(), id).Return([]string{"foo-app-1"}, nil)
+	s.leadership.EXPECT().UnpinApplicationLeadersByName(gomock.Any(), machineTag, []string{"foo-app-1"}).Return(params.PinApplicationsResults{}, nil)
 }
 
 func (s *DestroyMachineManagerSuite) expectDestroyMachine(ctrl *gomock.Controller, units []machinemanager.Unit, containers []string, attemptDestroy, keep, force bool) *mocks.MockMachine {
@@ -598,7 +598,7 @@ func (s *DestroyMachineManagerSuite) TestDestroyMachineWithContainers(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.leadership.EXPECT().GetMachineApplicationNames("0").Return([]string{"foo-app-1"}, nil)
+	s.leadership.EXPECT().GetMachineApplicationNames(gomock.Any(), "0").Return([]string{"foo-app-1"}, nil)
 
 	machine0 := s.expectDestroyMachine(ctrl, nil, []string{"0/lxd/0"}, true, false, false)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)

@@ -4,6 +4,8 @@
 package machinemanager
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,12 +20,14 @@ import (
 // InstanceTypes returns instance type information for the cloud and region
 // in which the current model is deployed.
 func (mm *MachineManagerAPI) InstanceTypes(cons params.ModelInstanceTypesConstraints) (params.InstanceTypesResults, error) {
-	return instanceTypes(mm, environs.GetEnviron, cons)
+	return instanceTypes(context.TODO(), mm, environs.GetEnviron, cons)
 }
 
-type environGetFunc func(st environs.EnvironConfigGetter, newEnviron environs.NewEnvironFunc) (environs.Environ, error)
+type environGetFunc func(context.Context, environs.EnvironConfigGetter, environs.NewEnvironFunc) (environs.Environ, error)
 
-func instanceTypes(mm *MachineManagerAPI,
+func instanceTypes(
+	ctx context.Context,
+	mm *MachineManagerAPI,
 	getEnviron environGetFunc,
 	cons params.ModelInstanceTypesConstraints,
 ) (params.InstanceTypesResults, error) {
@@ -40,7 +44,7 @@ func instanceTypes(mm *MachineManagerAPI,
 		ModelConfigFunc: model.Config,
 	}
 
-	env, err := getEnviron(backend, environs.New)
+	env, err := getEnviron(ctx, backend, environs.New)
 	if err != nil {
 		return params.InstanceTypesResults{}, errors.Trace(err)
 	}

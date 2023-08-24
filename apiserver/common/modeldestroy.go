@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -15,13 +16,13 @@ import (
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
-var sendMetrics = func(st metricsender.ModelBackend) error {
+var sendMetrics = func(ctx context.Context, st metricsender.ModelBackend) error {
 	ccfg, err := st.ControllerConfig()
 	if err != nil {
 		return errors.Annotate(err, "failed to get controller config")
 	}
 	meteringURL := ccfg.MeteringURL()
-	cfg, err := st.ModelConfig()
+	cfg, err := st.ModelConfig(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "failed to get model config for %s", st.ModelTag())
 	}
@@ -41,6 +42,7 @@ var sendMetrics = func(st metricsender.ModelBackend) error {
 // otherwise returns an error indicating that there are hosted models
 // remaining.
 func DestroyController(
+	ctx context.Context,
 	st ModelManagerBackend,
 	destroyHostedModels bool,
 	destroyStorage *bool,
@@ -74,16 +76,16 @@ func DestroyController(
 			defer release()
 
 			check := NewBlockChecker(modelSt)
-			if err = check.DestroyAllowed(); err != nil {
+			if err = check.DestroyAllowed(ctx); err != nil {
 				return errors.Trace(err)
 			}
-			err = sendMetrics(modelSt)
+			err = sendMetrics(ctx, modelSt)
 			if err != nil {
 				logger.Errorf("failed to send leftover metrics: %v", err)
 			}
 		}
 	}
-	return destroyModel(st, state.DestroyModelParams{
+	return destroyModel(ctx, st, state.DestroyModelParams{
 		DestroyHostedModels: destroyHostedModels,
 		DestroyStorage:      destroyStorage,
 		Force:               force,
@@ -95,13 +97,14 @@ func DestroyController(
 // DestroyModel sets the model to Dying, such that the model's resources will
 // be destroyed and the model removed from the controller.
 func DestroyModel(
+	ctx context.Context,
 	st ModelManagerBackend,
 	destroyStorage *bool,
 	force *bool,
 	maxWait *time.Duration,
 	timeout *time.Duration,
 ) error {
-	return destroyModel(st, state.DestroyModelParams{
+	return destroyModel(ctx, st, state.DestroyModelParams{
 		DestroyStorage: destroyStorage,
 		Force:          force,
 		MaxWait:        MaxWait(maxWait),
@@ -109,9 +112,9 @@ func DestroyModel(
 	})
 }
 
-func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
+func destroyModel(ctx context.Context, st ModelManagerBackend, args state.DestroyModelParams) error {
 	check := NewBlockChecker(st)
-	if err := check.DestroyAllowed(); err != nil {
+	if err := check.DestroyAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -140,7 +143,7 @@ func destroyModel(st ModelManagerBackend, args state.DestroyModelParams) error {
 		}
 	}
 
-	err = sendMetrics(st)
+	err = sendMetrics(ctx, st)
 	if err != nil {
 		logger.Errorf("failed to send leftover metrics: %v", err)
 	}

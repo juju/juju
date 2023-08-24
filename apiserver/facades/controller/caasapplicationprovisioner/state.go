@@ -4,6 +4,7 @@
 package caasapplicationprovisioner
 
 import (
+	"context"
 	"io"
 	"time"
 
@@ -45,7 +46,7 @@ type CAASApplicationControllerState interface {
 
 type Model interface {
 	UUID() string
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 	Containers(providerIds ...string) ([]state.CloudContainer, error)
 	WatchForModelConfigChanges() state.NotifyWatcher
 }

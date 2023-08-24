@@ -4,6 +4,8 @@
 package spaces
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
@@ -111,10 +113,10 @@ func (o *moveSubnetsOp) GetMovedSubnets() []MovedSubnet {
 }
 
 // MoveSubnets ensures that the input subnets are in the input space.
-func (api *API) MoveSubnets(args params.MoveSubnetsParams) (params.MoveSubnetsResults, error) {
+func (api *API) MoveSubnets(ctx context.Context, args params.MoveSubnetsParams) (params.MoveSubnetsResults, error) {
 	var result params.MoveSubnetsResults
 
-	if err := api.ensureSpacesAreMutable(); err != nil {
+	if err := api.ensureSpacesAreMutable(ctx); err != nil {
 		return result, err
 	}
 

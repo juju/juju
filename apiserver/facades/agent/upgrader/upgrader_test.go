@@ -429,7 +429,7 @@ func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.hosted.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := m.ModelConfig()
+	cfg, err := m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

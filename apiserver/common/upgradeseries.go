@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -115,7 +117,7 @@ func NewUpgradeSeriesAPI(
 }
 
 // WatchUpgradeSeriesNotifications returns a NotifyWatcher for observing changes to upgrade series locks.
-func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities) (params.NotifyWatchResults, error) {
+func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	u.logger.Tracef("Starting WatchUpgradeSeriesNotifications with %+v", args)
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
@@ -135,7 +137,7 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		machine, err := u.GetMachine(tag)
+		machine, err := u.GetMachine(ctx, tag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -154,7 +156,7 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(args params.Entities)
 // UpgradeSeriesUnitStatus returns the current preparation status of an
 // upgrading unit.
 // If no series upgrade is in progress an error is returned instead.
-func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus(args params.Entities) (params.UpgradeSeriesStatusResults, error) {
+func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus(ctx context.Context, args params.Entities) (params.UpgradeSeriesStatusResults, error) {
 	u.logger.Tracef("Starting UpgradeSeriesUnitStatus with %+v", args)
 	return u.unitStatus(args)
 }
@@ -162,13 +164,14 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus(args params.Entities) (params
 // SetUpgradeSeriesUnitStatus sets the upgrade series status of the unit.
 // If no upgrade is in progress an error is returned instead.
 func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(
+	ctx context.Context,
 	args params.UpgradeSeriesStatusParams,
 ) (params.ErrorResults, error) {
 	u.logger.Tracef("Starting SetUpgradeSeriesUnitStatus with %+v", args)
 	return u.setUnitStatus(args)
 }
 
-func (u *UpgradeSeriesAPI) GetMachine(tag names.Tag) (UpgradeSeriesMachine, error) {
+func (u *UpgradeSeriesAPI) GetMachine(ctx context.Context, tag names.Tag) (UpgradeSeriesMachine, error) {
 	var id string
 	switch tag.Kind() {
 	case names.MachineTagKind:

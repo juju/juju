@@ -275,7 +275,7 @@ func (sb *stubBackend) SetModelConfig(ca coretesting.Attrs) {
 	sb.configAttrs = ca
 }
 
-func (sb *stubBackend) ModelConfig() (*config.Config, error) {
+func (sb *stubBackend) ModelConfig(ctx context.Context) (*config.Config, error) {
 	sb.MethodCall(sb, "ModelConfig")
 	if err := sb.NextErr(); err != nil {
 		return nil, err

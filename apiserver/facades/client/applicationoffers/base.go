@@ -91,6 +91,7 @@ func (api *BaseAPI) userDisplayName(backend Backend, userTag names.UserTag) (str
 
 // applicationOffersFromModel gets details about remote applications that match given filters.
 func (api *BaseAPI) applicationOffersFromModel(
+	ctx context.Context,
 	modelUUID string,
 	user names.UserTag,
 	requiredAccess permission.Access,
@@ -139,7 +140,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 			}
 			isAdmin = userAccess == permission.AdminAccess
 		}
-		offerParams, app, err := api.makeOfferParams(backend, &appOffer)
+		offerParams, app, err := api.makeOfferParams(ctx, backend, &appOffer)
 		// Just because we can't compose the result for one offer, log
 		// that and move on to the next one.
 		if err != nil {
@@ -341,6 +342,7 @@ func (api *BaseAPI) getModelFilters(user names.UserTag, filters params.OfferFilt
 
 // getApplicationOffersDetails gets details about remote applications that match given filter.
 func (api *BaseAPI) getApplicationOffersDetails(
+	ctx context.Context,
 	user names.UserTag,
 	filters params.OfferFilters,
 	requiredPermission permission.Access,
@@ -370,7 +372,7 @@ func (api *BaseAPI) getApplicationOffersDetails(
 	var result []params.ApplicationOfferAdminDetails
 	for _, modelUUID := range allUUIDs {
 		filters := filtersPerModel[modelUUID]
-		offers, err := api.applicationOffersFromModel(modelUUID, user, requiredPermission, filters...)
+		offers, err := api.applicationOffersFromModel(ctx, modelUUID, user, requiredPermission, filters...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -417,7 +419,9 @@ func makeOfferFilterFromParams(filter params.OfferFilter) (jujucrossmodel.Applic
 	return offerFilter, nil
 }
 
-func (api *BaseAPI) makeOfferParams(backend Backend,
+func (api *BaseAPI) makeOfferParams(
+	ctx context.Context,
+	backend Backend,
 	offer *jujucrossmodel.ApplicationOffer,
 ) (*params.ApplicationOfferDetails, crossmodel.Application, error) {
 	app, err := backend.Application(offer.ApplicationName)
@@ -459,7 +463,7 @@ func (api *BaseAPI) makeOfferParams(backend Backend,
 	}
 
 	// Get spaces and bindings for IAAS models.
-	result.Spaces, result.Bindings, err = api.spacesAndBindingParams(backend, app, offer.Endpoints, allSpaceInfosLookup)
+	result.Spaces, result.Bindings, err = api.spacesAndBindingParams(ctx, backend, app, offer.Endpoints, allSpaceInfosLookup)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -468,6 +472,7 @@ func (api *BaseAPI) makeOfferParams(backend Backend,
 }
 
 func (api *BaseAPI) spacesAndBindingParams(
+	ctx context.Context,
 	backend Backend,
 	app crossmodel.Application,
 	offerEndpoints map[string]charm.Relation,
@@ -507,7 +512,7 @@ func (api *BaseAPI) spacesAndBindingParams(
 	}
 
 	// Get provider space info based on space ids.
-	remoteSpaces, err := api.collectRemoteSpaces(backend, spaceNames.SortedValues())
+	remoteSpaces, err := api.collectRemoteSpaces(ctx, backend, spaceNames.SortedValues())
 	if errors.IsNotSupported(err) {
 		// Provider doesn't support ProviderSpaceInfo; continue
 		// without any space information, we shouldn't short-circuit
@@ -542,8 +547,8 @@ func (api *BaseAPI) spacesAndBindingParams(
 // connection can be made via cloud-local addresses. If the provider
 // doesn't support getting ProviderSpaceInfo the NotSupported error
 // will be returned.
-func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (map[string]params.RemoteSpace, error) {
-	env, err := api.getEnviron(backend.ModelUUID())
+func (api *BaseAPI) collectRemoteSpaces(ctx context.Context, backend Backend, spaceNames []string) (map[string]params.RemoteSpace, error) {
+	env, err := api.getEnviron(ctx, backend.ModelUUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

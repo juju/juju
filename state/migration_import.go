@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"reflect"
@@ -2662,7 +2663,7 @@ func (i *importer) storagePools() error {
 }
 
 func (i *importer) secretBackend() error {
-	mCfg, err := i.dbModel.ModelConfig()
+	mCfg, err := i.dbModel.ModelConfig(context.Background())
 	if err != nil {
 		return errors.Trace(err)
 	}

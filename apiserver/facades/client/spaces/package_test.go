@@ -4,6 +4,7 @@
 package spaces
 
 import (
+	stdcontext "context"
 	"testing"
 
 	"github.com/juju/names/v4"
@@ -61,7 +62,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	s.Constraints = NewMockConstraints(ctrl)
 
 	s.blockChecker = NewMockBlockChecker(ctrl)
-	s.blockChecker.EXPECT().ChangeAllowed().Return(nil).AnyTimes()
+	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil).AnyTimes()
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -78,8 +79,8 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 	s.Backing = NewMockBacking(ctrl)
 	bExp := s.Backing.EXPECT()
 	bExp.ModelTag().Return(names.NewModelTag("123"))
-	bExp.ModelConfig().Return(nil, nil).AnyTimes()
-	bExp.CloudSpec().Return(cloudSpec, nil).AnyTimes()
+	bExp.ModelConfig(gomock.Any()).Return(nil, nil).AnyTimes()
+	bExp.CloudSpec(gomock.Any()).Return(cloudSpec, nil).AnyTimes()
 
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 	mockNetworkEnviron.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
@@ -128,7 +129,7 @@ func SupportsSpaces(backing Backing, ctx context.ProviderCallContext) error {
 		backing: backing,
 		context: ctx,
 	}
-	return api.checkSupportsSpaces()
+	return api.checkSupportsSpaces(stdcontext.Background())
 }
 
 // NewAPIWithBacking is also a legacy-only artifact,

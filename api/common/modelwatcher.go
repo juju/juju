@@ -4,6 +4,7 @@
 package common
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -40,7 +41,7 @@ func (e *ModelWatcher) WatchForModelConfigChanges() (watcher.NotifyWatcher, erro
 }
 
 // ModelConfig returns the current model configuration.
-func (e *ModelWatcher) ModelConfig() (*config.Config, error) {
+func (e *ModelWatcher) ModelConfig(ctx context.Context) (*config.Config, error) {
 	var result params.ModelConfigResult
 	err := e.facade.FacadeCall("ModelConfig", nil, &result)
 	if err != nil {
@@ -65,7 +66,7 @@ func (e *ModelWatcher) WatchForLogForwardConfigChanges() (watcher.NotifyWatcher,
 func (e *ModelWatcher) LogForwardConfig() (*syslog.RawConfig, bool, error) {
 	// TODO(wallyworld) - lp:1602237 - this needs to have it's own backend implementation.
 	// For now, we'll piggyback off the ModelConfig API.
-	modelConfig, err := e.ModelConfig()
+	modelConfig, err := e.ModelConfig(context.Background())
 	if err != nil {
 		return nil, false, err
 	}
@@ -77,7 +78,7 @@ func (e *ModelWatcher) LogForwardConfig() (*syslog.RawConfig, bool, error) {
 func (e *ModelWatcher) UpdateStatusHookInterval() (time.Duration, error) {
 	// TODO(wallyworld) - lp:1602237 - this needs to have it's own backend implementation.
 	// For now, we'll piggyback off the ModelConfig API.
-	modelConfig, err := e.ModelConfig()
+	modelConfig, err := e.ModelConfig(context.Background())
 	if err != nil {
 		return 0, err
 	}

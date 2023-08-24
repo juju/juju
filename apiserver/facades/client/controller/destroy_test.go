@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -93,7 +94,7 @@ func (s *destroyControllerSuite) TestDestroyControllerKillErrsOnHostedModelsWith
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.controller.DestroyController(params.DestroyControllerArgs{
+	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
@@ -107,7 +108,7 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.controller.DestroyController(params.DestroyControllerArgs{
+	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
@@ -121,7 +122,7 @@ func (s *destroyControllerSuite) TestDestroyControllerReturnsBlockedModelErr(c *
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerKillsHostedModels(c *gc.C) {
-	err := s.controller.DestroyController(params.DestroyControllerArgs{
+	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +136,7 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 	s.otherState.SwitchBlockOn(state.DestroyBlock, "TestBlockDestroyModel")
 	s.otherState.SwitchBlockOn(state.ChangeBlock, "TestChangeBlock")
 
-	err := s.controller.DestroyController(params.DestroyControllerArgs{})
+	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{})
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 
 	numBlocks, err := s.ControllerModel(c).State().AllBlocksForController()
@@ -144,39 +145,39 @@ func (s *destroyControllerSuite) TestDestroyControllerLeavesBlocksIfNotKillAll(c
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool()), nil, nil, nil, nil)
+	err := common.DestroyModel(context.Background(), common.NewModelManagerBackend(s.otherModel, s.StatePool()), nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.otherModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.otherModel.Life(), gc.Equals, state.Dying)
 	c.Assert(s.otherModel.State().RemoveDyingModel(), jc.ErrorIsNil)
 	c.Assert(s.otherModel.Refresh(), jc.Satisfies, errors.IsNotFound)
 
-	err = s.controller.DestroyController(params.DestroyControllerArgs{})
+	err = s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.ControllerModel(c).Life(), gc.Equals, state.Dying)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerErrsOnNoHostedModelsWithBlock(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool()), nil, nil, nil, nil)
+	err := common.DestroyModel(context.Background(), common.NewModelManagerBackend(s.otherModel, s.StatePool()), nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
-	err = s.controller.DestroyController(params.DestroyControllerArgs{})
+	err = s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{})
 	c.Assert(err, gc.ErrorMatches, "found blocks in controller models")
 	c.Assert(s.ControllerModel(c).Life(), gc.Equals, state.Alive)
 }
 
 func (s *destroyControllerSuite) TestDestroyControllerNoHostedModelsWithBlockFail(c *gc.C) {
-	err := common.DestroyModel(common.NewModelManagerBackend(s.otherModel, s.StatePool()), nil, nil, nil, nil)
+	err := common.DestroyModel(context.Background(), common.NewModelManagerBackend(s.otherModel, s.StatePool()), nil, nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.BlockDestroyModel(c, "TestBlockDestroyModel")
 	s.BlockRemoveObject(c, "TestBlockRemoveObject")
 
-	err = s.controller.DestroyController(params.DestroyControllerArgs{})
+	err = s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{})
 	c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
 
 	numBlocks, err := s.ControllerModel(c).State().AllBlocksForController()
@@ -197,7 +198,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 		}),
 	})
 
-	err := s.controller.DestroyController(params.DestroyControllerArgs{
+	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
 	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
@@ -219,7 +220,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 	})
 
 	destroyStorage := false
-	err := s.controller.DestroyController(params.DestroyControllerArgs{
+	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels:  true,
 		DestroyStorage: &destroyStorage,
 	})
@@ -231,7 +232,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageSpecified(c 
 func (s *destroyControllerSuite) TestDestroyControllerForce(c *gc.C) {
 	force := true
 	timeout := 1 * time.Hour
-	err := s.controller.DestroyController(params.DestroyControllerArgs{
+	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels: true,
 		Force:         &force,
 		ModelTimeout:  &timeout,

@@ -4,6 +4,8 @@
 package spaces
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
@@ -50,10 +52,10 @@ func (o *spaceRemoveModelOp) Build(attempt int) ([]txn.Op, error) {
 
 // RemoveSpace removes a space.
 // Returns SpaceResults if entities/settings are found which makes the deletion not possible.
-func (api *API) RemoveSpace(spaceParams params.RemoveSpaceParams) (params.RemoveSpaceResults, error) {
+func (api *API) RemoveSpace(ctx context.Context, spaceParams params.RemoveSpaceParams) (params.RemoveSpaceResults, error) {
 	result := params.RemoveSpaceResults{}
 
-	if err := api.ensureSpacesAreMutable(); err != nil {
+	if err := api.ensureSpacesAreMutable(ctx); err != nil {
 		return result, err
 	}
 

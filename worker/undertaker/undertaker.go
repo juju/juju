@@ -355,12 +355,12 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 }
 
 func (u *Undertaker) environ() (environs.CloudDestroyer, error) {
-	modelConfig, err := u.config.Facade.ModelConfig()
+	modelConfig, err := u.config.Facade.ModelConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving model config")
 	}
 
-	cloudSpec, err := u.config.Facade.CloudSpec()
+	cloudSpec, err := u.config.Facade.CloudSpec(context.TODO())
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrieving cloud spec for model %q (%s)", modelConfig.Name(), modelConfig.UUID())
 	}

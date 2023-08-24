@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -136,7 +137,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode, workerCount i
 		return nil, errors.Errorf("agent's tag is not a machine or controller agent tag, got %T", hostTag)
 	}
 
-	modelCfg, err := p.controllerAPI.ModelConfig()
+	modelCfg, err := p.controllerAPI.ModelConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the model config.")
 	}
@@ -226,7 +227,7 @@ func (p *environProvisioner) loop() error {
 	}
 	modelConfigChanges = modelWatcher.Changes()
 
-	modelConfig, err := p.controllerAPI.ModelConfig()
+	modelConfig, err := p.controllerAPI.ModelConfig(context.TODO())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -249,7 +250,7 @@ func (p *environProvisioner) loop() error {
 			if !ok {
 				return errors.New("model configuration watcher closed")
 			}
-			modelConfig, err := p.controllerAPI.ModelConfig()
+			modelConfig, err := p.controllerAPI.ModelConfig(context.TODO())
 			if err != nil {
 				return errors.Annotate(err, "cannot load model configuration")
 			}
@@ -329,7 +330,7 @@ func (p *containerProvisioner) loop() error {
 		return errors.Trace(err)
 	}
 
-	modelConfig, err := p.controllerAPI.ModelConfig()
+	modelConfig, err := p.controllerAPI.ModelConfig(context.TODO())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -353,7 +354,7 @@ func (p *containerProvisioner) loop() error {
 			if !ok {
 				return errors.New("model configuration watch closed")
 			}
-			modelConfig, err := p.controllerAPI.ModelConfig()
+			modelConfig, err := p.controllerAPI.ModelConfig(context.TODO())
 			if err != nil {
 				return errors.Annotate(err, "cannot load model configuration")
 			}

@@ -4,6 +4,8 @@
 package modelupgrader
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
@@ -21,6 +23,7 @@ import (
 var errUpToDate = errors.AlreadyExistsf("no upgrades available")
 
 func (m *ModelUpgraderAPI) decideVersion(
+	ctx context.Context,
 	currentVersion version.Number, args common.FindAgentsParams,
 ) (_ version.Number, err error) {
 
@@ -29,7 +32,7 @@ func (m *ModelUpgraderAPI) decideVersion(
 		return version.Zero, errUpToDate
 	}
 
-	streamVersions, err := m.findAgents(args)
+	streamVersions, err := m.findAgents(ctx, args)
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
@@ -68,9 +71,10 @@ func (m *ModelUpgraderAPI) decideVersion(
 }
 
 func (m *ModelUpgraderAPI) findAgents(
+	ctx context.Context,
 	args common.FindAgentsParams,
 ) (coretools.Versions, error) {
-	list, err := m.toolsFinder.FindAgents(args)
+	list, err := m.toolsFinder.FindAgents(ctx, args)
 	if args.ModelType != state.ModelTypeCAAS {
 		// We return now for non CAAS model.
 		return toolListToVersions(list), errors.Annotate(err, "cannot find agents from simple streams")

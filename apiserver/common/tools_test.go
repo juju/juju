@@ -86,11 +86,11 @@ func (s *getToolsSuite) TestTools(c *gc.C) {
 	}
 	cfg, err := config.New(config.NoDefaults, configAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.configGetter.EXPECT().ModelConfig().Return(cfg, nil)
+	s.configGetter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
 	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: current}, nil)
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(context.Background(), common.FindAgentsParams{
 		Number: current.Number,
 		OSType: current.Release,
 		Arch:   current.Arch,
@@ -140,11 +140,11 @@ func (s *getToolsSuite) TestOSTools(c *gc.C) {
 	}
 	cfg, err := config.New(config.NoDefaults, configAttrs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.configGetter.EXPECT().ModelConfig().Return(cfg, nil)
+	s.configGetter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
 	s.entityFinder.EXPECT().FindEntity(names.NewMachineTag("0")).Return(s.machine0, nil)
 	s.machine0.EXPECT().AgentTools().Return(&coretools.Tools{Version: currentCopy}, nil)
-	s.toolsFinder.EXPECT().FindAgents(common.FindAgentsParams{
+	s.toolsFinder.EXPECT().FindAgents(context.Background(), common.FindAgentsParams{
 		Number: currentCopy.Number,
 		OSType: currentCopy.Release,
 		Arch:   currentCopy.Arch,
@@ -278,7 +278,7 @@ type findToolsSuite struct {
 	storage            *mocks.MockStorageCloser
 
 	bootstrapEnviron *mocks.MockBootstrapEnviron
-	newEnviron       func() (environs.BootstrapEnviron, error)
+	newEnviron       func(context.Context) (environs.BootstrapEnviron, error)
 }
 
 var _ = gc.Suite(&findToolsSuite{})
@@ -292,13 +292,13 @@ func (s *findToolsSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.toolsStorageGetter = mocks.NewMockToolsStorageGetter(ctrl)
 	s.urlGetter = mocks.NewMockToolsURLGetter(ctrl)
-	s.urlGetter.EXPECT().ToolsURLs(gomock.Any(), gomock.Any()).DoAndReturn(func(_ controller.Config, arg version.Binary) ([]string, error) {
+	s.urlGetter.EXPECT().ToolsURLs(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, _ controller.Config, arg version.Binary) ([]string, error) {
 		return []string{fmt.Sprintf("tools:%v", arg)}, nil
 	}).AnyTimes()
 
 	s.bootstrapEnviron = mocks.NewMockBootstrapEnviron(ctrl)
 	s.storage = mocks.NewMockStorageCloser(ctrl)
-	s.newEnviron = func() (environs.BootstrapEnviron, error) {
+	s.newEnviron = func(_ context.Context) (environs.BootstrapEnviron, error) {
 		return s.bootstrapEnviron, nil
 	}
 	return ctrl
@@ -364,7 +364,7 @@ func (s *findToolsSuite) TestFindToolsMatchMajor(c *gc.C) {
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
 	)
 
-	result, err := toolsFinder.FindAgents(common.FindAgentsParams{
+	result, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
 		MajorVersion: 123,
 		MinorVersion: 456,
 		OSType:       "windows",
@@ -420,7 +420,7 @@ func (s *findToolsSuite) TestFindToolsRequestAgentStream(c *gc.C) {
 		controllerConfigGetter{},
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
 	)
-	result, err := toolsFinder.FindAgents(common.FindAgentsParams{
+	result, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
 		MajorVersion: 123,
 		MinorVersion: 456,
 		OSType:       "windows",
@@ -456,7 +456,7 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
 		controllerConfigGetter{},
 		nil, s.toolsStorageGetter, nil, s.newEnviron,
 	)
-	_, err := toolsFinder.FindAgents(common.FindAgentsParams{})
+	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -512,7 +512,7 @@ func (s *findToolsSuite) testFindToolsExact(c *gc.C, inStorage bool, develVersio
 		controllerConfigGetter{},
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
 	)
-	_, err := toolsFinder.FindAgents(common.FindAgentsParams{
+	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{
 		Number: jujuversion.Current,
 		OSType: current.Release,
 		Arch:   arch.HostArch(),
@@ -541,7 +541,7 @@ func (s *findToolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 		controllerConfigGetter{},
 		nil, s.toolsStorageGetter, s.urlGetter, s.newEnviron,
 	)
-	_, err := toolsFinder.FindAgents(common.FindAgentsParams{})
+	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
 	// ToolsStorage errors always cause FindAgents to bail. Only
 	// if AllMetadata succeeds but returns nothing that matches
 	// do we continue on to searching simplestreams.
@@ -570,7 +570,7 @@ func (s *getUrlSuite) TestToolsURLGetterNoAPIHostPorts(c *gc.C) {
 	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return(nil, nil)
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
-	_, err := g.ToolsURLs(coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
+	_, err := g.ToolsURLs(context.Background(), coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "no suitable API server address to pick from")
 }
 
@@ -580,7 +580,7 @@ func (s *getUrlSuite) TestToolsURLGetterAPIHostPortsError(c *gc.C) {
 	s.apiHostPortsGetter.EXPECT().APIHostPortsForAgents(gomock.Any()).Return(nil, errors.New("oh noes"))
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
-	_, err := g.ToolsURLs(coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
+	_, err := g.ToolsURLs(context.Background(), coretesting.FakeControllerConfig(), coretesting.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "oh noes")
 }
 
@@ -593,7 +593,7 @@ func (s *getUrlSuite) TestToolsURLGetter(c *gc.C) {
 
 	g := common.NewToolsURLGetter("my-uuid", s.apiHostPortsGetter)
 	current := coretesting.CurrentVersion()
-	urls, err := g.ToolsURLs(coretesting.FakeControllerConfig(), current)
+	urls, err := g.ToolsURLs(context.Background(), coretesting.FakeControllerConfig(), current)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urls, jc.DeepEquals, []string{
 		"https://0.1.2.3:1234/model/my-uuid/tools/" + current.String(),

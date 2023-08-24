@@ -210,7 +210,7 @@ func (facade *Facade) Proxy(ctx stdcontext.Context) (params.SSHProxyResult, erro
 	if err := facade.checkIsModelAdmin(); err != nil {
 		return params.SSHProxyResult{}, errors.Trace(err)
 	}
-	config, err := facade.backend.ModelConfig()
+	config, err := facade.backend.ModelConfig(ctx)
 	if err != nil {
 		return params.SSHProxyResult{}, err
 	}
@@ -236,7 +236,7 @@ func (facade *Facade) ModelCredentialForSSH(ctx stdcontext.Context) (params.Clou
 		return result, nil
 	}
 
-	spec, err := facade.backend.CloudSpec()
+	spec, err := facade.backend.CloudSpec(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil

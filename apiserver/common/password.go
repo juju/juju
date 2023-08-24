@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -32,7 +34,7 @@ func NewPasswordChanger(st state.EntityFinder, getCanChange GetAuthFunc) *Passwo
 }
 
 // SetPasswords sets the given password for each supplied entity, if possible.
-func (pc *PasswordChanger) SetPasswords(args params.EntityPasswords) (params.ErrorResults, error) {
+func (pc *PasswordChanger) SetPasswords(ctx context.Context, args params.EntityPasswords) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}

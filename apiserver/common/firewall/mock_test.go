@@ -4,6 +4,7 @@
 package firewall_test
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -60,7 +61,7 @@ func (st *mockState) WatchForModelConfigChanges() state.NotifyWatcher {
 	return st.modelWatcher
 }
 
-func (st *mockState) ModelConfig() (*config.Config, error) {
+func (st *mockState) ModelConfig(ctx context.Context) (*config.Config, error) {
 	return config.New(config.UseDefaults, st.configAttrs)
 }
 

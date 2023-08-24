@@ -4,6 +4,8 @@
 package caasmodeloperator_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -73,7 +75,7 @@ func (m *mockModel) UUID() string {
 	return coretesting.ModelTag.Id()
 }
 
-func (m *mockModel) ModelConfig() (*config.Config, error) {
+func (m *mockModel) ModelConfig(_ context.Context) (*config.Config, error) {
 	attrs := coretesting.FakeConfig()
 	attrs["operator-storage"] = "k8s-storage"
 	attrs["agent-version"] = "2.6-beta3"

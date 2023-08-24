@@ -136,7 +136,7 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 		return err
 	}
 
-	if err := c.check.ChangeAllowed(); err != nil {
+	if err := c.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	isAdmin, err := c.isModelAdmin()
@@ -296,7 +296,7 @@ func (c *ModelConfigAPI) ModelUnset(ctx context.Context, args params.ModelUnset)
 	if err := c.checkCanWrite(); err != nil {
 		return err
 	}
-	if err := c.check.ChangeAllowed(); err != nil {
+	if err := c.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -322,7 +322,7 @@ func (c *ModelConfigAPI) SetModelConstraints(ctx context.Context, args params.Se
 		return err
 	}
 
-	if err := c.check.ChangeAllowed(); err != nil {
+	if err := c.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return c.backend.SetModelConstraints(args.Constraints)

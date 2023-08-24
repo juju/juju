@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -41,7 +43,7 @@ func (lg *LifeGetter) oneLife(tag names.Tag) (life.Value, error) {
 }
 
 // Life returns the life status of every supplied entity, where available.
-func (lg *LifeGetter) Life(args params.Entities) (params.LifeResults, error) {
+func (lg *LifeGetter) Life(ctx context.Context, args params.Entities) (params.LifeResults, error) {
 	result := params.LifeResults{
 		Results: make([]params.LifeResult, len(args.Entities)),
 	}

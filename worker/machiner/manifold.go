@@ -4,6 +4,8 @@
 package machiner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
@@ -71,7 +73,7 @@ func newWorker(a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelConfig, err := agentFacade.ModelConfig()
+	modelConfig, err := agentFacade.ModelConfig(context.TODO())
 	if err != nil {
 		return nil, errors.Errorf("cannot read environment config: %v", err)
 	}

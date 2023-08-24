@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	common "github.com/juju/juju/apiserver/common"
@@ -42,18 +43,18 @@ func (m *MockToolsFinder) EXPECT() *MockToolsFinderMockRecorder {
 }
 
 // FindAgents mocks base method.
-func (m *MockToolsFinder) FindAgents(arg0 common.FindAgentsParams) (tools.List, error) {
+func (m *MockToolsFinder) FindAgents(arg0 context.Context, arg1 common.FindAgentsParams) (tools.List, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FindAgents", arg0)
+	ret := m.ctrl.Call(m, "FindAgents", arg0, arg1)
 	ret0, _ := ret[0].(tools.List)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FindAgents indicates an expected call of FindAgents.
-func (mr *MockToolsFinderMockRecorder) FindAgents(arg0 interface{}) *gomock.Call {
+func (mr *MockToolsFinderMockRecorder) FindAgents(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAgents", reflect.TypeOf((*MockToolsFinder)(nil).FindAgents), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAgents", reflect.TypeOf((*MockToolsFinder)(nil).FindAgents), arg0, arg1)
 }
 
 // MockToolsFindEntity is a mock of ToolsFindEntity interface.
@@ -118,18 +119,18 @@ func (m *MockToolsURLGetter) EXPECT() *MockToolsURLGetterMockRecorder {
 }
 
 // ToolsURLs mocks base method.
-func (m *MockToolsURLGetter) ToolsURLs(arg0 controller.Config, arg1 version.Binary) ([]string, error) {
+func (m *MockToolsURLGetter) ToolsURLs(arg0 context.Context, arg1 controller.Config, arg2 version.Binary) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ToolsURLs", arg0, arg1)
+	ret := m.ctrl.Call(m, "ToolsURLs", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ToolsURLs indicates an expected call of ToolsURLs.
-func (mr *MockToolsURLGetterMockRecorder) ToolsURLs(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockToolsURLGetterMockRecorder) ToolsURLs(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolsURLs", reflect.TypeOf((*MockToolsURLGetter)(nil).ToolsURLs), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ToolsURLs", reflect.TypeOf((*MockToolsURLGetter)(nil).ToolsURLs), arg0, arg1, arg2)
 }
 
 // MockAPIHostPortsForAgentsGetter is a mock of APIHostPortsForAgentsGetter interface.

@@ -4,6 +4,8 @@
 package cloud
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -24,7 +26,7 @@ type cloudEnvironConfigGetter struct {
 }
 
 // CloudSpec implements environs.EnvironConfigGetter.
-func (g cloudEnvironConfigGetter) CloudSpec() (environscloudspec.CloudSpec, error) {
+func (g cloudEnvironConfigGetter) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
 	model, err := g.Model()
 	if err != nil {
 		return environscloudspec.CloudSpec{}, errors.Trace(err)
@@ -35,12 +37,14 @@ func (g cloudEnvironConfigGetter) CloudSpec() (environscloudspec.CloudSpec, erro
 // InstanceTypes returns instance type information for the cloud and region
 // in which the current model is deployed.
 func (api *CloudAPI) InstanceTypes(cons params.CloudInstanceTypesConstraints) (params.InstanceTypesResults, error) {
-	return instanceTypes(api, environs.GetEnviron, cons)
+	return instanceTypes(context.TODO(), api, environs.GetEnviron, cons)
 }
 
-type environGetFunc func(st environs.EnvironConfigGetter, newEnviron environs.NewEnvironFunc) (environs.Environ, error)
+type environGetFunc func(context.Context, environs.EnvironConfigGetter, environs.NewEnvironFunc) (environs.Environ, error)
 
-func instanceTypes(api *CloudAPI,
+func instanceTypes(
+	ctx context.Context,
+	api *CloudAPI,
 	environGet environGetFunc,
 	cons params.CloudInstanceTypesConstraints,
 ) (params.InstanceTypesResults, error) {
@@ -75,7 +79,7 @@ func instanceTypes(api *CloudAPI,
 			continue
 		}
 
-		env, err := environGet(backend, environs.New)
+		env, err := environGet(ctx, backend, environs.New)
 		if err != nil {
 			return params.InstanceTypesResults{}, errors.Trace(err)
 		}

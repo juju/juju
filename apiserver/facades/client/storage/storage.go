@@ -750,17 +750,17 @@ func createFilesystemDetails(
 // AddToUnit validates and creates additional storage instances for units.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPI) AddToUnit(ctx stdcontext.Context, args params.StoragesAddParams) (params.AddStorageResults, error) {
-	return a.addToUnit(args)
+	return a.addToUnit(ctx, args)
 }
 
-func (a *StorageAPI) addToUnit(args params.StoragesAddParams) (params.AddStorageResults, error) {
+func (a *StorageAPI) addToUnit(ctx stdcontext.Context, args params.StoragesAddParams) (params.AddStorageResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.AddStorageResults{}, errors.Trace(err)
 	}
 
 	// Check if changes are allowed and the operation may proceed.
 	blockChecker := common.NewBlockChecker(a.backend)
-	if err := blockChecker.ChangeAllowed(); err != nil {
+	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return params.AddStorageResults{}, errors.Trace(err)
 	}
 
@@ -806,16 +806,16 @@ func (a *StorageAPI) addToUnit(args params.StoragesAddParams) (params.AddStorage
 // destroyed, then the associated cloud storage will be destroyed first;
 // otherwise it will only be released from Juju's control.
 func (a *StorageAPI) Remove(ctx stdcontext.Context, args params.RemoveStorage) (params.ErrorResults, error) {
-	return a.remove(args)
+	return a.remove(ctx, args)
 }
 
-func (a *StorageAPI) remove(args params.RemoveStorage) (params.ErrorResults, error) {
+func (a *StorageAPI) remove(ctx stdcontext.Context, args params.RemoveStorage) (params.ErrorResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
 	blockChecker := common.NewBlockChecker(a.backend)
-	if err := blockChecker.RemoveAllowed(); err != nil {
+	if err := blockChecker.RemoveAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
@@ -840,16 +840,16 @@ func (a *StorageAPI) remove(args params.RemoveStorage) (params.ErrorResults, err
 // already Dying or Dead. Any associated, persistent storage will remain
 // alive. This call can be forced.
 func (a *StorageAPI) DetachStorage(ctx stdcontext.Context, args params.StorageDetachmentParams) (params.ErrorResults, error) {
-	return a.internalDetach(args.StorageIds, args.Force, args.MaxWait)
+	return a.internalDetach(ctx, args.StorageIds, args.Force, args.MaxWait)
 }
 
-func (a *StorageAPI) internalDetach(args params.StorageAttachmentIds, force *bool, maxWait *time.Duration) (params.ErrorResults, error) {
+func (a *StorageAPI) internalDetach(ctx stdcontext.Context, args params.StorageAttachmentIds, force *bool, maxWait *time.Duration) (params.ErrorResults, error) {
 	if err := a.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
 	blockChecker := common.NewBlockChecker(a.backend)
-	if err := blockChecker.ChangeAllowed(); err != nil {
+	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
@@ -915,7 +915,7 @@ func (a *StorageAPI) Attach(ctx stdcontext.Context, args params.StorageAttachmen
 	}
 
 	blockChecker := common.NewBlockChecker(a.backend)
-	if err := blockChecker.ChangeAllowed(); err != nil {
+	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
@@ -946,7 +946,7 @@ func (a *StorageAPI) Import(ctx stdcontext.Context, args params.BulkImportStorag
 	}
 
 	blockChecker := common.NewBlockChecker(a.backend)
-	if err := blockChecker.ChangeAllowed(); err != nil {
+	if err := blockChecker.ChangeAllowed(ctx); err != nil {
 		return params.ImportStorageResults{}, errors.Trace(err)
 	}
 

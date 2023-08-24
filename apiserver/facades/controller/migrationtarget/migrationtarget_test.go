@@ -508,7 +508,7 @@ func (s *Suite) makeExportedModel(c *gc.C) (string, []byte) {
 }
 
 func (s *Suite) controllerVersion(c *gc.C) version.Number {
-	cfg, err := s.Model.ModelConfig()
+	cfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	vers, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)

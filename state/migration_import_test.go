@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -1561,7 +1562,7 @@ func (s *MigrationImportSuite) TestFirewallRules(c *gc.C) {
 
 	m, err := newSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := m.ModelConfig()
+	cfg, err := m.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cfg.SSHAllow(), gc.DeepEquals, sshCIDRs)
@@ -3091,13 +3092,13 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 
 	err = s.Model.UpdateModelConfig(map[string]interface{}{config.SecretBackendKey: "myvault"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	mCfg, err := s.Model.ModelConfig()
+	mCfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault")
 
 	newModel, newSt := s.importModel(c, s.State)
 
-	mCfg, err = newModel.ModelConfig()
+	mCfg, err = newModel.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault")
 

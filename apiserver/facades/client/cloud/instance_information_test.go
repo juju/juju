@@ -4,6 +4,8 @@
 package cloud_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -74,6 +76,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		errors.NotFoundf("Instances matching constraint "))
 
 	fakeEnvironGet := func(
+		ctx stdcontext.Context,
 		st environs.EnvironConfigGetter,
 		newEnviron environs.NewEnvironFunc,
 	) (environs.Environ, error) {
@@ -103,7 +106,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 				CloudRegion: "a-region",
 				Constraints: &itCons}},
 	}
-	r, err := cloudfacade.InstanceTypes(api, fakeEnvironGet, cons)
+	r, err := cloudfacade.InstanceTypes(stdcontext.Background(), api, fakeEnvironGet, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 3)
 	expected := []params.InstanceTypesResult{

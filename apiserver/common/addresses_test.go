@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -35,7 +37,7 @@ func (s *apiAddresserSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *apiAddresserSuite) TestAPIAddresses(c *gc.C) {
-	result, err := s.addresser.APIAddresses(coretesting.FakeControllerConfig())
+	result, err := s.addresser.APIAddresses(context.Background(), coretesting.FakeControllerConfig())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Result, gc.DeepEquals, []string{"apiaddresses:1", "apiaddresses:2"})
 }
@@ -59,7 +61,7 @@ func (s *apiAddresserSuite) TestAPIAddressesPrivateFirst(c *gc.C) {
 		}
 	}
 
-	result, err := s.addresser.APIAddresses(coretesting.FakeControllerConfig())
+	result, err := s.addresser.APIAddresses(context.Background(), coretesting.FakeControllerConfig())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(result.Result, gc.DeepEquals, []string{

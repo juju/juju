@@ -4,6 +4,7 @@
 package applicationoffers
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -23,9 +24,9 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 // newOffersAPI returns a new application offers OffersAPI facade.
-func newOffersAPI(ctx facade.Context) (*OffersAPI, error) {
-	environFromModel := func(modelUUID string) (environs.Environ, error) {
-		st, err := ctx.StatePool().Get(modelUUID)
+func newOffersAPI(facadeContext facade.Context) (*OffersAPI, error) {
+	environFromModel := func(ctx context.Context, modelUUID string) (environs.Environ, error) {
+		st, err := facadeContext.StatePool().Get(modelUUID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -35,28 +36,28 @@ func newOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 			return nil, errors.Trace(err)
 		}
 		g := stateenvirons.EnvironConfigGetter{Model: model}
-		env, err := environs.GetEnviron(g, environs.New)
+		env, err := environs.GetEnviron(ctx, g, environs.New)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return env, nil
 	}
 
-	st := ctx.State()
+	st := facadeContext.State()
 	getControllerInfo := func() ([]string, string, error) {
 		return common.StateControllerInfo(st)
 	}
 
-	authContext := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
+	authContext := facadeContext.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
 	return createOffersAPI(
 		GetApplicationOffers,
 		environFromModel,
 		getControllerInfo,
 		GetStateAccess(st),
-		GetStatePool(ctx.StatePool()),
-		ctx.Auth(),
+		GetStatePool(facadeContext.StatePool()),
+		facadeContext.Auth(),
 		authContext.(*commoncrossmodel.AuthContext),
-		ctx.DataDir(),
-		ctx.Logger().Child("applicationoffers"),
+		facadeContext.DataDir(),
+		facadeContext.Logger().Child("applicationoffers"),
 	)
 }

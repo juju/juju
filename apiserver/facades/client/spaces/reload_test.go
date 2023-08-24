@@ -4,6 +4,8 @@
 package spaces
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -29,12 +31,12 @@ func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *gc.C) {
 	defer ctrl.Finish()
 
 	context := context.NewEmptyCloudCallContext()
-	authorizer := func() error { return nil }
+	authorizer := func(stdcontext.Context) error { return nil }
 
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 
 	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
-	mockEnvirons.EXPECT().GetEnviron(mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, nil)
+	mockEnvirons.EXPECT().GetEnviron(gomock.Any(), mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, nil)
 
 	mockState := NewMockReloadSpacesState(ctrl)
 
@@ -42,7 +44,7 @@ func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *gc.C) {
 	mockEnvironSpaces.EXPECT().ReloadSpaces(context, mockState, mockNetworkEnviron).Return(nil)
 
 	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, context, authorizer)
-	err := spacesAPI.ReloadSpaces()
+	err := spacesAPI.ReloadSpaces(stdcontext.Background())
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -51,19 +53,19 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithNoEnviron(c *gc.C) {
 	defer ctrl.Finish()
 
 	context := context.NewEmptyCloudCallContext()
-	authorizer := func() error { return nil }
+	authorizer := func(stdcontext.Context) error { return nil }
 
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 
 	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
-	mockEnvirons.EXPECT().GetEnviron(mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, errors.New("boom"))
+	mockEnvirons.EXPECT().GetEnviron(gomock.Any(), mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, errors.New("boom"))
 
 	mockState := NewMockReloadSpacesState(ctrl)
 
 	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
 
 	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, context, authorizer)
-	err := spacesAPI.ReloadSpaces()
+	err := spacesAPI.ReloadSpaces(stdcontext.Background())
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
@@ -72,12 +74,12 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithReloadSpaceError(c *gc.C) {
 	defer ctrl.Finish()
 
 	context := context.NewEmptyCloudCallContext()
-	authorizer := func() error { return nil }
+	authorizer := func(stdcontext.Context) error { return nil }
 
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 
 	mockEnvirons := NewMockReloadSpacesEnviron(ctrl)
-	mockEnvirons.EXPECT().GetEnviron(mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, nil)
+	mockEnvirons.EXPECT().GetEnviron(gomock.Any(), mockEnvirons, gomock.Any()).Return(mockNetworkEnviron, nil)
 
 	mockState := NewMockReloadSpacesState(ctrl)
 
@@ -85,7 +87,7 @@ func (s *ReloadSpacesAPISuite) TestReloadSpacesWithReloadSpaceError(c *gc.C) {
 	mockEnvironSpaces.EXPECT().ReloadSpaces(context, mockState, mockNetworkEnviron).Return(errors.New("boom"))
 
 	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, context, authorizer)
-	err := spacesAPI.ReloadSpaces()
+	err := spacesAPI.ReloadSpaces(stdcontext.Background())
 	c.Check(err, gc.ErrorMatches, "boom")
 }
 
@@ -105,13 +107,13 @@ func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizer(c *gc.C) {
 	authorizer.EXPECT().HasPermission(gomock.Any(), names.NewModelTag("123")).Return(nil)
 
 	blockChecker := NewMockBlockChecker(ctrl)
-	blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	state := NewMockAuthorizerState(ctrl)
 	state.EXPECT().ModelTag().Return(tag)
 
 	authorizerFn := DefaultReloadSpacesAuthorizer(authorizer, blockChecker, state)
-	err := authorizerFn()
+	err := authorizerFn(stdcontext.Background())
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -130,7 +132,7 @@ func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizerCannotWrite(c *gc.C) 
 	state.EXPECT().ModelTag().Return(tag)
 
 	authorizerFn := DefaultReloadSpacesAuthorizer(authorizer, blockChecker, state)
-	err := authorizerFn()
+	err := authorizerFn(stdcontext.Background())
 	c.Check(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -146,12 +148,12 @@ func (s *ReloadSpacesAuthorizerSuite) TestDefaultAuthorizerNotFound(c *gc.C) {
 	authorizer.EXPECT().HasPermission(gomock.Any(), names.NewModelTag("123")).Return(nil)
 
 	blockChecker := NewMockBlockChecker(ctrl)
-	blockChecker.EXPECT().ChangeAllowed().Return(nil)
+	blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil)
 
 	state := NewMockAuthorizerState(ctrl)
 	state.EXPECT().ModelTag().Return(tag)
 
 	authorizerFn := DefaultReloadSpacesAuthorizer(authorizer, blockChecker, state)
-	err := authorizerFn()
+	err := authorizerFn(stdcontext.Background())
 	c.Check(err, jc.ErrorIsNil)
 }

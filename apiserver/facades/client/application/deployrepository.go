@@ -4,6 +4,7 @@
 package application
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -258,7 +259,7 @@ type validatorConfig struct {
 	storagePoolManager poolmanager.PoolManager
 }
 
-func makeDeployFromRepositoryValidator(cfg validatorConfig) DeployFromRepositoryValidator {
+func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig) DeployFromRepositoryValidator {
 	v := &deployFromRepositoryValidator{
 		charmhubHTTPClient: cfg.charmhubHTTPClient,
 		model:              cfg.model,
@@ -289,7 +290,7 @@ func makeDeployFromRepositoryValidator(cfg validatorConfig) DeployFromRepository
 					placement:       dt.placement,
 					storage:         dt.storage,
 				}
-				return cdp.precheck(v.model, cfg.storagePoolManager, cfg.registry, cfg.caasBroker)
+				return cdp.precheck(ctx, v.model, cfg.storagePoolManager, cfg.registry, cfg.caasBroker)
 			},
 		}
 	}
@@ -461,7 +462,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm ch
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
-	if err := assertCharmAssumptions(resolvedCharm.Meta().Assumes, v.model, v.state.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(context.Background(), resolvedCharm.Meta().Assumes, v.model, v.state.ControllerConfig); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !arg.Force {
 			errs = append(errs, err)
 		}

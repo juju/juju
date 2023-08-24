@@ -67,7 +67,7 @@ func (context *runContext) SetCloudSpec(c *gc.C, spec environscloudspec.CloudSpe
 }
 
 // CloudSpec is part of the environ.ConfigObserver interface.
-func (context *runContext) CloudSpec() (environscloudspec.CloudSpec, error) {
+func (context *runContext) CloudSpec(context.Context) (environscloudspec.CloudSpec, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.stub.AddCall("CloudSpec")
@@ -78,7 +78,7 @@ func (context *runContext) CloudSpec() (environscloudspec.CloudSpec, error) {
 }
 
 // ModelConfig is part of the environ.ConfigObserver interface.
-func (context *runContext) ModelConfig() (*config.Config, error) {
+func (context *runContext) ModelConfig(context.Context) (*config.Config, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.stub.AddCall("ModelConfig")

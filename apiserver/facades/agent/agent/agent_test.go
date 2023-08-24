@@ -205,13 +205,16 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := api.SetPasswords(params.EntityPasswords{
-		Changes: []params.EntityPassword{
-			{Tag: "machine-0", Password: "xxx-12345678901234567890"},
-			{Tag: "machine-1", Password: "yyy-12345678901234567890"},
-			{Tag: "machine-42", Password: "zzz-12345678901234567890"},
+	results, err := api.SetPasswords(
+		context.Background(),
+		params.EntityPasswords{
+			Changes: []params.EntityPassword{
+				{Tag: "machine-0", Password: "xxx-12345678901234567890"},
+				{Tag: "machine-1", Password: "yyy-12345678901234567890"},
+				{Tag: "machine-42", Password: "zzz-12345678901234567890"},
+			},
 		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -234,11 +237,14 @@ func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
 		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := api.SetPasswords(params.EntityPasswords{
-		Changes: []params.EntityPassword{
-			{Tag: "machine-1", Password: "yyy"},
+	results, err := api.SetPasswords(
+		context.Background(),
+		params.EntityPasswords{
+			Changes: []params.EntityPassword{
+				{Tag: "machine-1", Password: "yyy"},
+			},
 		},
-	})
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
@@ -266,7 +272,7 @@ func (s *agentSuite) TestClearReboot(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rFlag, jc.IsTrue)
 
-	result, err := api.ClearReboot(args)
+	result, err := api.ClearReboot(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{

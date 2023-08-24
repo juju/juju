@@ -38,7 +38,7 @@ func (s *environSuite) TestGetNewEnvironFunc(c *gc.C) {
 
 	c.Assert(calls, gc.Equals, 1)
 
-	cfg, err := s.Model.ModelConfig()
+	cfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(callArgs.Config, jc.DeepEquals, cfg)
 }
@@ -62,7 +62,7 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	emptyCredential.Label = "empty-credential"
-	cloudSpec, err := stateenvirons.EnvironConfigGetter{Model: m}.CloudSpec()
+	cloudSpec, err := stateenvirons.EnvironConfigGetter{Model: m}.CloudSpec(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudSpec, jc.DeepEquals, environscloudspec.CloudSpec{
 		Type:              "dummy",
@@ -121,7 +121,7 @@ func (s *environSuite) TestGetNewCAASBrokerFunc(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(calls, gc.Equals, 1)
 
-	cfg, err := s.Model.ModelConfig()
+	cfg, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(callArgs.Config, jc.DeepEquals, cfg)
 }
@@ -154,7 +154,7 @@ func (s *environSuite) TestCloudAPIVersion(c *gc.C) {
 	}
 
 	envConfigGetter := stateenvirons.EnvironConfigGetter{Model: m, NewContainerBroker: newBrokerFunc}
-	cloudSpec, err := envConfigGetter.CloudSpec()
+	cloudSpec, err := envConfigGetter.CloudSpec(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	apiVersion, err := envConfigGetter.CloudAPIVersion(cloudSpec)
 	c.Assert(err, jc.ErrorIsNil)

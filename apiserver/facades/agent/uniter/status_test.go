@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -50,8 +52,8 @@ var _ = gc.Suite(&ApplicationStatusAPISuite{})
 func (s *ApplicationStatusAPISuite) TestUnauthorized(c *gc.C) {
 	tag := names.NewUnitTag("foo/0")
 	s.badTag = tag
-	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
-		tag.String(),
+	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: tag.String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -59,8 +61,8 @@ func (s *ApplicationStatusAPISuite) TestUnauthorized(c *gc.C) {
 }
 
 func (s *ApplicationStatusAPISuite) TestNotATag(c *gc.C) {
-	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
-		"not a tag",
+	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: "not a tag",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -68,8 +70,8 @@ func (s *ApplicationStatusAPISuite) TestNotATag(c *gc.C) {
 }
 
 func (s *ApplicationStatusAPISuite) TestNotFound(c *gc.C) {
-	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
-		names.NewUnitTag("foo/0").String(),
+	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: names.NewUnitTag("foo/0").String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -78,8 +80,8 @@ func (s *ApplicationStatusAPISuite) TestNotFound(c *gc.C) {
 
 func (s *ApplicationStatusAPISuite) TestGetMachineStatus(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
-	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
-		machine.Tag().String(),
+	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: machine.Tag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -91,8 +93,8 @@ func (s *ApplicationStatusAPISuite) TestGetApplicationStatus(c *gc.C) {
 	app := s.Factory.MakeApplication(c, &factory.ApplicationParams{Status: &status.StatusInfo{
 		Status: status.Maintenance,
 	}})
-	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
-		app.Tag().String(),
+	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: app.Tag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -104,8 +106,8 @@ func (s *ApplicationStatusAPISuite) TestGetUnitStatusNotLeader(c *gc.C) {
 	// If the unit isn't the leader, it can't get it.
 	s.leadershipChecker.isLeader = false
 	unit := s.Factory.MakeUnit(c, nil)
-	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
-		unit.Tag().String(),
+	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: unit.Tag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -119,8 +121,8 @@ func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *gc.C) {
 	}})
 	// No need to claim leadership - the checker passed in in setup
 	// always returns true.
-	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
-		unit.Tag().String(),
+	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: unit.Tag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -139,12 +141,12 @@ func (s *ApplicationStatusAPISuite) TestGetUnitStatusIsLeader(c *gc.C) {
 func (s *ApplicationStatusAPISuite) TestBulk(c *gc.C) {
 	s.badTag = names.NewMachineTag("42")
 	machine := s.Factory.MakeMachine(c, nil)
-	result, err := s.api.ApplicationStatus(params.Entities{[]params.Entity{{
-		s.badTag.String(),
+	result, err := s.api.ApplicationStatus(context.Background(), params.Entities{Entities: []params.Entity{{
+		Tag: s.badTag.String(),
 	}, {
-		machine.Tag().String(),
+		Tag: machine.Tag().String(),
 	}, {
-		"bad-tag",
+		Tag: "bad-tag",
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 3)

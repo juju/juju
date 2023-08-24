@@ -38,7 +38,7 @@ func (*fakeModelAccessor) WatchForModelConfigChanges() state.NotifyWatcher {
 	return apiservertesting.NewFakeNotifyWatcher()
 }
 
-func (f *fakeModelAccessor) ModelConfig() (*config.Config, error) {
+func (f *fakeModelAccessor) ModelConfig(ctx context.Context) (*config.Config, error) {
 	if f.modelConfigError != nil {
 		return nil, f.modelConfigError
 	}
@@ -53,9 +53,9 @@ func (s *modelWatcherSuite) TestWatchSuccess(c *gc.C) {
 		resources,
 		nil,
 	)
-	result, err := e.WatchForModelConfigChanges()
+	result, err := e.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{NotifyWatcherId: "1", Error: nil})
 	c.Assert(resources.Count(), gc.Equals, 1)
 }
 
@@ -70,7 +70,7 @@ func (*modelWatcherSuite) TestModelConfigSuccess(c *gc.C) {
 		nil,
 		authorizer,
 	)
-	result, err := e.ModelConfig()
+	result, err := e.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	// Make sure we can read the secret attribute (i.e. it's not masked).
 	c.Check(result.Config["secret"], gc.Equals, "pork")
@@ -89,7 +89,7 @@ func (*modelWatcherSuite) TestModelConfigFetchError(c *gc.C) {
 		nil,
 		authorizer,
 	)
-	_, err := e.ModelConfig()
+	_, err := e.ModelConfig(context.Background())
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 

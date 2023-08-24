@@ -4,6 +4,8 @@
 package charms_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -50,7 +52,7 @@ func (s *charmInfoSuite) TestBasic(c *gc.C) {
 	// Make the CharmInfo call
 	api, err := charms.NewCharmInfoAPI(st, authorizer)
 	c.Assert(err, gc.IsNil)
-	charmInfo, err := api.CharmInfo(params.CharmURL{URL: "foo-1"})
+	charmInfo, err := api.CharmInfo(context.Background(), params.CharmURL{URL: "foo-1"})
 	c.Assert(err, gc.IsNil)
 
 	c.Check(charmInfo.URL, gc.Equals, "ch:foo-1")
@@ -76,6 +78,6 @@ func (s *charmInfoSuite) TestPermissionDenied(c *gc.C) {
 	// Make the CharmInfo call
 	api, err := charms.NewCharmInfoAPI(st, authorizer)
 	c.Assert(err, gc.IsNil)
-	_, err = api.CharmInfo(params.CharmURL{URL: "foo"})
+	_, err = api.CharmInfo(context.Background(), params.CharmURL{URL: "foo"})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

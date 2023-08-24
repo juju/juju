@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -72,15 +73,15 @@ func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {
 	}
 	resources := common.NewResources()
 	w := common.NewUnitsWatcher(st, resources, getCanWatch)
-	entities := params.Entities{[]params.Entity{
-		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"},
+	entities := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"},
 	}}
-	result, err := w.WatchUnits(entities)
+	result, err := w.WatchUnits(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Error: &params.Error{Message: "x0 fails"}},
-			{"1", []string{"foo", "bar"}, nil},
+			{StringsWatcherId: "1", Changes: []string{"foo", "bar"}, Error: nil},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -97,7 +98,7 @@ func (*unitsWatcherSuite) TestWatchUnitsError(c *gc.C) {
 		resources,
 		getCanWatch,
 	)
-	_, err := w.WatchUnits(params.Entities{[]params.Entity{{"x0"}}})
+	_, err := w.WatchUnits(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
@@ -111,7 +112,7 @@ func (*unitsWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
 		resources,
 		getCanWatch,
 	)
-	result, err := w.WatchUnits(params.Entities{})
+	result, err := w.WatchUnits(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

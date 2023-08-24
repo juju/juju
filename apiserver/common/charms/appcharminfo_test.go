@@ -4,6 +4,8 @@
 package charms_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -54,7 +56,7 @@ func (s *appCharmInfoSuite) TestBasic(c *gc.C) {
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(st, authorizer)
 	c.Assert(err, gc.IsNil)
-	charmInfo, err := api.ApplicationCharmInfo(params.Entity{Tag: names.NewApplicationTag("foo").String()})
+	charmInfo, err := api.ApplicationCharmInfo(context.Background(), params.Entity{Tag: names.NewApplicationTag("foo").String()})
 	c.Assert(err, gc.IsNil)
 
 	c.Check(charmInfo.URL, gc.Equals, "ch:foo-1")
@@ -80,6 +82,6 @@ func (s *appCharmInfoSuite) TestPermissionDenied(c *gc.C) {
 	// Make the ApplicationCharmInfo call
 	api, err := charms.NewApplicationCharmInfoAPI(st, authorizer)
 	c.Assert(err, gc.IsNil)
-	_, err = api.ApplicationCharmInfo(params.Entity{Tag: names.NewApplicationTag("foo").String()})
+	_, err = api.ApplicationCharmInfo(context.Background(), params.Entity{Tag: names.NewApplicationTag("foo").String()})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

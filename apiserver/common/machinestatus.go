@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
@@ -18,7 +20,7 @@ type MachineStatusGetter interface {
 
 // MachineStatus returns the machine agent status for a given
 // machine, with special handling for agent presence.
-func (c *ModelPresenceContext) MachineStatus(machine MachineStatusGetter) (status.StatusInfo, error) {
+func (c *ModelPresenceContext) MachineStatus(ctx context.Context, machine MachineStatusGetter) (status.StatusInfo, error) {
 	machineStatus, err := machine.Status()
 	if err != nil {
 		return status.StatusInfo{}, err

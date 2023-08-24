@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
@@ -84,33 +85,33 @@ func (mr *MockBackingMockRecorder) AvailabilityZones() *gomock.Call {
 }
 
 // CloudSpec mocks base method.
-func (m *MockBacking) CloudSpec() (cloudspec.CloudSpec, error) {
+func (m *MockBacking) CloudSpec(arg0 context.Context) (cloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudSpec")
+	ret := m.ctrl.Call(m, "CloudSpec", arg0)
 	ret0, _ := ret[0].(cloudspec.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CloudSpec indicates an expected call of CloudSpec.
-func (mr *MockBackingMockRecorder) CloudSpec() *gomock.Call {
+func (mr *MockBackingMockRecorder) CloudSpec(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockBacking)(nil).CloudSpec))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockBacking)(nil).CloudSpec), arg0)
 }
 
 // ModelConfig mocks base method.
-func (m *MockBacking) ModelConfig() (*config.Config, error) {
+func (m *MockBacking) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig")
+	ret := m.ctrl.Call(m, "ModelConfig", arg0)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockBackingMockRecorder) ModelConfig() *gomock.Call {
+func (mr *MockBackingMockRecorder) ModelConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBacking)(nil).ModelConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBacking)(nil).ModelConfig), arg0)
 }
 
 // ModelTag mocks base method.

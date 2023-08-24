@@ -149,13 +149,13 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 }
 
 // CharmInfo returns information about the requested charm.
-func (a *APIGroup) CharmInfo(args params.CharmURL) (params.Charm, error) {
-	return a.charmInfoAPI.CharmInfo(args)
+func (a *APIGroup) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm, error) {
+	return a.charmInfoAPI.CharmInfo(ctx, args)
 }
 
 // ApplicationCharmInfo returns information about an application's charm.
-func (a *APIGroup) ApplicationCharmInfo(args params.Entity) (params.Charm, error) {
-	return a.appCharmInfoAPI.ApplicationCharmInfo(args)
+func (a *APIGroup) ApplicationCharmInfo(ctx context.Context, args params.Entity) (params.Charm, error) {
+	return a.appCharmInfoAPI.ApplicationCharmInfo(ctx, args)
 }
 
 // NewCAASApplicationProvisionerAPI returns a new CAAS operator provisioner API facade.
@@ -264,7 +264,7 @@ func (a *API) ProvisioningInfo(ctx context.Context, args params.Entities) (param
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		info, err := a.provisioningInfo(appName)
+		info, err := a.provisioningInfo(ctx, appName)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -274,7 +274,7 @@ func (a *API) ProvisioningInfo(ctx context.Context, args params.Entities) (param
 	return result, nil
 }
 
-func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
+func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag) (*params.CAASApplicationProvisioningInfo, error) {
 	app, err := a.state.Application(appName.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -298,7 +298,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelConfig, err := model.ModelConfig()
+	modelConfig, err := model.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

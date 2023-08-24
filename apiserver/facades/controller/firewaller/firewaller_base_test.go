@@ -114,7 +114,7 @@ func (s *firewallerBaseSuite) testFirewallerFailsWithNonControllerUser(
 func (s *firewallerBaseSuite) testLife(
 	c *gc.C,
 	facade interface {
-		Life(args params.Entities) (params.LifeResults, error)
+		Life(context.Context, params.Entities) (params.LifeResults, error)
 	},
 ) {
 	// Unassign unit 1 from its machine, so we can change its life cycle.
@@ -133,7 +133,7 @@ func (s *firewallerBaseSuite) testLife(
 		{Tag: s.machines[2].Tag().String()},
 		{Tag: s.relations[0].Tag().String()},
 	}})
-	result, err := facade.Life(args)
+	result, err := facade.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -161,7 +161,7 @@ func (s *firewallerBaseSuite) testLife(
 			{Tag: s.machines[1].Tag().String()},
 		},
 	}
-	result, err = facade.Life(args)
+	result, err = facade.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -173,7 +173,7 @@ func (s *firewallerBaseSuite) testLife(
 func (s *firewallerBaseSuite) testInstanceId(
 	c *gc.C,
 	facade interface {
-		InstanceId(args params.Entities) (params.StringResults, error)
+		InstanceId(context.Context, params.Entities) (params.StringResults, error)
 	},
 ) {
 	// Provision 2 machines first.
@@ -190,7 +190,7 @@ func (s *firewallerBaseSuite) testInstanceId(
 		{Tag: s.application.Tag().String()},
 		{Tag: s.units[2].Tag().String()},
 	}})
-	result, err := facade.InstanceId(args)
+	result, err := facade.InstanceId(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -212,12 +212,12 @@ func (s *firewallerBaseSuite) testInstanceId(
 func (s *firewallerBaseSuite) testWatchModelMachines(
 	c *gc.C,
 	facade interface {
-		WatchModelMachines() (params.StringsWatchResult, error)
+		WatchModelMachines(context.Context) (params.StringsWatchResult, error)
 	},
 ) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	got, err := facade.WatchModelMachines()
+	got, err := facade.WatchModelMachines(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -244,7 +244,7 @@ const (
 func (s *firewallerBaseSuite) testWatch(
 	c *gc.C,
 	watcher interface {
-		Watch(args params.Entities) (params.NotifyWatchResults, error)
+		Watch(context.Context, params.Entities) (params.NotifyWatchResults, error)
 	},
 	allowUnits bool,
 ) {
@@ -255,7 +255,7 @@ func (s *firewallerBaseSuite) testWatch(
 		{Tag: s.application.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
-	result, err := watcher.Watch(args)
+	result, err := watcher.Watch(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	if allowUnits {
 		c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
@@ -316,7 +316,7 @@ func (s *firewallerBaseSuite) testWatch(
 func (s *firewallerBaseSuite) testWatchUnits(
 	c *gc.C,
 	facade interface {
-		WatchUnits(args params.Entities) (params.StringsWatchResults, error)
+		WatchUnits(context.Context, params.Entities) (params.StringsWatchResults, error)
 	},
 ) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
@@ -326,7 +326,7 @@ func (s *firewallerBaseSuite) testWatchUnits(
 		{Tag: s.application.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
-	result, err := facade.WatchUnits(args)
+	result, err := facade.WatchUnits(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{

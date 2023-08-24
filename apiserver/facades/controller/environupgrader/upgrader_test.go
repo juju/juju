@@ -242,7 +242,7 @@ type mockWatcher struct {
 	testing.Stub
 }
 
-func (m *mockWatcher) Watch(args params.Entities) (params.NotifyWatchResults, error) {
+func (m *mockWatcher) Watch(_ context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	m.MethodCall(m, "Watch", args)
 	if err := m.NextErr(); err != nil {
 		return params.NotifyWatchResults{}, err
@@ -280,7 +280,7 @@ type mockStatusSetter struct {
 	results params.ErrorResults
 }
 
-func (m *mockStatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+func (m *mockStatusSetter) SetStatus(_ context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	m.MethodCall(m, "SetStatus", args)
 	return m.results, m.NextErr()
 }

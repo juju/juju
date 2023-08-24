@@ -104,9 +104,9 @@ func (u *UpgraderAPI) WatchAPIVersion(ctx context.Context, args params.Entities)
 	return result, nil
 }
 
-func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, error) {
+func (u *UpgraderAPI) getGlobalAgentVersion(ctx context.Context) (version.Number, *config.Config, error) {
 	// Get the Agent Version requested in the Model Config
-	cfg, err := u.m.ModelConfig()
+	cfg, err := u.m.ModelConfig(ctx)
 	if err != nil {
 		return version.Number{}, nil, err
 	}
@@ -139,7 +139,7 @@ func (u *UpgraderAPI) DesiredVersion(ctx context.Context, args params.Entities) 
 	if len(args.Entities) == 0 {
 		return params.VersionResults{}, nil
 	}
-	agentVersion, _, err := u.getGlobalAgentVersion()
+	agentVersion, _, err := u.getGlobalAgentVersion(ctx)
 	if err != nil {
 		return params.VersionResults{}, apiservererrors.ServerError(err)
 	}

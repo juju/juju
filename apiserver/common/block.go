@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -16,9 +18,9 @@ type BlockGetter interface {
 
 // BlockCheckerInterface defines methods of BlockChecker.
 type BlockCheckerInterface interface {
-	ChangeAllowed() error
-	RemoveAllowed() error
-	DestroyAllowed() error
+	ChangeAllowed(context.Context) error
+	RemoveAllowed(context.Context) error
+	DestroyAllowed(context.Context) error
 }
 
 // BlockChecker checks for current blocks if any.
@@ -33,14 +35,14 @@ func NewBlockChecker(s BlockGetter) *BlockChecker {
 // ChangeAllowed checks if change block is in place.
 // Change block prevents all operations that may change
 // current model in any way from running successfully.
-func (c *BlockChecker) ChangeAllowed() error {
+func (c *BlockChecker) ChangeAllowed(ctx context.Context) error {
 	return c.checkBlock(state.ChangeBlock)
 }
 
 // RemoveAllowed checks if remove block is in place.
 // Remove block prevents removal of machine, service, unit
 // and relation from current model.
-func (c *BlockChecker) RemoveAllowed() error {
+func (c *BlockChecker) RemoveAllowed(ctx context.Context) error {
 	if err := c.checkBlock(state.RemoveBlock); err != nil {
 		return err
 	}
@@ -50,7 +52,7 @@ func (c *BlockChecker) RemoveAllowed() error {
 
 // DestroyAllowed checks if destroy block is in place.
 // Destroy block prevents destruction of current model.
-func (c *BlockChecker) DestroyAllowed() error {
+func (c *BlockChecker) DestroyAllowed(ctx context.Context) error {
 	if err := c.checkBlock(state.DestroyBlock); err != nil {
 		return err
 	}

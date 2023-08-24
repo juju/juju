@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -48,15 +49,15 @@ func (*agentEntityWatcherSuite) TestWatch(c *gc.C) {
 	}
 	resources := common.NewResources()
 	a := common.NewAgentEntityWatcher(st, resources, getCanWatch)
-	entities := params.Entities{[]params.Entity{
-		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"},
+	entities := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-x-0"}, {Tag: "unit-x-1"}, {Tag: "unit-x-2"}, {Tag: "unit-x-3"},
 	}}
-	result, err := a.Watch(entities)
+	result, err := a.Watch(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{Error: &params.Error{Message: "x0 fails"}},
-			{"1", nil},
+			{NotifyWatcherId: "1", Error: nil},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
@@ -73,7 +74,7 @@ func (*agentEntityWatcherSuite) TestWatchError(c *gc.C) {
 		resources,
 		getCanWatch,
 	)
-	_, err := a.Watch(params.Entities{[]params.Entity{{"x0"}}})
+	_, err := a.Watch(context.Background(), params.Entities{Entities: []params.Entity{{Tag: "x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
@@ -87,7 +88,7 @@ func (*agentEntityWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
 		resources,
 		getCanWatch,
 	)
-	result, err := a.Watch(params.Entities{})
+	result, err := a.Watch(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
 }

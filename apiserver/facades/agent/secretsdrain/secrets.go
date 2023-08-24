@@ -40,7 +40,7 @@ type SecretsDrainAPI struct {
 
 // GetSecretsToDrain returns metadata for the secrets that need to be drained.
 func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.ListSecretResults, error) {
-	modelConfig, err := s.model.ModelConfig()
+	modelConfig, err := s.model.ModelConfig(ctx)
 	if err != nil {
 		return params.ListSecretResults{}, errors.Trace(err)
 	}
@@ -116,7 +116,7 @@ func toChangeSecretBackendParams(token leadership.Token, uri *coresecrets.URI, a
 // WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.
 func (s *SecretsDrainAPI) WatchSecretBackendChanged(ctx context.Context) (params.NotifyWatchResult, error) {
 	stateWatcher := s.model.WatchForModelConfigChanges()
-	w, err := newSecretBackendModelConfigWatcher(s.model, stateWatcher, s.logger)
+	w, err := newSecretBackendModelConfigWatcher(ctx, s.model, stateWatcher, s.logger)
 	if err != nil {
 		return params.NotifyWatchResult{
 			Error: apiservererrors.ServerError(err),

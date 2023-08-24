@@ -4,6 +4,8 @@
 package machinemanager_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -85,7 +87,9 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		errors.NotFoundf("Instances matching constraint %v", failureCons),
 	).MinTimes(1)
 
-	fakeEnvironGet := func(st environs.EnvironConfigGetter,
+	fakeEnvironGet := func(
+		ctx stdcontext.Context,
+		st environs.EnvironConfigGetter,
 		newEnviron environs.NewEnvironFunc,
 	) (environs.Environ, error) {
 		return env, nil
@@ -95,7 +99,7 @@ func (s *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		Constraints: []params.ModelInstanceTypesConstraint{{Value: &itCons}, {Value: &failureCons}, {}},
 	}
 
-	r, err := machinemanager.InstanceTypes(s.api, fakeEnvironGet, cons)
+	r, err := machinemanager.InstanceTypes(stdcontext.Background(), s.api, fakeEnvironGet, cons)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 3)
 	expected := []params.InstanceTypesResult{

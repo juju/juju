@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -43,7 +45,7 @@ func (ig *InstanceIdGetter) getInstanceId(tag names.Tag) (instance.Id, error) {
 
 // InstanceId returns the provider specific instance id for each given
 // machine or an CodeNotProvisioned error, if not set.
-func (ig *InstanceIdGetter) InstanceId(args params.Entities) (params.StringResults, error) {
+func (ig *InstanceIdGetter) InstanceId(ctx context.Context, args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}

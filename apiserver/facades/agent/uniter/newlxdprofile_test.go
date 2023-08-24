@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -129,7 +131,7 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileUnauthorized(c *gc.C) {
 		},
 	}
 	api := s.newAPI()
-	results, err := api.CanApplyLXDProfile(args)
+	results, err := api.CanApplyLXDProfile(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -217,7 +219,7 @@ func (s *newLxdProfileSuite) testCanApplyLXDProfile(c *gc.C, result bool) {
 		},
 	}
 	api := s.newAPI()
-	results, err := api.CanApplyLXDProfile(args)
+	results, err := api.CanApplyLXDProfile(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{{Result: result, Error: nil}},
@@ -296,7 +298,7 @@ func (s *newLxdProfileSuite) expectProviderType(c *gc.C, pType string) {
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	s.model.EXPECT().ModelConfig().Return(cfg, nil)
+	s.model.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 }
 
 func (s *newLxdProfileSuite) expectManual(manual bool) {

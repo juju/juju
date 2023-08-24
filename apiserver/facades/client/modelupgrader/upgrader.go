@@ -113,7 +113,7 @@ func (m *ModelUpgraderAPI) AbortModelUpgrade(ctx stdcontext.Context, arg params.
 		return errors.Trace(err)
 	}
 
-	if err := m.check.ChangeAllowed(); err != nil {
+	if err := m.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	st, err := m.statePool.Get(modelTag.Id())
@@ -142,7 +142,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 		return result, err
 	}
 
-	if err := m.check.ChangeAllowed(); err != nil {
+	if err := m.check.ChangeAllowed(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -202,7 +202,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 	} else {
 		args.Number = targetVersion
 	}
-	targetVersion, err = m.decideVersion(currentVersion, args)
+	targetVersion, err = m.decideVersion(ctx, currentVersion, args)
 	if errors.Is(errors.Cause(err), errors.NotFound) || errors.Is(errors.Cause(err), errors.AlreadyExists) {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -214,7 +214,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 
 	// Before changing the agent version to trigger an upgrade or downgrade,
 	// we'll do a very basic check to ensure the environment is accessible.
-	envOrBroker, err := m.newEnviron()
+	envOrBroker, err := m.newEnviron(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

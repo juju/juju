@@ -4,6 +4,8 @@
 package sshclient
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -16,13 +18,13 @@ import (
 
 // Backend defines the State API used by the sshclient facade.
 type Backend interface {
-	ModelConfig() (*config.Config, error)
+	ModelConfig(context.Context) (*config.Config, error)
 	GetMachineForEntity(tag string) (SSHMachine, error)
 	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
 	ModelTag() names.ModelTag
 	ControllerTag() names.ControllerTag
 	Model() (Model, error)
-	CloudSpec() (environscloudspec.CloudSpec, error)
+	CloudSpec(context.Context) (environscloudspec.CloudSpec, error)
 }
 
 // Model defines a point of use interface for the model from state.
@@ -92,8 +94,8 @@ func (b *backend) Model() (Model, error) {
 	return b.State.Model()
 }
 
-func (b *backend) CloudSpec() (environscloudspec.CloudSpec, error) {
-	return b.EnvironConfigGetter.CloudSpec()
+func (b *backend) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
+	return b.EnvironConfigGetter.CloudSpec(ctx)
 }
 
 // ControllerTag returns the controller tag of the backend.

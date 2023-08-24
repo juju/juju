@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"time"
 
 	jujutesting "github.com/juju/testing"
@@ -42,7 +43,7 @@ func (s *modelwatcherTests) TestModelConfig(c *gc.C) {
 	facade.EXPECT().FacadeCall("ModelConfig", nil, gomock.Any()).SetArg(2, result).Return(nil)
 
 	client := common.NewModelWatcher(facade)
-	cfg, err := client.ModelConfig()
+	cfg, err := client.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(testing.Attrs(cfg.AllAttrs()), gc.DeepEquals, attrs)
 }

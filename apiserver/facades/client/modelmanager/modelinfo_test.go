@@ -974,7 +974,7 @@ func (st *mockState) SetModelMeterStatus(level, message string) error {
 	return st.NextErr()
 }
 
-func (st *mockState) ModelConfig() (*config.Config, error) {
+func (st *mockState) ModelConfig(stdcontext.Context) (*config.Config, error) {
 	st.MethodCall(st, "ModelConfig")
 	return st.modelConfig, st.NextErr()
 }

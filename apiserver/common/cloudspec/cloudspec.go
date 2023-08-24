@@ -4,6 +4,8 @@
 package cloudspec
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -19,13 +21,13 @@ import (
 // CloudSpecer defines the CloudSpec api interface
 type CloudSpecer interface {
 	// WatchCloudSpecsChanges returns a watcher for cloud spec changes.
-	WatchCloudSpecsChanges(args params.Entities) (params.NotifyWatchResults, error)
+	WatchCloudSpecsChanges(context.Context, params.Entities) (params.NotifyWatchResults, error)
 
 	// CloudSpec returns the model's cloud spec.
-	CloudSpec(args params.Entities) (params.CloudSpecResults, error)
+	CloudSpec(context.Context, params.Entities) (params.CloudSpecResults, error)
 
 	// GetCloudSpec constructs the CloudSpec for a validated and authorized model.
-	GetCloudSpec(tag names.ModelTag) params.CloudSpecResult
+	GetCloudSpec(context.Context, names.ModelTag) params.CloudSpecResult
 }
 
 type CloudSpecAPI struct {
@@ -51,12 +53,14 @@ func NewCloudSpec(
 	watchCloudSpecCredentialContent func(tag names.ModelTag) (state.NotifyWatcher, error),
 	getAuthFunc common.GetAuthFunc,
 ) CloudSpecAPI {
-	return CloudSpecAPI{resources,
-		getCloudSpec,
-		watchCloudSpec,
-		watchCloudSpecModelCredentialReference,
-		watchCloudSpecCredentialContent,
-		getAuthFunc}
+	return CloudSpecAPI{
+		resources:                              resources,
+		getCloudSpec:                           getCloudSpec,
+		watchCloudSpec:                         watchCloudSpec,
+		watchCloudSpecModelCredentialReference: watchCloudSpecModelCredentialReference,
+		watchCloudSpecCredentialContent:        watchCloudSpecCredentialContent,
+		getAuthFunc:                            getAuthFunc,
+	}
 }
 
 func NewCloudSpecV2(
@@ -79,7 +83,7 @@ func NewCloudSpecV2(
 }
 
 // CloudSpec returns the model's cloud spec.
-func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, error) {
+func (s CloudSpecAPI) CloudSpec(ctx context.Context, args params.Entities) (params.CloudSpecResults, error) {
 	authFunc, err := s.getAuthFunc()
 	if err != nil {
 		return params.CloudSpecResults{}, err
@@ -97,13 +101,13 @@ func (s CloudSpecAPI) CloudSpec(args params.Entities) (params.CloudSpecResults, 
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		results.Results[i] = s.GetCloudSpec(tag)
+		results.Results[i] = s.GetCloudSpec(ctx, tag)
 	}
 	return results, nil
 }
 
 // GetCloudSpec constructs the CloudSpec for a validated and authorized model.
-func (s CloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
+func (s CloudSpecAPI) GetCloudSpec(ctx context.Context, tag names.ModelTag) params.CloudSpecResult {
 	var result params.CloudSpecResult
 	spec, err := s.getCloudSpec(tag)
 	if err != nil {
@@ -133,7 +137,7 @@ func (s CloudSpecAPI) GetCloudSpec(tag names.ModelTag) params.CloudSpecResult {
 }
 
 // WatchCloudSpecsChanges returns a watcher for cloud spec changes.
-func (s CloudSpecAPI) WatchCloudSpecsChanges(args params.Entities) (params.NotifyWatchResults, error) {
+func (s CloudSpecAPI) WatchCloudSpecsChanges(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
 	authFunc, err := s.getAuthFunc()
 	if err != nil {
 		return params.NotifyWatchResults{}, err

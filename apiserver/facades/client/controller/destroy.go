@@ -4,6 +4,8 @@
 package controller
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -21,11 +23,12 @@ import (
 // attempt to do so. Otherwise, if the controller has any non-empty,
 // non-Dead hosted models, then an error with the code
 // params.CodeHasHostedModels will be transmitted.
-func (c *ControllerAPI) DestroyController(args params.DestroyControllerArgs) error {
-	return destroyController(c.state, c.statePool, c.authorizer, args, c.logger)
+func (c *ControllerAPI) DestroyController(ctx context.Context, args params.DestroyControllerArgs) error {
+	return destroyController(ctx, c.state, c.statePool, c.authorizer, args, c.logger)
 }
 
 func destroyController(
+	ctx context.Context,
 	st Backend,
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
@@ -52,6 +55,7 @@ func destroyController(
 	// this will fail if any hosted models are found.
 	backend := common.NewModelManagerBackend(model, pool)
 	return errors.Trace(common.DestroyController(
+		ctx,
 		backend, args.DestroyModels, args.DestroyStorage,
 		args.Force, args.MaxWait, args.ModelTimeout,
 	))

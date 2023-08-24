@@ -59,7 +59,7 @@ func (s *controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {
 		nil,
 	)
 
-	result, err := s.ctrlConfigAPI.ControllerConfig()
+	result, err := s.ctrlConfigAPI.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(map[string]interface{}(result.Config), jc.DeepEquals, map[string]interface{}{
 		"ca-cert":         testing.CACert,
@@ -73,7 +73,7 @@ func (s *controllerConfigSuite) TestControllerConfigFetchError(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	s.st.EXPECT().ControllerConfig().Return(nil, fmt.Errorf("pow"))
-	_, err := s.ctrlConfigAPI.ControllerConfig()
+	_, err := s.ctrlConfigAPI.ControllerConfig(context.Background())
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 

@@ -83,7 +83,7 @@ func (api *KeyManagerAPI) ListKeys(ctx context.Context, arg params.ListSSHKeys) 
 	}
 
 	// For now, authorised keys are global, common to all users.
-	cfg, err := api.model.ModelConfig()
+	cfg, err := api.model.ModelConfig(ctx)
 	if err != nil {
 		// Return error embedded in results for compatibility.
 		// TODO: Change this to a call-error on next facade bump
@@ -145,9 +145,9 @@ func (api *KeyManagerAPI) writeSSHKeys(sshKeys []string) error {
 }
 
 // currentKeyDataForAdd gathers data used when adding ssh keys.
-func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints set.Strings, err error) {
+func (api *KeyManagerAPI) currentKeyDataForAdd(ctx context.Context) (keys []string, fingerprints set.Strings, err error) {
 	fingerprints = make(set.Strings)
-	cfg, err := api.model.ModelConfig()
+	cfg, err := api.model.ModelConfig(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading current key data: %v", err)
 	}
@@ -167,7 +167,7 @@ func (api *KeyManagerAPI) AddKeys(ctx context.Context, arg params.ModifyUserSSHK
 	if err := api.checkCanWrite(arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
-	if err := api.check.ChangeAllowed(); err != nil {
+	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if len(arg.Keys) == 0 {
@@ -175,7 +175,7 @@ func (api *KeyManagerAPI) AddKeys(ctx context.Context, arg params.ModifyUserSSHK
 	}
 
 	// For now, authorised keys are global, common to all users.
-	sshKeys, currentFingerprints, err := api.currentKeyDataForAdd()
+	sshKeys, currentFingerprints, err := api.currentKeyDataForAdd(ctx)
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(fmt.Errorf("reading current key data: %v", err))
 	}
@@ -259,7 +259,7 @@ func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserS
 	if err := api.checkCanWrite(arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
-	if err := api.check.ChangeAllowed(); err != nil {
+	if err := api.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if len(arg.Keys) == 0 {
@@ -267,7 +267,7 @@ func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserS
 	}
 
 	// For now, authorised keys are global, common to all users.
-	sshKeys, currentFingerprints, err := api.currentKeyDataForAdd()
+	sshKeys, currentFingerprints, err := api.currentKeyDataForAdd(ctx)
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(fmt.Errorf("reading current key data: %v", err))
 	}
@@ -306,10 +306,10 @@ func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserS
 }
 
 // currentKeyDataForDelete gathers data used when deleting ssh keys.
-func (api *KeyManagerAPI) currentKeyDataForDelete() (
+func (api *KeyManagerAPI) currentKeyDataForDelete(ctx context.Context) (
 	currentKeys []string, byFingerprint map[string]string, byComment map[string]string, err error) {
 
-	cfg, err := api.model.ModelConfig()
+	cfg, err := api.model.ModelConfig(ctx)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("reading current key data: %v", err)
 	}
@@ -339,14 +339,14 @@ func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserS
 	if err := api.checkCanWrite(arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
-	if err := api.check.RemoveAllowed(); err != nil {
+	if err := api.check.RemoveAllowed(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if len(arg.Keys) == 0 {
 		return params.ErrorResults{}, nil
 	}
 
-	allKeys, byFingerprint, byComment, err := api.currentKeyDataForDelete()
+	allKeys, byFingerprint, byComment, err := api.currentKeyDataForDelete(ctx)
 	if err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(fmt.Errorf("reading current key data: %v", err))
 	}

@@ -42,7 +42,7 @@ func (s *PrunerSuite) TestRunStop(c *gc.C) {
 
 	facade := mocks.NewMockFacade(ctrl)
 	facade.EXPECT().WatchForModelConfigChanges().Return(w, nil)
-	facade.EXPECT().ModelConfig().Return(modelConfig, nil).AnyTimes()
+	facade.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil).AnyTimes()
 
 	updater, err := statushistorypruner.New(pruner.Config{
 		Facade:        facade,

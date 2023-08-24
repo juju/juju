@@ -4,6 +4,8 @@
 package migrationmaster
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -47,7 +49,7 @@ func (s *backend) AgentVersion() (version.Number, error) {
 		return version.Zero, errors.Trace(err)
 	}
 
-	cfg, err := m.ModelConfig()
+	cfg, err := m.ModelConfig(context.TODO())
 	if err != nil {
 		return version.Zero, errors.Trace(err)
 	}
