@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
-	"github.com/juju/juju/packaging"
+	"github.com/juju/juju/internal/packaging"
 )
 
 // KVM returns a dependency instance for installing KVM support.

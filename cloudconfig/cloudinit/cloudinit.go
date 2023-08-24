@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/v3/shell"
 	"github.com/juju/utils/v3/ssh"
 
-	jujupackaging "github.com/juju/juju/packaging"
+	jujupackaging "github.com/juju/juju/internal/packaging"
 )
 
 // cloudConfig represents a set of cloud-init configuration options.

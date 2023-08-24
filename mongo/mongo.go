@@ -26,8 +26,8 @@ import (
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/packaging"
-	"github.com/juju/juju/packaging/dependency"
+	"github.com/juju/juju/internal/packaging"
+	"github.com/juju/juju/internal/packaging/dependency"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/snap"
 	"github.com/juju/juju/service/systemd"

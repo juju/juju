@@ -16,8 +16,8 @@ import (
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/packaging"
-	"github.com/juju/juju/packaging/dependency"
+	"github.com/juju/juju/internal/packaging"
+	"github.com/juju/juju/internal/packaging/dependency"
 	"github.com/juju/juju/service"
 )
 

@@ -93,7 +93,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"pki",
 		"provider/lxd/lxdnames",
 		"proxy",
-		"pubsub/agent",
+		"internal/pubsub/agent",
 		"rpc",
 		"rpc/jsoncodec",
 		"rpc/params",

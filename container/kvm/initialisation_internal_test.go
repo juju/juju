@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/packaging"
-	"github.com/juju/juju/packaging/dependency"
+	"github.com/juju/juju/internal/packaging"
+	"github.com/juju/juju/internal/packaging/dependency"
 )
 
 type initialisationInternalSuite struct {

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/packaging"
+	"github.com/juju/juju/internal/packaging"
 	coretesting "github.com/juju/juju/testing"
 )
 
