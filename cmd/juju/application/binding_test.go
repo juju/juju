@@ -4,6 +4,8 @@
 package application
 
 import (
+	"fmt"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -66,11 +68,13 @@ func (s *ParseBindSuite) TestParseWithEmptyQuotedDefaultSpace(c *gc.C) {
 }
 
 func (s *ParseBindSuite) TestParseFailsWithSpaceNameButNoEndpoint(c *gc.C) {
-	s.checkParseFailsForExpr(c, "=bad", nil, parseBindErrorPrefix+"Found = without endpoint name. Use a lone space name to set the default.")
+	s.checkParseFailsForExpr(c, "=bad", nil, fmt.Sprintf(parseBindError,
+		`found "=" without endpoint name. Use a lone space name to set the default.`))
 }
 
 func (s *ParseBindSuite) TestParseFailsWithTooManyEqualsSignsInArgs(c *gc.C) {
-	s.checkParseFailsForExpr(c, "foo=bar=baz", nil, parseBindErrorPrefix+"Found multiple = in binding. Did you forget to space-separate the binding list?")
+	s.checkParseFailsForExpr(c, "foo=bar=baz", nil, fmt.Sprintf(parseBindError,
+		`found multiple "=" in binding. Did you forget to space-separate the binding list?`))
 }
 
 func (s *ParseBindSuite) TestParseFailsWithUnknownSpaceName(c *gc.C) {
@@ -79,10 +83,12 @@ func (s *ParseBindSuite) TestParseFailsWithUnknownSpaceName(c *gc.C) {
 }
 
 func (s *ParseBindSuite) TestMergeBindingsNewBindingsInheritDefaultSpace(c *gc.C) {
-	newCharmEndpoints := set.NewStrings("ep1", "ep2", "ep3")
+	newCharmEndpoints := set.NewStrings("ep1", "ep2", "ep3", "ep4", "ep5")
 	oldEndpointsMap := map[string]string{
 		"":    network.AlphaSpaceName,
 		"ep1": "sp1",
+		"ep4": network.AlphaSpaceName,
+		"ep5": network.AlphaSpaceName,
 	}
 
 	userBindings := map[string]string{
@@ -94,10 +100,18 @@ func (s *ParseBindSuite) TestMergeBindingsNewBindingsInheritDefaultSpace(c *gc.C
 		"ep1": "sp-foo",
 		"ep2": network.AlphaSpaceName, // new endpoint ep2 inherits the default space
 		"ep3": "sp1",
+		"ep4": network.AlphaSpaceName,
+		"ep5": network.AlphaSpaceName,
 	}
 
-	mergedBindings, _ := mergeBindings(newCharmEndpoints, oldEndpointsMap, userBindings, network.AlphaSpaceName)
-	c.Assert(mergedBindings, gc.DeepEquals, expMergedBindings)
+	mergedBindings, changeLog := mergeBindings(newCharmEndpoints, oldEndpointsMap, userBindings, network.AlphaSpaceName)
+	c.Check(mergedBindings, gc.DeepEquals, expMergedBindings)
+	c.Check(changeLog, jc.SameContents, []string{
+		`moving endpoint "ep1" from space "sp1" to "sp-foo"`,
+		`adding endpoint "ep2" to default space "alpha"`,
+		`adding endpoint "ep3" to space "sp1"`,
+		`no change to endpoints in space "alpha": ep4, ep5`,
+	})
 }
 
 func (s *ParseBindSuite) checkParseOKForExpr(c *gc.C, expr string, knownSpaceNames set.Strings, expectedBindings map[string]string) {

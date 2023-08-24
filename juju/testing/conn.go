@@ -329,7 +329,7 @@ func (s *JujuConnSuite) EnsureCachedModel(c *gc.C, uuid string) {
 			if err == nil {
 				return
 			}
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				c.Fatalf("problem getting model from cache: %v", err)
 			}
 			retry = time.After(testing.ShortWait)
