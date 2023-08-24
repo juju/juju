@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/secrets/provider"
-	_ "github.com/juju/juju/secrets/provider/all"
+	"github.com/juju/juju/internal/secrets/provider"
+	_ "github.com/juju/juju/internal/secrets/provider/all"
 )
 
 type registrySuite struct {

@@ -28,9 +28,9 @@ import (
 	"github.com/juju/juju/cmd/internal/dumplogs"
 	"github.com/juju/juju/cmd/internal/run"
 	"github.com/juju/juju/core/machinelock"
+	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
-	_ "github.com/juju/juju/secrets/provider/all" // Import the secret providers.
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/logsender"
 )

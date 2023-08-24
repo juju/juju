@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/kubernetes_mocks.go github.com/juju/juju/secrets/provider/kubernetes Broker
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/kubernetes_mocks.go github.com/juju/juju/internal/secrets/provider/kubernetes Broker
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

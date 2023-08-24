@@ -8,7 +8,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/http_mock.go net/http RoundTripper

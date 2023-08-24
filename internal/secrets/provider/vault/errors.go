@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/secrets"
+	"github.com/juju/juju/internal/secrets"
 )
 
 func isNotFound(err error) bool {

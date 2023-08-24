@@ -4,10 +4,10 @@
 package all
 
 import (
-	"github.com/juju/juju/secrets/provider"
-	"github.com/juju/juju/secrets/provider/juju"
-	"github.com/juju/juju/secrets/provider/kubernetes"
-	"github.com/juju/juju/secrets/provider/vault"
+	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider/juju"
+	"github.com/juju/juju/internal/secrets/provider/kubernetes"
+	"github.com/juju/juju/internal/secrets/provider/vault"
 )
 
 func init() {

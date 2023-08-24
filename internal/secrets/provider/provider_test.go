@@ -8,7 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 type providerSuite struct {

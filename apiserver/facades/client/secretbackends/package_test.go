@@ -17,7 +17,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsbackendstate.go github.com/juju/juju/apiserver/facades/client/secretbackends SecretsBackendState
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretstate.go github.com/juju/juju/apiserver/facades/client/secretbackends SecretsState
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state.go github.com/juju/juju/apiserver/facades/client/secretbackends StatePool
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/provider_mock.go github.com/juju/juju/secrets/provider SecretBackendProvider,SecretsBackend
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/provider_mock.go github.com/juju/juju/internal/secrets/provider SecretBackendProvider,SecretsBackend
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

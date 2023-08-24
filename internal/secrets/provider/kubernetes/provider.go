@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/state"
 )
 

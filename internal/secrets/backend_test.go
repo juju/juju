@@ -12,9 +12,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coresecrets "github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/mocks"
-	"github.com/juju/juju/secrets/provider"
+	"github.com/juju/juju/internal/secrets"
+	"github.com/juju/juju/internal/secrets/mocks"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 type backendSuite struct {

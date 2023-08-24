@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/api/agent/secretsdrain"
 	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/base"
-	jujusecrets "github.com/juju/juju/secrets"
+	jujusecrets "github.com/juju/juju/internal/secrets"
 )
 
 // ManifoldConfig describes the resources used by the secretdrainworker worker.

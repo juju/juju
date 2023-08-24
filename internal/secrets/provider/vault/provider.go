@@ -16,7 +16,7 @@ import (
 	"github.com/juju/names/v4"
 	vault "github.com/mittwald/vaultgo"
 
-	"github.com/juju/juju/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 var logger = loggo.GetLogger("juju.secrets.vault")

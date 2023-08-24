@@ -14,10 +14,10 @@ import (
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/crossmodelsecrets"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/secrets"
+	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	jujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/secrets"
-	secretsprovider "github.com/juju/juju/secrets/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 

@@ -18,10 +18,10 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/secrets/provider"
-	_ "github.com/juju/juju/secrets/provider/all"
-	jujuvault "github.com/juju/juju/secrets/provider/vault"
-	"github.com/juju/juju/secrets/provider/vault/mocks"
+	"github.com/juju/juju/internal/secrets/provider"
+	_ "github.com/juju/juju/internal/secrets/provider/all"
+	jujuvault "github.com/juju/juju/internal/secrets/provider/vault"
+	"github.com/juju/juju/internal/secrets/provider/vault/mocks"
 	coretesting "github.com/juju/juju/testing"
 )
 

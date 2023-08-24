@@ -16,10 +16,10 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/secrets/provider"
+	_ "github.com/juju/juju/internal/secrets/provider/all"
+	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/secrets/provider"
-	_ "github.com/juju/juju/secrets/provider/all"
-	"github.com/juju/juju/secrets/provider/juju"
 	"github.com/juju/juju/state"
 )
 

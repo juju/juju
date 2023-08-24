@@ -23,7 +23,7 @@ func TestPackage(t *testing.T) {
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/modelstate.go github.com/juju/juju/apiserver/facades/agent/secretsdrain Model
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/statewatcher.go github.com/juju/juju/state NotifyWatcher
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/leadershipchecker.go github.com/juju/juju/core/leadership Checker,Token
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsprovider.go github.com/juju/juju/secrets/provider SecretBackendProvider
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsprovider.go github.com/juju/juju/internal/secrets/provider SecretBackendProvider
 
 func NewTestAPI(
 	authorizer facade.Authorizer,

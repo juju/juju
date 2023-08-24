@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
-	jujusecrets "github.com/juju/juju/secrets"
+	jujusecrets "github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/worker/secretdrainworker"
 	"github.com/juju/juju/worker/secretdrainworker/mocks"
 )

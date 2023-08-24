@@ -6,7 +6,7 @@ package juju
 import (
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 const (

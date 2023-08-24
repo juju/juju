@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/api/agent/secretsdrain"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
-	jujusecrets "github.com/juju/juju/secrets"
+	jujusecrets "github.com/juju/juju/internal/secrets"
 )
 
 // logger is here to stop the desire of creating a package level logger.
