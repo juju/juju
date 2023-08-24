@@ -544,7 +544,7 @@ func (m *mockPersistedBackend) Model() (credentialcommon.Model, error) {
 }
 
 func (m *mockPersistedBackend) ControllerConfig() (credentialcommon.ControllerConfig, error) {
-	m.MethodCall(m, "ControllerConfig")
+	m.MethodCall(m, "LegacyControllerConfig")
 	return m.controllerConfigFunc()
 }
 

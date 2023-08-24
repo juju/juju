@@ -210,7 +210,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
 	// Check controller config
-	controllerCfg, err = st.ControllerConfig()
+	controllerCfg, err = st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(controllerCfg, jc.DeepEquals, controller.Config{
 		"controller-uuid":           testing.ControllerTag.Id(),

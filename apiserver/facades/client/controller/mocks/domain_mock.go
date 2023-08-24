@@ -38,7 +38,7 @@ func (m *MockControllerConfiger) EXPECT() *MockControllerConfigerMockRecorder {
 // ControllerConfig mocks base method.
 func (m *MockControllerConfiger) ControllerConfig(arg0 context.Context) (controller.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig", arg0)
+	ret := m.ctrl.Call(m, "LegacyControllerConfig", arg0)
 	ret0, _ := ret[0].(controller.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -47,13 +47,13 @@ func (m *MockControllerConfiger) ControllerConfig(arg0 context.Context) (control
 // ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockControllerConfigerMockRecorder) ControllerConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockControllerConfiger)(nil).ControllerConfig), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyControllerConfig", reflect.TypeOf((*MockControllerConfiger)(nil).ControllerConfig), arg0)
 }
 
 // UpdateControllerConfig mocks base method.
 func (m *MockControllerConfiger) UpdateControllerConfig(arg0 context.Context, arg1 controller.Config, arg2 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateControllerConfig", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "LegacyUpdateControllerConfig", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -61,5 +61,5 @@ func (m *MockControllerConfiger) UpdateControllerConfig(arg0 context.Context, ar
 // UpdateControllerConfig indicates an expected call of UpdateControllerConfig.
 func (mr *MockControllerConfigerMockRecorder) UpdateControllerConfig(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateControllerConfig", reflect.TypeOf((*MockControllerConfiger)(nil).UpdateControllerConfig), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyUpdateControllerConfig", reflect.TypeOf((*MockControllerConfiger)(nil).UpdateControllerConfig), arg0, arg1, arg2)
 }

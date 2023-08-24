@@ -15,7 +15,7 @@ import (
 
 type backend interface {
 	ModelTag() names.ModelTag
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	StateServingInfo() (controller.StateServingInfo, error)
 }
 
@@ -33,7 +33,7 @@ func NewMetadataState(db backend, machine, base string) (*corebackups.Metadata, 
 	meta.Origin.Hostname = hostname
 	meta.Origin.Base = base
 
-	controllerCfg, err := db.ControllerConfig()
+	controllerCfg, err := db.LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get controller config")
 	}

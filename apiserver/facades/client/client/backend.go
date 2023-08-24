@@ -48,7 +48,7 @@ type Backend interface {
 	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 	Application(string) (Application, error)
 	Charm(*charm.URL) (*state.Charm, error)
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	ControllerNodes() ([]state.ControllerNode, error)
 	ControllerTag() names.ControllerTag
 	ControllerTimestamp() (*time.Time, error)

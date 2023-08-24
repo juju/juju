@@ -239,7 +239,7 @@ func runCLICommands(m *state.Model, errCh chan<- error, commands params.CLIComma
 		return nil, errors.NotValidf("user name %q", commands.User)
 	}
 
-	cfg, err := m.State().ControllerConfig()
+	cfg, err := m.State().LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

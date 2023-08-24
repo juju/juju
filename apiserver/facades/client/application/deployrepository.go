@@ -56,7 +56,7 @@ type DeployFromRepositoryState interface {
 	RemovePendingResources(applicationID string, pendingIDs map[string]string) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
 	Charm(*charm.URL) (Charm, error)
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	Machine(string) (Machine, error)
 	ModelConstraints() (constraints.Value, error)
 
@@ -461,7 +461,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm ch
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
-	if err := assertCharmAssumptions(resolvedCharm.Meta().Assumes, v.model, v.state.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(resolvedCharm.Meta().Assumes, v.model, v.state.LegacyControllerConfig); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !arg.Force {
 			errs = append(errs, err)
 		}

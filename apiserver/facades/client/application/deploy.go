@@ -56,7 +56,7 @@ type DeployApplicationParams struct {
 
 type ApplicationDeployer interface {
 	AddApplication(state.AddApplicationArgs) (Application, error)
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 }
 
 type UnitAdder interface {
@@ -82,7 +82,7 @@ func DeployApplication(st ApplicationDeployer, model Model, args DeployApplicati
 	}
 
 	// Enforce "assumes" requirements.
-	if err := assertCharmAssumptions(args.Charm.Meta().Assumes, model, st.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(args.Charm.Meta().Assumes, model, st.LegacyControllerConfig); err != nil {
 		if !errors.IsNotSupported(err) || !args.Force {
 			return nil, errors.Trace(err)
 		}

@@ -133,7 +133,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerConfig, err := systemState.ControllerConfig()
+	controllerConfig, err := systemState.LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot fetch the controller config")
 	}

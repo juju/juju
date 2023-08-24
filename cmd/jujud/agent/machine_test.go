@@ -471,7 +471,7 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		network.NewSpaceHostPorts(1234, "localhost"),
 	}
 	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.SetAPIHostPorts(controllerConfig, updatedServers)

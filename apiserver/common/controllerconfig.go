@@ -47,7 +47,7 @@ func NewControllerConfigAPI(
 // ControllerConfig returns the controller's configuration.
 func (s *ControllerConfigAPI) ControllerConfig() (params.ControllerConfigResult, error) {
 	result := params.ControllerConfigResult{}
-	config, err := s.st.ControllerConfig()
+	config, err := s.st.LegacyControllerConfig()
 	if err != nil {
 		return result, err
 	}
@@ -137,7 +137,7 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 
 // StateControllerInfo returns the local controller details for the given State.
 func StateControllerInfo(st controllerInfoState) (addrs []string, caCert string, _ error) {
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}

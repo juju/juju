@@ -298,7 +298,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerConfig, err := systemState.ControllerConfig()
+	controllerConfig, err := systemState.LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}

@@ -57,7 +57,7 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
 	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.SetAPIHostPorts(controllerConfig, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)

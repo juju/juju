@@ -281,7 +281,7 @@ func (c *Client) FindTools(ctx stdcontext.Context, args params.FindToolsParams) 
 
 func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersions set.Strings, current version.Number) (params.FindToolsResult, error) {
 	result := params.FindToolsResult{}
-	controllerCfg, err := c.api.stateAccessor.ControllerConfig()
+	controllerCfg, err := c.api.stateAccessor.LegacyControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}

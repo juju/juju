@@ -113,5 +113,5 @@ func (st stateShim) Model() (Model, error) {
 
 // Model implements PersistentBackend.Model.
 func (st stateShim) ControllerConfig() (ControllerConfig, error) {
-	return st.State.ControllerConfig()
+	return st.State.LegacyControllerConfig()
 }

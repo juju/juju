@@ -777,7 +777,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	machines[3], err = s.State.Machine("3")
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
+	controllerConfig, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	for i, m := range machines {
 		err := m.SetProviderAddresses(
@@ -3083,7 +3083,7 @@ func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, w)
 	wc.AssertOneChange()
 
-	cfg, err := s.State.ControllerConfig()
+	cfg, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCfg := testing.FakeControllerConfig()
 	c.Assert(cfg, jc.DeepEquals, expectedCfg)
@@ -3095,7 +3095,7 @@ func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
 
 	wc.AssertOneChange()
 
-	cfg, err = s.State.ControllerConfig()
+	cfg, err = s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCfg["model-logs-size"] = "5M"
 	c.Assert(cfg, jc.DeepEquals, expectedCfg)
@@ -4606,7 +4606,7 @@ func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
+	cfg, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
@@ -4653,7 +4653,7 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
+	cfg, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	hostPorts := []network.SpaceHostPorts{{{
@@ -4696,7 +4696,7 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
+	cfg, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	hostPorts0 := network.SpaceHostPorts{{
@@ -4755,7 +4755,7 @@ func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 
 	s.SetJujuManagementSpace(c, "mgmt01")
 
-	cfg, err := s.State.ControllerConfig()
+	cfg, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
@@ -4800,7 +4800,7 @@ func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
+	cfg, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
@@ -4830,7 +4830,7 @@ func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
 }
 
 func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
+	cfg, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)

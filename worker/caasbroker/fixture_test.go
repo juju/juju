@@ -93,7 +93,7 @@ func (context *runContext) ModelConfig() (*config.Config, error) {
 func (context *runContext) ControllerConfig() (controller.Config, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
-	context.stub.AddCall("ControllerConfig")
+	context.stub.AddCall("LegacyControllerConfig")
 	if err := context.stub.NextErr(); err != nil {
 		return nil, err
 	}

@@ -261,7 +261,7 @@ func (m *mockState) ApplyOperation(op state.ModelOperation) error {
 }
 
 func (m *mockState) ControllerConfig() (controller.Config, error) {
-	m.MethodCall(m, "ControllerConfig")
+	m.MethodCall(m, "LegacyControllerConfig")
 
 	return jujutesting.FakeControllerConfig(), nil
 }

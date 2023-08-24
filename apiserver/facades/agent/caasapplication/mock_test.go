@@ -76,7 +76,7 @@ func (st *mockState) Unit(name string) (caasapplication.Unit, error) {
 }
 
 func (st *mockState) ControllerConfig() (jujucontroller.Config, error) {
-	st.MethodCall(st, "ControllerConfig")
+	st.MethodCall(st, "LegacyControllerConfig")
 	if err := st.NextErr(); err != nil {
 		return nil, err
 	}

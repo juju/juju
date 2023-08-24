@@ -37,8 +37,8 @@ type Backend interface {
 	AllBlocksForController() ([]state.Block, error)
 	RemoveAllBlocksForController() error
 	ModelExists(uuid string) (bool, error)
-	ControllerConfig() (jujucontroller.Config, error)
-	UpdateControllerConfig(updateAttrs map[string]interface{}, removeAttrs []string) error
+	LegacyControllerConfig() (jujucontroller.Config, error)
+	LegacyUpdateControllerConfig(updateAttrs map[string]interface{}, removeAttrs []string) error
 }
 
 type Application interface {

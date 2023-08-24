@@ -299,7 +299,7 @@ func (s *AgentSuite) SetControllerConfigAPIPort(c *gc.C, apiPort int) {
 	defer func() {
 		controller.AllowedUpdateConfigAttributes.Remove("api-port")
 	}()
-	err := s.ControllerModel(c).State().UpdateControllerConfig(map[string]interface{}{
+	err := s.ControllerModel(c).State().LegacyUpdateControllerConfig(map[string]interface{}{
 		"api-port": apiPort,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -318,7 +318,7 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 		{SpaceAddress: network.SpaceAddress{MachineAddress: mHP.MachineAddress}, NetPort: mHP.NetPort}}
 
 	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.SetAPIHostPorts(controllerConfig, []network.SpaceHostPorts{hostPorts})

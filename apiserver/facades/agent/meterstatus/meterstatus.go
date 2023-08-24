@@ -30,7 +30,7 @@ type MeterStatus interface {
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/meterstatus_mock.go github.com/juju/juju/apiserver/facades/agent/meterstatus MeterStatusState
 type MeterStatusState interface {
 	ApplyOperation(state.ModelOperation) error
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 
 	// Application returns a application state by name.
 	Application(name string) (*state.Application, error)
@@ -157,8 +157,8 @@ func (s unitStateShim) ApplyOperation(op state.ModelOperation) error {
 	return s.st.ApplyOperation(op)
 }
 
-func (s unitStateShim) ControllerConfig() (controller.Config, error) {
-	return s.st.ControllerConfig()
+func (s unitStateShim) LegacyControllerConfig() (controller.Config, error) {
+	return s.st.LegacyControllerConfig()
 }
 
 func (s unitStateShim) Unit(name string) (common.UnitStateUnit, error) {

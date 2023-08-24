@@ -29,7 +29,7 @@ func newStateCrossControllerAPI(ctx facade.Context) (*CrossControllerAPI, error)
 			return common.StateControllerInfo(st)
 		},
 		func() (string, error) {
-			config, err := st.ControllerConfig()
+			config, err := st.LegacyControllerConfig()
 			if err != nil {
 				return "", errors.Trace(err)
 			}

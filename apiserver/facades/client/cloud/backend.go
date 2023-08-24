@@ -34,7 +34,7 @@ type Backend interface {
 	CredentialModels(tag names.CloudCredentialTag) (map[string]string, error)
 	RemoveModelsCredential(tag names.CloudCredentialTag) error
 
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	ControllerInfo() (*state.ControllerInfo, error)
 	GetCloudAccess(cloud string, user names.UserTag) (permission.Access, error)
 	GetCloudUsers(cloud string) (map[string]permission.Access, error)

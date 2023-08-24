@@ -58,7 +58,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.mgmtSpace, err = st.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.UpdateControllerConfig(map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
+	err = st.LegacyUpdateControllerConfig(map[string]interface{}{controller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

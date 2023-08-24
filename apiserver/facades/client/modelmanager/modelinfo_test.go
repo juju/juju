@@ -800,7 +800,7 @@ func (st *mockState) IsController() bool {
 }
 
 func (st *mockState) ControllerConfig() (controller.Config, error) {
-	st.MethodCall(st, "ControllerConfig")
+	st.MethodCall(st, "LegacyControllerConfig")
 	if st.controllerCfg != nil {
 		return *st.controllerCfg, st.NextErr()
 	}

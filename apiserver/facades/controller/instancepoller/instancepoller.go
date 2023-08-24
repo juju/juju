@@ -190,7 +190,7 @@ func maybeUpdateMachineProviderAddresses(st StateInterface, m StateMachine, newS
 		return false, nil
 	}
 
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -316,7 +316,7 @@ func (a *InstancePollerAPI) SetProviderAddresses(ctx context.Context, args param
 		return result, err
 	}
 
-	controllerConfig, err := a.st.ControllerConfig()
+	controllerConfig, err := a.st.LegacyControllerConfig()
 	if err != nil {
 		return result, err
 	}

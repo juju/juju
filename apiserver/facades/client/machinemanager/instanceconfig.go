@@ -54,7 +54,7 @@ func InstanceConfig(ctrlSt ControllerBackend, st InstanceConfigBackend, machineI
 	if hc.Arch == nil {
 		return nil, fmt.Errorf("arch is not set for %q", machine.Tag())
 	}
-	controllerConfig, err := ctrlSt.ControllerConfig()
+	controllerConfig, err := ctrlSt.LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -289,7 +289,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.NotProvisionedf("charm %q pending", *charmURL)
 	}
 
-	cfg, err := a.ctrlSt.ControllerConfig()
+	cfg, err := a.ctrlSt.LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

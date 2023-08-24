@@ -67,7 +67,7 @@ type Backend interface {
 // ControllerBackend defines the controller state methods this facade needs,
 // so they can be mocked for testing.
 type ControllerBackend interface {
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
@@ -160,7 +160,7 @@ func (api *API) proxyConfig() params.ProxyConfigResult {
 		return result
 	}
 
-	controllerConfig, err := api.controller.ControllerConfig()
+	controllerConfig, err := api.controller.LegacyControllerConfig()
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result

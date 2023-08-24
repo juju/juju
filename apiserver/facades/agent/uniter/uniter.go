@@ -2505,7 +2505,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		return errors.Trace(err)
 	}
 
-	ctrlCfg, err := u.st.ControllerConfig()
+	ctrlCfg, err := u.st.LegacyControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2714,7 +2714,7 @@ func (u *UniterAPI) CanApplyLXDProfile(ctx context.Context, args params.Entities
 
 // APIHostPorts returns the API server addresses.
 func (u *UniterAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := u.st.ControllerConfig()
+	controllerConfig, err := u.st.LegacyControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -2724,7 +2724,7 @@ func (u *UniterAPI) APIHostPorts(ctx context.Context) (result params.APIHostPort
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (u *UniterAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := u.st.ControllerConfig()
+	controllerConfig, err := u.st.LegacyControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}

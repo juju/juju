@@ -25,7 +25,7 @@ func (s stateShim) WatchApplicationsWithPendingCharms() state.StringsWatcher {
 }
 
 func (s stateShim) ControllerConfig() (controller.Config, error) {
-	return s.st.ControllerConfig()
+	return s.st.LegacyControllerConfig()
 }
 
 func (s stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error) {

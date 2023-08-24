@@ -212,7 +212,7 @@ func (b *fakeMigrationBackend) ControllerModel() (*state.Model, error) {
 	return nil, nil
 }
 
-func (b *fakeMigrationBackend) ControllerConfig() (controller.Config, error) {
+func (b *fakeMigrationBackend) LegacyControllerConfig() (controller.Config, error) {
 	return nil, nil
 }
 

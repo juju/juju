@@ -39,19 +39,19 @@ func (m *MockControllerConfigGetter) EXPECT() *MockControllerConfigGetterMockRec
 	return m.recorder
 }
 
-// ControllerConfig mocks base method.
+// LegacyControllerConfig mocks base method.
 func (m *MockControllerConfigGetter) ControllerConfig(arg0 context.Context) (controller.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig", arg0)
+	ret := m.ctrl.Call(m, "LegacyControllerConfig", arg0)
 	ret0, _ := ret[0].(controller.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ControllerConfig indicates an expected call of ControllerConfig.
+// LegacyControllerConfig indicates an expected call of LegacyControllerConfig.
 func (mr *MockControllerConfigGetterMockRecorder) ControllerConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockControllerConfigGetter)(nil).ControllerConfig), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyControllerConfig", reflect.TypeOf((*MockControllerConfigGetter)(nil).ControllerConfig), arg0)
 }
 
 // MockUpgradeStepsState is a mock of UpgradeStepsState interface.

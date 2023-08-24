@@ -276,7 +276,7 @@ func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter
 }
 
 func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
-	controllerConfig, err := s.ControllerModel(c).State().ControllerConfig()
+	controllerConfig, err := s.ControllerModel(c).State().LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	addrs := network.NewSpaceAddresses("0.1.2.3")

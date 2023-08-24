@@ -53,7 +53,7 @@ type BackendState interface {
 
 type ControllerBackend interface {
 	ControllerTag() names.ControllerTag
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }
 

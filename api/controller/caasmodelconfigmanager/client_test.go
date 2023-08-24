@@ -28,7 +28,7 @@ func (s *caasmodelconfigmanagerSuite) TestControllerConfig(c *gc.C) {
 	client, err := newClient(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CAASModelConfigManager")
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ControllerConfig")
+		c.Check(request, gc.Equals, "LegacyControllerConfig")
 		c.Assert(arg, gc.IsNil)
 		c.Assert(result, gc.FitsTypeOf, &params.ControllerConfigResult{})
 		*(result.(*params.ControllerConfigResult)) = params.ControllerConfigResult{

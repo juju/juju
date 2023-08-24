@@ -105,7 +105,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 
 	// Retrieve the controller configuration and merge any implied space
 	// constraints into the spec constraints.
-	cfg, err := st.ControllerConfig()
+	cfg, err := st.LegacyControllerConfig()
 	if err != nil {
 		return params.ControllersChanges{}, errors.Annotate(err, "retrieving controller config")
 	}

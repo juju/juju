@@ -144,7 +144,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(m *state.Machine,
 		return result, errors.Annotate(err, "cannot get available image metadata")
 	}
 
-	if result.ControllerConfig, err = api.st.ControllerConfig(); err != nil {
+	if result.ControllerConfig, err = api.st.LegacyControllerConfig(); err != nil {
 		return result, errors.Annotate(err, "cannot get controller configuration")
 	}
 
@@ -185,7 +185,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	controllerCfg, err := api.st.ControllerConfig()
+	controllerCfg, err := api.st.LegacyControllerConfig()
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -280,7 +280,7 @@ func (api *ProvisionerAPI) machineTags(m *state.Machine, isController bool) (map
 		return nil, errors.Trace(err)
 	}
 
-	controllerCfg, err := api.st.ControllerConfig()
+	controllerCfg, err := api.st.LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

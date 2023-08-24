@@ -1452,7 +1452,7 @@ func (s *filteringBranchesSuite) assertBranchAssignApplication(c *gc.C, bName, a
 }
 
 func setGenerationsControllerConfig(c *gc.C, st *state.State) {
-	err := st.UpdateControllerConfig(map[string]interface{}{
+	err := st.LegacyUpdateControllerConfig(map[string]interface{}{
 		"features": feature.Branches,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)

@@ -140,7 +140,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	providerAddr := network.NewSpaceAddress("example.com")
 	providerAddr.SpaceID = space.Id()
 
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = m.SetProviderAddresses(controllerConfig, providerAddr)
@@ -3115,7 +3115,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		if flag&openPorts != 0 {
-			controllerConfig, err := st.ControllerConfig()
+			controllerConfig, err := st.LegacyControllerConfig()
 			c.Assert(err, jc.ErrorIsNil)
 
 			// Add a network to the machine and open a port.

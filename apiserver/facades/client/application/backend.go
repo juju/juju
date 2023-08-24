@@ -53,7 +53,7 @@ type Backend interface {
 	Unit(string) (Unit, error)
 	UnitsInError() ([]Unit, error)
 	ControllerTag() names.ControllerTag
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	Resources() Resources
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)

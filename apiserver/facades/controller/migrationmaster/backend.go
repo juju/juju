@@ -25,7 +25,7 @@ type Backend interface {
 	ModelOwner() (names.UserTag, error)
 	AgentVersion() (version.Number, error)
 	RemoveExportingModelDocs() error
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	AllLocalRelatedModels() ([]string, error)
 }
 

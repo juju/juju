@@ -81,8 +81,8 @@ func (ctlr *Controller) Ping() error {
 	return systemState.Ping()
 }
 
-// ControllerConfig returns the config values for the controller.
-func (st *State) ControllerConfig() (jujucontroller.Config, error) {
+// LegacyControllerConfig returns the config values for the controller. DEPRECATED.
+func (st *State) LegacyControllerConfig() (jujucontroller.Config, error) {
 	settings, err := readSettings(st.db(), controllersC, ControllerSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "controller %q", st.ControllerUUID())
@@ -90,12 +90,12 @@ func (st *State) ControllerConfig() (jujucontroller.Config, error) {
 	return settings.Map(), nil
 }
 
-// UpdateControllerConfig allows changing some of the configuration
+// LegacyUpdateControllerConfig allows changing some of the configuration
 // for the controller. Changes passed in updateAttrs will be applied
 // to the current config, and keys in removeAttrs will be unset (and
 // so revert to their defaults). Only a subset of keys can be changed
-// after bootstrapping.
-func (st *State) UpdateControllerConfig(updateAttrs map[string]interface{}, removeAttrs []string) error {
+// after bootstrapping. DEPRECATED.
+func (st *State) LegacyUpdateControllerConfig(updateAttrs map[string]interface{}, removeAttrs []string) error {
 	fields, _, err := jujucontroller.ConfigSchema.ValidationSchema()
 	if err != nil {
 		return errors.Trace(err)

@@ -249,7 +249,7 @@ type ToolsFinder interface {
 
 // ControllerConfigGetter defines a method for getting the controller config.
 type ControllerConfigGetter interface {
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 }
 
 type toolsFinder struct {
@@ -286,7 +286,7 @@ func (f *toolsFinder) FindAgents(args FindAgentsParams) (coretools.List, error) 
 		return nil, err
 	}
 
-	controllerConfig, err := f.controllerConfigGetter.ControllerConfig()
+	controllerConfig, err := f.controllerConfigGetter.LegacyControllerConfig()
 	if err != nil {
 		return nil, err
 	}

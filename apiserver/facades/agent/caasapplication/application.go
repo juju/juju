@@ -159,7 +159,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return errResp(err)
 	}
 
-	controllerConfig, err := f.ctrlSt.ControllerConfig()
+	controllerConfig, err := f.ctrlSt.LegacyControllerConfig()
 	if err != nil {
 		return errResp(err)
 	}

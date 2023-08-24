@@ -99,8 +99,8 @@ type Backing interface {
 	// ApplyOperation applies a given ModelOperation to the model.
 	ApplyOperation(state.ModelOperation) error
 
-	// ControllerConfig returns the controller config.
-	ControllerConfig() (controller.Config, error)
+	// LegacyControllerConfig returns the controller config.
+	LegacyControllerConfig() (controller.Config, error)
 
 	// AllConstraints returns all constraints in the model.
 	AllConstraints() ([]Constraints, error)

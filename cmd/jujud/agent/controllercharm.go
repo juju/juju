@@ -320,7 +320,7 @@ func addControllerApplication(
 	cfg := charm.Settings{
 		"is-juju": true,
 	}
-	controllerCfg, err := st.ControllerConfig()
+	controllerCfg, err := st.LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -59,7 +59,7 @@ func NewAPI(
 // a new model operator into a caas cluster.
 func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOperatorInfo, error) {
 	var result params.ModelOperatorInfo
-	controllerConf, err := a.ctrlState.ControllerConfig()
+	controllerConf, err := a.ctrlState.LegacyControllerConfig()
 	if err != nil {
 		return result, err
 	}
@@ -113,7 +113,7 @@ func (a *API) ModelUUID(ctx context.Context) params.StringResult {
 
 // APIHostPorts returns the API server addresses.
 func (u *API) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := u.ctrlState.ControllerConfig()
+	controllerConfig, err := u.ctrlState.LegacyControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -123,7 +123,7 @@ func (u *API) APIHostPorts(ctx context.Context) (result params.APIHostPortsResul
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (u *API) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := u.ctrlState.ControllerConfig()
+	controllerConfig, err := u.ctrlState.LegacyControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}

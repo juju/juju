@@ -24,6 +24,6 @@ type ModelBackend interface {
 	Unit(name string) (*state.Unit, error)
 	ModelTag() names.ModelTag
 	ModelConfig() (*config.Config, error)
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	SetModelMeterStatus(string, string) error
 }

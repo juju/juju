@@ -208,7 +208,7 @@ func (api *API) getSpaceControllerSettings(spaceName string) ([]string, error) {
 		return matches, nil
 	}
 
-	currentControllerConfig, err := api.backing.ControllerConfig()
+	currentControllerConfig, err := api.backing.LegacyControllerConfig()
 	if err != nil {
 		return matches, errors.Trace(err)
 	}

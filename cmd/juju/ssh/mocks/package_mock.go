@@ -318,7 +318,7 @@ func (m *MockSSHControllerAPI) EXPECT() *MockSSHControllerAPIMockRecorder {
 // ControllerConfig mocks base method.
 func (m *MockSSHControllerAPI) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret := m.ctrl.Call(m, "LegacyControllerConfig")
 	ret0, _ := ret[0].(controller.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -327,7 +327,7 @@ func (m *MockSSHControllerAPI) ControllerConfig() (controller.Config, error) {
 // ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockSSHControllerAPIMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockSSHControllerAPI)(nil).ControllerConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyControllerConfig", reflect.TypeOf((*MockSSHControllerAPI)(nil).ControllerConfig))
 }
 
 // MockStatusClientAPI is a mock of StatusClientAPI interface.

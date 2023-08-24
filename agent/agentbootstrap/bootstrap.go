@@ -529,7 +529,7 @@ func initControllerCloudService(
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
 func initAPIHostPorts(st *state.State, pAddrs corenetwork.ProviderAddresses, apiPort int) error {
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}

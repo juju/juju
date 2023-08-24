@@ -146,7 +146,7 @@ var allowedMethodsForUpgrade = map[string]set.Strings{
 	),
 	"Controller": set.NewStrings(
 		"ModelConfig",
-		"ControllerConfig",
+		"LegacyControllerConfig",
 		"ControllerVersion",
 		"CloudSpec",
 	),

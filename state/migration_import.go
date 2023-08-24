@@ -846,7 +846,7 @@ func (i *importer) makeAddresses(addrs []description.Address) []address {
 func (i *importer) applications() error {
 	i.logger.Debugf("importing applications")
 
-	ctrlCfg, err := i.st.ControllerConfig()
+	ctrlCfg, err := i.st.LegacyControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}

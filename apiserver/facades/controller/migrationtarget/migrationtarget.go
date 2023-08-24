@@ -365,7 +365,7 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 
 // CACert returns the certificate used to validate the state connection.
 func (api *API) CACert(ctx context.Context) (params.BytesResult, error) {
-	cfg, err := api.state.ControllerConfig()
+	cfg, err := api.state.LegacyControllerConfig()
 	if err != nil {
 		return params.BytesResult{}, errors.Trace(err)
 	}

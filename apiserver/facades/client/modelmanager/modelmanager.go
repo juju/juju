@@ -380,7 +380,7 @@ func (m *ModelManagerAPI) newCAASModel(
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create config")
 	}
-	controllerConfig, err := m.state.ControllerConfig()
+	controllerConfig, err := m.state.LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config")
 	}
@@ -447,7 +447,7 @@ func (m *ModelManagerAPI) newModel(
 		return nil, errors.Annotate(err, "failed to create config")
 	}
 
-	controllerCfg, err := m.state.ControllerConfig()
+	controllerCfg, err := m.state.LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

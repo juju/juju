@@ -48,7 +48,7 @@ type ModelManagerBackend interface {
 	ControllerModelUUID() string
 	ControllerModelTag() names.ModelTag
 	IsController() bool
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	ControllerNodes() ([]ControllerNode, error)
 	ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error)
 	UpdateModelConfigDefaultValues(update map[string]interface{}, remove []string, regionSpec *environscloudspec.CloudRegionSpec) error

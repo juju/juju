@@ -515,7 +515,7 @@ func (s *Suite) TestControllerConfig(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, args, result interface{}) error {
 		c.Check(objType, gc.Equals, "Controller")
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ControllerConfig")
+		c.Check(request, gc.Equals, "LegacyControllerConfig")
 		c.Check(args, gc.IsNil)
 		c.Check(result, gc.FitsTypeOf, &params.ControllerConfigResult{})
 		*(result.(*params.ControllerConfigResult)) = params.ControllerConfigResult{

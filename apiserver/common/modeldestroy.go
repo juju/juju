@@ -16,7 +16,7 @@ import (
 )
 
 var sendMetrics = func(st metricsender.ModelBackend) error {
-	ccfg, err := st.ControllerConfig()
+	ccfg, err := st.LegacyControllerConfig()
 	if err != nil {
 		return errors.Annotate(err, "failed to get controller config")
 	}

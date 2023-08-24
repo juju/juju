@@ -169,7 +169,7 @@ func (api *API) SourceControllerInfo(ctx context.Context) (params.MigrationSourc
 		return empty, errors.Annotate(err, "retrieving local related models")
 	}
 
-	cfg, err := api.backend.ControllerConfig()
+	cfg, err := api.backend.LegacyControllerConfig()
 	if err != nil {
 		return empty, errors.Annotate(err, "retrieving controller config")
 	}
@@ -373,7 +373,7 @@ func (api *API) MinionReports(ctx context.Context) (params.MinionReports, error)
 // indicates how long the migration master worker should wait for minions to
 // reported on phases of a migration.
 func (api *API) MinionReportTimeout(ctx context.Context) (params.StringResult, error) {
-	cfg, err := api.backend.ControllerConfig()
+	cfg, err := api.backend.LegacyControllerConfig()
 	if err != nil {
 		return params.StringResult{Error: apiservererrors.ServerError(err)}, nil
 	}

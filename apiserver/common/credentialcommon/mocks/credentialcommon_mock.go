@@ -195,7 +195,7 @@ func (mr *MockPersistentBackendMockRecorder) CloudCredential(arg0 interface{}) *
 // ControllerConfig mocks base method.
 func (m *MockPersistentBackend) ControllerConfig() (credentialcommon.ControllerConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret := m.ctrl.Call(m, "LegacyControllerConfig")
 	ret0, _ := ret[0].(credentialcommon.ControllerConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -204,7 +204,7 @@ func (m *MockPersistentBackend) ControllerConfig() (credentialcommon.ControllerC
 // ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockPersistentBackendMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockPersistentBackend)(nil).ControllerConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyControllerConfig", reflect.TypeOf((*MockPersistentBackend)(nil).ControllerConfig))
 }
 
 // Model mocks base method.

@@ -153,7 +153,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 	}
 	defer st.Release()
 
-	controllerCfg, err := st.ControllerConfig()
+	controllerCfg, err := st.LegacyControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}

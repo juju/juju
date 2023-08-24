@@ -329,7 +329,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 func (s *controllerSuite) TestControllerConfig(c *gc.C) {
 	cfg, err := s.controller.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	cfgFromDB, err := s.State.ControllerConfig()
+	cfgFromDB, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
 	c.Assert(cfg.Config["state-port"], gc.Equals, cfgFromDB.StatePort())
@@ -352,7 +352,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	cfgFromDB, err := s.State.ControllerConfig()
+	cfgFromDB, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["controller-uuid"], gc.Equals, cfgFromDB.ControllerUUID())
 	c.Assert(cfg.Config["state-port"], gc.Equals, cfgFromDB.StatePort())
@@ -958,7 +958,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 }
 
 func (s *controllerSuite) TestConfigSet(c *gc.C) {
-	config, err := s.State.ControllerConfig()
+	config, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	// Sanity check.
 	c.Assert(config.AuditingEnabled(), gc.Equals, false)
@@ -968,7 +968,7 @@ func (s *controllerSuite) TestConfigSet(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	config, err = s.State.ControllerConfig()
+	config, err = s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.AuditingEnabled(), gc.Equals, true)
 }

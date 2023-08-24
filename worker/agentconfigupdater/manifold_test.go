@@ -136,7 +136,7 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 					PrivateKey: "key",
 					APIPort:    1234,
 				}
-			case "ControllerConfig":
+			case "LegacyControllerConfig":
 				result := response.(*params.ControllerConfigResult)
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
@@ -185,7 +185,7 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissingFirstPass(c *gc.C) {
 					PrivateKey: "key",
 					APIPort:    1234,
 				}
-			case "ControllerConfig":
+			case "LegacyControllerConfig":
 				result := response.(*params.ControllerConfigResult)
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{
@@ -226,7 +226,7 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 					PrivateKey: "key",
 					APIPort:    mockAPIPort,
 				}
-			case "ControllerConfig":
+			case "LegacyControllerConfig":
 				result := response.(*params.ControllerConfigResult)
 				*result = params.ControllerConfigResult{
 					Config: map[string]interface{}{

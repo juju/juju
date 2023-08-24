@@ -1013,7 +1013,7 @@ type migrationBackend interface {
 // migrationBackend defines controller State functionality required by the
 // migration watchers.
 type controllerBackend interface {
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
@@ -1076,7 +1076,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving migration phase")
 	}
 
-	cfg, err := w.ctrlSt.ControllerConfig()
+	cfg, err := w.ctrlSt.LegacyControllerConfig()
 	if err != nil {
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving controller config")
 	}
@@ -1123,7 +1123,7 @@ func (w *srvMigrationStatusWatcher) getLocalHostPorts(cfg controller.Config) ([]
 // This is a shim to avoid the need to use a working State into the
 // unit tests. It is tested as part of the client side API tests.
 var getControllerCACert = func(st controllerBackend) (string, error) {
-	cfg, err := st.ControllerConfig()
+	cfg, err := st.LegacyControllerConfig()
 	if err != nil {
 		return "", errors.Trace(err)
 	}

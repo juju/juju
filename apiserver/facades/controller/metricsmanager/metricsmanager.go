@@ -79,7 +79,7 @@ func NewMetricsManagerAPI(
 		}, nil
 	}
 
-	config, err := st.ControllerConfig()
+	config, err := st.LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -92,7 +92,7 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 	c.Assert(results.Result.UnitName, gc.Equals, "gitlab/0")
 	c.Assert(results.Result.AgentConf, gc.NotNil)
 
-	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig", "APIHostPortsForAgents")
+	s.st.CheckCallNames(c, "Model", "Application", "LegacyControllerConfig", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit")
 
@@ -165,7 +165,7 @@ func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
 	c.Assert(results.Result.UnitName, gc.Equals, "gitlab/0")
 	c.Assert(results.Result.AgentConf, gc.NotNil)
 
-	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig", "APIHostPortsForAgents")
+	s.st.CheckCallNames(c, "Model", "Application", "LegacyControllerConfig", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit")
 
@@ -227,7 +227,7 @@ func (s *CAASApplicationSuite) TestFindByProviderID(c *gc.C) {
 	c.Assert(results.Result.UnitName, gc.Equals, "gitlab/0")
 	c.Assert(results.Result.AgentConf, gc.NotNil)
 
-	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig", "APIHostPortsForAgents")
+	s.st.CheckCallNames(c, "Model", "Application", "LegacyControllerConfig", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "Life", "Charm", "AllUnits", "UpdateUnits")
 	c.Assert(s.st.app.Calls()[3].Args[0], gc.DeepEquals, &state.UpdateUnitsOperation{

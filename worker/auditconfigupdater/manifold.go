@@ -121,7 +121,7 @@ func output(in worker.Worker, out interface{}) error {
 }
 
 func initialConfig(source ConfigSource) (auditlog.Config, error) {
-	cfg, err := source.ControllerConfig()
+	cfg, err := source.LegacyControllerConfig()
 	if err != nil {
 		return auditlog.Config{}, errors.Trace(err)
 	}

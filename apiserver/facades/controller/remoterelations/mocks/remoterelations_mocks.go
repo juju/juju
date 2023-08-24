@@ -561,7 +561,7 @@ func (mr *MockControllerConfigAPIMockRecorder) ControllerAPIInfoForModels(arg0, 
 // ControllerConfig mocks base method.
 func (m *MockControllerConfigAPI) ControllerConfig() (params.ControllerConfigResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret := m.ctrl.Call(m, "LegacyControllerConfig")
 	ret0, _ := ret[0].(params.ControllerConfigResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -570,7 +570,7 @@ func (m *MockControllerConfigAPI) ControllerConfig() (params.ControllerConfigRes
 // ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockControllerConfigAPIMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockControllerConfigAPI)(nil).ControllerConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyControllerConfig", reflect.TypeOf((*MockControllerConfigAPI)(nil).ControllerConfig))
 }
 
 // MockECService is a mock of ECService interface.

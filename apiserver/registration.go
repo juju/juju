@@ -200,7 +200,7 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	if !st.IsController() {
 		return nil, errors.New("state is not for a controller")
 	}
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

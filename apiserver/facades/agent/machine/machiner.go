@@ -85,7 +85,7 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 	if err != nil {
 		return results, err
 	}
-	controllerConfig, err := api.st.ControllerConfig()
+	controllerConfig, err := api.st.LegacyControllerConfig()
 	if err != nil {
 		return results, err
 	}
@@ -183,7 +183,7 @@ func (api *MachinerAPI) RecordAgentStartInformation(ctx context.Context, args pa
 
 // APIHostPorts returns the API server addresses.
 func (api *MachinerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := api.st.ControllerConfig()
+	controllerConfig, err := api.st.LegacyControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -193,7 +193,7 @@ func (api *MachinerAPI) APIHostPorts(ctx context.Context) (result params.APIHost
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (api *MachinerAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := api.st.ControllerConfig()
+	controllerConfig, err := api.st.LegacyControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}

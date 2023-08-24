@@ -102,7 +102,7 @@ func (mr *MockBackendMockRecorder) Application(arg0 interface{}) *gomock.Call {
 // ControllerConfig mocks base method.
 func (m *MockBackend) ControllerConfig() (controller0.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret := m.ctrl.Call(m, "LegacyControllerConfig")
 	ret0, _ := ret[0].(controller0.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -111,7 +111,7 @@ func (m *MockBackend) ControllerConfig() (controller0.Config, error) {
 // ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockBackendMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBackend)(nil).ControllerConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyControllerConfig", reflect.TypeOf((*MockBackend)(nil).ControllerConfig))
 }
 
 // ControllerInfo mocks base method.
@@ -291,7 +291,7 @@ func (mr *MockBackendMockRecorder) SetUserAccess(arg0, arg1, arg2 interface{}) *
 // UpdateControllerConfig mocks base method.
 func (m *MockBackend) UpdateControllerConfig(arg0 map[string]interface{}, arg1 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateControllerConfig", arg0, arg1)
+	ret := m.ctrl.Call(m, "LegacyUpdateControllerConfig", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -299,7 +299,7 @@ func (m *MockBackend) UpdateControllerConfig(arg0 map[string]interface{}, arg1 [
 // UpdateControllerConfig indicates an expected call of UpdateControllerConfig.
 func (mr *MockBackendMockRecorder) UpdateControllerConfig(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateControllerConfig", reflect.TypeOf((*MockBackend)(nil).UpdateControllerConfig), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyUpdateControllerConfig", reflect.TypeOf((*MockBackend)(nil).UpdateControllerConfig), arg0, arg1)
 }
 
 // UserAccess mocks base method.

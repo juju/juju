@@ -138,7 +138,7 @@ var readonlyMethods = set.NewStrings(
 	"Client.GetModelConstraints",
 	"Client.StatusHistory",
 	"Controller.AllModels",
-	"Controller.ControllerConfig",
+	"Controller.LegacyControllerConfig",
 	"Controller.GetControllerAccess",
 	"Controller.ModelConfig",
 	"Controller.ModelStatus",

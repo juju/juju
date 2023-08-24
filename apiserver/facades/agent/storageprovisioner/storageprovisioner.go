@@ -730,7 +730,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
-	controllerCfg, err := s.st.ControllerConfig()
+	controllerCfg, err := s.st.LegacyControllerConfig()
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
@@ -882,7 +882,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
-	controllerCfg, err := s.st.ControllerConfig()
+	controllerCfg, err := s.st.LegacyControllerConfig()
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}

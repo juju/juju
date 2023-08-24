@@ -329,7 +329,7 @@ func (mr *MockControllerAPIMockRecorder) CACert() *gomock.Call {
 // ControllerConfig mocks base method.
 func (m *MockControllerAPI) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret := m.ctrl.Call(m, "LegacyControllerConfig")
 	ret0, _ := ret[0].(controller.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -338,7 +338,7 @@ func (m *MockControllerAPI) ControllerConfig() (controller.Config, error) {
 // ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockControllerAPIMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockControllerAPI)(nil).ControllerConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyControllerConfig", reflect.TypeOf((*MockControllerAPI)(nil).ControllerConfig))
 }
 
 // ModelConfig mocks base method.

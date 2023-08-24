@@ -30,7 +30,7 @@ type Backend interface {
 	ModelType() state.ModelType
 	ControllerTag() names.ControllerTag
 	ModelConfig() (*config.Config, error)
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	StateServingInfo() (controller.StateServingInfo, error)
 	ControllerNodes() ([]state.ControllerNode, error)
 }

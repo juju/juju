@@ -53,7 +53,7 @@ func (mr *MockStateMockRecorder) AllKeysQuery() *gomock.Call {
 // ControllerConfig mocks base method.
 func (m *MockState) ControllerConfig(arg0 context.Context) (map[string]interface{}, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig", arg0)
+	ret := m.ctrl.Call(m, "LegacyControllerConfig", arg0)
 	ret0, _ := ret[0].(map[string]interface{})
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -62,13 +62,13 @@ func (m *MockState) ControllerConfig(arg0 context.Context) (map[string]interface
 // ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockStateMockRecorder) ControllerConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockState)(nil).ControllerConfig), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyControllerConfig", reflect.TypeOf((*MockState)(nil).ControllerConfig), arg0)
 }
 
 // UpdateControllerConfig mocks base method.
 func (m *MockState) UpdateControllerConfig(arg0 context.Context, arg1 map[string]interface{}, arg2 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateControllerConfig", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "LegacyUpdateControllerConfig", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -76,7 +76,7 @@ func (m *MockState) UpdateControllerConfig(arg0 context.Context, arg1 map[string
 // UpdateControllerConfig indicates an expected call of UpdateControllerConfig.
 func (mr *MockStateMockRecorder) UpdateControllerConfig(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateControllerConfig", reflect.TypeOf((*MockState)(nil).UpdateControllerConfig), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyUpdateControllerConfig", reflect.TypeOf((*MockState)(nil).UpdateControllerConfig), arg0, arg1, arg2)
 }
 
 // MockWatcherFactory is a mock of WatcherFactory interface.

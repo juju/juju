@@ -458,7 +458,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
 
-	config, err := st.ControllerConfig()
+	config, err := st.LegacyControllerConfig()
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "unable to get controller config")
 	}

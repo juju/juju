@@ -40,7 +40,7 @@ func (m *MockControllerServiceFactory) EXPECT() *MockControllerServiceFactoryMoc
 // ControllerConfig mocks base method.
 func (m *MockControllerServiceFactory) ControllerConfig() *service.Service {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret := m.ctrl.Call(m, "LegacyControllerConfig")
 	ret0, _ := ret[0].(*service.Service)
 	return ret0
 }
@@ -48,7 +48,7 @@ func (m *MockControllerServiceFactory) ControllerConfig() *service.Service {
 // ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockControllerServiceFactoryMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockControllerServiceFactory)(nil).ControllerConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyControllerConfig", reflect.TypeOf((*MockControllerServiceFactory)(nil).ControllerConfig))
 }
 
 // ControllerNode mocks base method.
@@ -156,7 +156,7 @@ func (m *MockServiceFactory) EXPECT() *MockServiceFactoryMockRecorder {
 // ControllerConfig mocks base method.
 func (m *MockServiceFactory) ControllerConfig() *service.Service {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret := m.ctrl.Call(m, "LegacyControllerConfig")
 	ret0, _ := ret[0].(*service.Service)
 	return ret0
 }
@@ -164,7 +164,7 @@ func (m *MockServiceFactory) ControllerConfig() *service.Service {
 // ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockServiceFactoryMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockServiceFactory)(nil).ControllerConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyControllerConfig", reflect.TypeOf((*MockServiceFactory)(nil).ControllerConfig))
 }
 
 // ControllerNode mocks base method.

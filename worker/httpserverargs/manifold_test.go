@@ -225,6 +225,6 @@ type stubServiceFactory struct {
 }
 
 func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {
-	s.MethodCall(s, "ControllerConfig")
+	s.MethodCall(s, "LegacyControllerConfig")
 	return nil
 }

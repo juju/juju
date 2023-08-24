@@ -64,7 +64,7 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	s.mgmtSpace, err = s.ControllerModel(c).State().AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.ControllerModel(c).State().UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
+	err = s.ControllerModel(c).State().LegacyUpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -222,7 +222,7 @@ func (s *loginSuite) setupManagementSpace(c *gc.C) *state.Space {
 	mgmtSpace, err := s.ControllerModel(c).State().AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.ControllerModel(c).State().UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
+	err = s.ControllerModel(c).State().LegacyUpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return mgmtSpace
 }
@@ -272,7 +272,7 @@ func (s *loginSuite) loginHostPorts(
 func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *state.Space) {
 	st := s.ControllerModel(c).State()
 
-	cfg, err := st.ControllerConfig()
+	cfg, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.SetAPIHostPorts(cfg, nil)
@@ -340,7 +340,7 @@ func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 	}
 
 	st := s.ControllerModel(c).State()
-	cfg, err := st.ControllerConfig()
+	cfg, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	newAPIHostPorts := []network.SpaceHostPorts{

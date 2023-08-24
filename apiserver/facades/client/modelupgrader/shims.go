@@ -32,7 +32,7 @@ type State interface {
 	MongoCurrentStatus() (*replicaset.Status, error)
 	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error
 	AbortCurrentUpgrade() error
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	AllCharmURLs() ([]*string, error)
 }
 

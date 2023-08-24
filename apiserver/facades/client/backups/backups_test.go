@@ -66,7 +66,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 
 	st := s.ControllerModel(c).State()
 	agentConfig := s.agentConfigForTag(c, s.machineTag)
-	cfg, err := st.ControllerConfig()
+	cfg, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	agentConfig.SetStateServingInfo(controller.StateServingInfo{
 		PrivateKey:   coretesting.ServerKey,

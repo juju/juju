@@ -65,7 +65,7 @@ func (st *mockState) ModelConfig() (*config.Config, error) {
 }
 
 func (st *mockState) ControllerConfig() (controller.Config, error) {
-	return nil, errors.NotImplementedf("ControllerConfig")
+	return nil, errors.NotImplementedf("LegacyControllerConfig")
 }
 
 func (st *mockState) ControllerInfo(modelUUID string) ([]string, string, error) {

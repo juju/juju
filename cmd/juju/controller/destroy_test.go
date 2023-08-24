@@ -89,7 +89,7 @@ func (f *fakeDestroyAPI) ModelConfig() (map[string]interface{}, error) {
 }
 
 func (f *fakeDestroyAPI) ControllerConfig() (jujucontroller.Config, error) {
-	f.MethodCall(f, "ControllerConfig")
+	f.MethodCall(f, "LegacyControllerConfig")
 	if err := f.NextErr(); err != nil {
 		return nil, err
 	}

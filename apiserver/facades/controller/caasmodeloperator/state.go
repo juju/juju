@@ -24,7 +24,7 @@ type CAASModelOperatorState interface {
 // model operator provisioner.
 type CAASControllerState interface {
 	common.APIAddressAccessor
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 }
 
 type Model interface {

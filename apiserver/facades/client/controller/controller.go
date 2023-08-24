@@ -41,7 +41,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// ControllerCOnfiger is the interface that wraps the ControllerConfig method.
+// ControllerConfiger is the interface that wraps the ControllerConfig method.
 type ControllerConfiger interface {
 	ControllerConfig(context.Context) (corecontroller.Config, error)
 	UpdateControllerConfig(context.Context, corecontroller.Config, []string) error
@@ -736,7 +736,7 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 		return errors.Trace(err)
 	}
 	// Write Controller Config to Mongo.
-	if err := c.state.UpdateControllerConfig(args.Config, nil); err != nil {
+	if err := c.state.LegacyUpdateControllerConfig(args.Config, nil); err != nil {
 		return errors.Trace(err)
 	}
 	// Write Controller Config to DQLite.

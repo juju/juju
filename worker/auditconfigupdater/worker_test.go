@@ -224,7 +224,7 @@ func (s *configSource) WatchControllerConfig() state.NotifyWatcher {
 func (s *configSource) ControllerConfig() (controller.Config, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.stub.AddCall("ControllerConfig")
+	s.stub.AddCall("LegacyControllerConfig")
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}

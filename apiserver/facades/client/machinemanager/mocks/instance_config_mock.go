@@ -56,7 +56,7 @@ func (mr *MockControllerBackendMockRecorder) APIHostPortsForAgents(arg0 interfac
 // ControllerConfig mocks base method.
 func (m *MockControllerBackend) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret := m.ctrl.Call(m, "LegacyControllerConfig")
 	ret0, _ := ret[0].(controller.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -65,7 +65,7 @@ func (m *MockControllerBackend) ControllerConfig() (controller.Config, error) {
 // ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockControllerBackendMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockControllerBackend)(nil).ControllerConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyControllerConfig", reflect.TypeOf((*MockControllerBackend)(nil).ControllerConfig))
 }
 
 // ControllerTag mocks base method.

@@ -27,8 +27,8 @@ type RenameSpace interface {
 // RenameSpaceState describes state operations required
 // to execute the renameSpace operation.
 type RenameSpaceState interface {
-	// ControllerConfig returns current ControllerConfig.
-	ControllerConfig() (controller.Config, error)
+	// LegacyControllerConfig returns current ControllerConfig.
+	LegacyControllerConfig() (controller.Config, error)
 
 	// ConstraintsBySpaceName returns all the constraints
 	// that refer to the input space name.
@@ -116,7 +116,7 @@ func (o *spaceRenameModelOp) Build(attempt int) ([]txn.Op, error) {
 
 // getSettingsChanges get's skipped and returns nil if we are not in the controllerModel
 func (o *spaceRenameModelOp) getSettingsChanges(fromSpaceName, toName string) (settings.ItemChanges, error) {
-	currentControllerConfig, err := o.st.ControllerConfig()
+	currentControllerConfig, err := o.st.LegacyControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

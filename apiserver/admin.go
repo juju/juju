@@ -111,7 +111,7 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 		return fail, errors.Trace(err)
 	}
 
-	controllerConfig, err := ctrlSt.ControllerConfig()
+	controllerConfig, err := ctrlSt.LegacyControllerConfig()
 	if err != nil {
 		return fail, errors.Trace(err)
 	}

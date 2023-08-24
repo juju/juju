@@ -133,7 +133,7 @@ func (s *TrackerSuite) TestInitialise(c *gc.C) {
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create caas broker: cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
-		runContext.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig")
+		runContext.CheckCallNames(c, "CloudSpec", "ModelConfig", "LegacyControllerConfig")
 	})
 }
 
@@ -168,7 +168,7 @@ func (s *TrackerSuite) TestModelConfigInvalid(c *gc.C) {
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create caas broker: config not valid`)
 		c.Check(tracker, gc.IsNil)
-		runContext.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig")
+		runContext.CheckCallNames(c, "CloudSpec", "ModelConfig", "LegacyControllerConfig")
 	})
 }
 
@@ -211,7 +211,7 @@ func (s *TrackerSuite) TestCloudSpecInvalid(c *gc.C) {
 		})
 		c.Check(err, gc.ErrorMatches, `cannot create caas broker: cloud spec not valid`)
 		c.Check(tracker, gc.IsNil)
-		runContext.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig")
+		runContext.CheckCallNames(c, "CloudSpec", "ModelConfig", "LegacyControllerConfig")
 	})
 }
 
@@ -232,7 +232,7 @@ func (s *TrackerSuite) TestWatchFails(c *gc.C) {
 
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cannot watch model config: grrk splat")
-		context.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig", "WatchForModelConfigChanges")
+		context.CheckCallNames(c, "CloudSpec", "ModelConfig", "LegacyControllerConfig", "WatchForModelConfigChanges")
 	})
 }
 
@@ -250,7 +250,7 @@ func (s *TrackerSuite) TestModelConfigWatchCloses(c *gc.C) {
 		context.CloseModelConfigNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "model config watch closed")
-		context.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
+		context.CheckCallNames(c, "CloudSpec", "ModelConfig", "LegacyControllerConfig", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
 	})
 }
 
@@ -268,7 +268,7 @@ func (s *TrackerSuite) TestCloudSpecWatchCloses(c *gc.C) {
 		context.CloseCloudSpecNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cloud watch closed")
-		context.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
+		context.CheckCallNames(c, "CloudSpec", "ModelConfig", "LegacyControllerConfig", "WatchForModelConfigChanges", "WatchCloudSpecChanges")
 	})
 }
 
@@ -312,7 +312,7 @@ func (s *TrackerSuite) TestWatchedModelConfigIncompatible(c *gc.C) {
 		runContext.SendModelConfigNotify()
 		err = workertest.CheckKilled(c, tracker)
 		c.Check(err, gc.ErrorMatches, "cannot update model config: SetConfig is broken")
-		runContext.CheckCallNames(c, "CloudSpec", "ModelConfig", "ControllerConfig", "WatchForModelConfigChanges", "WatchCloudSpecChanges", "ModelConfig")
+		runContext.CheckCallNames(c, "CloudSpec", "ModelConfig", "LegacyControllerConfig", "WatchForModelConfigChanges", "WatchCloudSpecChanges", "ModelConfig")
 	})
 }
 

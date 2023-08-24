@@ -276,7 +276,7 @@ func (st *fakeState) ControllerConfig() (controller.Config, error) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 
-	if err := st.errors.errorFor("State.ControllerConfig"); err != nil {
+	if err := st.errors.errorFor("State.LegacyControllerConfig"); err != nil {
 		return nil, err
 	}
 	return deepCopy(st.controllerConfig.Get()).(controller.Config), nil

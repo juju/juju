@@ -86,7 +86,7 @@ func (s *clientSuite) setMachineAddresses(c *gc.C, machineId string) {
 	st := s.ControllerModel(c).State()
 	m, err := st.Machine(machineId)
 	c.Assert(err, jc.ErrorIsNil)
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	err = m.SetMachineAddresses(
 		controllerConfig,
@@ -136,7 +136,7 @@ func (s *clientSuite) TestEnableHAErrorForMultiCloudLocal(c *gc.C) {
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Base().DisplayString(), gc.Equals, "ubuntu@12.10")
 
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machines[0].SetMachineAddresses(
 		controllerConfig,
@@ -157,7 +157,7 @@ func (s *clientSuite) TestEnableHAErrorForNoCloudLocal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Base().DisplayString(), gc.Equals, "ubuntu@12.10")
 
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	// remove the extra provider addresses, so we have no valid CloudLocal addresses
@@ -201,7 +201,7 @@ func (s *clientSuite) TestEnableHAAddMachinesErrorForMultiCloudLocal(c *gc.C) {
 
 	s.setMachineAddresses(c, "1")
 
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, err := st.Machine("2")
@@ -379,7 +379,7 @@ func (s *clientSuite) TestEnableHAPlacementToWithAddressInSpace(c *gc.C) {
 	_, err = controllerSettings.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	m1, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)

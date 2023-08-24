@@ -20,7 +20,7 @@ import (
 // implementation is State.)
 type ConfigSource interface {
 	WatchControllerConfig() state.NotifyWatcher
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 }
 
 // AuditLogFactory is a function that will return an audit log given
@@ -85,7 +85,7 @@ func (u *updater) loop() error {
 }
 
 func (u *updater) newConfig() (auditlog.Config, error) {
-	cfg, err := u.source.ControllerConfig()
+	cfg, err := u.source.LegacyControllerConfig()
 	if err != nil {
 		return auditlog.Config{}, errors.Trace(err)
 	}

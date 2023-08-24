@@ -94,7 +94,7 @@ func (s *ControllerSuite) TestNewState(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestControllerConfig(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
+	cfg, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["controller-uuid"], gc.Equals, s.State.ControllerUUID())
 }
@@ -106,14 +106,14 @@ func (s *ControllerSuite) TestPing(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
+	cfg, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	// Sanity check.
 	c.Check(cfg.AuditingEnabled(), gc.Equals, false)
 	c.Check(cfg.AuditLogCaptureArgs(), gc.Equals, true)
 	c.Assert(cfg.PublicDNSAddress(), gc.Equals, "")
 
-	err = s.State.UpdateControllerConfig(map[string]interface{}{
+	err = s.State.LegacyUpdateControllerConfig(map[string]interface{}{
 		controller.AuditingEnabled:     true,
 		controller.AuditLogCaptureArgs: false,
 		controller.AuditLogMaxBackups:  "10",
@@ -122,7 +122,7 @@ func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	newCfg, err := s.State.ControllerConfig()
+	newCfg, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(newCfg.AuditingEnabled(), gc.Equals, true)
@@ -133,18 +133,18 @@ func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigRemoveYieldsDefaults(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
+	err := s.State.LegacyUpdateControllerConfig(map[string]interface{}{
 		controller.AuditingEnabled:     true,
 		controller.AuditLogCaptureArgs: true,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.State.UpdateControllerConfig(nil, []string{
+	err = s.State.LegacyUpdateControllerConfig(nil, []string{
 		controller.AuditLogCaptureArgs,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	newCfg, err := s.State.ControllerConfig()
+	newCfg, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(newCfg.AuditLogCaptureArgs(), gc.Equals, false)
@@ -154,38 +154,38 @@ func (s *ControllerSuite) TestUpdateControllerConfigRejectsDisallowedUpdates(c *
 	// Sanity check.
 	c.Assert(controller.AllowedUpdateConfigAttributes.Contains(controller.APIPort), jc.IsFalse)
 
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
+	err := s.State.LegacyUpdateControllerConfig(map[string]interface{}{
 		controller.APIPort: 1234,
 	}, nil)
 	c.Assert(err, gc.ErrorMatches, `can't change "api-port" after bootstrap`)
 
-	err = s.State.UpdateControllerConfig(nil, []string{controller.APIPort})
+	err = s.State.LegacyUpdateControllerConfig(nil, []string{controller.APIPort})
 	c.Assert(err, gc.ErrorMatches, `can't change "api-port" after bootstrap`)
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigChecksSchema(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
+	err := s.State.LegacyUpdateControllerConfig(map[string]interface{}{
 		controller.AuditLogExcludeMethods: []int{1, 2, 3},
 	}, nil)
 	c.Assert(err, gc.ErrorMatches, `audit-log-exclude-methods: expected string, got .*`)
 }
 
 func (s *ControllerSuite) TestUpdateControllerConfigValidates(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
+	err := s.State.LegacyUpdateControllerConfig(map[string]interface{}{
 		controller.AuditLogExcludeMethods: "thing",
 	}, nil)
 	c.Assert(err, gc.ErrorMatches, `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "thing" at position 1`)
 }
 
 func (s *ControllerSuite) TestUpdatingUnknownName(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
+	err := s.State.LegacyUpdateControllerConfig(map[string]interface{}{
 		"ana-ng": "majestic",
 	}, nil)
 	c.Assert(err, gc.ErrorMatches, `unknown controller config setting "ana-ng"`)
 }
 
 func (s *ControllerSuite) TestRemovingUnknownName(c *gc.C) {
-	err := s.State.UpdateControllerConfig(nil, []string{"dr-worm"})
+	err := s.State.LegacyUpdateControllerConfig(nil, []string{"dr-worm"})
 	c.Assert(err, gc.ErrorMatches, `unknown controller config setting "dr-worm"`)
 }
 
@@ -196,11 +196,11 @@ func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses
 	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
+	controllerConfig, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("192.168.9.9")), jc.ErrorIsNil)
 
-	err = s.State.UpdateControllerConfig(map[string]interface{}{
+	err = s.State.LegacyUpdateControllerConfig(map[string]interface{}{
 		controller.JujuManagementSpace: "mgmt-space",
 	}, nil)
 	c.Assert(err, gc.ErrorMatches,
@@ -217,12 +217,12 @@ func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c 
 	addr := network.NewSpaceAddress("192.168.9.9")
 	addr.SpaceID = sp.Id()
 
-	controllerConfig, err := s.State.ControllerConfig()
+	controllerConfig, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(m.SetProviderAddresses(controllerConfig, addr), jc.ErrorIsNil)
 
-	err = s.State.UpdateControllerConfig(map[string]interface{}{
+	err = s.State.LegacyUpdateControllerConfig(map[string]interface{}{
 		controller.JujuManagementSpace: "mgmt-space",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -254,7 +254,7 @@ func (s *ControllerSuite) TestSetMachineAddressesControllerCharm(c *gc.C) {
 		Machine:     controller,
 	})
 
-	controllerConfig, err := s.State.ControllerConfig()
+	controllerConfig, err := s.State.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	addresses := network.NewSpaceAddresses("10.0.0.1")

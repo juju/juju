@@ -33,7 +33,7 @@ var logger = loggo.GetLogger("juju.worker.peergrouper")
 
 type State interface {
 	RemoveControllerReference(m ControllerNode) error
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	ControllerIds() ([]string, error)
 	ControllerNode(id string) (ControllerNode, error)
 	ControllerHost(id string) (ControllerHost, error)
@@ -333,7 +333,7 @@ func (w *pgWorker) loop() error {
 		}
 
 		var failed bool
-		cfg, err := w.config.State.ControllerConfig()
+		cfg, err := w.config.State.LegacyControllerConfig()
 		if err != nil {
 			logger.Errorf("cannot read controller config: %v", err)
 			failed = true
@@ -785,7 +785,7 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 // getHASpaceFromConfig returns a space based on the controller's
 // configuration for the HA space.
 func (w *pgWorker) getHASpaceFromConfig() (network.SpaceInfo, error) {
-	config, err := w.config.State.ControllerConfig()
+	config, err := w.config.State.LegacyControllerConfig()
 	if err != nil {
 		return network.SpaceInfo{}, errors.Trace(err)
 	}

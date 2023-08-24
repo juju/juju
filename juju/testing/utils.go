@@ -127,7 +127,7 @@ func (p lxdCharmProfiler) LXDProfile() lxdprofile.LXDProfile {
 func AddControllerMachine(c *gc.C, st *state.State) *state.Machine {
 	machine, err := st.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := st.LegacyControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("0.1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)

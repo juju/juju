@@ -23,7 +23,7 @@ import (
 type UnitStateBackend interface {
 	ApplyOperation(state.ModelOperation) error
 	Unit(string) (UnitStateUnit, error)
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 }
 
 // UnitStateUnit describes unit-receiver state methods required
@@ -47,8 +47,8 @@ func (s UnitStateState) Unit(name string) (UnitStateUnit, error) {
 	return s.St.Unit(name)
 }
 
-func (s UnitStateState) ControllerConfig() (controller.Config, error) {
-	return s.St.ControllerConfig()
+func (s UnitStateState) LegacyControllerConfig() (controller.Config, error) {
+	return s.St.LegacyControllerConfig()
 }
 
 type UnitStateAPI struct {
@@ -140,7 +140,7 @@ func (u *UnitStateAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResul
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	ctrlCfg, err := u.backend.ControllerConfig()
+	ctrlCfg, err := u.backend.LegacyControllerConfig()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

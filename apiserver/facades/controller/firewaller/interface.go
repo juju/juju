@@ -53,7 +53,7 @@ type stateShim struct {
 }
 
 func (st stateShim) ControllerConfig() (controller.Config, error) {
-	return st.st.ControllerConfig()
+	return st.st.LegacyControllerConfig()
 }
 
 func (st stateShim) IsController() bool {

@@ -263,7 +263,7 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 	controllerCfgSource := params.ControllerConfigResult{
 		Config: map[string]interface{}{"controller-uuid": s.controllerUUID.String()},
 	}
-	fExp.APICall("Provisioner", 0, "", "ControllerConfig", nil, gomock.Any()).SetArg(5, controllerCfgSource).Return(nil).AnyTimes()
+	fExp.APICall("Provisioner", 0, "", "LegacyControllerConfig", nil, gomock.Any()).SetArg(5, controllerCfgSource).Return(nil).AnyTimes()
 }
 
 // notify returns a suite behaviour that will cause the container watcher

@@ -176,7 +176,7 @@ func (mr *MockDeployFromRepositoryStateMockRecorder) Charm(arg0 interface{}) *go
 // ControllerConfig mocks base method.
 func (m *MockDeployFromRepositoryState) ControllerConfig() (controller.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret := m.ctrl.Call(m, "LegacyControllerConfig")
 	ret0, _ := ret[0].(controller.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -185,7 +185,7 @@ func (m *MockDeployFromRepositoryState) ControllerConfig() (controller.Config, e
 // ControllerConfig indicates an expected call of ControllerConfig.
 func (mr *MockDeployFromRepositoryStateMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).ControllerConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LegacyControllerConfig", reflect.TypeOf((*MockDeployFromRepositoryState)(nil).ControllerConfig))
 }
 
 // DefaultEndpointBindingSpace mocks base method.

@@ -1300,7 +1300,7 @@ func (api *ProvisionerAPI) SetHostMachineNetworkConfig(ctx stdcontext.Context, a
 
 // CACert returns the certificate used to validate the state connection.
 func (api *ProvisionerAPI) CACert() (params.BytesResult, error) {
-	cfg, err := api.st.ControllerConfig()
+	cfg, err := api.st.LegacyControllerConfig()
 	if err != nil {
 		return params.BytesResult{}, errors.Trace(err)
 	}
@@ -1341,7 +1341,7 @@ func (api *ProvisionerAPI) ModelUUID(ctx stdcontext.Context) params.StringResult
 
 // APIHostPorts returns the API server addresses.
 func (api *ProvisionerAPI) APIHostPorts(ctx stdcontext.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := api.st.ControllerConfig()
+	controllerConfig, err := api.st.LegacyControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -1351,7 +1351,7 @@ func (api *ProvisionerAPI) APIHostPorts(ctx stdcontext.Context) (result params.A
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (api *ProvisionerAPI) APIAddresses(ctx stdcontext.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := api.st.ControllerConfig()
+	controllerConfig, err := api.st.LegacyControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}

@@ -23,7 +23,7 @@ type Backend interface {
 	state.EntityFinder
 	state.ModelAccessor
 
-	ControllerConfig() (controller.Config, error)
+	LegacyControllerConfig() (controller.Config, error)
 	MachineInstanceId(names.MachineTag) (instance.Id, error)
 	ModelTag() names.ModelTag
 	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
