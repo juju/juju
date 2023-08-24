@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	reboot "github.com/juju/juju/cmd/jujud/reboot"
-	container "github.com/juju/juju/container"
+	container "github.com/juju/juju/internal/container"
 	instance "github.com/juju/juju/core/instance"
 	instances "github.com/juju/juju/environs/instances"
 	params "github.com/juju/juju/rpc/params"

@@ -18,8 +18,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/container"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/testing"
 )
 

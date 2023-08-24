@@ -9,7 +9,7 @@ import (
 
 	lxd "github.com/canonical/lxd/client"
 	api "github.com/canonical/lxd/shared/api"
-	lxd0 "github.com/juju/juju/container/lxd"
+	lxd0 "github.com/juju/juju/internal/container/lxd"
 	base "github.com/juju/juju/core/base"
 	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"

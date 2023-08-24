@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/container"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/container"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.containerinit")

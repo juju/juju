@@ -19,10 +19,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
-	containerLXD "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	envtesting "github.com/juju/juju/environs/testing"
+	containerLXD "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider/lxd"
 	coretesting "github.com/juju/juju/testing"

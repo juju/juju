@@ -7,12 +7,12 @@ import (
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/container/lxd"
 )
 
 type environInstance struct {

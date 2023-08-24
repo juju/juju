@@ -10,8 +10,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/containerbroker/mocks"
 )

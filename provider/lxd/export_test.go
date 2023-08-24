@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/clock"
 
-	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/container/lxd"
 )
 
 var (

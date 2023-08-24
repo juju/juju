@@ -7,12 +7,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/provider/common"
 )
 

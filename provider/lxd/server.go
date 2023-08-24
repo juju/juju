@@ -23,12 +23,12 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/container/lxd"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/utils/proxy"
 )
 

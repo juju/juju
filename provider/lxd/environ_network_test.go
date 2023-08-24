@@ -10,12 +10,12 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	jujulxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
+	jujulxd "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/provider/lxd"
 )
 

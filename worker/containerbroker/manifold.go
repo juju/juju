@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/container/broker"
 )
 
 // ManifoldConfig describes the resources used by a Tracker.
