@@ -10,9 +10,9 @@ import (
 
 	charmresource "github.com/juju/charm/v11/resource"
 
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/state"
 )
 

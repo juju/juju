@@ -11,8 +11,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmhub/transport"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/state"
 )
 

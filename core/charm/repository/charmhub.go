@@ -14,10 +14,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/charmhub/transport"
 )
 
 // CharmHubClient describes the API exposed by the charmhub client.

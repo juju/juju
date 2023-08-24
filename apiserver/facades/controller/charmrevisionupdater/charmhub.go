@@ -13,9 +13,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
 	"github.com/juju/juju/core/charm/metrics"
+	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/charmhub/transport"
 )
 
 // charmhubID holds identifying information for several charms for a

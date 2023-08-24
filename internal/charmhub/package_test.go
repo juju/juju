@@ -12,10 +12,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmhub/path"
+	"github.com/juju/juju/internal/charmhub/path"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package charmhub -destination client_mock_test.go github.com/juju/juju/charmhub HTTPClient,RESTClient,FileSystem,Logger
+//go:generate go run go.uber.org/mock/mockgen -package charmhub -destination client_mock_test.go github.com/juju/juju/internal/charmhub HTTPClient,RESTClient,FileSystem,Logger
 
 func Test(t *testing.T) {
 	gc.TestingT(t)

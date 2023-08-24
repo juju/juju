@@ -13,7 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/mocks"
 	"github.com/juju/juju/state"

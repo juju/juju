@@ -18,8 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
@@ -27,6 +25,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
+	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )

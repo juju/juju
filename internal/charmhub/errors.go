@@ -6,7 +6,7 @@ package charmhub
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/internal/charmhub/transport"
 )
 
 // Handle some of the basic error messages.

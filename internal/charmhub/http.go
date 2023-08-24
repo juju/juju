@@ -20,8 +20,8 @@ import (
 	"github.com/juju/retry"
 	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/charmhub/path"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/version"
 )
 

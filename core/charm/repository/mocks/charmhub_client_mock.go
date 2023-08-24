@@ -10,8 +10,8 @@ import (
 	reflect "reflect"
 
 	charm "github.com/juju/charm/v11"
-	charmhub "github.com/juju/juju/charmhub"
-	transport "github.com/juju/juju/charmhub/transport"
+	charmhub "github.com/juju/juju/internal/charmhub"
+	transport "github.com/juju/juju/internal/charmhub/transport"
 	gomock "go.uber.org/mock/gomock"
 )
 

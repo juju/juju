@@ -28,10 +28,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	charmhubpath "github.com/juju/juju/charmhub/path"
-	"github.com/juju/juju/charmhub/transport"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
+	charmhubpath "github.com/juju/juju/internal/charmhub/path"
+	"github.com/juju/juju/internal/charmhub/transport"
 )
 
 const (

@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
-	"github.com/juju/juju/charmhub"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/state"
 )
 

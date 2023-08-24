@@ -19,11 +19,11 @@ import (
 	"github.com/kr/pretty"
 	"golang.org/x/crypto/pbkdf2"
 
-	"github.com/juju/juju/charmhub/path"
-	"github.com/juju/juju/charmhub/transport"
 	corebase "github.com/juju/juju/core/base"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charmhub/path"
+	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/version"
 )
 

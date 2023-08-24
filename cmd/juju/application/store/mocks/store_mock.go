@@ -12,7 +12,7 @@ import (
 	charm "github.com/juju/charm/v11"
 	charms "github.com/juju/juju/api/client/charms"
 	charm0 "github.com/juju/juju/api/common/charm"
-	charmhub "github.com/juju/juju/charmhub"
+	charmhub "github.com/juju/juju/internal/charmhub"
 	gomock "go.uber.org/mock/gomock"
 )
 

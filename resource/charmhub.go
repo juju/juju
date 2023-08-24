@@ -11,9 +11,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 
-	"github.com/juju/juju/charmhub"
-	"github.com/juju/juju/charmhub/transport"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/state"
 )
 

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/internal/charmhub/transport"
 )
 
 // RefreshConfig defines a type for building refresh requests.

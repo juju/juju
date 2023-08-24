@@ -10,8 +10,8 @@ import (
 
 	charm "github.com/juju/charm/v11"
 	charmrevisionupdater "github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
-	charmhub "github.com/juju/juju/charmhub"
-	transport "github.com/juju/juju/charmhub/transport"
+	charmhub "github.com/juju/juju/internal/charmhub"
+	transport "github.com/juju/juju/internal/charmhub/transport"
 	cloud "github.com/juju/juju/cloud"
 	metrics "github.com/juju/juju/core/charm/metrics"
 	config "github.com/juju/juju/environs/config"

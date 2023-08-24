@@ -16,11 +16,11 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms"
-	"github.com/juju/juju/charmhub"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/charm/repository"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/rpc/params"
 )
 

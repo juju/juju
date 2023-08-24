@@ -15,8 +15,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/charmhub/path"
-	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/internal/charmhub/path"
+	"github.com/juju/juju/internal/charmhub/transport"
 )
 
 type InfoSuite struct {
