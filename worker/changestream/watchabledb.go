@@ -40,11 +40,13 @@ func NewWatchableDB(
 	tag string,
 	db coredatabase.TxnRunner,
 	fileNotifier FileNotifier,
-	clock clock.Clock, logger Logger,
+	clock clock.Clock,
+	metrics NamespaceMetrics,
+	logger Logger,
 ) (WatchableDBWorker, error) {
-	stream := stream.New(tag, db, fileNotifier, clock, logger)
+	stream := stream.New(tag, db, fileNotifier, clock, metrics, logger)
 
-	mux, err := eventmultiplexer.New(stream, clock, logger)
+	mux, err := eventmultiplexer.New(stream, clock, metrics, logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

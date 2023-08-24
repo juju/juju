@@ -9,6 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	changestream "github.com/juju/juju/core/changestream"
@@ -38,7 +39,10 @@ func (s *eventMultiplexerSuite) TestSubscribe(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).AnyTimes()
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc()
+	s.metrics.EXPECT().SubscriptionsDec()
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -59,9 +63,14 @@ func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
+
+	s.metrics.EXPECT().SubscriptionsInc()
+	s.metrics.EXPECT().SubscriptionsDec()
+	s.clock.EXPECT().Now().MinTimes(1)
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
 
 	sub, err := queue.Subscribe(changestream.Namespace("topic", changestream.Create))
 	c.Assert(err, jc.ErrorIsNil)
@@ -129,7 +138,12 @@ func (s *eventMultiplexerSuite) testMultipleDispatch(c *gc.C, opts ...changestre
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc().Times(10)
+	s.metrics.EXPECT().SubscriptionsDec().Times(10)
+	s.clock.EXPECT().Now().MinTimes(1)
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -194,7 +208,12 @@ func (s *eventMultiplexerSuite) TestUnsubscribeTwice(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc()
+	s.metrics.EXPECT().SubscriptionsDec()
+	s.clock.EXPECT().Now().MinTimes(1)
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -229,7 +248,10 @@ func (s *eventMultiplexerSuite) TestTopicDoesNotMatch(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc()
+	s.metrics.EXPECT().SubscriptionsDec()
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -268,7 +290,12 @@ func (s *eventMultiplexerSuite) TestTopicMatchesOne(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc().Times(2)
+	s.metrics.EXPECT().SubscriptionsDec().Times(2)
+	s.clock.EXPECT().Now().MinTimes(1)
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -317,7 +344,13 @@ func (s *eventMultiplexerSuite) TestSubscriptionDoneWhenEventQueueKilled(c *gc.C
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc()
+	s.clock.EXPECT().Now().MinTimes(1)
+	// We might encounter a dispatch error, therefore we cannot hard-code
+	// a false on the second argument of DispatchDurationObserve.
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), gomock.Any())
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -353,7 +386,12 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscription(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc().Times(2)
+	s.metrics.EXPECT().SubscriptionsDec().Times(2)
+	s.clock.EXPECT().Now().MinTimes(1)
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -413,7 +451,12 @@ func (s *eventMultiplexerSuite) TestUnsubscribeOfOtherSubscriptionInAnotherGorou
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc().Times(2)
+	s.metrics.EXPECT().SubscriptionsDec().Times(2)
+	s.clock.EXPECT().Now().MinTimes(1)
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -478,7 +521,11 @@ func (s *eventMultiplexerSuite) TestStreamDying(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc().Times(2)
+	s.clock.EXPECT().Now().MinTimes(2)
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -545,7 +592,12 @@ func (s *eventMultiplexerSuite) TestStreamDyingWhilstDispatching(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc().Times(2)
+	s.metrics.EXPECT().SubscriptionsDec().MinTimes(1)
+	s.clock.EXPECT().Now().MinTimes(1)
+	s.metrics.EXPECT().DispatchDurationObserve(gomock.Any(), false)
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -626,7 +678,7 @@ func (s *eventMultiplexerSuite) TestStreamDyingOnStartup(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -646,7 +698,9 @@ func (s *eventMultiplexerSuite) TestStreamDyingOnSubscribe(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc()
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -672,7 +726,10 @@ func (s *eventMultiplexerSuite) TestReportWithAllSubscriptions(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc().Times(10)
+	s.metrics.EXPECT().SubscriptionsDec().Times(10)
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -718,7 +775,10 @@ func (s *eventMultiplexerSuite) TestReportWithTopicSubscriptions(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc().Times(10)
+	s.metrics.EXPECT().SubscriptionsDec().Times(10)
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -764,7 +824,10 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleTopicSubscriptions(c *gc.C
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc().Times(10)
+	s.metrics.EXPECT().SubscriptionsDec().Times(10)
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -813,7 +876,10 @@ func (s *eventMultiplexerSuite) TestReportWithDuplicateTopicSubscriptions(c *gc.
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc().Times(10)
+	s.metrics.EXPECT().SubscriptionsDec().Times(10)
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -862,7 +928,10 @@ func (s *eventMultiplexerSuite) TestReportWithMultipleDuplicateTopicSubscription
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc().Times(10)
+	s.metrics.EXPECT().SubscriptionsDec().Times(10)
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 
@@ -911,7 +980,10 @@ func (s *eventMultiplexerSuite) TestReportWithTopicRemovalAfterUnsubscribe(c *gc
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	queue, err := New(s.stream, s.clock, s.logger)
+	s.metrics.EXPECT().SubscriptionsInc()
+	s.metrics.EXPECT().SubscriptionsDec()
+
+	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, queue)
 

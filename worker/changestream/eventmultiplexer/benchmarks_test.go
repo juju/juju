@@ -22,6 +22,15 @@ type benchSuite struct {
 
 var _ = gc.Suite(&benchSuite{})
 
+type mockMetrics struct {
+}
+
+func (*mockMetrics) SubscriptionsInc()                                {}
+func (*mockMetrics) SubscriptionsDec()                                {}
+func (*mockMetrics) SubscriptionsClear()                              {}
+func (*mockMetrics) DispatchDurationObserve(val float64, failed bool) {}
+func (*mockMetrics) DispatchErrorsInc()                               {}
+
 func benchmarkSignal(c *gc.C, changes ChangeSet) {
 	sub := newSubscription(0, func() {})
 	defer workertest.CleanKill(c, sub)
@@ -88,7 +97,7 @@ func benchmarkSubscriptions(c *gc.C, numSubs, numEvents int, ns string) {
 
 	em, err := New(stream{
 		terms: terms,
-	}, clock.WallClock, loggo.GetLogger("bench"))
+	}, clock.WallClock, &mockMetrics{}, loggo.GetLogger("bench"))
 	c.Assert(err, gc.IsNil)
 	defer workertest.CleanKill(c, em)
 

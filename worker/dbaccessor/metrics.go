@@ -15,6 +15,7 @@ type Collector struct {
 	DBRequests  *prometheus.GaugeVec
 	DBDuration  *prometheus.HistogramVec
 	TxnRequests *prometheus.CounterVec
+	TxnRetries  *prometheus.CounterVec
 }
 
 // NewMetricsCollector returns a new Collector.
@@ -38,6 +39,12 @@ func NewMetricsCollector() *Collector {
 			Name:      "txn_requests_total",
 			Help:      "Total number of txn requests including retries.",
 		}, []string{"namespace"}),
+		TxnRetries: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: dbaccessorMetricsNamespace,
+			Subsystem: dbaccessorSubsystemNamespace,
+			Name:      "txn_retries_total",
+			Help:      "Total number of txn retries.",
+		}, []string{"namespace"}),
 	}
 }
 
@@ -46,6 +53,7 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.DBRequests.Describe(ch)
 	c.DBDuration.Describe(ch)
 	c.TxnRequests.Describe(ch)
+	c.TxnRetries.Describe(ch)
 }
 
 // Collect is part of the prometheus.Collector interface.
@@ -53,4 +61,5 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.DBRequests.Collect(ch)
 	c.DBDuration.Collect(ch)
 	c.TxnRequests.Collect(ch)
+	c.TxnRetries.Collect(ch)
 }

@@ -44,18 +44,24 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = s.getConfig()
+	cfg.NewMetricsCollector = nil
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	cfg = s.getConfig()
 	cfg.NewWatchableDB = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		AgentName:         "agent",
-		DBAccessor:        "dbaccessor",
-		FileNotifyWatcher: "filenotifywatcher",
-		Clock:             s.clock,
-		Logger:            s.logger,
-		NewWatchableDB: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (WatchableDBWorker, error) {
+		AgentName:            "agent",
+		DBAccessor:           "dbaccessor",
+		FileNotifyWatcher:    "filenotifywatcher",
+		Clock:                s.clock,
+		Logger:               s.logger,
+		NewMetricsCollector:  NewMetricsCollector,
+		PrometheusRegisterer: s.prometheusRegisterer,
+		NewWatchableDB: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, NamespaceMetrics, Logger) (WatchableDBWorker, error) {
 			return nil, nil
 		},
 	}

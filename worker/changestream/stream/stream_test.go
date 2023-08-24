@@ -44,7 +44,10 @@ func (s *streamSuite) TestWithNoNamespace(c *gc.C) {
 	s.expectAfter()
 	s.expectTimer()
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -66,7 +69,10 @@ func (s *streamSuite) TestNoData(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -94,7 +100,11 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+	s.metrics.EXPECT().ChangesCountObserve(1)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -128,7 +138,11 @@ func (s *streamSuite) TestOneChangeWithEmptyResults(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+	s.metrics.EXPECT().ChangesCountObserve(1)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -162,7 +176,11 @@ func (s *streamSuite) TestOneChangeWithClosedAbort(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+	s.metrics.EXPECT().ChangesCountObserve(1)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
@@ -200,7 +218,11 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+	s.metrics.EXPECT().ChangesCountObserve(1)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var (
@@ -238,7 +260,11 @@ func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+	s.metrics.EXPECT().ChangesCountObserve(1)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	var (
@@ -286,7 +312,11 @@ func (s *streamSuite) TestOneChangeWithTimeoutCausesWorkerToBounce(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+	s.metrics.EXPECT().ChangesCountObserve(1)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	select {
@@ -313,7 +343,11 @@ func (s *streamSuite) TestMultipleTerms(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().MinTimes(20)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any()).MinTimes(10)
+	s.metrics.EXPECT().ChangesCountObserve(1).MinTimes(10)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < 10; i++ {
@@ -365,9 +399,13 @@ func (s *streamSuite) TestMultipleTermsAllEmpty(c *gc.C) {
 		return ch
 	}).AnyTimes()
 
+	s.clock.EXPECT().Now().MinTimes(20)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any()).MinTimes(10)
+	s.metrics.EXPECT().ChangesCountObserve(1).MinTimes(10)
+
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < 10; i++ {
@@ -409,7 +447,11 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().MinTimes(1)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any()).MinTimes(1)
+	s.metrics.EXPECT().ChangesCountObserve(1).MinTimes(1)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Insert a change and wait for it to be streamed.
@@ -509,7 +551,11 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+	s.metrics.EXPECT().ChangesCountObserve(8)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -554,7 +600,11 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+	s.metrics.EXPECT().ChangesCountObserve(10)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -618,7 +668,11 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+	s.metrics.EXPECT().ChangesCountObserve(8)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -690,7 +744,11 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 		inserts = append(inserts, ch)
 	}
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+	s.metrics.EXPECT().ChangesCountObserve(9)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Wait to ensure that the loop has been given enough time to read the
@@ -730,7 +788,11 @@ func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 
 	s.insertNamespace(c, 1000, "foo")
 
-	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	s.clock.EXPECT().Now().Times(2)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
+	s.metrics.EXPECT().ChangesCountObserve(1)
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	expectNotifyBlock := func(block bool) {
@@ -811,8 +873,14 @@ func (s *streamSuite) TestReport(c *gc.C) {
 		return true
 	})
 
+	s.clock.EXPECT().Now().MinTimes(1)
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any()).MinTimes(1)
+	s.metrics.EXPECT().ChangesCountObserve(1).MinTimes(1)
+	s.metrics.EXPECT().WatermarkInsertsInc().MinTimes(1)
+	s.metrics.EXPECT().WatermarkRetriesInc().MinTimes(1)
+
 	id := utils.MustNewUUID().String()
-	stream := New(id, s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	stream := New(id, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < changestream.DefaultNumTermWatermarks; i++ {
@@ -904,8 +972,14 @@ func (s *streamSuite) TestWatermarkWrite(c *gc.C) {
 		return true
 	})
 
+	s.clock.EXPECT().Now().MinTimes(2 * (changestream.DefaultNumTermWatermarks))
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any()).MinTimes(changestream.DefaultNumTermWatermarks)
+	s.metrics.EXPECT().ChangesCountObserve(1).MinTimes(changestream.DefaultNumTermWatermarks)
+	s.metrics.EXPECT().WatermarkInsertsInc().MinTimes(1)
+	s.metrics.EXPECT().WatermarkRetriesInc().MinTimes(1)
+
 	tag := utils.MustNewUUID().String()
-	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < changestream.DefaultNumTermWatermarks; i++ {
@@ -963,8 +1037,14 @@ func (s *streamSuite) TestWatermarkWriteIsIgnored(c *gc.C) {
 		return true
 	})
 
+	s.clock.EXPECT().Now().MinTimes(2 * (changestream.DefaultNumTermWatermarks - 1))
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any()).MinTimes(changestream.DefaultNumTermWatermarks - 1)
+	s.metrics.EXPECT().ChangesCountObserve(1).MinTimes(changestream.DefaultNumTermWatermarks - 1)
+	s.metrics.EXPECT().WatermarkInsertsInc().MinTimes(1)
+	s.metrics.EXPECT().WatermarkRetriesInc().MinTimes(1)
+
 	tag := utils.MustNewUUID().String()
-	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	for i := 0; i < changestream.DefaultNumTermWatermarks-1; i++ {
@@ -1022,8 +1102,14 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *gc.C) {
 		return true
 	})
 
+	s.clock.EXPECT().Now().MinTimes(2 * (changestream.DefaultNumTermWatermarks + 2))
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any()).MinTimes(changestream.DefaultNumTermWatermarks + 2)
+	s.metrics.EXPECT().ChangesCountObserve(1).MinTimes(changestream.DefaultNumTermWatermarks + 2)
+	s.metrics.EXPECT().WatermarkInsertsInc().MinTimes(1)
+	s.metrics.EXPECT().WatermarkRetriesInc().MinTimes(1)
+
 	tag := utils.MustNewUUID().String()
-	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.logger)
+	stream := New(tag, s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
 	defer workertest.DirtyKill(c, stream)
 
 	// Insert the first change, which will be the first watermark.
@@ -1402,6 +1488,7 @@ func (s *streamSuite) newStream() *Stream {
 	return &Stream{
 		db:         s.TxnRunner(),
 		id:         utils.MustNewUUID().String(),
+		metrics:    s.metrics,
 		watermarks: make([]*termView, changestream.DefaultNumTermWatermarks),
 	}
 }

@@ -48,6 +48,10 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 
 	cfg = s.getConfig()
+	cfg.Metrics = nil
+	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+
+	cfg = s.getConfig()
 	cfg.NewWatchableDB = nil
 	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
 }
@@ -59,7 +63,8 @@ func (s *workerSuite) getConfig() WorkerConfig {
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewWatchableDB: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (WatchableDBWorker, error) {
+		Metrics:           NewMetricsCollector(),
+		NewWatchableDB: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, NamespaceMetrics, Logger) (WatchableDBWorker, error) {
 			return nil, nil
 		},
 	}
@@ -142,7 +147,8 @@ func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {
 		FileNotifyWatcher: s.fileNotifyWatcher,
 		Clock:             s.clock,
 		Logger:            s.logger,
-		NewWatchableDB: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (WatchableDBWorker, error) {
+		Metrics:           NewMetricsCollector(),
+		NewWatchableDB: func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, NamespaceMetrics, Logger) (WatchableDBWorker, error) {
 			attempts--
 			if attempts < 0 {
 				c.Fatal("NewWatchableDB called too many times")

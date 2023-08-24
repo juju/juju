@@ -665,12 +665,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		changeStreamName: ifController(changestream.Manifold(changestream.ManifoldConfig{
-			AgentName:         agentName,
-			DBAccessor:        dbAccessorName,
-			FileNotifyWatcher: fileNotifyWatcherName,
-			Clock:             config.Clock,
-			Logger:            loggo.GetLogger("juju.worker.changestream"),
-			NewWatchableDB:    changestream.NewWatchableDB,
+			AgentName:            agentName,
+			DBAccessor:           dbAccessorName,
+			FileNotifyWatcher:    fileNotifyWatcherName,
+			Clock:                config.Clock,
+			Logger:               loggo.GetLogger("juju.worker.changestream"),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWatchableDB:       changestream.NewWatchableDB,
+			NewMetricsCollector:  changestream.NewMetricsCollector,
 		})),
 
 		changeStreamPrunerName: ifPrimaryController(changestreampruner.Manifold(changestreampruner.ManifoldConfig{

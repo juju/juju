@@ -29,6 +29,7 @@ func (s *metricsSuite) TestMetricsAreCollected(c *gc.C) {
 		collector.DBDuration.WithLabelValues("foo", "success").Observe(0.1)
 		collector.DBRequests.WithLabelValues("foo").Inc()
 		collector.TxnRequests.WithLabelValues("foo").Inc()
+		collector.TxnRetries.WithLabelValues("foo").Inc()
 	}()
 
 	select {
@@ -60,6 +61,9 @@ juju_db_requests_total{namespace="foo"} 1
 # HELP juju_db_txn_requests_total Total number of txn requests including retries.
 # TYPE juju_db_txn_requests_total counter
 juju_db_txn_requests_total{namespace="foo"} 1
+# HELP juju_db_txn_retries_total Total number of txn retries.
+# TYPE juju_db_txn_retries_total counter
+juju_db_txn_retries_total{namespace="foo"} 1
 		`[1:]))
 
 	err := testutil.CollectAndCompare(
@@ -67,6 +71,7 @@ juju_db_txn_requests_total{namespace="foo"} 1
 		"juju_db_requests_total",
 		"juju_db_duration_seconds",
 		"juju_db_txn_requests_total",
+		"juju_db_txn_retries_total",
 	)
 	if !c.Check(err, jc.ErrorIsNil) {
 		c.Logf("\nerror:\n%v", err)

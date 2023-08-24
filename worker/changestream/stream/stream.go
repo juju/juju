@@ -50,6 +50,14 @@ type Logger interface {
 	IsTraceEnabled() bool
 }
 
+// MetricsCollector represents the metrics methods called.
+type MetricsCollector interface {
+	WatermarkInsertsInc()
+	WatermarkRetriesInc()
+	ChangesRequestDurationObserve(val float64)
+	ChangesCountObserve(val int)
+}
+
 // FileNotifyWatcher notifies when a file has been created or deleted within
 // a given directory.
 type FileNotifier interface {
@@ -108,6 +116,7 @@ type Stream struct {
 	fileNotifier FileNotifier
 	clock        clock.Clock
 	logger       Logger
+	metrics      MetricsCollector
 
 	terms chan changestream.Term
 
@@ -117,13 +126,21 @@ type Stream struct {
 }
 
 // New creates a new Stream.
-func New(id string, db coredatabase.TxnRunner, fileNotifier FileNotifier, clock clock.Clock, logger Logger) *Stream {
+func New(
+	id string,
+	db coredatabase.TxnRunner,
+	fileNotifier FileNotifier,
+	clock clock.Clock,
+	metrics MetricsCollector,
+	logger Logger,
+) *Stream {
 	stream := &Stream{
 		id:           id,
 		db:           db,
 		fileNotifier: fileNotifier,
 		clock:        clock,
 		logger:       logger,
+		metrics:      metrics,
 		terms:        make(chan changestream.Term),
 		watermarks:   make([]*termView, changestream.DefaultNumTermWatermarks),
 	}
@@ -256,7 +273,10 @@ func (s *Stream) loop() error {
 			watermarkTimer.Reset(defaultWatermarkInterval)
 
 		default:
+
+			begin := s.clock.Now()
 			changes, err := s.readChanges()
+
 			if err != nil {
 				// If the context was canceled, we're unsure if it's because
 				// the worker is dying, or if the context was canceled because
@@ -270,6 +290,9 @@ func (s *Stream) loop() error {
 				// we can do, so we just return an error.
 				return errors.Annotate(err, "reading change")
 			}
+			// We only want to record successful changes retrieve
+			// queries on the metrics.
+			s.metrics.ChangesRequestDurationObserve(s.clock.Now().Sub(begin).Seconds())
 
 			if len(changes) == 0 {
 				// The following uses the back-off strategy for polling the
@@ -286,6 +309,8 @@ func (s *Stream) loop() error {
 				}
 			}
 
+			// Record the number of retrieved changes on metrics.
+			s.metrics.ChangesCountObserve(len(changes))
 			var (
 				// Term encapsulates a set of changes that are bounded by a
 				// coalesced set.
@@ -507,6 +532,8 @@ func (s *Stream) updateWatermark() error {
 	ctx, cancel := s.scopedContext()
 	defer cancel()
 
+	s.metrics.WatermarkInsertsInc()
+
 	return s.db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		// Run this per transaction, so that we're using the latest lower bound
 		// and upper bound.
@@ -595,6 +622,10 @@ func (s *Stream) recordTermView(v *termView) {
 func (s *Stream) processWatermark(fn func(*termView) error) error {
 	s.watermarksMutex.Lock()
 	defer s.watermarksMutex.Unlock()
+
+	// Here we only record the retried metrics because this function is
+	// wrapped in a retriable transaction.
+	s.metrics.WatermarkRetriesInc()
 
 	// Nothing to do if there are no watermarks.
 	if len(s.watermarks) < changestream.DefaultNumTermWatermarks {

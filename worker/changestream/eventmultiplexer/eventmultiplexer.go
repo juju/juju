@@ -42,6 +42,13 @@ type Stream interface {
 	Dying() <-chan struct{}
 }
 
+// MetricsCollector represents the metrics methods called.
+type MetricsCollector interface {
+	SubscriptionsInc()
+	SubscriptionsDec()
+	DispatchDurationObserve(val float64, failed bool)
+}
+
 type eventFilter struct {
 	subscriptionID uint64
 	changeMask     changestream.ChangeType
@@ -66,6 +73,7 @@ type EventMultiplexer struct {
 	stream   Stream
 	logger   Logger
 	clock    clock.Clock
+	metrics  MetricsCollector
 
 	subscriptions      map[uint64]*subscription
 	subscriptionsByNS  map[string][]*eventFilter
@@ -82,11 +90,12 @@ type EventMultiplexer struct {
 }
 
 // New creates a new EventMultiplexer that will use the Stream for events.
-func New(stream Stream, clock clock.Clock, logger Logger) (*EventMultiplexer, error) {
+func New(stream Stream, clock clock.Clock, metrics MetricsCollector, logger Logger) (*EventMultiplexer, error) {
 	queue := &EventMultiplexer{
 		stream:             stream,
 		logger:             logger,
 		clock:              clock,
+		metrics:            metrics,
 		subscriptions:      make(map[uint64]*subscription),
 		subscriptionsByNS:  make(map[string][]*eventFilter),
 		subscriptionsAll:   make(map[uint64]struct{}),
@@ -114,6 +123,9 @@ func New(stream Stream, clock clock.Clock, logger Logger) (*EventMultiplexer, er
 func (e *EventMultiplexer) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	// Get a new subscription count without using any mutexes.
 	subID := atomic.AddUint64(&e.subscriptionsCount, 1)
+
+	// Increase number of subscriptions metric.
+	e.metrics.SubscriptionsInc()
 
 	sub := newSubscription(subID, func() { e.unsubscribe(subID) })
 	if err := e.catacomb.Add(sub); err != nil {
@@ -182,6 +194,9 @@ func (e *EventMultiplexer) unsubscribe(subscriptionID uint64) {
 		return
 	case e.unsubscriptionCh <- subscriptionID:
 	}
+
+	// Decrease number of subscriptions metric.
+	e.metrics.SubscriptionsDec()
 }
 
 func (e *EventMultiplexer) loop() error {
@@ -233,13 +248,16 @@ func (e *EventMultiplexer) loop() error {
 				continue
 			}
 
+			begin := e.clock.Now()
 			// Dispatch the set of changes, but do not cause the worker to
 			// exit. Just log out the error and then mark the term as done.
 			// There isn't anything we can do in this case.
-			if err := e.dispatchSet(changeSet); err != nil {
+			err := e.dispatchSet(changeSet)
+			if err != nil {
 				e.logger.Errorf("dispatching set: %v", err)
 				e.dispatchErrorCount++
 			}
+			e.metrics.DispatchDurationObserve(e.clock.Now().Sub(begin).Seconds(), err != nil)
 
 			// We should guarantee that the change set is not empty, so we
 			// can force false here.

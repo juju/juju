@@ -20,6 +20,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination stream_mock_test.go github.com/juju/juju/worker/changestream/eventmultiplexer Stream
 //go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination logger_mock_test.go github.com/juju/juju/worker/changestream/eventmultiplexer Logger
 //go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination metrics_mock_test.go github.com/juju/juju/worker/changestream/eventmultiplexer MetricsCollector
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -28,10 +29,11 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	domaintesting.ControllerSuite
 
-	clock  *MockClock
-	logger *MockLogger
-	stream *MockStream
-	term   *MockTerm
+	clock   *MockClock
+	logger  *MockLogger
+	stream  *MockStream
+	metrics *MockMetricsCollector
+	term    *MockTerm
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -40,6 +42,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.clock = NewMockClock(ctrl)
 	s.logger = NewMockLogger(ctrl)
 	s.stream = NewMockStream(ctrl)
+	s.metrics = NewMockMetricsCollector(ctrl)
 	s.term = NewMockTerm(ctrl)
 
 	return ctrl

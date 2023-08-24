@@ -8,6 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/changestream"
@@ -25,9 +26,13 @@ type Logger interface {
 	IsTraceEnabled() bool
 }
 
+// MetricsCollectorFn is an alias function that allows the creation of
+// a metrics collector.
+type MetricsCollectorFn = func() *Collector
+
 // WatchableDBFn is an alias function that allows the creation of
 // EventQueueWorker.
-type WatchableDBFn = func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, Logger) (WatchableDBWorker, error)
+type WatchableDBFn = func(string, coredatabase.TxnRunner, FileNotifier, clock.Clock, NamespaceMetrics, Logger) (WatchableDBWorker, error)
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will
 // depend.
@@ -36,9 +41,11 @@ type ManifoldConfig struct {
 	DBAccessor        string
 	FileNotifyWatcher string
 
-	Clock          clock.Clock
-	Logger         Logger
-	NewWatchableDB WatchableDBFn
+	Clock                clock.Clock
+	Logger               Logger
+	NewMetricsCollector  MetricsCollectorFn
+	PrometheusRegisterer prometheus.Registerer
+	NewWatchableDB       WatchableDBFn
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -59,6 +66,12 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.NewWatchableDB == nil {
 		return errors.NotValidf("nil NewWatchableDB")
+	}
+	if cfg.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
+	}
+	if cfg.NewMetricsCollector == nil {
+		return errors.NotValidf("nil NewMetricsCollector")
 	}
 	return nil
 }
@@ -95,20 +108,32 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			// Register the metrics collector against the prometheus register.
+			metricsCollector := config.NewMetricsCollector()
+			if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			cfg := WorkerConfig{
 				AgentTag:          agentConfig.Tag().Id(),
 				DBGetter:          dbGetter,
 				FileNotifyWatcher: fileNotifyWatcher,
 				Clock:             config.Clock,
 				Logger:            config.Logger,
+				Metrics:           metricsCollector,
 				NewWatchableDB:    config.NewWatchableDB,
 			}
 
 			w, err := newWorker(cfg)
 			if err != nil {
+				config.PrometheusRegisterer.Unregister(metricsCollector)
 				return nil, errors.Trace(err)
 			}
-			return w, nil
+			return common.NewCleanupWorker(w, func() {
+				// Clean up the metrics for the worker, so the next time a
+				// worker is created we can safely register the metrics again.
+				config.PrometheusRegisterer.Unregister(metricsCollector)
+			}), nil
 		},
 	}
 }
