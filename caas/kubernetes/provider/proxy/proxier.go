@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas/kubernetes"
-	proxyerrors "github.com/juju/juju/proxy/errors"
+	proxyerrors "github.com/juju/juju/internal/proxy/errors"
 )
 
 type Proxier struct {

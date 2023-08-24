@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/proxy"
+	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/storage"
 )
 

@@ -7,7 +7,7 @@ package apiserver_test
 import (
 	reflect "reflect"
 
-	proxy "github.com/juju/juju/proxy"
+	proxy "github.com/juju/juju/internal/proxy"
 	gomock "go.uber.org/mock/gomock"
 )
 

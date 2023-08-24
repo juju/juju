@@ -6,7 +6,7 @@ package params
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/proxy"
+	"github.com/juju/juju/internal/proxy"
 )
 
 // Proxy represents a proxy connection info.

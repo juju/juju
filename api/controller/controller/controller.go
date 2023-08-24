@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/proxy"
+	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/rpc/params"
 )
 

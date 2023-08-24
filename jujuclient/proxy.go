@@ -7,8 +7,8 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/proxy"
-	proxyfactory "github.com/juju/juju/proxy/factory"
+	"github.com/juju/juju/internal/proxy"
+	proxyfactory "github.com/juju/juju/internal/proxy/factory"
 )
 
 // For testing purposes.

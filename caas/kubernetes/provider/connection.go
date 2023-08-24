@@ -12,7 +12,7 @@ import (
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
-	"github.com/juju/juju/proxy"
+	"github.com/juju/juju/internal/proxy"
 )
 
 // ProxyToApplication attempts to construct a Juju proxier for use in proxying

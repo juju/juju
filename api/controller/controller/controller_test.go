@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	proxyfactory "github.com/juju/juju/proxy/factory"
+	proxyfactory "github.com/juju/juju/internal/proxy/factory"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )

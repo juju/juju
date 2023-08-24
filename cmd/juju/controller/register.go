@@ -37,8 +37,8 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/proxy/factory"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/proxy/factory"
 	"github.com/juju/juju/rpc/params"
 )
 

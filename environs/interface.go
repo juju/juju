@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/proxy"
+	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/storage"
 )
 

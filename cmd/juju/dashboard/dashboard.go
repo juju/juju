@@ -20,8 +20,8 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/ssh"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/proxy"
-	proxyfactory "github.com/juju/juju/proxy/factory"
+	"github.com/juju/juju/internal/proxy"
+	proxyfactory "github.com/juju/juju/internal/proxy/factory"
 )
 
 // ControllerAPI is used to get dashboard info from the controller.

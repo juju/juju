@@ -8,7 +8,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
-	"github.com/juju/juju/proxy"
+	"github.com/juju/juju/internal/proxy"
 )
 
 // Factory provides a mechanism for building various type of proxy based on

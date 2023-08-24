@@ -15,7 +15,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	context0 "github.com/juju/juju/environs/context"
-	proxy "github.com/juju/juju/proxy"
+	proxy "github.com/juju/juju/internal/proxy"
 	storage "github.com/juju/juju/storage"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
