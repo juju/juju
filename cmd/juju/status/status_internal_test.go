@@ -5798,7 +5798,7 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 
 	client := fakeAPIClient{}
 	var status = client.Status
-	s.PatchValue(&status, func(_ []string) (*params.FullStatus, error) {
+	s.PatchValue(&status, func(_ []string, _ bool) (*params.FullStatus, error) {
 		return nil, nil
 	})
 	s.PatchValue(&newAPIClientForStatus, func(_ *statusCommand) (statusAPI, error) {

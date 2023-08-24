@@ -49,12 +49,11 @@ type Clock interface {
 
 type statusCommand struct {
 	modelcmd.ModelCommandBase
-	out        cmd.Output
-	patterns   []string
-	isoTime    bool
-	statusAPI  statusAPI
-	storageAPI storage.StorageListAPI
-	clock      Clock
+	out       cmd.Output
+	patterns  []string
+	isoTime   bool
+	statusAPI statusAPI
+	clock     Clock
 
 	retryCount int
 	retryDelay time.Duration
@@ -258,9 +257,6 @@ func (c *statusCommand) close() {
 	// The user can't do anything about it.  Just try.
 	if c.statusAPI != nil {
 		c.statusAPI.Close()
-	}
-	if c.storageAPI != nil {
-		c.storageAPI.Close()
 	}
 }
 
