@@ -37,8 +37,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/internal/service"
+	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 )

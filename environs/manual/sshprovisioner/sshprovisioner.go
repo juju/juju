@@ -25,8 +25,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/service"
 )
 
 // InitUbuntuUser adds the ubuntu user if it doesn't

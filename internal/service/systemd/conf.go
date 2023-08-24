@@ -16,7 +16,7 @@ import (
 	"github.com/juju/utils/v3/shell"
 
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/internal/service/common"
 )
 
 var limitMap = map[string]string{

@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/internal/packaging"
 	"github.com/juju/juju/internal/packaging/dependency"
-	"github.com/juju/juju/service"
+	"github.com/juju/juju/internal/service"
 )
 
 var hostSeries = series.HostSeries

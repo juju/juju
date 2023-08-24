@@ -11,10 +11,10 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/mocks"
-	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/internal/service"
+	"github.com/juju/juju/internal/service/common"
+	"github.com/juju/juju/internal/service/mocks"
+	"github.com/juju/juju/internal/service/systemd"
 )
 
 type serviceSuite struct {

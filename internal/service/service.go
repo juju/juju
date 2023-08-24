@@ -14,8 +14,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
 
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/internal/service/common"
+	"github.com/juju/juju/internal/service/systemd"
 )
 
 var logger = loggo.GetLogger("juju.service")

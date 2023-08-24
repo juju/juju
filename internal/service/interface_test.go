@@ -4,7 +4,7 @@
 package service
 
 import (
-	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/internal/service/systemd"
 )
 
 var _ Service = (*systemd.Service)(nil)

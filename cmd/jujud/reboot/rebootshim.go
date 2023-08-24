@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/service"
 )
 
 // rebootWaiterShim wraps the functions required by RebootWaiter

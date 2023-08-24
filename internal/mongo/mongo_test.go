@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/packaging"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/snap"
+	"github.com/juju/juju/internal/service/common"
+	"github.com/juju/juju/internal/service/snap"
 	coretesting "github.com/juju/juju/testing"
 )
 

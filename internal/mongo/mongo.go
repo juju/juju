@@ -28,9 +28,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/packaging"
 	"github.com/juju/juju/internal/packaging/dependency"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/snap"
-	"github.com/juju/juju/service/systemd"
+	"github.com/juju/juju/internal/service/common"
+	"github.com/juju/juju/internal/service/snap"
+	"github.com/juju/juju/internal/service/systemd"
 )
 
 var logger = loggo.GetLogger("juju.mongo")

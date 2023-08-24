@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/service"
+	"github.com/juju/juju/internal/service"
 )
 
 // ManifoldConfig holds the information necessary for the dependency engine to

@@ -19,10 +19,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/service/systemd"
-	systemdtesting "github.com/juju/juju/service/systemd/testing"
+	"github.com/juju/juju/internal/service"
+	"github.com/juju/juju/internal/service/common"
+	"github.com/juju/juju/internal/service/systemd"
+	systemdtesting "github.com/juju/juju/internal/service/systemd/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
