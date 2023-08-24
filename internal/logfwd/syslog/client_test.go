@@ -17,8 +17,8 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/logfwd"
-	"github.com/juju/juju/logfwd/syslog"
+	"github.com/juju/juju/internal/logfwd"
+	"github.com/juju/juju/internal/logfwd/syslog"
 	coretesting "github.com/juju/juju/testing"
 )
 

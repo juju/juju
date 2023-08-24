@@ -14,7 +14,7 @@ import (
 	"github.com/juju/rfc/v2/rfc5424"
 	"github.com/juju/rfc/v2/rfc5424/sdelements"
 
-	"github.com/juju/juju/logfwd"
+	"github.com/juju/juju/internal/logfwd"
 )
 
 // Sender exposes the underlying functionality needed by Client.

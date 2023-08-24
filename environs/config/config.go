@@ -31,8 +31,8 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/logfwd/syslog"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/logfwd/syslog"
 	jujuversion "github.com/juju/juju/version"
 )
 

@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common/stream"
-	"github.com/juju/juju/logfwd"
+	"github.com/juju/juju/internal/logfwd"
 	"github.com/juju/juju/rpc/params"
 )
 

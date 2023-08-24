@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/logfwd"
+	"github.com/juju/juju/internal/logfwd"
 )
 
 type RecordSuite struct {
