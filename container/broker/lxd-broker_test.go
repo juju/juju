@@ -29,8 +29,8 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	coretools "github.com/juju/juju/internal/tools"
 	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 

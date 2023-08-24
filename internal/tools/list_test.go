@@ -10,7 +10,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/internal/tools"
 )
 
 type ListSuite struct{}

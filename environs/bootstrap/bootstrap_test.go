@@ -43,11 +43,11 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	corestorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 

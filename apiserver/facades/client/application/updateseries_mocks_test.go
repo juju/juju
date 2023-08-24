@@ -15,7 +15,7 @@ import (
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
 	state "github.com/juju/juju/state"
-	tools "github.com/juju/juju/tools"
+	tools "github.com/juju/juju/internal/tools"
 	names "github.com/juju/names/v4"
 	schema "github.com/juju/schema"
 	gomock "go.uber.org/mock/gomock"

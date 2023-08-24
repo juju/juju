@@ -35,8 +35,8 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 

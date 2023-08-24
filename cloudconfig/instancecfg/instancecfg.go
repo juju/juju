@@ -40,7 +40,7 @@ import (
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/storage"
-	coretools "github.com/juju/juju/tools"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")

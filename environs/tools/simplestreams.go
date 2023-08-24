@@ -21,7 +21,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	coretools "github.com/juju/juju/tools"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 func init() {

@@ -31,9 +31,9 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
 	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")

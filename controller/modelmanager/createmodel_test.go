@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/tools"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 )
 
 type ModelConfigCreatorSuite struct {

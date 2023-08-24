@@ -42,9 +42,9 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/storage"
+	coretools "github.com/juju/juju/internal/tools"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/rpc/params"
-	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/wrench"
 )

@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/environs/config"
 	environContext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/provider/equinix/mocks"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 )
 
 type environProviderSuite struct {

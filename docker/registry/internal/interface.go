@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/docker"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/internal/tools"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/registry_mock.go github.com/juju/juju/docker/registry/internal Initializer

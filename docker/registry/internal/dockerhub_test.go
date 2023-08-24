@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/docker/registry/image"
 	"github.com/juju/juju/docker/registry/internal"
 	"github.com/juju/juju/docker/registry/mocks"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/internal/tools"
 )
 
 type dockerhubSuite struct {

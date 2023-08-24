@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/internal/tools"
 )
 
 // Entity identifies a single entity.

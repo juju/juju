@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/tools"
 )
 
 // PrecheckBackend defines the interface to query Juju's state

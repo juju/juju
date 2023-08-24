@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/tools"
 )
 
 func isController(mdoc *machineDoc) bool {

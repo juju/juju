@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/docker"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
-	coretools "github.com/juju/juju/tools"
 )
 
 var errUpToDate = errors.AlreadyExistsf("no upgrades available")

@@ -32,10 +32,10 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/instances/instancetest"
 	"github.com/juju/juju/internal/network"
+	coretools "github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 )
 
 type brokerSuite struct {

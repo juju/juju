@@ -20,10 +20,10 @@ import (
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 	upgradevalidationmocks "github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )

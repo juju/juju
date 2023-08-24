@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/tools"
 )
 
 // Client provides methods that the Juju client command uses to upgrade models.

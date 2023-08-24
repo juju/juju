@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
 	migrations "github.com/juju/juju/domain/modelmigration"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.migration")

@@ -29,9 +29,9 @@ import (
 	"github.com/juju/juju/api/controller/migrationtarget"
 	coremigration "github.com/juju/juju/core/migration"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 

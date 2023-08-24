@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/docker/registry/internal"
 	internalmocks "github.com/juju/juju/docker/registry/internal/mocks"
 	"github.com/juju/juju/docker/registry/mocks"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/internal/tools"
 )
 
 type elasticContainerRegistrySuite struct {

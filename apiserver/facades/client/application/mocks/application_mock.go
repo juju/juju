@@ -24,7 +24,7 @@ import (
 	status "github.com/juju/juju/core/status"
 	config0 "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
-	tools "github.com/juju/juju/tools"
+	tools "github.com/juju/juju/internal/tools"
 	names "github.com/juju/names/v4"
 	schema "github.com/juju/schema"
 	version "github.com/juju/version/v2"

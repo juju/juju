@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	common "github.com/juju/juju/apiserver/common"
-	tools "github.com/juju/juju/tools"
+	tools "github.com/juju/juju/internal/tools"
 	gomock "go.uber.org/mock/gomock"
 )
 

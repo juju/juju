@@ -19,7 +19,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/docker"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/internal/tools"
 )
 
 // The ECR auth token expires after 12 hours.

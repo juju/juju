@@ -28,8 +28,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/network"
+	coretools "github.com/juju/juju/internal/tools"
 	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 )
 
 func Test(t *stdtesting.T) {

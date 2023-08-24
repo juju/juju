@@ -13,7 +13,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
 	binarystorage "github.com/juju/juju/state/binarystorage"
-	tools "github.com/juju/juju/tools"
+	tools "github.com/juju/juju/internal/tools"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"

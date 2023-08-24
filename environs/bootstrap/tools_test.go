@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/tools"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 

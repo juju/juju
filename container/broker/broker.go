@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/network"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
-	coretools "github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.container.broker")

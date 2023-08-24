@@ -17,9 +17,9 @@ import (
 
 	"github.com/juju/juju/api/client/modelupgrader"
 	"github.com/juju/juju/api/client/modelupgrader/mocks"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 )
 
 type UpgradeModelSuite struct {

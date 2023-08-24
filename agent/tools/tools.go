@@ -9,7 +9,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/version/v2"
 
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/internal/tools"
 )
 
 var logger = loggo.GetLogger("juju.agent.tools")

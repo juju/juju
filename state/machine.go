@@ -32,8 +32,8 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/tools"
 )
 
 // Machine represents the state of a machine.

@@ -31,11 +31,11 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 	upgradevalidationmocks "github.com/juju/juju/upgrades/upgradevalidation/mocks"
 )

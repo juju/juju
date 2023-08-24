@@ -36,12 +36,12 @@ import (
 	registrymocks "github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/tools"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
-	"github.com/juju/juju/tools"
 )
 
 type clientSuite struct {

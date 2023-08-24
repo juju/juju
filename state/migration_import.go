@@ -37,9 +37,9 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/tools"
 	secretsprovider "github.com/juju/juju/secrets/provider"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/tools"
 )
 
 // Import the database agnostic model representation into the database.

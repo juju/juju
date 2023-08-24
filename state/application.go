@@ -36,8 +36,8 @@ import (
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
+	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/tools"
 )
 
 // ExposedEndpoint encapsulates the expose-related details of a particular

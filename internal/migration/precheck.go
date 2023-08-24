@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 

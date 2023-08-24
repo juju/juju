@@ -25,9 +25,9 @@ import (
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 )
 
 type ImportSuite struct {

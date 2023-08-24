@@ -42,7 +42,7 @@ import (
 	pkissh "github.com/juju/juju/internal/pki/ssh"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
-	coretools "github.com/juju/juju/tools"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.common")

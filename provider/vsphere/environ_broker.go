@@ -25,9 +25,9 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
-	"github.com/juju/juju/tools"
 )
 
 const (

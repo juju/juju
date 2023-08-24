@@ -34,13 +34,13 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	callcontext "github.com/juju/juju/environs/context"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/provider/vsphere/internal/ovatest"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	"github.com/juju/juju/provider/vsphere/mocks"
 	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 )
 
 type legacyEnvironBrokerSuite struct {

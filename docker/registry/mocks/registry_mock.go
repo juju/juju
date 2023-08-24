@@ -9,7 +9,7 @@ import (
 	time "time"
 
 	docker "github.com/juju/juju/docker"
-	tools "github.com/juju/juju/tools"
+	tools "github.com/juju/juju/internal/tools"
 	gomock "go.uber.org/mock/gomock"
 )
 

@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry/image"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/internal/tools"
 )
 
 type tagsResponseV2 struct {
