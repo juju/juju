@@ -18,7 +18,7 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/internal/mongo"
 )
 

@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/feature"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/state/migrations"

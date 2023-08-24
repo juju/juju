@@ -43,7 +43,7 @@ import (
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/feature"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"

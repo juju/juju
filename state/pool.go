@@ -19,7 +19,7 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/state/watcher"
 )

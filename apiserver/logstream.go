@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/websocket"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )

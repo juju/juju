@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/websocket"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/rpc/params"
 )
 

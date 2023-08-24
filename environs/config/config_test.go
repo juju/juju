@@ -20,8 +20,8 @@ import (
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/internal/charmhub"
+	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"

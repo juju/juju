@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/feature"
 	jujutesting "github.com/juju/juju/testing"
 )
 

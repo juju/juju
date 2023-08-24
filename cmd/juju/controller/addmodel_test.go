@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/rpc/params"
