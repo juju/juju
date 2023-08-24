@@ -8,7 +8,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/rpc/params"
 )
 

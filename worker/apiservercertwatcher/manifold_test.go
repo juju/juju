@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/internal/pki"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiservercertwatcher"
 )

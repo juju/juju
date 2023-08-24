@@ -19,8 +19,8 @@ import (
 
 	"github.com/juju/juju/caas"
 	coreconfig "github.com/juju/juju/core/config"
+	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/pki"
 )
 
 const (

@@ -20,7 +20,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/core/network"
-	jujussh "github.com/juju/juju/network/ssh"
+	jujussh "github.com/juju/juju/internal/network/ssh"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )

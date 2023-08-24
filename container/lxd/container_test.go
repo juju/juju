@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/internal/network"
 )
 
 type containerSuite struct {

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/rpc/params"
 )
 

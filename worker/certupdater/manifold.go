@@ -11,7 +11,7 @@ import (
 	jujuagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/servicefactory"

@@ -17,7 +17,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/rpc/params"
 	jworker "github.com/juju/juju/worker"
 )

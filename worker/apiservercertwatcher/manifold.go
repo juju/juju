@@ -10,7 +10,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/internal/pki"
 )
 
 type AuthorityWorker interface {

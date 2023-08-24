@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/pki"
-	pkitest "github.com/juju/juju/pki/test"
+	"github.com/juju/juju/internal/pki"
+	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/worker/muxhttpserver"
 )
 

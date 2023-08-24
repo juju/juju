@@ -21,8 +21,8 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/pki"
-	pkitest "github.com/juju/juju/pki/test"
+	"github.com/juju/juju/internal/pki"
+	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/modelworkermanager"

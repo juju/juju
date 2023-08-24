@@ -8,7 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	admission "k8s.io/api/admissionregistration/v1"
 
-	pkitest "github.com/juju/juju/pki/test"
+	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/worker/caasadmission"
 )
 

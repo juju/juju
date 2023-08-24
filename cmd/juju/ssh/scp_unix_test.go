@@ -15,7 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/modelcmd"
-	jujussh "github.com/juju/juju/network/ssh"
+	jujussh "github.com/juju/juju/internal/network/ssh"
 )
 
 var _ = gc.Suite(&SCPSuiteLegacy{})

@@ -13,7 +13,7 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/internal/network"
 )
 
 // APIAddresser is an interface that is provided to NewAPIAddressUpdater

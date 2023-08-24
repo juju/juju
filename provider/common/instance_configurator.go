@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils/v3/ssh"
 
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/network/iptables"
+	"github.com/juju/juju/internal/network/iptables"
 )
 
 // InstanceConfigurator describes methods for manipulating firewall

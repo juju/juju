@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/pki"
-	pkitest "github.com/juju/juju/pki/test"
+	"github.com/juju/juju/internal/pki"
+	pkitest "github.com/juju/juju/internal/pki/test"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/certupdater"
 )

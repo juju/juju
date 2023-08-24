@@ -22,8 +22,8 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	jujussh "github.com/juju/juju/internal/network/ssh"
 	"github.com/juju/juju/jujuclient"
-	jujussh "github.com/juju/juju/network/ssh"
 	"github.com/juju/juju/rpc/params"
 )
 

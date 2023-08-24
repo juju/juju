@@ -9,7 +9,7 @@ import (
 
 	provisioner "github.com/juju/juju/api/agent/provisioner"
 	network "github.com/juju/juju/core/network"
-	network0 "github.com/juju/juju/network"
+	network0 "github.com/juju/juju/internal/network"
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"

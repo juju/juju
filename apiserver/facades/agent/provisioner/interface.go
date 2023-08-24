@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/network/containerizer"
+	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/network/containerizer"
 )
 
 // Machine is an indirection for use in container provisioning.
@@ -18,7 +18,7 @@ import (
 // containerizer.Container as well as state.Machine locally.
 //
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine,BridgePolicy,Unit,Application,Charm
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/network/containerizer LinkLayerDevice
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/internal/network/containerizer LinkLayerDevice
 type Machine interface {
 	containerizer.Container
 

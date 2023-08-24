@@ -22,7 +22,7 @@ import (
 
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/internal/pki"
 )
 
 var logger = loggo.GetLogger("juju.controller")

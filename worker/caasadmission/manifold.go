@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/worker/caasrbacmapper"
 	"github.com/juju/juju/worker/muxhttpserver"
 )

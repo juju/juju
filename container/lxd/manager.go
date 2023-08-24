@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/internal/network"
 )
 
 var (
