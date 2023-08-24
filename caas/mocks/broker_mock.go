@@ -11,7 +11,7 @@ import (
 	caas "github.com/juju/juju/caas"
 	constraints "github.com/juju/juju/core/constraints"
 	secrets "github.com/juju/juju/core/secrets"
-	docker "github.com/juju/juju/docker"
+	docker "github.com/juju/juju/internal/docker"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	context0 "github.com/juju/juju/environs/context"

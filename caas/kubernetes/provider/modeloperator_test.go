@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/docker"
+	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/testing"
 )
 

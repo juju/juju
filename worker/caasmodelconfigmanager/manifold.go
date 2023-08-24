@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/internal/docker/registry"
 )
 
 // ManifoldConfig describes how to configure and construct a Worker,

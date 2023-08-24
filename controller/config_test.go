@@ -20,8 +20,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/docker/registry"
-	"github.com/juju/juju/docker/registry/mocks"
+	"github.com/juju/juju/internal/docker/registry"
+	"github.com/juju/juju/internal/docker/registry/mocks"
 	"github.com/juju/juju/testing"
 )
 

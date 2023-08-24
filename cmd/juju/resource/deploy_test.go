@@ -20,7 +20,7 @@ import (
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/docker"
+	"github.com/juju/juju/internal/docker"
 )
 
 type DeploySuite struct {

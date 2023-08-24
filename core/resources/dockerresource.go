@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/docker"
+	"github.com/juju/juju/internal/docker"
 )
 
 // DockerImageDetails holds the details for a Docker resource type.

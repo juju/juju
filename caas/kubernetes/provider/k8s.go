@@ -43,11 +43,11 @@ import (
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/docker"
 	jujuversion "github.com/juju/juju/version"
 )
 

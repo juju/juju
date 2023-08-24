@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/docker"
+	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/rpc/params"
 )
 

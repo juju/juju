@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/internal/docker"
+	"github.com/juju/juju/internal/docker/registry"
 )
 
 // Logger represents the methods used by the worker to log details.
