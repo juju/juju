@@ -18,8 +18,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/resource"
-	"github.com/juju/juju/resource/mocks"
+	"github.com/juju/juju/internal/resource"
+	"github.com/juju/juju/internal/resource/mocks"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )

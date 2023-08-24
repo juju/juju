@@ -49,7 +49,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/resource"
+	"github.com/juju/juju/internal/resource"
 	coretesting "github.com/juju/juju/testing"
 )
 
