@@ -7,13 +7,13 @@ import (
 	reflect "reflect"
 
 	instancecfg "github.com/juju/juju/cloudconfig/instancecfg"
-	container "github.com/juju/juju/internal/container"
 	base "github.com/juju/juju/core/base"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	environs "github.com/juju/juju/environs"
 	instances "github.com/juju/juju/environs/instances"
+	container "github.com/juju/juju/internal/container"
 	gomock "go.uber.org/mock/gomock"
 )
 
