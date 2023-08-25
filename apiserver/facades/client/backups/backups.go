@@ -37,17 +37,30 @@ type Backend interface {
 	ControllerNodes() ([]state.ControllerNode, error)
 }
 
+// ControllerConfigService is an interface that provides the controller config.
+type ControllerConfigService interface {
+	// ControllerConfig returns the controller config.
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // API provides backup-specific API methods.
 type API struct {
-	backend Backend
-	paths   *corebackups.Paths
+	backend                 Backend
+	controllerConfigService ControllerConfigService
+	paths                   *corebackups.Paths
 
 	// machineID is the ID of the machine where the API server is running.
 	machineID string
 }
 
 // NewAPI creates a new instance of the Backups API facade.
-func NewAPI(backend Backend, authorizer facade.Authorizer, machineTag names.Tag, dataDir, logDir string) (*API, error) {
+func NewAPI(
+	backend Backend,
+	controllerConfigService ControllerConfigService,
+	authorizer facade.Authorizer,
+	machineTag names.Tag,
+	dataDir, logDir string,
+) (*API, error) {
 	err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
 	if err != nil &&
 		!errors.Is(err, authentication.ErrorEntityMissingPermission) &&
@@ -81,9 +94,10 @@ func NewAPI(backend Backend, authorizer facade.Authorizer, machineTag names.Tag,
 	}
 
 	b := API{
-		backend:   backend,
-		paths:     &paths,
-		machineID: machineTag.Id(),
+		backend:                 backend,
+		controllerConfigService: controllerConfigService,
+		paths:                   &paths,
+		machineID:               machineTag.Id(),
 	}
 	return &b, nil
 }

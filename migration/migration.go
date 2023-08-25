@@ -16,6 +16,7 @@ import (
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/resources"
@@ -88,20 +89,36 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 // legacyStateImporter describes the method needed to import a model
 // into the database.
 type legacyStateImporter interface {
-	Import(model description.Model) (*state.Model, *state.State, error)
+	Import(description.Model, controller.Config) (*state.Model, *state.State, error)
+}
+
+// ControllerConfigGetter describes the method needed to get the
+// controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
 }
 
 // ModelImporter represents a model migration that implements Import.
 type ModelImporter struct {
 	// TODO(nvinuesa): This is being deprecated, only needed until the
 	// migration to dqlite is complete.
-	legacyStateImporter legacyStateImporter
+	legacyStateImporter    legacyStateImporter
+	controllerConfigGetter ControllerConfigGetter
 
 	scope modelmigration.Scope
 }
 
-func NewModelImporter(stateImporter legacyStateImporter, scope modelmigration.Scope) *ModelImporter {
-	return &ModelImporter{stateImporter, scope}
+// NewModelImporter returns a new ModelImporter.
+func NewModelImporter(
+	stateImporter legacyStateImporter,
+	scope modelmigration.Scope,
+	controllerConfigGetter ControllerConfigGetter,
+) *ModelImporter {
+	return &ModelImporter{
+		legacyStateImporter:    stateImporter,
+		scope:                  scope,
+		controllerConfigGetter: controllerConfigGetter,
+	}
 }
 
 // ImportModel deserializes a model description from the bytes, transforms
@@ -113,7 +130,12 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 		return nil, nil, errors.Trace(err)
 	}
 
-	dbModel, dbState, err := i.legacyStateImporter.Import(model)
+	ctrlConfig, err := i.controllerConfigGetter.ControllerConfig(ctx)
+	if err != nil {
+		return nil, nil, errors.Annotatef(err, "unable to get controller config")
+	}
+
+	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

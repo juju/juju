@@ -44,6 +44,7 @@ func newFacade(ctx facade.Context) (*API, error) {
 	return NewAPI(
 		ctx,
 		auth,
+		ctx.ServiceFactory().ControllerConfig(),
 		ctx.ServiceFactory().ExternalController(),
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New))

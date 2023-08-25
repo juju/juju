@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"context"
 	"os"
 
 	"github.com/juju/errors"
@@ -13,14 +14,19 @@ import (
 	corebackups "github.com/juju/juju/core/backups"
 )
 
+// ControllerConfigGetter is an interface that provides the controller config.
+type ControllerConfigGetter interface {
+	// ControllerConfig returns the controller config.
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 type backend interface {
 	ModelTag() names.ModelTag
-	ControllerConfig() (controller.Config, error)
 	StateServingInfo() (controller.StateServingInfo, error)
 }
 
 // NewMetadataState composes a new backup metadata based on the current Juju state.
-func NewMetadataState(db backend, machine, base string) (*corebackups.Metadata, error) {
+func NewMetadataState(db backend, controllerUUID, machine, base string) (*corebackups.Metadata, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		// If os.Hostname() is not working, something is woefully wrong.
@@ -33,10 +39,6 @@ func NewMetadataState(db backend, machine, base string) (*corebackups.Metadata, 
 	meta.Origin.Hostname = hostname
 	meta.Origin.Base = base
 
-	controllerCfg, err := db.ControllerConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "could not get controller config")
-	}
-	meta.Controller.UUID = controllerCfg.ControllerUUID()
+	meta.Controller.UUID = controllerUUID
 	return meta, nil
 }

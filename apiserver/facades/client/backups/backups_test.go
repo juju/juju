@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -27,6 +28,9 @@ import (
 
 type backupsSuite struct {
 	testing.ApiServerSuite
+
+	controllerConfigService *MockControllerConfigService
+
 	authorizer *apiservertesting.FakeAuthorizer
 	api        *backupsAPI.API
 	meta       *corebackups.Metadata
@@ -58,16 +62,20 @@ func (s *backupsSuite) agentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSet
 	return agentConfig
 }
 
-func (s *backupsSuite) SetUpTest(c *gc.C) {
-	s.ApiServerSuite.SetUpTest(c)
+func (s *backupsSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	cfg := coretesting.FakeControllerConfig()
+
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
 	s.dataDir = c.MkDir()
 	s.machineTag = names.NewMachineTag("0")
 
 	st := s.ControllerModel(c).State()
 	agentConfig := s.agentConfigForTag(c, s.machineTag)
-	cfg, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+
 	agentConfig.SetStateServingInfo(controller.StateServingInfo{
 		PrivateKey:   coretesting.ServerKey,
 		Cert:         coretesting.ServerCert,
@@ -76,7 +84,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 		APIPort:      cfg.APIPort(),
 		StatePort:    cfg.StatePort(),
 	})
-	err = agentConfig.Write()
+	err := agentConfig.Write()
 	c.Assert(err, jc.ErrorIsNil)
 
 	tag := names.NewLocalUserTag("admin")
@@ -87,9 +95,11 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 		controllerNodesF: func() ([]state.ControllerNode, error) { return nil, nil },
 		machineF:         func(id string) (backupsAPI.Machine, error) { return &testMachine{}, nil },
 	}
-	s.api, err = backupsAPI.NewAPI(shim, s.authorizer, s.machineTag, s.dataDir, "")
+	s.api, err = backupsAPI.NewAPI(shim, s.controllerConfigService, s.authorizer, s.machineTag, s.dataDir, "")
 	c.Assert(err, jc.ErrorIsNil)
 	s.meta = corebackupstesting.NewMetadataStarted()
+
+	return ctrl
 }
 
 func (s *backupsSuite) setBackups(meta *corebackups.Metadata, err string) *backupstesting.FakeBackups {
@@ -112,8 +122,11 @@ func (s *backupsSuite) setBackups(meta *corebackups.Metadata, err string) *backu
 }
 
 func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	_, err := backupsAPI.NewAPI(
 		&stateShim{State: s.ControllerModel(c).State(), Model: s.ControllerModel(c)},
+		s.controllerConfigService,
 		s.authorizer, s.machineTag, s.dataDir, "")
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -122,22 +135,31 @@ func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 	s.authorizer.Tag = names.NewApplicationTag("eggs")
 	_, err := backupsAPI.NewAPI(
 		&stateShim{State: s.ControllerModel(c).State(), Model: s.ControllerModel(c)},
+		s.controllerConfigService,
 		s.authorizer, s.machineTag, s.dataDir, "")
 	c.Check(errors.Cause(err), gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *backupsSuite) TestNewAPIHostedEnvironmentFails(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	otherState := f.MakeModel(c, nil)
 	defer otherState.Close()
 	otherModel, err := otherState.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = backupsAPI.NewAPI(&stateShim{State: otherState, Model: otherModel}, s.authorizer, s.machineTag, s.dataDir, "")
+	_, err = backupsAPI.NewAPI(
+		&stateShim{State: otherState, Model: otherModel},
+		s.controllerConfigService,
+		s.authorizer, s.machineTag, s.dataDir, "",
+	)
 	c.Check(err, gc.ErrorMatches, "backups are only supported from the controller model\nUse juju switch to select the controller model")
 }
 
 func (s *backupsSuite) TestBackupsCAASFails(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 	otherState := f.MakeCAASModel(c, nil)
@@ -146,6 +168,10 @@ func (s *backupsSuite) TestBackupsCAASFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	isController := true
-	_, err = backupsAPI.NewAPI(&stateShim{State: otherState, Model: otherModel, isController: &isController}, s.authorizer, s.machineTag, s.dataDir, "")
+	_, err = backupsAPI.NewAPI(
+		&stateShim{State: otherState, Model: otherModel, isController: &isController},
+		s.controllerConfigService,
+		s.authorizer, s.machineTag, s.dataDir, "",
+	)
 	c.Assert(err, gc.ErrorMatches, "backups on kubernetes controllers not supported")
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/version/v2"
 
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
@@ -292,6 +293,9 @@ type ModelArgs struct {
 
 	// PasswordHash is used by the caas model operator.
 	PasswordHash string
+
+	// ControllerConfig is passed in enable configuration of the model.
+	ControllerConfig controller.Config
 }
 
 // Validate validates the ModelArgs.
@@ -458,12 +462,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Annotate(err, "granting admin permission to the owner")
 	}
 
-	config, err := st.ControllerConfig()
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "unable to get controller config")
-	}
-
-	if err := InitDbLogsForModel(session, uuid, config.ModelLogsSizeMB()); err != nil {
+	if err := InitDbLogsForModel(session, uuid, args.ControllerConfig.ModelLogsSizeMB()); err != nil {
 		return nil, nil, errors.Annotate(err, "initialising model logs collection")
 	}
 	return newModel, newSt, nil
