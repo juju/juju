@@ -48,11 +48,11 @@ func NewService(st State, wf WatcherFactory) *Service {
 func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, error) {
 	ctrlConfigMap, err := s.st.ControllerConfig(ctx)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unable to get controller config")
+		return nil, errors.Annotatef(err, "get controller config")
 	}
-	coerced, err := deserializeMap(ctrlConfigMap)
+	coerced, err := decodeMap(ctrlConfigMap)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unable to coerce controller config")
+		return nil, errors.Annotatef(err, "coerce controller config")
 	}
 
 	// Get the controller UUID and CA cert from the config, so we can generate
@@ -72,7 +72,7 @@ func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, erro
 	// returned from state.
 	ctrlConfig, err := controller.NewConfig(ctrlUUID, caCert, coerced)
 	if err != nil {
-		return nil, errors.Annotatef(err, "unable to create controller config")
+		return nil, errors.Annotatef(err, "create controller config")
 	}
 	return ctrlConfig, errors.Annotate(err, "getting controller config state")
 }
@@ -111,7 +111,7 @@ func validateConfig(updateAttrs map[string]string, removeAttrs []string) error {
 		if field, ok := fields[k]; ok {
 			_, err := field.Coerce(updateAttrs[k], []string{k})
 			if err != nil {
-				return errors.Annotatef(err, "unable to coerce controller config key %q", k)
+				return errors.Annotatef(err, "coerce controller config key %q", k)
 			}
 		}
 	}
@@ -134,9 +134,9 @@ func validateConfigField(name string) error {
 	return nil
 }
 
-// deserializeMap converts a map[string]any to a controller config
+// decodeMap converts a map[string]any to a controller config
 // and coerces any values that are found in the validation schema.
-func deserializeMap(m map[string]string) (map[string]any, error) {
+func decodeMap(m map[string]string) (map[string]any, error) {
 	fields, _, err := controller.ConfigSchema.ValidationSchema()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -147,7 +147,7 @@ func deserializeMap(m map[string]string) (map[string]any, error) {
 		if field, ok := fields[key]; ok {
 			v, err := field.Coerce(m[key], []string{key})
 			if err != nil {
-				return nil, errors.Annotatef(err, "unable to coerce controller config key %q", key)
+				return nil, errors.Annotatef(err, "coerce controller config key %q", key)
 			}
 			result[key] = v
 			continue

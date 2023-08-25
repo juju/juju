@@ -30,7 +30,7 @@ func EncodeToString(cfg Config) (map[string]string, error) {
 		case time.Time:
 			result[key] = v.Format(time.RFC3339Nano)
 		default:
-			return nil, errors.Errorf("unable to serialize controller config key %q: unknown type %T", key, v)
+			return nil, errors.Errorf("encoding controller config key %q: unknown type %T", key, v)
 		}
 	}
 	return result, nil

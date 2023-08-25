@@ -39,13 +39,12 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var (
-		serviceFactory            = ctx.ServiceFactory()
-		controllerConfigService   = serviceFactory.ControllerConfig()
-		externalControllerService = serviceFactory.ExternalController()
+	serviceFactory := ctx.ServiceFactory()
+	controllerConfigService := serviceFactory.ControllerConfig()
+	externalControllerService := serviceFactory.ExternalController()
 
-		resources = ctx.Resources()
-	)
+	resources := ctx.Resources()
+
 	return &AgentAPI{
 		PasswordChanger:   common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer: common.NewRebootFlagClearer(st, getCanChange),

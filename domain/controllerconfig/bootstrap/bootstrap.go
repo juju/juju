@@ -32,7 +32,7 @@ func InsertInitialControllerConfig(cfg controller.Config) func(context.Context, 
 			if field, ok := fields[k]; ok {
 				_, err := field.Coerce(values[k], []string{k})
 				if err != nil {
-					return errors.Annotatef(err, "unable to coerce controller config key %q", k)
+					return errors.Annotatef(err, "coerce controller config key %q", k)
 				}
 			}
 		}
