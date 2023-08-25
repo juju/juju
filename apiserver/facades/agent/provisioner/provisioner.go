@@ -175,8 +175,11 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	newEnviron := func(ctx stdcontext.Context) (environs.BootstrapEnviron, error) {
 		return environs.GetEnviron(ctx, configGetter, environs.New)
 	}
+
+	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+
 	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
-	api.toolsFinder = common.NewToolsFinder(st, configGetter, st, urlGetter, newEnviron)
+	api.toolsFinder = common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
 	api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
 }

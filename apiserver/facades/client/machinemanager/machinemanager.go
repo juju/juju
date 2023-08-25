@@ -6,6 +6,7 @@ package machinemanager
 import (
 	"context"
 	"fmt"
+	"github.com/juju/juju/controller"
 	"strconv"
 	"time"
 
@@ -32,6 +33,11 @@ import (
 )
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
+
+// ControllerConfigGetter defines a method for getting the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // Leadership represents a type for modifying the leadership settings of an
 // application for series upgrades.
@@ -67,14 +73,15 @@ type CharmhubClient interface {
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
-	st               Backend
-	storageAccess    StorageInterface
-	pool             Pool
-	authorizer       Authorizer
-	check            *common.BlockChecker
-	resources        facade.Resources
-	leadership       Leadership
-	upgradeSeriesAPI UpgradeSeries
+	controllerConfigGetter ControllerConfigGetter
+	st                     Backend
+	storageAccess          StorageInterface
+	pool                   Pool
+	authorizer             Authorizer
+	check                  *common.BlockChecker
+	resources              facade.Resources
+	leadership             Leadership
+	upgradeSeriesAPI       UpgradeSeries
 
 	callContext environscontext.ProviderCallContext
 	logger      loggo.Logger
@@ -327,7 +334,8 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	icfg, err := InstanceConfig(ctx, st, mm.st, args.MachineId, args.Nonce, args.DataDir)
+
+	icfg, err := InstanceConfig(ctx, mm.controllerConfigGetter, st, mm.st, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",
