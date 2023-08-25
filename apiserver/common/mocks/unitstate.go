@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 
 	common "github.com/juju/juju/apiserver/common"
-	controller "github.com/juju/juju/controller"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -48,21 +47,6 @@ func (m *MockUnitStateBackend) ApplyOperation(arg0 state.ModelOperation) error {
 func (mr *MockUnitStateBackendMockRecorder) ApplyOperation(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyOperation", reflect.TypeOf((*MockUnitStateBackend)(nil).ApplyOperation), arg0)
-}
-
-// ControllerConfig mocks base method.
-func (m *MockUnitStateBackend) ControllerConfig() (controller.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(controller.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockUnitStateBackendMockRecorder) ControllerConfig() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockUnitStateBackend)(nil).ControllerConfig))
 }
 
 // Unit mocks base method.

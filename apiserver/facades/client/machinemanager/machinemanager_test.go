@@ -698,6 +698,8 @@ type ProvisioningMachineManagerSuite struct {
 	api        *machinemanager.MachineManagerAPI
 
 	callContext context.ProviderCallContext
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *ProvisioningMachineManagerSuite) SetUpTest(c *gc.C) {
@@ -713,6 +715,9 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.ctrlSt = mocks.NewMockControllerBackend(ctrl)
 	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
+
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 
 	s.pool = mocks.NewMockPool(ctrl)
 	s.pool.EXPECT().SystemState().Return(s.ctrlSt, nil).AnyTimes()
@@ -783,7 +788,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScript(c *gc.C) {
 		NetPort:      1,
 	}}}, nil).Times(2)
 
-	result, err := s.api.ProvisioningScript(stdcontext.Background(), params.ProvisioningScriptParams{
+	result, err := s.api.ProvisioningScript(stdcontext.Background(), s.controllerConfigGetter, params.ProvisioningScriptParams{
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
@@ -811,7 +816,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptNoArch(c *gc.C) 
 
 	machine0 := s.expectProvisioningMachine(ctrl, nil)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
-	_, err := s.api.ProvisioningScript(stdcontext.Background(), params.ProvisioningScriptParams{
+	_, err := s.api.ProvisioningScript(stdcontext.Background(), s.controllerConfigGetter, params.ProvisioningScriptParams{
 		MachineId: "0",
 		Nonce:     "nonce",
 	})
@@ -840,7 +845,7 @@ func (s *ProvisioningMachineManagerSuite) TestProvisioningScriptDisablePackageCo
 		NetPort:      1,
 	}}}, nil).Times(2)
 
-	result, err := s.api.ProvisioningScript(stdcontext.Background(), params.ProvisioningScriptParams{
+	result, err := s.api.ProvisioningScript(stdcontext.Background(), s.controllerConfigGetter, params.ProvisioningScriptParams{
 		MachineId: "0",
 		Nonce:     "nonce",
 	})

@@ -6,7 +6,6 @@ package machinemanager
 import (
 	"context"
 	"fmt"
-	"github.com/juju/juju/controller"
 	"strconv"
 	"time"
 
@@ -19,6 +18,9 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/charmhub/transport"
+	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"

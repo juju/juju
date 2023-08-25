@@ -22831,18 +22831,6 @@
                     },
                     "description": "InstanceTypes returns instance type information for the cloud and region\nin which the current model is deployed."
                 },
-                "ProvisioningScript": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/ProvisioningScriptParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ProvisioningScriptResult"
-                        }
-                    },
-                    "description": "ProvisioningScript returns a shell script that, when run,\nprovisions a machine agent on the machine executing the script."
-                },
                 "RetryProvisioning": {
                     "type": "object",
                     "properties": {
@@ -23423,42 +23411,6 @@
                     "required": [
                         "scope",
                         "directive"
-                    ]
-                },
-                "ProvisioningScriptParams": {
-                    "type": "object",
-                    "properties": {
-                        "data-dir": {
-                            "type": "string"
-                        },
-                        "disable-package-commands": {
-                            "type": "boolean"
-                        },
-                        "machine-id": {
-                            "type": "string"
-                        },
-                        "nonce": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machine-id",
-                        "nonce",
-                        "data-dir",
-                        "disable-package-commands"
-                    ]
-                },
-                "ProvisioningScriptResult": {
-                    "type": "object",
-                    "properties": {
-                        "script": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "script"
                     ]
                 },
                 "RetryProvisioningArgs": {
