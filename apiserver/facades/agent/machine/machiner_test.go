@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/machine"
-	"github.com/juju/juju/apiserver/facades/agent/machine/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -32,7 +31,7 @@ type machinerSuite struct {
 	resources *common.Resources
 	machiner  *machine.MachinerAPI
 
-	controllerConfigGetter *mocks.MockControllerConfigGetter
+	controllerConfigGetter *MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&machinerSuite{})
@@ -41,7 +40,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.commonSuite.SetUpTest(c)
 
 	ctrl := gomock.NewController(c)
-	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
 
 	// Create the resource registry separately to track invocations to
 	// Register.
