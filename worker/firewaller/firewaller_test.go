@@ -91,10 +91,6 @@ type firewallerBaseSuite struct {
 func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.modelFlushed = make(chan bool, 5)
-	s.machineFlushed = make(chan string, 5)
-	s.watchingMachine = make(chan names.MachineTag, 5)
-
 	s.withIpv6 = true
 	s.withModelFirewaller = true
 	s.firewaller = nil
@@ -337,6 +333,10 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, ctrl *gomock.Controller, app *moc
 
 func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) worker.Worker {
 	s.ensureMocks(c, ctrl)
+
+	s.modelFlushed = make(chan bool, 5)
+	s.machineFlushed = make(chan string, 5)
+	s.watchingMachine = make(chan names.MachineTag, 5)
 
 	flushMachineNotify := func(id string) {
 		s.machineFlushed <- id
