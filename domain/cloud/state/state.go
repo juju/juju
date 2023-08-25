@@ -500,6 +500,24 @@ func (st *State) UpsertCloud(ctx context.Context, cloud cloud.Cloud) error {
 	return errors.Trace(err)
 }
 
+// CreateCloud saves the specified cloud.
+// Exported for use in the related cloud bootstrap package.
+func CreateCloud(ctx context.Context, tx *sql.Tx, cloudUUID string, cloud cloud.Cloud) error {
+	if err := upsertCloud(ctx, tx, cloudUUID, cloud); err != nil {
+		return errors.Annotatef(err, "updating cloud %s", cloudUUID)
+	}
+	if err := updateAuthTypes(ctx, tx, cloudUUID, cloud.AuthTypes); err != nil {
+		return errors.Annotatef(err, "updating cloud %s auth types", cloudUUID)
+	}
+	if err := updateCACerts(ctx, tx, cloudUUID, cloud.CACertificates); err != nil {
+		return errors.Annotatef(err, "updating cloud %s CA certs", cloudUUID)
+	}
+	if err := updateRegions(ctx, tx, cloudUUID, cloud.Regions); err != nil {
+		return errors.Annotatef(err, "updating cloud %s regions", cloudUUID)
+	}
+	return nil
+}
+
 func upsertCloud(ctx context.Context, tx *sql.Tx, cloudUUID string, cloud cloud.Cloud) error {
 	dbCloud, err := dbCloudFromCloud(ctx, tx, cloudUUID, cloud)
 	if err != nil {

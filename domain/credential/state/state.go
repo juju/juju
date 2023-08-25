@@ -117,6 +117,18 @@ WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_nam
 	return errors.Trace(err)
 }
 
+// CreateCredential saves the specified credential.
+// Exported for use in the related credential bootstrap package.
+func CreateCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string, name, cloud, owner string, credential cloud.Credential) error {
+	if err := upsertCredential(ctx, tx, credentialUUID, name, cloud, owner, credential); err != nil {
+		return errors.Annotatef(err, "creating credential %s", credentialUUID)
+	}
+	if err := updateCredentialAttributes(ctx, tx, credentialUUID, credential.Attributes()); err != nil {
+		return errors.Annotatef(err, "creating credential %s attributes", credentialUUID)
+	}
+	return nil
+}
+
 func upsertCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string, name, cloud, owner string, credential cloud.Credential) error {
 	dbCredential, err := dbCredentialFromCredential(ctx, tx, credentialUUID, name, cloud, owner, credential)
 	if err != nil {
