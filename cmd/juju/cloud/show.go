@@ -151,7 +151,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 			displayErr = cmd.ErrSilent
 		} else if remoteCloud != nil {
 			outputs = append(outputs, c.displayCloud(
-				remoteCloud,
+				*remoteCloud,
 				c.CloudName,
 				fmt.Sprintf("Cloud %q from controller %q", c.CloudName, c.ControllerName),
 				showRemoteConfig,
@@ -166,7 +166,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 			displayErr = cmd.ErrSilent
 		} else if localCloud != nil {
 			outputs = append(outputs, c.displayCloud(
-				localCloud,
+				*localCloud,
 				c.CloudName,
 				fmt.Sprintf("Client cloud %q", c.CloudName),
 				c.includeConfig,
@@ -194,7 +194,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 	case "display":
 		for _, output := range outputs {
 			var written bool
-			if output.CloudDetails != nil {
+			if !output.CloudDetails.Empty() {
 				fmt.Fprintf(ctxt.Stdout, "%s:\n\n", output.Summary)
 
 				if err := c.out.Write(ctxt, output.CloudDetails); err != nil {
@@ -234,7 +234,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 	return displayErr
 }
 
-func (c *showCloudCommand) displayCloud(aCloud *CloudDetails, name, summary string, includeConfig bool) CloudOutput {
+func (c *showCloudCommand) displayCloud(aCloud CloudDetails, name, summary string, includeConfig bool) CloudOutput {
 	aCloud.CloudType = displayCloudType(aCloud.CloudType)
 	var config map[string]any
 	if includeConfig {
@@ -285,10 +285,10 @@ func (c *showCloudCommand) getLocalCloud() (*CloudDetails, error) {
 }
 
 type CloudOutput struct {
-	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
-	Summary       string `yaml:"summary,omitempty" json:"summary,omitempty"`
-	*CloudDetails `yaml:",inline" json:",inline"`
-	Config        map[string]any `yaml:"cloud-config,omitempty" json:"cloud-config,omitempty"`
+	Name         string `yaml:"name,omitempty" json:"name,omitempty"`
+	Summary      string `yaml:"summary,omitempty" json:"summary,omitempty"`
+	CloudDetails `yaml:",inline" json:",inline"`
+	Config       map[string]any `yaml:"cloud-config,omitempty" json:"cloud-config,omitempty"`
 }
 
 // RegionDetails holds region details.
@@ -327,6 +327,25 @@ type CloudDetails struct {
 	CACredentials []string                 `yaml:"ca-credentials,omitempty" json:"ca-credentials,omitempty"`
 	Users         map[string]CloudUserInfo `json:"users,omitempty" yaml:"users,omitempty"`
 	SkipTLSVerify bool                     `yaml:"skip-tls-verify,omitempty" json:"skip-tls-verify,omitempty"`
+}
+
+func (d *CloudDetails) Empty() bool {
+	return d.Source == "" &&
+		d.CloudType == "" &&
+		d.CloudDescription == "" &&
+		len(d.AuthTypes) == 0 &&
+		d.Endpoint == "" &&
+		d.IdentityEndpoint == "" &&
+		d.StorageEndpoint == "" &&
+		d.DefaultRegion == "" &&
+		d.CredentialCount == 0 &&
+		len(d.Regions) == 0 &&
+		len(d.RegionsMap) == 0 &&
+		len(d.Config) == 0 &&
+		len(d.RegionConfig) == 0 &&
+		len(d.CACredentials) == 0 &&
+		len(d.Users) == 0 &&
+		!d.SkipTLSVerify
 }
 
 func makeCloudDetails(store jujuclient.CredentialGetter, cloud jujucloud.Cloud) *CloudDetails {
