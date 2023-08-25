@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/database/dqlite"
-	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/testing"
 )
 

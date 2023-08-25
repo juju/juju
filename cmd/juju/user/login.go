@@ -29,9 +29,9 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/pki"
 	"github.com/juju/juju/rpc/params"
 )
 

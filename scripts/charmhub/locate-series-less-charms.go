@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/yaml.v3"
 
-	"github.com/juju/juju/charmhub"
+	"github.com/juju/juju/internal/charmhub"
 )
 
 // The following program attempts to locate series-less charms on charmhub.

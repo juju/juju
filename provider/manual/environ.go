@@ -31,9 +31,9 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/common"
 )
 

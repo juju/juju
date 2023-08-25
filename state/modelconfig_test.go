@@ -19,9 +19,9 @@ import (
 	"github.com/juju/juju/core/constraints"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 

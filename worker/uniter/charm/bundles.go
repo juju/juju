@@ -11,7 +11,7 @@ import (
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/downloader"
+	"github.com/juju/juju/internal/downloader"
 )
 
 // Downloader exposes the downloader.Download methods needed here.

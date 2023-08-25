@@ -10,8 +10,8 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 

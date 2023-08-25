@@ -21,8 +21,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/container/lxd"
-	containerlxd "github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -35,8 +33,10 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/container/lxd"
+	containerlxd "github.com/juju/juju/internal/container/lxd"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 

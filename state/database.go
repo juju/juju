@@ -18,8 +18,8 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/feature"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/mongo"
 )
 
 var txnLogger = loggo.GetLogger("juju.state.txn")
@@ -29,7 +29,7 @@ type SessionCloser func()
 func dontCloseAnything() {}
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/database_mock.go github.com/juju/juju/state Database
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/mongo_mock.go github.com/juju/juju/mongo Collection,Query
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/mongo_mock.go github.com/juju/juju/internal/mongo Collection,Query
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/txn_mock.go github.com/juju/txn/v3 Runner
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
 

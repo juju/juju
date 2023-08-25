@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	jujustorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
-	jujustorage "github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
 )
 
 type poolCreateSuite struct {

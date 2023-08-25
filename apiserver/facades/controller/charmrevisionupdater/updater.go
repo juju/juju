@@ -17,10 +17,10 @@ import (
 	"github.com/juju/loggo"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/charmhub"
 	corebase "github.com/juju/juju/core/base"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/version"
 )

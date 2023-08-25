@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/provider/openstack"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 )
 
 type CloudInitSuite struct {

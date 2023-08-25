@@ -26,7 +26,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/internal/pubsub/apiserver"
 )
 
 var (

@@ -16,7 +16,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/snap"
-	jujupackaging "github.com/juju/juju/packaging"
+	jujupackaging "github.com/juju/juju/internal/packaging"
 )
 
 // ubuntuCloudConfig is the cloudconfig type specific to Ubuntu machines

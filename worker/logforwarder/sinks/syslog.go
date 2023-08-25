@@ -6,8 +6,8 @@ package sinks
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/logfwd"
-	"github.com/juju/juju/logfwd/syslog"
+	"github.com/juju/juju/internal/logfwd"
+	"github.com/juju/juju/internal/logfwd/syslog"
 	"github.com/juju/juju/worker/logforwarder"
 )
 

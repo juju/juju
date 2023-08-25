@@ -27,10 +27,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
 	ec2test "github.com/juju/juju/provider/ec2/internal/testing"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 

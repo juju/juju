@@ -17,7 +17,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/internal/pubsub/apiserver"
 )
 
 type namespaceSuite struct {

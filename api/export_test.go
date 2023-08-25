@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/network"
-	jujuproxy "github.com/juju/juju/proxy"
+	jujuproxy "github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 

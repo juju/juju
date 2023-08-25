@@ -10,8 +10,8 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/apiserver/facades/client/modelupgrader StatePool,State,Model

@@ -15,7 +15,7 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os"
-	jujupackaging "github.com/juju/juju/packaging"
+	jujupackaging "github.com/juju/juju/internal/packaging"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.

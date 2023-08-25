@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 	jworker "github.com/juju/juju/worker"
 )
 

@@ -24,9 +24,9 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/migration"
+	"github.com/juju/juju/internal/migration"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/wrench"
 )

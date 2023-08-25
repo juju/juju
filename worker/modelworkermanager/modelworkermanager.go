@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/state"
 )
 

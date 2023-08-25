@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
 	statestorage "github.com/juju/juju/state/storage"
 )

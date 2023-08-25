@@ -16,7 +16,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
-	coretools "github.com/juju/juju/tools"
+	coretools "github.com/juju/juju/internal/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 

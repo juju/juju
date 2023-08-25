@@ -18,9 +18,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
-	registrymocks "github.com/juju/juju/docker/registry/mocks"
+	"github.com/juju/juju/internal/docker"
+	"github.com/juju/juju/internal/docker/registry"
+	registrymocks "github.com/juju/juju/internal/docker/registry/mocks"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/worker/caasmodelconfigmanager/mocks"

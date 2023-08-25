@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 )
 
 type syncToolSuite struct {

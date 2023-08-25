@@ -15,8 +15,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	coretest "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/testing"
-	coretest "github.com/juju/juju/tools"
 )
 
 type ToolsImportSuite struct {
@@ -30,8 +30,8 @@ func (t *ToolsImportSuite) TestPackageDependencies(c *gc.C) {
 	// Only imports that start with "github.com/juju/juju" are checked, and the
 	// resulting slice has that prefix removed to keep the output short.
 	c.Assert(testing.FindJujuCoreImports(c, "github.com/juju/juju/agent/tools"),
-		gc.DeepEquals,
-		[]string{"juju/names", "tools"})
+		jc.SameContents,
+		[]string{"juju/names", "internal/tools"})
 }
 
 type ToolsSuite struct {

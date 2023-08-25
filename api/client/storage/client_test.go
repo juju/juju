@@ -16,8 +16,8 @@ import (
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/storage"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	jujustorage "github.com/juju/juju/storage"
 )
 
 type storageMockSuite struct {

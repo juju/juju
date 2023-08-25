@@ -11,7 +11,7 @@ import (
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/storage/provider"
+	"github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 

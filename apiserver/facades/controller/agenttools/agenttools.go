@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
-	coretools "github.com/juju/juju/tools"
 )
 
 var (

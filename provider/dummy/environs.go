@@ -36,9 +36,9 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/storage"
-	dummystorage "github.com/juju/juju/storage/provider/dummy"
-	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/internal/storage"
+	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")

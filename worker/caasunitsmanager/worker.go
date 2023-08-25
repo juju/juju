@@ -9,7 +9,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	message "github.com/juju/juju/pubsub/agent"
+	message "github.com/juju/juju/internal/pubsub/agent"
 )
 
 // Hub is a pubsub hub used for internal messaging.

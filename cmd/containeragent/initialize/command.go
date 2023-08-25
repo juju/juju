@@ -28,7 +28,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
-	"github.com/juju/juju/service/pebble/plan"
+	"github.com/juju/juju/internal/service/pebble/plan"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/introspection"
 )

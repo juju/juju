@@ -21,7 +21,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/proxy"
+	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 

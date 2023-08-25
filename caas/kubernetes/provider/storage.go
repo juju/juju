@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
 	jujucontext "github.com/juju/juju/environs/context"
-	jujustorage "github.com/juju/juju/storage"
+	jujustorage "github.com/juju/juju/internal/storage"
 )
 
 func validateStorageAttributes(attributes map[string]interface{}) error {

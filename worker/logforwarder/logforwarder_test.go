@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/logfwd"
-	"github.com/juju/juju/logfwd/syslog"
+	"github.com/juju/juju/internal/logfwd"
+	"github.com/juju/juju/internal/logfwd/syslog"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"

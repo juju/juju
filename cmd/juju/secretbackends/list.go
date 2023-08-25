@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 type listSecretBackendsCommand struct {

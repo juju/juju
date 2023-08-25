@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/tools"
 )
 
 // Logger is the interface used by the client to log errors.

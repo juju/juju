@@ -19,10 +19,10 @@ import (
 
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider/dummy"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )

@@ -29,10 +29,10 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/pki"
+	proxyerrors "github.com/juju/juju/internal/proxy/errors"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/pki"
-	proxyerrors "github.com/juju/juju/proxy/errors"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -15,8 +15,8 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/storage"
 )
 
 const (

@@ -37,8 +37,8 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/tools"
 )
 
 const (

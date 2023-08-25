@@ -7,7 +7,7 @@ import (
 	"regexp"
 
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 )
 
 const (

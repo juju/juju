@@ -39,10 +39,10 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/models"
 	"github.com/juju/juju/environs/simplestreams"
-	pkissh "github.com/juju/juju/pki/ssh"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
-	coretools "github.com/juju/juju/tools"
+	pkissh "github.com/juju/juju/internal/pki/ssh"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/poolmanager"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.common")

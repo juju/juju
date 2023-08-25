@@ -10,9 +10,9 @@ import (
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/cloudspec"
+	jujussh "github.com/juju/juju/internal/network/ssh"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	jujussh "github.com/juju/juju/network/ssh"
 )
 
 type (

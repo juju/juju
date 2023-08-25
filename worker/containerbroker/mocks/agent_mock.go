@@ -12,7 +12,7 @@ import (
 	api "github.com/juju/juju/api"
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
-	mongo "github.com/juju/juju/mongo"
+	mongo "github.com/juju/juju/internal/mongo"
 	names "github.com/juju/names/v4"
 	shell "github.com/juju/utils/v3/shell"
 	version "github.com/juju/version/v2"

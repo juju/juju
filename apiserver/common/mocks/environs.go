@@ -13,7 +13,7 @@ import (
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
 	context0 "github.com/juju/juju/environs/context"
-	storage "github.com/juju/juju/storage"
+	storage "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
 

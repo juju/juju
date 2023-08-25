@@ -12,7 +12,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/logfwd"
+	"github.com/juju/juju/internal/logfwd"
 	"github.com/juju/juju/rpc/params"
 )
 

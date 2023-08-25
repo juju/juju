@@ -9,7 +9,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	"github.com/juju/juju/observability/probe"
+	"github.com/juju/juju/internal/observability/probe"
 )
 
 // ManifoldConfig is the configuration used to setup a new caasprober.

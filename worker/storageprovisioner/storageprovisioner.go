@@ -12,9 +12,9 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/worker/storageprovisioner/internal/schedule"
 )
 

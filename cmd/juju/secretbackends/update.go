@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/api/client/secretbackends"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	_ "github.com/juju/juju/secrets/provider/all"
+	_ "github.com/juju/juju/internal/secrets/provider/all"
 )
 
 type updateSecretBackendCommand struct {

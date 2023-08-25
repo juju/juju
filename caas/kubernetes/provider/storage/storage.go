@@ -20,8 +20,8 @@ import (
 	resources "github.com/juju/juju/caas/kubernetes/provider/resources"
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/core/status"
-	storage "github.com/juju/juju/storage"
-	storageprovider "github.com/juju/juju/storage/provider"
+	storage "github.com/juju/juju/internal/storage"
+	storageprovider "github.com/juju/juju/internal/storage/provider"
 )
 
 // GetMountPathForFilesystem returns mount path.

@@ -7,7 +7,7 @@ import (
 	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/network/containerizer"
+	"github.com/juju/juju/internal/network/containerizer"
 	"github.com/juju/juju/state"
 )
 

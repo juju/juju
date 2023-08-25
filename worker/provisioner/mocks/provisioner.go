@@ -15,7 +15,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
-	network0 "github.com/juju/juju/network"
+	network0 "github.com/juju/juju/internal/network"
 	params "github.com/juju/juju/rpc/params"
 	provisioner0 "github.com/juju/juju/worker/provisioner"
 	names "github.com/juju/names/v4"

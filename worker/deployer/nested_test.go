@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/agent"
 	agentconfig "github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/engine"
-	message "github.com/juju/juju/pubsub/agent"
+	message "github.com/juju/juju/internal/pubsub/agent"
 	jt "github.com/juju/juju/testing"
 	jv "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"

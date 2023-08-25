@@ -21,15 +21,15 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/docker"
+	"github.com/juju/juju/internal/docker/registry"
+	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.client")

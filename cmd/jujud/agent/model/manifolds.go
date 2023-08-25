@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/actionpruner"
 	"github.com/juju/juju/worker/agent"

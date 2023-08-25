@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/api/controller/crossmodelrelations"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/secrets"
+	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/secrets"
-	"github.com/juju/juju/secrets/provider"
 )
 
 // Client provides access to the CrossModelSecrets API facade.

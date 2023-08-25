@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/secrets"
+	jujusecrets "github.com/juju/juju/internal/secrets"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/juju/sockets"
-	jujusecrets "github.com/juju/juju/secrets"
-	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/api"
 )
 

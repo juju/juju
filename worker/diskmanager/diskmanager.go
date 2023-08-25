@@ -11,7 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 	jworker "github.com/juju/juju/worker"
 )
 

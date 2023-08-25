@@ -19,12 +19,12 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/container/lxd"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 

@@ -34,10 +34,10 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/space"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
+	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/network"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
 )
 
 var logger = loggo.GetLogger("juju.agent.agentbootstrap")

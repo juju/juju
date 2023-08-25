@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/tools"
+	coretools "github.com/juju/juju/internal/tools"
 	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/deployer_mocks.go github.com/juju/juju/worker/deployer Client,Machine,Unit

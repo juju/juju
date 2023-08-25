@@ -41,7 +41,7 @@ import (
 	"github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/juju/osenv"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"

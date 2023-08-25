@@ -9,10 +9,10 @@ import (
 
 	lxd "github.com/canonical/lxd/client"
 	api "github.com/canonical/lxd/shared/api"
-	lxd0 "github.com/juju/juju/container/lxd"
 	base "github.com/juju/juju/core/base"
 	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"
+	lxd0 "github.com/juju/juju/internal/container/lxd"
 	lxd1 "github.com/juju/juju/provider/lxd"
 	gomock "go.uber.org/mock/gomock"
 )

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/internal/pki"
 )
 
 // Logger is an interface for logging messages.

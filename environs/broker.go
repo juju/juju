@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/tools"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/tools"
 )
 
 // StatusCallbackFunc represents a function that can be called to report a status.

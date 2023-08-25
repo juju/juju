@@ -18,12 +18,12 @@ import (
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/container/lxd"
+	"github.com/juju/juju/internal/pki"
+	pkiassertion "github.com/juju/juju/internal/pki/assertion"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/pki"
-	pkiassertion "github.com/juju/juju/pki/assertion"
 	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 

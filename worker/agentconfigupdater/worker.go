@@ -12,8 +12,8 @@ import (
 	"gopkg.in/tomb.v2"
 
 	coreagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/mongo"
-	controllermsg "github.com/juju/juju/pubsub/controller"
+	"github.com/juju/juju/internal/mongo"
+	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	jworker "github.com/juju/juju/worker"
 )
 

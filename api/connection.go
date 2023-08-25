@@ -21,7 +21,7 @@ import (
 
 	"github.com/juju/juju/api/agent/keyupdater"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"

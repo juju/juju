@@ -17,7 +17,7 @@ import (
 	config "github.com/juju/juju/environs/config"
 	context0 "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
-	storage "github.com/juju/juju/storage"
+	storage "github.com/juju/juju/internal/storage"
 	names "github.com/juju/names/v4"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"

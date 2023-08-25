@@ -18,7 +18,7 @@ import (
 
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/pubsub/controller"
+	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"

@@ -6,8 +6,8 @@ package application_test
 import (
 	jtesting "github.com/juju/testing"
 
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/poolmanager"
 )
 
 type mockStoragePoolManager struct {

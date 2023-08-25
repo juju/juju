@@ -19,8 +19,8 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/mongo"
-	mongoutils "github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/internal/mongo"
+	mongoutils "github.com/juju/juju/internal/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/state/storage"
 	jujuversion "github.com/juju/juju/version"

@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/core/status"
+	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
-	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
 

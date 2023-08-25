@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	coreapplication "github.com/juju/juju/core/application"
 	corebase "github.com/juju/juju/core/base"
-	bundlechanges "github.com/juju/juju/core/bundle/changes"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -40,9 +39,10 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	bundlechanges "github.com/juju/juju/internal/bundle/changes"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/storage"
 )
 
 type bundleDeploySpec struct {

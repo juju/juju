@@ -37,10 +37,10 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
+	corestorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/provider/common"
-	corestorage "github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 

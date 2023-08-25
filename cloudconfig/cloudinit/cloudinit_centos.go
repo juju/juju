@@ -13,7 +13,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	corenetwork "github.com/juju/juju/core/network"
-	jujupackaging "github.com/juju/juju/packaging"
+	jujupackaging "github.com/juju/juju/internal/packaging"
 )
 
 // PackageHelper is the interface for configuring specific parameter of the package manager

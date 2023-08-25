@@ -6,7 +6,7 @@ package uniter
 import (
 	"sync"
 
-	"github.com/juju/juju/observability/probe"
+	"github.com/juju/juju/internal/observability/probe"
 )
 
 // Probe is a prober implementation for the uniter worker to form part of the

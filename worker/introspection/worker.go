@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/pubsub/agent"
+	"github.com/juju/juju/internal/pubsub/agent"
 	"github.com/juju/juju/worker/introspection/pprof"
 )
 

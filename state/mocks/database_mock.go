@@ -7,7 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	mongo "github.com/juju/juju/mongo"
+	mongo "github.com/juju/juju/internal/mongo"
 	state "github.com/juju/juju/state"
 	mgo "github.com/juju/mgo/v3"
 	txn "github.com/juju/mgo/v3/txn"

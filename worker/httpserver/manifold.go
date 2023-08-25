@@ -19,8 +19,8 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/pki"
-	pkitls "github.com/juju/juju/pki/tls"
+	"github.com/juju/juju/internal/pki"
+	pkitls "github.com/juju/juju/internal/pki/tls"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"

@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/juju/api/agent/upgrader"
 	"github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 )
 
 type machineUpgraderSuite struct {

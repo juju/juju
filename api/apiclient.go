@@ -37,7 +37,7 @@ import (
 	"github.com/juju/juju/api/base"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/network"
-	jujuproxy "github.com/juju/juju/proxy"
+	jujuproxy "github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"

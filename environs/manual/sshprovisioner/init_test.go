@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/manual/sshprovisioner"
-	"github.com/juju/juju/service"
+	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/testing"
 )
 

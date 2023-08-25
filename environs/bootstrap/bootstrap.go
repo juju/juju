@@ -35,9 +35,9 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/pki"
-	corestorage "github.com/juju/juju/storage"
-	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/internal/pki"
+	corestorage "github.com/juju/juju/internal/storage"
+	coretools "github.com/juju/juju/internal/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 

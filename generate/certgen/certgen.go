@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/internal/pki"
 )
 
 const count int = 8

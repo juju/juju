@@ -27,9 +27,9 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	mgoutils "github.com/juju/juju/mongo/utils"
+	mgoutils "github.com/juju/juju/internal/mongo/utils"
+	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/tools"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")

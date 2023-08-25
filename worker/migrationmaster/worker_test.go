@@ -32,7 +32,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/migration"
+	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"

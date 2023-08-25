@@ -19,7 +19,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/settings"
-	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/internal/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 

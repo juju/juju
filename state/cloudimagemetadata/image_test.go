@@ -16,7 +16,7 @@ import (
 	txntesting "github.com/juju/txn/v3/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
 )

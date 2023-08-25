@@ -19,8 +19,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/pubsub/centralhub"
-	"github.com/juju/juju/pubsub/forwarder"
+	"github.com/juju/juju/internal/pubsub/centralhub"
+	"github.com/juju/juju/internal/pubsub/forwarder"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	psworker "github.com/juju/juju/worker/pubsub"

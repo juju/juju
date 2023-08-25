@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/mongo/utils"
+	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/mongo/utils"
 )
 
 type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo

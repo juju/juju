@@ -8,8 +8,8 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/pki"
-	pki_test "github.com/juju/juju/pki/test"
+	"github.com/juju/juju/internal/pki"
+	pki_test "github.com/juju/juju/internal/pki/test"
 )
 
 func TestSuite(t *testing.T) { gc.TestingT(t) }

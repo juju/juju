@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/proxy"
 )
 
 var logger = loggo.GetLogger("juju.juju")

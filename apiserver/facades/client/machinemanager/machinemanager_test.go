@@ -32,11 +32,11 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
 

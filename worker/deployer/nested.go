@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
-	message "github.com/juju/juju/pubsub/agent"
+	message "github.com/juju/juju/internal/pubsub/agent"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common/reboot"
 )

@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/pubsub/apiserver"
+	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )

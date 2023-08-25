@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/migration"
+	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/state/stateenvirons"
 )
 

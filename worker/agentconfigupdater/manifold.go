@@ -13,7 +13,7 @@ import (
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	coreagent "github.com/juju/juju/core/agent"
-	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/internal/mongo"
 	jworker "github.com/juju/juju/worker"
 )
 

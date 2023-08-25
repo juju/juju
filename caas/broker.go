@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/proxy"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/docker"
+	"github.com/juju/juju/internal/proxy"
+	"github.com/juju/juju/internal/storage"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/caas Broker

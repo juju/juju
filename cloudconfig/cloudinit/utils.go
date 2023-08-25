@@ -13,7 +13,7 @@ import (
 	"github.com/juju/packaging/v2/config"
 	"github.com/juju/utils/v3"
 
-	jujupackaging "github.com/juju/juju/packaging"
+	jujupackaging "github.com/juju/juju/internal/packaging"
 )
 
 // addPackageSourceCmds is a helper function that returns the corresponding

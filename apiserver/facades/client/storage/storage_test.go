@@ -20,10 +20,10 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 )
 

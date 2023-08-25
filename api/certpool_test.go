@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/pki"
+	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/testing"
 )
 

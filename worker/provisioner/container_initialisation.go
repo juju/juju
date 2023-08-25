@@ -11,14 +11,14 @@ import (
 
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
-	"github.com/juju/juju/container"
-	"github.com/juju/juju/container/broker"
-	"github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/container"
+	"github.com/juju/juju/internal/container/broker"
+	"github.com/juju/juju/internal/container/kvm"
+	"github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/rpc/params"
 	workercommon "github.com/juju/juju/worker/common"
 )

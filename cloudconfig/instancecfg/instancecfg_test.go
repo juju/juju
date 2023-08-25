@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 )
 
 type instancecfgSuite struct {

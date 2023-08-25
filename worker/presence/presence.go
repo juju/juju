@@ -12,8 +12,8 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/pubsub/apiserver"
-	"github.com/juju/juju/pubsub/forwarder"
+	"github.com/juju/juju/internal/pubsub/apiserver"
+	"github.com/juju/juju/internal/pubsub/forwarder"
 )
 
 // WorkerConfig defines the configuration values that the pubsub worker needs

@@ -4,7 +4,7 @@
 package caasprober
 
 import (
-	"github.com/juju/juju/observability/probe"
+	"github.com/juju/juju/internal/observability/probe"
 )
 
 // CaasProbes provides a private internal implementation of CAASProbes.

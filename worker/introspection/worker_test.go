@@ -25,7 +25,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/presence"
-	"github.com/juju/juju/pubsub/agent"
+	"github.com/juju/juju/internal/pubsub/agent"
 	_ "github.com/juju/juju/state"
 	"github.com/juju/juju/worker/introspection"
 )

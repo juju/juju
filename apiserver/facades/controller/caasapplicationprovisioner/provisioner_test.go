@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	jujuresource "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/docker"
+	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"

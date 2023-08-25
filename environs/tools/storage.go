@@ -12,7 +12,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/environs/storage"
-	coretools "github.com/juju/juju/tools"
+	coretools "github.com/juju/juju/internal/tools"
 )
 
 var ErrNoTools = errors.New("no agent binaries available")

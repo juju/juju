@@ -22,7 +22,7 @@ import (
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
-	jujussh "github.com/juju/juju/network/ssh"
+	jujussh "github.com/juju/juju/internal/network/ssh"
 	"github.com/juju/juju/rpc/params"
 )
 

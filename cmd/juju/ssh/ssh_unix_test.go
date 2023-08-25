@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
-	jujussh "github.com/juju/juju/network/ssh"
+	jujussh "github.com/juju/juju/internal/network/ssh"
 )
 
 type SSHSuite struct {

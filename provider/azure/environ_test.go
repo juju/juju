@@ -47,13 +47,13 @@ import (
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tags"
 	envtesting "github.com/juju/juju/environs/testing"
+	jujustorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
-	jujustorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 )
 
 var (

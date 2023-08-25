@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/storage"
+	"github.com/juju/juju/internal/storage"
 )
 
 // Logger defines the methods used by the pruner worker for logging.

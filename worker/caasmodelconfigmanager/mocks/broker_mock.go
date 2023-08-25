@@ -7,7 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	docker "github.com/juju/juju/docker"
+	docker "github.com/juju/juju/internal/docker"
 	gomock "go.uber.org/mock/gomock"
 )
 
