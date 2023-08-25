@@ -62,7 +62,9 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	msAPI, err := meterstatus.NewMeterStatusAPI(st, resources, authorizer, context.Logger().Child("meterstatus"))
+	controllerConfigGetter := context.ServiceFactory().ControllerConfig()
+
+	msAPI, err := meterstatus.NewMeterStatusAPI(controllerConfigGetter, st, resources, authorizer, context.Logger().Child("meterstatus"))
 	if err != nil {
 		return nil, errors.Annotate(err, "could not create meter status API handler")
 	}
@@ -93,7 +95,7 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
-		UnitStateAPI:               common.NewExternalUnitStateAPI(st, resources, authorizer, accessUnit, logger),
+		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigGetter, st, resources, authorizer, accessUnit, logger),
 		SecretsManagerAPI:          secretsAPI,
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		MeterStatus:                msAPI,

@@ -5,6 +5,7 @@ package meterstatus
 
 import (
 	"context"
+	"github.com/juju/juju/controller"
 
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -13,11 +14,15 @@ import (
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
+
+// ControllerConfigGetter defines a method for getting the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // MeterStatus defines the methods exported by the meter status API facade.
 type MeterStatus interface {
@@ -30,7 +35,6 @@ type MeterStatus interface {
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/meterstatus_mock.go github.com/juju/juju/apiserver/facades/agent/meterstatus MeterStatusState
 type MeterStatusState interface {
 	ApplyOperation(state.ModelOperation) error
-	ControllerConfig() (controller.Config, error)
 
 	// Application returns a application state by name.
 	Application(name string) (*state.Application, error)
@@ -53,6 +57,7 @@ type MeterStatusAPI struct {
 
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
 func NewMeterStatusAPI(
+	controllerConfigGetter ControllerConfigGetter,
 	st MeterStatusState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -68,6 +73,7 @@ func NewMeterStatusAPI(
 		accessUnit: accessUnit,
 		resources:  resources,
 		UnitStateAPI: common.NewUnitStateAPI(
+			controllerConfigGetter,
 			unitStateShim{st},
 			resources,
 			authorizer,
@@ -155,10 +161,6 @@ type unitStateShim struct {
 
 func (s unitStateShim) ApplyOperation(op state.ModelOperation) error {
 	return s.st.ApplyOperation(op)
-}
-
-func (s unitStateShim) ControllerConfig() (controller.Config, error) {
-	return s.st.ControllerConfig()
 }
 
 func (s unitStateShim) Unit(name string) (common.UnitStateUnit, error) {
