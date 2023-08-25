@@ -18,7 +18,7 @@ import (
 	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -430,16 +430,10 @@ func (s *RefreshErrorsStateSuite) SetUpSuite(c *gc.C) {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpSuite(c)
-
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"centos7", "centos9", "genericlinux", "kubernetes",
-				"jammy", "focal", "bionic", "xenial",
-			), nil
-		},
-	)
+	// TODO remove this patch once we removed all the old bases from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@18.04"}, corebase.ParseBaseFromString)
+	})
 }
 
 func (s *RefreshErrorsStateSuite) SetUpTest(c *gc.C) {
@@ -488,7 +482,7 @@ func (s *RefreshErrorsStateSuite) deployApplication(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@18.04"), charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := runDeploy(c, charmDir.Path, "riak", "--series", "bionic")
+	err := runDeploy(c, charmDir.Path, "riak", "--base", "ubuntu@18.04")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -539,6 +533,11 @@ func (s *RefreshSuccessStateSuite) SetUpSuite(c *gc.C) {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpSuite(c)
+	// TODO remove this patch once we removed all the old bases from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@18.04"}, corebase.ParseBaseFromString)
+	})
+
 }
 
 func (s *RefreshSuccessStateSuite) assertUpgraded(c *gc.C, riak *state.Application, revision int, forced bool) *charm.URL {
@@ -560,16 +559,6 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpTest(c)
-
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"centos7", "centos9", "genericlinux", "kubernetes",
-				"jammy", "focal", "bionic", "xenial",
-			), nil
-		},
-	)
 
 	s.charmClient = mockCharmClient{}
 	s.cmd = NewRefreshCommandForStateTest(

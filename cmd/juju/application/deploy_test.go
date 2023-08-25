@@ -19,6 +19,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -147,16 +148,6 @@ func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 		c.Skip("Mongo failures on macOS")
 	}
 	s.RepoSuite.SetUpTest(c)
-
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"centos7", "centos9", "genericlinux", "kubernetes",
-				"jammy", "focal", "jammy", "xenial",
-			), nil
-		},
-	)
 
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
@@ -366,9 +357,15 @@ func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
-	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "dummy")
+	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "dummy-no-series")
+	err := s.runDeploy(c, path, "--base", "ubuntu@20.04")
+	c.Assert(err, gc.ErrorMatches, "charm does not define any bases, not valid")
+}
+
+func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesNoBase(c *gc.C) {
+	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "dummy-no-series")
 	err := s.runDeploy(c, path)
-	c.Assert(err, gc.ErrorMatches, "series not specified and charm does not define any")
+	c.Assert(err, gc.ErrorMatches, "charm does not define any bases, not valid")
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c *gc.C) {
@@ -415,31 +412,27 @@ func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveOverlap(c *gc.C) {
-	// Donot remove this because we want to test: series supported by the charm and series supported by Juju have overlap.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"jammy", "focal",
-			), nil
-		},
-	)
+	// Do not remove this because we want to test: bases supported by the charm and bases supported by Juju have overlap.
+	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@12.10"}, corebase.ParseBaseFromString)
+	})
 
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
 	err := s.runDeploy(c, path, "--base", "ubuntu@12.10")
-	c.Assert(err, gc.ErrorMatches, `series "quantal" is not supported, supported series are: focal,jammy`)
+	c.Assert(err, gc.ErrorMatches, `base "ubuntu@12.10/stable" is not supported, supported bases are: .*`)
 }
 
-func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveNoOverlap(c *gc.C) {
-	// Donot remove this because we want to test: series supported by the charm and series supported by Juju have NO overlap.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings("kinetic"), nil
+func (s *DeploySuite) TestDeployFromPathUnsupportedBaseHaveNoOverlap(c *gc.C) {
+	// Do not remove this because we want to test: bases supported by the charm and bases supported by Juju have NO overlap.
+	s.PatchValue(&deployer.SupportedJujuBases,
+		func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+			return []corebase.Base{corebase.MustParseBaseFromString("ubuntu@22.10")}, nil
 		},
 	)
 
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
-	err := s.runDeploy(c, path, "--base", "ubuntu@12.10")
-	c.Assert(err, gc.ErrorMatches, `multi-series is not available on the following series: quantal`)
+	err := s.runDeploy(c, path)
+	c.Assert(err, gc.ErrorMatches, `the charm defined bases ".*" not supported`)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
@@ -448,14 +441,10 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@20.04"), charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"jammy", "focal", "jammy", "xenial", "quantal",
-			), nil
-		},
-	)
+	// TODO remove this patch once we removed all the old bases from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@18.04", "ubuntu@12.10"}, corebase.ParseBaseFromString)
+	})
 
 	err := s.runDeployForState(c, charmDir.Path, "--base", "ubuntu@12.10", "--force")
 	c.Assert(err, jc.ErrorIsNil)
@@ -468,14 +457,10 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedLXDProfileForce(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@20.04"), charmDir.Meta(), charmDir.Metrics(), false, true, 1, nil, nil)
 
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"jammy", "focal", "jammy", "xenial", "quantal",
-			), nil
-		},
-	)
+	// TODO remove this patch once we removed all the old bases from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@18.04", "ubuntu@12.10"}, corebase.ParseBaseFromString)
+	})
 
 	err := s.runDeployForState(c, charmDir.Path, "--base", "ubuntu@12.10", "--force")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1037,16 +1022,6 @@ func (s *CAASDeploySuiteBase) expectDeployer(c *gc.C, cfg deployer.DeployerConfi
 }
 
 func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
-
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"centos7", "centos9", "genericlinux", "kubernetes",
-				"jammy", "focal", "jammy", "xenial",
-			), nil
-		},
-	)
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookiesFile)
 
@@ -1217,9 +1192,9 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 
 func (s *DeploySuite) TestDeployStorageFailContainer(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:focal/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@20.04"), charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@22.04"), charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
 	machine, err := s.State.AddMachine(state.UbuntuBase("22.04"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1446,23 +1421,19 @@ func (s *DeploySuite) TestDeployLocalWithSeriesMismatchReturnsError(c *gc.C) {
 
 	_, _, err := s.runDeployWithOutput(c, charmDir.Path, "--base", "ubuntu@12.10")
 
-	c.Check(err, gc.ErrorMatches, `terms1 is not available on the following series: quantal not supported`)
+	c.Check(err, gc.ErrorMatches, `terms1 is not available on the following base: ubuntu@12.10/stable`)
 }
 
 func (s *DeploySuite) TestDeployLocalWithSeriesAndForce(c *gc.C) {
+	// TODO remove this patch once we removed all the old bases from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@18.04", "ubuntu@12.10"}, corebase.ParseBaseFromString)
+	})
+
 	charmDir := testcharms.RepoWithSeries("quantal").ClonedDir(c.MkDir(), "terms1")
 	curl := charm.MustParseURL("local:quantal/terms1-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, true)
 	withCharmDeployable(s.fakeAPI, curl, defaultBase, charmDir.Meta(), charmDir.Metrics(), false, true, 1, nil, nil)
-
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"jammy", "focal", "jammy", "xenial", "quantal",
-			), nil
-		},
-	)
 
 	err := s.runDeployForState(c, charmDir.Path, "--base", "ubuntu@12.10", "--force")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1479,15 +1450,10 @@ func (s *DeploySuite) setupNonESMBase(c *gc.C) (corebase.Base, string) {
 	supportedNotEMS := supported.Difference(set.NewStrings(corebase.ESMSupportedJujuSeries()...))
 	c.Assert(supportedNotEMS.Size(), jc.GreaterThan, 0)
 
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"centos7", "centos9", "genericlinux", "kubernetes",
-				"jammy", "focal", "jammy", "xenial",
-			), nil
-		},
-	)
+	// TODO remove this patch once we removed all the old bases from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+		return transform.SliceOrErr([]string{"centos@7", "centos@9", "ubuntu@22.04", "ubuntu@20.04", "ubuntu@16.04"}, corebase.ParseBaseFromString)
+	})
 
 	nonEMSSeries := supportedNotEMS.SortedValues()[0]
 
@@ -1533,7 +1499,7 @@ func (s *DeploySuite) TestDeployLocalWithSupportedNonESMSeries(c *gc.C) {
 func (s *DeploySuite) TestDeployLocalWithNotSupportedNonESMSeries(c *gc.C) {
 	_, loggingPath := s.setupNonESMBase(c)
 	err := s.runDeploy(c, loggingPath, "--base", "ubuntu@17.10")
-	c.Assert(err, gc.ErrorMatches, "logging is not available on the following series: artful not supported")
+	c.Assert(err, gc.ErrorMatches, "logging is not available on the following base: ubuntu@17.10/stable")
 }
 
 // setupConfigFile creates a configuration file for testing set
@@ -1906,16 +1872,6 @@ var _ = gc.Suite(&DeployUnitTestSuite{})
 
 func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"centos7", "centos9", "genericlinux", "kubernetes",
-				"jammy", "focal", "jammy", "xenial",
-			), nil
-		},
-	)
 
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookiesFile)

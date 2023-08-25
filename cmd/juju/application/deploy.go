@@ -367,7 +367,7 @@ when refreshing the application in the future.
 A local charm may be deployed by giving the path to its directory:
 
   juju deploy /path/to/charm
-  juju deploy /path/to/charm ---base ubuntu@22.04
+  juju deploy /path/to/charm --base ubuntu@22.04
 
 You will need to be explicit if there is an ambiguity between a local and a
 remote charm:
