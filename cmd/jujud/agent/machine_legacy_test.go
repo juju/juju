@@ -747,7 +747,7 @@ func (s *MachineLegacySuite) seedControllerConfig(c *gc.C) {
 		ctrlConfigAttrs[k] = v
 	}
 	s.InitialDBOps = append(s.InitialDBOps, func(ctx stdcontext.Context, db database.TxnRunner) error {
-		return bootstrap.InsertInitialControllerConfig(s.ControllerConfigAttrs)(ctx, db)
+		return bootstrap.InsertInitialControllerConfig(ctrlConfigAttrs)(ctx, db)
 	})
 }
 
