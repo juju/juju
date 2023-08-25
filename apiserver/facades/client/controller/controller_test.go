@@ -36,9 +36,9 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
 	databasetesting "github.com/juju/juju/database/testing"
-	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/servicefactory"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -54,7 +54,9 @@ import (
 
 type controllerSuite struct {
 	statetesting.StateSuite
-	schematesting.ControllerSuite
+	domaintesting.ControllerConfigSuite
+
+	controllerConfig corecontroller.Config
 
 	controller      *controller.ControllerAPI
 	resources       *common.Resources
@@ -67,14 +69,24 @@ type controllerSuite struct {
 
 var _ = gc.Suite(&controllerSuite{})
 
+func (s *controllerSuite) SetUpSuite(c *gc.C) {
+	s.StateSuite.SetUpSuite(c)
+	s.ControllerConfigSuite.SetUpSuite(c)
+
+	s.controllerConfig = testing.FakeControllerConfig()
+}
+
 func (s *controllerSuite) SetUpTest(c *gc.C) {
 	// Initial config needs to be set before the StateSuite SetUpTest.
 	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
 		"name": "controller",
 	})
 
+	s.StateSuite.ControllerConfig = s.controllerConfig
+	s.ControllerConfigSuite.ControllerConfig = s.controllerConfig
+
 	s.StateSuite.SetUpTest(c)
-	s.ControllerSuite.SetUpTest(c)
+	s.ControllerConfigSuite.SetUpTest(c)
 
 	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -101,10 +113,11 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-
-	// This factory is purely for tests that don't actually require the
-	// real factory.
-	s.serviceFactory = servicefactorytesting.NewTestingServiceFactory()
+	s.serviceFactory = servicefactory.NewServiceFactory(
+		databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
+		nil, nil,
+		servicefactorytesting.NewCheckLogger(c),
+	)
 
 	s.context = facadetest.Context{
 		State_:               s.State,
@@ -114,11 +127,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Auth_:                s.authorizer,
 		Hub_:                 s.hub,
 		MultiwatcherFactory_: multiWatcherWorker,
-		ServiceFactory_: servicefactory.NewServiceFactory(
-			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
-			nil, nil,
-			servicefactorytesting.NewCheckLogger(c),
-		),
+		ServiceFactory_:      s.serviceFactory,
 	}
 	controller, err := controller.LatestAPI(s.context)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1034,8 +1043,8 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	// Preserve default controller config as we will be mutating it just
 	// for this test
 	defer func(orig map[string]interface{}) {
-		s.ControllerConfig = orig
-	}(s.ControllerConfig)
+		s.controllerConfig = orig
+	}(s.controllerConfig)
 
 	// Our default test configuration does not specify an IdentityURL
 	urlRes, err := s.controller.IdentityProviderURL(stdcontext.Background())
@@ -1045,10 +1054,11 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	// IdentityURL cannot be changed after bootstrap; we need to spin up
 	// another controller with IdentityURL pre-configured
 	s.TearDownTest(c)
+
 	expURL := "https://api.jujucharms.com/identity"
-	s.ControllerConfig = map[string]interface{}{
-		corecontroller.IdentityURL: expURL,
-	}
+	s.StateSuite.ControllerConfig[corecontroller.IdentityURL] = expURL
+	s.ControllerConfigSuite.ControllerConfig[corecontroller.IdentityURL] = expURL
+
 	s.SetUpTest(c)
 
 	urlRes, err = s.controller.IdentityProviderURL(stdcontext.Background())
