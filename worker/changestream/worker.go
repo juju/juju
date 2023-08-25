@@ -84,8 +84,10 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 		runner: worker.NewRunner(worker.RunnerParams{
 			// Prevent the runner from restarting the worker, if one of the
 			// workers dies, we want to stop the whole thing.
-			IsFatal: func(err error) bool { return false },
-			Clock:   cfg.Clock,
+			IsFatal: func(err error) bool {
+				return false
+			},
+			Clock: cfg.Clock,
 		}),
 	}
 
@@ -102,7 +104,7 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 	return w, nil
 }
 
-func (w *changeStreamWorker) loop() (err error) {
+func (w *changeStreamWorker) loop() error {
 	defer w.runner.Kill()
 
 	<-w.catacomb.Dying()
