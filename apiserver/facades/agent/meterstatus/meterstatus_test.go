@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
-	"github.com/juju/juju/apiserver/facades/agent/meterstatus/mocks"
 	meterstatustesting "github.com/juju/juju/apiserver/facades/agent/meterstatus/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -36,14 +35,14 @@ type meterStatusSuite struct {
 
 	status meterstatus.MeterStatus
 
-	controllerConfigGetter *mocks.MockControllerConfigGetter
+	controllerConfigGetter *MockControllerConfigGetter
 }
 
 func (s *meterStatusSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	ctrl := gomock.NewController(c)
-	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -204,7 +203,7 @@ func (s *meterStatusSuite) TestWatchMeterStatusWithApplicationTag(c *gc.C) {
 }
 
 type meterStatusAPIMocks struct {
-	state      *mocks.MockMeterStatusState
+	state      *MockMeterStatusState
 	resources  *facademocks.MockResources
 	authorizer *facademocks.MockAuthorizer
 }
@@ -212,7 +211,7 @@ type meterStatusAPIMocks struct {
 func (s *meterStatusSuite) setupMeterStatusAPI(c *gc.C, fn func(meterStatusAPIMocks)) (*meterstatus.MeterStatusAPI, *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 
-	mockState := mocks.NewMockMeterStatusState(ctrl)
+	mockState := NewMockMeterStatusState(ctrl)
 	mockResources := facademocks.NewMockResources(ctrl)
 	mockAuthorizer := facademocks.NewMockAuthorizer(ctrl)
 
