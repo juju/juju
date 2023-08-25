@@ -23,6 +23,20 @@ func InsertInitialControllerConfig(cfg controller.Config) func(context.Context, 
 			return errors.Trace(err)
 		}
 
+		fields, _, err := controller.ConfigSchema.ValidationSchema()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		for k := range values {
+			if field, ok := fields[k]; ok {
+				_, err := field.Coerce(values[k], []string{k})
+				if err != nil {
+					return errors.Annotatef(err, "unable to coerce controller config key %q", k)
+				}
+			}
+		}
+
 		query := "INSERT INTO controller_config (key, value) VALUES (?, ?)"
 
 		return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {

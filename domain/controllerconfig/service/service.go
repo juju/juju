@@ -83,7 +83,7 @@ func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs contro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = validateConfig(updateAttrs, removeAttrs)
+	err = validateConfig(coerced, removeAttrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -98,10 +98,21 @@ func (s *Service) Watch() (watcher.StringsWatcher, error) {
 }
 
 // validateConfig validates the given updateAttrs and removeAttrs.
-func validateConfig(updateAttrs map[string]any, removeAttrs []string) error {
+func validateConfig(updateAttrs map[string]string, removeAttrs []string) error {
+	fields, _, err := controller.ConfigSchema.ValidationSchema()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	for k := range updateAttrs {
 		if err := validateConfigField(k); err != nil {
 			return errors.Trace(err)
+		}
+		if field, ok := fields[k]; ok {
+			_, err := field.Coerce(updateAttrs[k], []string{k})
+			if err != nil {
+				return errors.Annotatef(err, "unable to coerce controller config key %q", k)
+			}
 		}
 	}
 	for _, r := range removeAttrs {
