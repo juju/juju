@@ -39,18 +39,21 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	serviceFactory := ctx.ServiceFactory()
-	controllerConfigGetter := serviceFactory.ControllerConfig()
+	var (
+		serviceFactory            = ctx.ServiceFactory()
+		controllerConfigService   = serviceFactory.ControllerConfig()
+		externalControllerService = serviceFactory.ExternalController()
 
-	resources := ctx.Resources()
+		resources = ctx.Resources()
+	)
 	return &AgentAPI{
 		PasswordChanger:   common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer: common.NewRebootFlagClearer(st, getCanChange),
 		ModelWatcher:      common.NewModelWatcher(model, resources, auth),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			controllerConfigGetter,
-			serviceFactory.ExternalController(),
+			controllerConfigService,
+			externalControllerService,
 		),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,
@@ -60,9 +63,9 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		controllerConfigGetter: controllerConfigGetter,
-		st:                     st,
-		auth:                   auth,
-		resources:              resources,
+		controllerConfigService: controllerConfigService,
+		st:                      st,
+		auth:                    auth,
+		resources:               resources,
 	}, nil
 }

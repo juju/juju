@@ -43,9 +43,12 @@ func newOffersAPI(facadeContext facade.Context) (*OffersAPI, error) {
 		return env, nil
 	}
 
-	st := facadeContext.State()
-	serviceFactory := facadeContext.ServiceFactory()
-	controllerConfigService := serviceFactory.ControllerConfig()
+	var (
+		st                      = facadeContext.State()
+		serviceFactory          = facadeContext.ServiceFactory()
+		controllerConfigService = serviceFactory.ControllerConfig()
+	)
+
 	getControllerInfo := func(ctx context.Context) ([]string, string, error) {
 		controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 		if err != nil {

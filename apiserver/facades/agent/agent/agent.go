@@ -25,8 +25,8 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// ControllerConfigGetter is the interface that gets ControllerConfig form DB.
-type ControllerConfigGetter interface {
+// ControllerConfigService is the interface that gets ControllerConfig form DB.
+type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
@@ -38,10 +38,10 @@ type AgentAPI struct {
 	*common.ControllerConfigAPI
 	cloudspec.CloudSpecer
 
-	controllerConfigGetter ControllerConfigGetter
-	st                     *state.State
-	auth                   facade.Authorizer
-	resources              facade.Resources
+	controllerConfigService ControllerConfigService
+	st                      *state.State
+	auth                    facade.Authorizer
+	resources               facade.Resources
 }
 
 func (api *AgentAPI) GetEntities(ctx context.Context, args params.Entities) params.AgentGetEntitiesResults {
@@ -96,7 +96,7 @@ func (api *AgentAPI) StateServingInfo(ctx context.Context) (result params.StateS
 		return params.StateServingInfo{}, errors.Trace(err)
 	}
 	// ControllerAPIPort comes from the controller config.
-	config, err := api.controllerConfigGetter.ControllerConfig(ctx)
+	config, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return params.StateServingInfo{}, errors.Trace(err)
 	}

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -24,10 +23,6 @@ import (
 	"github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/testing"
 )
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type ConfigSuite struct {
 	testing.FakeJujuXDGDataHomeSuite

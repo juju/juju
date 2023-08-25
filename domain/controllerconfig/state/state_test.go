@@ -9,9 +9,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/database/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type stateSuite struct {
@@ -23,41 +24,42 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) TestControllerConfigRead(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
-	cc := map[string]interface{}{
-		jujucontroller.AuditingEnabled:     "1",
-		jujucontroller.AuditLogCaptureArgs: "0",
-		jujucontroller.AuditLogMaxBackups:  "10",
-		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
-		jujucontroller.APIPortOpenDelay:    "100ms",
+	ctrlConfig := map[string]string{
+		controller.ControllerUUIDKey:   jujutesting.ControllerTag.Id(),
+		controller.CACertKey:           jujutesting.CACert,
+		controller.AuditingEnabled:     "1",
+		controller.AuditLogCaptureArgs: "0",
+		controller.AuditLogMaxBackups:  "10",
+		controller.PublicDNSAddress:    "controller.test.com:1234",
+		controller.APIPortOpenDelay:    "100ms",
 	}
 
-	err := st.UpdateControllerConfig(ctx.Background(), cc, nil)
+	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerConfig, err := st.ControllerConfig(ctx.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(controllerConfig, jc.DeepEquals, cc)
-
+	c.Check(controllerConfig, jc.DeepEquals, ctrlConfig)
 }
 
 func (s *stateSuite) TestUpdateControllerConfigNewData(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
-	err := st.UpdateControllerConfig(ctx.Background(), jujucontroller.Config{
-		jujucontroller.PublicDNSAddress: "controller.test.com:1234",
-		jujucontroller.APIPortOpenDelay: "100ms",
+	err := st.UpdateControllerConfig(ctx.Background(), map[string]string{
+		controller.PublicDNSAddress: "controller.test.com:1234",
+		controller.APIPortOpenDelay: "100ms",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.UpdateControllerConfig(ctx.Background(), jujucontroller.Config{
-		jujucontroller.AuditLogMaxBackups: "10",
+	err = st.UpdateControllerConfig(ctx.Background(), map[string]string{
+		controller.AuditLogMaxBackups: "10",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.DB()
 
 	// Check the controller record.
-	row := db.QueryRow("SELECT value FROM controller_config WHERE key = ?", jujucontroller.AuditLogMaxBackups)
+	row := db.QueryRow("SELECT value FROM controller_config WHERE key = ?", controller.AuditLogMaxBackups)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var auditLogMaxBackups string
@@ -67,29 +69,29 @@ func (s *stateSuite) TestUpdateControllerConfigNewData(c *gc.C) {
 
 }
 
-func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
+func (s *stateSuite) TestUpdateControllerConfigUpsertAndReplace(c *gc.C) {
 	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
 
-	cc := jujucontroller.Config{
-		jujucontroller.PublicDNSAddress: "controller.test.com:1234",
-		jujucontroller.APIPortOpenDelay: "100ms",
+	ctrlConfig := map[string]string{
+		controller.PublicDNSAddress: "controller.test.com:1234",
+		controller.APIPortOpenDelay: "100ms",
 	}
 
 	// Initial values.
-	err := st.UpdateControllerConfig(ctx.Background(), cc, nil)
+	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now with different DNS address and API port open delay.
-	cc[jujucontroller.PublicDNSAddress] = "updated-controller.test.com:1234"
-	cc[jujucontroller.APIPortOpenDelay] = "200ms"
+	ctrlConfig[controller.PublicDNSAddress] = "updated-controller.test.com:1234"
+	ctrlConfig[controller.APIPortOpenDelay] = "200ms"
 
-	err = st.UpdateControllerConfig(ctx.Background(), cc, nil)
+	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	db := s.DB()
 
 	// Check the DNS address.
-	row := db.QueryRow("SELECT value FROM controller_config WHERE key = ?", jujucontroller.PublicDNSAddress)
+	row := db.QueryRow("SELECT value FROM controller_config WHERE key = ?", controller.PublicDNSAddress)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var dnsAddress string
@@ -98,7 +100,7 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 	c.Check(dnsAddress, gc.Equals, "updated-controller.test.com:1234")
 
 	// Check the API port open delay.
-	row = db.QueryRow("SELECT value FROM controller_config WHERE key = ?", jujucontroller.APIPortOpenDelay)
+	row = db.QueryRow("SELECT value FROM controller_config WHERE key = ?", controller.APIPortOpenDelay)
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var apiPortOpenDelay string

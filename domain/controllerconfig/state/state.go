@@ -26,17 +26,17 @@ func NewState(factory database.TxnRunnerFactory) *State {
 }
 
 // ControllerConfig returns the current configuration in the database.
-func (st *State) ControllerConfig(ctx context.Context) (map[string]any, error) {
+func (st *State) ControllerConfig(ctx context.Context) (map[string]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	q := "SELECT key, value FROM controller_config"
+	query := "SELECT key, value FROM controller_config"
 
-	var result map[string]any
+	var result map[string]string
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, q)
+		rows, err := tx.QueryContext(ctx, query)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -44,6 +44,7 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]any, error) {
 		result, err = controllerConfigFromRows(rows)
 		return errors.Trace(err)
 	})
+
 	return result, err
 }
 
@@ -52,15 +53,14 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]any, error) {
 // to the current config, and keys in removeAttrs will be unset (and
 // so revert to their defaults). Only a subset of keys can be changed
 // after bootstrapping.
-func (st *State) UpdateControllerConfig(ctx context.Context, updateAttrs map[string]any, removeAttrs []string) error {
+func (st *State) UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	dq := "DELETE FROM controller_config WHERE key = ?"
-
-	uq := `
+	deleteQuery := "DELETE FROM controller_config WHERE key = ?"
+	updateQuery := `
 INSERT INTO controller_config (key, value)
 VALUES (?, ?)
   ON CONFLICT(key) DO UPDATE SET value=?`
@@ -68,14 +68,15 @@ VALUES (?, ?)
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		// Remove the attributes
 		for _, r := range removeAttrs {
-			if _, err := tx.ExecContext(ctx, dq, r); err != nil {
+			if _, err := tx.ExecContext(ctx, deleteQuery, r); err != nil {
 				return errors.Trace(err)
 			}
 		}
 
 		// Update the attributes.
-		for k := range updateAttrs {
-			if _, err := tx.ExecContext(ctx, uq, k, updateAttrs[k], updateAttrs[k]); err != nil {
+		for key := range updateAttrs {
+			value := updateAttrs[key]
+			if _, err := tx.ExecContext(ctx, updateQuery, key, value, value); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -93,12 +94,12 @@ func (*State) AllKeysQuery() string {
 }
 
 // controllerConfigFromRows returns controller config info from rows returned from the backing DB.
-func controllerConfigFromRows(rows *sql.Rows) (map[string]any, error) {
-	result := make(map[string]any)
+func controllerConfigFromRows(rows *sql.Rows) (map[string]string, error) {
+	result := make(map[string]string)
 
 	for rows.Next() {
 		var key string
-		var value any
+		var value string
 
 		if err := rows.Scan(&key, &value); err != nil {
 			_ = rows.Close()

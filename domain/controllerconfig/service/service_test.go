@@ -12,7 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 )
 
@@ -29,37 +29,51 @@ var _ = gc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestUpdateControllerConfigSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cc := jujucontroller.Config{
-		jujucontroller.AuditingEnabled:     true,
-		jujucontroller.AuditLogCaptureArgs: false,
-		jujucontroller.AuditLogMaxBackups:  10,
-		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
-		jujucontroller.APIPortOpenDelay:    "100ms",
+	cfg := controller.Config{
+		controller.AuditingEnabled:     true,
+		controller.AuditLogCaptureArgs: false,
+		controller.AuditLogMaxBackups:  10,
+		controller.PublicDNSAddress:    "controller.test.com:1234",
+		controller.APIPortOpenDelay:    "100ms",
+	}
+	coerced := map[string]string{
+		controller.AuditingEnabled:     "true",
+		controller.AuditLogCaptureArgs: "false",
+		controller.AuditLogMaxBackups:  "10",
+		controller.PublicDNSAddress:    "controller.test.com:1234",
+		controller.APIPortOpenDelay:    "100ms",
 	}
 
-	k1 := jujucontroller.AuditingEnabled
-	k2 := jujucontroller.APIPortOpenDelay
+	k1 := controller.AuditingEnabled
+	k2 := controller.APIPortOpenDelay
 
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), cc, []string{k1, k2}).Return(nil)
+	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, []string{k1, k2}).Return(nil)
 
-	err := NewService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cc, []string{k1, k2})
+	err := NewService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, []string{k1, k2})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) TestUpdateControllerError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cc := jujucontroller.Config{
-		jujucontroller.AuditingEnabled:     true,
-		jujucontroller.AuditLogCaptureArgs: false,
-		jujucontroller.AuditLogMaxBackups:  10,
-		jujucontroller.PublicDNSAddress:    "controller.test.com:1234",
-		jujucontroller.APIPortOpenDelay:    "100ms",
+	cfg := controller.Config{
+		controller.AuditingEnabled:     true,
+		controller.AuditLogCaptureArgs: false,
+		controller.AuditLogMaxBackups:  10,
+		controller.PublicDNSAddress:    "controller.test.com:1234",
+		controller.APIPortOpenDelay:    "100ms",
+	}
+	coerced := map[string]string{
+		controller.AuditingEnabled:     "true",
+		controller.AuditLogCaptureArgs: "false",
+		controller.AuditLogMaxBackups:  "10",
+		controller.PublicDNSAddress:    "controller.test.com:1234",
+		controller.APIPortOpenDelay:    "100ms",
 	}
 
-	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), cc, nil).Return(errors.New("boom"))
+	s.state.EXPECT().UpdateControllerConfig(gomock.Any(), coerced, nil).Return(errors.New("boom"))
 
-	err := NewService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cc, nil)
+	err := NewService(s.state, s.watcherFactory).UpdateControllerConfig(context.Background(), cfg, nil)
 	c.Assert(err, gc.ErrorMatches, "updating controller config state: boom")
 }
 
