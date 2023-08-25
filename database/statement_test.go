@@ -60,13 +60,13 @@ func (s *statementSuite) TestMakeBindArgs(c *gc.C) {
 }
 
 func (s *statementSuite) TestEmptyMakeQueryCondition(c *gc.C) {
-	condition, args := MakeQueryCondition(nil)
+	condition, args := SqlairClauseAnd(nil)
 	c.Assert(condition, gc.Equals, "")
 	c.Assert(args, gc.HasLen, 0)
 }
 
 func (s *statementSuite) TestMakeQueryConditionSingle(c *gc.C) {
-	condition, args := MakeQueryCondition(map[string]any{
+	condition, args := SqlairClauseAnd(map[string]any{
 		"t1.col": "",
 		"t2.col": "foo",
 	})
@@ -75,7 +75,7 @@ func (s *statementSuite) TestMakeQueryConditionSingle(c *gc.C) {
 }
 
 func (s *statementSuite) TestMakeQueryConditionMultiple(c *gc.C) {
-	condition, args := MakeQueryCondition(map[string]any{
+	condition, args := SqlairClauseAnd(map[string]any{
 		"t1.col": "",
 		"t2.col": "foo",
 		"t3.col": 123,

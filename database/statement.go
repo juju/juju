@@ -49,9 +49,9 @@ func MakeBindArgs(columns, rows int) string {
 	return strings.Join(r, ", ")
 }
 
-// MakeQueryCondition creates a sqlair query condition where each
+// SqlairClauseAnd creates a sqlair query condition where each
 // of the non-empty map values becomes an AND operator.
-func MakeQueryCondition(columnValues map[string]any) (string, sqlair.M) {
+func SqlairClauseAnd(columnValues map[string]any) (string, sqlair.M) {
 	var terms []string
 	args := sqlair.M{}
 	for tableCol, value := range columnValues {

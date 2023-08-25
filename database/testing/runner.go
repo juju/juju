@@ -106,26 +106,17 @@ func (constSubscription) Done() <-chan struct{} {
 	return make(<-chan struct{})
 }
 
-// StubFactory returns a changestream.WatchableDB factory function from a database.TxnRunner
-// and a supplied event channel that can be used to trigger the watcher.
-func StubFactory(runner coredatabase.TxnRunner, events chan []changestream.ChangeEvent) func() (changestream.WatchableDB, error) {
-	return func() (changestream.WatchableDB, error) {
-		return &stubWatchableDB{
-			TxnRunner: runner,
-			events:    events,
-		}, nil
-	}
-}
-
-type stubWatchableDB struct {
+// StubWatchableDB is a watchable db with a events channel
+// that can be used in tests.
+type StubWatchableDB struct {
 	coredatabase.TxnRunner
-	events chan []changestream.ChangeEvent
+	Events chan []changestream.ChangeEvent
 }
 
 // Subscribe returns a subscription that can receive events from
 // a change stream according to the input subscription options.
-func (s *stubWatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
-	return &stubSubscription{events: s.events}, nil
+func (s *StubWatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
+	return &stubSubscription{events: s.Events}, nil
 }
 
 type stubSubscription struct {

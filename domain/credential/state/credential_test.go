@@ -359,10 +359,9 @@ func (s *credentialSuite) watcherFunc(c *gc.C, expectedChangeValue string) watch
 		c.Assert(changeMask, gc.Equals, changestream.All)
 		c.Assert(changeValue, gc.Equals, expectedChangeValue)
 
-		factory := testing.StubFactory(s.TxnRunner(), s.events)
-		db, err := factory()
-		if err != nil {
-			return nil, err
+		db := &testing.StubWatchableDB{
+			TxnRunner: s.TxnRunner(),
+			Events:    s.events,
 		}
 		base := eventsource.NewBaseWatcher(db, loggo.GetLogger("test"))
 		return eventsource.NewValueWatcher(base, namespace, changeValue, changeMask), nil

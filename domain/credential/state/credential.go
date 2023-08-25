@@ -354,18 +354,17 @@ type credentialAttrs map[string]string
 
 func (st *State) loadCloudCredentials(ctx context.Context, tx *sqlair.TX, name, cloudName, owner string) ([]CloudCredential, error) {
 	credQuery := `
-SELECT (cloud_credential.uuid, cloud_credential.name,
-       cloud_credential.revoked, cloud_credential.invalid, 
-       cloud_credential.invalid_reason, 
-       cloud_credential.owner_uuid) AS &Credential.*,
+SELECT (cc.uuid, cc.name,
+       cc.revoked, cc.invalid, 
+       cc.invalid_reason, 
+       cc.owner_uuid) AS &Credential.*,
        auth_type.type AS &AuthType.*,
        cloud.name AS &Cloud.*,
-       (cloud_credential_attributes.key, cloud_credential_attributes.value) AS &CredentialAttribute.*
-FROM   cloud_credential
-       JOIN auth_type ON cloud_credential.auth_type_id = auth_type.id
-       JOIN cloud ON cloud_credential.cloud_uuid = cloud.uuid
-       LEFT JOIN cloud_credential_attributes
-            ON cloud_credential_attributes.cloud_credential_uuid = cloud_credential.uuid
+       (cc_attr.key, cc_attr.value) AS &CredentialAttribute.*
+FROM   cloud_credential cc
+       JOIN auth_type ON cc.auth_type_id = auth_type.id
+       JOIN cloud ON cc.cloud_uuid = cloud.uuid
+       LEFT JOIN cloud_credential_attributes cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
 `
 
 	types := []any{
@@ -374,10 +373,10 @@ FROM   cloud_credential
 		dbcloud.Cloud{},
 		CredentialAttribute{},
 	}
-	condition, args := database.MakeQueryCondition(map[string]any{
-		"cloud_credential.name":       name,
-		"cloud.name":                  cloudName,
-		"cloud_credential.owner_uuid": owner,
+	condition, args := database.SqlairClauseAnd(map[string]any{
+		"cc.name":       name,
+		"cloud.name":    cloudName,
+		"cc.owner_uuid": owner,
 	})
 	if len(args) > 0 {
 		credQuery = credQuery + "WHERE " + condition
@@ -399,7 +398,7 @@ FROM   cloud_credential
 	if err != nil {
 		return nil, errors.Annotate(err, "loading cloud credentials")
 	}
-	return dbRows.hydrate(dbAuthTypes, dbclouds, keyValues)
+	return dbRows.toCloudCredentials(dbAuthTypes, dbclouds, keyValues)
 }
 
 // CloudCredential represents a credential and the cloud it belongs to.

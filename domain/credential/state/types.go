@@ -51,7 +51,7 @@ type Credential struct {
 
 type Credentials []Credential
 
-func (rows Credentials) hydrate(authTypes []dbcloud.AuthType, clouds []dbcloud.Cloud, keyValues []CredentialAttribute) ([]CloudCredential, error) {
+func (rows Credentials) toCloudCredentials(authTypes []dbcloud.AuthType, clouds []dbcloud.Cloud, keyValues []CredentialAttribute) ([]CloudCredential, error) {
 	if n := len(rows); n != len(authTypes) || n != len(keyValues) || n != len(clouds) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch")
