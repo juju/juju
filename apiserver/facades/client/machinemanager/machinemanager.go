@@ -142,7 +142,10 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
+	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+
 	return NewMachineManagerAPI(
+		controllerConfigGetter,
 		backend,
 		storageAccess,
 		pool,
@@ -160,6 +163,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
+	controllerConfigGetter ControllerConfigGetter,
 	backend Backend,
 	storageAccess StorageInterface,
 	pool Pool,
@@ -175,14 +179,15 @@ func NewMachineManagerAPI(
 	}
 
 	api := &MachineManagerAPI{
-		st:            backend,
-		storageAccess: storageAccess,
-		pool:          pool,
-		authorizer:    auth,
-		check:         common.NewBlockChecker(backend),
-		callContext:   callCtx,
-		resources:     resources,
-		leadership:    leadership,
+		controllerConfigGetter: controllerConfigGetter,
+		st:                     backend,
+		storageAccess:          storageAccess,
+		pool:                   pool,
+		authorizer:             auth,
+		check:                  common.NewBlockChecker(backend),
+		callContext:            callCtx,
+		resources:              resources,
+		leadership:             leadership,
 		upgradeSeriesAPI: NewUpgradeSeriesAPI(
 			upgradeSeriesState{state: backend},
 			makeUpgradeSeriesValidator(charmhubClient),
