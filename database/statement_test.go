@@ -4,7 +4,9 @@
 package database
 
 import (
+	"github.com/canonical/sqlair"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -55,4 +57,32 @@ func (s *statementSuite) TestNilSliceToPlaceholderTransform(c *gc.C) {
 func (s *statementSuite) TestMakeBindArgs(c *gc.C) {
 	binds := MakeBindArgs(2, 3)
 	c.Assert(binds, gc.Equals, "(?, ?), (?, ?), (?, ?)")
+}
+
+func (s *statementSuite) TestEmptyMakeQueryCondition(c *gc.C) {
+	condition, args := SqlairClauseAnd(nil)
+	c.Assert(condition, gc.Equals, "")
+	c.Assert(args, gc.HasLen, 0)
+}
+
+func (s *statementSuite) TestMakeQueryConditionSingle(c *gc.C) {
+	condition, args := SqlairClauseAnd(map[string]any{
+		"t1.col": "",
+		"t2.col": "foo",
+	})
+	c.Assert(condition, gc.Equals, "t2.col = $M.t2_col")
+	c.Assert(args, jc.DeepEquals, sqlair.M{"t2_col": "foo"})
+}
+
+func (s *statementSuite) TestMakeQueryConditionMultiple(c *gc.C) {
+	condition, args := SqlairClauseAnd(map[string]any{
+		"t1.col": "",
+		"t2.col": "foo",
+		"t3.col": 123,
+	})
+	if condition != "t2.col = $M.t2_col AND t3.col = $M.t3_col" &&
+		condition != "t3.col = $M.t3_col AND t2.col = $M.t2_col" {
+		c.Fatalf("unexpected condition: %q", condition)
+	}
+	c.Assert(args, jc.DeepEquals, sqlair.M{"t2_col": "foo", "t3_col": 123})
 }

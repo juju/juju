@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/collections/transform"
 )
 
@@ -46,4 +47,20 @@ func MakeBindArgs(columns, rows int) string {
 		r = append(r, fmt.Sprintf("(%s)", c))
 	}
 	return strings.Join(r, ", ")
+}
+
+// SqlairClauseAnd creates a sqlair query condition where each
+// of the non-empty map values becomes an AND operator.
+func SqlairClauseAnd(columnValues map[string]any) (string, sqlair.M) {
+	var terms []string
+	args := sqlair.M{}
+	for tableCol, value := range columnValues {
+		if value == "" {
+			continue
+		}
+		col := strings.ReplaceAll(tableCol, ".", "_")
+		terms = append(terms, tableCol+" = $M."+col)
+		args[col] = value
+	}
+	return strings.Join(terms, " AND "), args
 }

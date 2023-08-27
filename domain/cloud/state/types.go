@@ -10,6 +10,8 @@ type CloudType struct {
 	Type string `db:"type"`
 }
 
+type AuthTypes []AuthType
+
 type AuthType struct {
 	ID   int    `db:"id"`
 	Type string `db:"type"`

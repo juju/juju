@@ -13,7 +13,6 @@ import (
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/sshclient"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
@@ -370,9 +369,9 @@ func (s *FacadeSuite) TestModelCredentialForSSH(c *gc.C) {
 			Credential: &params.CloudCredential{
 				AuthType: "auth-type",
 				Attributes: map[string]string{
-					k8scloud.CredAttrUsername: "",
-					k8scloud.CredAttrPassword: "",
-					k8scloud.CredAttrToken:    "token",
+					"username": "",
+					"password": "",
+					"Token":    "token",
 				},
 			},
 			CACertificates: []string{testing.CACert},
@@ -390,9 +389,9 @@ func (s *FacadeSuite) TestModelCredentialForSSH(c *gc.C) {
 	credential := cloud.NewCredential(
 		"auth-type",
 		map[string]string{
-			k8scloud.CredAttrUsername: "",
-			k8scloud.CredAttrPassword: "",
-			k8scloud.CredAttrToken:    "token",
+			"username": "",
+			"password": "",
+			"Token":    "token",
 		},
 	)
 	cloudSpec := environscloudspec.CloudSpec{

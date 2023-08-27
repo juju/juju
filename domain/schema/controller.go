@@ -14,6 +14,8 @@ func ControllerDDL(nodeID uint64) *schema.Schema {
 		changeLogSchema,
 		changeLogControllerNamespaces,
 		cloudSchema,
+		changeLogTriggersForTable("cloud", "uuid", 7),
+		changeLogTriggersForTable("cloud_credential", "uuid", 8),
 		externalControllerSchema,
 		changeLogTriggersForTable("external_controller", "uuid", 1),
 		modelListSchema,
@@ -102,7 +104,9 @@ INSERT INTO change_log_namespace VALUES
     (3, 'controller_config', 'controller config changes based on the key'),
     (4, 'model_migration_status', 'model migration status changes based on the UUID'),
     (5, 'model_migration_minion_sync', 'model migration minion sync changes based on the UUID'),
-    (6, 'upgrade_info', 'upgrade info changes based on the UUID');
+    (6, 'upgrade_info', 'upgrade info changes based on the UUID'),
+    (7, 'cloud', 'cloud changes based on the UUID'),
+    (8, 'cloud_credential', 'cloud credential changes based on the UUID')
 `)
 }
 
@@ -183,7 +187,7 @@ CREATE TABLE cloud_auth_type (
     uuid              TEXT PRIMARY KEY,
     cloud_uuid        TEXT NOT NULL,
     auth_type_id      INT NOT NULL,
-    CONSTRAINT		  fk_cloud_auth_type_cloud
+    CONSTRAINT        fk_cloud_auth_type_cloud
         FOREIGN KEY       (cloud_uuid)
         REFERENCES        cloud(uuid),
     CONSTRAINT        fk_cloud_auth_type_auth_type
@@ -233,7 +237,43 @@ CREATE TABLE cloud_ca_cert (
 );
 
 CREATE UNIQUE INDEX idx_cloud_ca_cert_cloud_uuid_ca_cert
-ON cloud_ca_cert (cloud_uuid, ca_cert);`)
+ON cloud_ca_cert (cloud_uuid, ca_cert);
+
+CREATE TABLE cloud_credential (
+        uuid                TEXT PRIMARY KEY,
+        cloud_uuid          TEXT NOT NULL,
+        auth_type_id        TEXT NOT NULL,
+        owner_uuid          TEXT NOT NULL,
+        name                TEXT NOT NULL,
+        revoked             BOOLEAN,
+        invalid             BOOLEAN,
+        invalid_reason      TEXT,
+        CONSTRAINT chk_name_empty CHECK (name != ""),
+        CONSTRAINT          fk_cloud_credential_cloud
+            FOREIGN KEY         (cloud_uuid)
+            REFERENCES          cloud(uuid)
+        CONSTRAINT          fk_cloud_credential_auth_type
+            FOREIGN KEY         (auth_type_id)
+            REFERENCES          auth_type(id)
+--        CONSTRAINT          fk_cloud_credential_XXXX
+--            FOREIGN KEY         (owner_uuid)
+--            REFERENCES          XXXX(uuid)
+);
+
+CREATE UNIQUE INDEX idx_cloud_credential_cloud_uuid_owner_uuid
+ON cloud_credential (cloud_uuid, owner_uuid, name);
+
+CREATE TABLE cloud_credential_attributes (
+    cloud_credential_uuid TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT,
+    PRIMARY KEY (cloud_credential_uuid, key)
+    CONSTRAINT chk_key_empty CHECK (key != ""),
+    CONSTRAINT fk_cloud_credential_uuid
+        FOREIGN KEY (cloud_credential_uuid)
+        REFERENCES cloud_credential(uuid)
+);
+`)
 }
 
 func externalControllerSchema() schema.Patch {
