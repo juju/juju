@@ -6,6 +6,7 @@ package servicefactory
 import (
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
+	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 )
@@ -21,6 +22,8 @@ type ControllerServiceFactory interface {
 	ModelManager() *modelmanagerservice.Service
 	// ExternalController returns the external controller service.
 	ExternalController() *externalcontrollerservice.Service
+	// Credential returns the credential service.
+	Credential() *credentialservice.Service
 }
 
 // ModelServiceFactory provides access to the services required by the

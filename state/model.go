@@ -367,18 +367,8 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 	// specified, that the cloud supports the "empty" authentication
 	// type.
 	owner := args.Owner
-	cloudCredentials, err := st.CloudCredentials(owner, args.CloudName)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	assertCloudCredentialOp, err := validateCloudCredential(
-		modelCloud, cloudCredentials, args.CloudCredential,
-	)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	prereqOps = append(prereqOps, assertCloudCredentialOp)
+	// We no longer validate args.CloudCredential here as credential
+	// management is moved to domain/credential.
 
 	uuid := args.Config.UUID()
 	session := st.session.Copy()

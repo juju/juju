@@ -9,8 +9,9 @@ import (
 
 	service "github.com/juju/juju/domain/controllerconfig/service"
 	service0 "github.com/juju/juju/domain/controllernode/service"
-	service1 "github.com/juju/juju/domain/externalcontroller/service"
-	service2 "github.com/juju/juju/domain/modelmanager/service"
+	service1 "github.com/juju/juju/domain/credential/service"
+	service2 "github.com/juju/juju/domain/externalcontroller/service"
+	service3 "github.com/juju/juju/domain/modelmanager/service"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -65,11 +66,25 @@ func (mr *MockControllerServiceFactoryMockRecorder) ControllerNode() *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerNode", reflect.TypeOf((*MockControllerServiceFactory)(nil).ControllerNode))
 }
 
+// Credential mocks base method.
+func (m *MockControllerServiceFactory) Credential() *service1.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Credential")
+	ret0, _ := ret[0].(*service1.Service)
+	return ret0
+}
+
+// Credential indicates an expected call of Credential.
+func (mr *MockControllerServiceFactoryMockRecorder) Credential() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Credential", reflect.TypeOf((*MockControllerServiceFactory)(nil).Credential))
+}
+
 // ExternalController mocks base method.
-func (m *MockControllerServiceFactory) ExternalController() *service1.Service {
+func (m *MockControllerServiceFactory) ExternalController() *service2.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExternalController")
-	ret0, _ := ret[0].(*service1.Service)
+	ret0, _ := ret[0].(*service2.Service)
 	return ret0
 }
 
@@ -80,10 +95,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) ExternalController() *gomock
 }
 
 // ModelManager mocks base method.
-func (m *MockControllerServiceFactory) ModelManager() *service2.Service {
+func (m *MockControllerServiceFactory) ModelManager() *service3.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelManager")
-	ret0, _ := ret[0].(*service2.Service)
+	ret0, _ := ret[0].(*service3.Service)
 	return ret0
 }
 
@@ -181,11 +196,25 @@ func (mr *MockServiceFactoryMockRecorder) ControllerNode() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerNode", reflect.TypeOf((*MockServiceFactory)(nil).ControllerNode))
 }
 
+// Credential mocks base method.
+func (m *MockServiceFactory) Credential() *service1.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Credential")
+	ret0, _ := ret[0].(*service1.Service)
+	return ret0
+}
+
+// Credential indicates an expected call of Credential.
+func (mr *MockServiceFactoryMockRecorder) Credential() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Credential", reflect.TypeOf((*MockServiceFactory)(nil).Credential))
+}
+
 // ExternalController mocks base method.
-func (m *MockServiceFactory) ExternalController() *service1.Service {
+func (m *MockServiceFactory) ExternalController() *service2.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExternalController")
-	ret0, _ := ret[0].(*service1.Service)
+	ret0, _ := ret[0].(*service2.Service)
 	return ret0
 }
 
@@ -196,10 +225,10 @@ func (mr *MockServiceFactoryMockRecorder) ExternalController() *gomock.Call {
 }
 
 // ModelManager mocks base method.
-func (m *MockServiceFactory) ModelManager() *service2.Service {
+func (m *MockServiceFactory) ModelManager() *service3.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelManager")
-	ret0, _ := ret[0].(*service2.Service)
+	ret0, _ := ret[0].(*service3.Service)
 	return ret0
 }
 

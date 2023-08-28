@@ -6,6 +6,7 @@ package testing
 import (
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
+	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 )
@@ -36,6 +37,11 @@ func (s *TestingServiceFactory) ModelManager() *modelmanagerservice.Service {
 
 // ExternalController returns the external controller service.
 func (s *TestingServiceFactory) ExternalController() *externalcontrollerservice.Service {
+	return nil
+}
+
+// Credential returns the credential service.
+func (s *TestingServiceFactory) Credential() *credentialservice.Service {
 	return nil
 }
 

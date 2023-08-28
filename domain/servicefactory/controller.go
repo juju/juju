@@ -11,6 +11,8 @@ import (
 	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	controllernodestate "github.com/juju/juju/domain/controllernode/state"
+	credentialservice "github.com/juju/juju/domain/credential/service"
+	credentialstate "github.com/juju/juju/domain/credential/state"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	externalcontrollerstate "github.com/juju/juju/domain/externalcontroller/state"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
@@ -77,6 +79,17 @@ func (s *ControllerFactory) ExternalController() *externalcontrollerservice.Serv
 		domain.NewWatcherFactory(
 			s.controllerDB,
 			s.logger.Child("externalcontroller"),
+		),
+	)
+}
+
+// Credential returns the credential service.
+func (s *ControllerFactory) Credential() *credentialservice.Service {
+	return credentialservice.NewService(
+		credentialstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		domain.NewWatcherFactory(
+			s.controllerDB,
+			s.logger.Child("credential"),
 		),
 	)
 }

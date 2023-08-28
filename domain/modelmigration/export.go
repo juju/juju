@@ -4,6 +4,7 @@
 package modelmigration
 
 import (
+	credential "github.com/juju/juju/domain/credential/modelmigration"
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
 )
 
@@ -12,5 +13,6 @@ import (
 // to register all the export operations.
 func ExportOperations(coordinator Coordinator) {
 	// Note: All the export operations are registered here.
+	credential.RegisterExport(coordinator)
 	externalcontroller.RegisterExport(coordinator)
 }
