@@ -607,7 +607,7 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	})
 }
 
-func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *gc.C) {
+func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityOfferTag(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationOfferTag("db2-offer")] = "token-db2"
 	s.st.offers["db2-offer"] = &crossmodel.ApplicationOffer{
@@ -660,6 +660,74 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
 		{"AppNameForOffer", []interface{}{"db2-offer"}},
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
+	}
+	s.st.CheckCalls(c, expected)
+	ru1.CheckCalls(c, []testing.StubCall{
+		{"InScope", []interface{}{}},
+		{"EnterScope", []interface{}{map[string]interface{}{"foo": "bar"}}},
+	})
+	ru2.CheckCalls(c, []testing.StubCall{
+		{"LeaveScope", []interface{}{}},
+	})
+	rel.CheckCallNames(c, "Suspended", "ReplaceApplicationSettings", "Tag", "RemoteUnit", "RemoteUnit")
+	rel.CheckCall(c, 1, "ReplaceApplicationSettings", "db2", map[string]interface{}{
+		"slaughterhouse": "the-tongue",
+	})
+}
+
+func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettingsRemoteEntityApplicationTag(c *gc.C) {
+	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
+	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
+	s.st.offers["db2-offer"] = &crossmodel.ApplicationOffer{
+		OfferName: "db2-offer", ApplicationName: "db2"}
+	rel := newMockRelation(1)
+	ru1 := newMockRelationUnit()
+	ru2 := newMockRelationUnit()
+	rel.units["db2/1"] = ru1
+	rel.units["db2/2"] = ru2
+	s.st.relations["db2:db django:db"] = rel
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerUUID:       "hosted-db2-uuid",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
+		}, bakery.Op{"db2:db django:db", "relate"})
+
+	c.Assert(err, jc.ErrorIsNil)
+	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
+		Changes: []params.RemoteRelationChangeEvent{
+			{
+				Life:             life.Alive,
+				ApplicationToken: "token-db2",
+				RelationToken:    "token-db2:db django:db",
+				ApplicationSettings: map[string]interface{}{
+					"slaughterhouse": "the-tongue",
+				},
+				ChangedUnits: []params.RemoteRelationUnitChange{{
+					UnitId:   1,
+					Settings: map[string]interface{}{"foo": "bar"},
+				}},
+				DepartedUnits: []int{2},
+				Macaroons:     macaroon.Slice{mac.M()},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = results.Combine()
+	c.Assert(err, jc.ErrorIsNil)
+	expected := []testing.StubCall{
+		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
+		{"GetRemoteEntity", []interface{}{"token-db2"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 	}
 	s.st.CheckCalls(c, expected)
