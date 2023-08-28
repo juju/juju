@@ -21,11 +21,11 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -323,7 +323,7 @@ func (s *caasProvisionerSuite) TestFilesystemLife(c *gc.C) {
 
 	s.setupFilesystems(c)
 	args := params.Entities{Entities: []params.Entity{{"filesystem-0"}, {"filesystem-1"}, {"filesystem-42"}}}
-	result, err := s.api.Life(args)
+	result, err := s.api.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{

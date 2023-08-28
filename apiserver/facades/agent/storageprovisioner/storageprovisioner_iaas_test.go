@@ -23,12 +23,12 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/storage"
-	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -1323,7 +1323,7 @@ func (s *iaasProvisionerSuite) TestLife(c *gc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 	args := params.Entities{Entities: []params.Entity{{"volume-0-0"}, {"volume-1"}, {"volume-42"}}}
-	result, err := s.api.Life(args)
+	result, err := s.api.Life(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -1375,7 +1375,7 @@ func (s *iaasProvisionerSuite) TestEnsureDead(c *gc.C) {
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 	args := params.Entities{Entities: []params.Entity{{"volume-0-0"}, {"volume-1"}, {"volume-42"}}}
-	result, err := s.api.EnsureDead(args)
+	result, err := s.api.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	// TODO(wallyworld) - this test will be updated when EnsureDead is supported
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
