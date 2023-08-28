@@ -575,8 +575,6 @@ func (w *dbWorker) startDqliteNode(ctx context.Context, options ...app.Option) e
 		return errors.Trace(err)
 	}
 
-	ctx, pCancel := w.scopedContext()
-	defer pCancel()
 	ctx, cCancel := context.WithTimeout(ctx, time.Minute)
 	defer cCancel()
 
