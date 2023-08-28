@@ -3556,10 +3556,13 @@ func (s *changesSuite) assertParseDataWithDevices(c *gc.C, content string, expec
 }
 
 func (s *changesSuite) assertLocalBundleChanges(c *gc.C, charmDir, bundleContent, base string) {
-	b, err := corebase.ParseBaseFromString(base)
-	c.Assert(err, jc.ErrorIsNil)
-	series, err := corebase.GetSeriesFromBase(b)
-	c.Assert(err, jc.ErrorIsNil)
+	var series string
+	if base != "" {
+		b, err := corebase.ParseBaseFromString(base)
+		c.Assert(err, jc.ErrorIsNil)
+		series, err = corebase.GetSeriesFromBase(b)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	expected := []record{{
 		Id:     "addCharm-0",
@@ -3606,10 +3609,13 @@ func (s *changesSuite) assertLocalBundleChanges(c *gc.C, charmDir, bundleContent
 }
 
 func (s *changesSuite) assertLocalBundleChangesWithDevices(c *gc.C, charmDir, bundleContent, base string) {
-	b, err := corebase.ParseBaseFromString(base)
-	c.Assert(err, jc.ErrorIsNil)
-	series, err := corebase.GetSeriesFromBase(b)
-	c.Assert(err, jc.ErrorIsNil)
+	var series string
+	if base != "" {
+		b, err := corebase.ParseBaseFromString(base)
+		c.Assert(err, jc.ErrorIsNil)
+		series, err = corebase.GetSeriesFromBase(b)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 
 	expected := []record{{
 		Id:     "addCharm-0",
@@ -3664,6 +3670,17 @@ func (s *changesSuite) TestLocalCharmWithExplicitBase(c *gc.C) {
                 charm: %s
                 base: ubuntu@16.04
     `, charmDir)
+	charmMeta := `
+name: multi-series
+summary: That's a dummy charm with multi-series.
+description: A dummy charm.
+series:
+    - jammy
+    - focal
+    - bionic
+`[1:]
+	err := os.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
+	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalBundleChanges(c, charmDir, bundleContent, "ubuntu@16.04/stable")
 	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "ubuntu@16.04/stable")
 }
