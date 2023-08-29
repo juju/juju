@@ -786,10 +786,6 @@ func (e *environ) findInstanceSpec(controller bool, allImages []*imagemetadata.I
 }
 
 func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec *instances.InstanceSpec) error {
-	if spec.InstanceType.Deprecated {
-		logger.Warningf("deprecated instance type specified: %s", spec.InstanceType.Name)
-	}
-
 	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
 		return errors.Trace(err)
 	}

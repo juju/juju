@@ -4,13 +4,13 @@
 package ec2
 
 import (
-	"math"
+	"fmt"
 	"strconv"
 	"strings"
-	"time"
+	"sync"
+	"unicode"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -22,11 +22,306 @@ import (
 	"github.com/juju/juju/environs/instances"
 )
 
+// instanceType is a strongly typed representation of an AWS instance type
+// string. Useful for extracting the logic parts of the instance type string.
+type instanceType struct {
+	Capabilities    set.Strings
+	Generation      int
+	Family          string
+	ProcessorFamily string
+	Size            string
+}
+
+type instanceTypeCache struct {
+	ec2Client            Client
+	instTypesInfo        []types.InstanceTypeInfo
+	instFamilyGeneration map[string]int
+	populateMutex        sync.Mutex
+	region               string
+}
+
+// instanceTypeFilter is an interface for declaring a capability to filter aws
+// instances on.
+type instanceTypeFilter interface {
+	// Filter is given an AWS instance type and makes a decision if it should be
+	// filtered out or in of the current decision pipeline. The decision is up
+	// to filter. Returns true for keep and false for reject.
+	Filter(types.InstanceTypeInfo) bool
+}
+
+type instanceTypeFilterFunc func(info types.InstanceTypeInfo) bool
+
+const (
+	processorFamilyIntel    = "i"
+	processorFamilyAMD      = "a"
+	processorFamilyGraviton = "g"
+
+	// defaultAWSEC2Family is the default family class Juju prefers for using
+	// when starting new AWS EC2 machines. In this case it's m as the best
+	// general purpose machine type.
+	defaultAWSEC2Family = "m"
+)
+
 var _ environs.InstanceTypesFetcher = (*environ)(nil)
+
+// allInstanceTypeFilter takes a set of filters to run and will only return true
+// for the filter condition if all filters passed. If no filters are supplied
+// then true is returned.
+func allInstanceTypeFilter(filters ...instanceTypeFilter) instanceTypeFilter {
+	return instanceTypeFilterFunc(func(i types.InstanceTypeInfo) bool {
+		for _, f := range filters {
+			if !f.Filter(i) {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+// oneOfInstanceTypeFilter takes a set of filters to run and will return the
+// first true response returned by a filter. If no filters evaluate to true then
+// false is returned.
+func oneOfInstanceTypeFilter(filters ...instanceTypeFilter) instanceTypeFilter {
+	return instanceTypeFilterFunc(func(i types.InstanceTypeInfo) bool {
+		for _, f := range filters {
+			if f.Filter(i) {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+// currentGenInstanceTypeFilter filters out any instance type that is not
+// current generation.
+func currentGenInstanceTypeFilter() instanceTypeFilter {
+	return instanceTypeFilterFunc(func(i types.InstanceTypeInfo) bool {
+		return aws.ToBool(i.CurrentGeneration)
+	})
+}
+
+// exactInstanceTypeFilter filters out instances that don't exactly match the
+// instance type supplied.
+func exactInstanceTypeFilter(match types.InstanceType) instanceTypeFilter {
+	return instanceTypeFilterFunc(func(i types.InstanceTypeInfo) bool {
+		return i.InstanceType == match
+	})
+}
+
+// selectorInstanceTypeFilter will match on instances that contain the same
+// values specified in the instance types. Zero values will be ignored.
+func selectorInstanceTypeFilter(selector instanceType) instanceTypeFilter {
+	return instanceTypeFilterFunc(func(i types.InstanceTypeInfo) bool {
+		itDetails, err := parseInstanceType(i.InstanceType)
+		if err != nil {
+			return false
+		}
+		if !itDetails.Capabilities.Difference(selector.Capabilities).IsEmpty() {
+			return false
+		}
+		if itDetails.Family != selector.Family && selector.Family != "" {
+			return false
+		}
+		if itDetails.ProcessorFamily != selector.ProcessorFamily && selector.ProcessorFamily != "" {
+			return false
+		}
+		if itDetails.Generation != selector.Generation && selector.Generation != 0 {
+			return false
+		}
+		if itDetails.Size != selector.Size && selector.Size != "" {
+			return false
+		}
+
+		return true
+	})
+}
+
+// generalPurposeInstanceFilter supplies a filter that is capable of filtering
+// only on machines that are considered general purpose enough for Juju to use
+// as a sane default.
+func generalPurposeInstanceFilter(
+	ctx context.ProviderCallContext,
+	cache *instanceTypeCache,
+) (instanceTypeFilter, error) {
+	highestGenerationIntel, err := cache.HighestFamilyGeneration(
+		ctx,
+		defaultAWSEC2Family,
+		processorFamilyIntel,
+	)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, err
+	}
+
+	highestGenerationGraviton, err := cache.HighestFamilyGeneration(
+		ctx,
+		defaultAWSEC2Family,
+		processorFamilyGraviton,
+	)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, err
+	}
+
+	return allInstanceTypeFilter(
+		currentGenInstanceTypeFilter(),
+		oneOfInstanceTypeFilter(
+			selectorInstanceTypeFilter(instanceType{
+				Family:          defaultAWSEC2Family,
+				Generation:      highestGenerationIntel,
+				ProcessorFamily: processorFamilyIntel,
+			}),
+			selectorInstanceTypeFilter(instanceType{
+				Family:          defaultAWSEC2Family,
+				Generation:      highestGenerationGraviton,
+				ProcessorFamily: processorFamilyGraviton,
+			}),
+		),
+	), nil
+}
+
+// Filter implements instanceFilter Filter.
+func (f instanceTypeFilterFunc) Filter(i types.InstanceTypeInfo) bool {
+	return f(i)
+}
+
+// filterInstanceTypes is a helper function to a run a filter over a set of
+func filterInstanceTypes(instanceTypes []types.InstanceTypeInfo, filter instanceTypeFilter) []types.InstanceTypeInfo {
+	filtered := []types.InstanceTypeInfo{}
+	for _, instanceType := range instanceTypes {
+		if filter.Filter(instanceType) {
+			filtered = append(filtered, instanceType)
+		}
+	}
+	return filtered
+}
+
+func parseInstanceType(instType types.InstanceType) (instanceType, error) {
+	parts := strings.Split(string(instType), ".")
+	if len(parts) != 2 {
+		return instanceType{}, fmt.Errorf("unknown instance type %q, expected . separator", instType)
+	}
+
+	rval := instanceType{
+		Capabilities: set.NewStrings(),
+		Size:         parts[1],
+	}
+
+	var (
+		family       string
+		generation   string
+		capabilities string
+	)
+	placement := &family
+	for _, r := range parts[0] {
+		if unicode.IsDigit(r) {
+			placement = &capabilities
+			generation += string(r)
+			continue
+		}
+		*placement += string(r)
+	}
+	rval.Family = family
+
+	genInt, err := strconv.Atoi(generation)
+	if err != nil {
+		return rval, fmt.Errorf("failed to parse generation number from type %q: %w", instType, err)
+	}
+	rval.Generation = genInt
+
+	capSplits := strings.Split(capabilities, "-")
+	if len(capSplits) == 0 {
+		capSplits = []string{""}
+	}
+
+	for _, r := range capSplits[0] {
+		switch string(r) {
+		case processorFamilyAMD,
+			processorFamilyIntel,
+			processorFamilyGraviton:
+			rval.ProcessorFamily = string(r)
+		default:
+			rval.Capabilities.Add(string(r))
+		}
+	}
+
+	// If the processor family doesn't get set it's one of AWS's older instance
+	// types and so we can assume intel.
+	if rval.ProcessorFamily == "" {
+		rval.ProcessorFamily = processorFamilyIntel
+	}
+
+	capSplits = capSplits[1:]
+	for _, split := range capSplits {
+		rval.Capabilities.Add(split)
+	}
+
+	return rval, nil
+}
+
+// populateCache loads aws instance type info the region into the cache
+func (c *instanceTypeCache) populateCache(ctx context.ProviderCallContext) error {
+	c.populateMutex.Lock()
+	defer c.populateMutex.Unlock()
+
+	if c.instTypesInfo != nil && c.instFamilyGeneration != nil {
+		return nil
+	}
+
+	instTypesInfo, err := FetchInstanceTypeInfoForRegion(
+		ctx,
+		c.ec2Client,
+		c.region,
+	)
+	if err != nil {
+		return fmt.Errorf("populating instance type cache for region %q: %w", c.region, err)
+	}
+
+	c.instTypesInfo = instTypesInfo
+	c.instFamilyGeneration = highestFamilyProcessorGeneration(c.instTypesInfo)
+	return nil
+}
+
+// newInstanceTypeCache constructs a new instance type cache for the specified
+// region.
+func newInstanceTypeCache(ec2Client Client, region string) *instanceTypeCache {
+	return &instanceTypeCache{
+		ec2Client: ec2Client,
+		region:    region,
+	}
+}
+
+// HighestFamilyGeneration returns the highest generation supported for the
+// provided aws ec2 family. If no generation is found for the family then an
+// error satisfying NotFound is returned.
+func (c *instanceTypeCache) HighestFamilyGeneration(
+	ctx context.ProviderCallContext,
+	family,
+	processor string,
+) (int, error) {
+	if err := c.populateCache(ctx); err != nil {
+		return 0, err
+	}
+
+	gen, exists := c.instFamilyGeneration[family+processor]
+	if !exists {
+		return 0, fmt.Errorf("%w generation for family %q", errors.NotFound, family)
+	}
+
+	return gen, nil
+}
+
+// InstanceTypesInfo returns the cached instance type info or an error if there
+// was a problem loading the cache.
+func (c *instanceTypeCache) InstanceTypesInfo(ctx context.ProviderCallContext) ([]types.InstanceTypeInfo, error) {
+	if err := c.populateCache(ctx); err != nil {
+		return nil, err
+	}
+	return c.instTypesInfo, nil
+}
 
 // InstanceTypes implements InstanceTypesFetcher
 func (e *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
-	iTypes, err := e.supportedInstanceTypes(ctx)
+	iTypeFilter := allInstanceTypeFilter()
+	iTypes, err := e.supportedInstanceTypes(ctx, iTypeFilter)
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
 	}
@@ -36,9 +331,9 @@ func (e *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.V
 	}
 	return instances.InstanceTypesWithCostMetadata{
 		InstanceTypes: iTypes,
-		CostUnit:      "$USD/hour",
-		CostDivisor:   1000,
-		CostCurrency:  "USD"}, nil
+		CostUnit:      "",
+		CostCurrency:  "USD",
+	}, nil
 }
 
 func calculateCPUPower(instType string, clock *float64, vcpu uint64) uint64 {
@@ -84,40 +379,6 @@ func virtType(info types.InstanceTypeInfo) *string {
 	return aws.String("hvm")
 }
 
-// supportsClassic reports whether the instance type with the given
-// name can be run in EC2-Classic.
-//
-// At the time of writing, we know that the following instance type
-// families support only VPC: C4, M4, P2, T2, X1. However, rather
-// than hard-coding that list, we assume that any new instance type
-// families support VPC only, and so we hard-code the inverse of the
-// list at the time of writing.
-//
-// See:
-//
-//	http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-vpc.html#vpc-only-instance-types
-func supportsClassic(instanceType string) bool {
-	classicTypes := set.NewStrings(
-		"c1", "c3",
-		"cc2",
-		"cg1",
-		"cr1",
-		"d2",
-		"g2",
-		"hi1",
-		"hs1",
-		"i2",
-		"m1", "m2", "m3",
-		"r3",
-		"t1",
-	)
-	parts := strings.SplitN(instanceType, ".", 2)
-	if len(parts) < 2 {
-		return false
-	}
-	return classicTypes.Contains(strings.ToLower(parts[0]))
-}
-
 var archNames = map[types.ArchitectureType]string{
 	types.ArchitectureTypeI386:  arch.I386,
 	types.ArchitectureTypeX8664: arch.AMD64,
@@ -131,156 +392,40 @@ func archName(in types.ArchitectureType) string {
 	return string(in)
 }
 
-func (e *environ) supportedInstanceTypes(ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
-	e.instTypesMutex.Lock()
-	defer e.instTypesMutex.Unlock()
-
-	// Use a cached copy if populated as it's mildly
-	// expensive to fetch each time.
-	// TODO(wallyworld) - consider using a cache with expiry
-	if len(e.instTypes) == 0 {
-		instTypes, err := e.collectSupportedInstanceTypes(ctx)
-		if err != nil {
-			return nil, err
-		}
-		e.instTypes = instTypes
+func (e *environ) supportedInstanceTypes(
+	ctx context.ProviderCallContext,
+	filter instanceTypeFilter,
+) ([]instances.InstanceType, error) {
+	instanceTypes, err := e.instanceTypeCache().InstanceTypesInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("consulting cache for available instance types: %w", err)
 	}
 
-	return e.instTypes, nil
+	instTypes := filterInstanceTypes(instanceTypes, filter)
+	return convertEC2InstanceTypes(instTypes), nil
 }
 
-// collectSupportedInstanceTypes queries several EC2 APIs and combines the
-// results into a slice of InstanceType values.
-//
-// This method must be called while holding the instTypesMutex.
-func (e *environ) collectSupportedInstanceTypes(ctx context.ProviderCallContext) ([]instances.InstanceType, error) {
-	const (
-		maxOfferingsResults = 1000
-		maxTypesPage        = 100
-	)
-
-	// First get all the zone names for the current region.
-	zoneResults, err := e.ec2Client.DescribeAvailabilityZones(ctx, &ec2.DescribeAvailabilityZonesInput{
-		Filters: []types.Filter{makeFilter("region-name", e.cloud.Region)},
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
+// convertEC2InstanceTypes will convert a slice of AWS InstanceTypeInfo to a
+// Juju InstanceType slice.
+func convertEC2InstanceTypes(instTypes []types.InstanceTypeInfo) []instances.InstanceType {
+	rval := make([]instances.InstanceType, 0, len(instTypes))
+	for _, instType := range instTypes {
+		rval = append(rval, convertEC2InstanceType(instType))
 	}
-	var zoneNames []string
-	zoneFilter := types.Filter{Name: aws.String("location")}
-	for _, z := range zoneResults.AvailabilityZones {
-		// Should never be nil.
-		if z.ZoneName == nil {
-			continue
-		}
-		zoneNames = append(zoneNames, *z.ZoneName)
-		zoneFilter.Values = append(zoneFilter.Values, aws.ToString(z.ZoneName))
-	}
-
-	// Query the instance type names for the region and credential in use.
-	var instTypeNames []types.InstanceType
-	instanceTypeZones := make(map[types.InstanceType]set.Strings)
-	var token *string
-	for {
-		offeringResults, err := e.ec2Client.DescribeInstanceTypeOfferings(ctx, &ec2.DescribeInstanceTypeOfferingsInput{
-			LocationType: "availability-zone",
-			MaxResults:   aws.Int32(maxOfferingsResults),
-			NextToken:    token,
-			Filters:      []types.Filter{zoneFilter},
-		})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, offering := range offeringResults.InstanceTypeOfferings {
-			// Should never be empty.
-			if offering.InstanceType == "" {
-				continue
-			}
-			if _, ok := instanceTypeZones[offering.InstanceType]; !ok {
-				instanceTypeZones[offering.InstanceType] = set.NewStrings()
-			}
-			instanceTypeZones[offering.InstanceType].Add(*offering.Location)
-			instTypeNames = append(instTypeNames, offering.InstanceType)
-		}
-		token = offeringResults.NextToken
-		if token == nil {
-			break
-		}
-	}
-
-	// Populate the costs for the instance types in use.
-	costs, err := instanceTypeCosts(e.ec2Client, ctx, instTypeNames, zoneNames)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Compose the results.
-	var allInstanceTypes []instances.InstanceType
-	for len(instTypeNames) > 0 {
-		querySize := len(instTypeNames)
-		if querySize > maxTypesPage {
-			querySize = maxTypesPage
-		}
-		page := instTypeNames[0:querySize]
-		instTypeNames = instTypeNames[querySize:]
-
-		instTypeParams := &ec2.DescribeInstanceTypesInput{
-			InstanceTypes: page,
-		}
-		instTypeResults, err := e.ec2Client.DescribeInstanceTypes(ctx, instTypeParams)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for _, info := range instTypeResults.InstanceTypes {
-			// Should never be empty.
-			if info.InstanceType == "" {
-				continue
-			}
-			allInstanceTypes = append(
-				allInstanceTypes, convertEC2InstanceType(info, instanceTypeZones, costs, zoneNames))
-		}
-	}
-
-	if isVPCIDSet(e.ecfg().vpcID()) {
-		return allInstanceTypes, nil
-	}
-	hasDefaultVPC, err := e.hasDefaultVPC(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if hasDefaultVPC {
-		return allInstanceTypes, nil
-	}
-
-	// The region has no default VPC, and the user has not specified
-	// one to use. We filter out any instance types that are not
-	// supported in EC2-Classic.
-	var supportedInstanceTypes []instances.InstanceType
-	for _, instanceType := range allInstanceTypes {
-		if !supportsClassic(instanceType.Name) {
-			continue
-		}
-		supportedInstanceTypes = append(supportedInstanceTypes, instanceType)
-	}
-	return supportedInstanceTypes, nil
+	return rval
 }
 
+// convertEC2InstanceType will convert an AWS InstanceTypeInfo to a Juju
+// InstanceType.
 func convertEC2InstanceType(
 	info types.InstanceTypeInfo,
-	instanceTypeZones map[types.InstanceType]set.Strings,
-	costs map[types.InstanceType]uint64,
-	zoneNames []string,
 ) instances.InstanceType {
-	instCost, ok := costs[info.InstanceType]
-	if !ok {
-		instCost = math.MaxUint64
-	}
-
 	instType := instances.InstanceType{
-		Name:       string(info.InstanceType),
-		VirtType:   virtType(info),
-		Deprecated: info.CurrentGeneration == nil || !*info.CurrentGeneration,
-		Cost:       instCost,
+		Name:     string(info.InstanceType),
+		VirtType: virtType(info),
+		Networking: instances.InstanceTypeNetworking{
+			SupportsIPv6: info.NetworkInfo != nil && aws.ToBool(info.NetworkInfo.Ipv6Supported),
+		},
 	}
 	if info.VCpuInfo != nil && info.VCpuInfo.DefaultVCpus != nil {
 		instType.CpuCores = uint64(*info.VCpuInfo.DefaultVCpus)
@@ -309,60 +454,25 @@ func convertEC2InstanceType(
 			break
 		}
 	}
-	instZones, ok := instanceTypeZones[types.InstanceType(instType.Name)]
-	if !ok {
-		instType.Deprecated = true
-	} else {
-		// If a instance type is available it at least 3 zones (or all of them if < 3)
-		// then consider it able to be used without explicitly asking for it.
-		instType.Deprecated = instZones.Size() < 3 && instZones.Size() < len(zoneNames)
-	}
+
 	return instType
 }
 
-// instanceTypeCosts queries the latest spot price for the given instance types.
-func instanceTypeCosts(ec2Client Client, ctx context.ProviderCallContext, instTypeNames []types.InstanceType, zoneNames []string) (map[types.InstanceType]uint64, error) {
-	const (
-		maxResults = 1000
-		costFactor = 1000
-	)
-	var token *string
-	spParams := &ec2.DescribeSpotPriceHistoryInput{
-		InstanceTypes: instTypeNames,
-		MaxResults:    aws.Int32(maxResults),
-		StartTime:     aws.Time(time.Now()),
-		// Only look at Linux results (to reduce total number of results;
-		// it's only an estimate anyway)
-		Filters: []types.Filter{makeFilter("product-description", "Linux/UNIX", "Linux/UNIX (Amazon VPC)")},
-	}
-	if len(zoneNames) > 0 {
-		// Just return results for the first availability zone (others are
-		// probably similar, and we don't need to be too accurate here)
-		filter := makeFilter("availability-zone", zoneNames[0])
-		spParams.Filters = append(spParams.Filters, filter)
-	}
-
-	costs := make(map[types.InstanceType]uint64)
-	for {
-		spParams.NextToken = token
-		priceResults, err := ec2Client.DescribeSpotPriceHistory(ctx, spParams)
+// highestFamilyProcessorGeneration takes a slice of InstancceTypeInfo structs
+// and  calculates the highest generation supported by each family and processor
+// family. This is useful for Juju to align it's use of families on to the
+// latest generation hardware.
+func highestFamilyProcessorGeneration(instances []types.InstanceTypeInfo) map[string]int {
+	rval := map[string]int{}
+	for _, instance := range instances {
+		it, err := parseInstanceType(instance.InstanceType)
 		if err != nil {
-			return nil, errors.Trace(err)
+			continue
 		}
-		for _, sp := range priceResults.SpotPriceHistory {
-			if _, ok := costs[sp.InstanceType]; !ok {
-				price, err := strconv.ParseFloat(*sp.SpotPrice, 32)
-				if err == nil {
-					costs[sp.InstanceType] = uint64(costFactor * price)
-				}
-			}
-		}
-		token = priceResults.NextToken
-		// token should be nil when there's no more records
-		// but it never gets set to nil so there's a bug in the api.
-		if len(priceResults.SpotPriceHistory) < maxResults {
-			break
+
+		if rval[it.Family+it.ProcessorFamily] < it.Generation {
+			rval[it.Family+it.ProcessorFamily] = it.Generation
 		}
 	}
-	return costs, nil
+	return rval
 }
