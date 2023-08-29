@@ -6,7 +6,6 @@ package charm
 import (
 	"github.com/juju/charm/v11"
 	charmresource "github.com/juju/charm/v11/resource"
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -111,45 +110,4 @@ func (s *computedSeriesSuite) TestComputedSeriesError(c *gc.C) {
 	}).AnyTimes()
 	_, err := ComputedSeries(cm)
 	c.Assert(err, gc.ErrorMatches, `os "ubuntu" version "testme" not found`)
-}
-
-func (s *computedSeriesSuite) TestSeriesToUse(c *gc.C) {
-	tests := []struct {
-		series          string
-		supportedSeries []string
-		seriesToUse     string
-		err             string
-	}{{
-		series: "",
-		err:    "series not specified and charm does not define any",
-	}, {
-		series:      "trusty",
-		seriesToUse: "trusty",
-	}, {
-		series:          "trusty",
-		supportedSeries: []string{"precise", "trusty"},
-		seriesToUse:     "trusty",
-	}, {
-		series:          "",
-		supportedSeries: []string{"precise", "trusty"},
-		seriesToUse:     "precise",
-	}, {
-		series:          "wily",
-		supportedSeries: []string{"precise", "trusty"},
-		err:             `series "wily" not supported by charm.*`,
-	}}
-	for _, test := range tests {
-		series, err := SeriesForCharm(test.series, test.supportedSeries)
-		if test.err != "" {
-			c.Assert(err, gc.ErrorMatches, test.err)
-			continue
-		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(series, jc.DeepEquals, test.seriesToUse)
-	}
-}
-
-func (s *computedSeriesSuite) TestIsMissingSeriesError(c *gc.C) {
-	c.Assert(IsMissingSeriesError(errMissingSeries), jc.IsTrue)
-	c.Assert(IsMissingSeriesError(errors.New("foo")), jc.IsFalse)
 }

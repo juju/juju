@@ -2204,25 +2204,25 @@ func (a *Application) UpdateApplicationBase(newBase Base, force bool) (err error
 // application.
 // TODO (stickupkid): This will be removed once we align all upgrade-machine
 // commands.
-func (a *Application) VerifySupportedBase(base Base, force bool) error {
+func (a *Application) VerifySupportedBase(b Base, force bool) error {
 	ch, _, err := a.Charm()
 	if err != nil {
 		return err
 	}
-	supportedSeries, err := corecharm.ComputedSeries(ch)
+	supportedBases, err := corecharm.ComputedBases(ch)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(supportedSeries) == 0 {
-		supportedSeries = append(supportedSeries, ch.URL().Series)
+	if len(supportedBases) == 0 {
+		return errors.NewNotValid(nil, fmt.Sprintf("charm %q does not support any bases. Not valid", ch.Meta().Name))
 	}
-	series, err := corebase.GetSeriesFromChannel(base.OS, base.Channel)
+	base, err := corebase.ParseBase(b.OS, b.Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, seriesSupportedErr := corecharm.SeriesForCharm(series, supportedSeries)
-	if seriesSupportedErr != nil && !force {
-		return stateerrors.NewErrIncompatibleSeries(supportedSeries, series, ch.String())
+	_, baseSupportedErr := corecharm.BaseForCharm(base, supportedBases)
+	if baseSupportedErr != nil && !force {
+		return stateerrors.NewErrIncompatibleBase(supportedBases, base, ch.String())
 	}
 	return nil
 }
