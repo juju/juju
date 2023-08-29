@@ -37,7 +37,10 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewFacade(resources, authorizer,
+	return NewFacade(
+		ctx.ServiceFactory().ControllerConfig(),
+		resources,
+		authorizer,
 		systemState,
 		&stateShim{st},
 		broker,

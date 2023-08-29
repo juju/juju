@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
-	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
@@ -26,7 +25,6 @@ type State interface {
 // ControllerState provides the subset of controller state
 // required by the CAAS application facade.
 type ControllerState interface {
-	ControllerConfig() (jujucontroller.Config, error)
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }
 

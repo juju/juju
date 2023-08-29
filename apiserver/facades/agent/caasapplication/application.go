@@ -19,25 +19,33 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
+// ControllerConfigGetter is the interface used to get the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (jujucontroller.Config, error)
+}
+
 type Facade struct {
-	auth      facade.Authorizer
-	resources facade.Resources
-	ctrlSt    ControllerState
-	state     State
-	model     Model
-	clock     clock.Clock
-	broker    Broker
-	logger    loggo.Logger
+	controllerConfigGetter ControllerConfigGetter
+	auth                   facade.Authorizer
+	resources              facade.Resources
+	ctrlSt                 ControllerState
+	state                  State
+	model                  Model
+	clock                  clock.Clock
+	broker                 Broker
+	logger                 loggo.Logger
 }
 
 // NewFacade returns a new CAASOperator facade.
 func NewFacade(
+	controllerConfigGetter ControllerConfigGetter,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	ctrlSt ControllerState,
@@ -54,14 +62,15 @@ func NewFacade(
 		return nil, errors.Trace(err)
 	}
 	return &Facade{
-		auth:      authorizer,
-		resources: resources,
-		ctrlSt:    ctrlSt,
-		state:     st,
-		model:     model,
-		clock:     clock,
-		broker:    broker,
-		logger:    logger,
+		controllerConfigGetter: controllerConfigGetter,
+		auth:                   authorizer,
+		resources:              resources,
+		ctrlSt:                 ctrlSt,
+		state:                  st,
+		model:                  model,
+		clock:                  clock,
+		broker:                 broker,
+		logger:                 logger,
 	}, nil
 }
 
@@ -159,7 +168,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return errResp(err)
 	}
 
-	controllerConfig, err := f.ctrlSt.ControllerConfig()
+	controllerConfig, err := f.controllerConfigGetter.ControllerConfig(ctx)
 	if err != nil {
 		return errResp(err)
 	}

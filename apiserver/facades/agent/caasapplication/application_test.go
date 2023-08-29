@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
@@ -35,10 +36,15 @@ type CAASApplicationSuite struct {
 	st         *mockState
 	clock      *testclock.Clock
 	broker     *mockBroker
+
+	controllerConfigGetter *MockControllerConfigGetter
 }
 
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+
+	ctrl := gomock.NewController(c)
+	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
 
 	s.clock = testclock.NewClock(time.Now())
 
@@ -52,7 +58,14 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState()
 	s.broker = &mockBroker{}
 
-	facade, err := caasapplication.NewFacade(s.resources, s.authorizer, s.st, s.st, s.broker, s.clock, loggo.GetLogger("juju.apiserver.caasaplication"))
+	facade, err := caasapplication.NewFacade(
+		s.controllerConfigGetter,
+		s.resources,
+		s.authorizer,
+		s.st, s.st,
+		s.broker, s.clock,
+		loggo.GetLogger("juju.apiserver.caasaplication"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
