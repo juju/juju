@@ -7,12 +7,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/juju/charm/v11"
 	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/testing"
@@ -52,16 +50,6 @@ var _ = gc.Suite(&deployerSuite{})
 
 func (s *deployerSuite) SetUpTest(_ *gc.C) {
 	s.deployResourceIDs = make(map[string]string)
-
-	// TODO: remove this patch once we removed all the old series from tests in current package.
-	s.PatchValue(&SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"centos7", "centos8", "centos9", "genericlinux", "opensuseleap",
-				"jammy", "focal", "bionic", "xenial",
-			), nil
-		},
-	)
 }
 
 func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *gc.C) {
@@ -82,7 +70,7 @@ func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *gc.C) {
 func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectModelGet(c)
-	cfg := s.basicDeployerConfig(corebase.MustParseBaseFromString("ubuntu@18.04"))
+	cfg := s.basicDeployerConfig(corebase.MustParseBaseFromString("ubuntu@22.04"))
 	s.expectModelType()
 
 	dir := c.MkDir()
@@ -93,7 +81,7 @@ func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(cfg, s.modelConfigGetter, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	ch := charm.MustParseURL("local:bionic/multi-series-1")
+	ch := charm.MustParseURL("local:jammy/multi-series-1")
 	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy local charm: %s", ch.String()))
 }
 

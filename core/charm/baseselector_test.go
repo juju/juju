@@ -7,6 +7,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
@@ -15,6 +16,9 @@ import (
 
 type baseSelectorSuite struct {
 	testing.IsolationSuite
+
+	logger *MockSelectorLogger
+	cfg    *MockSelectorModelConfig
 }
 
 var _ = gc.Suite(&baseSelectorSuite{})
@@ -32,7 +36,20 @@ var (
 	jujuDefault = version.DefaultSupportedLTSBase()
 )
 
+func (s *baseSelectorSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.logger = NewMockSelectorLogger(ctrl)
+	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
+	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).AnyTimes()
+
+	s.cfg = NewMockSelectorModelConfig(ctrl)
+
+	return ctrl
+}
+
 func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	deployBasesTests := []struct {
 		title        string
 		selector     BaseSelector
@@ -139,11 +156,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 
 	for i, test := range deployBasesTests {
 		c.Logf("test %d [%s]", i, test.title)
-		test.selector.logger = &noOpLogger{}
-		// For test purposes, change the supportedJujuBases to a consistent
-		// known value. Allowing for juju supported bases to change without
-		// making the tests fail.
-		//baseSelect.supportedJujuBases = []base.Base{bionic, focal, cosmic}
+		test.selector.logger = s.logger
 		base, err := test.selector.CharmBase()
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
@@ -156,6 +169,8 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 }
 
 func (s *baseSelectorSuite) TestValidate(c *gc.C) {
+	defer s.setup(c).Finish()
+
 	deploySeriesTests := []struct {
 		title               string
 		selector            BaseSelector
@@ -199,7 +214,7 @@ func (s *baseSelectorSuite) TestValidate(c *gc.C) {
 
 	for i, test := range deploySeriesTests {
 		c.Logf("test %d [%s]", i, test.title)
-		test.selector.logger = &noOpLogger{}
+		test.selector.logger = s.logger
 		test.selector.jujuSupportedBases = set.NewStrings()
 		_, err := test.selector.validate(test.supportedCharmBases, test.supportedJujuBases)
 		if test.err != "" {
@@ -211,10 +226,13 @@ func (s *baseSelectorSuite) TestValidate(c *gc.C) {
 }
 
 func (s *baseSelectorSuite) TestConfigureBaseSelector(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.cfg.EXPECT().DefaultBase()
 	cfg := SelectorConfig{
-		Config:              mockModelCfg{},
+		Config:              s.cfg,
 		Force:               false,
-		Logger:              &noOpLogger{},
+		Logger:              s.logger,
 		RequestedBase:       base.Base{},
 		SupportedCharmBases: []base.Base{jammy, focal, bionic},
 		WorkloadBases:       []base.Base{jammy, focal},
@@ -227,14 +245,16 @@ func (s *baseSelectorSuite) TestConfigureBaseSelector(c *gc.C) {
 }
 
 func (s *baseSelectorSuite) TestConfigureBaseSelectorCentos(c *gc.C) {
+	defer s.setup(c).Finish()
 
+	s.cfg.EXPECT().DefaultBase()
 	c7 := base.MustParseBaseFromString("centos@7/stable")
 	c8 := base.MustParseBaseFromString("centos@8/stable")
 	c6 := base.MustParseBaseFromString("centos@6/stable")
 	cfg := SelectorConfig{
-		Config:              mockModelCfg{},
+		Config:              s.cfg,
 		Force:               false,
-		Logger:              &noOpLogger{},
+		Logger:              s.logger,
 		RequestedBase:       base.Base{},
 		SupportedCharmBases: []base.Base{c6, c7, c8},
 		WorkloadBases:       []base.Base{c7, c8},
@@ -247,13 +267,13 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorCentos(c *gc.C) {
 }
 
 func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBase(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.cfg.EXPECT().DefaultBase().Return("ubuntu@20.04", true)
 	cfg := SelectorConfig{
-		Config: mockModelCfg{
-			base:     "ubuntu@20.04",
-			explicit: true,
-		},
+		Config:              s.cfg,
 		Force:               false,
-		Logger:              &noOpLogger{},
+		Logger:              s.logger,
 		RequestedBase:       base.Base{},
 		SupportedCharmBases: []base.Base{jammy, focal, bionic},
 		WorkloadBases:       []base.Base{jammy, focal},
@@ -273,13 +293,13 @@ func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBase(c *gc.C) {
 }
 
 func (s *baseSelectorSuite) TestConfigureBaseSelectorDefaultBaseFail(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.cfg.EXPECT().DefaultBase().Return("ubuntu@18.04", true)
 	cfg := SelectorConfig{
-		Config: mockModelCfg{
-			base:     "ubuntu@18.04",
-			explicit: true,
-		},
+		Config:              s.cfg,
 		Force:               false,
-		Logger:              &noOpLogger{},
+		Logger:              s.logger,
 		RequestedBase:       base.Base{},
 		SupportedCharmBases: []base.Base{jammy, focal, bionic},
 		WorkloadBases:       []base.Base{jammy, focal},

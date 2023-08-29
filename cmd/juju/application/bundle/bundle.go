@@ -4,6 +4,7 @@
 package bundle
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -329,6 +330,15 @@ func verifyBundle(data *charm.BundleData, bundleDir string, verifyConstraints fu
 		return err
 	}
 
+	var errs []string
+	// This method cannot be included within data.Verify because
+	// to verify corresponding series and base match we need to be
+	// able to compare them. The charm package, however, treats bases
+	// and series generically and is unable to do this.
+	if err := verifyMixedSeriesBasesMatch(data); err != nil {
+		errs = append(errs, err.Error())
+	}
+
 	var verifyError error
 	if bundleDir == "" {
 		verifyError = data.Verify(verifyConstraints, verifyStorage, verifyDevices)
@@ -337,11 +347,62 @@ func verifyBundle(data *charm.BundleData, bundleDir string, verifyConstraints fu
 	}
 
 	if verr, ok := errors.Cause(verifyError).(*charm.VerificationError); ok {
-		errs := make([]string, len(verr.Errors))
-		for i, err := range verr.Errors {
-			errs[i] = err.Error()
+		for _, err := range verr.Errors {
+			errs = append(errs, err.Error())
 		}
 		return errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
 	}
 	return errors.Trace(verifyError)
+}
+
+func verifyMixedSeriesBasesMatch(data *charm.BundleData) error {
+	if data == nil {
+		return nil
+	}
+	if data.Series != "" && data.DefaultBase != "" {
+		b, err := corebase.ParseBaseFromString(data.DefaultBase)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		s, err := corebase.GetSeriesFromBase(b)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if s != data.Series {
+			return errors.NewNotValid(nil, fmt.Sprintf("bundle series %q and base %q must match if both supplied", data.Series, data.DefaultBase))
+		}
+	}
+
+	for name, m := range data.Machines {
+		if m != nil && m.Series != "" && m.Base != "" {
+			b, err := corebase.ParseBaseFromString(m.Base)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			s, err := corebase.GetSeriesFromBase(b)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if s != m.Series {
+				return errors.NewNotValid(nil, fmt.Sprintf("machine %q series %q and base %q must match if both supplied", name, m.Series, m.Base))
+			}
+		}
+	}
+
+	for name, app := range data.Applications {
+		if app != nil && app.Series != "" && app.Base != "" {
+			b, err := corebase.ParseBaseFromString(app.Base)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			s, err := corebase.GetSeriesFromBase(b)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if s != app.Series {
+				return errors.NewNotValid(nil, fmt.Sprintf("application %q series %q and base %q must match if both supplied", name, app.Series, app.Base))
+			}
+		}
+	}
+	return nil
 }
