@@ -341,11 +341,10 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		}
 
 		var base corebase.Base
-		if spec.Series != "" {
-			base, err = corebase.GetBaseFromSeries(spec.Series)
-		}
 		if spec.Base != "" {
 			base, err = corebase.ParseBaseFromString(spec.Base)
+		} else if spec.Series != "" {
+			base, err = corebase.GetBaseFromSeries(spec.Series)
 		}
 		if err != nil {
 			return errors.Trace(err)
@@ -714,15 +713,7 @@ func (h *bundleHandler) addLocalCharm(chParams bundlechanges.AddCharmParams, chB
 		charmPath = filepath.Join(h.bundleDir, charmPath)
 	}
 
-	var chSeries string
-	if !chBase.Empty() {
-		var err error
-		chSeries, err = corebase.GetSeriesFromBase(chBase)
-		if err != nil {
-			return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
-		}
-	}
-	ch, curl, err := corecharm.NewCharmAtPathForceSeries(charmPath, chSeries, h.force)
+	ch, curl, err := corecharm.NewCharmAtPathForceBase(charmPath, chBase, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot deploy local charm at %q", charmPath)
 	}

@@ -80,7 +80,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 	dCharm := s.newDeployCharm()
 	dCharm.dryRun = true
 	dCharm.force = true
-	dCharm.validateCharmSeriesWithName = func(series, name string, imageStream string) error {
+	dCharm.validateCharmBaseWithName = func(_ corebase.Base, _ string, _ string) error {
 		return nil
 	}
 	repoCharm := &repositoryCharm{

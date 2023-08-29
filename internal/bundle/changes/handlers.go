@@ -35,9 +35,11 @@ type resolver struct {
 func (r *resolver) handleApplications() (map[string]string, error) {
 	add := r.changes.add
 	applications := r.bundle.Applications
-	defaultSeries := r.bundle.Series
-	defaultBase := r.bundle.DefaultBase
 	existing := r.model
+	defaultBase, err := computeBase(r.bundle.DefaultBase, r.bundle.Series, corebase.Base{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	charms := make(map[string]string, len(applications))
 	addedApplications := make(map[string]string, len(applications))
@@ -52,11 +54,11 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 	for _, name := range names {
 		application := applications[name]
 		existingApp := existing.GetApplication(name)
-		computedSeries, err := getSeries(application, defaultSeries)
+		series, err := getSeries(application, defaultBase)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		computedBase, err := getBase(application.Base, defaultBase, computedSeries)
+		computedBase, err := computeBase(application.Base, series, defaultBase)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -409,9 +411,11 @@ func equalStringSlice(a, b []string) bool {
 func (r *resolver) handleMachines() (map[string]*AddMachineChange, error) {
 	add := r.changes.add
 	machines := r.bundle.Machines
-	defaultSeries := r.bundle.Series
-	defaultBase := r.bundle.DefaultBase
 	existing := r.model
+	defaultBase, err := computeBase(r.bundle.DefaultBase, r.bundle.Series, corebase.Base{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	addedMachines := make(map[string]*AddMachineChange, len(machines))
 	// Iterate over the map using its sorted keys so that results are
@@ -429,13 +433,9 @@ func (r *resolver) handleMachines() (map[string]*AddMachineChange, error) {
 		if machine == nil {
 			machine = &charm.MachineSpec{}
 		}
-		computedSeries := machine.Series
-		if computedSeries == "" {
-			computedSeries = defaultSeries
-		}
-		computedBase, err := getBase(machine.Base, defaultBase, computedSeries)
+		computedBase, err := computeBase(machine.Base, machine.Series, defaultBase)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 
 		var id string
@@ -591,12 +591,11 @@ func (r *resolver) handleOffers(addedApplications map[string]string, deployedBun
 }
 
 type unitProcessor struct {
-	add           func(Change)
-	existing      *Model
-	bundle        *charm.BundleData
-	defaultSeries string
-	defaultBase   string
-	logger        Logger
+	add         func(Change)
+	existing    *Model
+	bundle      *charm.BundleData
+	defaultBase corebase.Base
+	logger      Logger
 
 	// The added applications and machines are maps from names to
 	// change IDs.
@@ -1013,11 +1012,11 @@ func (p *unitProcessor) addNewMachine(application *charm.ApplicationSpec, contai
 	if err != nil {
 		return unitPlacement{}, err
 	}
-	computedSeries, err := getSeries(application, p.defaultSeries)
+	series, err := getSeries(application, p.defaultBase)
 	if err != nil {
 		return unitPlacement{}, err
 	}
-	computedBase, err := getBase(application.Base, p.defaultBase, computedSeries)
+	computedBase, err := computeBase(application.Base, series, p.defaultBase)
 	if err != nil {
 		return unitPlacement{}, err
 	}
@@ -1109,11 +1108,11 @@ func (p *unitProcessor) addContainer(up unitPlacement, application *charm.Applic
 	if err != nil {
 		return unitPlacement{}, err
 	}
-	computedSeries, err := getSeries(application, p.defaultSeries)
+	series, err := getSeries(application, p.defaultBase)
 	if err != nil {
 		return unitPlacement{}, err
 	}
-	computedBase, err := getBase(application.Base, p.defaultBase, computedSeries)
+	computedBase, err := computeBase(application.Base, series, p.defaultBase)
 	if err != nil {
 		return unitPlacement{}, err
 	}
@@ -1154,13 +1153,16 @@ func (r *resolver) handleUnits(addedApplications map[string]string, addedMachine
 	for _, v := range addedMachines {
 		machChangeIDs.Add(v.Id())
 	}
+	defaultBase, err := computeBase(r.bundle.DefaultBase, r.bundle.Series, corebase.Base{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	processor := &unitProcessor{
 		add:                        r.changes.add,
 		existing:                   r.model,
 		bundle:                     r.bundle,
-		defaultSeries:              r.bundle.Series,
-		defaultBase:                r.bundle.DefaultBase,
+		defaultBase:                defaultBase,
 		logger:                     r.logger,
 		addedApplications:          addedApplications,
 		addedMachines:              addedMachines,
@@ -1173,7 +1175,7 @@ func (r *resolver) handleUnits(addedApplications map[string]string, addedMachine
 	}
 
 	processor.addAllNeededUnits()
-	err := processor.processUnitPlacement()
+	err = processor.processUnitPlacement()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1269,32 +1271,24 @@ func applicationKey(charm, arch string, base corebase.Base, channel string, revi
 }
 
 // getSeries retrieves the series of a application from the ApplicationSpec or from the
-// charm path or URL if provided, otherwise falling back on a default series.
+// charm path or URL if provided.
 //
 // DEPRECATED: This should be all about bases.
-func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string, error) {
-	if application.Base != "" {
-		base, err := corebase.ParseBaseFromString(application.Base)
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		return corebase.GetSeriesFromBase(base)
-	}
+func getSeries(application *charm.ApplicationSpec, defaultBase corebase.Base) (string, error) {
 	if application.Series != "" {
 		return application.Series, nil
 	}
 
-	// Handle local charm paths.
 	if charm.IsValidLocalCharmOrBundlePath(application.Charm) {
-		_, charmURL, err := corecharm.NewCharmAtPath(application.Charm, defaultSeries)
-		if corecharm.IsMissingSeriesError(err) {
+		_, charmURL, err := corecharm.NewCharmAtPath(application.Charm, defaultBase)
+		if corecharm.IsMissingBaseError(err) {
 			// local charm path is valid but the charm doesn't declare a default series.
-			return defaultSeries, nil
-		} else if corecharm.IsUnsupportedSeriesError(err) {
+			return "", nil
+		} else if corecharm.IsUnsupportedBaseError(err) {
 			// The bundle's default series is not supported by the charm, but we'll
 			// use it anyway. This is no different to the case above where application.Series
 			// is used without checking for potential charm incompatibility.
-			return defaultSeries, nil
+			return "", nil
 		} else if err != nil {
 			return "", errors.Trace(err)
 		}
@@ -1302,8 +1296,6 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 		return charmURL.Series, nil
 	}
 
-	// The following is safe because the bundle data is assumed to be already
-	// verified, and therefore this must be a valid charm URL.
 	charmURL, err := charm.ParseURL(application.Charm)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -1311,22 +1303,16 @@ func getSeries(application *charm.ApplicationSpec, defaultSeries string) (string
 	if charmURL.Series != "" {
 		return charmURL.Series, nil
 	}
-	return defaultSeries, nil
+	return "", nil
 }
 
-// getBase calculates the base to use for a resource. If none is provided, we will fall back to
-// the specified series and convert to a base
-func getBase(base string, defaultBase string, computedSeries string) (corebase.Base, error) {
+func computeBase(base string, series string, defaultBase corebase.Base) (corebase.Base, error) {
 	if base != "" {
 		return corebase.ParseBaseFromString(base)
+	} else if series != "" {
+		return corebase.GetBaseFromSeries(series)
 	}
-	if defaultBase != "" {
-		return corebase.ParseBaseFromString(defaultBase)
-	}
-	if computedSeries != "" {
-		return corebase.GetBaseFromSeries(computedSeries)
-	}
-	return corebase.Base{}, nil
+	return defaultBase, nil
 }
 
 // parseEndpoint creates an endpoint from its string representation.

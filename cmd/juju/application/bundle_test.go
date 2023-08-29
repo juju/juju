@@ -247,7 +247,7 @@ func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c 
 	if force {
 		c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: base: ubuntu@12.10/stable not supported")
 	} else {
-		c.Assert(err, gc.ErrorMatches, `cannot deploy bundle:.*series "quantal" not supported by charm.*`)
+		c.Assert(err, gc.ErrorMatches, `cannot deploy bundle:.*base "ubuntu@12.10" not supported by charm.*`)
 	}
 }
 

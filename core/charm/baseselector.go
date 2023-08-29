@@ -18,6 +18,12 @@ const (
 	msgLatestLTSBase     = "with the latest LTS base %q"
 )
 
+// SelectorLogger defines the logging methods needed
+type SelectorLogger interface {
+	Infof(string, ...interface{})
+	Tracef(string, ...interface{})
+}
+
 // BaseSelector is a helper type that determines what base the charm should
 // be deployed to.
 type BaseSelector struct {
@@ -184,7 +190,7 @@ func (s BaseSelector) userRequested(requestedBase base.Base) (base.Base, error) 
 		}
 		if IsUnsupportedBaseError(err) {
 			return base.Base{}, errors.Errorf(
-				"base %q is not supported, base series are: %s",
+				"base %q is not supported, supported bases are: %s",
 				requestedBase, printBases(s.supportedBases),
 			)
 		}

@@ -17,7 +17,7 @@ import (
 	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
-	"github.com/juju/collections/set"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -177,7 +177,7 @@ func (s *DeploySuite) TestPathWithNoCharmOrBundle(c *gc.C) {
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "dummy-no-series")
 	err := s.runDeploy(c, path)
-	c.Assert(err, gc.ErrorMatches, "series not specified and charm does not define any")
+	c.Assert(err, gc.ErrorMatches, "charm does not define any bases, not valid")
 }
 
 func (s *DeploySuite) TestDeployFromPathRelativeDir(c *gc.C) {
@@ -231,13 +231,10 @@ func (s *DeploySuite) TestDeployFromPathDefaultBase(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"jammy", "focal", "jammy", "xenial", "quantal",
-			), nil
-		},
-	)
+	// Do not remove this because we want to test: bases supported by the charm and bases supported by Juju have overlap.
+	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@12.10"}, corebase.ParseBaseFromString)
+	})
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
 	curl := charm.MustParseURL("local:quantal/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, true)
@@ -248,41 +245,35 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveOverlap(c *gc.C) {
-	// Do not remove this because we want to test: series supported by the charm and series supported by Juju have overlap.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"jammy", "focal",
-			), nil
-		},
-	)
+	// Do not remove this because we want to test: bases supported by the charm and bases supported by Juju have overlap.
+	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@12.10"}, corebase.ParseBaseFromString)
+	})
 
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
 	err := s.runDeploy(c, path, "--base", "ubuntu@12.10")
-	c.Assert(err, gc.ErrorMatches, `series "quantal" is not supported, supported series are: focal,jammy`)
+	c.Assert(err, gc.ErrorMatches, `base "ubuntu@12.10/stable" is not supported, supported bases are: .*`)
 }
 
-func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveNoOverlap(c *gc.C) {
-	// Donot remove this because we want to test: series supported by the charm and series supported by Juju have NO overlap.
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings("kinetic"), nil
+func (s *DeploySuite) TestDeployFromPathUnsupportedBaseHaveNoOverlap(c *gc.C) {
+	// Do not remove this because we want to test: bases supported by the charm and bases supported by Juju have NO overlap.
+	s.PatchValue(&deployer.SupportedJujuBases,
+		func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+			return []corebase.Base{corebase.MustParseBaseFromString("ubuntu@22.10")}, nil
 		},
 	)
 
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
-	err := s.runDeploy(c, path, "--base", "ubuntu@12.10")
-	c.Assert(err, gc.ErrorMatches, `multi-series is not available on the following series: quantal`)
+	err := s.runDeploy(c, path)
+	c.Assert(err, gc.ErrorMatches, `the charm defined bases ".*" not supported`)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedLXDProfileForce(c *gc.C) {
-	s.PatchValue(&deployer.SupportedJujuSeries,
-		func(time.Time, string, string) (set.Strings, error) {
-			return set.NewStrings(
-				"jammy", "focal", "jammy", "xenial", "quantal",
-			), nil
-		},
-	)
+	// TODO remove this patch once we removed all the old bases from tests in current package.
+	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@18.04", "ubuntu@12.10"}, corebase.ParseBaseFromString)
+	})
+
 	charmDir := testcharms.RepoWithSeries("quantal").ClonedDir(c.MkDir(), "lxd-profile-fail")
 	curl := charm.MustParseURL("local:quantal/lxd-profile-fail-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, true)
@@ -326,12 +317,12 @@ func (s *DeploySuite) TestSingleConfigFile(c *gc.C) {
 
 func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:focal/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 
 	// Putting a config file in home is okay as $HOME is set to a tempdir
 	_, content := setupConfigFile(c, jujutesting.HomePath())
-	withCharmDeployableWithYAMLConfig(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@20.04"), charmDir.Meta(), charmDir.Metrics(), false, 1, nil, content, nil)
+	withCharmDeployableWithYAMLConfig(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@22.04"), charmDir.Meta(), charmDir.Metrics(), false, 1, nil, content, nil)
 
 	err := s.runDeploy(c, charmDir.Path, "multi-series", "--config", "~/testconfig.yaml")
 	c.Assert(err, jc.ErrorIsNil)
@@ -647,9 +638,9 @@ func (s *CAASDeploySuite) TestDevices(c *gc.C) {
 
 func (s *DeploySuite) TestDeployStorageFailContainer(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
-	curl := charm.MustParseURL("local:focal/multi-series-1")
+	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
-	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@20.04"), charmDir.Meta(), charmDir.Metrics(), false, 1, nil, nil)
+	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@22.04"), charmDir.Meta(), charmDir.Metrics(), false, 1, nil, nil)
 
 	err := s.runDeploy(c, charmDir.Path, "--to", "lxd:1", "--storage", "data=machinescoped,1G")
 	c.Assert(err, gc.ErrorMatches, "adding storage to lxd container not supported")
@@ -768,7 +759,7 @@ func (s *DeploySuite) TestDeployLocalWithSeriesMismatchReturnsError(c *gc.C) {
 
 	err := s.runDeploy(c, charmDir.Path, "--base", "ubuntu@12.10")
 
-	c.Check(err, gc.ErrorMatches, `terms1 is not available on the following series: quantal not supported`)
+	c.Check(err, gc.ErrorMatches, `terms1 is not available on the following base: ubuntu@12.10/stable not supported`)
 }
 
 // setupConfigFile creates a configuration file for testing set

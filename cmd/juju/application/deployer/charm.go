@@ -50,7 +50,7 @@ type deployCharm struct {
 	storage          map[string]storage.Constraints
 	trust            bool
 
-	validateCharmSeriesWithName           func(series, name string, imageStream string) error
+	validateCharmBaseWithName             func(base corebase.Base, name string, imageStream string) error
 	validateResourcesNeededForLocalDeploy func(charmMeta *charm.Meta) error
 }
 
@@ -239,7 +239,11 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 	}
 
 	// Avoid deploying charm if it's not valid for the model.
-	if err := d.validateCharmSeriesWithName(userCharmURL.Series, userCharmURL.Name, modelCfg.ImageStream()); err != nil {
+	base, err := corebase.GetBaseFromSeries(d.userCharmURL.Series)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := d.validateCharmBaseWithName(base, userCharmURL.Name, modelCfg.ImageStream()); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -257,11 +261,6 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 	}
 
 	if err := d.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
-		return errors.Trace(err)
-	}
-
-	base, err := corebase.GetBaseFromSeries(d.userCharmURL.Series)
-	if err != nil {
 		return errors.Trace(err)
 	}
 
