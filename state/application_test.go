@@ -1883,7 +1883,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateFail(c *gc.
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	err := app.UpdateApplicationBase(state.UbuntuBase("16.04"), false)
-	c.Assert(errors.Is(err, stateerrors.IncompatibleSeriesError), jc.IsTrue)
+	c.Assert(errors.Is(err, stateerrors.IncompatibleBaseError), jc.IsTrue)
 	assertApplicationBaseUpdate(c, app, state.UbuntuBase("20.04"))
 	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("20.04"))
 }
@@ -1967,7 +1967,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 	).Check()
 
 	err = app.UpdateApplicationBase(state.UbuntuBase("18.04"), false)
-	c.Assert(errors.Is(err, stateerrors.IncompatibleSeriesError), jc.IsTrue)
+	c.Assert(errors.Is(err, stateerrors.IncompatibleBaseError), jc.IsTrue)
 	assertApplicationBaseUpdate(c, app, state.UbuntuBase("20.04"))
 	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("20.04"))
 

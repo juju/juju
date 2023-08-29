@@ -459,22 +459,13 @@ func (s stateSeriesValidator) verifySupportedBase(application Application, base 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	supportedSeries, err := corecharm.ComputedSeries(ch)
+	supportedBases, err := corecharm.ComputedBases(ch)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if len(supportedSeries) == 0 {
-		supportedSeries = append(supportedSeries, ch.URL().Series)
-	}
-	series, err := corebase.GetSeriesFromBase(base)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	_, seriesSupportedErr := corecharm.SeriesForCharm(series, supportedSeries)
-	if seriesSupportedErr != nil && !force {
-		// TODO (stickupkid): Once all commands are placed in this API, we
-		// should relocate these to the API server.
-		return apiservererrors.NewErrIncompatibleSeries(supportedSeries, series, ch.String())
+	_, baseSupportedErr := corecharm.BaseForCharm(base, supportedBases)
+	if baseSupportedErr != nil && !force {
+		return apiservererrors.NewErrIncompatibleBase(supportedBases, base, ch.String())
 	}
 	return nil
 }
