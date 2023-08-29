@@ -1380,11 +1380,14 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNoSeri
 	})
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleSeries(c *gc.C) {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareIncompatibleBase(c *gc.C) {
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectPrepareMachine(ctrl, apiservererrors.NewErrIncompatibleSeries([]string{"yakkety", "zesty"}, "jammy", "TestCharm"))
+	machine0 := s.expectPrepareMachine(ctrl, apiservererrors.NewErrIncompatibleBase([]corebase.Base{
+		corebase.MustParseBaseFromString("ubuntu@16.10"),
+		corebase.MustParseBaseFromString("ubuntu@17.04"),
+	}, corebase.MustParseBaseFromString("ubuntu@22.04"), "TestCharm"))
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	result, err := s.api.UpgradeSeriesPrepare(
@@ -1399,7 +1402,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareIncomp
 	c.Assert(result, jc.DeepEquals, params.ErrorResult{
 		Error: &params.Error{
 			Code:    params.CodeIncompatibleBase,
-			Message: "series \"jammy\" not supported by charm \"TestCharm\", supported series are: yakkety, zesty",
+			Message: "base \"ubuntu@22.04\" not supported by charm \"TestCharm\", supported bases are: ubuntu@16.10, ubuntu@17.04",
 		},
 	})
 }

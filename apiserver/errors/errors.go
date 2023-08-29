@@ -207,7 +207,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeForbidden
 	case errors.Is(err, errors.NotValid):
 		code = params.CodeNotValid
-	case errors.Is(err, IncompatibleSeriesError), errors.Is(err, stateerrors.IncompatibleSeriesError):
+	case errors.Is(err, IncompatibleBaseError), errors.Is(err, stateerrors.IncompatibleBaseError):
 		code = params.CodeIncompatibleBase
 	case errors.As(err, &dischargeRequiredError):
 		code = params.CodeDischargeRequired

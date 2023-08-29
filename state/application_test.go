@@ -1807,8 +1807,8 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 	// Trusty is listed in only version 1 of the charm.
 	err := app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
 	c.Assert(err, gc.ErrorMatches,
-		"updating application series: series \"jammy\" not supported by charm \"ch:multi-series-2\", "+
-			"supported series are: focal, bionic")
+		"updating application series: base \"ubuntu@22.04\" not supported by charm \"ch:multi-series-2\", "+
+			"supported bases are: ubuntu@20.04, ubuntu@18.04")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(c *gc.C) {
@@ -1883,7 +1883,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateFail(c *gc.
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	err := app.UpdateApplicationBase(state.UbuntuBase("16.04"), false)
-	c.Assert(errors.Is(err, stateerrors.IncompatibleSeriesError), jc.IsTrue)
+	c.Assert(errors.Is(err, stateerrors.IncompatibleBaseError), jc.IsTrue)
 	assertApplicationBaseUpdate(c, app, state.UbuntuBase("20.04"))
 	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("20.04"))
 }
@@ -1967,7 +1967,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 	).Check()
 
 	err = app.UpdateApplicationBase(state.UbuntuBase("18.04"), false)
-	c.Assert(errors.Is(err, stateerrors.IncompatibleSeriesError), jc.IsTrue)
+	c.Assert(errors.Is(err, stateerrors.IncompatibleBaseError), jc.IsTrue)
 	assertApplicationBaseUpdate(c, app, state.UbuntuBase("20.04"))
 	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("20.04"))
 
@@ -5457,10 +5457,17 @@ func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 func (s *ApplicationSuite) TestCharmLegacyOnlySupportsOneSeries(c *gc.C) {
 	ch := state.AddTestingCharmForSeries(c, s.State, "precise", "mysql")
 	app := s.AddTestingApplication(c, "legacy-charm", ch)
-	err := app.VerifySupportedBase(state.UbuntuBase("12.04"), false)
+	err := app.VerifySupportedBase(state.UbuntuBase("12.10"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.VerifySupportedBase(state.UbuntuBase("16.04"), false)
-	c.Assert(err, gc.ErrorMatches, "series \"xenial\" not supported by charm \"local:precise/precise-mysql-1\", supported series are: precise")
+	c.Assert(err, gc.ErrorMatches, "base \"ubuntu@16.04\" not supported by charm \"local:precise/precise-mysql-1\", supported bases are: ubuntu@12.10")
+}
+
+func (s *ApplicationSuite) TestCharmLegacyNoOSInvalid(c *gc.C) {
+	ch := state.AddTestingCharmForSeries(c, s.State, "precise", "dummy")
+	app := s.AddTestingApplication(c, "legacy-charm", ch)
+	err := app.VerifySupportedBase(state.UbuntuBase("12.10"), false)
+	c.Assert(err, gc.ErrorMatches, `charm "dummy" does not support any bases. Not valid`)
 }
 
 func (s *ApplicationSuite) TestDeployedMachines(c *gc.C) {

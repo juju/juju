@@ -9,10 +9,12 @@ import (
 	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 )
@@ -22,9 +24,9 @@ const (
 	// deadline is exceeded.
 	DeadlineExceededError = errors.ConstError("deadline exceeded")
 
-	// IncompatibleSeriesError indicates the series selected is not supported by the
+	// IncompatibleBaseError indicates the base selected is not supported by the
 	// charm.
-	IncompatibleSeriesError = errors.ConstError("incompatible series for charm")
+	IncompatibleBaseError = errors.ConstError("incompatible base for charm")
 
 	NoAddressSetError = errors.ConstError("no address set")
 
@@ -94,12 +96,12 @@ func (e *UpgradeSeriesValidationError) Error() string {
 	return e.Cause.Error()
 }
 
-func NewErrIncompatibleSeries(seriesList []string, series, charmName string) error {
-	return fmt.Errorf("series %q not supported by charm %q, supported series are: %s%w",
-		series,
+func NewErrIncompatibleBase(baseList []base.Base, b base.Base, charmName string) error {
+	return fmt.Errorf("base %q not supported by charm %q, supported bases are: %s%w",
+		b.DisplayString(),
 		charmName,
-		strings.Join(seriesList, ", "),
-		errors.Hide(IncompatibleSeriesError),
+		strings.Join(transform.Slice(baseList, func(b base.Base) string { return b.DisplayString() }), ", "),
+		errors.Hide(IncompatibleBaseError),
 	)
 }
 
