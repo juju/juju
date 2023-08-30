@@ -12,13 +12,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
@@ -65,7 +65,7 @@ type UnitAdder interface {
 }
 
 // DeployApplication takes a charm and various parameters and deploys it.
-func DeployApplication(ctx context.Context, st ApplicationDeployer, model Model, args DeployApplicationParams) (Application, error) {
+func DeployApplication(ctx context.Context, st ApplicationDeployer, model Model, credentialService common.CredentialService, args DeployApplicationParams) (Application, error) {
 	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -83,7 +83,7 @@ func DeployApplication(ctx context.Context, st ApplicationDeployer, model Model,
 	}
 
 	// Enforce "assumes" requirements.
-	if err := assertCharmAssumptions(ctx, args.Charm.Meta().Assumes, model, st.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(ctx, args.Charm.Meta().Assumes, model, credentialService, st.ControllerConfig); err != nil {
 		if !errors.IsNotSupported(err) || !args.Force {
 			return nil, errors.Trace(err)
 		}
@@ -215,12 +215,12 @@ func StateCharmOrigin(origin corecharm.Origin) (*state.CharmOrigin, error) {
 	}, nil
 }
 
-func assertCharmAssumptions(ctx context.Context, assumesExprTree *assumes.ExpressionTree, model Model, ctrlCfgGetter func() (controller.Config, error)) error {
+func assertCharmAssumptions(ctx context.Context, assumesExprTree *assumes.ExpressionTree, model Model, credentialService common.CredentialService, ctrlCfgGetter func() (controller.Config, error)) error {
 	if assumesExprTree == nil {
 		return nil
 	}
 
-	featureSet, err := SupportedFeaturesGetter(ctx, model, environs.New)
+	featureSet, err := SupportedFeaturesGetter(model, credentialService)
 	if err != nil {
 		return errors.Annotate(err, "querying feature set supported by the model")
 	}

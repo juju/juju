@@ -233,41 +233,6 @@ func (s *CloudSuite) TestRemoveCloud(c *gc.C) {
 	c.Assert(stateSettings.Map(), jc.DeepEquals, map[string]interface{}{"fred": "mary2"})
 }
 
-func (s *CloudSuite) TestRemoveCloudAlsoRemovesCredentials(c *gc.C) {
-	err := s.State.AddCloud(lowCloud, s.Owner.Name())
-	c.Assert(err, jc.ErrorIsNil)
-
-	credTag := names.NewCloudCredentialTag(lowCloud.Name + "/admin/cred")
-	err = s.State.UpdateCloudCredential(credTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
-	c.Assert(err, jc.ErrorIsNil)
-	credTag = names.NewCloudCredentialTag(lowCloud.Name + "/bob/cred")
-	err = s.State.UpdateCloudCredential(credTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add credential for a different cloud, shouldn't be touched.
-	otherCredTag := names.NewCloudCredentialTag("dummy/mary/cred")
-	err = s.State.UpdateCloudCredential(otherCredTag, cloud.NewEmptyCredential())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.State.RemoveCloud(lowCloud.Name)
-	c.Assert(err, jc.ErrorIsNil)
-
-	coll, closer := state.GetCollection(s.State, "cloudCredentials")
-	defer closer()
-
-	// Creds for removed cloud are gone.
-	n, err := coll.Find(bson.D{{"_id", bson.D{{"$regex", "^" + lowCloud.Name + "#"}}}}).Count()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n, gc.Equals, 0)
-
-	// Creds for other clouds are not affected.
-	n, err = coll.Find(bson.D{{"_id", bson.D{{"$regex", "^dummy#"}}}}).Count()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(n, gc.Equals, 1)
-	_, err = s.State.CloudCredential(otherCredTag)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *CloudSuite) TestRemoveCloudAlsoRemovesPermissions(c *gc.C) {
 	err := s.State.AddCloud(lowCloud, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -310,8 +275,6 @@ func (s *CloudSuite) TestRemoveInUseCloudNotAllowed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	otherModelOwner := s.Factory.MakeModelUser(c, nil)
 	credTag := names.NewCloudCredentialTag(lowCloud.Name + "/" + otherModelOwner.UserName + "/cred")
-	err = s.State.UpdateCloudCredential(credTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
-	c.Assert(err, jc.ErrorIsNil)
 
 	otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{
 		CloudName:       lowCloud.Name,
@@ -336,8 +299,6 @@ func (s *CloudSuite) TestRemoveCloudNewModelRace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	otherModelOwner := s.Factory.MakeModelUser(c, nil)
 	credTag := names.NewCloudCredentialTag(lowCloud.Name + "/" + otherModelOwner.UserName + "/cred")
-	err = s.State.UpdateCloudCredential(credTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
-	c.Assert(err, jc.ErrorIsNil)
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		otherSt := s.Factory.MakeCAASModel(c, &factory.ModelParams{

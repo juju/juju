@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
@@ -40,8 +39,6 @@ func (s *CredentialModelsSuite) createCloudCredential(c *gc.C, credentialName st
 	// we create a testing controller on a cloud "dummy".
 	// Test cloud "dummy" only allows credentials with an empty auth type.
 	tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", "dummy", s.Owner.Id(), credentialName))
-	err := s.State.UpdateCloudCredential(tag, cloud.NewEmptyCredential())
-	c.Assert(err, jc.ErrorIsNil)
 	return tag
 }
 

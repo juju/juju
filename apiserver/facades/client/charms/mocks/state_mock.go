@@ -244,22 +244,6 @@ func (mr *MockBackendModelMockRecorder) Cloud() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockBackendModel)(nil).Cloud))
 }
 
-// CloudCredential mocks base method.
-func (m *MockBackendModel) CloudCredential() (cloud.Credential, bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudCredential")
-	ret0, _ := ret[0].(cloud.Credential)
-	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// CloudCredential indicates an expected call of CloudCredential.
-func (mr *MockBackendModelMockRecorder) CloudCredential() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredential", reflect.TypeOf((*MockBackendModel)(nil).CloudCredential))
-}
-
 // CloudRegion mocks base method.
 func (m *MockBackendModel) CloudRegion() string {
 	m.ctrl.T.Helper()

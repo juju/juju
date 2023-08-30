@@ -120,16 +120,16 @@ type AgentSuite struct {
 	// InitialDBOps can be set prior to calling PrimeStateAgentVersion,
 	// ensuring that the functions are executed against the controller database
 	// immediately after Dqlite is set up.
-	InitialDBOps []func(context.Context, coredatabase.TxnRunner) error
+	InitialDBOps []database.BootstrapOpt
 }
 
 func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	s.InitialDBOps = make([]func(context.Context, coredatabase.TxnRunner) error, 0)
+	s.InitialDBOps = make([]database.BootstrapOpt, 0)
 
 	var err error
-	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c))
+	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), s.ControllerServiceFactory.Credential())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.DataDir = c.MkDir()
@@ -351,7 +351,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
 		MongoSession:       session,
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(),
+		NewPolicy:          stateenvirons.GetNewPolicyFunc(nil),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_ = pool.Close()

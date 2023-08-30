@@ -23,6 +23,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/application/mocks"
@@ -63,6 +64,7 @@ type ApplicationSuite struct {
 
 	backend            *mocks.MockBackend
 	ecService          *mocks.MockECService
+	credService        *commonmocks.MockCredentialService
 	storageAccess      *mocks.MockStorageInterface
 	model              *mocks.MockModel
 	leadershipReader   *mocks.MockReader
@@ -104,7 +106,7 @@ func fakeClassifyDetachedStorage(
 	return destroyed, detached, nil
 }
 
-func fakeSupportedFeaturesGetter(context.Context, stateenvirons.Model, environs.NewEnvironFunc) (coreassumes.FeatureSet, error) {
+func fakeSupportedFeaturesGetter(stateenvirons.Model, stateenvirons.CredentialService) (coreassumes.FeatureSet, error) {
 	return coreassumes.FeatureSet{}, nil
 }
 
@@ -186,6 +188,8 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	ver := version.MustParse("1.15.0")
 	s.caasBroker.EXPECT().Version().Return(&ver, nil).AnyTimes()
 
+	s.credService = commonmocks.NewMockCredentialService(ctrl)
+
 	api, err := application.NewAPIBase(
 		s.backend,
 		s.ecService,
@@ -195,11 +199,12 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		s.blockChecker,
 		s.model,
+		s.credService,
 		s.leadershipReader,
 		func(application.Charm) *state.Charm {
 			return nil
 		},
-		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, p application.DeployApplicationParams) (application.Application, error) {
+		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CredentialService, p application.DeployApplicationParams) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},

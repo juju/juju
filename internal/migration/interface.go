@@ -4,10 +4,13 @@
 package migration
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -29,10 +32,14 @@ type PrecheckBackend interface {
 	AllRelations() ([]PrecheckRelation, error)
 	AllCharmURLs() ([]*string, error)
 	ControllerBackend() (PrecheckBackend, error)
-	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
 	HasUpgradeSeriesLocks() (bool, error)
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
+}
+
+// CredentialService provides access to credentials.
+type CredentialService interface {
+	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
 }
 
 // Pool defines the interface to a StatePool used by the migration

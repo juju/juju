@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -27,10 +28,11 @@ import (
 var over9kCPUCores uint64 = 9001
 
 type instanceTypesSuite struct {
-	authorizer *apiservertesting.FakeAuthorizer
-	st         *mocks.MockBackend
-	leadership *mocks.MockLeadership
-	api        *machinemanager.MachineManagerAPI
+	authorizer  *apiservertesting.FakeAuthorizer
+	st          *mocks.MockBackend
+	leadership  *mocks.MockLeadership
+	credService *commonmocks.MockCredentialService
+	api         *machinemanager.MachineManagerAPI
 
 	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
@@ -46,12 +48,14 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = mocks.NewMockBackend(ctrl)
 	s.leadership = mocks.NewMockLeadership(ctrl)
+	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 
 	var err error
 	s.api, err = machinemanager.NewMachineManagerAPI(
 		s.controllerConfigGetter,
 		s.st,
+		s.credService,
 		nil,
 		nil,
 		machinemanager.ModelAuthorizer{

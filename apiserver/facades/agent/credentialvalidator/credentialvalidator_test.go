@@ -17,16 +17,16 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type CredentialValidatorSuite struct {
 	coretesting.BaseSuite
 
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
-	backend    *testBackend
+	resources         *common.Resources
+	authorizer        apiservertesting.FakeAuthorizer
+	backend           *testBackend
+	credentialService *testCredentialService
 
 	api *credentialvalidator.CredentialValidatorAPI
 }
@@ -36,6 +36,7 @@ var _ = gc.Suite(&CredentialValidatorSuite{})
 func (s *CredentialValidatorSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.backend = newMockBackend()
+	s.credentialService = newMockCredentialService()
 
 	s.resources = common.NewResources()
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -43,7 +44,7 @@ func (s *CredentialValidatorSuite) SetUpTest(c *gc.C) {
 	}
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	api, err := credentialvalidator.NewCredentialValidatorAPIForTest(s.backend, s.resources, s.authorizer)
+	api, err := credentialvalidator.NewCredentialValidatorAPIForTest(s.backend, s.credentialService, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -60,9 +61,7 @@ func (s *CredentialValidatorSuite) TestModelCredential(c *gc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestModelCredentialNotNeeded(c *gc.C) {
-	s.backend.mc.Exists = false
-	s.backend.mc.Credential = names.CloudCredentialTag{}
-	s.backend.mc.Valid = false
+	s.backend.credentialSet = false
 	result, err := s.api.ModelCredential(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ModelCredential{Model: names.NewModelTag(modelUUID).String()})
@@ -76,8 +75,8 @@ func (s *CredentialValidatorSuite) TestWatchCredential(c *gc.C) {
 }
 
 func (s *CredentialValidatorSuite) TestWatchCredentialNotUsedInThisModel(c *gc.C) {
-	s.backend.isUsed = false
-	_, err := s.api.WatchCredential(context.Background(), params.Entity{credentialTag.String()})
+	s.backend.credentialExists = false
+	_, err := s.api.WatchCredential(context.Background(), params.Entity{"cloudcred-cloud_fred_default"})
 	c.Assert(err, gc.ErrorMatches, apiservererrors.ErrPerm.Error())
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 }
@@ -93,18 +92,19 @@ func (s *CredentialValidatorSuite) TestInvalidateModelCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{})
 	s.backend.CheckCalls(c, []testing.StubCall{
+		{"mockModel.CloudCredentialTag", nil},
 		{"InvalidateModelCredential", []interface{}{"not again"}},
 	})
 }
 
 func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	expected := errors.New("boom")
-	s.backend.SetErrors(expected)
+	s.credentialService.SetErrors(expected)
 	result, err := s.api.InvalidateModelCredential(context.Background(), params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(expected)})
-	s.backend.CheckCalls(c, []testing.StubCall{
-		{"InvalidateModelCredential", []interface{}{"not again"}},
+	s.credentialService.CheckCalls(c, []testing.StubCall{
+		{"InvalidateCredential", []interface{}{credentialTag, "not again"}},
 	})
 }
 
@@ -120,66 +120,4 @@ func (s *CredentialValidatorSuite) TestWatchModelCredentialError(c *gc.C) {
 	_, err := s.api.WatchModelCredential(context.Background())
 	c.Assert(err, gc.ErrorMatches, "no nope niet")
 	c.Assert(s.resources.Count(), gc.Equals, 0)
-}
-
-// modelUUID is the model tag we're using in the tests.
-var modelUUID = "01234567-89ab-cdef-0123-456789abcdef"
-
-// credentialTag is the credential tag we're using in the tests.
-// needs to fit fmt.Sprintf("%s/%s/%s", cloudName, userName, credentialName)
-var credentialTag = names.NewCloudCredentialTag("cloud/user/credential")
-
-func newMockBackend() *testBackend {
-	b := &testBackend{
-		Stub:   &testing.Stub{},
-		isUsed: true,
-		mc: &credentialvalidator.ModelCredential{
-			Model:      names.NewModelTag(modelUUID),
-			Exists:     true,
-			Credential: credentialTag,
-			Valid:      true,
-		},
-	}
-	return b
-}
-
-type testBackend struct {
-	*testing.Stub
-
-	mc     *credentialvalidator.ModelCredential
-	isUsed bool
-}
-
-func (b *testBackend) ModelCredential() (*credentialvalidator.ModelCredential, error) {
-	b.AddCall("ModelCredential")
-	if err := b.NextErr(); err != nil {
-		return nil, err
-	}
-	return b.mc, nil
-}
-
-func (b *testBackend) ModelUsesCredential(tag names.CloudCredentialTag) (bool, error) {
-	b.AddCall("ModelUsesCredential", tag)
-	if err := b.NextErr(); err != nil {
-		return false, err
-	}
-	return b.isUsed, nil
-}
-
-func (b *testBackend) WatchCredential(t names.CloudCredentialTag) state.NotifyWatcher {
-	b.AddCall("WatchCredential", t)
-	return apiservertesting.NewFakeNotifyWatcher()
-}
-
-func (b *testBackend) InvalidateModelCredential(reason string) error {
-	b.AddCall("InvalidateModelCredential", reason)
-	return b.NextErr()
-}
-
-func (b *testBackend) WatchModelCredential() (state.NotifyWatcher, error) {
-	b.AddCall("WatchModelCredential")
-	if err := b.NextErr(); err != nil {
-		return nil, err
-	}
-	return apiservertesting.NewFakeNotifyWatcher(), nil
 }

@@ -6,27 +6,49 @@ package credentialcommon
 import (
 	"context"
 
+	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
 // StateBackend exposes State methods needed by credential manager.
 type StateBackend interface {
+	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	InvalidateModelCredential(reason string) error
 }
 
+// CredentialService exposes State methods needed by credential manager.
+type CredentialService interface {
+	common.CredentialService
+	InvalidateCredential(ctx context.Context, tag names.CloudCredentialTag, reason string) error
+}
+
 type CredentialManagerAPI struct {
-	backend StateBackend
+	backend           StateBackend
+	credentialService CredentialService
 }
 
 // NewCredentialManagerAPI creates new model credential manager api endpoint.
-func NewCredentialManagerAPI(backend StateBackend) *CredentialManagerAPI {
-	return &CredentialManagerAPI{backend: backend}
+func NewCredentialManagerAPI(backend StateBackend, credentialService CredentialService) *CredentialManagerAPI {
+	return &CredentialManagerAPI{
+		backend:           backend,
+		credentialService: credentialService,
+	}
 }
 
 // InvalidateModelCredential marks the cloud credential for this model as invalid.
 func (api *CredentialManagerAPI) InvalidateModelCredential(ctx context.Context, args params.InvalidateCredentialArg) (params.ErrorResult, error) {
-	err := api.backend.InvalidateModelCredential(args.Reason)
+	tag, ok := api.backend.CloudCredentialTag()
+	if !ok {
+		return params.ErrorResult{}, nil
+	}
+	err := api.credentialService.InvalidateCredential(ctx, tag, args.Reason)
+	if err != nil {
+		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
+	}
+	err = api.backend.InvalidateModelCredential(args.Reason)
 	if err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}

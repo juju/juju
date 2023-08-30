@@ -4,8 +4,6 @@
 package stateenvirons
 
 import (
-	"context"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/caas"
@@ -22,7 +20,7 @@ var (
 
 // SupportedFeatures returns the set of features that the model makes available
 // for charms to use.
-func SupportedFeatures(ctx context.Context, model Model, newEnviron environs.NewEnvironFunc) (assumes.FeatureSet, error) {
+func SupportedFeatures(model Model, credentialService CredentialService) (assumes.FeatureSet, error) {
 	var fs assumes.FeatureSet
 
 	// Models always include a feature flag for the current Juju version
@@ -43,13 +41,13 @@ func SupportedFeatures(ctx context.Context, model Model, newEnviron environs.New
 	var env interface{}
 	switch model.Type() {
 	case state.ModelTypeIAAS:
-		iaasEnv, err := iaasEnvironGetter(model)
+		iaasEnv, err := iaasEnvironGetter(model, credentialService)
 		if err != nil {
 			return fs, errors.Annotate(err, "accessing model environment")
 		}
 		env = iaasEnv
 	case state.ModelTypeCAAS:
-		caasEnv, err := caasBrokerGetter(model)
+		caasEnv, err := caasBrokerGetter(model, credentialService)
 		if err != nil {
 			return fs, errors.Annotate(err, "accessing model environment")
 		}

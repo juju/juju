@@ -54,8 +54,8 @@ func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
-	newEnviron := common.EnvironFuncForModel(model, configGetter)
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model, CredentialService: ctx.ServiceFactory().Credential()}
+	newEnviron := common.EnvironFuncForModel(model, ctx.ServiceFactory().Credential(), configGetter)
 
 	ctrlModel, err := ctlrSt.Model()
 	if err != nil {
@@ -77,6 +77,7 @@ func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 			modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil),
 		),
 		common.NewModelManagerBackend(ctrlModel, pool),
+		ctx.ServiceFactory().Credential(),
 		ctx.ServiceFactory().ModelManager(),
 		toolsFinder,
 		caas.New,

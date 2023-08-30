@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -21,7 +22,11 @@ import (
 )
 
 // ValidateExistingModelCredential checks if the cloud credential that a given model uses is valid for it.
-func ValidateExistingModelCredential(backend PersistentBackend, callCtx context.ProviderCallContext, checkCloudInstances bool) (params.ErrorResults, error) {
+func ValidateExistingModelCredential(
+	ctx stdcontext.Context,
+	backend PersistentBackend, credentialService common.CredentialService,
+	callCtx context.ProviderCallContext, checkCloudInstances bool,
+) (params.ErrorResults, error) {
 	model, err := backend.Model()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -32,15 +37,15 @@ func ValidateExistingModelCredential(backend PersistentBackend, callCtx context.
 		return params.ErrorResults{}, nil
 	}
 
-	storedCredential, err := backend.CloudCredential(credentialTag)
+	storedCredential, err := credentialService.CloudCredential(ctx, credentialTag)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	if !storedCredential.IsValid() {
-		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Name)
+	if storedCredential.Invalid {
+		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Label)
 	}
-	credential := cloud.NewCredential(cloud.AuthType(storedCredential.AuthType), storedCredential.Attributes)
+	credential := cloud.NewCredential(storedCredential.AuthType(), storedCredential.Attributes())
 	return ValidateNewModelCredential(backend, callCtx, credentialTag, &credential, checkCloudInstances)
 }
 
@@ -187,10 +192,11 @@ func buildOpenParams(backend PersistentBackend, credentialTag names.CloudCredent
 		return fail(errors.Trace(err))
 	}
 
-	err = model.ValidateCloudCredential(credentialTag, *credential)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
+	// TODO(wallyworld) - validate credential once clouds are moved to dqlite
+	//err = ValidateCloudCredential(credentialTag, *credential)
+	//if err != nil {
+	//	return fail(errors.Trace(err))
+	//}
 
 	tempCloudSpec, err := environscloudspec.MakeCloudSpec(modelCloud, model.CloudRegion(), credential)
 	if err != nil {

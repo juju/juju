@@ -22,6 +22,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -60,7 +61,7 @@ func (s *registrationSuite) assertRegisterNoProxy(c *gc.C, hasProxy bool) {
 	}
 	environ := NewMockConnectorInfo(ctrl)
 	proxier := NewMockProxier(ctrl)
-	s.PatchValue(&apiserver.GetConnectorInfoer, func(context.Context, stateenvirons.Model) (environs.ConnectorInfo, error) {
+	s.PatchValue(&apiserver.GetConnectorInfoer, func(context.Context, stateenvirons.Model, common.CredentialService) (environs.ConnectorInfo, error) {
 		if hasProxy {
 			return environ, nil
 		}

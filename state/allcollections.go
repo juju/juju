@@ -135,14 +135,6 @@ func allCollections() CollectionSchema {
 		// This collection holds cloud definitions.
 		cloudsC: {global: true},
 
-		// This collection holds users' cloud credentials.
-		cloudCredentialsC: {
-			global: true,
-			indexes: []mgo.Index{{
-				Key: []string{"owner", "cloud"},
-			}},
-		},
-
 		// This collection holds settings from various sources which
 		// are inherited and then forked by new models.
 		globalSettingsC: {global: true},
@@ -597,7 +589,6 @@ const (
 	cloudsC                    = "clouds"
 	cloudContainersC           = "cloudcontainers"
 	cloudServicesC             = "cloudservices"
-	cloudCredentialsC          = "cloudCredentials"
 	constraintsC               = "constraints"
 	containerRefsC             = "containerRefs"
 	controllersC               = "controllers"

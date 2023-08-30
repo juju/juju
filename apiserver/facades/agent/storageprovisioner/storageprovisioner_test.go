@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
@@ -65,6 +66,15 @@ type provisionerSuite struct {
 	storageBackend storageprovisioner.StorageBackend
 }
 
+func (s *provisionerSuite) SetUpTest(c *gc.C) {
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"username": "dummy",
+		"password": "secret",
+	})
+	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
+	s.ApiServerSuite.SetUpTest(c)
+}
+
 func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.provisionerSuite.SetUpTest(c)
 	s.provisionerSuite.storageSetUp = s
@@ -74,7 +84,7 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c))
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), s.CredentialService)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	s.st = s.ControllerModel(c).State()
@@ -109,7 +119,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m)
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, s.CredentialService)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(s.st), registry)

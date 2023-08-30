@@ -4,10 +4,14 @@
 package testing
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -87,4 +91,15 @@ func (m *MockConfigSchemaSource) ConfigDefaults() schema.Defaults {
 	return schema.Defaults{
 		"providerAttr" + m.CloudName: "vulch",
 	}
+}
+
+type MockCredentialService struct {
+	Credential *cloud.Credential
+}
+
+func (m *MockCredentialService) CloudCredential(ctx stdcontext.Context, tag names.CloudCredentialTag) (cloud.Credential, error) {
+	if m.Credential == nil {
+		return cloud.Credential{}, errors.NotFoundf("credential %q", tag)
+	}
+	return *m.Credential, nil
 }

@@ -17,6 +17,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	"github.com/juju/juju/cloud"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
@@ -37,6 +38,8 @@ type getSuite struct {
 var _ = gc.Suite(&getSuite{})
 
 func (s *getSuite) SetUpTest(c *gc.C) {
+	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
+	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
 	s.ApiServerSuite.SetUpTest(c)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -57,6 +60,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		nil,
 		blockChecker,
 		application.GetModel(model),
+		s.ControllerServiceFactory.Credential(),
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
@@ -183,6 +187,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		nil,
 		blockChecker,
 		application.GetModel(mod),
+		s.ControllerServiceFactory.Credential(),
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,

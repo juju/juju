@@ -288,8 +288,9 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 		return &minModelWorkersEnviron{}, nil
 	})
 
+	ctx := stdcontext.Background()
 	credentialTag := names.NewCloudCredentialTag("dummy/admin/another")
-	err := s.ControllerModel(c).State().UpdateCloudCredential(credentialTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
+	err := s.ControllerServiceFactory.Credential().UpdateCloudCredential(ctx, credentialTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -312,7 +313,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 	uuid := st.ModelUUID()
 
 	// remove cloud credential used by this model but keep model reference to it
-	err = s.ControllerModel(c).State().RemoveCloudCredential(credentialTag)
+	err = s.ControllerServiceFactory.Credential().RemoveCloudCredential(ctx, credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tracker := agenttest.NewEngineTracker()

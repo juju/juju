@@ -178,8 +178,9 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewEmptyCloudCallContext()
 
 	var err error
+	cred := cloud.NewEmptyCredential()
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, nil, s.ctlrSt, &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
+		s.st, nil, s.ctlrSt, apiservertesting.FixedCredentialGetter(&cred), &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -196,8 +197,9 @@ func (s *modelInfoSuite) TearDownTest(c *gc.C) {
 func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
 	var err error
+	cred := cloud.NewEmptyCredential()
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, nil, s.ctlrSt, &mockModelManagerService{}, nil, nil,
+		s.st, nil, s.ctlrSt, apiservertesting.FixedCredentialGetter(&cred), &mockModelManagerService{}, nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -292,7 +294,6 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"HAPrimaryMachine", nil},
 		{"ControllerUUID", nil},
 		{"LatestMigration", nil},
-		{"CloudCredential", []interface{}{names.NewCloudCredentialTag("some-cloud/bob/some-credential")}},
 	})
 }
 
@@ -353,8 +354,8 @@ func (s *modelInfoSuite) getModelInfo(c *gc.C, modelUUID string) params.ModelInf
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	c.Check(results.Results[0].Result, gc.NotNil)
-	c.Check(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Result, gc.NotNil)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 	return *results.Results[0].Result
 }
 
@@ -648,7 +649,6 @@ type mockState struct {
 	model           *mockModel
 	controllerModel *mockModel
 	users           []permission.UserAccess
-	cred            state.Credential
 	machines        []common.Machine
 	controllerNodes []common.ControllerNode
 	cfgDefaults     config.ModelDefaultAttributes
@@ -846,11 +846,6 @@ func (st *mockState) AbortCurrentUpgrade() error {
 func (st *mockState) Cloud(name string) (cloud.Cloud, error) {
 	st.MethodCall(st, "Cloud", name)
 	return st.cloud, st.NextErr()
-}
-
-func (st *mockState) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
-	st.MethodCall(st, "CloudCredential", tag)
-	return st.cred, st.NextErr()
 }
 
 func (st *mockState) Close() error {
@@ -1162,7 +1157,6 @@ type mockModel struct {
 	controllerUUID      string
 	isController        bool
 	cloud               cloud.Cloud
-	cred                cloud.Credential
 	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
 }
 
@@ -1214,11 +1208,6 @@ func (m *mockModel) CloudRegion() string {
 func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	m.MethodCall(m, "CloudCredentialTag")
 	return names.NewCloudCredentialTag("some-cloud/bob/some-credential"), true
-}
-
-func (m *mockModel) CloudCredential() (cloud.Credential, bool, error) {
-	m.MethodCall(m, "CloudCredential")
-	return m.cred, true, nil
 }
 
 func (m *mockModel) Users() ([]permission.UserAccess, error) {

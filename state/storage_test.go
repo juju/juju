@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
@@ -52,7 +53,9 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 		var err error
 		s.Model, err = s.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
-		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.Model)
+		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(
+			s.Model, &testing.MockCredentialService{ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))},
+		)
 		c.Assert(err, jc.ErrorIsNil)
 		registry = stateenvirons.NewStorageProviderRegistry(broker)
 	} else {

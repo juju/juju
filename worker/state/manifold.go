@@ -15,6 +15,7 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/servicefactory"
 )
 
 var logger = loggo.GetLogger("juju.worker.state")
@@ -23,7 +24,8 @@ var logger = loggo.GetLogger("juju.worker.state")
 type ManifoldConfig struct {
 	AgentName              string
 	StateConfigWatcherName string
-	OpenStatePool          func(stdcontext.Context, coreagent.Config) (*state.StatePool, error)
+	ServiceFactoryName     string
+	OpenStatePool          func(stdcontext.Context, coreagent.Config, servicefactory.ControllerServiceFactory) (*state.StatePool, error)
 	PingInterval           time.Duration
 
 	// SetStatePool is called with the state pool when it is created,
@@ -41,6 +43,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.StateConfigWatcherName == "" {
 		return errors.NotValidf("empty StateConfigWatcherName")
+	}
+	if config.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if config.OpenStatePool == nil {
 		return errors.NotValidf("nil OpenStatePool")
@@ -61,6 +66,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.StateConfigWatcherName,
+			config.ServiceFactoryName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -83,7 +89,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Annotate(dependency.ErrMissing, "no StateServingInfo in config")
 			}
 
-			pool, err := config.OpenStatePool(stdcontext.Background(), agent.CurrentConfig())
+			var controllerServiceFactory servicefactory.ControllerServiceFactory
+			if err := context.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+				return nil, err
+			}
+			pool, err := config.OpenStatePool(stdcontext.Background(), agent.CurrentConfig(), controllerServiceFactory)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -115,7 +125,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // outputFunc extracts a *StateTracker from a *stateWorker.
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	inWorker, _ := in.(*stateWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got %T", inWorker, in)

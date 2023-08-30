@@ -17,6 +17,7 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/kr/pretty"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/controller"
@@ -254,6 +255,7 @@ type validatorConfig struct {
 	charmhubHTTPClient facade.HTTPClient
 	caasBroker         CaasBrokerInterface
 	model              Model
+	credentialService  common.CredentialService
 	registry           storage.ProviderRegistry
 	state              DeployFromRepositoryState
 	storagePoolManager poolmanager.PoolManager
@@ -263,6 +265,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 	v := &deployFromRepositoryValidator{
 		charmhubHTTPClient: cfg.charmhubHTTPClient,
 		model:              cfg.model,
+		credentialService:  cfg.credentialService,
 		state:              cfg.state,
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
 			return services.NewCharmRepoFactory(cfg)
@@ -300,8 +303,9 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 }
 
 type deployFromRepositoryValidator struct {
-	model Model
-	state DeployFromRepositoryState
+	model             Model
+	credentialService common.CredentialService
+	state             DeployFromRepositoryState
 
 	mu          sync.Mutex
 	repoFactory corecharm.RepositoryFactory
@@ -462,7 +466,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm ch
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
-	if err := assertCharmAssumptions(context.Background(), resolvedCharm.Meta().Assumes, v.model, v.state.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(context.Background(), resolvedCharm.Meta().Assumes, v.model, v.credentialService, v.state.ControllerConfig); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !arg.Force {
 			errs = append(errs, err)
 		}

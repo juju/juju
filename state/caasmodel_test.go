@@ -66,11 +66,8 @@ func (s *CAASModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, uuid := s.createTestModelConfig(c)
 	modelTag := names.NewModelTag(uuid)
-	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	credTag := names.NewCloudCredentialTag(
 		fmt.Sprintf("caas-cloud/%s/dummy-credential", owner.Name()))
-	err = s.State.UpdateCloudCredential(credTag, cred)
-	c.Assert(err, jc.ErrorIsNil)
 	model, st, err := s.Controller.NewModel(state.ModelArgs{
 		Type:                    state.ModelTypeCAAS,
 		CloudName:               "caas-cloud",
@@ -134,7 +131,9 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 
 func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	model, st := s.newCAASModel(c)
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(
+		model, &testing.MockCredentialService{ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	s.policy = testing.MockPolicy{

@@ -86,6 +86,16 @@ func (s *serviceSuite) TestRemoveCloudCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestInvalidateCloudCredential(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
+	s.state.EXPECT().InvalidateCloudCredential(gomock.Any(), "foo", "cirrus", "fred", "gone bad").Return(nil)
+
+	err := NewService(s.state, nil).InvalidateCredential(context.Background(), tag, "gone bad")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *serviceSuite) TestAllCloudCredentials(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -100,9 +100,6 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	// AgentSuite clears all env vars.
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 
-	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
-	s.PatchValue(&authenticationworker.SSHUser, "")
-
 	testpath := c.MkDir()
 	s.PatchEnvPathPrepend(testpath)
 	// mock out the start method so we can fake install services without sudo

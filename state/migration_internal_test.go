@@ -110,9 +110,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// Clouds aren't migrated. They must exist in the
 		// target controller already.
 		cloudsC,
-		// Cloud credentials aren't migrated. They must exist in the
-		// target controller already.
-		cloudCredentialsC,
 		// Users aren't migrated.
 		usersC,
 		userLastLoginC,
@@ -265,6 +262,8 @@ func (s *MigrationSuite) TestModelDocFields(c *gc.C) {
 		"MeterStatus",
 		"EnvironVersion",
 		"PasswordHash",
+		"InvalidCredential",
+		"InvalidCredentialReason",
 	)
 	s.AssertExportedFields(c, modelDoc{}, fields)
 }

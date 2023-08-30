@@ -9,7 +9,6 @@ import (
 
 	migration "github.com/juju/juju/internal/migration"
 	state "github.com/juju/juju/state"
-	names "github.com/juju/names/v4"
 	replicaset "github.com/juju/replicaset/v3"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
@@ -126,21 +125,6 @@ func (m *MockPrecheckBackend) AllRelations() ([]migration.PrecheckRelation, erro
 func (mr *MockPrecheckBackendMockRecorder) AllRelations() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRelations", reflect.TypeOf((*MockPrecheckBackend)(nil).AllRelations))
-}
-
-// CloudCredential mocks base method.
-func (m *MockPrecheckBackend) CloudCredential(arg0 names.CloudCredentialTag) (state.Credential, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudCredential", arg0)
-	ret0, _ := ret[0].(state.Credential)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CloudCredential indicates an expected call of CloudCredential.
-func (mr *MockPrecheckBackendMockRecorder) CloudCredential(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredential", reflect.TypeOf((*MockPrecheckBackend)(nil).CloudCredential), arg0)
 }
 
 // ControllerBackend mocks base method.

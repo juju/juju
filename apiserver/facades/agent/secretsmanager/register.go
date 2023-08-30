@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+	"golang.org/x/net/context"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller/crossmodelsecrets"
@@ -59,14 +60,16 @@ func NewSecretManagerAPI(ctx facade.Context) (*SecretsManagerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	stdCtx := context.Background()
+	credentialSerivce := ctx.ServiceFactory().Credential()
 	secretBackendConfigGetter := func(backendIDs []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
-		return secrets.BackendConfigInfo(secrets.SecretsModel(model), backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
+		return secrets.BackendConfigInfo(stdCtx, secrets.SecretsModel(model), credentialSerivce, backendIDs, wantAll, ctx.Auth().GetAuthTag(), leadershipChecker)
 	}
 	secretBackendAdminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
-		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
+		return secrets.AdminBackendConfigInfo(stdCtx, secrets.SecretsModel(model), credentialSerivce)
 	}
 	secretBackendDrainConfigGetter := func(backendID string) (*provider.ModelBackendConfigInfo, error) {
-		return secrets.DrainBackendConfigInfo(backendID, secrets.SecretsModel(model), ctx.Auth().GetAuthTag(), leadershipChecker)
+		return secrets.DrainBackendConfigInfo(stdCtx, backendID, secrets.SecretsModel(model), credentialSerivce, ctx.Auth().GetAuthTag(), leadershipChecker)
 	}
 	controllerAPI := common.NewControllerConfigAPI(
 		ctx.State(),

@@ -28,7 +28,9 @@ import (
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/database"
+	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
+	credbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -91,6 +93,7 @@ func InitializeState(
 	args InitializeStateParams,
 	dialOpts mongo.DialOpts,
 	newPolicy state.NewPolicyFunc,
+	setupDBOpts ...database.BootstrapOpt,
 ) (_ *state.Controller, resultErr error) {
 	if c.Tag().Id() != agent.BootstrapControllerId || !coreagent.IsAllowedControllerTag(c.Tag().Kind()) {
 		return nil, errors.Errorf("InitializeState not called with bootstrap controller's configuration")
@@ -108,11 +111,23 @@ func InitializeState(
 	info.Tag = nil
 	info.Password = c.OldPassword()
 
+	// Add the controller model cloud and credential to the database.
+	cloudCred, cloudCredTag, err := getCloudCredential(adminUser, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	opts := append(setupDBOpts,
+		ccbootstrap.InsertInitialControllerConfig(args.ControllerConfig),
+		cloudbootstrap.InsertInitialControllerCloud(args.ControllerCloud),
+	)
+	if cloudCredTag.Id() != "" {
+		opts = append(opts, credbootstrap.InsertInitialControllerCredentials(cloudCredTag.Name(), cloudCredTag.Cloud().Id(), cloudCredTag.Owner().Id(), cloudCred))
+	}
 	if err := database.BootstrapDqlite(
 		stdcontext.TODO(),
 		database.NewNodeManager(c, logger, coredatabase.NoopSlowQueryLogger{}),
 		logger,
-		ccbootstrap.InsertInitialControllerConfig(args.ControllerConfig),
+		opts...,
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -122,11 +137,6 @@ func InitializeState(
 		return nil, errors.Annotate(err, "failed to initialize mongo")
 	}
 	defer session.Close()
-
-	cloudCreds, cloudCredTag, err := getCloudCredentials(adminUser, args)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
 
@@ -150,7 +160,6 @@ func InitializeState(
 		},
 		StoragePools:              args.StoragePools,
 		Cloud:                     args.ControllerCloud,
-		CloudCredentials:          cloudCreds,
 		ControllerConfig:          args.ControllerConfig,
 		ControllerInheritedConfig: args.ControllerInheritedConfig,
 		RegionInheritedConfig:     args.RegionInheritedConfig,
@@ -283,10 +292,9 @@ func verifyModelConfigDefaultSpace(st *state.State) error {
 	return errors.Annotatef(err, "cannot verify %s", config.DefaultSpace)
 }
 
-func getCloudCredentials(
+func getCloudCredential(
 	adminUser names.UserTag, args InitializeStateParams,
-) (map[names.CloudCredentialTag]cloud.Credential, names.CloudCredentialTag, error) {
-	cloudCredentials := make(map[names.CloudCredentialTag]cloud.Credential)
+) (cloud.Credential, names.CloudCredentialTag, error) {
 	var cloudCredentialTag names.CloudCredentialTag
 	if args.ControllerCloudCredential != nil && args.ControllerCloudCredentialName != "" {
 		id := fmt.Sprintf(
@@ -296,12 +304,12 @@ func getCloudCredentials(
 			args.ControllerCloudCredentialName,
 		)
 		if !names.IsValidCloudCredential(id) {
-			return nil, cloudCredentialTag, errors.NotValidf("cloud credential ID %q", id)
+			return cloud.Credential{}, cloudCredentialTag, errors.NotValidf("cloud credential ID %q", id)
 		}
 		cloudCredentialTag = names.NewCloudCredentialTag(id)
-		cloudCredentials[cloudCredentialTag] = *args.ControllerCloudCredential
+		return *args.ControllerCloudCredential, cloudCredentialTag, nil
 	}
-	return cloudCredentials, cloudCredentialTag, nil
+	return cloud.Credential{}, cloudCredentialTag, nil
 }
 
 // ensureInitialModel ensures the initial model.

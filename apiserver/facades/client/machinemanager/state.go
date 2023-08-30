@@ -69,7 +69,7 @@ type Model interface {
 	ControllerUUID() string
 	Type() state.ModelType
 	Cloud() (cloud.Cloud, error)
-	CloudCredential() (cloud.Credential, bool, error)
+	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	CloudRegion() string
 	Config() (*config.Config, error)
 }

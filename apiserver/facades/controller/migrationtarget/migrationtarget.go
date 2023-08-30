@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -57,6 +58,7 @@ type API struct {
 	state                     *state.State
 	modelImporter             ModelImporter
 	externalControllerService ExternalControllerService
+	credentialService         common.CredentialService
 	pool                      *state.StatePool
 	authorizer                facade.Authorizer
 	presence                  facade.Presence
@@ -76,6 +78,7 @@ func NewAPI(
 	authorizer facade.Authorizer,
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
+	credentialService common.CredentialService,
 	getEnviron stateenvirons.NewEnvironFunc,
 	getCAASBroker stateenvirons.NewCAASBrokerFunc,
 ) (*API, error) {
@@ -93,6 +96,7 @@ func NewAPI(
 		modelImporter:             modelImporter,
 		pool:                      pool,
 		externalControllerService: externalControllerService,
+		credentialService:         credentialService,
 		authorizer:                authorizer,
 		presence:                  ctx.Presence(),
 		getEnviron:                getEnviron,
@@ -332,9 +336,9 @@ func (api *API) AdoptResources(ctx context.Context, args params.AdoptResourcesAr
 
 	var ra environs.ResourceAdopter
 	if m.Type() == state.ModelTypeCAAS {
-		ra, err = api.getCAASBroker(m)
+		ra, err = api.getCAASBroker(m, api.credentialService)
 	} else {
-		ra, err = api.getEnviron(m)
+		ra, err = api.getEnviron(m, api.credentialService)
 	}
 	if err != nil {
 		return errors.Trace(err)
@@ -370,7 +374,8 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	return credentialcommon.ValidateExistingModelCredential(
-		credentialcommon.NewPersistentBackend(st.State),
+		ctx, credentialcommon.NewPersistentBackend(st.State),
+		api.credentialService,
 		environscontext.CallContext(st.State),
 		cloud.Type != "manual",
 	)

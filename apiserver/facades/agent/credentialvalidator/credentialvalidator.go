@@ -6,11 +6,15 @@ package credentialvalidator
 import (
 	"context"
 
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
@@ -24,34 +28,35 @@ type CredentialValidatorV2 interface {
 	WatchModelCredential(context.Context) (params.NotifyWatchResult, error)
 }
 
-// CredentialValidatorV1 defines the methods on version 1 facade
-// for the credentialvalidator API endpoint.
-type CredentialValidatorV1 interface {
-	InvalidateModelCredential(context.Context, params.InvalidateCredentialArg) (params.ErrorResult, error)
-	ModelCredential(context.Context) (params.ModelCredential, error)
-	WatchCredential(context.Context, params.Entity) (params.NotifyWatchResult, error)
+type CredentialService interface {
+	common.CredentialService
+	InvalidateCredential(ctx context.Context, tag names.CloudCredentialTag, reason string) error
 }
 
 type CredentialValidatorAPI struct {
 	*credentialcommon.CredentialManagerAPI
 
-	backend   Backend
-	resources facade.Resources
+	logger            loggo.Logger
+	backend           StateAccessor
+	credentialService CredentialService
+	resources         facade.Resources
 }
 
 var (
 	_ CredentialValidatorV2 = (*CredentialValidatorAPI)(nil)
 )
 
-func internalNewCredentialValidatorAPI(backend Backend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialValidatorAPI, error) {
+func internalNewCredentialValidatorAPI(backend StateAccessor, credentialService CredentialService, resources facade.Resources, authorizer facade.Authorizer, logger loggo.Logger) (*CredentialValidatorAPI, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
 		return nil, apiservererrors.ErrPerm
 	}
 
 	return &CredentialValidatorAPI{
-		CredentialManagerAPI: credentialcommon.NewCredentialManagerAPI(backend),
+		CredentialManagerAPI: credentialcommon.NewCredentialManagerAPI(backend, credentialService),
 		resources:            resources,
 		backend:              backend,
+		credentialService:    credentialService,
+		logger:               logger,
 	}, nil
 }
 
@@ -67,31 +72,32 @@ func (api *CredentialValidatorAPI) WatchCredential(ctx context.Context, tag para
 		return fail(err)
 	}
 	// Is credential used by the model that has created this backend?
-	isUsed, err := api.backend.ModelUsesCredential(credentialTag)
-	if err != nil {
-		return fail(err)
-	}
-	if !isUsed {
+	modelCredentialTag, exists := api.backend.CloudCredentialTag()
+	if !exists || credentialTag != modelCredentialTag {
 		return fail(apiservererrors.ErrPerm)
 	}
 
 	result := params.NotifyWatchResult{}
-	watch := api.backend.WatchCredential(credentialTag)
+	watch, err := api.credentialService.WatchCredential(ctx, credentialTag)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result, nil
+	}
 	// Consume the initial event. Technically, API calls to Watch
 	// 'transmit' the initial event in the Watch response. But
 	// NotifyWatchers have no state to transmit.
 	if _, ok := <-watch.Changes(); ok {
 		result.NotifyWatcherId = api.resources.Register(watch)
 	} else {
-		err = watcher.EnsureErr(watch)
-		result.Error = apiservererrors.ServerError(err)
+		watch.Kill()
+		result.Error = apiservererrors.ServerError(watch.Wait())
 	}
 	return result, nil
 }
 
 // ModelCredential returns cloud credential information for a  model.
 func (api *CredentialValidatorAPI) ModelCredential(ctx context.Context) (params.ModelCredential, error) {
-	c, err := api.backend.ModelCredential()
+	c, err := api.modelCredential(ctx)
 	if err != nil {
 		return params.ModelCredential{}, apiservererrors.ServerError(err)
 	}
@@ -104,13 +110,66 @@ func (api *CredentialValidatorAPI) ModelCredential(ctx context.Context) (params.
 	}, nil
 }
 
+func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelCredential, error) {
+	m, err := api.backend.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	modelCredentialTag, exists := api.backend.CloudCredentialTag()
+	result := &ModelCredential{Model: m.ModelTag(), Exists: exists}
+	if !exists {
+		// A model credential is not set, we must check if the model
+		// is on the cloud that requires a credential.
+		supportsEmptyAuth, err := api.cloudSupportsNoAuth(m.CloudName())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result.Valid = supportsEmptyAuth
+		if !supportsEmptyAuth {
+			// TODO (anastasiamac 2018-11-12) Figure out how to notify the users here - maybe set a model status?...
+			api.logger.Warningf("model credential is not set for the model but the cloud requires it")
+		}
+		return result, nil
+	}
+
+	result.Credential = modelCredentialTag
+	credential, err := api.credentialService.CloudCredential(ctx, modelCredentialTag)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		// In this situation, a model refers to a credential that does not exist in credentials collection.
+		// TODO (anastasiamac 2018-11-12) Figure out how to notify the users here - maybe set a model status?...
+		api.logger.Warningf("cloud credential reference is set for the model but the credential content is no longer on the controller")
+		result.Valid = false
+		return result, nil
+	}
+	result.Valid = !credential.Invalid
+	return result, nil
+}
+
+func (api *CredentialValidatorAPI) cloudSupportsNoAuth(cloudName string) (bool, error) {
+	cloud, err := api.backend.Cloud(cloudName)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	for _, authType := range cloud.AuthTypes {
+		if authType == jujucloud.EmptyAuthType {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // WatchModelCredential returns a NotifyWatcher that watches what cloud credential a model uses.
 func (api *CredentialValidatorAPI) WatchModelCredential(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	watch, err := api.backend.WatchModelCredential()
+	m, err := api.backend.Model()
 	if err != nil {
 		return result, apiservererrors.ServerError(err)
 	}
+	watch := m.WatchModelCredential()
 
 	// Consume the initial event. Technically, API calls to Watch
 	// 'transmit' the initial event in the Watch response. But

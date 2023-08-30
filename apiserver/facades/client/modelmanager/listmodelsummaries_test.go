@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -32,7 +33,8 @@ import (
 type ListModelsWithInfoSuite struct {
 	jujutesting.IsolationSuite
 
-	st *mockState
+	st   *mockState
+	cred jujucloud.Credential
 
 	authoriser apiservertesting.FakeAuthorizer
 	adminUser  names.UserTag
@@ -62,8 +64,10 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 
 	s.callContext = context.NewEmptyCloudCallContext()
 
+	s.cred = jujucloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
-		s.st, nil, &mockState{}, &mockModelManagerService{}, nil, nil,
+		s.st, nil, &mockState{}, apiservertesting.FixedCredentialGetter(&s.cred), &mockModelManagerService{},
+		nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -85,7 +89,8 @@ func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mock
 func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
-		s.st, nil, &mockState{}, &mockModelManagerService{}, nil, nil,
+		s.st, nil, &mockState{}, apiservertesting.FixedCredentialGetter(&s.cred), &mockModelManagerService{},
+		nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)

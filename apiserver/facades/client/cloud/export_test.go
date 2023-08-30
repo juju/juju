@@ -7,5 +7,4 @@ var (
 	InstanceTypes                     = instanceTypes
 	ValidateNewCredentialForModelFunc = &validateNewCredentialForModelFunc
 	CloudToParams                     = cloudToParams
-	CloudFromParams                   = cloudFromParams
 )

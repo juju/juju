@@ -27,9 +27,10 @@ func SourcePrecheck(
 	backend PrecheckBackend,
 	modelPresence ModelPresence, controllerPresence ModelPresence,
 	environscloudspecGetter environsCloudSpecGetter,
+	credentialService CredentialService,
 ) error {
-	c := newPrecheckSource(backend, modelPresence, environscloudspecGetter)
-	if err := c.checkModel(); err != nil {
+	c := newPrecheckSource(backend, modelPresence, environscloudspecGetter, credentialService)
+	if err := c.checkModel(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -159,6 +160,7 @@ type precheckContext struct {
 	backend                 PrecheckBackend
 	presence                ModelPresence
 	environscloudspecGetter environsCloudSpecGetter
+	credentialService       CredentialService
 }
 
 func (c *precheckContext) checkController(ctx context.Context) error {
@@ -364,17 +366,21 @@ type precheckSource struct {
 	precheckContext
 }
 
-func newPrecheckSource(backend PrecheckBackend, presence ModelPresence, environscloudspecGetter environsCloudSpecGetter) *precheckSource {
+func newPrecheckSource(
+	backend PrecheckBackend, presence ModelPresence, environscloudspecGetter environsCloudSpecGetter,
+	credentialService CredentialService,
+) *precheckSource {
 	return &precheckSource{
 		precheckContext: precheckContext{
 			backend:                 backend,
 			presence:                presence,
 			environscloudspecGetter: environscloudspecGetter,
+			credentialService:       credentialService,
 		},
 	}
 }
 
-func (ctx *precheckSource) checkModel() error {
+func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 	model, err := ctx.backend.Model()
 	if err != nil {
 		return errors.Annotate(err, "retrieving model")
@@ -386,7 +392,7 @@ func (ctx *precheckSource) checkModel() error {
 		return errors.New("model is being imported as part of another migration")
 	}
 	if credTag, found := model.CloudCredentialTag(); found {
-		creds, err := ctx.backend.CloudCredential(credTag)
+		creds, err := ctx.credentialService.CloudCredential(stdCtx, credTag)
 		if err != nil {
 			return errors.Trace(err)
 		}

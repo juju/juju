@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corewatcher "github.com/juju/juju/core/watcher"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -36,7 +37,7 @@ type CloudSpecAPI struct {
 	getCloudSpec                           func(names.ModelTag) (environscloudspec.CloudSpec, error)
 	watchCloudSpec                         func(tag names.ModelTag) (state.NotifyWatcher, error)
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error)
-	watchCloudSpecCredentialContent        func(tag names.ModelTag) (state.NotifyWatcher, error)
+	watchCloudSpecCredentialContent        func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error)
 	getAuthFunc                            common.GetAuthFunc
 }
 
@@ -50,7 +51,7 @@ func NewCloudSpec(
 	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
-	watchCloudSpecCredentialContent func(tag names.ModelTag) (state.NotifyWatcher, error),
+	watchCloudSpecCredentialContent func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error),
 	getAuthFunc common.GetAuthFunc,
 ) CloudSpecAPI {
 	return CloudSpecAPI{
@@ -68,7 +69,7 @@ func NewCloudSpecV2(
 	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
-	watchCloudSpecCredentialContent func(tag names.ModelTag) (state.NotifyWatcher, error),
+	watchCloudSpecCredentialContent func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error),
 	getAuthFunc common.GetAuthFunc,
 ) CloudSpecAPIV2 {
 	api := NewCloudSpec(
@@ -165,6 +166,24 @@ func (s CloudSpecAPI) WatchCloudSpecsChanges(ctx context.Context, args params.En
 	return results, nil
 }
 
+// watcherAdaptor adapts a core watcher to a state watcher.
+type watcherAdaptor struct {
+	corewatcher.NotifyWatcher
+}
+
+func (w *watcherAdaptor) Changes() <-chan struct{} {
+	return w.NotifyWatcher.Changes()
+}
+
+func (w *watcherAdaptor) Stop() error {
+	w.NotifyWatcher.Kill()
+	return nil
+}
+
+func (w *watcherAdaptor) Err() error {
+	return w.NotifyWatcher.Wait()
+}
+
 func (s CloudSpecAPI) watchCloudSpecChanges(tag names.ModelTag) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	cloudWatch, err := s.watchCloudSpec(tag)
@@ -176,13 +195,13 @@ func (s CloudSpecAPI) watchCloudSpecChanges(tag names.ModelTag) (params.NotifyWa
 		return result, errors.Trace(err)
 	}
 
-	credentialContentWatch, err := s.watchCloudSpecCredentialContent(tag)
+	credentialContentWatch, err := s.watchCloudSpecCredentialContent(context.TODO(), tag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 	var watch *common.MultiNotifyWatcher
 	if credentialContentWatch != nil {
-		watch = common.NewMultiNotifyWatcher(cloudWatch, credentialReferenceWatch, credentialContentWatch)
+		watch = common.NewMultiNotifyWatcher(cloudWatch, credentialReferenceWatch, &watcherAdaptor{credentialContentWatch})
 	} else {
 		// It's rare but possible that a model does not have a credential.
 		// In this case there is no point trying to 'watch' content changes.

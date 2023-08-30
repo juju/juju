@@ -66,6 +66,7 @@ type ModelManagerAPI struct {
 	state               common.ModelManagerBackend
 	modelExporter       ModelExporter
 	ctlrState           common.ModelManagerBackend
+	credentialService   common.CredentialService
 	check               common.BlockCheckerInterface
 	authorizer          facade.Authorizer
 	toolsFinder         common.ToolsFinder
@@ -82,6 +83,7 @@ func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	modelExporter ModelExporter,
 	ctlrSt common.ModelManagerBackend,
+	credentialService common.CredentialService,
 	modelManagerService ModelManagerService,
 	toolsFinder common.ToolsFinder,
 	getBroker newCaasBrokerFunc,
@@ -109,6 +111,7 @@ func NewModelManagerAPI(
 		state:               st,
 		modelExporter:       modelExporter,
 		ctlrState:           ctlrSt,
+		credentialService:   credentialService,
 		modelManagerService: modelManagerService,
 		getBroker:           getBroker,
 		check:               blockChecker,
@@ -317,14 +320,14 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 
 	var credential *jujucloud.Credential
 	if cloudCredentialTag != (names.CloudCredentialTag{}) {
-		credentialValue, err := m.state.CloudCredential(cloudCredentialTag)
+		credentialValue, err := m.credentialService.CloudCredential(ctx, cloudCredentialTag)
 		if err != nil {
 			return result, errors.Annotate(err, "getting credential")
 		}
 		cloudCredential := jujucloud.NewNamedCredential(
-			credentialValue.Name,
-			jujucloud.AuthType(credentialValue.AuthType),
-			credentialValue.Attributes,
+			credentialValue.Label,
+			credentialValue.AuthType(),
+			credentialValue.Attributes(),
 			credentialValue.Revoked,
 		)
 		credential = &cloudCredential
@@ -652,6 +655,10 @@ func (m *ModelManagerAPI) ListModelSummaries(ctx context.Context, req params.Mod
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+	err = m.fillInStatusBasedOnCloudCredentialValidity(ctx, modelInfos)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 
 	for _, mi := range modelInfos {
 		summary := &params.ModelSummary{
@@ -717,6 +724,51 @@ func (m *ModelManagerAPI) ListModelSummaries(ctx context.Context, req params.Mod
 		result.Results = append(result.Results, params.ModelSummaryResult{Result: summary})
 	}
 	return result, nil
+}
+
+// fillInStatusBasedOnCloudCredentialValidity fills in the Status on every model (if credential is invalid).
+func (m *ModelManagerAPI) fillInStatusBasedOnCloudCredentialValidity(ctx context.Context, summaries []state.ModelSummary) error {
+	credentialModels := map[names.CloudCredentialTag][]string{}
+	indexByUUID := make(map[string]int)
+	for i, model := range summaries {
+		if model.CloudCredentialTag == "" {
+			continue
+		}
+		indexByUUID[model.UUID] = i
+		tag, err := names.ParseCloudCredentialTag(model.CloudCredentialTag)
+		if err != nil {
+			logger.Warningf("could not parse cloud credential tag %v for model%v: %v", model.CloudCredentialTag, model.UUID, err)
+			// Don't stop the rest of the models
+			continue
+		}
+		summaries, ok := credentialModels[tag]
+		if !ok {
+			summaries = []string{}
+		}
+		credentialModels[tag] = append(summaries, model.UUID)
+	}
+	if len(credentialModels) == 0 {
+		return nil
+	}
+
+	// TODO(wallyworld) - bulk query
+	for tag := range credentialModels {
+		cred, err := m.credentialService.CloudCredential(ctx, tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if cred.Invalid {
+			for _, uuid := range credentialModels[tag] {
+				idx, ok := indexByUUID[uuid]
+				if !ok {
+					continue
+				}
+				details := &summaries[idx]
+				details.Status = state.ModelStatusInvalidCredential(cred.InvalidReason)
+			}
+		}
+	}
+	return nil
 }
 
 // ListModels returns the models that the specified user
@@ -840,11 +892,11 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			if err != nil {
 				return params.ModelInfo{}, errors.Trace(err)
 			}
-			credential, err := m.state.CloudCredential(credentialTag)
+			credential, err := m.credentialService.CloudCredential(ctx, credentialTag)
 			if err != nil {
 				return params.ModelInfo{}, errors.Trace(err)
 			}
-			valid := credential.IsValid()
+			valid := !credential.Invalid
 			modelInfo.CloudCredentialValidity = &valid
 		}
 		return modelInfo, nil
@@ -1012,7 +1064,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 	}
 
-	fs, err := supportedFeaturesGetter(ctx, model, environs.New)
+	fs, err := supportedFeaturesGetter(model, m.credentialService)
 	if err != nil {
 		return params.ModelInfo{}, err
 	}

@@ -51,10 +51,10 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		s.resources,
-		cloudspec.MakeCloudSpecGetterForModel(st),
+		cloudspec.MakeCloudSpecGetterForModel(st, s.ControllerServiceFactory.Credential()),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, s.ControllerServiceFactory.Credential()),
 		common.AuthFuncForTag(s.ControllerModel(c).ModelTag()),
 	)
 

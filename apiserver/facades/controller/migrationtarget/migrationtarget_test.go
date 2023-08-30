@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -45,6 +46,7 @@ type Suite struct {
 
 	controllerConfigService   *MockControllerConfigService
 	externalControllerService *MockExternalControllerService
+	credentialService         *commonmocks.MockCredentialService
 
 	facadeContext facadetest.Context
 	callContext   environscontext.ProviderCallContext
@@ -302,10 +304,10 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 	defer st.Close()
 
 	env := mockEnv{Stub: &testing.Stub{}}
-	api, err := s.newAPI(func(model stateenvirons.Model) (environs.Environ, error) {
+	api, err := s.newAPI(func(model stateenvirons.Model, _ stateenvirons.CredentialService) (environs.Environ, error) {
 		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
 		return &env, nil
-	}, func(model stateenvirons.Model) (caas.Broker, error) {
+	}, func(model stateenvirons.Model, _ stateenvirons.CredentialService) (caas.Broker, error) {
 		return nil, errors.New("should not be called")
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -333,9 +335,9 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 	defer st.Close()
 
 	broker := mockBroker{Stub: &testing.Stub{}}
-	api, err := s.newAPI(func(model stateenvirons.Model) (environs.Environ, error) {
+	api, err := s.newAPI(func(model stateenvirons.Model, _ stateenvirons.CredentialService) (environs.Environ, error) {
 		return nil, errors.New("should not be called")
-	}, func(model stateenvirons.Model) (caas.Broker, error) {
+	}, func(model stateenvirons.Model, _ stateenvirons.CredentialService) (caas.Broker, error) {
 		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
 		return &broker, nil
 	})
@@ -459,8 +461,7 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	cred := cloud.NewCredential(cloud.EmptyAuthType, nil)
 	tag := names.NewCloudCredentialTag(
 		fmt.Sprintf("manual/%s/dummy-credential", owner.Name()))
-	err = s.State.UpdateCloudCredential(tag, cred)
-	c.Assert(err, jc.ErrorIsNil)
+	s.credentialService.EXPECT().CloudCredential(gomock.Any(), tag).Return(cred, nil)
 
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		CloudName:       "manual",
@@ -499,6 +500,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
 
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
+	s.credentialService = commonmocks.NewMockCredentialService(ctrl)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
@@ -522,6 +524,7 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 		s.authorizer,
 		s.controllerConfigService,
 		s.externalControllerService,
+		s.credentialService,
 		environFunc,
 		brokerFunc,
 	)
@@ -534,9 +537,9 @@ func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
 }
 
 func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ, broker caas.Broker) *migrationtarget.API {
-	api, err := s.newAPI(func(stateenvirons.Model) (environs.Environ, error) {
+	api, err := s.newAPI(func(stateenvirons.Model, stateenvirons.CredentialService) (environs.Environ, error) {
 		return env, nil
-	}, func(stateenvirons.Model) (caas.Broker, error) {
+	}, func(stateenvirons.Model, stateenvirons.CredentialService) (caas.Broker, error) {
 		return broker, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)

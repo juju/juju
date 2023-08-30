@@ -36,11 +36,11 @@ type NewEnvironFunc func(context.Context) (environs.BootstrapEnviron, error)
 
 // EnvironFuncForModel is a helper function that returns a NewEnvironFunc suitable for
 // the specified model.
-func EnvironFuncForModel(model stateenvirons.Model, configGetter environs.EnvironConfigGetter) NewEnvironFunc {
+func EnvironFuncForModel(model stateenvirons.Model, credentialService stateenvirons.CredentialService, configGetter environs.EnvironConfigGetter) NewEnvironFunc {
 	if model.Type() == state.ModelTypeCAAS {
 		return func(ctx context.Context) (environs.BootstrapEnviron, error) {
 			f := stateenvirons.GetNewCAASBrokerFunc(caas.New)
-			return f(model)
+			return f(model, credentialService)
 		}
 	}
 	return func(ctx context.Context) (environs.BootstrapEnviron, error) {

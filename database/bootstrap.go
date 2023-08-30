@@ -51,6 +51,10 @@ func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx)
 	return errors.Trace(StdTxn(ctx, r.db, f))
 }
 
+// BootstrapOpt is a function run when bootstrapping a database,
+// used to insert initial data into the model.
+type BootstrapOpt func(context.Context, coredatabase.TxnRunner) error
+
 // BootstrapDqlite opens a new database for the controller, and runs the
 // DDL to create its schema.
 //
@@ -64,7 +68,7 @@ func BootstrapDqlite(
 	ctx context.Context,
 	opt bootstrapOptFactory,
 	logger Logger,
-	ops ...func(context.Context, coredatabase.TxnRunner) error,
+	ops ...BootstrapOpt,
 ) error {
 	dir, err := opt.EnsureDataDir()
 	if err != nil {

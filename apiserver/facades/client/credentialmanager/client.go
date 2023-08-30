@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/rpc/params"
 )
@@ -25,13 +24,9 @@ type CredentialManagerAPI struct {
 
 var _ CredentialManager = (*CredentialManagerAPI)(nil)
 
-func internalNewCredentialManagerAPI(backend credentialcommon.StateBackend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialManagerAPI, error) {
-	if authorizer.GetAuthTag() == nil || !authorizer.AuthClient() {
-		return nil, apiservererrors.ErrPerm
-	}
-
+func internalNewCredentialManagerAPI(backend credentialcommon.StateBackend, credentialService credentialcommon.CredentialService, resources facade.Resources, authorizer facade.Authorizer) (*CredentialManagerAPI, error) {
 	return &CredentialManagerAPI{
 		resources:            resources,
-		CredentialManagerAPI: credentialcommon.NewCredentialManagerAPI(backend),
+		CredentialManagerAPI: credentialcommon.NewCredentialManagerAPI(backend, credentialService),
 	}, nil
 }

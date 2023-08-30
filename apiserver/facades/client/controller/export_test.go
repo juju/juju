@@ -6,6 +6,7 @@ package controller
 import (
 	"context"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/state"
@@ -16,13 +17,9 @@ type patcher interface {
 }
 
 func SetPrecheckResult(p patcher, err error) {
-	p.PatchValue(&runMigrationPrechecks, func(context.Context, *state.State, *state.State, *migration.TargetInfo, facade.Presence, ControllerConfigGetter) error {
+	p.PatchValue(&runMigrationPrechecks, func(context.Context, *state.State, *state.State, *migration.TargetInfo, facade.Presence, ControllerConfigGetter, common.CredentialService) error {
 		return err
 	})
-}
-
-func NewControllerAPIForTest(backend Backend) *ControllerAPI {
-	return &ControllerAPI{state: backend}
 }
 
 var (

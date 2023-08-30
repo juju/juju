@@ -83,6 +83,20 @@ func (mr *MockStateMockRecorder) CloudCredentials(arg0, arg1, arg2 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredentials", reflect.TypeOf((*MockState)(nil).CloudCredentials), arg0, arg1, arg2)
 }
 
+// InvalidateCloudCredential mocks base method.
+func (m *MockState) InvalidateCloudCredential(arg0 context.Context, arg1, arg2, arg3, arg4 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InvalidateCloudCredential", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// InvalidateCloudCredential indicates an expected call of InvalidateCloudCredential.
+func (mr *MockStateMockRecorder) InvalidateCloudCredential(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvalidateCloudCredential", reflect.TypeOf((*MockState)(nil).InvalidateCloudCredential), arg0, arg1, arg2, arg3, arg4)
+}
+
 // RemoveCloudCredential mocks base method.
 func (m *MockState) RemoveCloudCredential(arg0 context.Context, arg1, arg2, arg3 string) error {
 	m.ctrl.T.Helper()

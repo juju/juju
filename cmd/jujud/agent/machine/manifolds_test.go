@@ -242,6 +242,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"service-factory",
 		"state",
 		"state-config-watcher",
+		"service-factory",
 		"syslog",
 		"termination-signal-handler",
 		"migration-fortress",
@@ -463,7 +464,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"audit-config-updater": {
 		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
 		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 	},
@@ -816,14 +822,25 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"multiwatcher": {
 		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
 		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 	},
 
 	"peer-grouper": {
 		"agent",
+		"change-stream",
 		"clock",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 		"upgrade-check-flag",
@@ -919,7 +936,16 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"state": {"agent", "state-config-watcher"},
+	"state": {
+		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"service-factory",
+		"state-config-watcher",
+	},
 
 	"state-config-watcher": {"agent"},
 
@@ -1052,7 +1078,12 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"audit-config-updater": {
 		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
 		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 	},
@@ -1254,14 +1285,25 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"multiwatcher": {
 		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
 		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 	},
 
 	"peer-grouper": {
 		"agent",
+		"change-stream",
 		"clock",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state",
 		"state-config-watcher",
 		"upgrade-check-flag",
@@ -1333,7 +1375,16 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"state": {"agent", "state-config-watcher"},
+	"state": {
+		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
+		"is-controller-flag",
+		"query-logger",
+		"service-factory",
+		"state-config-watcher",
+	},
 
 	"state-config-watcher": {"agent"},
 

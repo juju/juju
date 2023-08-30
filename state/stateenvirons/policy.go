@@ -21,11 +21,12 @@ import (
 // environStatePolicy implements state.Policy in
 // terms of environs.Environ and related types.
 type environStatePolicy struct {
-	st         *state.State
-	getEnviron NewEnvironFunc
-	getBroker  NewCAASBrokerFunc
-	checkerMu  sync.Mutex
-	checker    deployChecker
+	st                *state.State
+	credentialService CredentialService
+	getEnviron        NewEnvironFunc
+	getBroker         NewCAASBrokerFunc
+	checkerMu         sync.Mutex
+	checker           deployChecker
 }
 
 // deployChecker is the subset of the Environ interface (common to Environ and
@@ -38,12 +39,13 @@ type deployChecker interface {
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
 // a state.Policy implemented in terms of either environs.Environ
 // or caas.Broker and related types.
-func GetNewPolicyFunc() state.NewPolicyFunc {
+func GetNewPolicyFunc(credentialService CredentialService) state.NewPolicyFunc {
 	return func(st *state.State) state.Policy {
 		return &environStatePolicy{
-			st:         st,
-			getEnviron: GetNewEnvironFunc(environs.New),
-			getBroker:  GetNewCAASBrokerFunc(caas.New),
+			st:                st,
+			credentialService: credentialService,
+			getEnviron:        GetNewEnvironFunc(environs.New),
+			getBroker:         GetNewCAASBrokerFunc(caas.New),
 		}
 	}
 }
@@ -54,6 +56,9 @@ func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 	p.checkerMu.Lock()
 	defer p.checkerMu.Unlock()
 
+	if p.credentialService == nil {
+		return nil, errors.NotSupportedf("deploy check without credential service")
+	}
 	if p.checker != nil {
 		return p.checker, nil
 	}
@@ -63,9 +68,9 @@ func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 		return nil, errors.Trace(err)
 	}
 	if model.Type() == state.ModelTypeIAAS {
-		p.checker, err = p.getEnviron(model)
+		p.checker, err = p.getEnviron(model, p.credentialService)
 	} else {
-		p.checker, err = p.getBroker(model)
+		p.checker, err = p.getBroker(model, p.credentialService)
 	}
 	return p.checker, err
 }
@@ -115,6 +120,9 @@ func (p *environStatePolicy) ConstraintsValidator(ctx context.ProviderCallContex
 
 // InstanceDistributor implements state.Policy.
 func (p *environStatePolicy) InstanceDistributor() (context.Distributor, error) {
+	if p.credentialService == nil {
+		return nil, errors.NotSupportedf("InstanceDistributor check without credential service")
+	}
 	model, err := p.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -125,7 +133,7 @@ func (p *environStatePolicy) InstanceDistributor() (context.Distributor, error) 
 	}
 	// DistributeInstances doesn't make any calls to fetch instance types,
 	// so it doesn't help to use getDeployChecker() here.
-	env, err := p.getEnviron(model)
+	env, err := p.getEnviron(model, p.credentialService)
 	if err != nil {
 		return nil, err
 	}
@@ -137,29 +145,34 @@ func (p *environStatePolicy) InstanceDistributor() (context.Distributor, error) 
 
 // StorageProviderRegistry implements state.Policy.
 func (p *environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry, error) {
+	if p.credentialService == nil {
+		return nil, errors.NotSupportedf("StorageProviderRegistry check without credential service")
+	}
+
 	model, err := p.st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// ProviderRegistry doesn't make any calls to fetch instance types,
 	// so it doesn't help to use getDeployChecker() here.
-	return NewStorageProviderRegistryForModel(model, p.getEnviron, p.getBroker)
+	return NewStorageProviderRegistryForModel(model, p.credentialService, p.getEnviron, p.getBroker)
 }
 
 // NewStorageProviderRegistryForModel returns a storage provider registry
 // for the specified model.
 func NewStorageProviderRegistryForModel(
 	model *state.Model,
+	credentialService CredentialService,
 	newEnv NewEnvironFunc,
 	newBroker NewCAASBrokerFunc,
 ) (_ storage.ProviderRegistry, err error) {
 	var reg storage.ProviderRegistry
 	if model.Type() == state.ModelTypeIAAS {
-		if reg, err = newEnv(model); err != nil {
+		if reg, err = newEnv(model, credentialService); err != nil {
 			return nil, errors.Trace(err)
 		}
 	} else {
-		if reg, err = newBroker(model); err != nil {
+		if reg, err = newBroker(model, credentialService); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

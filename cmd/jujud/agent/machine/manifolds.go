@@ -136,7 +136,7 @@ type ManifoldsConfig struct {
 
 	// OpenStatePool is function used by the state manifold to create a
 	// *state.StatePool.
-	OpenStatePool func(stdcontext.Context, coreagent.Config) (*state.StatePool, error)
+	OpenStatePool func(stdcontext.Context, coreagent.Config, servicefactory.ControllerServiceFactory) (*state.StatePool, error)
 
 	// OpenStateForUpgrade is a function the upgradesteps worker can
 	// use to establish a connection to state.
@@ -373,6 +373,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		stateName: workerstate.Manifold(workerstate.ManifoldConfig{
 			AgentName:              agentName,
 			StateConfigWatcherName: stateConfigWatcherName,
+			ServiceFactoryName:     serviceFactoryName,
 			OpenStatePool:          config.OpenStatePool,
 			SetStatePool:           config.SetStatePool,
 		}),

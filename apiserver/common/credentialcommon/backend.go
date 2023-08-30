@@ -24,9 +24,6 @@ type PersistentBackend interface {
 	// Cloud returns the controller's cloud definition.
 	Cloud(name string) (cloud.Cloud, error)
 
-	// CloudCredential returns the cloud credential for the given tag.
-	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
-
 	// AllMachines returns all machines in the model.
 	AllMachines() ([]Machine, error)
 
@@ -44,9 +41,6 @@ type Model interface {
 
 	// Config returns the config for the model.
 	Config() (*config.Config, error)
-
-	// ValidateCloudCredential validates new cloud credential for this model.
-	ValidateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error
 
 	// Type returns the type of the model.
 	Type() state.ModelType
@@ -111,7 +105,7 @@ func (st stateShim) Model() (Model, error) {
 	return m, err
 }
 
-// Model implements PersistentBackend.Model.
+// ControllerConfig implements PersistentBackend.Model.
 func (st stateShim) ControllerConfig() (ControllerConfig, error) {
 	return st.State.ControllerConfig()
 }

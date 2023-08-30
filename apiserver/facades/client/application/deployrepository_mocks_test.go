@@ -398,20 +398,19 @@ func (mr *MockModelMockRecorder) Cloud() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockModel)(nil).Cloud))
 }
 
-// CloudCredential mocks base method.
-func (m *MockModel) CloudCredential() (cloud.Credential, bool, error) {
+// CloudCredentialTag mocks base method.
+func (m *MockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudCredential")
-	ret0, _ := ret[0].(cloud.Credential)
+	ret := m.ctrl.Call(m, "CloudCredentialTag")
+	ret0, _ := ret[0].(names.CloudCredentialTag)
 	ret1, _ := ret[1].(bool)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	return ret0, ret1
 }
 
-// CloudCredential indicates an expected call of CloudCredential.
-func (mr *MockModelMockRecorder) CloudCredential() *gomock.Call {
+// CloudCredentialTag indicates an expected call of CloudCredentialTag.
+func (mr *MockModelMockRecorder) CloudCredentialTag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredential", reflect.TypeOf((*MockModel)(nil).CloudCredential))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredentialTag", reflect.TypeOf((*MockModel)(nil).CloudCredentialTag))
 }
 
 // CloudName mocks base method.

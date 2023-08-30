@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/watcher"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -74,7 +75,7 @@ func (s *CloudSpecSuite) getTestCloudSpec(credentialContentWatcher state.NotifyW
 			s.AddCall("WatchCredentialReference", tag)
 			return apiservertesting.NewFakeNotifyWatcher(), s.NextErr()
 		},
-		func(tag names.ModelTag) (state.NotifyWatcher, error) {
+		func(_ context.Context, tag names.ModelTag) (watcher.NotifyWatcher, error) {
 			s.AddCall("WatchCredentialContent", tag)
 			return credentialContentWatcher, s.NextErr()
 		},
