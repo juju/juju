@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -21,6 +22,11 @@ import (
 	"github.com/juju/juju/state/watcher"
 	jujuversion "github.com/juju/juju/version"
 )
+
+// ControllerConfigGetter defines a method for getting the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 type Upgrader interface {
 	WatchAPIVersion(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error)
@@ -43,6 +49,7 @@ type UpgraderAPI struct {
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
 func NewUpgraderAPI(
+	controllerConfigGetter ControllerConfigGetter,
 	ctrlSt *state.State,
 	st *state.State,
 	resources facade.Resources,
@@ -62,7 +69,7 @@ func NewUpgraderAPI(
 	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 	newEnviron := common.EnvironFuncForModel(model, configGetter)
-	toolsFinder := common.NewToolsFinder(st, configGetter, st, urlGetter, newEnviron)
+	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
 	return &UpgraderAPI{
 		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, toolsFinder, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),

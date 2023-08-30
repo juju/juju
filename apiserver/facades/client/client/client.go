@@ -127,8 +127,10 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
+	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
-	toolsFinder := common.NewToolsFinder(st, configGetter, st, urlGetter, newEnviron)
+	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
 	blockChecker := common.NewBlockChecker(st)
 	leadershipReader, err := ctx.LeadershipReader(modelUUID)
 	if err != nil {

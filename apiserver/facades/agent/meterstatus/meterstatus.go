@@ -19,6 +19,11 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// ControllerConfigGetter defines a method for getting the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
 // MeterStatus defines the methods exported by the meter status API facade.
 type MeterStatus interface {
 	GetMeterStatus(ctx context.Context, args params.Entities) (params.MeterStatusResults, error)
@@ -26,11 +31,8 @@ type MeterStatus interface {
 }
 
 // MeterStatusState represents the state of an model required by the MeterStatus.
-//
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/meterstatus_mock.go github.com/juju/juju/apiserver/facades/agent/meterstatus MeterStatusState
 type MeterStatusState interface {
 	ApplyOperation(state.ModelOperation) error
-	ControllerConfig() (controller.Config, error)
 
 	// Application returns a application state by name.
 	Application(name string) (*state.Application, error)
@@ -53,6 +55,7 @@ type MeterStatusAPI struct {
 
 // NewMeterStatusAPI creates a new API endpoint for dealing with unit meter status.
 func NewMeterStatusAPI(
+	controllerConfigGetter ControllerConfigGetter,
 	st MeterStatusState,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -68,6 +71,7 @@ func NewMeterStatusAPI(
 		accessUnit: accessUnit,
 		resources:  resources,
 		UnitStateAPI: common.NewUnitStateAPI(
+			controllerConfigGetter,
 			unitStateShim{st},
 			resources,
 			authorizer,
@@ -155,10 +159,6 @@ type unitStateShim struct {
 
 func (s unitStateShim) ApplyOperation(op state.ModelOperation) error {
 	return s.st.ApplyOperation(op)
-}
-
-func (s unitStateShim) ControllerConfig() (controller.Config, error) {
-	return s.st.ControllerConfig()
 }
 
 func (s unitStateShim) Unit(name string) (common.UnitStateUnit, error) {

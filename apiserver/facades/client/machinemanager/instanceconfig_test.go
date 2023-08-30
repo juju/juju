@@ -26,12 +26,15 @@ type machineConfigSuite struct {
 	ctrlSt *mocks.MockControllerBackend
 	st     *mocks.MockInstanceConfigBackend
 	model  *mocks.MockModel
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&machineConfigSuite{})
 
 func (s *machineConfigSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 
 	s.ctrlSt = mocks.NewMockControllerBackend(ctrl)
 	s.st = mocks.NewMockInstanceConfigBackend(ctrl)
@@ -53,6 +56,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 		"enable-os-upgrade":        true,
 		"enable-os-refresh-update": true,
 	})))
+	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 
 	machine0 := mocks.NewMockMachine(ctrl)
 	machine0.EXPECT().Base().Return(state.Base{OS: "ubuntu", Channel: "20.04/stable"}).AnyTimes()
@@ -76,7 +80,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil).MinTimes(1)
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
-	icfg, err := machinemanager.InstanceConfig(context.Background(), s.ctrlSt, s.st, "0", "nonce", "")
+	icfg, err := machinemanager.InstanceConfig(context.Background(), s.controllerConfigGetter, s.ctrlSt, s.st, "0", "nonce", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(icfg.APIInfo.Addrs, gc.DeepEquals, []string{"1.2.3.4:1"})
 	c.Assert(icfg.ToolsList().URLs(), gc.DeepEquals, map[version.Binary][]string{

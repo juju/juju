@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
@@ -32,6 +33,11 @@ import (
 )
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
+
+// ControllerConfigGetter defines a method for getting the controller config.
+type ControllerConfigGetter interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // Leadership represents a type for modifying the leadership settings of an
 // application for series upgrades.
@@ -67,14 +73,15 @@ type CharmhubClient interface {
 
 // MachineManagerAPI provides access to the MachineManager API facade.
 type MachineManagerAPI struct {
-	st               Backend
-	storageAccess    StorageInterface
-	pool             Pool
-	authorizer       Authorizer
-	check            *common.BlockChecker
-	resources        facade.Resources
-	leadership       Leadership
-	upgradeSeriesAPI UpgradeSeries
+	controllerConfigGetter ControllerConfigGetter
+	st                     Backend
+	storageAccess          StorageInterface
+	pool                   Pool
+	authorizer             Authorizer
+	check                  *common.BlockChecker
+	resources              facade.Resources
+	leadership             Leadership
+	upgradeSeriesAPI       UpgradeSeries
 
 	callContext environscontext.ProviderCallContext
 	logger      loggo.Logger
@@ -133,7 +140,10 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
+	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+
 	return NewMachineManagerAPI(
+		controllerConfigGetter,
 		backend,
 		storageAccess,
 		pool,
@@ -151,6 +161,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 
 // NewMachineManagerAPI creates a new server-side MachineManager API facade.
 func NewMachineManagerAPI(
+	controllerConfigGetter ControllerConfigGetter,
 	backend Backend,
 	storageAccess StorageInterface,
 	pool Pool,
@@ -166,14 +177,15 @@ func NewMachineManagerAPI(
 	}
 
 	api := &MachineManagerAPI{
-		st:            backend,
-		storageAccess: storageAccess,
-		pool:          pool,
-		authorizer:    auth,
-		check:         common.NewBlockChecker(backend),
-		callContext:   callCtx,
-		resources:     resources,
-		leadership:    leadership,
+		controllerConfigGetter: controllerConfigGetter,
+		st:                     backend,
+		storageAccess:          storageAccess,
+		pool:                   pool,
+		authorizer:             auth,
+		check:                  common.NewBlockChecker(backend),
+		callContext:            callCtx,
+		resources:              resources,
+		leadership:             leadership,
 		upgradeSeriesAPI: NewUpgradeSeriesAPI(
 			upgradeSeriesState{state: backend},
 			makeUpgradeSeriesValidator(charmhubClient),
@@ -327,7 +339,8 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	icfg, err := InstanceConfig(ctx, st, mm.st, args.MachineId, args.Nonce, args.DataDir)
+
+	icfg, err := InstanceConfig(ctx, mm.controllerConfigGetter, st, mm.st, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",

@@ -45,6 +45,8 @@ var _ = gc.Suite(&MachineManagerSuite{})
 type MachineManagerSuite struct {
 	authorizer  *apiservertesting.FakeAuthorizer
 	callContext context.ProviderCallContext
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
@@ -55,7 +57,12 @@ func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
 func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 	tag := names.NewUnitTag("mysql/0")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
+
+	ctrl := gomock.NewController(c)
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+
 	_, err := machinemanager.NewMachineManagerAPI(
+		s.controllerConfigGetter,
 		nil,
 		nil,
 		nil,
@@ -83,6 +90,8 @@ type AddMachineManagerSuite struct {
 	model         *mocks.MockModel
 
 	callContext context.ProviderCallContext
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *AddMachineManagerSuite) SetUpTest(c *gc.C) {
@@ -100,8 +109,12 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.storageAccess = mocks.NewMockStorageInterface(ctrl)
 	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
 
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+
 	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
+	s.api, err = machinemanager.NewMachineManagerAPI(
+		s.controllerConfigGetter,
+		s.st,
 		s.storageAccess,
 		s.pool,
 		machinemanager.ModelAuthorizer{
@@ -196,6 +209,8 @@ type DestroyMachineManagerSuite struct {
 	storageAccess *mocks.MockStorageInterface
 	leadership    *mocks.MockLeadership
 	api           *machinemanager.MachineManagerAPI
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *DestroyMachineManagerSuite) SetUpTest(c *gc.C) {
@@ -211,6 +226,8 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.st.EXPECT().GetBlockForType(state.RemoveBlock).Return(nil, false, nil).AnyTimes()
 	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
 
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+
 	s.storageAccess = mocks.NewMockStorageInterface(ctrl)
 	s.storageAccess.EXPECT().VolumeAccess().Return(nil).AnyTimes()
 	s.storageAccess.EXPECT().FilesystemAccess().Return(nil).AnyTimes()
@@ -218,7 +235,9 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.leadership = mocks.NewMockLeadership(ctrl)
 
 	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
+	s.api, err = machinemanager.NewMachineManagerAPI(
+		s.controllerConfigGetter,
+		s.st,
 		s.storageAccess,
 		nil,
 		machinemanager.ModelAuthorizer{
@@ -698,6 +717,8 @@ type ProvisioningMachineManagerSuite struct {
 	api        *machinemanager.MachineManagerAPI
 
 	callContext context.ProviderCallContext
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *ProvisioningMachineManagerSuite) SetUpTest(c *gc.C) {
@@ -714,6 +735,9 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+	s.controllerConfigGetter.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil).AnyTimes()
+
 	s.pool = mocks.NewMockPool(ctrl)
 	s.pool.EXPECT().SystemState().Return(s.ctrlSt, nil).AnyTimes()
 
@@ -723,7 +747,9 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	s.st.EXPECT().Model().Return(s.model, nil).AnyTimes()
 
 	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
+	s.api, err = machinemanager.NewMachineManagerAPI(
+		s.controllerConfigGetter,
+		s.st,
 		nil,
 		s.pool,
 		machinemanager.ModelAuthorizer{
@@ -959,6 +985,8 @@ type UpgradeSeriesValidateMachineManagerSuite struct {
 	api        *machinemanager.MachineManagerAPI
 
 	callContext context.ProviderCallContext
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *UpgradeSeriesValidateMachineManagerSuite) SetUpTest(c *gc.C) {
@@ -970,9 +998,12 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 	ctrl := gomock.NewController(c)
 
 	s.st = mocks.NewMockBackend(ctrl)
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 
 	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
+	s.api, err = machinemanager.NewMachineManagerAPI(
+		s.controllerConfigGetter,
+		s.st,
 		nil,
 		nil,
 		machinemanager.ModelAuthorizer{
@@ -1214,6 +1245,8 @@ type UpgradeSeriesPrepareMachineManagerSuite struct {
 	api        *machinemanager.MachineManagerAPI
 
 	callContext context.ProviderCallContext
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *UpgradeSeriesPrepareMachineManagerSuite) SetUpTest(c *gc.C) {
@@ -1226,9 +1259,12 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Control
 
 	s.st = mocks.NewMockBackend(ctrl)
 	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 
 	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
+	s.api, err = machinemanager.NewMachineManagerAPI(
+		s.controllerConfigGetter,
+		s.st,
 		nil,
 		nil,
 		machinemanager.ModelAuthorizer{
@@ -1333,7 +1369,9 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNotMac
 
 func (s *UpgradeSeriesPrepareMachineManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authorizer.Tag = user
-	mm, err := machinemanager.NewMachineManagerAPI(s.st,
+	mm, err := machinemanager.NewMachineManagerAPI(
+		s.controllerConfigGetter,
+		s.st,
 		nil,
 		nil,
 		machinemanager.ModelAuthorizer{
@@ -1419,6 +1457,8 @@ type UpgradeSeriesCompleteMachineManagerSuite struct {
 	api        *machinemanager.MachineManagerAPI
 
 	callContext context.ProviderCallContext
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *UpgradeSeriesCompleteMachineManagerSuite) SetUpTest(c *gc.C) {
@@ -1432,9 +1472,12 @@ func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 	s.st = mocks.NewMockBackend(ctrl)
 	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
 	s.st.EXPECT().GetBlockForType(state.ChangeBlock).Return(nil, false, nil).AnyTimes()
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 
 	var err error
-	s.api, err = machinemanager.NewMachineManagerAPI(s.st,
+	s.api, err = machinemanager.NewMachineManagerAPI(
+		s.controllerConfigGetter,
+		s.st,
 		nil,
 		nil,
 		machinemanager.ModelAuthorizer{

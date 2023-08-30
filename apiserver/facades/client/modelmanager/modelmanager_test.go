@@ -861,6 +861,8 @@ type modelManagerStateSuite struct {
 	authoriser   apiservertesting.FakeAuthorizer
 
 	callContext context.ProviderCallContext
+
+	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 var _ = gc.Suite(&modelManagerStateSuite{})
@@ -880,6 +882,9 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 	}
 	s.callContext = context.NewEmptyCloudCallContext()
 
+	ctrl := gomock.NewController(c)
+	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
+
 	loggo.GetLogger("juju.apiserver.modelmanager").SetLogLevel(loggo.TRACE)
 }
 
@@ -893,7 +898,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	c.Assert(err, jc.ErrorIsNil)
 	configGetter := stateenvirons.EnvironConfigGetter{Model: s.ControllerModel(c)}
 	newEnviron := common.EnvironFuncForModel(model, configGetter)
-	toolsFinder := common.NewToolsFinder(st, configGetter, st, urlGetter, newEnviron)
+	toolsFinder := common.NewToolsFinder(s.controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		st, nil, ctlrSt,
 		&mockModelManagerService{},
