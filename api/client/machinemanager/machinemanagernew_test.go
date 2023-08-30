@@ -47,28 +47,6 @@ func (s *NewMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *NewMachineManagerSuite) TestUpgradeSeriesValidate(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	args := params.UpdateChannelArgs{
-		Args: []params.UpdateChannelArg{
-			{
-				Entity:  params.Entity{Tag: names.NewMachineTag(s.tag.String()).String()},
-				Channel: "16.04/stable",
-			},
-		},
-	}
-	result := params.UpgradeSeriesUnitsResult{
-		UnitNames: []string{"ubuntu/0", "ubuntu/1"},
-	}
-	results := params.UpgradeSeriesUnitsResults{Results: []params.UpgradeSeriesUnitsResult{result}}
-	s.facade.EXPECT().FacadeCall("UpgradeSeriesValidate", args, gomock.Any()).SetArg(2, results)
-
-	unitNames, err := s.client.UpgradeSeriesValidate(s.tag.String(), "xenial")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitNames, gc.DeepEquals, result.UnitNames)
-}
-
 func (s *NewMachineManagerSuite) TestUpgradeSeriesPrepareAlreadyInProgress(c *gc.C) {
 	defer s.setup(c).Finish()
 

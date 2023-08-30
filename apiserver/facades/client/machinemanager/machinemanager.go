@@ -627,41 +627,6 @@ func (mm *MachineManagerAPI) classifyDetachedStorage(units []Unit) (destroyed, d
 	return destroyed, detached, err
 }
 
-// UpgradeSeriesValidate validates that the incoming arguments correspond to a
-// valid series upgrade for the target machine.
-// If they do, a list of the machine's current units is returned for use in
-// soliciting user confirmation of the command.
-func (mm *MachineManagerAPI) UpgradeSeriesValidate(
-	ctx context.Context,
-	args params.UpdateChannelArgs,
-) (params.UpgradeSeriesUnitsResults, error) {
-	entities := make([]ValidationEntity, len(args.Args))
-	for i, arg := range args.Args {
-		entities[i] = ValidationEntity{
-			Tag:     arg.Entity.Tag,
-			Channel: arg.Channel,
-			Force:   arg.Force,
-		}
-	}
-
-	validations, err := mm.upgradeSeriesAPI.Validate(entities)
-	if err != nil {
-		return params.UpgradeSeriesUnitsResults{}, apiservererrors.ServerError(err)
-	}
-
-	results := params.UpgradeSeriesUnitsResults{
-		Results: make([]params.UpgradeSeriesUnitsResult, len(validations)),
-	}
-	for i, v := range validations {
-		if v.Error != nil {
-			results.Results[i].Error = apiservererrors.ServerError(v.Error)
-			continue
-		}
-		results.Results[i].UnitNames = v.UnitNames
-	}
-	return results, nil
-}
-
 // UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
 func (mm *MachineManagerAPI) UpgradeSeriesPrepare(ctx context.Context, arg params.UpdateChannelArg) (params.ErrorResult, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {

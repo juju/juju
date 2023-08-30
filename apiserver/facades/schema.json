@@ -22879,18 +22879,6 @@
                     },
                     "description": "UpgradeSeriesPrepare prepares a machine for a OS series upgrade."
                 },
-                "UpgradeSeriesValidate": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/UpdateChannelArgs"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/UpgradeSeriesUnitsResults"
-                        }
-                    },
-                    "description": "UpgradeSeriesValidate validates that the incoming arguments correspond to a\nvalid series upgrade for the target machine.\nIf they do, a list of the machine's current units is returned for use in\nsoliciting user confirmation of the command."
-                },
                 "WatchUpgradeSeriesNotifications": {
                     "type": "object",
                     "properties": {
@@ -23529,21 +23517,6 @@
                         "channel"
                     ]
                 },
-                "UpdateChannelArgs": {
-                    "type": "object",
-                    "properties": {
-                        "args": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/UpdateChannelArg"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "args"
-                    ]
-                },
                 "UpgradeSeriesNotificationParam": {
                     "type": "object",
                     "properties": {
@@ -23573,39 +23546,6 @@
                     "additionalProperties": false,
                     "required": [
                         "params"
-                    ]
-                },
-                "UpgradeSeriesUnitsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "unit-names": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "unit-names"
-                    ]
-                },
-                "UpgradeSeriesUnitsResults": {
-                    "type": "object",
-                    "properties": {
-                        "Results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/UpgradeSeriesUnitsResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "Results"
                     ]
                 },
                 "Value": {

@@ -167,33 +167,6 @@ func (client *Client) UpgradeSeriesComplete(machineName string) error {
 	return nil
 }
 
-func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]string, error) {
-	base, err := corebase.GetBaseFromSeries(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	args := params.UpdateChannelArgs{
-		Args: []params.UpdateChannelArg{
-			{
-				Entity:  params.Entity{Tag: names.NewMachineTag(machineName).String()},
-				Channel: base.Channel.String(),
-			},
-		},
-	}
-	results := new(params.UpgradeSeriesUnitsResults)
-	err = client.facade.FacadeCall("UpgradeSeriesValidate", args, results)
-	if err != nil {
-		return nil, err
-	}
-	if n := len(results.Results); n != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", n)
-	}
-	if results.Results[0].Error != nil {
-		return nil, results.Results[0].Error
-	}
-	return results.Results[0].UnitNames, nil
-}
-
 // WatchUpgradeSeriesNotifications returns a NotifyWatcher for observing the state of
 // a series upgrade.
 func (client *Client) WatchUpgradeSeriesNotifications(machineName string) (watcher.NotifyWatcher, string, error) {
