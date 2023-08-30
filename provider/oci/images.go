@@ -5,19 +5,20 @@ package oci
 
 import (
 	"context"
-	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
 	"github.com/juju/juju/core/arch"
+	corearch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
+	coreconstraints "github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 )
@@ -38,6 +39,8 @@ const (
 
 	centOS   = "CentOS"
 	ubuntuOS = "Canonical Ubuntu"
+
+	UbuntuBase = "ubuntu"
 
 	staleImageCacheTimeoutInMinutes = 30
 )
@@ -91,7 +94,7 @@ func NewImageVersion(img ociCore.Image) (ImageVersion, error) {
 }
 
 // InstanceImage aggregates information pertinent to provider supplied
-// images (eg: shapes it ca run on, type of instance it can run on, etc)
+// images (eg: shapes it can run on, type of instance it can run on, etc)
 type InstanceImage struct {
 	// ImageType determines which type of image this is. Valid values are:
 	// vm, baremetal and generic
@@ -104,16 +107,25 @@ type InstanceImage struct {
 	Version ImageVersion
 	// Raw stores the core.Image object
 	Raw ociCore.Image
-
 	// CompartmentId is the compartment Id where this image is available
 	CompartmentId *string
-
 	// InstanceTypes holds a list of shapes compatible with this image
 	InstanceTypes []instances.InstanceType
 }
 
 func (i *InstanceImage) SetInstanceTypes(types []instances.InstanceType) {
 	i.InstanceTypes = types
+}
+
+// Archs returns the list of unique supported architectures by the
+// InstanceImage. This is necessary because an InstanceImage can support
+// multiple shapes.
+func (i *InstanceImage) Archs() []string {
+	archs := set.NewStrings()
+	for _, val := range i.InstanceTypes {
+		archs.Add(val.Arch)
+	}
+	return archs.Values()
 }
 
 // byVersion sorts shapes by version number
@@ -140,15 +152,16 @@ func (t byVersion) Less(i, j int) bool {
 	return true
 }
 
+type imageMap map[corebase.Base]map[string][]InstanceImage
+
 // ImageCache holds a cache of all provider images for a fixed
 // amount of time before it becomes stale
 type ImageCache struct {
-	images map[corebase.Base][]InstanceImage
-
+	images      imageMap
 	lastRefresh time.Time
 }
 
-func (i *ImageCache) ImageMap() map[corebase.Base][]InstanceImage {
+func (i *ImageCache) ImageMap() imageMap {
 	return i.images
 }
 
@@ -158,7 +171,7 @@ func (i *ImageCache) SetLastRefresh(t time.Time) {
 	i.lastRefresh = t
 }
 
-func (i *ImageCache) SetImages(images map[corebase.Base][]InstanceImage) {
+func (i *ImageCache) SetImages(images imageMap) {
 	i.images = images
 }
 
@@ -175,10 +188,10 @@ func (i *ImageCache) isStale() bool {
 // all images that are currently in cache, matching the provided base
 // If defaultVirtType is specified, all generic images will inherit the
 // value of defaultVirtType.
-func (i ImageCache) ImageMetadata(base corebase.Base, defaultVirtType string) []*imagemetadata.ImageMetadata {
+func (i ImageCache) ImageMetadata(base corebase.Base, arch string, defaultVirtType string) []*imagemetadata.ImageMetadata {
 	var metadata []*imagemetadata.ImageMetadata
 
-	images, ok := i.images[base]
+	images, ok := i.images[base][arch]
 	if !ok {
 		return metadata
 	}
@@ -190,15 +203,19 @@ func (i ImageCache) ImageMetadata(base corebase.Base, defaultVirtType string) []
 				val.ImageType = ImageTypeVM
 			}
 		}
-		imgMeta := &imagemetadata.ImageMetadata{
-			Id:   val.Id,
-			Arch: "amd64",
-			// TODO(gsamfira): add region name?
-			// RegionName: region,
-			Version:  val.Base.Channel.Track,
-			VirtType: string(val.ImageType),
+		// Iterate over the list of supported architectures of the
+		// image.
+		for _, arch := range val.Archs() {
+			imgMeta := &imagemetadata.ImageMetadata{
+				Id:   val.Id,
+				Arch: arch,
+				// TODO(gsamfira): add region name?
+				// RegionName: region,
+				Version:  val.Base.Channel.Track,
+				VirtType: string(val.ImageType),
+			}
+			metadata = append(metadata, imgMeta)
 		}
-		metadata = append(metadata, imgMeta)
 	}
 
 	return metadata
@@ -206,11 +223,11 @@ func (i ImageCache) ImageMetadata(base corebase.Base, defaultVirtType string) []
 
 // SupportedShapes returns the InstanceTypes available for images matching
 // the supplied base
-func (i ImageCache) SupportedShapes(base corebase.Base) []instances.InstanceType {
+func (i ImageCache) SupportedShapes(base corebase.Base, arch string) []instances.InstanceType {
 	matches := map[string]int{}
 	ret := []instances.InstanceType{}
 	// TODO(gsamfira): Find a better way for this.
-	images, ok := i.images[base]
+	images, ok := i.images[base][arch]
 	if !ok {
 		return ret
 	}
@@ -251,31 +268,30 @@ func getImageType(img ociCore.Image) ImageType {
 	return ImageTypeGeneric
 }
 
-func NewInstanceImage(img ociCore.Image, compartmentID *string) (imgType InstanceImage, err error) {
-	var base corebase.Base
+// NewInstanceImage returns a populated InstanceImage from the ociCore.Image
+// struct returned by oci's API. Also, it returns the architecture that is
+// detected from the image OperatingSystemVersion and it's name.
+func NewInstanceImage(img ociCore.Image, compartmentID *string) (InstanceImage, string, error) {
+	var (
+		err  error
+		arch string
+		base corebase.Base
+	)
 	switch osName := *img.OperatingSystem; osName {
 	case centOS:
 		base = corebase.MakeDefaultBase("centos", *img.OperatingSystemVersion)
+		// For the moment, only x86 shapes are supported
+		arch = corearch.AMD64
 	case ubuntuOS:
-		// TODO: fix base creation:
-		//  e.g.
-		//        OperatingSystem:        &"Canonical Ubuntu",
-		//        OperatingSystemVersion: &"22.04 Minimal aarch64",
-		//  becomes ->
-		//  Base:      corebase.Base{
-		//        OS:      "ubuntu",
-		//        Channel: corebase.Channel{Track:"22.04 Minimal aarch64", Risk:"stable"},
-		//    },
-		//  This may limit our ability to use arm64 images currently.
-		base = corebase.MakeDefaultBase("ubuntu", *img.OperatingSystemVersion)
+		base, arch, err = parseUbuntuImage(img)
+		if err != nil {
+			return InstanceImage{}, "", err
+		}
 	default:
-		return imgType, errors.NotSupportedf("os %s", osName)
+		return InstanceImage{}, "", errors.NotSupportedf("os %s", osName)
 	}
 
-	if err != nil {
-		return imgType, err
-	}
-
+	var imgType InstanceImage
 	imgType.ImageType = getImageType(img)
 	imgType.Id = *img.Id
 	imgType.Base = base
@@ -284,11 +300,56 @@ func NewInstanceImage(img ociCore.Image, compartmentID *string) (imgType Instanc
 
 	version, err := NewImageVersion(img)
 	if err != nil {
-		return imgType, err
+		return InstanceImage{}, "", err
 	}
 	imgType.Version = version
 
-	return imgType, nil
+	return imgType, arch, nil
+}
+
+// parseUbuntuImage returns the base and architecture of the returned image
+// from the OCI sdk.
+func parseUbuntuImage(img ociCore.Image) (corebase.Base, string, error) {
+	var (
+		arch string
+		base corebase.Base
+	)
+	// we need to split the provided OperatingSystemVersion, since
+	// it can contain information that does not belong to the base's
+	// channel.
+	// E.g: Canonical-Ubuntu-22.04-Minimal-aarch64-2023.08.27-0
+	// becomes:
+	//        OperatingSystem:        Canonical Ubuntu
+	//        OperatingSystemVersion: 22.04 Minimal aarch64
+	channel, postfix, found := strings.Cut(*img.OperatingSystemVersion, " ")
+	base = corebase.MakeDefaultBase(UbuntuBase, channel)
+	if !found {
+		// NOTE(nvinuesa): For some images, the img.OperatingSystemVersion
+		// does not contain the architecture. For example, the
+		// image `Canonical-Ubuntu-22.04-aarch64-2023.08.23`
+		// has OperatingSystemVersion "22.04" instead of "22.04 aarch64".
+		// To solve this, we must also parse the image name (
+		// DisplayName).
+		if strings.Contains(*img.DisplayName, "aarch64") &&
+			!strings.Contains(*img.DisplayName, "Minimal aarch64") {
+			arch = corearch.ARM64
+		} else {
+			arch = corearch.AMD64
+		}
+	} else {
+		if postfix == "aarch64" {
+			arch = corearch.ARM64
+		} else if postfix == "Minimal aarch64" {
+			// Ubuntu minimal is not supported for ARM shapes (https://docs.oracle.com/en-us/iaas/Content/Compute/References/images.htm)
+			// so we ignore the "Minimal aarch64" images.
+			return corebase.Base{}, "", errors.NotSupportedf("ubuntu minimal aarch64 image %s", *img.DisplayName)
+		} else {
+			// Else we assume the architecture is AMD64 by default.
+			arch = corearch.AMD64
+		}
+	}
+
+	return base, arch, nil
 }
 
 // instanceTypes will return the list of instanceTypes with information
@@ -348,12 +409,6 @@ func instanceTypes(cli ComputeClient, compartmentID, imageID *string) ([]instanc
 }
 
 func parseArchAndInstType(shape ociCore.Shape) (string, string) {
-	// This code is very brittle. It's highly dependent on the strings currently
-	// returned by the oracle sdk. The best option is to have
-	// PlatformConfigOptions as they have types we can rely on.
-	if shape.PlatformConfigOptions != nil {
-		return normaliseArchAndInstType(shape.PlatformConfigOptions.Type)
-	}
 	var archType, instType string
 	if shape.ProcessorDescription != nil {
 		archType = archTypeByProcessorDescription(*shape.ProcessorDescription)
@@ -398,37 +453,6 @@ func instTypeByShapeName(shape string) string {
 	}
 }
 
-var (
-	oracleAmdBm    = fmt.Sprintf("%s|%s|%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdMilanBm), string(ociCore.ShapePlatformConfigOptionsTypeAmdRomeBm), string(ociCore.ShapePlatformConfigOptionsTypeIntelSkylakeBm), string(ociCore.ShapePlatformConfigOptionsTypeIntelIcelakeBm))
-	oracleAmdBmGpu = fmt.Sprintf("%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdMilanBmGpu), string(ociCore.ShapePlatformConfigOptionsTypeAmdRomeBmGpu))
-	oracleAmd      = fmt.Sprintf("%s|%s", string(ociCore.ShapePlatformConfigOptionsTypeAmdVm), string(ociCore.ShapePlatformConfigOptionsTypeIntelVm))
-)
-
-// archREs maps regular expressions for matching
-// oracle architectures and instance types to juju
-// values
-var archREs = []struct {
-	*regexp.Regexp
-	arch         string
-	instanceType string
-}{
-	{regexp.MustCompile(oracleAmd), arch.AMD64, VirtualMachine.String()},
-	{regexp.MustCompile(oracleAmdBm), arch.AMD64, BareMetal.String()},
-	{regexp.MustCompile(oracleAmdBmGpu), arch.AMD64, GPUMachine.String()},
-}
-
-// normaliseArchAndInstType returns the Juju architecture and instance type
-// corresponding to a shape's reported architecture and instance type based
-// off ShapePlatformConfigOptionsTypeEnum.
-func normaliseArchAndInstType(val ociCore.ShapePlatformConfigOptionsTypeEnum) (string, string) {
-	for _, re := range archREs {
-		if re.Match([]byte(val)) {
-			return re.arch, re.instanceType
-		}
-	}
-	return arch.AMD64, VirtualMachine.String()
-}
-
 func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, error) {
 	cacheMutex.Lock()
 	defer cacheMutex.Unlock()
@@ -442,14 +466,10 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 		return nil, err
 	}
 
-	images := map[corebase.Base][]InstanceImage{}
+	images := map[corebase.Base]map[string][]InstanceImage{}
 
 	for _, val := range items {
-		instTypes, err := instanceTypes(cli, compartmentID, val.Id)
-		if err != nil {
-			return nil, err
-		}
-		img, err := NewInstanceImage(val, compartmentID)
+		img, arch, err := NewInstanceImage(val, compartmentID)
 		if err != nil {
 			if val.Id != nil {
 				logger.Debugf("error parsing image %q: %q", *val.Id, err)
@@ -458,14 +478,26 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 			}
 			continue
 		}
+		// Only set the instance types to the images that we correctly
+		// parsed.
+		instTypes, err := instanceTypes(cli, compartmentID, val.Id)
+		if err != nil {
+			return nil, err
+		}
 		img.SetInstanceTypes(instTypes)
 		// TODO: ListImages can return more than one option for a base
 		// based on time created. There is no guarantee that the same
 		// shapes are used with all versions of the same images.
-		images[img.Base] = append(images[img.Base], img)
+		if images[img.Base] == nil {
+			images[img.Base] = make(map[string][]InstanceImage)
+		}
+		images[img.Base][arch] = append(images[img.Base][arch], img)
 	}
-	for v := range images {
-		sort.Sort(byVersion(images[v]))
+	// Sort images of every base and arch
+	for base := range images {
+		for arch := range images[base] {
+			sort.Sort(byVersion(images[base][arch]))
+		}
 	}
 	globalImageCache = &ImageCache{
 		images:      images,
@@ -477,12 +509,19 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 // findInstanceSpec returns an *InstanceSpec, imagelist name
 // satisfying the supplied instanceConstraint
 func findInstanceSpec(
-	allImageMetadata []*imagemetadata.ImageMetadata,
-	instanceType []instances.InstanceType,
-	ic *instances.InstanceConstraint,
+	base corebase.Base,
+	arch string,
+	constraints coreconstraints.Value,
+	imgCache *ImageCache,
 ) (*instances.InstanceSpec, string, error) {
-
+	allImageMetadata := imgCache.ImageMetadata(base, arch, *constraints.VirtType)
 	logger.Debugf("received %d image(s): %v", len(allImageMetadata), allImageMetadata)
+
+	ic := &instances.InstanceConstraint{
+		Base:        base,
+		Arch:        arch,
+		Constraints: constraints,
+	}
 	filtered := []*imagemetadata.ImageMetadata{}
 	// Filter by series. imgCache.supportedShapes() and
 	// imgCache.imageMetadata() will return filtered values
@@ -496,6 +535,7 @@ func findInstanceSpec(
 		filtered = append(filtered, val)
 	}
 
+	instanceType := imgCache.SupportedShapes(base, arch)
 	images := instances.ImageMetadataToImages(filtered)
 	spec, err := instances.FindInstanceSpec(images, ic, instanceType)
 	if err != nil {
