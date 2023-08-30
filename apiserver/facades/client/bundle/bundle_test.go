@@ -159,7 +159,7 @@ func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
                     charm: haproxy
                     revision: 42
                     channel: stable
-                    series: jammy
+                    base: ubuntu@22.04/stable
             relations:
                 - - django:web
                   - haproxy:web
@@ -489,7 +489,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
                     charm: ch:haproxy
                     revision: 42
                     channel: stable
-                    series: jammy
+                    base: ubuntu@22.04/stable
             relations:
                 - - django:web
                   - haproxy:web
@@ -792,7 +792,7 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   ubuntu:
     charm: ubuntu
@@ -841,7 +841,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   ubuntu:
     charm: ubuntu
@@ -895,7 +895,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   ubuntu:
     charm: ubuntu
@@ -940,7 +940,7 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   ubuntu:
     charm: ubuntu
@@ -1003,7 +1003,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   foo:
     charm: ubuntu
@@ -1150,7 +1150,7 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   foo:
     charm: ubuntu
@@ -1277,7 +1277,7 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 saas:
   awesome:
     url: test:admin/default.awesome
@@ -1388,7 +1388,7 @@ func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: mysql
@@ -1431,7 +1431,7 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mariadb:
     charm: mariadb
@@ -1461,6 +1461,71 @@ relations:
   - mysql:mysql
 `[1:]
 	expectedResult := params.StringResult{Result: output}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportBundleModelWithIncludeSeries(c *gc.C) {
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
+			"default-base": "ubuntu@20.04",
+		}),
+		CloudRegion: "some-region"})
+
+	application := s.st.model.AddApplication(description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("magic"),
+		CharmURL: "ch:magic",
+	})
+	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
+	application.AddUnit(description.UnitArgs{
+		Tag:     names.NewUnitTag("magic/0"),
+		Machine: names.NewMachineTag("0"),
+	})
+	s.st.model.AddMachine(description.MachineArgs{
+		Id:   names.NewMachineTag("0"),
+		Base: "ubuntu@20.04",
+	})
+
+	application = s.st.model.AddApplication(description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("mojo"),
+		CharmURL: "ch:mojo",
+	})
+	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/22.04/stable"})
+	application.AddUnit(description.UnitArgs{
+		Tag:     names.NewUnitTag("mojo/0"),
+		Machine: names.NewMachineTag("1"),
+	})
+	s.st.model.AddMachine(description.MachineArgs{
+		Id:   names.NewMachineTag("1"),
+		Base: "ubuntu@22.04",
+	})
+
+	result, err := s.facade.ExportBundle(params.ExportBundleParams{IncludeSeries: true})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedResult := params.StringResult{Result: `
+default-base: ubuntu@20.04/stable
+series: focal
+applications:
+  magic:
+    charm: magic
+    num_units: 1
+    to:
+    - "0"
+  mojo:
+    charm: mojo
+    series: jammy
+    base: ubuntu@22.04/stable
+    num_units: 1
+    to:
+    - "1"
+machines:
+  "0": {}
+  "1":
+    series: jammy
+    base: ubuntu@22.04/stable
+`[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
@@ -1507,7 +1572,7 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: mysql
@@ -1576,7 +1641,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
-series: bionic
+default-base: ubuntu@18.04/stable
 applications:
   magic:
     charm: magic
@@ -1635,12 +1700,12 @@ applications:
   magic:
     charm: magic
     channel: stable
-    series: bionic
+    base: ubuntu@18.04/stable
     expose: true
   ubuntu:
     charm: ubuntu
     channel: stable
-    series: focal
+    base: ubuntu@20.04/stable
     options:
       key: value
 `[1:]}
@@ -1657,7 +1722,7 @@ applications:
   magic:
     charm: magic
     channel: stable
-    series: bionic
+    base: ubuntu@18.04/stable
     expose: true
     bindings:
       another: vlan2
@@ -1665,7 +1730,7 @@ applications:
   ubuntu:
     charm: ubuntu
     channel: stable
-    series: focal
+    base: ubuntu@20.04/stable
     options:
       key: value
     bindings:
@@ -1699,7 +1764,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
-series: zesty
+default-base: ubuntu@17.04/stable
 applications:
   magic:
     charm: magic
@@ -1750,7 +1815,7 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mediawiki:
     charm: mediawiki
@@ -1806,7 +1871,7 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: mysql
@@ -1892,7 +1957,7 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	result, err := s.facade.ExportBundle(params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: mysql
@@ -1954,7 +2019,7 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   magic:
     charm: magic
@@ -1963,14 +2028,14 @@ applications:
     - "0"
   mojo:
     charm: mojo
-    series: jammy
+    base: ubuntu@22.04/stable
     num_units: 1
     to:
     - "1"
 machines:
   "0": {}
   "1":
-    series: jammy
+    base: ubuntu@22.04/stable
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
@@ -2023,21 +2088,21 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 applications:
   magic:
     charm: magic
-    series: hirsute
+    base: ubuntu@21.04/stable
     num_units: 1
     to:
     - "0"
   mojo:
     charm: mojo
-    series: jammy
+    base: ubuntu@22.04/stable
     num_units: 1
     to:
     - "1"
 machines:
   "0":
-    series: hirsute
+    base: ubuntu@21.04/stable
   "1":
-    series: jammy
+    base: ubuntu@22.04/stable
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
@@ -2078,7 +2143,7 @@ func (s *bundleSuite) TestExportCharmhubBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: mysql
@@ -2114,7 +2179,7 @@ func (s *bundleSuite) TestExportLocalBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: local:mysql
@@ -2148,7 +2213,7 @@ func (s *bundleSuite) TestExportLocalBundleWithSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: local:mysql
@@ -2185,7 +2250,7 @@ func (s *bundleSuite) TestExportBundleWithExposedEndpointSettings(c *gc.C) {
 			descr:   "exposed application without exposed endpoint settings (upgraded 2.8 controller)",
 			exposed: true,
 			expBundle: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   magic:
     charm: magic
@@ -2206,7 +2271,7 @@ applications:
 				},
 			},
 			expBundle: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   magic:
     charm: magic
@@ -2231,7 +2296,7 @@ applications:
 			},
 			// The exposed:true will be omitted and only the exposed-endpoints section (in the overlay) will be present
 			expBundle: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   magic:
     charm: magic

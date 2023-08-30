@@ -207,13 +207,13 @@ func (s *bundleMockSuite) TestExportBundleLatest(c *gc.C) {
 	bundleStr := `applications:
 	ubuntu:
 		charm: ch:ubuntu
-		series: jammy
+		base: ubuntu@22.04/stable
 		num_units: 1
 		to:
 			- \"0\"
 		options:
 			key: value
-			series: focal
+			base: ubuntu@22.04/stable
 		relations:
 			- []`
 
@@ -227,7 +227,7 @@ func (s *bundleMockSuite) TestExportBundleLatest(c *gc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("ExportBundle", args, res).SetArg(2, results).Return(nil)
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
-	result, err := client.ExportBundle(true)
+	result, err := client.ExportBundle(true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, bundleStr)
 }
