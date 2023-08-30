@@ -80,25 +80,9 @@ type MachineManagerAPI struct {
 	logger      loggo.Logger
 }
 
-type MachineManagerV9 struct {
-	*MachineManagerAPI
-}
-
-// NewFacadeV9 create a new server-side MachineManager API facade. This
+// NewFacadeV11 drops unused UpgradeSeriesValidate. This
 // is used for facade registration.
-func NewFacadeV9(ctx facade.Context) (*MachineManagerV9, error) {
-	api, err := NewFacadeV10(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &MachineManagerV9{
-		MachineManagerAPI: api,
-	}, nil
-}
-
-// NewFacadeV10 create a new server-side MachineManager API facade. This
-// is used for facade registration.
-func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
+func NewFacadeV11(ctx facade.Context) (*MachineManagerAPI, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
@@ -441,15 +425,6 @@ func (mm *MachineManagerAPI) DestroyMachineWithParams(ctx context.Context, args 
 		entities.Entities[i].Tag = tag
 	}
 	return mm.destroyMachine(ctx, entities, args.Force, args.Keep, args.DryRun, common.MaxWait(args.MaxWait))
-}
-
-// DestroyMachineWithParams removes a set of machines from the model.
-func (mm *MachineManagerV9) DestroyMachineWithParams(ctx context.Context, args params.DestroyMachinesParamsV9) (params.DestroyMachineResults, error) {
-	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
-	for i, tag := range args.MachineTags {
-		entities.Entities[i].Tag = tag
-	}
-	return mm.destroyMachine(ctx, entities, args.Force, args.Keep, false, common.MaxWait(args.MaxWait))
 }
 
 func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Entities, force, keep, dryRun bool, maxWait time.Duration) (params.DestroyMachineResults, error) {
