@@ -13,18 +13,25 @@ import (
 
 // InstanceType holds all relevant attributes of the various instance types.
 type InstanceType struct {
-	Id       string
-	Name     string
-	Arch     string
-	CpuCores uint64
-	Mem      uint64
-	Cost     uint64
-	RootDisk uint64
+	Id         string
+	Name       string
+	Arch       string
+	CpuCores   uint64
+	Mem        uint64
+	Networking InstanceTypeNetworking
+	Cost       uint64
+	RootDisk   uint64
 	// These attributes are not supported by all clouds.
-	VirtType   *string // The type of virtualisation used by the hypervisor, must match the image.
-	CpuPower   *uint64
-	Tags       []string
-	Deprecated bool
+	VirtType *string // The type of virtualisation used by the hypervisor, must match the image.
+	CpuPower *uint64
+	Tags     []string
+}
+
+// InstanceTypeNetworking hold relevant information about an instances
+// networking capabilities.
+type InstanceTypeNetworking struct {
+	// SupportsIPv6 indicates if the instance supports ipv6 networking.
+	SupportsIPv6 bool
 }
 
 // InstanceTypesWithCostMetadata holds an array of InstanceType and metadata
@@ -52,9 +59,6 @@ func CpuPower(power uint64) *uint64 {
 func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 	nothing := InstanceType{}
 	if cons.HasArch() && *cons.Arch != itype.Arch {
-		return nothing, false
-	}
-	if itype.Deprecated && !cons.HasInstanceType() {
 		return nothing, false
 	}
 	if cons.HasInstanceType() && itype.Name != *cons.InstanceType {

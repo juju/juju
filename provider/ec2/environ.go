@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -108,8 +109,8 @@ type environ struct {
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 
-	instTypesMutex sync.Mutex
-	instTypes      []instances.InstanceType
+	instTypesCache      *instanceTypeCache
+	instTypesCacheMutex sync.RWMutex
 
 	defaultVPCMutex   sync.Mutex
 	defaultVPCChecked bool
@@ -251,6 +252,12 @@ func (e *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (b
 	return false, errors.NotSupportedf("container address allocation")
 }
 
+func (e *environ) instanceTypeCache() *instanceTypeCache {
+	e.instTypesCacheMutex.RLock()
+	defer e.instTypesCacheMutex.RUnlock()
+	return e.instTypesCache
+}
+
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	// TODO(anastasiamac 2016-03-16) LP#1557874
@@ -272,7 +279,7 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 		[]string{constraints.Arch, constraints.Mem, constraints.Cores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
 
-	instanceTypes, err := e.supportedInstanceTypes(ctx)
+	instanceTypes, err := e.supportedInstanceTypes(ctx, allInstanceTypeFilter())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -318,7 +325,7 @@ func (z *ec2AvailabilityZone) Name() string {
 }
 
 func (z *ec2AvailabilityZone) Available() bool {
-	return z.AvailabilityZone.State == availableState
+	return z.AvailabilityZone.State == types.AvailabilityZoneStateAvailable
 }
 
 // AvailabilityZones returns a slice of availability zones
@@ -414,7 +421,6 @@ func (e *environ) parsePlacement(ctx context.ProviderCallContext, placement stri
 		logger.Debugf("searching for subnet matching placement directive %q", value)
 		matcher := CreateSubnetMatcher(value)
 		// Get all known subnets, look for a match
-		allSubnets := []string{}
 		subnets, vpcID, err := e.subnetsForVPC(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -424,8 +430,9 @@ func (e *environ) parsePlacement(ctx context.ProviderCallContext, placement stri
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		subnetIDs := make([]string, 0, len(subnets))
 		for _, subnet := range subnets {
-			allSubnets = append(allSubnets, fmt.Sprintf("%q:%q", aws.ToString(subnet.SubnetId), aws.ToString(subnet.CidrBlock)))
+			subnetIDs = append(subnetIDs, *subnet.SubnetId)
 			if matcher.Match(subnet) {
 				// We found the CIDR, now see if we can find the AZs.
 				for _, zone := range zones {
@@ -440,7 +447,7 @@ func (e *environ) parsePlacement(ctx context.ProviderCallContext, placement stri
 				logger.Debugf("found a matching subnet (%v) but couldn't find the AZ", subnet)
 			}
 		}
-		logger.Debugf("searched for subnet %q, did not find it in all subnets %v for vpc-id %q", value, allSubnets, vpcID)
+		return nil, fmt.Errorf("unable to find subnet %q in %v for vpi-id %q%w", value, subnetIDs, vpcID, errors.Hide(errors.NotFound))
 	}
 	return nil, fmt.Errorf("unknown placement directive: %v", placement)
 }
@@ -459,14 +466,11 @@ func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environ
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
-	instanceTypes, err := e.supportedInstanceTypes(ctx)
+	instanceTypes, err := e.supportedInstanceTypes(ctx, exactInstanceTypeFilter(types.InstanceType(*args.Constraints.InstanceType)))
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, itype := range instanceTypes {
-		if itype.Name != *args.Constraints.InstanceType {
-			continue
-		}
 		if !args.Constraints.HasArch() || *args.Constraints.Arch == itype.Arch {
 			return nil
 		}
@@ -597,15 +601,40 @@ func (e *environ) StartInstance(
 		return nil, errors.Trace(err)
 	}
 
-	instanceTypes, err := e.supportedInstanceTypes(ctx)
+	subnetZones, err := getValidSubnetZoneMap(args)
+	if err != nil {
+		return nil, environs.ZoneIndependentError(err)
+	}
+
+	hasVPCID := isVPCIDSet(e.ecfg().vpcID())
+
+	instFilter, err := generalPurposeInstanceFilter(ctx, e.instanceTypeCache())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if args.Constraints.HasInstanceType() {
+		instFilter = oneOfInstanceTypeFilter(
+			instFilter,
+			exactInstanceTypeFilter(types.InstanceType(*args.Constraints.InstanceType)),
+		)
+	}
+
+	instanceTypes, err := e.supportedInstanceTypes(ctx, instFilter)
 	if err != nil {
 		return nil, wrapError(err)
+	}
+
+	subnet, err := e.selectSubnetForInstance(ctx, hasVPCID, subnetZones, placementSubnetID, availabilityZone)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	arch, err := args.Tools.OneArch()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	spec, err := findInstanceSpec(
 		args.InstanceConfig.IsController(),
 		args.ImageMetadata,
@@ -692,19 +721,7 @@ func (e *environ) StartInstance(
 	runArgs.Placement = &types.Placement{
 		AvailabilityZone: aws.String(availabilityZone),
 	}
-
-	subnetZones, err := getValidSubnetZoneMap(args)
-	if err != nil {
-		return nil, environs.ZoneIndependentError(err)
-	}
-
-	hasVPCID := isVPCIDSet(e.ecfg().vpcID())
-
-	subnetId, err := e.selectSubnetIDForInstance(ctx, hasVPCID, subnetZones, placementSubnetID, availabilityZone)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	runArgs.SubnetId = aws.String(subnetId)
+	runArgs.SubnetId = subnet.SubnetId
 
 	_ = callback(status.Allocating,
 		fmt.Sprintf("Trying to start instance in availability zone %q", availabilityZone), nil)
@@ -794,10 +811,6 @@ func (e *environ) maybeAttachInstanceProfile(
 }
 
 func (e *environ) finishInstanceConfig(args *environs.StartInstanceParams, spec *instances.InstanceSpec) error {
-	if spec.InstanceType.Deprecated {
-		logger.Infof("deprecated instance type specified: %s", spec.InstanceType.Name)
-	}
-
 	if err := args.InstanceConfig.SetTools(args.Tools); err != nil {
 		return errors.Trace(err)
 	}
@@ -897,31 +910,42 @@ func getValidSubnetZoneMap(args environs.StartInstanceParams) (map[network.Id][]
 	return subnetZones, nil
 }
 
-func (e *environ) selectSubnetIDForInstance(ctx context.ProviderCallContext,
+func (e *environ) selectSubnetForInstance(ctx context.ProviderCallContext,
 	hasVPCID bool,
 	subnetZones map[network.Id][]string,
 	placementSubnetID network.Id,
 	availabilityZone string,
-) (string, error) {
+) (types.Subnet, error) {
 	var (
-		subnetIDsForZone []network.Id
-		err              error
+		subnets []types.Subnet
+		err     error
 	)
 	if hasVPCID {
-		subnetIDsForZone, err = e.selectVPCSubnetIDsForZone(ctx, subnetZones, placementSubnetID, availabilityZone)
+		subnets, err = e.selectVPCSubnetsForZone(ctx, subnetZones, placementSubnetID, availabilityZone)
 		if err != nil {
-			return "", errors.Trace(err)
+			return types.Subnet{}, errors.Trace(err)
 		}
 	} else if availabilityZone != "" && len(subnetZones) > 0 {
-		subnetIDsForZone, err = e.selectSubnetIDsForZone(subnetZones, placementSubnetID, availabilityZone)
+		subnets, err = e.selectSubnetsForZone(ctx, subnetZones, placementSubnetID, availabilityZone)
 		if err != nil {
-			return "", errors.Trace(err)
+			return types.Subnet{}, errors.Trace(err)
 		}
 	}
 
-	numSubnetIDs := len(subnetIDsForZone)
-	if numSubnetIDs == 0 {
-		return "", nil
+	preferredSubnets := []types.Subnet{}
+	usableSubnets := []types.Subnet{}
+	for _, subnet := range subnets {
+		if subnet.State != types.SubnetStateAvailable {
+			continue
+		}
+		usableSubnets = append(usableSubnets, subnet)
+		if isDualStackSubnet(subnet) {
+			preferredSubnets = append(preferredSubnets, subnet)
+		}
+	}
+
+	if len(usableSubnets) == 0 {
+		return types.Subnet{}, nil
 	}
 
 	// With multiple equally suitable subnets, picking one at random
@@ -929,16 +953,33 @@ func (e *environ) selectSubnetIDForInstance(ctx context.ProviderCallContext,
 	// still work correctly if we happen to pick a constrained subnet
 	// (we'll just treat this the same way we treat constrained zones
 	// and retry).
-	subnetID := subnetIDsForZone[rand.Intn(numSubnetIDs)].String()
-	logger.Debugf("selected random subnet %q from %d matching in zone %q", subnetID, numSubnetIDs, availabilityZone)
-	return subnetID, nil
+	var subnet types.Subnet
+	if len(preferredSubnets) != 0 {
+		subnet = preferredSubnets[rand.Intn(len(preferredSubnets))]
+		logger.Debugf(
+			"selecting random preferred subnet %q from %d matching in zone %q",
+			*subnet.SubnetId,
+			len(preferredSubnets),
+			availabilityZone,
+		)
+	} else {
+		subnet = usableSubnets[rand.Intn(len(usableSubnets))]
+		logger.Debugf(
+			"selected random subnet %q from %d matching in zone %q",
+			*subnet.SubnetId,
+			len(usableSubnets),
+			availabilityZone,
+		)
+	}
+
+	return subnet, nil
 }
 
-func (e *environ) selectVPCSubnetIDsForZone(ctx context.ProviderCallContext,
+func (e *environ) selectVPCSubnetsForZone(ctx context.ProviderCallContext,
 	subnetZones map[network.Id][]string,
 	placementSubnetID network.Id,
 	availabilityZone string,
-) ([]network.Id, error) {
+) ([]types.Subnet, error) {
 	var allowedSubnetIDs []network.Id
 	if placementSubnetID != "" {
 		allowedSubnetIDs = []network.Id{placementSubnetID}
@@ -948,7 +989,7 @@ func (e *environ) selectVPCSubnetIDsForZone(ctx context.ProviderCallContext,
 		}
 	}
 
-	subnets, err := getVPCSubnetIDsForAvailabilityZone(
+	subnets, err := getVPCSubnetsForAvailabilityZone(
 		e.ec2Client, ctx, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
 
 	switch {
@@ -964,28 +1005,30 @@ func (e *environ) selectVPCSubnetIDsForZone(ctx context.ProviderCallContext,
 // availabilityZone.
 // TODO (stickupkid): This could be lifted into core package as openstack has
 // a very similar pattern to this.
-func (e *environ) selectSubnetIDsForZone(subnetZones map[network.Id][]string,
+func (e *environ) selectSubnetsForZone(
+	ctx context.ProviderCallContext,
+	subnetZones map[network.Id][]string,
 	placementSubnetID network.Id,
 	availabilityZone string,
-) ([]network.Id, error) {
-	subnets, err := network.FindSubnetIDsForAvailabilityZone(availabilityZone, subnetZones)
+) ([]types.Subnet, error) {
+	subnetIds, err := network.FindSubnetIDsForAvailabilityZone(availabilityZone, subnetZones)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if len(subnets) == 0 {
+	if len(subnetIds) == 0 {
 		return nil, errors.Errorf("availability zone %q has no subnets satisfying space constraints", availabilityZone)
 	}
 
 	// Use the placement to locate a subnet ID.
 	if placementSubnetID != "" {
-		asSet := network.MakeIDSet(subnets...)
+		asSet := network.MakeIDSet(subnetIds...)
 		if !asSet.Contains(placementSubnetID) {
 			return nil, errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, availabilityZone)
 		}
-		subnets = []network.Id{placementSubnetID}
+		subnetIds = []network.Id{placementSubnetID}
 	}
 
-	return subnets, nil
+	return subnetsForIDs(e.ec2Client, ctx, subnetIds)
 }
 
 func (e *environ) deriveAvailabilityZone(
@@ -1024,7 +1067,7 @@ func (e *environ) deriveAvailabilityZoneAndSubnetID(
 			if z.Name() == args.AvailabilityZone {
 				ec2AZ := z.(*ec2AvailabilityZone)
 				zoneState := ec2AZ.AvailabilityZone.State
-				if zoneState != availableState {
+				if zoneState != types.AvailabilityZoneStateAvailable {
 					return "", "", errors.Errorf(
 						"availability zone %q is %q",
 						z.Name(),
@@ -1054,7 +1097,7 @@ func (e *environ) instancePlacementZone(ctx context.ProviderCallContext, placeme
 	}
 	zoneName := aws.ToString(instPlacement.availabilityZone.ZoneName)
 	zoneState := instPlacement.availabilityZone.State
-	if zoneState != availableState {
+	if zoneState != types.AvailabilityZoneStateAvailable {
 		return "", "", errors.Errorf(
 			"availability zone %q is %q",
 			zoneName,
@@ -1069,7 +1112,7 @@ func (e *environ) instancePlacementZone(ctx context.ProviderCallContext, placeme
 	}
 	if instPlacement.subnet != nil {
 		subnetState := instPlacement.subnet.State
-		if subnetState != availableState {
+		if subnetState != types.SubnetStateAvailable {
 			return "", "", errors.Errorf("subnet %q is %q",
 				aws.ToString(instPlacement.subnet.CidrBlock), subnetState)
 		}
@@ -1890,7 +1933,7 @@ func rulesToIPPerms(rules firewall.IngressRules) []types.IpPermission {
 			ToPort:     aws.Int32(int32(r.PortRange.ToPort)),
 		}
 		if len(r.SourceCIDRs) == 0 {
-			ipPerms[i].IpRanges = []types.IpRange{{CidrIp: aws.String(defaultRouteCIDRBlock), Description: ipRangeDescription(r, defaultRouteCIDRBlock)}}
+			ipPerms[i].IpRanges = []types.IpRange{{CidrIp: aws.String(defaultRouteIpv4CIDRBlock), Description: ipRangeDescription(r, defaultRouteIpv4CIDRBlock)}}
 			ipPerms[i].Ipv6Ranges = []types.Ipv6Range{{CidrIpv6: aws.String(defaultRouteIPv6CIDRBlock), Description: ipRangeDescription(r, defaultRouteIPv6CIDRBlock)}}
 		} else {
 			for _, cidr := range r.SourceCIDRs.SortedValues() {
@@ -1926,6 +1969,8 @@ func (e *environ) openPortsInGroup(ctx context.ProviderCallContext, name string,
 		return err
 	}
 	ipPerms := rulesToIPPerms(rules)
+	fmt.Println("this is the rules")
+	spew.Dump(rules)
 	_, err = e.ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 		GroupId:       g.GroupId,
 		IpPermissions: ipPerms,
@@ -1994,7 +2039,7 @@ func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name stri
 			sourceCIDRs = append(sourceCIDRs, aws.ToString(r.CidrIpv6))
 		}
 		if len(sourceCIDRs) == 0 {
-			sourceCIDRs = append(sourceCIDRs, defaultRouteCIDRBlock)
+			sourceCIDRs = append(sourceCIDRs, defaultRouteIpv4CIDRBlock)
 			sourceCIDRs = append(sourceCIDRs, defaultRouteIPv6CIDRBlock)
 		}
 		portRange := network.PortRange{
@@ -2048,6 +2093,8 @@ func (e *environ) OpenModelPorts(ctx context.ProviderCallContext, rules firewall
 }
 
 func (e *environ) CloseModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
+	fmt.Println("closing these ports")
+	spew.Dump(rules)
 	if err := e.closePortsInGroup(ctx, e.jujuGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
@@ -2335,7 +2382,6 @@ func (e *environ) jujuGroupName() string {
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
 func (e *environ) setUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string) ([]string, error) {
-	// Ensure there's a global group for Juju-related traffic.
 	jujuGroup, err := e.ensureGroup(ctx, e.jujuGroupName(), true)
 	if err != nil {
 		return nil, err
@@ -2463,6 +2509,10 @@ func (e *environ) ensureGroup(ctx context.ProviderCallContext, name string, isMo
 		if err := e.ensureInternalRules(ctx, group); err != nil {
 			return types.SecurityGroup{}, errors.Annotate(err, "failed to enable internal model rules")
 		}
+	} else {
+		if err := e.ensureICMPRules(ctx, group); err != nil {
+			return types.SecurityGroup{}, err
+		}
 	}
 
 	return group, nil
@@ -2495,6 +2545,85 @@ func (e *environ) ensureInternalRules(ctx context.ProviderCallContext, group typ
 		if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
 			return errors.Trace(err)
 		}
+	}
+	return nil
+}
+
+// ensureICMPRules here to insure that the security group has the correct icmp
+// rules applied to it. Specifically this function will ensure IPv6 ICMP rules
+// in accordance with RFC4890. We don't deal with ipv4 icmp rules here as Juju
+// has historically blocked these and network operators feel uneasy about the
+// port being open.
+func (e *environ) ensureICMPRules(ctx context.ProviderCallContext, group types.SecurityGroup) error {
+	openAccessV6 := types.Ipv6Range{CidrIpv6: aws.String("::/0")}
+	perms := []types.IpPermission{
+		{
+			IpProtocol: aws.String("icmpv6"),
+			FromPort:   aws.Int32(1),
+			ToPort:     aws.Int32(-1),
+			Ipv6Ranges: []types.Ipv6Range{openAccessV6},
+		},
+		// Packet Too Big (Type 2)
+		{
+			IpProtocol: aws.String("icmpv6"),
+			FromPort:   aws.Int32(2),
+			ToPort:     aws.Int32(-1),
+			Ipv6Ranges: []types.Ipv6Range{openAccessV6},
+		},
+		// Time Exceeded (Type 3) - Code 0 only
+		{
+			IpProtocol: aws.String("icmpv6"),
+			FromPort:   aws.Int32(3),
+			ToPort:     aws.Int32(0),
+			Ipv6Ranges: []types.Ipv6Range{openAccessV6},
+		},
+		// Parameter Problem (Type 4) - Codes 1 and 2 only
+		{
+			IpProtocol: aws.String("icmpv6"),
+			FromPort:   aws.Int32(4),
+			ToPort:     aws.Int32(1),
+			Ipv6Ranges: []types.Ipv6Range{openAccessV6},
+		},
+		{
+			IpProtocol: aws.String("icmpv6"),
+			FromPort:   aws.Int32(4),
+			ToPort:     aws.Int32(2),
+			Ipv6Ranges: []types.Ipv6Range{openAccessV6},
+		},
+
+		// >>> Connectivity checking messages
+		// Echo Request (Type 128)
+		{
+			IpProtocol: aws.String("icmpv6"),
+			FromPort:   aws.Int32(128),
+			ToPort:     aws.Int32(-1),
+			Ipv6Ranges: []types.Ipv6Range{openAccessV6},
+		},
+
+		// >>> Traffic that normally should not be dropped
+		// Time Exceeded (Type 3) - Code 1
+		{
+			IpProtocol: aws.String("icmpv6"),
+			FromPort:   aws.Int32(3),
+			ToPort:     aws.Int32(1),
+			Ipv6Ranges: []types.Ipv6Range{openAccessV6},
+		},
+
+		// Parameter Problem (Type 4) - Code 0
+		{
+			IpProtocol: aws.String("icmpv6"),
+			FromPort:   aws.Int32(4),
+			ToPort:     aws.Int32(0),
+			Ipv6Ranges: []types.Ipv6Range{openAccessV6},
+		},
+	}
+
+	_, err := e.ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
+		GroupId:       group.GroupId,
+		IpPermissions: perms,
+	})
+	if err != nil && ec2ErrCode(err) != "InvalidPermission.Duplicate" {
+		return fmt.Errorf("applying icmpv6 rules to security group %q: %w", *group.GroupId, err)
 	}
 	return nil
 }
@@ -2616,9 +2745,6 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 	defer e.ecfgMutex.Unlock()
 
 	e.cloud = spec
-	e.instTypesMutex.Lock()
-	e.instTypes = nil
-	e.instTypesMutex.Unlock()
 
 	// Allow the passing of a client func through the context. This allows
 	// passing the client from outside of the environ, one that allows for
@@ -2662,6 +2788,10 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 	if err != nil {
 		return errors.Annotate(err, "creating aws iam client")
 	}
+
+	e.instTypesCacheMutex.Lock()
+	e.instTypesCache = newInstanceTypeCache(e.ec2Client, e.cloud.Region)
+	e.instTypesCacheMutex.Unlock()
 	return nil
 }
 
