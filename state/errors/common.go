@@ -9,9 +9,11 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v11"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 )
 
@@ -34,9 +36,9 @@ const (
 
 	ErrUpgradeInProgress = errors.ConstError("upgrade in progress")
 
-	// IncompatibleSeriesError indicates the series selected is not supported by
+	// IncompatibleBaseError indicates the base selected is not supported by
 	// the charm.
-	IncompatibleSeriesError = errors.ConstError("incompatible series for charm")
+	IncompatibleBaseError = errors.ConstError("incompatible base for charm")
 )
 
 // errCharmAlreadyUploaded is returned by UpdateUploadedCharm() when
@@ -169,13 +171,13 @@ func IsParentDeviceHasChildrenError(err interface{}) bool {
 	return ok
 }
 
-func NewErrIncompatibleSeries(seriesList []string, series, charmName string) error {
+func NewErrIncompatibleBase(supportedBases []base.Base, b base.Base, charmName string) error {
 	return errors.WithType(
-		fmt.Errorf("series %q not supported by charm %q, supported series are: %s",
-			series,
+		fmt.Errorf("base %q not supported by charm %q, supported bases are: %s",
+			b.DisplayString(),
 			charmName,
-			strings.Join(seriesList, ", ")),
-		IncompatibleSeriesError,
+			strings.Join(transform.Slice(supportedBases, func(b base.Base) string { return b.DisplayString() }), ", ")),
+		IncompatibleBaseError,
 	)
 }
 

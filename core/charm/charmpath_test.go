@@ -66,13 +66,13 @@ func (s *charmPathSuite) TestNoCharmAtPath(c *gc.C) {
 }
 
 func (s *charmPathSuite) TestCharm(c *gc.C) {
-	charmDir := filepath.Join(s.repoPath, "mysql")
-	s.cloneCharmDir(s.repoPath, "mysql")
+	charmDir := filepath.Join(s.repoPath, "dummy")
+	s.cloneCharmDir(s.repoPath, "dummy")
 	ch, url, err := corecharm.NewCharmAtPath(charmDir, base.MustParseBaseFromString("ubuntu@20.04"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.Meta().Name, gc.Equals, "mysql")
+	c.Assert(ch.Meta().Name, gc.Equals, "dummy")
 	c.Assert(ch.Revision(), gc.Equals, 1)
-	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:focal/mysql-1"))
+	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:focal/dummy-1"))
 }
 
 func (s *charmPathSuite) TestCharmWithManifest(c *gc.C) {
@@ -86,15 +86,15 @@ func (s *charmPathSuite) TestCharmWithManifest(c *gc.C) {
 }
 
 func (s *charmPathSuite) TestNoBaseSpecified(c *gc.C) {
-	charmDir := filepath.Join(s.repoPath, "mysql")
-	s.cloneCharmDir(s.repoPath, "mysql")
+	charmDir := filepath.Join(s.repoPath, "dummy")
+	s.cloneCharmDir(s.repoPath, "dummy")
 	_, _, err := corecharm.NewCharmAtPath(charmDir, base.Base{})
 	c.Assert(err, gc.ErrorMatches, "base not specified and charm does not define any")
 }
 
 func (s *charmPathSuite) TestNoBaseSpecifiedForceStillFails(c *gc.C) {
-	charmDir := filepath.Join(s.repoPath, "mysql")
-	s.cloneCharmDir(s.repoPath, "mysql")
+	charmDir := filepath.Join(s.repoPath, "dummy")
+	s.cloneCharmDir(s.repoPath, "dummy")
 	_, _, err := corecharm.NewCharmAtPathForceBase(charmDir, base.Base{}, true)
 	c.Assert(err, gc.ErrorMatches, "base not specified and charm does not define any")
 }
