@@ -18051,9 +18051,6 @@
                         "cpu-cores": {
                             "type": "integer"
                         },
-                        "deprecated": {
-                            "type": "boolean"
-                        },
                         "memory": {
                             "type": "integer"
                         },
@@ -27639,9 +27636,6 @@
                         },
                         "cpu-cores": {
                             "type": "integer"
-                        },
-                        "deprecated": {
-                            "type": "boolean"
                         },
                         "memory": {
                             "type": "integer"

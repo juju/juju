@@ -6,6 +6,8 @@ package ec2
 import (
 	"fmt"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	"github.com/juju/juju/core/instance"
@@ -72,6 +74,15 @@ func (inst *sdkInstance) Status(_ context.ProviderCallContext) instance.Status {
 // details for the instance, and requerying the ec2 api if required.
 func (inst *sdkInstance) Addresses(_ context.ProviderCallContext) (network.ProviderAddresses, error) {
 	var addresses []network.ProviderAddress
+	if inst.i.Ipv6Address != nil {
+		addresses = append(addresses, network.ProviderAddress{
+			MachineAddress: network.MachineAddress{
+				Value: *inst.i.Ipv6Address,
+				Type:  network.IPv6Address,
+				Scope: network.ScopePublic,
+			},
+		})
+	}
 	if inst.i.PublicIpAddress != nil {
 		addresses = append(addresses, network.ProviderAddress{
 			MachineAddress: network.MachineAddress{
@@ -133,4 +144,71 @@ func (inst *sdkInstance) IngressRules(ctx context.ProviderCallContext, machineId
 		return nil, err
 	}
 	return ranges, nil
+}
+
+// FetchInstanceTypeInfoForRegion is responsible for fetching all of the
+// available instance types for an AWS region.
+func FetchInstanceTypeInfoForRegion(
+	ctx context.ProviderCallContext,
+	ec2Client Client,
+	region string,
+) ([]types.InstanceTypeInfo, error) {
+	const (
+		maxOfferingsResults = 1000
+		maxTypesPage        = 100
+	)
+
+	azResults, err := ec2Client.DescribeAvailabilityZones(ctx, &ec2.DescribeAvailabilityZonesInput{
+		Filters: []types.Filter{makeFilter("region-name", region)},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("fetching availability zones for region %q: %w", region, err)
+	}
+
+	azFilter := types.Filter{Name: aws.String("location")}
+	for _, az := range azResults.AvailabilityZones {
+		azFilter.Values = append(azFilter.Values, aws.ToString(az.ZoneName))
+	}
+
+	var instTypeNames []types.InstanceType
+	var token *string
+	for {
+		typeOfferings, err := ec2Client.DescribeInstanceTypeOfferings(ctx, &ec2.DescribeInstanceTypeOfferingsInput{
+			LocationType: "availability-zone",
+			MaxResults:   aws.Int32(maxOfferingsResults),
+			NextToken:    token,
+			Filters:      []types.Filter{azFilter},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("describing instnace type offerings for region %q: %w", region, err)
+		}
+
+		for _, offering := range typeOfferings.InstanceTypeOfferings {
+			instTypeNames = append(instTypeNames, offering.InstanceType)
+		}
+		token = typeOfferings.NextToken
+		if token == nil {
+			break
+		}
+	}
+
+	instanceTypes := make([]types.InstanceTypeInfo, 0, len(instTypeNames))
+	for len(instTypeNames) > 0 {
+		querySize := len(instTypeNames)
+		if querySize > maxTypesPage {
+			querySize = maxTypesPage
+		}
+		page := instTypeNames[0:querySize]
+		instTypeNames = instTypeNames[querySize:]
+
+		instTypeResults, err := ec2Client.DescribeInstanceTypes(ctx, &ec2.DescribeInstanceTypesInput{
+			InstanceTypes: page,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("describing instance types for region %q: %w", region, err)
+		}
+		instanceTypes = append(instanceTypes, instTypeResults.InstanceTypes...)
+	}
+
+	return instanceTypes, nil
 }

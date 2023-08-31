@@ -26,7 +26,6 @@ func toParamsInstanceTypeResult(itypes []instances.InstanceType) []params.Instan
 			Memory:       int(t.Mem),
 			RootDiskSize: int(t.RootDisk),
 			VirtType:     virtType,
-			Deprecated:   t.Deprecated,
 			Cost:         int(t.Cost),
 		}
 		if t.Arch != "" {

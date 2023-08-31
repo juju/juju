@@ -91,17 +91,16 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	for _, itype := range matchingTypes {
 		for _, image := range possibleImages {
 			specs := &partialSpecs
-			switch image.match(itype) {
-			case exactMatch:
+			if match := image.match(itype); match == exactMatch {
 				specs = &exactSpecs
-				fallthrough
-			case partialMatch:
-				*specs = append(*specs, &InstanceSpec{
-					InstanceType: itype,
-					Image:        image,
-					order:        len(*specs),
-				})
+			} else if match == nonMatch {
+				continue
 			}
+			*specs = append(*specs, &InstanceSpec{
+				InstanceType: itype,
+				Image:        image,
+				order:        len(*specs),
+			})
 		}
 	}
 

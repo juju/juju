@@ -262,19 +262,9 @@ func (srv *Server) addDefaultNIC(instSubnet *subnet) []types.NetworkInterface {
 		return nil
 	}
 	instSubnetId := aws.ToString(instSubnet.SubnetId)
-
-	ip, ipnet, err := net.ParseCIDR(aws.ToString(instSubnet.CidrBlock))
-	if err != nil {
-		panic(fmt.Sprintf("subnet %q has invalid CIDR: %v", instSubnetId, err.Error()))
-	}
-	// Just pick a valid subnet IP, it doesn't have to be unique
-	// across instances, as this is a testing server.
-	ip[len(ip)-1] = 5
-	if !ipnet.Contains(ip) {
-		panic(fmt.Sprintf("%q does not contain IP %q", instSubnetId, ip))
-	}
 	ifID := srv.ifaceId.next()
-	return []types.NetworkInterface{{
+
+	netInterface := types.NetworkInterface{
 		NetworkInterfaceId: aws.String(fmt.Sprintf("eni-%d", ifID)),
 		Description:        aws.String("created by ec2test server"),
 		Attachment: &types.NetworkInterfaceAttachment{
@@ -282,10 +272,9 @@ func (srv *Server) addDefaultNIC(instSubnet *subnet) []types.NetworkInterface {
 			DeviceIndex:         aws.Int32(0),
 			DeleteOnTermination: aws.Bool(true),
 		},
+		Ipv6Addresses: []types.NetworkInterfaceIpv6Address{},
 		PrivateIpAddresses: []types.NetworkInterfacePrivateIpAddress{{
-			PrivateIpAddress: aws.String(ip.String()),
-			PrivateDnsName:   aws.String(srv.dnsNameFromPrivateIP(ip.String())),
-			Primary:          aws.Bool(true),
+			Primary: aws.Bool(true),
 			// Assign a public shadow IP
 			Association: &types.NetworkInterfaceAssociation{
 				PublicIp:      aws.String(fmt.Sprintf("73.37.0.%d", ifID+1)),
@@ -293,7 +282,54 @@ func (srv *Server) addDefaultNIC(instSubnet *subnet) []types.NetworkInterface {
 				IpOwnerId:     aws.String("amazon"),
 			},
 		}},
-	}}
+	}
+
+	hasIPAddress := false
+	if instSubnet.CidrBlock != nil {
+		ip, ipnet, err := net.ParseCIDR(aws.ToString(instSubnet.CidrBlock))
+		if err != nil {
+			panic(fmt.Sprintf("subnet %q has invalid CIDR: %v", instSubnetId, err.Error()))
+		}
+		ip[len(ip)-1] = 5
+		if !ipnet.Contains(ip) {
+			panic(fmt.Sprintf("%q does not contain IP %q", instSubnetId, ip))
+		}
+
+		hasIPAddress = true
+		netInterface.PrivateIpAddresses[0].PrivateIpAddress = aws.String(ip.String())
+		netInterface.PrivateIpAddresses[0].PrivateDnsName = aws.String(srv.dnsNameFromPrivateIP(ip.String()))
+	}
+
+	if instSubnet.AssignIpv6AddressOnCreation != nil &&
+		*instSubnet.AssignIpv6AddressOnCreation &&
+		len(instSubnet.Ipv6CidrBlockAssociationSet) != 0 {
+		for i, ipv6Assoc := range instSubnet.Ipv6CidrBlockAssociationSet {
+			ip, ipnet, err := net.ParseCIDR(aws.ToString(ipv6Assoc.Ipv6CidrBlock))
+			if err != nil {
+				panic(fmt.Sprintf("subnet %q has invalid ipv6 CIDR: %v", instSubnetId, err.Error()))
+			}
+
+			ip[len(ip)-1] = 5
+			if !ipnet.Contains(ip) {
+				panic(fmt.Sprintf("%q does not contain IP %q", instSubnetId, ip))
+			}
+
+			hasIPAddress = true
+			netInterface.Ipv6Addresses = append(netInterface.Ipv6Addresses, types.NetworkInterfaceIpv6Address{
+				Ipv6Address:   aws.String(ip.String()),
+				IsPrimaryIpv6: aws.Bool(i == 0),
+			})
+			if i == 0 {
+				netInterface.Ipv6Address = aws.String(ip.String())
+			}
+		}
+	}
+
+	if !hasIPAddress {
+		panic(fmt.Sprintf("subnet id %q does not have any ip addresses to assign", instSubnetId))
+	}
+
+	return []types.NetworkInterface{netInterface}
 }
 
 // createNICsOnRun creates and returns any network interfaces
@@ -354,7 +390,10 @@ func (srv *Server) createNICsOnRun(instId string, instSubnet *subnet, ifacesToCr
 			Groups:             groups,
 			PrivateIpAddresses: ifaceToCreate.PrivateIpAddresses,
 			Attachment:         &attach,
+			Ipv6Addresses:      ifaceToCreate.Ipv6Addresses,
+			Ipv6Address:        ifaceToCreate.Ipv6Address,
 		}
+
 		srv.ifaces[nicId] = &iface{nic}
 		createdNICs = append(createdNICs, nic)
 	}
