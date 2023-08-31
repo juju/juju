@@ -1081,7 +1081,6 @@ var ifDatabaseUpgradeComplete = engine.Housing{
 	},
 }.Decorate
 
-// TODO: is there some kind of pattern here?
 const (
 	agentName              = "agent"
 	agentConfigUpdaterName = "agent-config-updater"
@@ -1153,7 +1152,6 @@ const (
 	kvmContainerProvisioner       = "kvm-container-provisioner"
 
 	secretBackendRotateName = "secret-backend-rotate"
-	controllerCharmName     = "controller-charm"
 
 	upgradeSeriesWorkerName = "upgrade-series"
 
@@ -1169,4 +1167,6 @@ const (
 	brokerTrackerName = "broker-tracker"
 
 	charmhubHTTPClientName = "charmhub-http-client"
+
+	controllerCharmName = "controller-charm"
 )
