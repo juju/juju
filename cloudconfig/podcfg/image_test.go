@@ -4,7 +4,7 @@
 package podcfg_test
 
 import (
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"

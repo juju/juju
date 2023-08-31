@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"github.com/juju/charm/v10"
-	"github.com/juju/charm/v10/hooks"
+	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"

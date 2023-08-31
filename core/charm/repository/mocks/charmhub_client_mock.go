@@ -9,7 +9,7 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v10"
+	charm "github.com/juju/charm/v11"
 	charmhub "github.com/juju/juju/charmhub"
 	transport "github.com/juju/juju/charmhub/transport"
 	gomock "go.uber.org/mock/gomock"

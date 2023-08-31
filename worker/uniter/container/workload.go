@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/juju/charm/v10/hooks"
+	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/worker/uniter/hook"

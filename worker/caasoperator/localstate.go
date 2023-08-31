@@ -6,7 +6,7 @@ package caasoperator
 import (
 	"os"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
 )

@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"time"
 
-	charmresource "github.com/juju/charm/v10/resource"
+	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

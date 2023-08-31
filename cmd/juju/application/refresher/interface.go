@@ -4,7 +4,7 @@
 package refresher
 
 import (
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	corecharm "github.com/juju/juju/core/charm"

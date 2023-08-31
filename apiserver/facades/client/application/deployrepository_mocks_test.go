@@ -7,7 +7,7 @@ package application
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v10"
+	charm "github.com/juju/charm/v11"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
