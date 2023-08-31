@@ -5966,6 +5966,9 @@
                     "properties": {
                         "include-charm-defaults": {
                             "type": "boolean"
+                        },
+                        "include-series": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false

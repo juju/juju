@@ -30,6 +30,7 @@ type exportBundleCommand struct {
 	newAPIFunc           func() (ExportBundleAPI, error)
 	Filename             string
 	includeCharmDefaults bool
+	includeSeries        bool
 }
 
 const exportBundleHelpDoc = `
@@ -38,12 +39,16 @@ Exports the current model configuration as a reusable bundle.
 If --filename is not used, the configuration is printed to stdout.
  --filename specifies an output file.
 
+If --include-series is used, the exported bundle will include the OS series
+ alongside bases. This should be used as a compatibility option for older
+ versions of Juju before bases were added.
 `
 
 const exportBundleHelpExamples = `
     juju export-bundle
     juju export-bundle --filename mymodel.yaml
     juju export-bundle --include-charm-defaults
+    juju export-bundle --include-series
 `
 
 // Info implements Command.
@@ -61,6 +66,7 @@ func (c *exportBundleCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.StringVar(&c.Filename, "filename", "", "Bundle file")
 	f.BoolVar(&c.includeCharmDefaults, "include-charm-defaults", false, "Whether to include charm config default values in the exported bundle")
+	f.BoolVar(&c.includeSeries, "include-series", false, "Comaptibility option. Set to include series in the bundle alongside bases")
 }
 
 // Init implements Command.
@@ -71,7 +77,7 @@ func (c *exportBundleCommand) Init(args []string) error {
 // ExportBundleAPI specifies the used function calls of the BundleFacade.
 type ExportBundleAPI interface {
 	Close() error
-	ExportBundle(bool) (string, error)
+	ExportBundle(includeCharmDefaults bool, includeSeries bool) (string, error)
 }
 
 func (c *exportBundleCommand) getAPIs() (ExportBundleAPI, error) {
@@ -91,7 +97,7 @@ func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
 	}
 	defer bundleClient.Close()
 
-	result, err := bundleClient.ExportBundle(c.includeCharmDefaults)
+	result, err := bundleClient.ExportBundle(c.includeCharmDefaults, c.includeSeries)
 	if err != nil {
 		return err
 	}
