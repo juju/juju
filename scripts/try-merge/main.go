@@ -217,12 +217,6 @@ func check(err error) {
 	}
 }
 
-// Print to stdout. Only the actual result should go here (the generated
-// notification message).
-func stdoutf(f string, v ...any) {
-	_, _ = fmt.Fprintf(os.Stdout, f, v...)
-}
-
 // Print to stderr. Logging/debug info should go here, so that it is kept
 // separate from the actual output.
 func stderrf(f string, v ...any) {
