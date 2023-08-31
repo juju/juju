@@ -11,14 +11,18 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.authentication.jwt")
 
 type Authenticator interface {
 	authentication.RequestAuthenticator
@@ -110,8 +114,13 @@ func (t TokenEntity) Tag() names.Tag {
 // SubjectPermissions implements PermissionDelegator
 func (p *PermissionDelegator) SubjectPermissions(
 	e authentication.Entity,
-	s names.Tag,
-) (permission.Access, error) {
+	subject names.Tag,
+) (a permission.Access, err error) {
+	if e.Tag().Id() == common.EveryoneTagName {
+		// JWT auth process does not support everyone@external.
+		// The everyone@external will be never included in the JWT token at least for now.
+		return permission.NoAccess, nil
+	}
 	tokenEntity, err := userFromToken(p.Token)
 	if err != nil {
 		return permission.NoAccess, errors.Trace(err)
@@ -121,7 +130,7 @@ func (p *PermissionDelegator) SubjectPermissions(
 	if tokenEntity.Tag().String() != e.Tag().String() {
 		return permission.NoAccess, fmt.Errorf("%w to use token permissions for one entity on another", errors.NotValid)
 	}
-	return PermissionFromToken(p.Token, s)
+	return PermissionFromToken(p.Token, subject)
 }
 
 // PermissionsError implements PermissionDelegator
@@ -142,6 +151,7 @@ func (j *JWTAuthenticator) Parse(ctx context.Context, tok string) (jwt.Token, au
 		return nil, nil, errors.New("no jwt authToken parser configured")
 	}
 	tokBytes, err := base64.StdEncoding.DecodeString(tok)
+	logger.Tracef("token %s, error %#v", string(tokBytes), err)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "invalid jwt authToken in request")
 	}
