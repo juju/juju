@@ -189,6 +189,7 @@ func NewMachineManagerAPI(
 		callContext:            callCtx,
 		resources:              resources,
 		leadership:             leadership,
+		storageAccess:          storageAccess,
 		upgradeSeriesAPI: NewUpgradeSeriesAPI(
 			upgradeSeriesState{state: backend},
 			makeUpgradeSeriesValidator(charmhubClient),

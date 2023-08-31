@@ -4,7 +4,6 @@
 package eventsource
 
 import (
-	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
@@ -53,7 +52,9 @@ func (w *ValueWatcher) loop() error {
 	})
 	subscription, err := w.watchableDB.Subscribe(opt)
 	if err != nil {
-		return errors.Annotatef(err, "subscribing to entity %q in namespace %q", w.changeValue, w.namespace)
+		// TODO(wallyworld) - remove when we have dqlite watchers on k8s
+		w.logger.Warningf("error subscribing to entity %q in namespace %q: %v", w.changeValue, w.namespace, err)
+		subscription = noopSubscription{}
 	}
 	defer subscription.Unsubscribe()
 

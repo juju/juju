@@ -45,6 +45,7 @@ import (
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -248,7 +249,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *g
 			"max-action-results-age":  "2h",
 			"max-action-results-size": "4M",
 		},
-		CloudCredential: names.NewCloudCredentialTag("dummy/admin/default"),
+		CloudCredential: testing.DefaultCredentialTag,
 	})
 	defer func() {
 		err := st.Close()

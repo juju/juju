@@ -251,9 +251,13 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	if s.WithControllerModelType == state.ModelTypeCAAS {
 		modelType = s.WithControllerModelType
 	}
-	if s.CredentialService == nil {
+
+	credentialService := s.CredentialService
+	if credentialService == nil {
 		// modelUUID param is not used so can pass in anything.
-		s.CredentialService = s.ServiceFactoryGetter.FactoryForModel("").Credential()
+		credentialService = s.ServiceFactoryGetter.FactoryForModel("").Credential()
+	} else {
+
 	}
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
@@ -272,7 +276,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		Cloud:         DefaultCloud,
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
-		NewPolicy:     stateenvirons.GetNewPolicyFunc(s.CredentialService),
+		NewPolicy:     stateenvirons.GetNewPolicyFunc(credentialService),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl

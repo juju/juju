@@ -872,6 +872,8 @@ func (s *modelManagerStateSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
+	cred := cloud.NewEmptyCredential()
+	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
 	s.ControllerModelConfigAttrs = map[string]interface{}{
 		"agent-version": jujuversion.Current.String(),
 	}
@@ -895,12 +897,12 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	configGetter := stateenvirons.EnvironConfigGetter{Model: s.ControllerModel(c)}
-	newEnviron := common.EnvironFuncForModel(model, s.ControllerServiceFactory.Credential(), configGetter)
+	configGetter := stateenvirons.EnvironConfigGetter{Model: s.ControllerModel(c), CredentialService: s.CredentialService}
+	newEnviron := common.EnvironFuncForModel(model, s.CredentialService, configGetter)
 	toolsFinder := common.NewToolsFinder(s.controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		st, nil, ctlrSt,
-		s.ControllerServiceFactory.Credential(),
+		s.CredentialService,
 		&mockModelManagerService{},
 		toolsFinder,
 		nil,
@@ -921,7 +923,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 		st,
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
-		s.ControllerServiceFactory.Credential(),
+		s.CredentialService,
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.ControllerModel(c),
@@ -939,7 +941,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		st,
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
-		s.ControllerServiceFactory.Credential(),
+		s.CredentialService,
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.ControllerModel(c),
 		s.callContext,
@@ -1145,7 +1147,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 		backend,
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
-		s.ControllerServiceFactory.Credential(),
+		s.CredentialService,
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.ControllerModel(c),
@@ -1196,7 +1198,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		backend,
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
-		s.ControllerServiceFactory.Credential(),
+		s.CredentialService,
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.ControllerModel(c),
@@ -1236,7 +1238,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		backend,
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
-		s.ControllerServiceFactory.Credential(),
+		s.CredentialService,
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser, s.ControllerModel(c),
 		s.callContext,
@@ -1710,7 +1712,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 		st,
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
-		s.ControllerServiceFactory.Credential(),
+		s.CredentialService,
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.ControllerModel(c),

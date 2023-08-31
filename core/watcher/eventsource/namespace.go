@@ -61,7 +61,9 @@ func (w *NamespaceWatcher) loop() error {
 	}
 	subscription, err := w.watchableDB.Subscribe(changestream.Namespace(w.namespace, w.changeMask))
 	if err != nil {
-		return errors.Annotatef(err, "subscribing to namespace %q", w.namespace)
+		// TODO(wallyworld) - remove when we have dqlite watchers on k8s
+		w.logger.Warningf("error subscribing to namespace %q: %v", w.namespace, err)
+		subscription = noopSubscription{}
 	}
 	// TODO(wallyworld) - this is nil sometimes is cmd/jujud/agent tests.
 	if subscription == nil {

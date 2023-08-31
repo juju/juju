@@ -27,7 +27,7 @@ func Register(registry facade.FacadeRegistry) {
 	}, reflect.TypeOf((*ModelManagerAPI)(nil)))
 }
 
-// newFacadeV9 is used for API registration.
+// newFacadeV10 is used for API registration.
 func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 	st := ctx.State()
 	pool := ctx.StatePool()

@@ -17,6 +17,7 @@ import (
 // Logger represents the logging methods called.
 type Logger interface {
 	Debugf(message string, args ...any)
+	Warningf(message string, args ...any)
 	Child(string) Logger
 }
 
