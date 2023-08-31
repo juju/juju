@@ -200,10 +200,10 @@ func (s *FirewallerSuite) TestModelFirewallRulesController(c *gc.C) {
 		SourceCIDRs: []string{"192.168.0.0/24", "192.168.1.0/24"},
 	}, {
 		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("17777")),
-		SourceCIDRs: []string{"0.0.0.0/0"},
+		SourceCIDRs: []string{"0.0.0.0/0", "::/0"},
 	}, {
 		PortRange:   params.FromNetworkPortRange(network.MustParsePortRange("80")),
-		SourceCIDRs: []string{"0.0.0.0/0"},
+		SourceCIDRs: []string{"0.0.0.0/0", "::/0"},
 	}}})
 }
 

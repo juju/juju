@@ -152,7 +152,7 @@ class EKS(Base):
             o = self.eksctl(
                 'create', 'cluster',
                 '--name', self.cluster_name,
-                '--version', '1.19',
+                '--version', '1.27',
                 '--region', self.location,
                 '--nodes', 3,
                 '--nodes-min', 1,

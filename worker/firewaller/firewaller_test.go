@@ -956,7 +956,7 @@ func (s *InstanceModeSuite) TestDefaultModelFirewall(c *gc.C) {
 
 	s.assertModelIngressRules(c, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), "0.0.0.0/0", "::/0"),
-		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(apiPort)), "0.0.0.0/0"),
+		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(apiPort)), "0.0.0.0/0", "::/0"),
 	})
 }
 
@@ -973,7 +973,7 @@ func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
 
 	s.assertModelIngressRules(c, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), "0.0.0.0/0", "::/0"),
-		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(apiPort)), "0.0.0.0/0"),
+		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(apiPort)), "0.0.0.0/0", "::/0"),
 	})
 
 	err = model.UpdateModelConfig(map[string]interface{}{
@@ -983,7 +983,7 @@ func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
 
 	s.assertModelIngressRules(c, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), "192.168.0.0/24"),
-		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(apiPort)), "0.0.0.0/0"),
+		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(apiPort)), "0.0.0.0/0", "::/0"),
 	})
 }
 
@@ -1400,7 +1400,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ingress []string, expect
 	_, err = rin.Save(rel.Tag().Id(), false, ingress)
 	c.Assert(err, jc.ErrorIsNil)
 
-	//Ports opened.
+	// Ports opened.
 	s.assertIngressRules(c, inst, m.Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})

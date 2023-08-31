@@ -88,7 +88,7 @@ func (j *JWTAuthenticator) AuthenticateLoginRequest(
 	authParams authentication.AuthParams,
 ) (authentication.AuthInfo, error) {
 	if authParams.Token == "" {
-		return authentication.AuthInfo{}, fmt.Errorf("auth token %w", errors.NotFound)
+		return authentication.AuthInfo{}, fmt.Errorf("auth token %w", errors.NotSupported)
 	}
 
 	token, entity, err := j.Parse(ctx, authParams.Token)
@@ -195,8 +195,6 @@ func PermissionFromToken(token jwt.Token, subject names.Tag) (permission.Access,
 		validate = permission.ValidateControllerAccess
 	case names.ModelTagKind:
 		validate = permission.ValidateModelAccess
-	case names.ApplicationOfferTagKind:
-
 	case names.CloudTagKind:
 		validate = permission.ValidateCloudAccess
 	default:
