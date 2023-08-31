@@ -17,7 +17,8 @@ run_prometheus() {
 
 # Check we can relate the controller charm to multiple Prometheus instances.
 run_prometheus_multi() {
-
+	# TODO: fill this in
+	:
 }
 
 test_prometheus() {
