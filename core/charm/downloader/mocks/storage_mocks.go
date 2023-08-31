@@ -7,7 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v10"
+	charm "github.com/juju/charm/v11"
 	charm0 "github.com/juju/juju/core/charm"
 	downloader "github.com/juju/juju/core/charm/downloader"
 	gomock "go.uber.org/mock/gomock"

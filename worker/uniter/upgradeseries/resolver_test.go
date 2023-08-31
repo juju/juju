@@ -4,7 +4,7 @@
 package upgradeseries_test
 
 import (
-	"github.com/juju/charm/v10/hooks"
+	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
