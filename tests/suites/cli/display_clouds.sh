@@ -5,14 +5,14 @@ run_show_clouds() {
 	echo "" >>"${TEST_DIR}/juju/public-clouds.yaml"
 	echo "" >>"${TEST_DIR}/juju/credentials.yaml"
 
-	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq '.[] | select(.defined != "built-in")')
+	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | jq '.[] | select(.defined != "built-in")')
 	if [ -n "${OUT}" ]; then
 		echo "expected empty, got ${OUT}"
 		exit 1
 	fi
 
 	cp ./tests/suites/cli/clouds/public-clouds.yaml "${TEST_DIR}"/juju/public-clouds.yaml
-	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq '.[] | select(.defined != "built-in")')
+	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | jq '.[] | select(.defined != "built-in")')
 	if [ -n "${OUT}" ]; then
 		echo "expected empty, got ${OUT}"
 		exit 1
@@ -38,7 +38,7 @@ run_show_clouds() {
 EOF
 	)
 
-	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --all --format=json 2>/dev/null | jq '.[] | select(.defined != "built-in")')
+	OUT=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --all --format=json | jq '.[] | select(.defined != "built-in")')
 	if [ "${OUT}" != "${EXPECTED}" ]; then
 		echo "expected ${EXPECTED}, got ${OUT}"
 		exit 1
@@ -52,7 +52,7 @@ run_assess_clouds() {
 	echo "" >>"${TEST_DIR}/juju/public-clouds.yaml"
 	echo "" >>"${TEST_DIR}/juju/credentials.yaml"
 
-	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq 'with_entries(select(.value.defined != "built-in"))')
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | jq 'with_entries(select(.value.defined != "built-in"))')
 	EXPECTED={}
 	if [ "${CLOUD_LIST}" != "${EXPECTED}" ]; then
 		echo "expected ${EXPECTED}, got ${CLOUD_LIST}"
@@ -79,7 +79,7 @@ EOF
 	)
 
 	echo "${CLOUDS}" >>"${TEST_DIR}/juju/clouds.yaml"
-	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json 2>/dev/null | jq -S 'with_entries(select(
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju clouds --client --format=json | jq -S 'with_entries(select(
 	                                                  .value.defined != "built-in")) | with_entries((select(.value.defined == "local")
 	                                                  | del(.value.defined) |  del(.value.description)))')
 	EXPECTED=$(echo "${CLOUDS}" | yq -j | jq -S '.[] | del(.clouds) | .[] |= ({endpoint} as $endpoint | .[] |= walk(
@@ -90,7 +90,7 @@ EOF
 		exit 1
 	fi
 
-	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format yaml --client 2>/dev/null | yq -j | jq -S 'with_entries((select(.value!= null)))')
+	CLOUD_LIST=$(JUJU_DATA="${TEST_DIR}/juju" juju show-cloud finfolk-vmaas --format yaml --client | yq -j | jq -S 'with_entries((select(.value!= null)))')
 	EXPECTED=$(
 		cat <<'EOF' | jq -S
 	{
@@ -100,6 +100,8 @@ EOF
     "defined": "local",
     "description": "Metal As A Service",
     "endpoint": "http://10.125.0.10:5240/MAAS/",
+    "name": "finfolk-vmaas",
+    "summary": "Client cloud \"finfolk-vmaas\"",
     "type": "maas"
   }
 EOF
@@ -115,7 +117,7 @@ run_controller_clouds() {
 	echo
 
 	juju add-cloud my-ec2 -f "./tests/suites/cli/clouds/myclouds.yaml" --force --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME}
-	OUT=$(juju clouds --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME} --format=json 2>/dev/null | jq '.[]')
+	OUT=$(juju clouds --controller ${BOOTSTRAPPED_JUJU_CTRL_NAME} --format=json | jq '.[]')
 
 	EXPECTED=$(
 		cat <<'EOF'

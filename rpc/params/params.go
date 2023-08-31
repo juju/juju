@@ -1094,6 +1094,7 @@ type LeaseOperationCommand struct {
 // ExportBundleParams holds parameters for exporting Bundles.
 type ExportBundleParams struct {
 	IncludeCharmDefaults bool `json:"include-charm-defaults,omitempty"`
+	IncludeSeries        bool `json:"include-series,omitempty"`
 }
 
 // BundleChangesParams holds parameters for making Bundle.GetChanges calls.

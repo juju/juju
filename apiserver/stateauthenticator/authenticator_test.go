@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -28,6 +29,18 @@ type agentAuthenticatorSuite struct {
 }
 
 var _ = gc.Suite(&agentAuthenticatorSuite{})
+
+func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	authenticator, err := stateauthenticator.NewAuthenticator(s.StatePool, clock.WallClock)
+	c.Assert(err, jc.ErrorIsNil)
+	s.authenticator = authenticator
+}
+
+func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupportedRequests(c *gc.C) {
+	_, err := s.authenticator.AuthenticateLoginRequest(context.TODO(), "", "", authentication.AuthParams{Token: "token"})
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
 
 func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	defer s.setupMocks(c).Finish()

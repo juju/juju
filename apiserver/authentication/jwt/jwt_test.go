@@ -69,6 +69,12 @@ func (s *loginTokenSuite) TestCacheRegistrationFailureWithBadURL(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
+func (s *loginTokenSuite) TestAuthenticateLoginRequestNotSupported(c *gc.C) {
+	authenticator := jwt.NewAuthenticator(s.url)
+	_, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", authentication.AuthParams{Token: ""})
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+}
+
 func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
 	modelTag := names.NewModelTag("test")
 	tok, err := EncodedJWT(JWTParams{

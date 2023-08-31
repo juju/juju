@@ -151,7 +151,13 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	serverHost string,
 	modelUUID string,
 	authParams authentication.AuthParams,
-) (authentication.AuthInfo, error) {
+) (_ authentication.AuthInfo, err error) {
+	defer func() {
+		if errors.Is(err, apiservererrors.ErrNoCreds) {
+			err = errors.NewNotSupported(err, "")
+		}
+	}()
+
 	st, err := a.statePool.Get(modelUUID)
 	if err != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)

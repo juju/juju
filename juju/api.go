@@ -149,7 +149,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 	if !apiInfo.SkipLogin {
 		if ok {
 			if accountDetails, err = args.Store.AccountDetails(args.ControllerName); err != nil {
-				if !errors.IsNotFound(err) {
+				if !errors.Is(err, errors.NotFound) {
 					logger.Errorf("cannot load local account information: %v", err)
 				}
 			} else {
@@ -232,18 +232,31 @@ func usableHostPorts(hps []network.MachineHostPorts) network.HostPorts {
 	return collapsed.FilterUnusable().Unique()
 }
 
-// addrsChanged reports whether the two slices
-// are different. Order is important.
-func addrsChanged(a, b []string) bool {
+// addrsChanged reports whether the two slices are different.
+// The first return tells if they are different in any way (including reordering),
+// the second indicates if the set of addresses are different.
+func addrsChanged(a, b []string) (bool, bool) {
 	if len(a) != len(b) {
-		return true
+		return true, true
 	}
+	aKeys := make(map[string]struct{}, len(a))
+	for _, k := range a {
+		aKeys[k] = struct{}{}
+	}
+	outOfOrder := false
 	for i := range a {
+		bKey := b[i]
+		if _, ok := aKeys[bKey]; ok {
+			delete(aKeys, bKey)
+		} else {
+			// b has a key that is not in a, therefore we must not match at all
+			return true, true
+		}
 		if a[i] != b[i] {
-			return true
+			outOfOrder = true
 		}
 	}
-	return false
+	return outOfOrder, false
 }
 
 // UpdateControllerParams holds values used to update a controller details
@@ -336,8 +349,11 @@ func updateControllerDetailsFromLogin(
 		// Nothing has changed - no need to update the controller details.
 		return nil
 	}
-	if addrsChanged(newDetails.APIEndpoints, details.APIEndpoints) {
+	reordered, diffContents := addrsChanged(newDetails.APIEndpoints, details.APIEndpoints)
+	if diffContents {
 		logger.Infof("API endpoints changed from %v to %v", details.APIEndpoints, newDetails.APIEndpoints)
+	} else if reordered {
+		logger.Tracef("API endpoints reordered from %v to %v", details.APIEndpoints, newDetails.APIEndpoints)
 	}
 	err = store.UpdateController(controllerName, *newDetails)
 	return errors.Trace(err)

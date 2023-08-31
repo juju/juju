@@ -56,6 +56,336 @@ func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv7 {
 	return &bundle.APIv7{api}
 }
 
+func (s *bundleSuite) TestGetChangesBundleContentError(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: ":",
+	}
+	r, err := s.facade.GetChanges(args)
+	c.Assert(err, gc.ErrorMatches, `cannot read bundle YAML: malformed bundle: bundle is empty not valid`)
+	c.Assert(r, gc.DeepEquals, params.BundleChangesResults{})
+}
+
+func (s *bundleSuite) TestGetChangesBundleVerificationErrors(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    to: [1]
+                haproxy:
+                    charm: 42
+                    num_units: -1
+        `,
+	}
+	r, err := s.facade.GetChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, gc.IsNil)
+	c.Assert(r.Errors, jc.SameContents, []string{
+		`placement "1" refers to a machine not defined in this bundle`,
+		`too many units specified in unit placement for application "django"`,
+		`invalid charm URL in application "haproxy": cannot parse name and/or revision in URL "42": name "42" not valid`,
+		`negative number of units specified on application "haproxy"`,
+	})
+}
+
+func (s *bundleSuite) TestGetChangesBundleConstraintsError(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    num_units: 1
+                    constraints: bad=wolf
+        `,
+	}
+	r, err := s.facade.GetChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, gc.IsNil)
+	c.Assert(r.Errors, jc.SameContents, []string{
+		`invalid constraints "bad=wolf" in application "django": unknown constraint "bad"`,
+	})
+}
+
+func (s *bundleSuite) TestGetChangesBundleStorageError(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    num_units: 1
+                    storage:
+                        bad: 0,100M
+        `,
+	}
+	r, err := s.facade.GetChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, gc.IsNil)
+	c.Assert(r.Errors, jc.SameContents, []string{
+		`invalid storage "bad" in application "django": cannot parse count: count must be greater than zero, got "0"`,
+	})
+}
+
+func (s *bundleSuite) TestGetChangesBundleDevicesError(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    num_units: 1
+                    devices:
+                        bad-gpu: -1,nvidia.com/gpu
+        `,
+	}
+	r, err := s.facade.GetChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(r.Changes, gc.IsNil)
+	c.Assert(r.Errors, jc.SameContents, []string{
+		`invalid device "bad-gpu" in application "django": count must be greater than zero, got "-1"`,
+	})
+}
+
+func (s *bundleSuite) TestGetChangesSuccessV2(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    options:
+                        debug: true
+                    storage:
+                        tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu
+                haproxy:
+                    charm: haproxy
+                    revision: 42
+                    channel: stable
+                    base: ubuntu@22.04/stable
+            relations:
+                - - django:web
+                  - haproxy:web
+        `,
+	}
+	r, err := s.facade.GetChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChange{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args:   []interface{}{"haproxy", "jammy", "stable"},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-2",
+			"jammy",
+			"haproxy",
+			map[string]interface{}{},
+			"",
+			map[string]string{},
+			map[string]string{},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"stable",
+		},
+		Requires: []string{"addCharm-2"},
+	}, {
+		Id:       "addRelation-4",
+		Method:   "addRelation",
+		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
+		Requires: []string{"deploy-1", "deploy-3"},
+	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
+	c.Assert(r.Errors, gc.IsNil)
+}
+
+func (s *bundleSuite) TestGetChangesWithOverlaysV6(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    options:
+                        debug: true
+                    storage:
+                        tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu
+                haproxy:
+                    charm: ch:haproxy-42
+            relations:
+                - - django:web
+                  - haproxy:web
+--- # overlay
+description: remove haproxy
+applications:
+    haproxy:
+        `,
+	}
+
+	expectedChanges_V6 := []*params.BundleChange{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
+	}}
+
+	apiv6 := s.makeAPI(c)
+	r_v6, err_v6 := apiv6.GetChanges(args)
+	c.Assert(err_v6, jc.ErrorIsNil)
+	c.Assert(r_v6.Changes, jc.DeepEquals, expectedChanges_V6)
+}
+
+func (s *bundleSuite) TestGetChangesKubernetes(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            bundle: kubernetes
+            applications:
+                django:
+                    charm: django
+                    scale: 1
+                    options:
+                        debug: true
+                    storage:
+                        tmpfs: tmpfs,1G
+                    devices:
+                        bitcoinminer: 2,nvidia.com/gpu
+                haproxy:
+                    charm: ch:haproxy
+                    revision: 42
+                    channel: stable
+            relations:
+                - - django:web
+                  - haproxy:web
+        `,
+	}
+	r, err := s.facade.GetChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(r.Changes, jc.DeepEquals, []*params.BundleChange{{
+		Id:     "addCharm-0",
+		Method: "addCharm",
+		Args:   []interface{}{"django", "", ""},
+	}, {
+		Id:     "deploy-1",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-0",
+			"",
+			"django",
+			map[string]interface{}{"debug": true},
+			"",
+			map[string]string{"tmpfs": "tmpfs,1G"},
+			map[string]string{"bitcoinminer": "2,nvidia.com/gpu"},
+			map[string]string{},
+			map[string]int{},
+			1,
+			"",
+		},
+		Requires: []string{"addCharm-0"},
+	}, {
+		Id:     "addCharm-2",
+		Method: "addCharm",
+		Args:   []interface{}{"ch:haproxy", "", "stable"},
+	}, {
+		Id:     "deploy-3",
+		Method: "deploy",
+		Args: []interface{}{
+			"$addCharm-2",
+			"",
+			"haproxy",
+			map[string]interface{}{},
+			"",
+			map[string]string{},
+			map[string]string{},
+			map[string]string{},
+			map[string]int{},
+			0,
+			"stable",
+		},
+		Requires: []string{"addCharm-2"},
+	}, {
+		Id:       "addRelation-4",
+		Method:   "addRelation",
+		Args:     []interface{}{"$deploy-1:web", "$deploy-3:web"},
+		Requires: []string{"deploy-1", "deploy-3"},
+	}}, gc.Commentf("\nobtained: %s\n", pretty.Sprint(r.Changes)))
+	c.Assert(r.Errors, gc.IsNil)
+}
+
+func (s *bundleSuite) TestGetChangesBundleEndpointBindingsSuccess(c *gc.C) {
+	args := params.BundleChangesParams{
+		BundleDataYAML: `
+            applications:
+                django:
+                    charm: django
+                    num_units: 1
+                    bindings:
+                        url: public
+        `,
+	}
+	r, err := s.facade.GetChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, change := range r.Changes {
+		if change.Method == "deploy" {
+			c.Assert(change, jc.DeepEquals, &params.BundleChange{
+				Id:     "deploy-1",
+				Method: "deploy",
+				Args: []interface{}{
+					"$addCharm-0",
+					"",
+					"django",
+					map[string]interface{}{},
+					"",
+					map[string]string{},
+					map[string]string{},
+					map[string]string{"url": "public"},
+					map[string]int{},
+					0,
+					"",
+				},
+				Requires: []string{"addCharm-0"},
+			})
+		}
+	}
+}
+
 func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {
 	args := params.BundleChangesParams{
 		BundleDataYAML: ":",
@@ -160,7 +490,7 @@ func (s *bundleSuite) TestGetChangesMapArgsSuccess(c *gc.C) {
                     charm: ch:haproxy
                     revision: 42
                     channel: stable
-                    series: jammy
+                    base: ubuntu@22.04/stable
             relations:
                 - - django:web
                   - haproxy:web
@@ -461,7 +791,7 @@ func (s *bundleSuite) TestExportBundleWithApplication(c *gc.C) {
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   ubuntu:
     charm: ubuntu
@@ -510,7 +840,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationResources(c *gc.C) {
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   ubuntu:
     charm: ubuntu
@@ -564,7 +894,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationStorage(c *gc.C) {
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   ubuntu:
     charm: ubuntu
@@ -609,7 +939,7 @@ func (s *bundleSuite) TestExportBundleWithTrustedApplication(c *gc.C) {
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   ubuntu:
     charm: ubuntu
@@ -672,7 +1002,7 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   foo:
     charm: ubuntu
@@ -819,7 +1149,7 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   foo:
     charm: ubuntu
@@ -946,7 +1276,7 @@ func (s *bundleSuite) TestExportBundleWithSaas(c *gc.C) {
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 saas:
   awesome:
     url: test:admin/default.awesome
@@ -1057,7 +1387,7 @@ func (s *bundleSuite) TestExportBundleModelWithSettingsRelations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: mysql
@@ -1100,7 +1430,7 @@ func (s *bundleSuite) TestExportBundleModelWithCharmDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mariadb:
     charm: mariadb
@@ -1130,6 +1460,71 @@ relations:
   - mysql:mysql
 `[1:]
 	expectedResult := params.StringResult{Result: output}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportBundleModelWithIncludeSeries(c *gc.C) {
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
+			"default-base": "ubuntu@20.04",
+		}),
+		CloudRegion: "some-region"})
+
+	application := s.st.model.AddApplication(description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("magic"),
+		CharmURL: "ch:magic",
+	})
+	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
+	application.AddUnit(description.UnitArgs{
+		Tag:     names.NewUnitTag("magic/0"),
+		Machine: names.NewMachineTag("0"),
+	})
+	s.st.model.AddMachine(description.MachineArgs{
+		Id:   names.NewMachineTag("0"),
+		Base: "ubuntu@20.04",
+	})
+
+	application = s.st.model.AddApplication(description.ApplicationArgs{
+		Tag:      names.NewApplicationTag("mojo"),
+		CharmURL: "ch:mojo",
+	})
+	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/22.04/stable"})
+	application.AddUnit(description.UnitArgs{
+		Tag:     names.NewUnitTag("mojo/0"),
+		Machine: names.NewMachineTag("1"),
+	})
+	s.st.model.AddMachine(description.MachineArgs{
+		Id:   names.NewMachineTag("1"),
+		Base: "ubuntu@22.04",
+	})
+
+	result, err := s.facade.ExportBundle(params.ExportBundleParams{IncludeSeries: true})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedResult := params.StringResult{Result: `
+default-base: ubuntu@20.04/stable
+series: focal
+applications:
+  magic:
+    charm: magic
+    num_units: 1
+    to:
+    - "0"
+  mojo:
+    charm: mojo
+    series: jammy
+    base: ubuntu@22.04/stable
+    num_units: 1
+    to:
+    - "1"
+machines:
+  "0": {}
+  "1":
+    series: jammy
+    base: ubuntu@22.04/stable
+`[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
@@ -1176,7 +1571,7 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: mysql
@@ -1244,7 +1639,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
-series: bionic
+default-base: ubuntu@18.04/stable
 applications:
   magic:
     charm: magic
@@ -1303,12 +1698,12 @@ applications:
   magic:
     charm: magic
     channel: stable
-    series: bionic
+    base: ubuntu@18.04/stable
     expose: true
   ubuntu:
     charm: ubuntu
     channel: stable
-    series: focal
+    base: ubuntu@20.04/stable
     options:
       key: value
 `[1:]}
@@ -1325,7 +1720,7 @@ applications:
   magic:
     charm: magic
     channel: stable
-    series: bionic
+    base: ubuntu@18.04/stable
     expose: true
     bindings:
       another: vlan2
@@ -1333,7 +1728,7 @@ applications:
   ubuntu:
     charm: ubuntu
     channel: stable
-    series: focal
+    base: ubuntu@20.04/stable
     options:
       key: value
     bindings:
@@ -1367,7 +1762,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
-series: zesty
+default-base: ubuntu@17.04/stable
 applications:
   magic:
     charm: magic
@@ -1418,7 +1813,7 @@ func (s *bundleSuite) TestExportBundleModelWithConstraints(c *gc.C) {
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mediawiki:
     charm: mediawiki
@@ -1474,7 +1869,7 @@ func (s *bundleSuite) TestExportBundleModelWithAnnotations(c *gc.C) {
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: mysql
@@ -1560,7 +1955,7 @@ func (s *bundleSuite) TestExportBundleWithContainers(c *gc.C) {
 	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: mysql
@@ -1622,7 +2017,7 @@ func (s *bundleSuite) TestMixedSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedResult := params.StringResult{Result: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   magic:
     charm: magic
@@ -1631,14 +2026,14 @@ applications:
     - "0"
   mojo:
     charm: mojo
-    series: jammy
+    base: ubuntu@22.04/stable
     num_units: 1
     to:
     - "1"
 machines:
   "0": {}
   "1":
-    series: jammy
+    base: ubuntu@22.04/stable
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
@@ -1691,21 +2086,21 @@ func (s *bundleSuite) TestMixedSeriesNoDefaultSeries(c *gc.C) {
 applications:
   magic:
     charm: magic
-    series: hirsute
+    base: ubuntu@21.04/stable
     num_units: 1
     to:
     - "0"
   mojo:
     charm: mojo
-    series: jammy
+    base: ubuntu@22.04/stable
     num_units: 1
     to:
     - "1"
 machines:
   "0":
-    series: hirsute
+    base: ubuntu@21.04/stable
   "1":
-    series: jammy
+    base: ubuntu@22.04/stable
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
@@ -1746,7 +2141,7 @@ func (s *bundleSuite) TestExportCharmhubBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: mysql
@@ -1782,7 +2177,7 @@ func (s *bundleSuite) TestExportLocalBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: local:mysql
@@ -1816,7 +2211,7 @@ func (s *bundleSuite) TestExportLocalBundleWithSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	output := `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   mysql:
     charm: local:mysql
@@ -1853,7 +2248,7 @@ func (s *bundleSuite) TestExportBundleWithExposedEndpointSettings(c *gc.C) {
 			descr:   "exposed application without exposed endpoint settings (upgraded 2.8 controller)",
 			exposed: true,
 			expBundle: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   magic:
     charm: magic
@@ -1874,7 +2269,7 @@ applications:
 				},
 			},
 			expBundle: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   magic:
     charm: magic
@@ -1899,7 +2294,7 @@ applications:
 			},
 			// The exposed:true will be omitted and only the exposed-endpoints section (in the overlay) will be present
 			expBundle: `
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   magic:
     charm: magic

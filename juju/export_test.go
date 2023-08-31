@@ -4,6 +4,5 @@
 package juju
 
 var (
-	MoveToFront    = moveToFront
 	ConnectionInfo = connectionInfo
 )
