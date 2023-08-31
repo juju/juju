@@ -18,11 +18,11 @@ import (
 
 // Recognized AWS instance states.
 var (
-	Pending      = types.InstanceState{aws.Int32(0), "pending"}
-	Running      = types.InstanceState{aws.Int32(16), "running"}
-	ShuttingDown = types.InstanceState{aws.Int32(32), "shutting-down"}
-	Terminated   = types.InstanceState{aws.Int32(16), "terminated"}
-	Stopped      = types.InstanceState{aws.Int32(16), "stopped"}
+	Pending      = types.InstanceState{Code: aws.Int32(0), Name: "pending"}
+	Running      = types.InstanceState{Code: aws.Int32(16), Name: "running"}
+	ShuttingDown = types.InstanceState{Code: aws.Int32(32), Name: "shutting-down"}
+	Terminated   = types.InstanceState{Code: aws.Int32(16), Name: "terminated"}
+	Stopped      = types.InstanceState{Code: aws.Int32(16), Name: "stopped"}
 )
 
 // Instance holds a fake ec2 instance
@@ -398,7 +398,7 @@ func (inst *Instance) ec2instance() types.Instance {
 		dnsName = fmt.Sprintf("%s.testing.invalid", id)
 		blockDeviceMappings = inst.blockDeviceMappings
 	}
-	return types.Instance{
+	i := types.Instance{
 		InstanceId:          aws.String(id),
 		InstanceType:        inst.instType,
 		ImageId:             aws.String(inst.imageId),
@@ -417,6 +417,16 @@ func (inst *Instance) ec2instance() types.Instance {
 		RootDeviceName:      aws.String(inst.rootDeviceName),
 		MetadataOptions:     inst.metadataOptions,
 	}
+
+	// Set the ipv6 address on the instance to the first one we find.
+	for _, iface := range inst.ifaces {
+		if iface.Ipv6Address != nil {
+			i.Ipv6Address = iface.Ipv6Address
+			break
+		}
+	}
+
+	return i
 }
 
 func (inst *Instance) matchAttr(attr, value string) (ok bool, err error) {

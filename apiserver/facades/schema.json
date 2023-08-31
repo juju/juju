@@ -5905,6 +5905,9 @@
                     "properties": {
                         "include-charm-defaults": {
                             "type": "boolean"
+                        },
+                        "include-series": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false
@@ -13701,9 +13704,6 @@
                         },
                         "cpu-cores": {
                             "type": "integer"
-                        },
-                        "deprecated": {
-                            "type": "boolean"
                         },
                         "memory": {
                             "type": "integer"
@@ -23292,9 +23292,6 @@
                         },
                         "cpu-cores": {
                             "type": "integer"
-                        },
-                        "deprecated": {
-                            "type": "boolean"
                         },
                         "memory": {
                             "type": "integer"

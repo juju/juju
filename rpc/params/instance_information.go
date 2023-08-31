@@ -69,6 +69,5 @@ type InstanceType struct {
 	Memory       int      `json:"memory"`
 	RootDiskSize int      `json:"root-disk,omitempty"`
 	VirtType     string   `json:"virt-type,omitempty"`
-	Deprecated   bool     `json:"deprecated,omitempty"`
 	Cost         int      `json:"cost,omitempty"`
 }

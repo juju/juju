@@ -5,13 +5,14 @@ package application
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 )
 
-const parseBindErrorPrefix = "--bind must be in the form '[<default-space>] [<endpoint-name>=<space> ...]'. "
+const parseBindError = "--bind must be in the form '[<default-space>] [<endpoint-name>=<space> ...]'; %s"
 
 // parseBindExpr parses the --bind option and returns back a map where keys
 // are endpoint names and values are space names. Valid forms are:
@@ -35,12 +36,14 @@ func parseBindExpr(expr string, knownSpaceNames set.Strings) (map[string]string,
 			spaceName = v[0]
 		case 2:
 			if v[0] == "" {
-				return nil, errors.New(parseBindErrorPrefix + "Found = without endpoint name. Use a lone space name to set the default.")
+				return nil, errors.Errorf(parseBindError,
+					`found "=" without endpoint name. Use a lone space name to set the default.`)
 			}
 			endpoint = v[0]
 			spaceName = v[1]
 		default:
-			return nil, errors.New(parseBindErrorPrefix + "Found multiple = in binding. Did you forget to space-separate the binding list?")
+			return nil, errors.Errorf(parseBindError,
+				`found multiple "=" in binding. Did you forget to space-separate the binding list?`)
 		}
 
 		// This is a temporary hack to allow us to bind endpoints to the
@@ -61,7 +64,9 @@ func parseBindExpr(expr string, knownSpaceNames set.Strings) (map[string]string,
 // mergeBindings is invoked when upgrading a charm to merge the existing set of
 // endpoint to space assignments for a deployed application and the user-defined
 // bindings passed to the upgrade-charm command.
-func mergeBindings(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings map[string]string, oldDefaultSpace string) (map[string]string, []string) {
+func mergeBindings(
+	newCharmEndpoints set.Strings, oldEndpointsMap, userBindings map[string]string, oldDefaultSpace string,
+) (map[string]string, []string) {
 	var changelog []string
 	if oldEndpointsMap == nil {
 		oldEndpointsMap = make(map[string]string)
@@ -83,10 +88,10 @@ func mergeBindings(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings 
 			// If not explicitly defined, it inherits the default space for the application
 			if !newBindingDefined {
 				mergedBindings[epName] = oldDefaultSpace
-				changelog = append(changelog, fmt.Sprintf("Adding endpoint %q to default space %q", epName, oldDefaultSpace))
+				changelog = append(changelog, fmt.Sprintf("adding endpoint %q to default space %q", epName, oldDefaultSpace))
 			} else {
 				mergedBindings[epName] = newSpaceAssignment
-				changelog = append(changelog, fmt.Sprintf("Adding endpoint %q to space %q", epName, newSpaceAssignment))
+				changelog = append(changelog, fmt.Sprintf("adding endpoint %q to space %q", epName, newSpaceAssignment))
 			}
 			continue
 		}
@@ -95,7 +100,8 @@ func mergeBindings(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings 
 		// specified a different space for it.
 		if newBindingDefined && oldSpaceAssignment != newSpaceAssignment {
 			mergedBindings[epName] = newSpaceAssignment
-			changelog = append(changelog, fmt.Sprintf("Updating endpoint %q from %q to %q", epName, oldSpaceAssignment, newSpaceAssignment))
+			changelog = append(changelog,
+				fmt.Sprintf("moving endpoint %q from space %q to %q", epName, oldSpaceAssignment, newSpaceAssignment))
 			continue
 		}
 
@@ -103,7 +109,8 @@ func mergeBindings(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings 
 		// space and override it to the new default space.
 		if !newBindingDefined && changeDefaultSpace && oldSpaceAssignment == oldDefaultSpace {
 			mergedBindings[epName] = newDefaultSpace
-			changelog = append(changelog, fmt.Sprintf("Updating endpoint %q from %q to %q", epName, oldSpaceAssignment, newDefaultSpace))
+			changelog = append(changelog,
+				fmt.Sprintf("moving endpoint %q from space %q to %q", epName, oldSpaceAssignment, newDefaultSpace))
 			continue
 		}
 
@@ -118,7 +125,9 @@ func mergeBindings(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings 
 			pluralSuffix = "s"
 		}
 
-		changelog = append(changelog, fmt.Sprintf("Leaving endpoint%s in %q: %s", pluralSuffix, spName, strings.Join(epList, ", ")))
+		sort.Strings(epList)
+		changelog = append(changelog,
+			fmt.Sprintf("no change to endpoint%s in space %q: %s", pluralSuffix, spName, strings.Join(epList, ", ")))
 	}
 
 	if changeDefaultSpace {

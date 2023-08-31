@@ -445,40 +445,6 @@ func (s *NewAPIClientSuite) TestEndpointFiltering(c *gc.C) {
 	})
 }
 
-var moveToFrontTests = []struct {
-	item   string
-	items  []string
-	expect []string
-}{{
-	item:   "x",
-	items:  []string{"y", "x"},
-	expect: []string{"x", "y"},
-}, {
-	item:   "z",
-	items:  []string{"y", "x"},
-	expect: []string{"y", "x"},
-}, {
-	item:   "y",
-	items:  []string{"y", "x"},
-	expect: []string{"y", "x"},
-}, {
-	item:   "x",
-	items:  []string{"y", "x", "z"},
-	expect: []string{"x", "y", "z"},
-}, {
-	item:   "d",
-	items:  []string{"a", "b", "c", "d", "e", "f"},
-	expect: []string{"d", "a", "b", "c", "e", "f"},
-}}
-
-func (s *NewAPIClientSuite) TestMoveToFront(c *gc.C) {
-	for i, test := range moveToFrontTests {
-		c.Logf("test %d: moveToFront %q %v", i, test.item, test.items)
-		juju.MoveToFront(test.item, test.items)
-		c.Assert(test.items, jc.DeepEquals, test.expect)
-	}
-}
-
 type testRootAPI struct {
 	serverAddrs [][]params.HostPort
 }
@@ -547,7 +513,7 @@ func newAPIConnectionFromNames(
 		OpenAPI:        apiOpen,
 	}
 	accountDetails, err := store.AccountDetails(controller)
-	if !errors.IsNotFound(err) {
+	if !errors.Is(err, errors.NotFound) {
 		c.Assert(err, jc.ErrorIsNil)
 		args.AccountDetails = accountDetails
 	}

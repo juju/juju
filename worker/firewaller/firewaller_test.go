@@ -1119,7 +1119,7 @@ func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
 
 	s.modelIngressRules = firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
-		firewall.NewIngressRule(network.MustParsePortRange("17070"), firewall.AllNetworksIPV4CIDR),
+		firewall.NewIngressRule(network.MustParsePortRange("17070"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 	}
 
 	s.ensureMocks(c, ctrl)
@@ -1137,7 +1137,7 @@ func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
 	s.assertModelIngressRules(c, firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("666"), "192.168.0.0/24"),
 		firewall.NewIngressRule(network.MustParsePortRange("22"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
-		firewall.NewIngressRule(network.MustParsePortRange(strconv.Itoa(17070)), "0.0.0.0/0"),
+		firewall.NewIngressRule(network.MustParsePortRange("17070"), firewall.AllNetworksIPV4CIDR, firewall.AllNetworksIPV6CIDR),
 	})
 }
 
@@ -1520,7 +1520,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ctrl *gomock.Controller,
 	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
 	localIngressCh <- ingress
 
-	//Ports opened.
+	// Ports opened.
 	s.assertIngressRules(c, m.Tag().Id(), firewall.IngressRules{
 		firewall.NewIngressRule(network.MustParsePortRange("3306/tcp"), expected...),
 	})

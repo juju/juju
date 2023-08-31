@@ -543,7 +543,7 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	// anonymous user; this should also be allowed on account of CMRs.
 	info.Tag = names.NewUserTag(api.AnonymousUsername)
 	_, err = api.Open(info, fastDialOpts)
-	redirErr, ok = errors.Cause(err).(*api.RedirectError)
+	_, ok = errors.Cause(err).(*api.RedirectError)
 	c.Assert(ok, gc.Equals, true)
 }
 

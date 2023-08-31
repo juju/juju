@@ -67,8 +67,6 @@ var (
 	RunInstances                   = &runInstances
 	BlockDeviceNamer               = blockDeviceNamer
 	GetBlockDeviceMappings         = getBlockDeviceMappings
-	IsVPCNotUsableError            = isVPCNotUsableError
-	IsVPCNotRecommendedError       = isVPCNotRecommendedError
 	ShortRetryStrategy             = &shortRetryStrategy
 	DestroyVolumeAttempt           = &destroyVolumeAttempt
 	DeleteSecurityGroupInsistently = &deleteSecurityGroupInsistently
@@ -76,7 +74,12 @@ var (
 	MaybeConvertCredentialError    = maybeConvertCredentialError
 )
 
-const VPCIDNone = vpcIDNone
+const (
+	VPCIDNone = vpcIDNone
+
+	ErrorVPCNotRecommended = errorVPCNotRecommended
+	ErrorVPCNotUsable      = errorVPCNotUsable
+)
 
 type stubAccountAPIClient struct {
 	Client
