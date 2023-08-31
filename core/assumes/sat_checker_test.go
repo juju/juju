@@ -6,7 +6,7 @@ package assumes
 import (
 	"strings"
 
-	chassumes "github.com/juju/charm/v10/assumes"
+	chassumes "github.com/juju/charm/v11/assumes"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"

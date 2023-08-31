@@ -4,7 +4,7 @@
 package verifycharmprofile
 
 import (
-	corecharm "github.com/juju/charm/v10"
+	corecharm "github.com/juju/charm/v11"
 
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"

@@ -6,7 +6,7 @@ package bundlechanges
 import (
 	"bytes"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/loggo"
 	"github.com/juju/naturalsort"
 	"github.com/juju/testing"

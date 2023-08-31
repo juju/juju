@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 
-	charmresource "github.com/juju/charm/v10/resource"
+	charmresource "github.com/juju/charm/v11/resource"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 

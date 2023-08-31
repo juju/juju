@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
@@ -95,7 +95,10 @@ func FromData(config ChangesConfig) ([]Change, error) {
 
 	var addedMachines map[string]*AddMachineChange
 	if resolver.bundle.Type != kubernetes {
-		addedMachines = resolver.handleMachines()
+		addedMachines, err = resolver.handleMachines()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	deployedBundleApps := alreadyDeployedApplicationsFromBundle(model, config.Bundle.Applications)

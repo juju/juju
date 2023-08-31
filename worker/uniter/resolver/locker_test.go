@@ -4,7 +4,7 @@
 package resolver_test
 
 import (
-	"github.com/juju/charm/v10/hooks"
+	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

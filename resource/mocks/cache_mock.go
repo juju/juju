@@ -8,7 +8,7 @@ import (
 	io "io"
 	reflect "reflect"
 
-	resource "github.com/juju/charm/v10/resource"
+	resource "github.com/juju/charm/v11/resource"
 	resources "github.com/juju/juju/core/resources"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"

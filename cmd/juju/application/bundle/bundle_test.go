@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v10"
+	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -107,13 +107,13 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 			Name: "default",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
-			"1": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "22.04"}},
+			"1": {Base: params.Base{Name: "ubuntu", Channel: "22.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"wordpress": {
 				Charm: "wordpress",
-				Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
+				Base:  params.Base{Name: "ubuntu", Channel: "22.04"},
 				Life:  life.Alive,
 				Units: map[string]params.UnitStatus{
 					"0": {Machine: "0"},
@@ -121,7 +121,7 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithSubordi
 			},
 			"sub": {
 				Charm:         "sub",
-				Base:          params.Base{Name: "ubuntu", Channel: "18.04"},
+				Base:          params.Base{Name: "ubuntu", Channel: "22.04"},
 				Life:          life.Alive,
 				SubordinateTo: []string{"wordpress"},
 			},
@@ -263,6 +263,30 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnmarshallEr
 	c.Assert(unmarshallErrors[0], gc.Equals, expectedError)
 }
 
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleMixingBaseAndSeries(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	bundleData, err := charm.ReadBundleData(strings.NewReader(mixedSeriesBaseBundle))
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectParts(&charm.BundleDataPart{Data: bundleData})
+	s.expectBasePath()
+
+	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.DeepEquals, bundleData)
+}
+
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleMixingBaseAndSeriesMisMatch(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	bundleData, err := charm.ReadBundleData(strings.NewReader(mixedSeriesBaseBundleMismatch))
+	c.Assert(err, jc.ErrorIsNil)
+	s.expectParts(&charm.BundleDataPart{Data: bundleData})
+	s.expectBasePath()
+
+	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	c.Assert(err, gc.ErrorMatches, `(?s)the provided bundle has the following errors:.*application "wordpress" series "jammy" and base "ubuntu@20.04" must match if both supplied.*invalid constraints.*`)
+	c.Assert(obtained, gc.IsNil)
+}
+
 func (s *composeAndVerifyRepSuite) setupOverlayFile(c *gc.C) {
 	s.overlayDir = c.MkDir()
 	s.overlayFile = filepath.Join(s.overlayDir, "config.yaml")
@@ -294,12 +318,12 @@ func (s *buildModelRepSuite) TestBuildModelRepresentationApplicationsWithExposed
 			Name: "default",
 		},
 		Machines: map[string]params.MachineStatus{
-			"0": {Base: params.Base{Name: "ubuntu", Channel: "18.04"}},
+			"0": {Base: params.Base{Name: "ubuntu", Channel: "22.04"}},
 		},
 		Applications: map[string]params.ApplicationStatus{
 			"wordpress": {
 				Charm: "wordpress",
-				Base:  params.Base{Name: "ubuntu", Channel: "18.04"},
+				Base:  params.Base{Name: "ubuntu", Channel: "22.04"},
 				Life:  life.Alive,
 				Units: map[string]params.UnitStatus{
 					"0": {Machine: "0"},
@@ -375,13 +399,13 @@ func (m stringSliceMatcher) String() string {
 }
 
 const wordpressBundle = `
-series: bionic
+default-base: ubuntu@22.04
 applications:
   mysql:
     charm: ch:mysql
     revision: 42
     channel: stable
-    series: xenial
+    base: ubuntu@20.04
     num_units: 1
     to:
     - "0"
@@ -389,28 +413,27 @@ applications:
     charm: ch:wordpress
     channel: stable
     revision: 47
-    series: xenial
+    base: ubuntu@20.04
     num_units: 1
     to:
     - "1"
 machines:
   "0":
-    series: xenial
+    base: ubuntu@20.04
   "1":
-    series: xenial
+    base: ubuntu@20.04
 relations:
 - - wordpress:db
   - mysql:db
 `
 
 const typoBundle = `
-sries: bionic
+sries: jammy
 applications:
   mysql:
     charm: ch:mysql
     revision: 42
     channel: stable
-    series: xenial
     num_units: 1
     to:
     - "0"
@@ -418,16 +441,79 @@ applications:
     charm: ch:wordpress
     channel: stable
     revision: 47
-    series: xenial
     num_units: 1
     to:
     - "1"
 machines:
   "0":
-    series: xenial
     constrai: arch=arm64
   "1":
-    series: xenial
+relations:
+- - wordpress:db
+  - mysql:db
+`
+
+const mixedSeriesBaseBundle = `
+series: jammy
+default-base: ubuntu@22.04
+applications:
+  mysql:
+    charm: ch:mysql
+    revision: 42
+    channel: stable
+    series: focal
+    base: ubuntu@20.04
+    num_units: 1
+    to:
+    - "0"
+  wordpress:
+    charm: ch:wordpress
+    channel: stable
+    revision: 47
+    series: jammy
+    num_units: 1
+    to:
+    - "1"
+machines:
+  "0":
+    series: focal
+    base: ubuntu@20.04
+  "1":
+    series: jammy
+relations:
+- - wordpress:db
+  - mysql:db
+`
+
+const mixedSeriesBaseBundleMismatch = `
+series: jammy
+default-base: ubuntu@22.04
+applications:
+  mysql:
+    charm: ch:mysql
+    revision: 42
+    channel: stable
+    series: focal
+    base: ubuntu@20.04
+    num_units: 1
+    constraints: image-id=ubuntu-bf2
+    to:
+    - "0"
+  wordpress:
+    charm: ch:wordpress
+    channel: stable
+    revision: 47
+    series: jammy
+    base: ubuntu@20.04
+    num_units: 1
+    to:
+    - "1"
+machines:
+  "0":
+    series: focal
+    base: ubuntu@20.04
+  "1":
+    series: jammy
 relations:
 - - wordpress:db
   - mysql:db

@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v10"
-	"github.com/juju/charm/v10/resource"
+	"github.com/juju/charm/v11"
+	"github.com/juju/charm/v11/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
@@ -210,6 +210,7 @@ func (b *BundleAPI) GetChangesMapArgs(args params.BundleChangesParams) (params.B
 	}
 	return b.doGetBundleChangesMapArgs(args, vs, func(changes []bundlechanges.Change, results *params.BundleChangesMapArgsResults) error {
 		results.Changes = make([]*params.BundleChangesMapArgs, len(changes))
+		results.Errors = make([]string, len(changes))
 		for i, c := range changes {
 			args, err := c.Args()
 			if err != nil {
