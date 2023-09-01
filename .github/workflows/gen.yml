@@ -40,7 +40,18 @@ jobs:
 
       - name: Regenerate code
         shell: bash
-        run: go generate -x ./...
+        run: |
+          # Running go generate by itself is slow over a large codebase, where
+          # all generate directives are dispersed over many files. Instead, the
+          # following uses tools for locating and extracting the directives,
+          # before piping them to go generate in parallel.
+          #
+          #  1. grep for go generate directive in the go files recursively.
+          #  2. Grab the file name of each select file.
+          #  3. Unique every file, so we only go generate the file once.
+          #  4. Using xargs perform go generate in parallel.
+          #
+          grep -ir "//go:generate" . | awk -F : '{ print $1 }' | uniq | xargs -n 1 -P 2 -I% go generate -x $(realpath %)
 
       - name: Check diff
         if: success() || failure()
@@ -51,6 +62,8 @@ jobs:
           
           git add -A
           if [[ -n $(git diff HEAD) ]]; then
+            # Print the full diff for debugging purposes
+            git diff HEAD
             echo "*****"
             echo "The following generated files have been modified:"
             git diff --name-status HEAD
