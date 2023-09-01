@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -21,8 +20,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.authentication.jwt")
 
 type Authenticator interface {
 	authentication.RequestAuthenticator
@@ -151,7 +148,6 @@ func (j *JWTAuthenticator) Parse(ctx context.Context, tok string) (jwt.Token, au
 		return nil, nil, errors.New("no jwt authToken parser configured")
 	}
 	tokBytes, err := base64.StdEncoding.DecodeString(tok)
-	logger.Tracef("token %s, error %#v", string(tokBytes), err)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "invalid jwt authToken in request")
 	}
