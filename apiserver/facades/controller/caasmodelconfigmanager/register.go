@@ -6,6 +6,8 @@ package caasmodelconfigmanager
 import (
 	"reflect"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -24,8 +26,13 @@ func newFacade(ctx facade.Context) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
+
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &Facade{
 		auth:                authorizer,
-		controllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
+		controllerConfigAPI: common.NewStateControllerConfig(systemState),
 	}, nil
 }

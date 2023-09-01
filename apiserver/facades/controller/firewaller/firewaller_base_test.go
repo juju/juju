@@ -91,6 +91,7 @@ func (s *firewallerBaseSuite) testFirewallerFailsWithNonControllerUser(
 		Auth_:      anAuthorizer,
 		Resources_: s.resources,
 		State_:     s.State,
+		StatePool_: s.StatePool,
 	}
 	err := factory(ctx)
 	c.Assert(err, gc.NotNil)

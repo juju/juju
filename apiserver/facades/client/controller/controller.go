@@ -93,8 +93,12 @@ func NewControllerAPI(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	systemState, err := pool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &ControllerAPI{
-		ControllerConfigAPI: common.NewStateControllerConfig(st),
+		ControllerConfigAPI: common.NewStateControllerConfig(systemState),
 		ModelStatusAPI: common.NewModelStatusAPI(
 			common.NewModelManagerBackend(model, pool),
 			authorizer,
