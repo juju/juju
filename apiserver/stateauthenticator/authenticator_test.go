@@ -31,6 +31,8 @@ type agentAuthenticatorSuite struct {
 var _ = gc.Suite(&agentAuthenticatorSuite{})
 
 func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupportedRequests(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	_, err := s.authenticator.AuthenticateLoginRequest(context.TODO(), "", "", authentication.AuthParams{Token: "token"})
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
