@@ -18,14 +18,14 @@ run_prometheus() {
 check_prometheus_targets() {
 	PROM_IP=$(juju status --format json | jq -r '.applications."prometheus-k8s".address')
 	TARGET=$(curl -s "http://${PROM_IP}:9090/api/v1/targets" |
-	  jq '.data.activeTargets[] | select(.labels.juju_application == "controller")')
+		jq '.data.activeTargets[] | select(.labels.juju_application == "controller")')
 
 	if [[ -z $TARGET ]]; then
 		echo "Juju controller not found in Prometheus targets"
 		return 1
 	fi
 
-  TARGET_STATUS=$(echo $TARGET | jq '.health')
+	TARGET_STATUS=$(echo $TARGET | jq '.health')
 	if [[ $TARGET_STATUS != "up" ]]; then
 		echo "Controller metrics endpoint status: $TARGET_STATUS: $(echo $TARGET | jq '.lastError')"
 		return 1
