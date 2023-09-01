@@ -25,6 +25,24 @@ import (
 	unitdebug "github.com/juju/juju/worker/uniter/runner/debug"
 )
 
+const usageDebugHooksExamples = `
+Debug all hooks and actions of unit '0':
+
+    juju debug-hooks mysql/0
+
+Debug all hooks and actions of the leader:
+
+    juju debug-hooks mysql/leader
+
+Debug the 'config-changed' hook of unit '1':
+
+    juju debug-hooks mysql/1 config-changed
+
+Debug the 'pull-site' action and 'update-status' hook of unit '0':
+
+    juju debug-hooks hello-kubecon/0 pull-site update-status
+`
+
 func NewDebugHooksCommand(hostChecker ssh.ReachableChecker, retryStrategy retry.CallArgs, publicKeyRetryStrategy retry.CallArgs) cmd.Command {
 	c := new(debugHooksCommand)
 	c.hostChecker = hostChecker
@@ -40,11 +58,23 @@ type debugHooksCommand struct {
 }
 
 const debugHooksDoc = `
-Interactively debug hooks or actions remotely on an application unit.
+The command launches a tmux session that will intercept matching hooks and/or 
+actions. 
+
+Initially, the tmux session will take you to '/var/lib/juju' or '/home/ubuntu'.
+As soon as a matching hook or action is fired, the tmux session will 
+automatically navigate you to '/var/lib/juju/agents/<unit-id>/charm' with a 
+properly configured environment. Unlike the 'juju debug-code' command, 
+the fired hooks and/or actions are not executed directly; instead, the user 
+needs to manually run the dispatch script inside the charm's directory.
+
+For more details on debugging charm code, see the charm SDK documentation.
 
 Valid unit identifiers are:
   a standard unit ID, such as mysql/0 or;
   leader syntax of the form <application>/leader, such as mysql/leader.
+
+If no hook or action is specified, all hooks and actions will be intercepted.
 
 See the "juju help ssh" for information about SSH related options
 accepted by the debug-hooks command.
@@ -52,11 +82,12 @@ accepted by the debug-hooks command.
 
 func (c *debugHooksCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "debug-hooks",
-		Args:    "<unit name> [hook or action names]",
-		Purpose: "Launch a tmux session to debug hooks and/or actions.",
-		Doc:     debugHooksDoc,
-		Aliases: []string{"debug-hook"},
+		Name:     "debug-hooks",
+		Args:     "<unit name> [hook or action names]",
+		Purpose:  "Launch a tmux session to debug hooks and/or actions.",
+		Doc:      debugHooksDoc,
+		Examples: usageDebugHooksExamples,
+		Aliases:  []string{"debug-hook"},
 	})
 }
 

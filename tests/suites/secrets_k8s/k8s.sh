@@ -6,8 +6,16 @@ run_secrets() {
 	juju --show-log add-model "model-secrets-k8s" --config secret-backend=auto
 
 	juju --show-log deploy hello-kubecon hello
+	juju --show-log deploy nginx-ingress-integrator nginx
+	juju --show-log integrate nginx hello
+	juju --show-log trust nginx --scope=cluster
+
 	wait_for "active" '.applications["hello"] | ."application-status".current'
 	wait_for "hello" "$(idle_condition "hello" 0)"
+	wait_for "active" '.applications["nginx"] | ."application-status".current' 900
+	wait_for "nginx" "$(idle_condition "nginx" 1 0)"
+	wait_for "active" "$(workload_status "nginx" 0).current"
+	wait_for "hello" '.applications["nginx"] | .relations.ingress[0]'
 
 	echo "Apps deployed, creating secrets"
 	unit_owned_full_uri=$(juju exec --unit hello/0 -- secret-add --owner unit owned-by=hello/0)
@@ -38,15 +46,6 @@ run_secrets() {
 
 	echo "Checking: secret-get by label - metadata"
 	check_contains "$(juju exec --unit hello/0 -- secret-info-get --label=hello_0 --format json | jq ".${unit_owned_short_uri}.label")" hello_0
-
-	juju --show-log deploy nginx-ingress-integrator nginx
-	juju --show-log integrate nginx hello
-	juju --show-log trust nginx --scope=cluster
-
-	wait_for "active" '.applications["nginx"] | ."application-status".current' 900
-	wait_for "nginx" "$(idle_condition "nginx" 1 0)"
-	wait_for "active" "$(workload_status "nginx" 0).current"
-	wait_for "hello" '.applications["nginx"] | .relations.ingress[0]'
 
 	relation_id=$(juju --show-log show-unit hello/0 --format json | jq '."hello/0"."relation-info"[0]."relation-id"')
 	juju exec --unit hello/0 -- secret-grant "$unit_owned_full_uri" -r "$relation_id"
@@ -87,6 +86,10 @@ run_secrets() {
 	juju exec --unit hello/0 -- secret-remove "$app_owned_full_uri"
 	check_contains "$(juju exec --unit hello/0 -- secret-get "$app_owned_full_uri" 2>&1)" 'not found'
 
+	# TODO: no need to remove-relation before destroying model once we fixed(lp:1952221).
+	juju --show-log remove-relation nginx hello
+	# wait for relation removed.
+	wait_for null '.applications["nginx"] | .relations.source[0]'
 	destroy_model "model-secrets-k8s"
 }
 

@@ -352,7 +352,7 @@ func (srv *Server) parsePerms(in []types.IpPermission) ([]permKey, error) {
 	sourceGroups := make(map[subgroupKey]types.UserIdGroupPair)
 
 	// For each value in the input permissions we store its associated
-	//information in the above maps.
+	// information in the above maps.
 	for id1, inPerm := range in {
 		ec2p := perms[id1]
 		ec2p.IpProtocol = inPerm.IpProtocol
@@ -383,7 +383,7 @@ func (srv *Server) parsePerms(in []types.IpPermission) ([]permKey, error) {
 	// looking up security groups from srv as we do so.
 	var result []permKey
 	for _, p := range perms {
-		if aws.ToInt32(p.FromPort) > aws.ToInt32(p.ToPort) {
+		if !isICMPRule(p) && aws.ToInt32(p.FromPort) > aws.ToInt32(p.ToPort) {
 			return nil, apiError("InvalidParameterValue", "invalid port range")
 		}
 		k := permKey{
@@ -411,4 +411,12 @@ func (srv *Server) parsePerms(in []types.IpPermission) ([]permKey, error) {
 		}
 	}
 	return result, nil
+}
+
+func isICMPRule(permission types.IpPermission) bool {
+	return permission.IpProtocol != nil &&
+		(*permission.IpProtocol == "icmp" ||
+			*permission.IpProtocol == "icmpv6" ||
+			*permission.IpProtocol == "1" || // icmp protocol number
+			*permission.IpProtocol == "58") // icmpv6 protocol number
 }
