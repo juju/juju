@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-          ref: ${{ steps.branch.outputs.target }}
+          ref: ${{ steps.branch.outputs.source }}
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -46,15 +46,17 @@ jobs:
         id: merge
         env:
           SOURCE_BRANCH: ${{ steps.branch.outputs.source }}
+          TARGET_BRANCH: ${{ steps.branch.outputs.target }}
         run: |
           set -x
-          git fetch origin "$SOURCE_BRANCH"
-          git branch "$SOURCE_BRANCH" "origin/$SOURCE_BRANCH"
+          git fetch origin "$TARGET_BRANCH"
+          git branch "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
           # Need to set Git username/email to do the merge (yawn)
           git config user.name 'jujubot'
           git config user.email 'fake@address.me'
           
           set +e
+          git switch "$TARGET_BRANCH"
           git merge "$SOURCE_BRANCH"
           case $? in
           0)

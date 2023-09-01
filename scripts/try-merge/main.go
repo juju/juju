@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"text/template"
 
 	"github.com/juju/collections/set"
 )
@@ -109,17 +110,9 @@ func printErrMsg() {
 		}
 	}
 
-	// If no-one to notify: don't send a message
-	if peopleToNotify.IsEmpty() {
-		return
+	if !peopleToNotify.IsEmpty() {
+		printMessage(peopleToNotify)
 	}
-
-	// Construct the message
-	taggedUsers := strings.Join(peopleToNotify.Values(), ", ")
-	message := fmt.Sprintf(
-		"%[1]s: your recent changes to `%[2]s` have caused merge conflicts. Please merge `%[2]s` into `%[3]s` and resolve the conflicts.",
-		taggedUsers, sourceBranch, targetBranch)
-	stdoutf(message)
 }
 
 // findOffendingCommits returns a list of commits that may be causing merge
@@ -199,17 +192,29 @@ func commitHasOpenPR(commit commitInfo) (prNumber int, ok bool) {
 	return -1, false
 }
 
+func printMessage(peopleToNotify set.Strings) {
+	messageData := struct{ TaggedUsers, SourceBranch, TargetBranch, LogsLink string }{
+		TaggedUsers:  strings.Join(peopleToNotify.Values(), ", "),
+		SourceBranch: sourceBranch,
+		TargetBranch: targetBranch,
+		LogsLink: fmt.Sprintf("https://github.com/%s/actions/runs/%s",
+			os.Getenv("GITHUB_REPOSITORY"), os.Getenv("GITHUB_RUN_ID")),
+	}
+
+	tmpl, err := template.New("test").Parse(
+		"{{.TaggedUsers}}: your recent changes to `{{.SourceBranch}}` have caused merge conflicts. " +
+			"Please merge `{{.SourceBranch}}` into `{{.TargetBranch}}` and resolve the conflicts." +
+			"[[logs]({{.LogsLink}})]",
+	)
+	check(err)
+	check(tmpl.Execute(os.Stdout, messageData))
+}
+
 func check(err error) {
 	if err != nil {
 		stderrf("%#v\n", err)
 		panic(err)
 	}
-}
-
-// Print to stdout. Only the actual result should go here (the generated
-// notification message).
-func stdoutf(f string, v ...any) {
-	_, _ = fmt.Fprintf(os.Stdout, f, v...)
 }
 
 // Print to stderr. Logging/debug info should go here, so that it is kept
