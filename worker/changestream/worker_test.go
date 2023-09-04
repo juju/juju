@@ -70,6 +70,39 @@ func (s *workerSuite) getConfig() WorkerConfig {
 	}
 }
 
+func (s *workerSuite) TestKillGetWatchableDBError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectClock()
+
+	done := make(chan struct{})
+
+	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
+	s.watchableDBWorker.EXPECT().Kill().AnyTimes()
+	s.watchableDBWorker.EXPECT().Wait().DoAndReturn(func() error {
+		select {
+		case <-done:
+		case <-time.After(testing.LongWait):
+			c.Fatal("timed out waiting for Wait to be called")
+		}
+		return nil
+	})
+
+	w := s.newWorker(c, 1)
+	defer workertest.DirtyKill(c, w)
+	stream, _ := w.(changestream.WatchableDBGetter)
+
+	_, err := stream.GetWatchableDB("controller")
+	c.Assert(err, jc.ErrorIsNil)
+
+	close(done)
+	workertest.CleanKill(c, w)
+
+	_, err = stream.GetWatchableDB("controller")
+	c.Assert(err, jc.ErrorIs, coredatabase.ErrChangeStreamDying)
+}
+
 func (s *workerSuite) TestEventSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -95,12 +128,11 @@ func (s *workerSuite) TestEventSource(c *gc.C) {
 	stream, ok := w.(changestream.WatchableDBGetter)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
 
-	_, err := stream.GetWatchableDB("controller")
+	wdb, err := stream.GetWatchableDB("controller")
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(wdb, gc.NotNil)
 
 	close(done)
-
-	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
@@ -136,8 +168,6 @@ func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	close(done)
-
-	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {

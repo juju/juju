@@ -7,6 +7,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/juju/core/database"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
@@ -62,7 +64,7 @@ func (s *workerSuite) TestKilledGetDBErrDying(c *gc.C) {
 	w.Kill()
 
 	_, err := dbw.GetDB("anything")
-	c.Assert(err, gc.ErrorMatches, "db-accessor worker is dying")
+	c.Assert(err, jc.ErrorIs, database.ErrDBAccessorDying)
 }
 
 func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
