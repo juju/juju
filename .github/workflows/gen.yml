@@ -57,7 +57,13 @@ jobs:
         shell: bash
         run: |
           # The generation sometimes adds things to go.sum. Tidy to remove these.
+          echo "***** BEFORE go mod tidy *********************"
+          git diff
+          echo "**********************************************"
           go mod tidy
+          echo "***** AFTER go mod tidy **********************"
+          git diff
+          echo "**********************************************"
           
           git add -A
           if [[ -n $(git diff HEAD) ]]; then
