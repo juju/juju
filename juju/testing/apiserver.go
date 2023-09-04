@@ -256,8 +256,6 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	if credentialService == nil {
 		// modelUUID param is not used so can pass in anything.
 		credentialService = s.ServiceFactoryGetter.FactoryForModel("").Credential()
-	} else {
-
 	}
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,

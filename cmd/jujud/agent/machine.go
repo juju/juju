@@ -79,6 +79,7 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/introspection"
@@ -272,6 +273,7 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 func MachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
+	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	rootDir string,
@@ -288,6 +290,7 @@ func MachineAgentFactoryFn(
 				Logger:        logger,
 			}),
 			looputil.NewLoopDeviceManager(),
+			newDBWorkerFunc,
 			newIntrospectionSocketName,
 			preUpgradeSteps,
 			rootDir,
@@ -303,6 +306,7 @@ func NewMachineAgent(
 	bufferedLogger *logsender.BufferedLogWriter,
 	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
+	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	rootDir string,
@@ -322,6 +326,7 @@ func NewMachineAgent(
 		runner:                      runner,
 		rootDir:                     rootDir,
 		initialUpgradeCheckComplete: gate.NewLock(),
+		newDBWorkerFunc:             newDBWorkerFunc,
 		loopDeviceManager:           loopDeviceManager,
 		newIntrospectionSocketName:  newIntrospectionSocketName,
 		prometheusRegistry:          prometheusRegistry,
@@ -394,6 +399,8 @@ type MachineAgent struct {
 	upgradeComplete  gate.Lock
 	workersStarted   chan struct{}
 	machineLock      machinelock.Lock
+
+	newDBWorkerFunc dbaccessor.NewDBWorkerFunc
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -598,6 +605,7 @@ func (a *MachineAgent) makeEngineCreator(
 			AgentConfigChanged:   a.configChangedVal,
 			UpgradeStepsLock:     a.upgradeComplete,
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
+			NewDBWorkerFunc:      a.newDBWorkerFunc,
 			OpenStatePool:        a.initState,
 			OpenStateForUpgrade:  a.openStateForUpgrade,
 			MachineStartup:       a.machineStartup,

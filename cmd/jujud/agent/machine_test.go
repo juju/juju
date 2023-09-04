@@ -38,11 +38,9 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	envstorage "github.com/juju/juju/environs/storage"
@@ -59,6 +57,8 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/dbaccessor"
+	databasetesting "github.com/juju/juju/worker/dbaccessor/testing"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machiner"
@@ -176,9 +176,12 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 		aCfg := agentconf.NewAgentConf(s.DataDir)
 		s.PrimeAgent(c, names.NewMachineTag("42"), initialMachinePassword)
 		logger := s.newBufferedLogWriter()
+		newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
+			return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
+		}
 		a := NewMachineAgentCmd(
 			nil,
-			NewTestMachineAgentFactory(c, aCfg, logger, c.MkDir(), s.cmdRunner),
+			NewTestMachineAgentFactory(c, aCfg, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
 			aCfg,
 			aCfg,
 		)
@@ -196,9 +199,12 @@ func (s *MachineSuite) TestUseLumberjack(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
 
+	newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
+		return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
+	}
 	a := NewMachineAgentCmd(
 		ctx,
-		NewTestMachineAgentFactory(c, &agentConf, logger, c.MkDir(), s.cmdRunner),
+		NewTestMachineAgentFactory(c, &agentConf, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
 		agentConf,
 		agentConf,
 	)
@@ -224,9 +230,12 @@ func (s *MachineSuite) TestDontUseLumberjack(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	s.cmdRunner = mocks.NewMockCommandRunner(ctrl)
 
+	newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
+		return databasetesting.NewTrackedDB(s.TxnRunnerFactory()), nil
+	}
 	a := NewMachineAgentCmd(
 		ctx,
-		NewTestMachineAgentFactory(c, &agentConf, logger, c.MkDir(), s.cmdRunner),
+		NewTestMachineAgentFactory(c, &agentConf, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner),
 		agentConf,
 		agentConf,
 	)
@@ -257,8 +266,6 @@ func (s *MachineSuite) TestRunStop(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageModelRunsInstancePoller(c *gc.C) {
-	s.seedControllerConfig(c)
-
 	testing.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	s.AgentSuite.PatchValue(&instancepoller.ShortPollCap, 500*time.Millisecond)
@@ -391,8 +398,6 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 }
 
 func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
-	s.seedControllerConfig(c)
-
 	m, _, currentTools := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
@@ -401,8 +406,6 @@ func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 }
 
 func (s *MachineSuite) TestNoUpgradeRequired(c *gc.C) {
-	s.seedControllerConfig(c)
-
 	m, _, _ := s.primeAgent(c, state.JobManageModel, state.JobHostUnits)
 	ctrl, a := s.newAgent(c, m)
 	defer ctrl.Finish()
@@ -730,16 +733,6 @@ func (s *MachineSuite) TestReplicasetInitForNewController(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.InitiateCount, gc.Equals, 0)
 }
 
-func (s *MachineSuite) seedControllerConfig(c *gc.C) {
-	ctrlConfigAttrs := coretesting.FakeControllerConfig()
-	for k, v := range s.ControllerConfigAttrs {
-		ctrlConfigAttrs[k] = v
-	}
-	s.InitialDBOps = append(s.InitialDBOps, func(ctx stdcontext.Context, db database.TxnRunner) error {
-		return bootstrap.InsertInitialControllerConfig(s.ControllerConfigAttrs)(ctx, db)
-	})
-}
-
 func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgent, done chan error) {
 	err := a.Stop()
 	if job == state.JobManageModel {
@@ -765,8 +758,6 @@ func (s *MachineSuite) waitStopped(c *gc.C, job state.MachineJob, a *MachineAgen
 }
 
 func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
-	s.seedControllerConfig(c)
-
 	s.PatchValue(&mongo.IsMaster, func(session *mgo.Session, obj mongo.WithAddresses) (bool, error) {
 		addr := obj.Addresses()
 		for _, a := range addr {

@@ -41,7 +41,7 @@ func MakeCloudSpecGetter(pool Pool, credentialService common.CredentialService) 
 		// both state and model but only model.
 		// TODO (manadart 2018-02-15): This potentially frees the state from
 		// the pool. Release is called, but the state reference survives.
-		return stateenvirons.EnvironConfigGetter{Model: m, CredentialService: credentialService}.CloudSpec(context.TODO())
+		return stateenvirons.EnvironConfigGetter{Model: m, CredentialService: credentialService}.CloudSpec(context.Background())
 	}
 }
 
@@ -60,7 +60,7 @@ func MakeCloudSpecGetterForModel(st *state.State, credentialService common.Crede
 		if tag.Id() != st.ModelUUID() {
 			return environscloudspec.CloudSpec{}, errors.New("cannot get cloud spec for this model")
 		}
-		return configGetter.CloudSpec(context.TODO())
+		return configGetter.CloudSpec(context.Background())
 	}
 }
 

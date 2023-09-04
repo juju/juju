@@ -68,7 +68,7 @@ func NewUpgraderAPI(
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
-	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model, CredentialService: credentialService}
 	newEnviron := common.EnvironFuncForModel(model, credentialService, configGetter)
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
 	return &UpgraderAPI{

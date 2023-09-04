@@ -156,7 +156,7 @@ func (s CloudSpecAPI) WatchCloudSpecsChanges(ctx context.Context, args params.En
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		w, err := s.watchCloudSpecChanges(tag)
+		w, err := s.watchCloudSpecChanges(ctx, tag)
 		if err == nil {
 			results.Results[i] = w
 		} else {
@@ -184,7 +184,7 @@ func (w *watcherAdaptor) Err() error {
 	return w.NotifyWatcher.Wait()
 }
 
-func (s CloudSpecAPI) watchCloudSpecChanges(tag names.ModelTag) (params.NotifyWatchResult, error) {
+func (s CloudSpecAPI) watchCloudSpecChanges(ctx context.Context, tag names.ModelTag) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	cloudWatch, err := s.watchCloudSpec(tag)
 	if err != nil {
@@ -195,7 +195,7 @@ func (s CloudSpecAPI) watchCloudSpecChanges(tag names.ModelTag) (params.NotifyWa
 		return result, errors.Trace(err)
 	}
 
-	credentialContentWatch, err := s.watchCloudSpecCredentialContent(context.TODO(), tag)
+	credentialContentWatch, err := s.watchCloudSpecCredentialContent(ctx, tag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

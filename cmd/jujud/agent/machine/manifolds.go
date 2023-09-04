@@ -134,6 +134,9 @@ type ManifoldsConfig struct {
 	// upgrader worker completes it's first check.
 	UpgradeCheckLock gate.Lock
 
+	// NewDBWorkerFunc returns a tracked db worker.
+	NewDBWorkerFunc dbaccessor.NewDBWorkerFunc
+
 	// OpenStatePool is function used by the state manifold to create a
 	// *state.StatePool.
 	OpenStatePool func(stdcontext.Context, coreagent.Config, servicefactory.ControllerServiceFactory) (*state.StatePool, error)
@@ -648,7 +651,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LogDir:               agentConfig.LogDir(),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewApp:               dbaccessor.NewApp,
-			NewDBWorker:          dbaccessor.NewTrackedDBWorker,
+			NewDBWorker:          config.NewDBWorkerFunc,
 			NewMetricsCollector:  dbaccessor.NewMetricsCollector,
 		})),
 

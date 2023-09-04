@@ -114,7 +114,7 @@ func InitializeState(
 	// Add the controller model cloud and credential to the database.
 	cloudCred, cloudCredTag, err := getCloudCredential(adminUser, args)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "getting cloud credentials from args")
 	}
 	opts := append(setupDBOpts,
 		ccbootstrap.InsertInitialControllerConfig(args.ControllerConfig),

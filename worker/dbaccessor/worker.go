@@ -141,7 +141,7 @@ type WorkerConfig struct {
 	Hub         Hub
 	Logger      Logger
 	NewApp      func(string, ...app.Option) (DBApp, error)
-	NewDBWorker func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+	NewDBWorker NewDBWorkerFunc
 
 	// ControllerID uniquely identifies the controller that this
 	// worker is running on. It is equivalent to the machine ID.
