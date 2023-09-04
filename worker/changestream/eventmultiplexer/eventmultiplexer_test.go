@@ -5,16 +5,15 @@ package eventmultiplexer
 
 import (
 	"sync"
-	time "time"
-
-	"github.com/juju/juju/core/database"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	changestream "github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/testing"
 )
 

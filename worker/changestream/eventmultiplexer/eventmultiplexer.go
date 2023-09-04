@@ -8,14 +8,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/juju/core/database"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3/catacomb"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 )
 
 // Logger represents the logging methods called.
