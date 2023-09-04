@@ -203,7 +203,7 @@ func printMessage(peopleToNotify set.Strings) {
 
 	tmpl, err := template.New("test").Parse(
 		"{{.TaggedUsers}}: your recent changes to `{{.SourceBranch}}` have caused merge conflicts. " +
-			"Please merge `{{.SourceBranch}}` into `{{.TargetBranch}}` and resolve the conflicts." +
+			"Please merge `{{.SourceBranch}}` into `{{.TargetBranch}}` and resolve the conflicts. " +
 			"[[logs]({{.LogsLink}})]",
 	)
 	check(err)
