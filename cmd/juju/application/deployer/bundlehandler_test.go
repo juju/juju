@@ -1935,6 +1935,77 @@ relations:
 	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
 }
 
+func (s *BundleDeployRepositorySuite) TestDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, true)
+}
+
+func (s *BundleDeployRepositorySuite) TestDeployBundleLocalPathInvalidSeriesWithoutForce(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, false)
+}
+
+func (s *BundleDeployRepositorySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C, force bool) {
+	s.expectEmptyModelToStart(c)
+	s.expectWatchAll()
+
+	mysqlCurl := charm.MustParseURL("local:jammy/mysql-1")
+	wordpressCurl := charm.MustParseURL("local:jammy/wordpress-3")
+	chUnits := []charmUnit{
+		{
+			curl:                 mysqlCurl,
+			charmMetaSeries:      []string{"focal", "jammy"},
+			machineUbuntuVersion: "20.04",
+		},
+		{
+			charmMetaSeries:      []string{"focal", "jammy"},
+			curl:                 wordpressCurl,
+			machineUbuntuVersion: "20.04",
+		},
+	}
+	s.setupCharmUnits(chUnits)
+	s.expectAddOneUnit("mysql", "", "1")
+	s.expectAddRelation([]string{"wordpress:db", "mysql:server"})
+
+	content := `
+series: focal
+applications:
+    wordpress:
+        charm: %s
+        num_units: 1
+    mysql:
+        charm: %s
+        num_units: 2
+relations:
+    - ["wordpress:db", "mysql:server"]
+`
+	charmsPath := c.MkDir()
+	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
+	wordpressPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "wordpress")
+	bundle := fmt.Sprintf(content, wordpressPath, mysqlPath)
+	bundleData, err := charm.ReadBundleData(strings.NewReader(bundle))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = bundleDeploy(charm.CharmHub, bundleData, s.bundleDeploySpec())
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "20.04")
+	s.assertDeployArgs(c, mysqlCurl.String(), "mysql", "ubuntu", "20.04")
+	expectedOutput := "" +
+		"Executing changes:\n" +
+		"- upload charm %s for base ubuntu@20.04/stable with architecture=amd64\n" +
+		"- deploy application mysql on ubuntu@20.04/stable\n" +
+		"- upload charm %s for base ubuntu@20.04/stable with architecture=amd64\n" +
+		"- deploy application wordpress on ubuntu@20.04/stable\n" +
+		"- add relation wordpress:db - mysql:server\n" +
+		"- add unit mysql/0 to new machine 0\n" +
+		"- add unit mysql/1 to new machine 1\n" +
+		"- add unit wordpress/0 to new machine 2\n" +
+		"Deploy of bundle completed.\n"
+
+	c.Check(s.output.String(), gc.Equals, fmt.Sprintf(expectedOutput, mysqlPath, wordpressPath))
+
+}
+
 func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectResolveCharmWithBases([]string{"ubuntu@22.04"}, nil)

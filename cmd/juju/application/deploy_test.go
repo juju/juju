@@ -62,6 +62,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
+	apiparams "github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testcharms"
@@ -2613,6 +2614,40 @@ func withCharmRepoResolvable(
 		)
 	}
 
+}
+
+func withLocalBundleCharmDeployable(
+	fakeAPI *fakeDeployAPI,
+	url *charm.URL,
+	base corebase.Base,
+	meta *charm.Meta,
+	manifest *charm.Manifest,
+	force bool,
+) {
+	fakeAPI.Call("CharmInfo", url.String()).Returns(
+		&apicommoncharms.CharmInfo{
+			URL:      url.String(),
+			Meta:     meta,
+			Manifest: manifest,
+		},
+		error(nil),
+	)
+	fakeAPI.Call("ListSpaces").Returns([]apiparams.Space{}, error(nil))
+	deployArgs := application.DeployArgs{
+		CharmID: application.CharmID{
+			URL:    url,
+			Origin: commoncharm.Origin{Source: "local"},
+		},
+		CharmOrigin:     commoncharm.Origin{Source: "local", Base: base},
+		ApplicationName: url.Name,
+		NumUnits:        0,
+		Force:           force,
+	}
+	fakeAPI.Call("Deploy", deployArgs).Returns(error(nil))
+	fakeAPI.Call("AddUnits", application.AddUnitsParams{
+		ApplicationName: url.Name,
+		NumUnits:        1,
+	}).Returns([]string{url.Name + "/0"}, error(nil))
 }
 
 func withAllWatcher(fakeAPI *fakeDeployAPI) {

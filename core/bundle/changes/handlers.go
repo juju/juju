@@ -1283,10 +1283,10 @@ func getSeries(application *charm.ApplicationSpec, defaultBase corebase.Base) (s
 
 	if charm.IsValidLocalCharmOrBundlePath(application.Charm) {
 		_, charmURL, err := corecharm.NewCharmAtPath(application.Charm, defaultBase)
-		if corecharm.IsMissingSeriesError(err) {
+		if corecharm.IsMissingBaseError(err) {
 			// local charm path is valid but the charm doesn't declare a default series.
 			return "", nil
-		} else if corecharm.IsUnsupportedSeriesError(err) {
+		} else if corecharm.IsUnsupportedBaseError(err) {
 			// The bundle's default series is not supported by the charm, but we'll
 			// use it anyway. This is no different to the case above where application.Series
 			// is used without checking for potential charm incompatibility.

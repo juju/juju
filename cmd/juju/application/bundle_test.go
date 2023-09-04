@@ -5,7 +5,6 @@ package application
 
 import (
 	"fmt"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,17 +14,118 @@ import (
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"
 )
+
+type BundleDeploySuite struct {
+	FakeStoreStateSuite
+}
+
+var _ = gc.Suite(&BundleDeployInvalidSeries{})
+
+func (s *BundleDeploySuite) SetUpSuite(c *gc.C) {
+	s.DeploySuiteBase.SetUpSuite(c)
+	s.PatchValue(&watcher.Period, 10*time.Millisecond)
+}
+
+func (s *BundleDeploySuite) SetUpTest(c *gc.C) {
+	// Set metering URL config so the config is set during bootstrap
+	if s.ControllerConfigAttrs == nil {
+		s.ControllerConfigAttrs = make(map[string]interface{})
+	}
+
+	s.FakeStoreStateSuite.SetUpTest(c)
+	logger.SetLogLevel(loggo.TRACE)
+}
+
+// DeployBundleYAML uses the given bundle content to create a bundle in the
+// local repository and then deploy it. It returns the bundle deployment output
+// and error.
+func (s *BundleDeploySuite) DeployBundleYAML(c *gc.C, content string, extraArgs ...string) error {
+	_, _, err := s.DeployBundleYAMLWithOutput(c, content, extraArgs...)
+	return err
+}
+
+func (s *BundleDeploySuite) DeployBundleYAMLWithOutput(c *gc.C, content string, extraArgs ...string) (string, string, error) {
+	bundlePath := s.makeBundleDir(c, content)
+	args := append([]string{bundlePath}, extraArgs...)
+	return s.runDeployWithOutput(c, args...)
+}
+
+func (s *BundleDeploySuite) makeBundleDir(c *gc.C, content string) string {
+	bundlePath := filepath.Join(c.MkDir(), "example")
+	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
+	err := os.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return bundlePath
+}
+
+type BundleDeployInvalidSeries struct {
+	BundleDeploySuite
+}
+
+var _ = gc.Suite(&BundleDeployInvalidSeries{})
+
+func (s *BundleDeployInvalidSeries) TestDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C) {
+	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, true)
+}
+
+func (s *BundleDeployInvalidSeries) TestDeployBundleLocalPathInvalidSeriesWithoutForce(c *gc.C) {
+	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, false)
+}
+
+func (s *BundleDeployInvalidSeries) assertDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C, force bool) {
+	dir := c.MkDir()
+	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
+
+	dummyURL := charm.MustParseURL("local:quantal/dummy-1")
+	withAllWatcher(s.fakeAPI)
+	withLocalCharmDeployable(s.fakeAPI, dummyURL, charmDir, force)
+	withLocalBundleCharmDeployable(
+		s.fakeAPI, dummyURL, base.MustParseBaseFromString("ubuntu@12.10"),
+		charmDir.Meta(), charmDir.Manifest(), force,
+	)
+	s.fakeAPI.Call("CharmInfo", "local:quantal/dummy-1").Returns(
+		&apicommoncharms.CharmInfo{
+			URL:  "local:dummy",
+			Meta: &charm.Meta{Name: "dummy", Series: []string{"jammy"}},
+		},
+		error(nil),
+	)
+
+	path := filepath.Join(dir, "mybundle")
+	data := `
+        series: quantal
+        applications:
+            dummy:
+                charm: ./dummy
+                num_units: 1
+    `
+	err := os.WriteFile(path, []byte(data), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	args := []string{path}
+	if force {
+		args = append(args, "--force")
+	}
+	err = s.runDeploy(c, args...)
+	if force {
+		c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: base: ubuntu@12.10/stable")
+	} else {
+		c.Assert(err, gc.ErrorMatches, `cannot deploy bundle:.*base "ubuntu@12.10" not supported by charm.*`)
+	}
+}
 
 // NOTE:
 // Do not add new tests to this file.  The tests here are slowly migrating
@@ -36,11 +136,12 @@ import (
 // target in testing/base.go:SetupSuite we'll need to also update the entries
 // herein.
 
-type BundleDeployCharmStoreSuite struct {
-	FakeStoreStateSuite
+// NOTE(jack-w-shaw) These tests were originally part of the above suite. However,
+// the below were separated out so they could be skipped. They're restored properly
+// in 4.0
 
-	stub   *testing.Stub
-	server *httptest.Server
+type BundleDeployCharmStoreSuite struct {
+	BundleDeploySuite
 }
 
 var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
@@ -48,53 +149,7 @@ var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
 func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
 	c.Skip("this is a badly written e2e test that is invoking external APIs which we cannot mock")
 
-	s.DeploySuiteBase.SetUpSuite(c)
-	s.PatchValue(&watcher.Period, 10*time.Millisecond)
-}
-
-func (s *BundleDeployCharmStoreSuite) SetUpTest(c *gc.C) {
-	s.stub = &testing.Stub{}
-
-	// Set metering URL config so the config is set during bootstrap
-	if s.ControllerConfigAttrs == nil {
-		s.ControllerConfigAttrs = make(map[string]interface{})
-	}
-	s.ControllerConfigAttrs[controller.MeteringURL] = s.server.URL
-
-	s.FakeStoreStateSuite.SetUpTest(c)
-	logger.SetLogLevel(loggo.TRACE)
-}
-
-func (s *BundleDeployCharmStoreSuite) TearDownTest(c *gc.C) {
-	if s.server != nil {
-		s.server.Close()
-	}
-	s.FakeStoreStateSuite.TearDownTest(c)
-}
-
-// DeployBundleYAML uses the given bundle content to create a bundle in the
-// local repository and then deploy it. It returns the bundle deployment output
-// and error.
-func (s *BundleDeployCharmStoreSuite) DeployBundleYAML(c *gc.C, content string, extraArgs ...string) error {
-	_, _, err := s.DeployBundleYAMLWithOutput(c, content, extraArgs...)
-	return err
-}
-
-func (s *BundleDeployCharmStoreSuite) DeployBundleYAMLWithOutput(c *gc.C, content string, extraArgs ...string) (string, string, error) {
-	bundlePath := s.makeBundleDir(c, content)
-	args := append([]string{bundlePath}, extraArgs...)
-	return s.runDeployWithOutput(c, args...)
-}
-
-func (s *BundleDeployCharmStoreSuite) makeBundleDir(c *gc.C, content string) string {
-	bundlePath := filepath.Join(c.MkDir(), "example")
-	c.Assert(os.Mkdir(bundlePath, 0777), jc.ErrorIsNil)
-	err := os.WriteFile(filepath.Join(bundlePath, "bundle.yaml"), []byte(content), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	err = os.WriteFile(filepath.Join(bundlePath, "README.md"), []byte("README"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return bundlePath
+	s.BundleDeploySuite.SetUpSuite(c)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidFlags(c *gc.C) {
@@ -145,13 +200,13 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
 	path := filepath.Join(dir, "mybundle")
 	data := `
-        series: xenial
-        applications:
-            dummy:
-                charm: ./dummy
-                series: xenial
-                num_units: 1
-    `
+         series: xenial
+         applications:
+             dummy:
+                 charm: ./dummy
+                 series: xenial
+                 num_units: 1
+     `
 	err := os.WriteFile(path, []byte(data), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.runDeploy(c, path)
@@ -162,48 +217,6 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"dummy": {
 			charm:  "local:xenial/dummy-1",
-			config: ch.Config().DefaultSettings(),
-		},
-	})
-}
-
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C) {
-	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, true)
-}
-
-func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPathInvalidSeriesWithoutForce(c *gc.C) {
-	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, false)
-}
-
-func (s *BundleDeployCharmStoreSuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C, force bool) {
-	dir := c.MkDir()
-	testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
-	path := filepath.Join(dir, "mybundle")
-	data := `
-        series: quantal
-        applications:
-            dummy:
-                charm: ./dummy
-                num_units: 1
-    `
-	err := os.WriteFile(path, []byte(data), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	args := []string{path}
-	if force {
-		args = append(args, "--force")
-	}
-	err = s.runDeploy(c, args...)
-	if !force {
-		c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: dummy is not available on the following series: quantal not supported")
-		return
-	}
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertCharmsUploaded(c, "local:quantal/dummy-1")
-	ch, err := s.State.Charm(charm.MustParseURL("local:quantal/dummy-1"))
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertApplicationsDeployed(c, map[string]applicationInfo{
-		"dummy": {
-			charm:  "local:quantal/dummy-1",
 			config: ch.Config().DefaultSettings(),
 		},
 	})
