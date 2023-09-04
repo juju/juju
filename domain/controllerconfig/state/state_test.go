@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/database/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -21,7 +20,7 @@ type stateSuite struct {
 var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) TestControllerConfigRead(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	cc := map[string]interface{}{
 		jujucontroller.AuditingEnabled:     "1",
@@ -41,7 +40,7 @@ func (s *stateSuite) TestControllerConfigRead(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpdateControllerConfigNewData(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	err := st.UpdateControllerConfig(ctx.Background(), jujucontroller.Config{
 		jujucontroller.PublicDNSAddress: "controller.test.com:1234",
@@ -68,7 +67,7 @@ func (s *stateSuite) TestUpdateControllerConfigNewData(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	cc := jujucontroller.Config{
 		jujucontroller.PublicDNSAddress: "controller.test.com:1234",

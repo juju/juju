@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/database/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -25,7 +24,7 @@ type stateSuite struct {
 var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) TestRetrieveExternalController(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
 	// Insert a single external controller.
@@ -50,7 +49,7 @@ func (s *stateSuite) TestRetrieveExternalController(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveExternalControllerWithoutAddresses(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
 	// Insert a single external controller.
@@ -69,7 +68,7 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAddresses(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveExternalControllerWithoutAlias(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
 	// Insert a single external controller.
@@ -89,7 +88,7 @@ func (s *stateSuite) TestRetrieveExternalControllerWithoutAlias(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveExternalControllerNotFound(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	// Retrieve a not-existent controller.
 	_, err := st.Controller(ctx.Background(), "ctrl1")
@@ -97,7 +96,7 @@ func (s *stateSuite) TestRetrieveExternalControllerNotFound(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveExternalControllerForModel(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
 	// Insert a single external controller.
@@ -126,7 +125,7 @@ func (s *stateSuite) TestRetrieveExternalControllerForModel(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAddresses(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
 	// Insert a single external controller.
@@ -150,7 +149,7 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAddresses(c *g
 }
 
 func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAlias(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
 	// Insert a single external controller.
@@ -174,7 +173,7 @@ func (s *stateSuite) TestRetrieveExternalControllerForModelWithoutAlias(c *gc.C)
 }
 
 func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	ecUUID := utils.MustNewUUID().String()
 	m1 := utils.MustNewUUID().String()
@@ -227,7 +226,7 @@ func (s *stateSuite) TestUpdateExternalControllerNewData(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	ecUUID := utils.MustNewUUID().String()
 	ec := crossmodel.ControllerInfo{
@@ -276,7 +275,7 @@ func (s *stateSuite) TestUpdateExternalControllerUpsertAndReplace(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	m1 := utils.MustNewUUID().String()
 	// This is an existing controller with a model reference.
@@ -313,7 +312,7 @@ func (s *stateSuite) TestUpdateExternalControllerUpdateModel(c *gc.C) {
 }
 
 func (s *stateSuite) TestModelsForController(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
 	// Insert a single external controller.
@@ -337,7 +336,7 @@ func (s *stateSuite) TestModelsForController(c *gc.C) {
 }
 
 func (s *stateSuite) TestControllersForModels(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
 	// Insert an external controller with one model.
@@ -407,7 +406,7 @@ func (s *stateSuite) TestControllersForModels(c *gc.C) {
 }
 
 func (s *stateSuite) TestControllersForModelsOneSingleModel(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
 
 	// Insert an external controller with one model.
