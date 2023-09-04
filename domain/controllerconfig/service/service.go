@@ -15,8 +15,8 @@ import (
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
-	ControllerConfig(context.Context) (map[string]any, error)
-	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]any, removeAttrs []string) error
+	ControllerConfig(context.Context) (map[string]string, error)
+	UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string) error
 
 	// AllKeysQuery is used to get the initial state
 	// for the controller configuration watcher.
@@ -46,18 +46,40 @@ func NewService(st State, wf WatcherFactory) *Service {
 
 // ControllerConfig returns the config values for the controller.
 func (s *Service) ControllerConfig(ctx context.Context) (controller.Config, error) {
-	cc, err := s.st.ControllerConfig(ctx)
+	ctrlConfigMap, err := s.st.ControllerConfig(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "unable to get controller config")
 	}
-	var coercedControllerConfig controller.Config
-	coercedControllerConfig, err = coerceControllerConfigMap(cc)
-	return coercedControllerConfig, errors.Annotate(err, "getting controller config state")
+	coerced, err := deserializeMap(ctrlConfigMap)
+	if err != nil {
+		return nil, errors.Annotatef(err, "unable to coerce controller config")
+	}
+
+	// Get the controller UUID and CA cert from the config, so we can generate
+	// a new controller config.
+	var (
+		ctrlUUID, caCert string
+		ok               bool
+	)
+	if ctrlUUID, ok = coerced[controller.ControllerUUIDKey].(string); !ok {
+		return nil, errors.NotFoundf("controller UUID")
+	}
+	if caCert, ok = coerced[controller.CACertKey].(string); !ok {
+		return nil, errors.NotFoundf("controller CACert")
+	}
+
+	// Make a new controller config based on the coerced controller config map
+	// returned from state.
+	ctrlConfig, err := controller.NewConfig(ctrlUUID, caCert, coerced)
+	if err != nil {
+		return nil, errors.Annotatef(err, "unable to create controller config")
+	}
+	return ctrlConfig, errors.Annotate(err, "getting controller config state")
 }
 
 // UpdateControllerConfig updates the controller config.
 func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs controller.Config, removeAttrs []string) error {
-	coercedUpdateAttrs, err := coerceControllerConfigMap(updateAttrs)
+	coerced, err := controller.EncodeToString(updateAttrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -65,12 +87,12 @@ func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs contro
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = s.st.UpdateControllerConfig(ctx, coercedUpdateAttrs, removeAttrs)
+	err = s.st.UpdateControllerConfig(ctx, coerced, removeAttrs)
 	return errors.Annotate(err, "updating controller config state")
 }
 
-// Watch returns a watcher that returns keys
-// for any changes to controller config.
+// Watch returns a watcher that returns keys for any changes to controller
+// config.
 func (s *Service) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceWatcher("controller_config", changestream.All, s.st.AllKeysQuery())
 }
@@ -96,27 +118,31 @@ func validateConfigField(name string) error {
 		return errors.Errorf("unknown controller config setting %q", name)
 	}
 	if !controller.AllowedUpdateConfigAttributes.Contains(name) {
-		return errors.Errorf("can't change %q after bootstrap", name)
+		return errors.Errorf("can not change %q after bootstrap", name)
 	}
 	return nil
 }
 
-// coerceControllerConfigMap converts a map[string]any to a controller config.
-func coerceControllerConfigMap(m map[string]any) (map[string]interface{}, error) {
-	result := make(map[string]any)
-	// Validate the updateAttrs.
+// deserializeMap converts a map[string]any to a controller config
+// and coerces any values that are found in the validation schema.
+func deserializeMap(m map[string]string) (map[string]any, error) {
 	fields, _, err := controller.ConfigSchema.ValidationSchema()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for k := range m {
-		if field, ok := fields[k]; ok {
-			v, err := field.Coerce(m[k], []string{k})
+
+	result := make(map[string]any, len(m))
+	for key, v := range m {
+		if field, ok := fields[key]; ok {
+			v, err := field.Coerce(m[key], []string{key})
 			if err != nil {
-				return nil, err
+				return nil, errors.Annotatef(err, "unable to coerce controller config key %q", key)
 			}
-			result[k] = v
+			result[key] = v
+			continue
 		}
+
+		result[key] = v
 	}
 	return result, nil
 }

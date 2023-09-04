@@ -51,10 +51,10 @@ func (mr *MockStateMockRecorder) AllKeysQuery() *gomock.Call {
 }
 
 // ControllerConfig mocks base method.
-func (m *MockState) ControllerConfig(arg0 context.Context) (map[string]interface{}, error) {
+func (m *MockState) ControllerConfig(arg0 context.Context) (map[string]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerConfig", arg0)
-	ret0, _ := ret[0].(map[string]interface{})
+	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -66,7 +66,7 @@ func (mr *MockStateMockRecorder) ControllerConfig(arg0 interface{}) *gomock.Call
 }
 
 // UpdateControllerConfig mocks base method.
-func (m *MockState) UpdateControllerConfig(arg0 context.Context, arg1 map[string]interface{}, arg2 []string) error {
+func (m *MockState) UpdateControllerConfig(arg0 context.Context, arg1 map[string]string, arg2 []string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateControllerConfig", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
