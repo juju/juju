@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"golang.org/x/sync/errgroup"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
@@ -1045,13 +1047,14 @@ func (prr *ProReqRelation) watches() []*state.RelationScopeWatcher {
 }
 
 func (prr *ProReqRelation) allEnterScope(c *gc.C) {
-	err := prr.pru0.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = prr.pru1.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rru0.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rru1.EnterScope(nil)
+	g, _ := errgroup.WithContext(context.Background())
+
+	g.Go(func() error { return prr.pru0.EnterScope(nil) })
+	g.Go(func() error { return prr.pru1.EnterScope(nil) })
+	g.Go(func() error { return prr.rru0.EnterScope(nil) })
+	g.Go(func() error { return prr.rru1.EnterScope(nil) })
+
+	err := g.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
