@@ -15,7 +15,7 @@ test_smoke() {
 
 	bootstrap "test-smoke" "${file}"
 
-	test_deploy "${file}"
+	test_deploy
 
 	destroy_controller "test-smoke"
 }

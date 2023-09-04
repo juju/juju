@@ -63,9 +63,8 @@ spec:
             claimName: registry-claim
         - name: tls-certs
           hostPath:
-            path: /home/runner/certs
+            path: $CERT_DIR
             type: Directory
-
 ---
 apiVersion: v1
 kind: Service

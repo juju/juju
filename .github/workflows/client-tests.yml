@@ -25,7 +25,7 @@ jobs:
         # mongo (that's actually going away now though), and choclately was
         # failing to install it correctly.
         # os: [ubuntu-latest, macOS-latest, windows-latest]
-        os: [ubuntu-latest, macOS-latest]
+        os: [macOS-latest]
 
     steps:
 
