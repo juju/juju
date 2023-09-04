@@ -56,7 +56,9 @@ jobs:
         if: success() || failure()
         shell: bash
         run: |
-          git checkout go.sum
+          # The generation sometimes adds things to go.sum. Tidy to remove these.
+          go mod tidy
+          
           git add -A
           if [[ -n $(git diff HEAD) ]]; then
             echo "*****"
