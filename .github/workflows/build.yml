@@ -15,7 +15,7 @@ permissions:
 jobs:
   Build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, large]
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false

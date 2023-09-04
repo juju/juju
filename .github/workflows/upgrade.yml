@@ -22,7 +22,7 @@ jobs:
 
   Upgrade:
     name: Upgrade
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, large]
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
@@ -86,7 +86,7 @@ jobs:
 
       - name: Setup k8s
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
-        uses: balchua/microk8s-actions@v0.3.1
+        uses: balchua/microk8s-actions@1e8e626239c2befe7cd5d258c96ae152a7259c74
         with:
           channel: "1.25-strict/stable"
           addons: '["dns", "hostpath-storage"]'
@@ -117,7 +117,7 @@ jobs:
             -out ~/certs/registry.crt -CAcreateserial -days 365 -sha256 -extfile .github/registry.ext
           
           # Deploy registry
-          sg snap_microk8s "microk8s kubectl create -f .github/reg.yml"
+          cat .github/reg.yml | CERT_DIR=$HOME/certs envsubst | sg snap_microk8s "microk8s kubectl create -f -"
           
           # TODO:(jack-w-shaw) Figure out why we need this and do something nicer
           sudo microk8s refresh-certs --cert ca.crt
