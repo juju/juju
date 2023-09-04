@@ -6,11 +6,13 @@ package testing
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync/atomic"
 
 	"github.com/canonical/sqlair"
@@ -63,11 +65,26 @@ func (s *DqliteSuite) SetUpTest(c *gc.C) {
 	url := fmt.Sprintf("%s:%d", "127.0.0.1", port)
 	c.Logf("Opening dqlite db with: %v", url)
 
+	// Depending on the verbosity of the test suite, we want to
+	// also print all the sql hitting the db.
+	var verbose bool
+	flag.VisitAll(func(f *flag.Flag) {
+		if verbose || !strings.Contains(f.Name, "check.vv") {
+			return
+		}
+		verbose, _ = strconv.ParseBool(f.Value.String())
+	})
+
 	s.dqlite, err = app.New(s.dbPath,
 		app.WithAddress(url),
 		app.WithTracing(client.LogDebug),
 		app.WithLogFunc(func(level client.LogLevel, msg string, args ...any) {
 			switch level {
+			case client.LogDebug:
+				if !verbose {
+					return
+				}
+				fallthrough
 			case client.LogInfo, client.LogWarn, client.LogError:
 				c.Logf("%s: %s, %v", level, msg, args)
 			}
@@ -133,7 +150,7 @@ func (s *DqliteSuite) OpenDB(c *gc.C) (coredatabase.TxnRunner, *sql.DB) {
 	uniqueID := atomic.AddInt64(&s.uniqueID, 1)
 
 	var err error
-	s.db, err = s.dqlite.Open(context.TODO(), strconv.FormatInt(uniqueID, 10))
+	s.db, err = s.dqlite.Open(context.Background(), strconv.FormatInt(uniqueID, 10))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = pragma.SetPragma(context.Background(), s.db, pragma.ForeignKeysPragma, true)

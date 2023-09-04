@@ -64,8 +64,21 @@ func (w *ValueWatcher) loop() error {
 	// channel read/write is guarded by checks of the tomb and subscription
 	// liveness.
 	// We begin in dispatch mode in order to send the initial notification.
-	var in <-chan []changestream.ChangeEvent
+	in := subscription.Changes()
 	out := w.out
+
+	select {
+	case <-w.tomb.Dying():
+		return tomb.ErrDying
+	case <-subscription.Done():
+		return ErrSubscriptionClosed
+	case _, ok := <-in:
+		if !ok {
+			w.logger.Debugf("change channel closed for %q; terminating watcher for %q", w.namespace, w.changeValue)
+			return nil
+		}
+	default:
+	}
 
 	for {
 		select {
@@ -80,11 +93,9 @@ func (w *ValueWatcher) loop() error {
 			}
 
 			// We have changes. Tick over to dispatch mode.
-			in = nil
 			out = w.out
 		case out <- struct{}{}:
 			// We have dispatched. Tick over to read mode.
-			in = subscription.Changes()
 			out = nil
 		}
 	}

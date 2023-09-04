@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/worker/changestream/eventmultiplexer"
-	"github.com/juju/juju/worker/changestream/stream"
+	"github.com/juju/juju/internal/changestream/eventmultiplexer"
+	"github.com/juju/juju/internal/changestream/stream"
 )
 
 // WatchableDBWorker is the interface that the worker uses to interact with the
