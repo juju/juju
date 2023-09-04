@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/database/testing"
 	domainstate "github.com/juju/juju/domain/controllerconfig/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -23,7 +22,7 @@ type controllerconfigSuite struct {
 var _ = gc.Suite(&controllerconfigSuite{})
 
 func (s *controllerconfigSuite) TestControllerConfigRoundTrips(c *gc.C) {
-	st := domainstate.NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := domainstate.NewState(s.TxnRunnerFactory())
 	srv := NewService(st, nil)
 
 	cfgIn := jujucontroller.Config{

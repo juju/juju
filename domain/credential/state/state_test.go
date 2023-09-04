@@ -37,7 +37,7 @@ func (s *credentialSuite) SetUpTest(c *gc.C) {
 
 	s.events = make(chan []changestream.ChangeEvent, 1)
 
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	s.addCloud(c, st, cloud.Cloud{
 		Name:      "stratus",
 		Type:      "ec2",
@@ -46,7 +46,7 @@ func (s *credentialSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *credentialSuite) addCloud(c *gc.C, st *State, cloud cloud.Cloud) string {
-	cloudSt := dbcloud.NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	cloudSt := dbcloud.NewState(s.TxnRunnerFactory())
 	ctx := ctx.Background()
 	err := cloudSt.UpsertCloud(ctx, cloud)
 	c.Assert(err, jc.ErrorIsNil)
@@ -62,7 +62,7 @@ func (s *credentialSuite) addCloud(c *gc.C, st *State, cloud cloud.Cloud) string
 }
 
 func (s *credentialSuite) TestUpdateCloudCredentialNew(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	cred := cloud.NewNamedCredential("foobar", cloud.AccessKeyAuthType, map[string]string{
 		"foo": "foo val",
@@ -78,7 +78,7 @@ func (s *credentialSuite) TestUpdateCloudCredentialNew(c *gc.C) {
 }
 
 func (s *credentialSuite) TestUpdateCloudCredentialNoValues(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	cred := cloud.NewNamedCredential("foobar", cloud.AccessKeyAuthType, map[string]string{}, true)
 	ctx := ctx.Background()
@@ -91,7 +91,7 @@ func (s *credentialSuite) TestUpdateCloudCredentialNoValues(c *gc.C) {
 }
 
 func (s *credentialSuite) TestUpdateCloudCredentialMissingName(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
 		"foo": "foo val",
@@ -103,7 +103,7 @@ func (s *credentialSuite) TestUpdateCloudCredentialMissingName(c *gc.C) {
 }
 
 func (s *credentialSuite) TestCreateInvalidCredential(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
 		"foo": "foo val",
@@ -118,7 +118,7 @@ func (s *credentialSuite) TestCreateInvalidCredential(c *gc.C) {
 }
 
 func (s *credentialSuite) TestUpdateCloudCredentialExisting(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	cred := cloud.NewNamedCredential("foobar", cloud.AccessKeyAuthType, map[string]string{
 		"foo": "foo val",
@@ -141,7 +141,7 @@ func (s *credentialSuite) TestUpdateCloudCredentialExisting(c *gc.C) {
 }
 
 func (s *credentialSuite) TestUpdateCloudCredentialInvalidAuthType(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	cred := cloud.NewNamedCredential("foobar", cloud.OAuth2AuthType, map[string]string{
 		"foo": "foo val",
@@ -154,7 +154,7 @@ func (s *credentialSuite) TestUpdateCloudCredentialInvalidAuthType(c *gc.C) {
 }
 
 func (s *credentialSuite) TestCloudCredentialsEmpty(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	creds, err := st.CloudCredentials(ctx.Background(), "bob", "dummy")
 	c.Assert(err, jc.ErrorIsNil)
@@ -162,7 +162,7 @@ func (s *credentialSuite) TestCloudCredentialsEmpty(c *gc.C) {
 }
 
 func (s *credentialSuite) TestCloudCredentials(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	cred1 := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
 		"foo": "foo val",
@@ -219,7 +219,7 @@ func (s *credentialSuite) assertCredentialInvalidated(c *gc.C, st *State, cloudN
 }
 
 func (s *credentialSuite) TestInvalidateCredential(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	s.assertCredentialInvalidated(c, st, "stratus", "bob", "foobar")
 }
 
@@ -234,7 +234,7 @@ func (s *credentialSuite) assertCredentialMarkedValid(c *gc.C, st *State, cloudN
 }
 
 func (s *credentialSuite) TestMarkInvalidCredentialAsValidExplicitly(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	// This call will ensure that there is an invalid credential to test with.
 	s.assertCredentialInvalidated(c, st, "stratus", "bob", "foobar")
 
@@ -247,7 +247,7 @@ func (s *credentialSuite) TestMarkInvalidCredentialAsValidExplicitly(c *gc.C) {
 }
 
 func (s *credentialSuite) TestMarkInvalidCredentialAsValidImplicitly(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	// This call will ensure that there is an invalid credential to test with.
 	s.assertCredentialInvalidated(c, st, "stratus", "bob", "foobar")
 
@@ -259,7 +259,7 @@ func (s *credentialSuite) TestMarkInvalidCredentialAsValidImplicitly(c *gc.C) {
 }
 
 func (s *credentialSuite) TestRemoveCredentials(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	cred1 := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
 		"foo": "foo val",
@@ -277,7 +277,7 @@ func (s *credentialSuite) TestRemoveCredentials(c *gc.C) {
 }
 
 func (s *credentialSuite) TestAllCloudCredentialsNotFound(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	out, err := st.AllCloudCredentials(ctx.Background(), "bob")
 	c.Assert(err, gc.ErrorMatches, "cloud credentials for \"bob\" not found")
@@ -304,7 +304,7 @@ func (s *credentialSuite) createCloudCredential(c *gc.C, st *State, credentialNa
 }
 
 func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	one := s.createCloudCredential(c, st, "foobar", "cirrus", "bob")
 	two := s.createCloudCredential(c, st, "foobar", "stratus", "bob")
@@ -321,7 +321,7 @@ func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
 }
 
 func (s *credentialSuite) TestInvalidateCloudCredential(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	one := s.createCloudCredential(c, st, "foobar", "cirrus", "bob")
 	c.Assert(one.Invalid, jc.IsFalse)
@@ -338,7 +338,7 @@ func (s *credentialSuite) TestInvalidateCloudCredential(c *gc.C) {
 }
 
 func (s *credentialSuite) TestInvalidateCloudCredentialNotFound(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	ctx := ctx.Background()
 	err := st.InvalidateCloudCredential(ctx, "foobar", "cirrus", "bob", "reason")
@@ -373,7 +373,7 @@ type stubEvent struct {
 }
 
 func (s *credentialSuite) TestWatchCredentialNotFound(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	ctx := ctx.Background()
 	_, err := st.WatchCredential(ctx, s.watcherFunc(c, ""), "foobar", "cirrus", "bob")
@@ -381,7 +381,7 @@ func (s *credentialSuite) TestWatchCredentialNotFound(c *gc.C) {
 }
 
 func (s *credentialSuite) TestWatchCredential(c *gc.C) {
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 	s.createCloudCredential(c, st, "foobar", "cirrus", "bob")
 
 	var uuid string

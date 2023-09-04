@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/database/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -28,7 +27,7 @@ func (s *stateSuite) TestCurateNodes(c *gc.C) {
 	_, err := db.Exec("INSERT INTO controller_node (controller_id) VALUES ('1')")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = NewState(testing.TxnRunnerFactory(s.TxnRunner())).CurateNodes(
+	err = NewState(s.TxnRunnerFactory()).CurateNodes(
 		context.Background(), []string{"2", "3"}, []string{"1"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -55,7 +54,7 @@ func (s *stateSuite) TestUpdateUpdateDqliteNode(c *gc.C) {
 	// tried to pass it directly as a uint64 query parameter.
 	nodeID := uint64(15237855465837235027)
 
-	err := NewState(testing.TxnRunnerFactory(s.TxnRunner())).UpdateDqliteNode(
+	err := NewState(s.TxnRunnerFactory()).UpdateDqliteNode(
 		context.Background(), "0", nodeID, "192.168.5.60")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -79,7 +78,7 @@ func (s *stateSuite) TestSelectModelUUID(c *gc.C) {
 	_, err := db.Exec("INSERT INTO model_list (uuid) VALUES ('some-uuid')")
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	st := NewState(s.TxnRunnerFactory())
 
 	uuid, err := st.SelectModelUUID(context.Background(), "not-there")
 	c.Assert(errors.Is(err, jujuerrors.NotFound), jc.IsTrue)

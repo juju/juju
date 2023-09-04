@@ -43,16 +43,6 @@ func (t *txnRunner) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx
 	})
 }
 
-// TxnRunnerFactory returns a DBFactory that returns the given database.
-func TxnRunnerFactory(db coredatabase.TxnRunner) func() (coredatabase.TxnRunner, error) {
-	return func() (coredatabase.TxnRunner, error) {
-		if db == nil {
-			return nil, errors.New("nil db")
-		}
-		return db, nil
-	}
-}
-
 type singularDBGetter struct {
 	runner coredatabase.TxnRunner
 }

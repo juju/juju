@@ -13,7 +13,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/database/testing"
 	"github.com/juju/juju/domain/lease/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/testing"
@@ -30,7 +29,7 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
-	s.store = state.NewState(testing.TxnRunnerFactory(s.TxnRunner()), jujutesting.CheckLogger{Log: c})
+	s.store = state.NewState(s.TxnRunnerFactory(), jujutesting.CheckLogger{Log: c})
 }
 
 func (s *stateSuite) TestClaimLeaseSuccessAndLeaseQueries(c *gc.C) {

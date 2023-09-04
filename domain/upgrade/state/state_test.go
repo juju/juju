@@ -15,7 +15,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/database"
-	"github.com/juju/juju/database/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -31,7 +30,7 @@ var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
-	s.st = NewState(testing.TxnRunnerFactory(s.TxnRunner()))
+	s.st = NewState(s.TxnRunnerFactory())
 
 	// Add a completed upgrade before tests start
 	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("2.9.42"), version.MustParse("3.0.0"))

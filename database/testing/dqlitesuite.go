@@ -146,6 +146,13 @@ func (s *DqliteSuite) OpenDB(c *gc.C) (coredatabase.TxnRunner, *sql.DB) {
 	return trackedDB, trackedDB.db.PlainDB()
 }
 
+// TxnRunnerFactory returns a DBFactory that returns the given database.
+func (s *DqliteSuite) TxnRunnerFactory() func() (coredatabase.TxnRunner, error) {
+	return func() (coredatabase.TxnRunner, error) {
+		return s.trackedDB, nil
+	}
+}
+
 // FindTCPPort finds an unused TCP port and returns it.
 // It is prone to racing, so the port should be used as soon as it is acquired
 // to minimise the change of another process using it in the interim.
