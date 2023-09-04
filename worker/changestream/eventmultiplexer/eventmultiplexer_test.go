@@ -7,6 +7,8 @@ import (
 	"sync"
 	time "time"
 
+	"github.com/juju/juju/core/database"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
@@ -50,8 +52,6 @@ func (s *eventMultiplexerSuite) TestSubscribe(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.unsubscribe(c, sub)
-
-	workertest.CleanKill(c, queue)
 }
 
 func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
@@ -95,8 +95,6 @@ func (s *eventMultiplexerSuite) TestDispatch(c *gc.C) {
 	c.Check(changes[0].Changed(), gc.Equals, "1")
 
 	s.unsubscribe(c, sub)
-
-	workertest.CleanKill(c, queue)
 }
 
 func (s *eventMultiplexerSuite) TestMultipleDispatch(c *gc.C) {
@@ -699,6 +697,7 @@ func (s *eventMultiplexerSuite) TestStreamDyingOnSubscribe(c *gc.C) {
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
 	s.metrics.EXPECT().SubscriptionsInc()
+	s.metrics.EXPECT().SubscriptionsDec()
 
 	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
@@ -712,7 +711,7 @@ func (s *eventMultiplexerSuite) TestStreamDyingOnSubscribe(c *gc.C) {
 	workertest.CleanKill(c, queue)
 
 	sub, err := queue.Subscribe()
-	c.Assert(err, gc.ErrorMatches, ".*dying")
+	c.Assert(err, jc.ErrorIs, database.ErrEventMultiplexerDying)
 	c.Check(sub, gc.IsNil)
 }
 
