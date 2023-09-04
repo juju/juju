@@ -22,7 +22,7 @@ jobs:
 
   Upgrade:
     name: Upgrade
-    runs-on: [self-hosted, linux, arm64, aws, large]
+    runs-on: [self-hosted, linux, x64, aws, large]
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
@@ -165,11 +165,13 @@ jobs:
         run: |
           set -euxo pipefail
           
-          juju bootstrap localhost c
-          juju add-model m
-          
-          juju status
+          juju bootstrap localhost c \
+            --constraints "arch=$(go env GOARCH)"
           juju version
+          
+          juju add-model m
+          juju set-model-constraints arch=$(go env GOARCH)
+          juju status
 
       - name: Bootstrap Juju - microk8s
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
@@ -182,13 +184,15 @@ jobs:
           
           sg snap_microk8s <<EOF
             juju bootstrap microk8s c \
+              --constraints "arch=$(go env GOARCH)" \
               --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
               --config features="[developer-mode]"
           EOF
-          juju add-model m
-          
-          juju status
           juju version
+
+          juju add-model m
+          juju set-model-constraints arch=$(go env GOARCH)
+          juju status
 
       - name: Deploy some applications
         if: env.RUN_TEST == 'RUN'

@@ -63,5 +63,5 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        mkdir ~/.ssh
+        mkdir -p ~/.ssh
         juju bootstrap localhost --debug
