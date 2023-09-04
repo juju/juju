@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+	"gopkg.in/tomb.v2"
 	"k8s.io/utils/inotify"
 )
 
@@ -105,7 +106,11 @@ func NewWatcher(fileName string, opts ...Option) (FileWatcher, error) {
 		return nil, errors.Annotatef(err, "creating watcher for file %q in path %q", fileName, o.path)
 	}
 	if err := watcher.Watch(o.path); err != nil {
-		return nil, errors.Annotatef(err, "watching file %q in path %q", fileName, o.path)
+		// As this is only used for debugging, we don't want to fail if we can't
+		// watch the folder.
+		o.logger.Warningf("failed watching file %q in path %q: %v", fileName, o.path, err)
+		_ = watcher.Close()
+		return newNoopFileWatcher(), nil
 	}
 
 	w := &Watcher{
@@ -197,4 +202,34 @@ func maskType(m uint32) eventType {
 		return deleted
 	}
 	return unknown
+}
+
+type noopFileWatcher struct {
+	tomb tomb.Tomb
+	ch   chan bool
+}
+
+func newNoopFileWatcher() *noopFileWatcher {
+	w := &noopFileWatcher{
+		ch: make(chan bool),
+	}
+
+	w.tomb.Go(func() error {
+		<-w.tomb.Dying()
+		return tomb.ErrDying
+	})
+
+	return w
+}
+
+func (w *noopFileWatcher) Kill() {
+	w.tomb.Kill(nil)
+}
+
+func (w *noopFileWatcher) Wait() error {
+	return w.tomb.Wait()
+}
+
+func (w *noopFileWatcher) Changes() <-chan bool {
+	return w.ch
 }
