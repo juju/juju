@@ -16,6 +16,7 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
 )
@@ -110,8 +111,13 @@ func (t TokenEntity) Tag() names.Tag {
 // SubjectPermissions implements PermissionDelegator
 func (p *PermissionDelegator) SubjectPermissions(
 	e authentication.Entity,
-	s names.Tag,
-) (permission.Access, error) {
+	subject names.Tag,
+) (a permission.Access, err error) {
+	if e.Tag().Id() == common.EveryoneTagName {
+		// JWT auth process does not support everyone@external.
+		// The everyone@external will be never included in the JWT token at least for now.
+		return permission.NoAccess, nil
+	}
 	tokenEntity, err := userFromToken(p.Token)
 	if err != nil {
 		return permission.NoAccess, errors.Trace(err)
@@ -121,7 +127,7 @@ func (p *PermissionDelegator) SubjectPermissions(
 	if tokenEntity.Tag().String() != e.Tag().String() {
 		return permission.NoAccess, fmt.Errorf("%w to use token permissions for one entity on another", errors.NotValid)
 	}
-	return PermissionFromToken(p.Token, s)
+	return PermissionFromToken(p.Token, subject)
 }
 
 // PermissionsError implements PermissionDelegator
