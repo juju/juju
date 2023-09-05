@@ -41,8 +41,8 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// ControllerConfigGetter is the interface that wraps the ControllerConfig method.
-type ControllerConfigGetter interface {
+// ControllerConfigService is the interface that wraps the ControllerConfig method.
+type ControllerConfigService interface {
 	ControllerConfig(context.Context) (corecontroller.Config, error)
 	UpdateControllerConfig(context.Context, corecontroller.Config, []string) error
 }
@@ -60,8 +60,8 @@ type ControllerAPI struct {
 	resources         facade.Resources
 	presence          facade.Presence
 	hub               facade.Hub
-	ctrlConfigService ControllerConfigGetter
 	credentialService common.CredentialService
+	ctrlConfigService ControllerConfigService
 
 	multiwatcherFactory multiwatcher.Factory
 	logger              loggo.Logger
@@ -82,7 +82,7 @@ func NewControllerAPI(
 	hub facade.Hub,
 	factory multiwatcher.Factory,
 	logger loggo.Logger,
-	ctrlConfigService ControllerConfigGetter,
+	ctrlConfigService ControllerConfigService,
 	externalCtrlService common.ExternalControllerService,
 	credentialService common.CredentialService,
 ) (*ControllerAPI, error) {
@@ -772,7 +772,7 @@ var runMigrationPrechecks = func(
 	st, ctlrSt *state.State,
 	targetInfo *coremigration.TargetInfo,
 	presence facade.Presence,
-	ctrlConfigService ControllerConfigGetter,
+	ctrlConfigService ControllerConfigService,
 	credentialService common.CredentialService,
 ) error {
 	// Check model and source controller.
@@ -893,7 +893,7 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, ctrlConfigService ControllerConfigGetter) (coremigration.ModelInfo, userList, error) {
+func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, ctrlConfigService ControllerConfigService) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
 	var ul userList
 
