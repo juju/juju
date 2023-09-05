@@ -15,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/database/dqlite"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/testing"
@@ -27,6 +28,43 @@ type workerSuite struct {
 }
 
 var _ = gc.Suite(&workerSuite{})
+
+func (s *workerSuite) TestKilledGetDBErrDying(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	dbDone := make(chan struct{})
+	s.expectClock()
+	s.expectTrackedDBUpdateNodeAndKill(dbDone)
+
+	mgrExp := s.nodeManager.EXPECT()
+	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
+	mgrExp.IsExistingNode().Return(true, nil).Times(1)
+	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.WithLogFuncOption().Return(nil)
+	mgrExp.WithTracingOption().Return(nil)
+
+	// We may or may not get this call.
+	mgrExp.SetClusterToLocalNode(gomock.Any()).Return(nil).AnyTimes()
+
+	s.expectNodeStartupAndShutdown()
+
+	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
+
+	s.hub.EXPECT().Subscribe(apiserver.DetailsTopic, gomock.Any()).Return(func() {}, nil)
+
+	w := s.newWorker(c)
+	defer func() {
+		close(dbDone)
+		workertest.DirtyKill(c, w)
+	}()
+	dbw := w.(*dbWorker)
+	ensureStartup(c, dbw)
+
+	w.Kill()
+
+	_, err := dbw.GetDB("anything")
+	c.Assert(err, jc.ErrorIs, database.ErrDBAccessorDying)
+}
 
 func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 	defer s.setupMocks(c).Finish()

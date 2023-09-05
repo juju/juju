@@ -382,13 +382,16 @@ func (w *dbWorker) GetDB(namespace string) (database.TxnRunner, error) {
 	select {
 	case <-w.dbReady:
 	case <-w.catacomb.Dying():
-		return nil, w.catacomb.ErrDying()
+		return nil, database.ErrDBAccessorDying
 	}
 
-	// First check if we've already got the db worker already running. If
-	// we have, then return out quickly. The dbRunner is the cache, so there
-	// is no need to have an in-memory cache here.
+	// First check if we've already got the db worker already running.
+	// The runner is effectively a DB cache.
 	if db, err := w.workerFromCache(namespace); err != nil {
+		if errors.Is(err, w.catacomb.ErrDying()) {
+			return nil, database.ErrDBAccessorDying
+		}
+
 		return nil, errors.Trace(err)
 	} else if db != nil {
 		return db, nil
@@ -400,7 +403,7 @@ func (w *dbWorker) GetDB(namespace string) (database.TxnRunner, error) {
 	select {
 	case w.dbRequests <- req:
 	case <-w.catacomb.Dying():
-		return nil, w.catacomb.ErrDying()
+		return nil, database.ErrDBAccessorDying
 	}
 
 	// Wait for the worker loop to indicate it's done.
@@ -412,7 +415,7 @@ func (w *dbWorker) GetDB(namespace string) (database.TxnRunner, error) {
 			return nil, errors.Trace(err)
 		}
 	case <-w.catacomb.Dying():
-		return nil, w.catacomb.ErrDying()
+		return nil, database.ErrDBAccessorDying
 	}
 
 	// This will return a not found error if the request was not honoured.

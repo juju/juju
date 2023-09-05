@@ -170,7 +170,7 @@ func (w *changeStreamWorker) workerFromCache(namespace string) (WatchableDBWorke
 		// worker dying.
 		select {
 		case <-w.catacomb.Dying():
-			return nil, w.catacomb.ErrDying()
+			return nil, coredatabase.ErrChangeStreamDying
 		default:
 			return nil, errors.Trace(err)
 		}

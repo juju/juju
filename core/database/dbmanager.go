@@ -3,6 +3,20 @@
 
 package database
 
+import "github.com/juju/errors"
+
+const (
+	// ControllerNS is the namespace for the controller database.
+	ControllerNS = "controller"
+
+	// ErrDBAccessorDying is used to indicate to *third parties* that the
+	// db-accessor worker is dying, instead of catacomb.ErrDying, which is
+	// unsuitable for propagating inter-worker.
+	// This error indicates to consuming workers that their dependency has
+	// become unmet and a restart by the dependency engine is imminent.
+	ErrDBAccessorDying = errors.ConstError("db-accessor worker is dying")
+)
+
 // DBGetter describes the ability to supply a transaction runner
 // for a particular database.
 type DBGetter interface {
@@ -25,8 +39,3 @@ type DBDeleter interface {
 	//    handled once it's supported by dqlite.
 	DeleteDB(namespace string) error
 }
-
-const (
-	// ControllerNS is the namespace for the controller database.
-	ControllerNS = "controller"
-)

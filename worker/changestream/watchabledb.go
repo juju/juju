@@ -94,7 +94,8 @@ func (w *WatchableDB) StdTxn(ctx context.Context, fn func(context.Context, *sql.
 	return w.db.StdTxn(ctx, fn)
 }
 
-// EventSource returns the event source for this worker.
+// Subscribe returns a subscription for the input options.
+// The subscription is then used to drive watchers.
 func (w *WatchableDB) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
 	return w.mux.Subscribe(opts...)
 }

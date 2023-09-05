@@ -14,6 +14,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 )
 
 // Logger represents the logging methods called.
@@ -129,12 +130,17 @@ func (e *EventMultiplexer) Subscribe(opts ...changestream.SubscriptionOption) (c
 
 	sub := newSubscription(subID, func() { e.unsubscribe(subID) })
 	if err := e.catacomb.Add(sub); err != nil {
+		e.metrics.SubscriptionsDec()
+		sub.Kill()
+		if errors.Is(err, e.catacomb.ErrDying()) {
+			return nil, database.ErrEventMultiplexerDying
+		}
 		return nil, errors.Trace(err)
 	}
 
 	select {
 	case <-e.catacomb.Dying():
-		return nil, e.catacomb.ErrDying()
+		return nil, database.ErrEventMultiplexerDying
 	case e.subscriptionCh <- subscriptionOpts{
 		subscription: sub,
 		opts:         opts,

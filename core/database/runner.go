@@ -36,11 +36,3 @@ func NewTxnRunnerFactoryForNamespace[T TxnRunner](f func(string) (T, error), ns 
 		return r, errors.Trace(err)
 	}
 }
-
-// ConstFactory returns a TxnRunnerFactory that always returns the
-// same database.TxnRunner.
-func ConstFactory(r TxnRunner) TxnRunnerFactory {
-	return func() (TxnRunner, error) {
-		return r, nil
-	}
-}
