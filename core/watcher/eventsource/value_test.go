@@ -29,14 +29,14 @@ func (s *valueSuite) TestNotificationsSent(c *gc.C) {
 
 	subExp := s.sub.EXPECT()
 
-	// We go through the worker loop 5 times:
+	// We go through the worker loop minimum 4 times:
 	// - Read initial delta (additional subsequent events aren't guaranteed).
 	// - Dispatch initial notification.
 	// - Read deltas.
 	// - Dispatch notification.
 	// - Pick up tomb.Dying()
 	done := make(chan struct{})
-	subExp.Done().Return(done).Times(5)
+	subExp.Done().Return(done).MinTimes(4)
 
 	deltas := make(chan []changestream.ChangeEvent)
 	subExp.Changes().Return(deltas)

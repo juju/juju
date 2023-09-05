@@ -29,7 +29,9 @@ type txnRunner struct {
 // This is the function that almost all downstream database consumers
 // should use.
 func (t *txnRunner) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
-	return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
+	return defaultTransactionRunner.Retry(ctx, func() error {
+		return errors.Trace(defaultTransactionRunner.Txn(ctx, t.db, fn))
+	})
 }
 
 // StdTxn executes the input function against the tracked database,

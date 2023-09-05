@@ -6,13 +6,13 @@ package testing
 import (
 	"time"
 
+	"github.com/juju/worker/v3"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/worker/v3"
 )
 
 // ControllerSuite is used to provide a sql.DB reference to tests.
