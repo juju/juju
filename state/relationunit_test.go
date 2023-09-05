@@ -399,7 +399,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, pru)
 	err = pru.EnterScope(nil)
-	c.Assert(err, gc.Equals, stateerrors.ErrCannotEnterScopeYet)
+	c.Assert(err, gc.ErrorMatches, ".*"+stateerrors.ErrCannotEnterScopeYet.Error())
 	assertNotInScope(c, pru)
 
 	// Remove the subordinate, and enter scope again; this should work, and
@@ -440,7 +440,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	// Check that we can't add a new unit now.
 	assertNotInScope(c, pr.ru2)
 	err = pr.ru2.EnterScope(nil)
-	c.Assert(err, gc.Equals, stateerrors.ErrCannotEnterScope)
+	c.Assert(err, gc.ErrorMatches, ".*"+stateerrors.ErrCannotEnterScope.Error())
 	assertNotInScope(c, pr.ru2)
 
 	// Check that we created no settings for the unit we failed to add.
@@ -530,7 +530,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, pr.ru3)
 	err = pr.ru3.EnterScope(nil)
-	c.Assert(err, gc.Equals, stateerrors.ErrCannotEnterScope)
+	c.Assert(err, gc.ErrorMatches, ".*"+stateerrors.ErrCannotEnterScope.Error())
 	assertNotInScope(c, pr.ru3)
 }
 

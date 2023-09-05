@@ -80,15 +80,68 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	relationDocID := ru.relation.doc.DocID
 
 	var settingsChanged func() (bool, error)
-
 	var existingSubName string
+	prefix := fmt.Sprintf("unit %q in relation %q: ", ru.unitName, ru.relation)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// Before retrying the transaction, check the following
+		// assertions:
+		if attempt > 0 {
+			if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
+				return nil, errors.Trace(err)
+			} else if count != 0 {
+				// The scope document exists, so we're actually already in scope.
+				return nil, nil
+			}
 
-		// Verify that the unit is not already in scope, and abort without error
+			// The relation or unit might no longer be Alive. (Note that there is no
+			// need for additional checks if we're trying to create a subordinate
+			// unit: this could fail due to the subordinate applications not being Alive,
+			// but this case will always be caught by the check for the relation's
+			// life (because a relation cannot be Alive if its applications are not).)
+			relations, rCloser := db.GetCollection(relationsC)
+			defer rCloser()
+			if alive, err := isAliveWithSession(relations, relationDocID); err != nil {
+				return nil, errors.Trace(err)
+			} else if !alive {
+				return nil, errors.Annotate(stateerrors.ErrCannotEnterScope, prefix+"relation is no longer alive")
+			}
+			if ru.isLocalUnit {
+				units, uCloser := db.GetCollection(unitsC)
+				defer uCloser()
+				if alive, err := isAliveWithSession(units, ru.unitName); err != nil {
+					return nil, errors.Trace(err)
+				} else if !alive {
+					return nil, errors.Annotate(stateerrors.ErrCannotEnterScope, prefix+"unit is no longer alive")
+
+				}
+
+				// Maybe a subordinate used to exist, but is no longer alive. If that is
+				// case, we will be unable to enter scope until that unit is gone.
+				if existingSubName != "" {
+					if alive, err := isAliveWithSession(units, existingSubName); err != nil {
+						return nil, errors.Trace(err)
+					} else if !alive {
+						return nil, errors.Annotatef(stateerrors.ErrCannotEnterScopeYet, prefix+"subordinate %v is no longer alive", existingSubName)
+					}
+				}
+			}
+
+			// It's possible that there was a pre-existing settings doc whose version
+			// has changed under our feet, preventing us from clearing it properly; if
+			// that is the case, something is seriously wrong (nobody else should be
+			// touching that doc under our feet) and we should bail out.
+			if changed, err := settingsChanged(); err != nil {
+				return nil, errors.Trace(err)
+			} else if changed {
+				return nil, fmt.Errorf(prefix + "concurrent settings change detected")
+			}
+		}
+
+		// Verify that the unit is not already in scope, and exit without error
 		// if it is.
 		if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		} else if count != 0 {
 			return nil, nil
 		}
@@ -120,7 +173,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		settingsColl, sCloser := db.GetCollection(settingsC)
 		defer sCloser()
 		if count, err := settingsColl.FindId(ruKey).Count(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		} else if count == 0 {
 			ops = append(ops, createSettingsOp(settingsC, ruKey, settings))
 			settingsChanged = func() (bool, error) { return false, nil }
@@ -128,7 +181,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 			var rop txn.Op
 			rop, settingsChanged, err = replaceSettingsOp(ru.st.db(), settingsC, ruKey, settings)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			ops = append(ops, rop)
 		}
@@ -145,7 +198,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 
 		// * If the unit should have a subordinate, and does not, create it.
 		if subOps, subName, err := ru.subordinateOps(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		} else {
 			existingSubName = subName
 			ops = append(ops, subOps...)
@@ -153,65 +206,8 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		return ops, nil
 	}
 
-	prefix := fmt.Sprintf("cannot enter scope for unit %q in relation %q: ", ru.unitName, ru.relation)
-	// Now run the complete transaction, or figure out why we can't.
-	if err := ru.st.db().Run(buildTxn); err != txn.ErrAborted {
-		return err
-	} else if err == txn.ErrAborted {
-		// Apparently, all our assertions should have passed, but the txn was
-		// aborted: something is really seriously wrong.
-		return fmt.Errorf(prefix+"transaction error: %s", err)
-	}
-	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
-		return err
-	} else if count != 0 {
-		// The scope document exists, so we're actually already in scope.
-		return nil
-	}
-
-	// The relation or unit might no longer be Alive. (Note that there is no
-	// need for additional checks if we're trying to create a subordinate
-	// unit: this could fail due to the subordinate applications not being Alive,
-	// but this case will always be caught by the check for the relation's
-	// life (because a relation cannot be Alive if its applications are not).)
-	relations, rCloser := db.GetCollection(relationsC)
-	defer rCloser()
-	if alive, err := isAliveWithSession(relations, relationDocID); err != nil {
-		return err
-	} else if !alive {
-		return stateerrors.ErrCannotEnterScope
-	}
-	if ru.isLocalUnit {
-		units, uCloser := db.GetCollection(unitsC)
-		defer uCloser()
-		if alive, err := isAliveWithSession(units, ru.unitName); err != nil {
-			return err
-		} else if !alive {
-			return stateerrors.ErrCannotEnterScope
-		}
-
-		// Maybe a subordinate used to exist, but is no longer alive. If that is
-		// case, we will be unable to enter scope until that unit is gone.
-		if existingSubName != "" {
-			if alive, err := isAliveWithSession(units, existingSubName); err != nil {
-				return err
-			} else if !alive {
-				return stateerrors.ErrCannotEnterScopeYet
-			}
-		}
-	}
-
-	// It's possible that there was a pre-existing settings doc whose version
-	// has changed under our feet, preventing us from clearing it properly; if
-	// that is the case, something is seriously wrong (nobody else should be
-	// touching that doc under our feet) and we should bail out.
-	if changed, err := settingsChanged(); err != nil {
-		return err
-	} else if changed {
-		return fmt.Errorf(prefix + "concurrent settings change detected")
-	}
-
-	return nil
+	// Now run the complete transaction.
+	return ru.st.db().Run(buildTxn)
 }
 
 // CounterpartApplications returns the slice of application names that are the counterpart of this unit.
