@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ControllerConfigGetter is the interface that gets ControllerConfig form DB.
-type ControllerConfigGetter interface {
+// ControllerConfigService is the interface that gets ControllerConfig form DB.
+type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
@@ -37,11 +37,11 @@ type AgentAPI struct {
 	*common.ControllerConfigAPI
 	cloudspec.CloudSpecer
 
-	credentialService      CredentialService
-	controllerConfigGetter ControllerConfigGetter
-	st                     *state.State
-	auth                   facade.Authorizer
-	resources              facade.Resources
+	credentialService       CredentialService
+	controllerConfigService ControllerConfigService
+	st                      *state.State
+	auth                    facade.Authorizer
+	resources               facade.Resources
 }
 
 // NewAgentAPI returns an agent API facade.
@@ -49,7 +49,7 @@ func NewAgentAPI(
 	auth facade.Authorizer,
 	resources facade.Resources,
 	st *state.State,
-	controllerConfigGetter ControllerConfigGetter,
+	controllerConfigService ControllerConfigService,
 	externalController common.ExternalControllerService,
 	credentialService common.CredentialService,
 ) (*AgentAPI, error) {
@@ -77,11 +77,11 @@ func NewAgentAPI(
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		credentialService:      credentialService,
-		controllerConfigGetter: controllerConfigGetter,
-		st:                     st,
-		auth:                   auth,
-		resources:              resources,
+		credentialService:       credentialService,
+		controllerConfigService: controllerConfigService,
+		st:                      st,
+		auth:                    auth,
+		resources:               resources,
 	}, nil
 }
 
@@ -137,7 +137,7 @@ func (api *AgentAPI) StateServingInfo(ctx context.Context) (result params.StateS
 		return params.StateServingInfo{}, errors.Trace(err)
 	}
 	// ControllerAPIPort comes from the controller config.
-	config, err := api.controllerConfigGetter.ControllerConfig(ctx)
+	config, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return params.StateServingInfo{}, errors.Trace(err)
 	}
