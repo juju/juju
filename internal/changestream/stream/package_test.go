@@ -13,10 +13,10 @@ import (
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package stream -destination stream_mock_test.go github.com/juju/juju/worker/changestream/stream FileNotifier
-//go:generate go run go.uber.org/mock/mockgen -package stream -destination logger_mock_test.go github.com/juju/juju/worker/changestream/stream Logger
+//go:generate go run go.uber.org/mock/mockgen -package stream -destination stream_mock_test.go github.com/juju/juju/internal/changestream/stream FileNotifier
+//go:generate go run go.uber.org/mock/mockgen -package stream -destination logger_mock_test.go github.com/juju/juju/internal/changestream/stream Logger
+//go:generate go run go.uber.org/mock/mockgen -package stream -destination metrics_mock_test.go github.com/juju/juju/internal/changestream/stream MetricsCollector
 //go:generate go run go.uber.org/mock/mockgen -package stream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-//go:generate go run go.uber.org/mock/mockgen -package stream -destination metrics_mock_test.go github.com/juju/juju/worker/changestream/stream MetricsCollector
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

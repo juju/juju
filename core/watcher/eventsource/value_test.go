@@ -29,17 +29,17 @@ func (s *valueSuite) TestNotificationsSent(c *gc.C) {
 
 	subExp := s.sub.EXPECT()
 
-	// We go through the worker loop 4 times:
+	// We go through the worker loop minimum 4 times:
+	// - Read initial delta (additional subsequent events aren't guaranteed).
 	// - Dispatch initial notification.
 	// - Read deltas.
 	// - Dispatch notification.
 	// - Pick up tomb.Dying()
 	done := make(chan struct{})
-	subExp.Done().Return(done).Times(4)
+	subExp.Done().Return(done).MinTimes(4)
 
-	// Tick-tock-tick-tock. 2 assignments of the in channel.
 	deltas := make(chan []changestream.ChangeEvent)
-	subExp.Changes().Return(deltas).Times(2)
+	subExp.Changes().Return(deltas)
 
 	subExp.Unsubscribe()
 
@@ -82,6 +82,7 @@ func (s *valueSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	subExp := s.sub.EXPECT()
+	subExp.Changes().Return(make(chan []changestream.ChangeEvent)).AnyTimes()
 
 	done := make(chan struct{})
 	close(done)
@@ -105,6 +106,7 @@ func (s *valueSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
 
 	subExp := s.sub.EXPECT()
 	done := make(chan struct{})
+	subExp.Changes().Return(make(chan []changestream.ChangeEvent)).AnyTimes()
 	subExp.Done().Return(done)
 	subExp.Unsubscribe()
 
@@ -124,6 +126,7 @@ func (s *valueSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 
 	subExp := s.sub.EXPECT()
 	done := make(chan struct{})
+	subExp.Changes().Return(make(chan []changestream.ChangeEvent))
 	subExp.Done().Return(done)
 	subExp.Unsubscribe()
 

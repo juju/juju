@@ -495,14 +495,15 @@ func (st *State) WatchCredential(
 		return nil, errors.Trace(err)
 	}
 
-	var result watcher.NotifyWatcher
+	var uuid string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		uuid, err := st.credentialUUID(ctx, tx, name, cloudName, owner)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		result, err = getWatcher("cloud_credential", uuid, changestream.All)
+		var err error
+		uuid, err = st.credentialUUID(ctx, tx, name, cloudName, owner)
 		return errors.Trace(err)
 	})
-	return result, err
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result, err := getWatcher("cloud_credential", uuid, changestream.All)
+	return result, errors.Annotatef(err, "watching credential")
 }

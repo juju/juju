@@ -80,6 +80,30 @@ func (c NotifyWatcherC) AssertOneChange() {
 	c.AssertNoChange()
 }
 
+// AssertChanges asserts that there was a series of changes for a given
+// duration. If there are any more changes after that period, then it
+// will fail.
+func (c NotifyWatcherC) AssertChanges(duration time.Duration) {
+	if duration >= testing.LongWait {
+		c.Fatalf("duration must be less than testing.LongWait")
+	}
+
+	done := time.After(duration)
+	for {
+		select {
+		case _, ok := <-c.Watcher.Changes():
+			c.Check(ok, jc.IsTrue)
+		case <-done:
+			// Ensure we have no more changes after we've waited
+			// for a given time.
+			c.AssertNoChange()
+			return
+		case <-time.After(testing.LongWait):
+			c.Fatalf("watcher did not send a change")
+		}
+	}
+}
+
 // AssertNoChange fails if it manages to read a value from Changes before a
 // short time has passed.
 func (c NotifyWatcherC) AssertNoChange() {
