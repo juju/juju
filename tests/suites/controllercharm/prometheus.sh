@@ -7,7 +7,7 @@ run_prometheus() {
 	juju offer controller.controller:metrics-endpoint
 	juju deploy prometheus-k8s --trust
 	juju relate prometheus-k8s controller.controller
-	wait_for "prometheus-k8s" "$(idle_condition "prometheus-k8s")"
+	wait_for "prometheus-k8s" "$(active_condition "prometheus-k8s")"
 
 	retry check_prometheus_targets 10
 
@@ -16,8 +16,10 @@ run_prometheus() {
 
 # Check the Juju controller is in the list of Prometheus targets.
 check_prometheus_targets() {
+	set -o pipefail
+
 	PROM_IP=$(juju status --format json | jq -r '.applications."prometheus-k8s".address')
-	TARGET=$(curl -s "http://${PROM_IP}:9090/api/v1/targets" |
+	TARGET=$(curl -sSm 2 "http://${PROM_IP}:9090/api/v1/targets" |
 		jq '.data.activeTargets[] | select(.labels.juju_application == "controller")')
 
 	if [[ -z $TARGET ]]; then
