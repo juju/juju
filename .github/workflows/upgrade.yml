@@ -54,7 +54,7 @@ jobs:
 
       - name: Checkout
         if: env.RUN_TEST == 'RUN'
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
         # We use LXD in the microk8s test too, to build the snap.
       - name: Setup LXD
