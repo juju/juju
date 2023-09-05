@@ -26,8 +26,6 @@ jobs:
         platform:
            - { os: linux, arch: amd64 }
            - { os: linux, arch: arm64 }
-           - { os: linux, arch: s390x }
-           - { os: linux, arch: ppc64le }
            - { os: windows, arch: amd64 }
            - { os: darwin, arch: amd64 }
 
