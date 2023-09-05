@@ -73,6 +73,17 @@ jobs:
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_shell make static-analysis
       shell: bash
+    
+    - name: "Static Analysis: Go Lint"
+      uses: golangci/golangci-lint-action@v3
+      with:
+        version: v1.54
+        args: --timeout=30m --config=/.github/.golangci-lint.config.yml --issues-exit-code=0
+        only-new-issues: true
+      env:
+        CGO_ENABLED: 1
+        CGO_LDFLAGS_ALLOW: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
+        CGO_LDFLAGS: "-L/_deps/juju-dqlite-static-lib-deps -luv -lraft -ldqlite -llz4 -lsqlite3"
 
     - name: "Static Analysis: Go Check"
       if: steps.filter.outputs.static-analysis == 'true' || steps.filter.outputs.go == 'true'

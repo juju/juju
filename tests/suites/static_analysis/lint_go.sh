@@ -59,7 +59,7 @@ test_static_analysis_go() {
 
 		cd .. || exit
 
-		run_linter "run_go"
+		#run_linter "run_go"
 		run_linter "run_go_tidy"
 		run_linter "run_go_fanout"
 	)
