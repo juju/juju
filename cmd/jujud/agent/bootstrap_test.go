@@ -47,6 +47,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/database"
+	dbtesting "github.com/juju/juju/database/testing"
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
@@ -116,6 +118,9 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 		return "private-key", "public-key", nil
 	})
 	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
+	s.PatchValue(&extraBootstrapOpts, []database.BootstrapOpt{
+		dbtesting.DummyCloudOpt,
+	})
 
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
@@ -624,6 +629,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 		args agentbootstrap.InitializeStateParams,
 		dialOpts mongo.DialOpts,
 		_ state.NewPolicyFunc,
+		_ ...database.BootstrapOpt,
 	) (_ *state.Controller, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)
@@ -652,6 +658,7 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 		_ agentbootstrap.InitializeStateParams,
 		dialOpts mongo.DialOpts,
 		_ state.NewPolicyFunc,
+		_ ...database.BootstrapOpt,
 	) (_ *state.Controller, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, jc.IsTrue)

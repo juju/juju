@@ -19,7 +19,6 @@ type BackendModel interface {
 	Config() (*config.Config, error)
 	ModelTag() names.ModelTag
 	Cloud() (cloud.Cloud, error)
-	CloudCredential() (cloud.Credential, bool, error)
 	CloudRegion() string
 	ControllerUUID() string
 	Type() state.ModelType

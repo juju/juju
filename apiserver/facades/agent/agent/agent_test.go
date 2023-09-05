@@ -5,24 +5,28 @@ package agent_test
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	commonmocks "github.com/juju/juju/apiserver/common/mocks"
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/agent"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	ttesting "github.com/juju/juju/testing"
 )
 
 type agentSuite struct {
@@ -66,29 +70,31 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService common.CredentialService) (*agent.AgentAPI, error) {
+	return agent.NewAgentAPI(
+		auth,
+		s.resources,
+		s.ControllerModel(c).State(),
+		nil,
+		nil,
+		credentialService,
+	)
+}
+
 func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUserTag("admin")
-	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:          s.ControllerModel(c).State(),
-		Resources_:      s.resources,
-		Auth_:           auth,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-	})
-	c.Assert(err, gc.NotNil)
-	c.Assert(api, gc.IsNil)
+	ctx := facadetest.Context{
+		Auth_: auth,
+	}
+	_, err := agent.NewAgentAPIV3(ctx)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUnitTag("foosball/1")
-	_, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:          s.ControllerModel(c).State(),
-		Resources_:      s.resources,
-		Auth_:           auth,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-	})
+	_, err := s.agentAPI(c, auth, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -103,12 +109,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 			{Tag: "machine-42"},
 		},
 	}
-	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:          s.ControllerModel(c).State(),
-		Resources_:      s.resources,
-		Auth_:           s.authorizer,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-	})
+	api, err := s.agentAPI(c, s.authorizer, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	results := api.GetEntities(context.Background(), args)
 	c.Assert(results, gc.DeepEquals, params.AgentGetEntitiesResults{
@@ -130,12 +131,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 	err := s.container.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:          s.ControllerModel(c).State(),
-		Resources_:      s.resources,
-		Auth_:           auth,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-	})
+	api, err := s.agentAPI(c, auth, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -176,12 +172,7 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 	err = s.machine1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:          s.ControllerModel(c).State(),
-		Resources_:      s.resources,
-		Auth_:           s.authorizer,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-	})
+	api, err := s.agentAPI(c, s.authorizer, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	results := api.GetEntities(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
@@ -198,12 +189,7 @@ func (s *agentSuite) TestGetEntitiesNotFound(c *gc.C) {
 }
 
 func (s *agentSuite) TestSetPasswords(c *gc.C) {
-	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:          s.ControllerModel(c).State(),
-		Resources_:      s.resources,
-		Auth_:           s.authorizer,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-	})
+	api, err := s.agentAPI(c, s.authorizer, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.SetPasswords(
 		context.Background(),
@@ -230,12 +216,7 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 }
 
 func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
-	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:          s.ControllerModel(c).State(),
-		Resources_:      s.resources,
-		Auth_:           s.authorizer,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-	})
+	api, err := s.agentAPI(c, s.authorizer, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := api.SetPasswords(
 		context.Background(),
@@ -252,12 +233,7 @@ func (s *agentSuite) TestSetPasswordsShort(c *gc.C) {
 }
 
 func (s *agentSuite) TestClearReboot(c *gc.C) {
-	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:          s.ControllerModel(c).State(),
-		Resources_:      s.resources,
-		Auth_:           s.authorizer,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-	})
+	api, err := s.agentAPI(c, s.authorizer, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine1.SetRebootFlag(true)
@@ -291,15 +267,20 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 		Tag:        names.NewMachineTag("0"),
 		Controller: true,
 	}
-	st := s.ControllerModel(c).State()
-	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:          st,
-		Resources_:      s.resources,
-		Auth_:           authorizer,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
 	tag := names.NewCloudCredentialTag("dummy/fred/default")
+
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	credentialService := commonmocks.NewMockCredentialService(ctrl)
+
+	ch := make(chan struct{}, 1)
+	// Initial event.
+	ch <- struct{}{}
+
+	nw := watchertest.NewMockNotifyWatcher(ch)
+	credentialService.EXPECT().WatchCredential(gomock.Any(), tag).Return(nw, nil)
+	api, err := s.agentAPI(c, authorizer, credentialService)
+	c.Assert(err, jc.ErrorIsNil)
 	result, err := api.WatchCredentials(context.Background(), params.Entities{Entities: []params.Entity{{Tag: tag.String()}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{Results: []params.NotifyWatchResult{{NotifyWatcherId: "1", Error: nil}}})
@@ -312,8 +293,11 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, w.(state.NotifyWatcher))
 	wc.AssertNoChange()
 
-	err = st.UpdateCloudCredential(tag, cloud.NewCredential(cloud.UserPassAuthType, nil))
-	c.Assert(err, jc.ErrorIsNil)
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(ttesting.LongWait):
+		c.Fatalf("timeout sending credential change event")
+	}
 	wc.AssertOneChange()
 }
 
@@ -322,12 +306,11 @@ func (s *agentSuite) TestWatchAuthError(c *gc.C) {
 		Tag:        names.NewMachineTag("1"),
 		Controller: false,
 	}
-	api, err := agent.NewAgentAPIV3(facadetest.Context{
-		State_:          s.ControllerModel(c).State(),
-		Resources_:      s.resources,
-		Auth_:           authorizer,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-	})
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	credentialService := commonmocks.NewMockCredentialService(ctrl)
+
+	api, err := s.agentAPI(c, authorizer, credentialService)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = api.WatchCredentials(context.Background(), params.Entities{})
 	c.Assert(err, gc.ErrorMatches, "permission denied")

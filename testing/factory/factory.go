@@ -84,7 +84,7 @@ type CharmParams struct {
 	URL          string
 }
 
-// Params for creating a machine.
+// MachineParams are for creating a machine.
 type MachineParams struct {
 	Base            state.Base
 	Jobs            []state.MachineJob
@@ -863,11 +863,8 @@ func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State
 			c.Assert(err, jc.ErrorIsNil)
 			params.Owner = origEnv.Owner()
 		}
-		cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 		tag := names.NewCloudCredentialTag(
 			fmt.Sprintf("%s/%s/dummy-credential", params.CloudName, params.Owner.Id()))
-		err := factory.st.UpdateCloudCredential(tag, cred)
-		c.Assert(err, jc.ErrorIsNil)
 		params.CloudCredential = tag
 	}
 	return factory.MakeModel(c, params)

@@ -155,13 +155,11 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				access:   permission.WriteAccess,
 			}},
 		},
-		cred:        statetesting.NewEmptyCredential(),
 		modelConfig: coretesting.ModelConfig(c),
 	}
 	s.ctlrSt = &mockState{
 		model:           s.st.model,
 		controllerModel: controllerModel,
-		cred:            statetesting.NewEmptyCredential(),
 		cloud:           dummyCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
 			names.NewCloudTag("some-cloud"): dummyCloud,
@@ -183,8 +181,6 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	caasCred := state.Credential{}
-	caasCred.AuthType = string(cloud.UserPassAuthType)
 	s.caasSt = &mockState{
 		cloud: mockK8sCloud,
 		clouds: map[names.CloudTag]cloud.Cloud{
@@ -208,7 +204,6 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				access:   permission.AdminAccess,
 			}},
 		},
-		cred:        caasCred,
 		modelConfig: coretesting.ModelConfig(c),
 	}
 
@@ -223,14 +218,18 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		return s.caasBroker, nil
 	}
 
+	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
-		s.st, s.modelExporter, s.ctlrSt, &mockModelManagerService{}, nil, newBroker, common.NewBlockChecker(s.st),
+		s.st, s.modelExporter, s.ctlrSt, apiservertesting.FixedCredentialGetter(&cred), &mockModelManagerService{},
+		nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
+	caasCred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	caasApi, err := modelmanager.NewModelManagerAPI(
-		s.caasSt, s.modelExporter, s.ctlrSt, &mockModelManagerService{}, nil, newBroker, common.NewBlockChecker(s.caasSt),
+		s.caasSt, s.modelExporter, s.ctlrSt, apiservertesting.FixedCredentialGetter(&caasCred), &mockModelManagerService{},
+		nil, newBroker, common.NewBlockChecker(s.caasSt),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -251,7 +250,8 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		return s.caasBroker, nil
 	}
 	mm, err := modelmanager.NewModelManagerAPI(
-		s.st, s.modelExporter, s.ctlrSt, &mockModelManagerService{}, nil, newBroker, common.NewBlockChecker(s.st),
+		s.st, s.modelExporter, s.ctlrSt, apiservertesting.FixedCredentialGetter(nil), &mockModelManagerService{},
+		nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -291,7 +291,6 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"ControllerTag",
 		"ControllerTag",
 		"Cloud",
-		"CloudCredential",
 		"ComposeNewModelConfig",
 		"ControllerConfig",
 		"NewModel",
@@ -445,7 +444,7 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 		CloudCredentialTag: "cloudcred-some-cloud_admin_bar",
 	}
 	_, err := s.api.CreateModel(stdcontext.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `getting credential: credential not found`)
+	c.Assert(err, gc.ErrorMatches, `.* credential not found`)
 }
 
 func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
@@ -462,7 +461,6 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"ControllerTag",
 		"ControllerTag",
 		"Cloud",
-		"CloudCredential",
 		"ComposeNewModelConfig",
 		"ControllerConfig",
 		"NewModel",
@@ -712,7 +710,8 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 	defer ctrl.Finish()
 
 	api, err := modelmanager.NewModelManagerAPI(
-		s.st, s.modelExporter, s.ctlrSt, &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
+		s.st, s.modelExporter, s.ctlrSt, apiservertesting.FixedCredentialGetter(nil), &mockModelManagerService{},
+		nil, nil, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
 	c.Check(err, jc.ErrorIsNil)
@@ -873,6 +872,8 @@ func (s *modelManagerStateSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
+	cred := cloud.NewEmptyCredential()
+	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
 	s.ControllerModelConfigAttrs = map[string]interface{}{
 		"agent-version": jujuversion.Current.String(),
 	}
@@ -896,11 +897,12 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	configGetter := stateenvirons.EnvironConfigGetter{Model: s.ControllerModel(c)}
-	newEnviron := common.EnvironFuncForModel(model, configGetter)
+	configGetter := stateenvirons.EnvironConfigGetter{Model: s.ControllerModel(c), CredentialService: s.CredentialService}
+	newEnviron := common.EnvironFuncForModel(model, s.CredentialService, configGetter)
 	toolsFinder := common.NewToolsFinder(s.controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		st, nil, ctlrSt,
+		s.CredentialService,
 		&mockModelManagerService{},
 		toolsFinder,
 		nil,
@@ -921,6 +923,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 		st,
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
+		s.CredentialService,
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.ControllerModel(c),
@@ -938,6 +941,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		st,
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
+		s.CredentialService,
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.ControllerModel(c),
 		s.callContext,
@@ -1143,6 +1147,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 		backend,
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
+		s.CredentialService,
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.ControllerModel(c),
@@ -1193,6 +1198,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		backend,
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
+		s.CredentialService,
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.ControllerModel(c),
@@ -1232,6 +1238,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		backend,
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
+		s.CredentialService,
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser, s.ControllerModel(c),
 		s.callContext,
@@ -1705,6 +1712,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 		st,
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
+		s.CredentialService,
 		&mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.ControllerModel(c),

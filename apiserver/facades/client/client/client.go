@@ -117,8 +117,8 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
-	newEnviron := common.EnvironFuncForModel(model, configGetter)
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model, CredentialService: ctx.ServiceFactory().Credential()}
+	newEnviron := common.EnvironFuncForModel(model, ctx.ServiceFactory().Credential(), configGetter)
 
 	modelUUID := model.UUID()
 

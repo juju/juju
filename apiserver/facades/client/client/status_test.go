@@ -21,9 +21,10 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
-	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -910,7 +911,7 @@ func (s *statusUnitTestSuite) TestMachineWithNoDisplayNameHasItsEmptyDisplayName
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
 	machine := f.MakeMachine(c, &factory.MachineParams{
-		InstanceId: instance.Id("i-123"),
+		InstanceId: "i-123",
 	})
 
 	conn := s.OpenControllerModelAPI(c)
@@ -925,7 +926,7 @@ func (s *statusUnitTestSuite) TestMachineWithDisplayNameHasItsDisplayNameSent(c 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	release()
 	machine := f.MakeMachine(c, &factory.MachineParams{
-		InstanceId:  instance.Id("i-123"),
+		InstanceId:  "i-123",
 		DisplayName: "snowflake",
 	})
 
@@ -1130,6 +1131,9 @@ type CAASStatusSuite struct {
 var _ = gc.Suite(&CAASStatusSuite{})
 
 func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
+	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
+	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
+
 	s.baseSuite.SetUpTest(c)
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 

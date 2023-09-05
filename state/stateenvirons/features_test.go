@@ -4,8 +4,6 @@
 package stateenvirons
 
 import (
-	"context"
-
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -26,10 +24,10 @@ type featuresSuite struct {
 var _ = gc.Suite(&featuresSuite{})
 
 func (s *featuresSuite) TestSupportedFeaturesWithIncompatibleEnviron(c *gc.C) {
-	defer func(getter func(Model) (environs.Environ, error)) {
+	defer func(getter func(Model, CredentialService) (environs.Environ, error)) {
 		iaasEnvironGetter = getter
 	}(iaasEnvironGetter)
-	iaasEnvironGetter = func(Model) (environs.Environ, error) {
+	iaasEnvironGetter = func(Model, CredentialService) (environs.Environ, error) {
 		// Not supporting environs.SupportedFeaturesEnumerator
 		return nil, nil
 	}
@@ -39,7 +37,7 @@ func (s *featuresSuite) TestSupportedFeaturesWithIncompatibleEnviron(c *gc.C) {
 		jujuVersion: jujuVersion,
 		modelType:   state.ModelTypeIAAS,
 	}
-	fs, err := SupportedFeatures(context.Background(), m, nil)
+	fs, err := SupportedFeatures(m, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []assumes.Feature{
@@ -54,10 +52,10 @@ func (s *featuresSuite) TestSupportedFeaturesWithIncompatibleEnviron(c *gc.C) {
 }
 
 func (s *featuresSuite) TestSupportedFeaturesWithCompatibleIAASEnviron(c *gc.C) {
-	defer func(getter func(Model) (environs.Environ, error)) {
+	defer func(getter func(Model, CredentialService) (environs.Environ, error)) {
 		iaasEnvironGetter = getter
 	}(iaasEnvironGetter)
-	iaasEnvironGetter = func(Model) (environs.Environ, error) {
+	iaasEnvironGetter = func(Model, CredentialService) (environs.Environ, error) {
 		return mockIAASEnvironWithFeatures{}, nil
 	}
 
@@ -66,7 +64,7 @@ func (s *featuresSuite) TestSupportedFeaturesWithCompatibleIAASEnviron(c *gc.C) 
 		jujuVersion: jujuVersion,
 		modelType:   state.ModelTypeIAAS,
 	}
-	fs, err := SupportedFeatures(context.Background(), m, nil)
+	fs, err := SupportedFeatures(m, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []assumes.Feature{
@@ -83,10 +81,10 @@ func (s *featuresSuite) TestSupportedFeaturesWithCompatibleIAASEnviron(c *gc.C) 
 }
 
 func (s *featuresSuite) TestSupportedFeaturesWithCompatibleCAASEnviron(c *gc.C) {
-	defer func(getter func(Model) (caas.Broker, error)) {
+	defer func(getter func(Model, CredentialService) (caas.Broker, error)) {
 		caasBrokerGetter = getter
 	}(caasBrokerGetter)
-	caasBrokerGetter = func(Model) (caas.Broker, error) {
+	caasBrokerGetter = func(Model, CredentialService) (caas.Broker, error) {
 		return mockCAASEnvironWithFeatures{}, nil
 	}
 
@@ -95,7 +93,7 @@ func (s *featuresSuite) TestSupportedFeaturesWithCompatibleCAASEnviron(c *gc.C) 
 		jujuVersion: jujuVersion,
 		modelType:   state.ModelTypeCAAS,
 	}
-	fs, err := SupportedFeatures(context.Background(), m, nil)
+	fs, err := SupportedFeatures(m, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []assumes.Feature{

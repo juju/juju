@@ -20,7 +20,7 @@ import (
 type baseModel interface {
 	Cloud() (cloud.Cloud, error)
 	CloudRegion() string
-	CloudCredential() (cloud.Credential, bool, error)
+	CloudCredentialTag() (names.CloudCredentialTag, bool)
 }
 
 // Model exposes the methods needed for an EnvironConfigGetter.
@@ -32,6 +32,11 @@ type Model interface {
 	Config() (*config.Config, error)
 }
 
+// CredentialService provides access to credentials.
+type CredentialService interface {
+	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
+}
+
 // EnvironConfigGetter implements environs.EnvironConfigGetter
 // in terms of a Model.
 type EnvironConfigGetter struct {
@@ -40,6 +45,9 @@ type EnvironConfigGetter struct {
 	// NewContainerBroker is a func that returns a caas container broker
 	// for the relevant model.
 	NewContainerBroker caas.NewContainerBrokerFunc
+
+	// CredentialService provides access to credentials.
+	CredentialService CredentialService
 }
 
 // CloudAPIVersion returns the cloud API version for the cloud with the given spec.
@@ -74,49 +82,52 @@ func (g EnvironConfigGetter) ModelConfig(ctx context.Context) (*config.Config, e
 
 // CloudSpec implements environs.EnvironConfigGetter.
 func (g EnvironConfigGetter) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
-	return CloudSpecForModel(g.Model)
+	return CloudSpecForModel(ctx, g.Model, g.CredentialService)
 }
 
 // CloudSpecForModel returns a CloudSpec for the specified model.
-func CloudSpecForModel(m baseModel) (environscloudspec.CloudSpec, error) {
+func CloudSpecForModel(ctx context.Context, m baseModel, credentialService CredentialService) (environscloudspec.CloudSpec, error) {
 	cld, err := m.Cloud()
 	if err != nil {
 		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
 	regionName := m.CloudRegion()
-	credentialValue, ok, err := m.CloudCredential()
+	tag, ok := m.CloudCredentialTag()
 	if err != nil {
 		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
-	var credential *cloud.Credential
+	var credential cloud.Credential
 	if ok {
-		credential = &credentialValue
+		credential, err = credentialService.CloudCredential(ctx, tag)
+		if err != nil {
+			return environscloudspec.CloudSpec{}, errors.Trace(err)
+		}
 	}
-	return environscloudspec.MakeCloudSpec(cld, regionName, credential)
+	return environscloudspec.MakeCloudSpec(cld, regionName, &credential)
 }
 
 // NewEnvironFunc aliases a function that, given a Model,
 // returns a new Environ.
-type NewEnvironFunc = func(Model) (environs.Environ, error)
+type NewEnvironFunc = func(Model, CredentialService) (environs.Environ, error)
 
 // GetNewEnvironFunc returns a NewEnvironFunc, that constructs Environs
 // using the given environs.NewEnvironFunc.
 func GetNewEnvironFunc(newEnviron environs.NewEnvironFunc) NewEnvironFunc {
-	return func(m Model) (environs.Environ, error) {
-		g := EnvironConfigGetter{Model: m}
+	return func(m Model, credentialService CredentialService) (environs.Environ, error) {
+		g := EnvironConfigGetter{Model: m, CredentialService: credentialService}
 		return environs.GetEnviron(context.TODO(), g, newEnviron)
 	}
 }
 
 // NewCAASBrokerFunc aliases a function that, given a state.State,
 // returns a new CAAS broker.
-type NewCAASBrokerFunc = func(Model) (caas.Broker, error)
+type NewCAASBrokerFunc = func(Model, CredentialService) (caas.Broker, error)
 
 // GetNewCAASBrokerFunc returns a NewCAASBrokerFunc, that constructs CAAS brokers
 // using the given caas.NewContainerBrokerFunc.
 func GetNewCAASBrokerFunc(newBroker caas.NewContainerBrokerFunc) NewCAASBrokerFunc {
-	return func(m Model) (caas.Broker, error) {
-		g := EnvironConfigGetter{Model: m}
+	return func(m Model, credentialService CredentialService) (caas.Broker, error) {
+		g := EnvironConfigGetter{Model: m, CredentialService: credentialService}
 		cloudSpec, err := g.CloudSpec(context.TODO())
 		if err != nil {
 			return nil, errors.Trace(err)

@@ -43,6 +43,7 @@ type API struct {
 	presence                facade.Presence
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
 	leadership              leadership.Reader
+	credentialService       common.CredentialService
 }
 
 // NewAPI creates a new API server endpoint for the model migration
@@ -58,6 +59,7 @@ func NewAPI(
 	presence facade.Presence,
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	leadership leadership.Reader,
+	credentialService common.CredentialService,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -74,6 +76,7 @@ func NewAPI(
 		presence:                presence,
 		environscloudspecGetter: environscloudspecGetter,
 		leadership:              leadership,
+		credentialService:       credentialService,
 	}, nil
 }
 
@@ -234,6 +237,7 @@ func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
 		api.presence.ModelPresence(model.UUID()),
 		api.presence.ModelPresence(controllerModel.UUID()),
 		api.environscloudspecGetter,
+		api.credentialService,
 	)
 }
 

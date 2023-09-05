@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
@@ -264,6 +265,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
 		agentConf,
 		bufferedLogger,
+		dbaccessor.NewTrackedDBWorker,
 		addons.DefaultIntrospectionSocketName,
 		upgrades.PreUpgradeSteps,
 		"",

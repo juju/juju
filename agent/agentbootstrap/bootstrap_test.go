@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	dbtesting "github.com/juju/juju/database/testing"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -186,6 +187,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	adminUser := names.NewLocalUserTag("agent-admin")
 	ctlr, err := agentbootstrap.InitializeState(
 		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
+		dbtesting.DummyCloudOpt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = ctlr.Close() }()
@@ -441,6 +443,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, err := agentbootstrap.InitializeState(
 		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
+		dbtesting.DummyCloudOpt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	_ = st.Close()

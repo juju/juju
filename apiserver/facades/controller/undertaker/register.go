@@ -4,6 +4,7 @@
 package undertaker
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -34,14 +35,14 @@ func newUndertakerFacade(ctx facade.Context) (*UndertakerAPI, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
+		return secrets.AdminBackendConfigInfo(context.Background(), secrets.SecretsModel(model), ctx.ServiceFactory().Credential())
 	}
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		ctx.Resources(),
-		cloudspec.MakeCloudSpecGetterForModel(st),
+		cloudspec.MakeCloudSpecGetterForModel(st, ctx.ServiceFactory().Credential()),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, ctx.ServiceFactory().Credential()),
 		common.AuthFuncForTag(m.ModelTag()),
 	)
 	return newUndertakerAPI(&stateShim{st}, ctx.Resources(), ctx.Auth(), secretsBackendsGetter, cloudSpecAPI)

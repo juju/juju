@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -61,7 +60,7 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -82,7 +81,7 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

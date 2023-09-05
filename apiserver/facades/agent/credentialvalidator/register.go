@@ -6,6 +6,8 @@ package credentialvalidator
 import (
 	"reflect"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -18,5 +20,12 @@ func Register(registry facade.FacadeRegistry) {
 
 // newCredentialValidatorAPI creates a new CredentialValidator API endpoint on server-side.
 func newCredentialValidatorAPI(ctx facade.Context) (*CredentialValidatorAPI, error) {
-	return internalNewCredentialValidatorAPI(NewBackend(NewStateShim(ctx.State()), ctx.Logger().Child("credentialvalidator")), ctx.Resources(), ctx.Auth())
+	st, err := NewStateShim(ctx.State())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return internalNewCredentialValidatorAPI(st,
+		ctx.ServiceFactory().Credential(),
+		ctx.Resources(), ctx.Auth(),
+		ctx.Logger().Child("credentialvalidator"))
 }

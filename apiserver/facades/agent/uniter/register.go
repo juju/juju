@@ -26,6 +26,11 @@ func Register(registry facade.FacadeRegistry) {
 
 // newUniterAPI creates a new instance of the core Uniter API.
 func newUniterAPI(context facade.Context) (*UniterAPI, error) {
+	return newUniterAPIWithCredentialService(context, context.ServiceFactory().Credential())
+}
+
+// newUniterAPI creates a new instance of the core Uniter API.
+func newUniterAPIWithCredentialService(context facade.Context, credentialService common.CredentialService) (*UniterAPI, error) {
 	authorizer := context.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -71,10 +76,10 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
 	cloudSpec := cloudspec.NewCloudSpecV2(resources,
-		cloudspec.MakeCloudSpecGetterForModel(st),
+		cloudspec.MakeCloudSpecGetterForModel(st, credentialService),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
 		common.AuthFuncForTag(m.ModelTag()),
 	)
 
@@ -106,6 +111,7 @@ func newUniterAPI(context facade.Context) (*UniterAPI, error) {
 
 		m:                 m,
 		st:                st,
+		credentialService: credentialService,
 		clock:             aClock,
 		cancel:            context.Cancel(),
 		auth:              authorizer,

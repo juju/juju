@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	coreconfig "github.com/juju/juju/core/config"
@@ -87,6 +88,12 @@ func (s *leadershipRevoker) RevokeLeadership(applicationId, unitId string) error
 }
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"username": "dummy",
+		"password": "secret",
+	})
+	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
+
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.Features: feature.RawK8sSpec,
 	}
@@ -3837,11 +3844,13 @@ type uniterNetworkInfoSuite struct {
 var _ = gc.Suite(&uniterNetworkInfoSuite{})
 
 func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
+	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
+	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.Features: feature.RawK8sSpec,
 	}
 
-	s.uniterSuiteBase.ApiServerSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 
 	net := map[string][]string{
@@ -4944,7 +4953,10 @@ func (s *cloudSpecUniterSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
-	result, err := s.uniter.CloudSpec(context.Background())
+	facadeContext := s.facadeContext(c)
+	uniterAPI, err := uniter.NewUniterAPIWithCredentialService(facadeContext, s.CredentialService)
+	c.Assert(err, jc.ErrorIsNil)
+	result, err := uniterAPI.CloudSpec(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.Result.Name, gc.Equals, "dummy")
@@ -4967,7 +4979,10 @@ func (*fakeBroker) APIVersion() (string, error) {
 func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 	_, cm, _, _ := s.setupCAASModel(c)
 
-	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
+	facadeContext := s.facadeContext(c)
+	facadeContext.State_ = cm.State()
+	uniterAPI, err := uniter.NewUniterAPIWithCredentialService(facadeContext, s.CredentialService)
+	c.Assert(err, jc.ErrorIsNil)
 	uniter.SetNewContainerBrokerFunc(uniterAPI, func(context.Context, environs.OpenParams) (caas.Broker, error) {
 		return &fakeBroker{}, nil
 	})
@@ -4985,20 +5000,26 @@ type uniterAPIErrorSuite struct {
 
 var _ = gc.Suite(&uniterAPIErrorSuite{})
 
+func (s *uniterAPIErrorSuite) SetupTest(c *gc.C) {
+	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
+	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
+	s.ApiServerSuite.SetUpTest(c)
+}
+
 func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 	uniter.PatchGetStorageStateError(s, errors.New("kaboom"))
 
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 
-	_, err := uniter.NewUniterAPI(facadetest.Context{
+	facadeContext := facadetest.Context{
 		State_:             s.ControllerModel(c).State(),
 		StatePool_:         s.StatePool(),
 		Resources_:         resources,
 		Auth_:              apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("nomatter/0")},
 		LeadershipChecker_: &fakeLeadershipChecker{false},
-	})
-
+	}
+	_, err := uniter.NewUniterAPIWithCredentialService(facadeContext, s.CredentialService)
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }
 

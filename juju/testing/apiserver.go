@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/stateauthenticator"
@@ -45,7 +46,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
 	databasetesting "github.com/juju/juju/database/testing"
-	"github.com/juju/juju/domain/controllerconfig/bootstrap"
+	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
+	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
+	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
@@ -125,6 +128,7 @@ type ApiServerSuite struct {
 	Clock                    testclock.AdvanceableClock
 	ServiceFactoryGetter     *stubServiceFactoryGetter
 	ControllerServiceFactory servicefactory.ControllerServiceFactory
+	CredentialService        common.CredentialService
 
 	// These attributes are set before SetUpTest to indicate we want to
 	// set up the api server with real components instead of stubs.
@@ -247,6 +251,12 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	if s.WithControllerModelType == state.ModelTypeCAAS {
 		modelType = s.WithControllerModelType
 	}
+
+	credentialService := s.CredentialService
+	if credentialService == nil {
+		// modelUUID param is not used so can pass in anything.
+		credentialService = s.ServiceFactoryGetter.FactoryForModel("").Credential()
+	}
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		// TODO (stickupkid): Remove controller config from the state
@@ -261,13 +271,10 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 			CloudRegion:     DefaultCloudRegion,
 			CloudCredential: DefaultCredentialTag,
 		},
-		Cloud: DefaultCloud,
-		CloudCredentials: map[names.CloudCredentialTag]cloud.Credential{
-			DefaultCredentialTag: defaultCredential,
-		},
+		Cloud:         DefaultCloud,
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
-		NewPolicy:     stateenvirons.GetNewPolicyFunc(),
+		NewPolicy:     stateenvirons.GetNewPolicyFunc(credentialService),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl
@@ -289,7 +296,17 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 
 	s.controllerModelUUID = st.ControllerModelUUID()
 
-	err = bootstrap.InsertInitialControllerConfig(controllerCfg)(context.Background(), s.TxnRunner())
+	// Allow "dummy" cloud.
+	err = databasetesting.DummyCloudOpt(context.Background(), s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Seed the test database with the controller cloud and credential etc.
+	err = ccbootstrap.InsertInitialControllerConfig(controllerCfg)(context.Background(), s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	err = cloudbootstrap.InsertInitialControllerCloud(DefaultCloud)(context.Background(), s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	err = credentialbootstrap.InsertInitialControllerCredentials(
+		DefaultCredentialTag.Name(), DefaultCloud.Name, AdminUser.Id(), defaultCredential)(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

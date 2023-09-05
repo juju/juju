@@ -12,8 +12,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -56,7 +56,7 @@ type BackendDrainConfigGetter func(string) (*provider.ModelBackendConfigInfo, er
 // the specified model.
 // If external backend is configured, it returns the external backend together with the "internal" backend and
 // the k8s backend for k8s models.
-func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, error) {
+func AdminBackendConfigInfo(ctx context.Context, model Model, credentialService common.CredentialService) (*provider.ModelBackendConfigInfo, error) {
 	cfg, err := model.Config()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -81,7 +81,7 @@ func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, erro
 	}
 
 	if model.Type() == state.ModelTypeCAAS {
-		spec, err := cloudSpecForModel(model)
+		spec, err := cloudSpecForModel(ctx, model, credentialService)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -127,8 +127,11 @@ func AdminBackendConfigInfo(model Model) (*provider.ModelBackendConfigInfo, erro
 }
 
 // DrainBackendConfigInfo returns the secret backend config for the drain worker to use.
-func DrainBackendConfigInfo(backendID string, model Model, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.ModelBackendConfigInfo, error) {
-	adminModelCfg, err := AdminBackendConfigInfo(model)
+func DrainBackendConfigInfo(
+	ctx context.Context, backendID string, model Model, credentialService common.CredentialService,
+	authTag names.Tag, leadershipChecker leadership.Checker,
+) (*provider.ModelBackendConfigInfo, error) {
+	adminModelCfg, err := AdminBackendConfigInfo(ctx, model, credentialService)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets providers")
 	}
@@ -160,8 +163,11 @@ func DrainBackendConfigInfo(backendID string, model Model, authTag names.Tag, le
 // owned by the agent, and read only those secrets shared with the agent.
 // The result includes config for all relevant backends, including the id
 // of the current active backend.
-func BackendConfigInfo(model Model, backendIDs []string, wantAll bool, authTag names.Tag, leadershipChecker leadership.Checker) (*provider.ModelBackendConfigInfo, error) {
-	adminModelCfg, err := AdminBackendConfigInfo(model)
+func BackendConfigInfo(
+	ctx context.Context, model Model, credentialService common.CredentialService, backendIDs []string, wantAll bool,
+	authTag names.Tag, leadershipChecker leadership.Checker,
+) (*provider.ModelBackendConfigInfo, error) {
+	adminModelCfg, err := AdminBackendConfigInfo(ctx, model, credentialService)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets providers")
 	}
@@ -297,23 +303,20 @@ func getExternalRevisions(backend state.SecretsStore, backendID string, filter s
 	return nil
 }
 
-func cloudSpecForModel(m Model) (cloudspec.CloudSpec, error) {
+func cloudSpecForModel(ctx context.Context, m Model, credentialService common.CredentialService) (cloudspec.CloudSpec, error) {
 	c, err := m.Cloud()
 	if err != nil {
 		return cloudspec.CloudSpec{}, errors.Trace(err)
 	}
-	cred, err := m.CloudCredential()
+	tag, ok := m.CloudCredentialTag()
+	if !ok {
+		return cloudspec.CloudSpec{}, errors.NotValidf("cloud credential for %s is empty", m.UUID())
+	}
+	cred, err := credentialService.CloudCredential(ctx, tag)
 	if err != nil {
 		return cloudspec.CloudSpec{}, errors.Trace(err)
 	}
-	if cred == nil {
-		return cloudspec.CloudSpec{}, errors.NotValidf("cloud credential for %s is empty", m.UUID())
-	}
-	cloudCredential := cloud.NewCredential(
-		cred.AuthType(),
-		cred.Attributes(),
-	)
-	return cloudspec.MakeCloudSpec(c, "", &cloudCredential)
+	return cloudspec.MakeCloudSpec(c, "", &cred)
 }
 
 // BackendFilter is used when listing secret backends.

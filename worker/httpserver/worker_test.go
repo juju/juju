@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
-	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -26,6 +25,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	dqlitetesting "github.com/juju/juju/database/testing"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/httpserver"
@@ -370,8 +370,8 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 	}
 
 	// Make a worker with a controller API port.
-	port := mgotesting.FindTCPPort()
-	controllerPort := mgotesting.FindTCPPort()
+	port := dqlitetesting.FindTCPPort(c)
+	controllerPort := dqlitetesting.FindTCPPort(c)
 	s.config.APIPort = port
 	s.config.ControllerAPIPort = controllerPort
 	s.config.APIPortOpenDelay = 10 * time.Second
@@ -472,8 +472,8 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelayShutdown(c *gc.
 		return err
 	}
 	// Make a worker with a controller API port.
-	port := mgotesting.FindTCPPort()
-	controllerPort := mgotesting.FindTCPPort()
+	port := dqlitetesting.FindTCPPort(c)
+	controllerPort := dqlitetesting.FindTCPPort(c)
 	s.config.APIPort = port
 	s.config.ControllerAPIPort = controllerPort
 	s.config.APIPortOpenDelay = 10 * time.Second

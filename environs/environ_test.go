@@ -4,6 +4,7 @@
 package environs_test
 
 import (
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -37,14 +38,14 @@ func (m *mockModel) CloudRegion() string {
 	return jujutesting.DefaultCloudRegion
 }
 
-func (m *mockModel) CloudCredential() (cloud.Credential, bool, error) {
-	return cloud.Credential{}, false, nil
+func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
+	return names.CloudCredentialTag{}, false
 }
 
 func (s *environSuite) TestGetEnvironment(c *gc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{"name": "testmodel-foo"})
 	m := &mockModel{cfg: cfg}
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(m)
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(m, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Config().UUID(), jc.DeepEquals, cfg.UUID())
 }

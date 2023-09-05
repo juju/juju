@@ -4,6 +4,7 @@
 package crossmodelsecrets
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -34,7 +35,7 @@ func newStateCrossModelSecretsAPI(ctx facade.Context) (*CrossModelSecretsAPI, er
 			return nil, errors.Trace(err)
 		}
 		defer closer.Release()
-		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
+		return secrets.AdminBackendConfigInfo(context.Background(), secrets.SecretsModel(model), ctx.ServiceFactory().Credential())
 	}
 	secretInfoGetter := func(modelUUID string) (SecretsState, SecretsConsumer, func() bool, error) {
 		st, err := ctx.StatePool().Get(modelUUID)

@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/watcher"
+	credentialservice "github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
@@ -25,13 +27,11 @@ type Backend interface {
 	ModelConfig(stdcontext.Context) (*config.Config, error)
 	User(tag names.UserTag) (User, error)
 
-	CloudCredentials(user names.UserTag, cloudName string) (map[string]state.Credential, error)
-	UpdateCloudCredential(names.CloudCredentialTag, cloud.Credential) error
-	RemoveCloudCredential(names.CloudCredentialTag) error
 	AddCloud(cloud.Cloud, string) error
 	UpdateCloud(cloud.Cloud) error
 	RemoveCloud(string) error
-	AllCloudCredentials(user names.UserTag) ([]state.Credential, error)
+
+	CloudCredentialUpdated(tag names.CloudCredentialTag) error
 	CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]state.CredentialOwnerModelAccess, error)
 	CredentialModels(tag names.CloudCredentialTag) (map[string]string, error)
 	RemoveModelsCredential(tag names.CloudCredentialTag) error
@@ -44,6 +44,15 @@ type Backend interface {
 	UpdateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
 	RemoveCloudAccess(cloud string, user names.UserTag) error
 	CloudsForUser(user names.UserTag, isSuperuser bool) ([]state.CloudInfo, error)
+}
+
+type CredentialService interface {
+	CloudCredential(ctx stdcontext.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
+	AllCloudCredentials(ctx stdcontext.Context, user string) ([]credentialservice.CloudCredential, error)
+	CloudCredentials(ctx stdcontext.Context, user, cloudName string) (map[string]cloud.Credential, error)
+	UpdateCloudCredential(ctx stdcontext.Context, tag names.CloudCredentialTag, cred cloud.Credential) error
+	RemoveCloudCredential(ctx stdcontext.Context, tag names.CloudCredentialTag) error
+	WatchCredential(ctx stdcontext.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error)
 }
 
 type stateShim struct {
@@ -80,8 +89,8 @@ type Model interface {
 	UUID() string
 	CloudName() string
 	Cloud() (cloud.Cloud, error)
-	CloudCredential() (cloud.Credential, bool, error)
 	CloudRegion() string
+	CloudCredentialTag() (names.CloudCredentialTag, bool)
 }
 
 // ModelPoolBackend defines a pool of models.

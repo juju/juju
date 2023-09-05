@@ -27,6 +27,9 @@ type State interface {
 	// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud, owner.
 	UpsertCloudCredential(ctx context.Context, name, cloudName, owner string, credential cloud.Credential) error
 
+	// InvalidateCloudCredential marks the cloud credential for the given name, cloud, owner as invalid.
+	InvalidateCloudCredential(ctx context.Context, name, cloudName, owner, reason string) error
+
 	// CloudCredentials returns the user's cloud credentials for a given cloud,
 	// keyed by credential name.
 	CloudCredentials(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error)
@@ -107,6 +110,11 @@ func (s *Service) UpdateCloudCredential(ctx context.Context, tag names.CloudCred
 // RemoveCloudCredential removes a cloud credential with the given tag.
 func (s *Service) RemoveCloudCredential(ctx context.Context, tag names.CloudCredentialTag) error {
 	return s.st.RemoveCloudCredential(ctx, tag.Name(), tag.Cloud().Id(), tag.Owner().Id())
+}
+
+// InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
+func (s *Service) InvalidateCredential(ctx context.Context, tag names.CloudCredentialTag, reason string) error {
+	return s.st.InvalidateCloudCredential(ctx, tag.Name(), tag.Cloud().Id(), tag.Owner().Id(), reason)
 }
 
 // WatchCredential returns a watcher that observes changes to the specified credential.

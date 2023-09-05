@@ -6,6 +6,7 @@ package spaces
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -60,13 +61,13 @@ type stateShim struct {
 }
 
 // NewStateShim returns a new state shim.
-func NewStateShim(st *state.State) (*stateShim, error) {
+func NewStateShim(st *state.State, credentialService common.CredentialService) (*stateShim, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &stateShim{
-		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{Model: m},
+		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{Model: m, CredentialService: credentialService},
 		State:               st,
 		model:               m,
 	}, nil

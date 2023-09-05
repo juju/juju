@@ -8,6 +8,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
-func NewCredentialManagerAPIForTest(b credentialcommon.StateBackend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialManagerAPI, error) {
-	return internalNewCredentialManagerAPI(b, resources, authorizer)
+func NewCredentialManagerAPIForTest(b credentialcommon.StateBackend, cs credentialcommon.CredentialService, resources facade.Resources, authorizer facade.Authorizer) (*CredentialManagerAPI, error) {
+	return internalNewCredentialManagerAPI(b, cs, resources, authorizer)
 }

@@ -115,12 +115,12 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model, CredentialService: ctx.ServiceFactory().Credential()}
 	isCaasModel := model.Type() == state.ModelTypeCAAS
 
 	var env storage.ProviderRegistry
 	if isCaasModel {
-		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
+		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.ServiceFactory().Credential())
 	} else {
 		env, err = environs.GetEnviron(stdcontext.TODO(), configGetter, environs.New)
 	}

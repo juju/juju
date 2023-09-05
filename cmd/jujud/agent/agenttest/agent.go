@@ -116,20 +116,13 @@ type AgentSuite struct {
 	Environ environs.Environ
 	DataDir string
 	LogDir  string
-
-	// InitialDBOps can be set prior to calling PrimeStateAgentVersion,
-	// ensuring that the functions are executed against the controller database
-	// immediately after Dqlite is set up.
-	InitialDBOps []func(context.Context, coredatabase.TxnRunner) error
 }
 
 func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	s.InitialDBOps = make([]func(context.Context, coredatabase.TxnRunner) error, 0)
-
 	var err error
-	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c))
+	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), s.ControllerServiceFactory.Credential())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.DataDir = c.MkDir()
@@ -206,14 +199,6 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	return conf, agentTools
 }
 
-// PrimeStateAgent writes the configuration file and tools for
-// a state agent with the given entity name. It returns the agent's
-// configuration and the current tools.
-func (s *AgentSuite) PrimeStateAgent(c *gc.C, tag names.Tag, password string) (agent.ConfigSetterWriter, *coretools.Tools) {
-	vers := coretesting.CurrentVersion()
-	return s.PrimeStateAgentVersion(c, tag, password, vers)
-}
-
 // PrimeStateAgentVersion writes the configuration file and tools with
 // version vers for a state agent with the given entity name. It
 // returns the agent's configuration and the current tools.
@@ -228,11 +213,17 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	conf := s.WriteStateAgentConfig(c, tag, password, vers, s.ControllerModel(c).ModelTag())
+	cfg, err := s.ControllerServiceFactory.ControllerConfig().ControllerConfig(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	apiPort, ok := cfg[controller.APIPort].(int)
+	if !ok {
+		c.Fatalf("no api port in controller config")
+	}
+	conf := s.WriteStateAgentConfig(c, tag, password, vers, s.ControllerModel(c).ModelTag(), apiPort)
 	s.primeAPIHostPorts(c)
 
 	err = database.BootstrapDqlite(
-		context.TODO(), database.NewNodeManager(conf, logger, coredatabase.NoopSlowQueryLogger{}), logger, s.InitialDBOps...)
+		context.TODO(), database.NewNodeManager(conf, logger, coredatabase.NoopSlowQueryLogger{}), logger)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return conf, agentTools
@@ -245,10 +236,9 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	password string,
 	vers version.Binary,
 	modelTag names.ModelTag,
+	apiPort int,
 ) agent.ConfigSetterWriter {
 	stateInfo := mongoInfo()
-	apiPort := mgotesting.FindTCPPort()
-	s.SetControllerConfigAPIPort(c, apiPort)
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
@@ -286,25 +276,6 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	c.Assert(conf.Write(), gc.IsNil)
 
 	return conf
-}
-
-// SetControllerConfigAPIPort resets the API port in controller config
-// to the value provided - this is useful in tests that create
-// multiple agents and only start one, so that the API port the http
-// server listens on matches the one the agent tries to connect to.
-func (s *AgentSuite) SetControllerConfigAPIPort(c *gc.C, apiPort int) {
-	// Need to update the controller config with this new API port as
-	// well - this is a nasty hack but... oh well!
-	controller.AllowedUpdateConfigAttributes.Add("api-port")
-	defer func() {
-		controller.AllowedUpdateConfigAttributes.Remove("api-port")
-	}()
-	err := s.ControllerModel(c).State().UpdateControllerConfig(map[string]interface{}{
-		"api-port": apiPort,
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	// Ensure that the local controller config is also up-to-date.
-	s.ControllerConfigAttrs["api-port"] = apiPort
 }
 
 func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
@@ -351,7 +322,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
 		MongoSession:       session,
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(),
+		NewPolicy:          stateenvirons.GetNewPolicyFunc(nil),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_ = pool.Close()

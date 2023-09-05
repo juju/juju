@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -118,14 +119,15 @@ func (ReloadSpacesEnvirons) GetEnviron(ctx stdcontext.Context, st environs.Envir
 }
 
 // DefaultReloadSpacesEnvirons creates a new ReloadSpacesEnviron from state.
-func DefaultReloadSpacesEnvirons(st *state.State) (ReloadSpacesEnvirons, error) {
+func DefaultReloadSpacesEnvirons(st *state.State, credentialService common.CredentialService) (ReloadSpacesEnvirons, error) {
 	m, err := st.Model()
 	if err != nil {
 		return ReloadSpacesEnvirons{}, errors.Trace(err)
 	}
 	return ReloadSpacesEnvirons{
 		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{
-			Model: m,
+			Model:             m,
+			CredentialService: credentialService,
 		},
 	}, nil
 }

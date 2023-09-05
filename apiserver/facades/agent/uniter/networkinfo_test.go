@@ -19,8 +19,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -49,6 +51,12 @@ type networkInfoSuite struct {
 }
 
 var _ = gc.Suite(&networkInfoSuite{})
+
+func (s *networkInfoSuite) SetUpTest(c *gc.C) {
+	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
+	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
+	s.ApiServerSuite.SetUpTest(c)
+}
 
 func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)

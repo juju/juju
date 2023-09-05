@@ -82,14 +82,7 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) map[string]string {
 	}, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
-	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
-		"foo": "foo val",
-		"bar": "bar val",
-	})
 	tag := names.NewCloudCredentialTag(fmt.Sprintf("stratus/%v/foobar", owner.Name()))
-	err = s.State.UpdateCloudCredential(tag, cred)
-	c.Assert(err, jc.ErrorIsNil)
-
 	sharedSt := s.Factory.MakeModel(c, &factory.ModelParams{
 		Name: "shared",
 		// Owned by test-admin

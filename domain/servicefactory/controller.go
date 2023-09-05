@@ -22,6 +22,7 @@ import (
 // Logger defines the logging interface used by the services.
 type Logger interface {
 	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
 	Child(string) Logger
 }
 

@@ -4,6 +4,8 @@
 package featuretests
 
 import (
+	ctx "context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -37,13 +39,14 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
 	model := s.ControllerModel(c)
 	tag, set := model.CloudCredentialTag()
 	c.Assert(set, jc.IsTrue)
-	credential, err := model.State().CloudCredential(tag)
+
+	credService := s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()).Credential()
+	credential, err := credService.CloudCredential(ctx.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credential.IsValid(), jc.IsTrue)
+	c.Assert(credential.Invalid, jc.IsFalse)
 
 	c.Assert(s.client.InvalidateModelCredential("no reason really"), jc.ErrorIsNil)
-
-	credential, err = model.State().CloudCredential(tag)
+	credential, err = credService.CloudCredential(ctx.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credential.IsValid(), jc.IsFalse)
+	c.Assert(credential.Invalid, jc.IsTrue)
 }

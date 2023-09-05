@@ -37,7 +37,7 @@ func instanceTypes(
 	}
 
 	cloudSpec := func() (environscloudspec.CloudSpec, error) {
-		return stateenvirons.CloudSpecForModel(model)
+		return stateenvirons.CloudSpecForModel(ctx, model, mm.credentialService)
 	}
 	backend := common.EnvironConfigGetterFuncs{
 		CloudSpecFunc:   cloudSpec,

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
@@ -37,6 +38,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/database"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -57,6 +59,7 @@ import (
 var (
 	initiateMongoServer  = peergrouper.InitiateMongoServer
 	agentInitializeState = agentbootstrap.InitializeState
+	extraBootstrapOpts   []database.BootstrapOpt
 	sshGenerateKey       = ssh.GenerateKey
 	minSocketTimeout     = 1 * time.Minute
 )
@@ -163,6 +166,21 @@ var (
 	environsNewIAAS = environs.New
 	environsNewCAAS = caas.New
 )
+
+// credentialGetter serves a fixed credential as a CredentialService instance.
+// It is needed by the state policy to create an environ when validating the
+// ops needed to set up the initial controller model.
+type credentialGetter struct {
+	stateenvirons.CredentialService
+	cred *jujucloud.Credential
+}
+
+func (c credentialGetter) CloudCredential(_ stdcontext.Context, tag names.CloudCredentialTag) (jujucloud.Credential, error) {
+	if c.cred == nil {
+		return jujucloud.Credential{}, errors.NotFoundf("credential %q", tag)
+	}
+	return *c.cred, nil
+}
 
 // Run initializes state for an environment.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
@@ -360,7 +378,8 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 				StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
 			},
 			dialOpts,
-			stateenvirons.GetNewPolicyFunc(),
+			stateenvirons.GetNewPolicyFunc(credentialGetter{cred: args.ControllerCloudCredential}),
+			extraBootstrapOpts...,
 		)
 		return stateErr
 	})

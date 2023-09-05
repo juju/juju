@@ -4,6 +4,7 @@
 package agent
 
 import (
+	stdcontext "context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -51,6 +52,8 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/dbaccessor"
+	"github.com/juju/juju/worker/dbaccessor/testing"
 	"github.com/juju/juju/worker/diskmanager"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logsender"
@@ -99,9 +102,6 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	// Set up FakeJujuXDGDataHomeSuite after AgentSuite since
 	// AgentSuite clears all env vars.
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-
-	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
-	s.PatchValue(&authenticationworker.SSHUser, "")
 
 	testpath := c.MkDir()
 	s.PatchEnvPathPrepend(testpath)
@@ -218,6 +218,7 @@ func NewTestMachineAgentFactory(
 	c *gc.C,
 	agentConfWriter agentconfig.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
+	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	rootDir string,
 	cmdRunner CommandRunner,
 ) machineAgentFactoryFnType {
@@ -243,6 +244,7 @@ func NewTestMachineAgentFactory(
 			rootDir:                     rootDir,
 			initialUpgradeCheckComplete: gate.NewLock(),
 			loopDeviceManager:           &mockLoopDeviceManager{},
+			newDBWorkerFunc:             newDBWorkerFunc,
 			newIntrospectionSocketName:  addons.DefaultIntrospectionSocketName,
 			prometheusRegistry:          prometheusRegistry,
 			mongoTxnCollector:           mongometrics.NewTxnCollector(),
@@ -263,7 +265,10 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) (*gomock.Contro
 	agentConf := agentconf.NewAgentConf(s.DataDir)
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	logger := s.newBufferedLogWriter()
-	machineAgentFactory := NewTestMachineAgentFactory(c, agentConf, logger, c.MkDir(), s.cmdRunner)
+	newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
+		return testing.NewTrackedDB(s.TxnRunnerFactory()), nil
+	}
+	machineAgentFactory := NewTestMachineAgentFactory(c, agentConf, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner)
 	machineAgent, err := machineAgentFactory(m.Tag(), false)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl, machineAgent

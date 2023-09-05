@@ -19,6 +19,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
+	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster"
@@ -41,6 +42,7 @@ type Suite struct {
 	controllerBackend *mocks.MockControllerState
 	backend           *mocks.MockBackend
 	modelExporter     *mocks.MockModelExporter
+	credentialService *commonmocks.MockCredentialService
 
 	precheckBackend *mocks.MockPrecheckBackend
 
@@ -586,6 +588,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.backend = mocks.NewMockBackend(ctrl)
 	s.precheckBackend = mocks.NewMockPrecheckBackend(ctrl)
 	s.modelExporter = mocks.NewMockModelExporter(ctrl)
+	s.credentialService = commonmocks.NewMockCredentialService(ctrl)
 	return ctrl
 }
 
@@ -607,6 +610,7 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		&stubPresence{},
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) { return s.cloudSpec, nil },
 		stubLeadership{},
+		s.credentialService,
 	)
 }
 

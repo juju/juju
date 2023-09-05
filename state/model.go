@@ -109,6 +109,12 @@ type modelDoc struct {
 	// for clouds that do not require credentials.
 	CloudCredential string `bson:"cloud-credential,omitempty"`
 
+	// InvalidCredential is used to indicate if the model's credential is valid.
+	InvalidCredential bool `bson:"invalid-credential,omitempty"`
+
+	// InvalidCredentialReason is the reason why a model's credential is invalid.
+	InvalidCredentialReason string `bson:"invalid-credential-reason,omitempty"`
+
 	// LatestAvailableTools is a string representing the newest version
 	// found while checking streams for new versions.
 	LatestAvailableTools string `bson:"available-tools,omitempty"`
@@ -487,58 +493,6 @@ func validateCloudRegion(cloud jujucloud.Cloud, regionName string) (txn.Op, erro
 	return assertCloudRegionOp, nil
 }
 
-// validateCloudCredential validates the given cloud credential
-// name against the provided cloud definition and credentials,
-// and returns a txn.Op to include in a transaction to assert the
-// same. A user is supplied, for which access to the credential
-// will be asserted.
-func validateCloudCredential(
-	cloud jujucloud.Cloud,
-	cloudCredentials map[string]Credential,
-	cloudCredential names.CloudCredentialTag,
-) (txn.Op, error) {
-	if cloudCredential != (names.CloudCredentialTag{}) {
-		if cloudCredential.Cloud().Id() != cloud.Name {
-			return txn.Op{}, errors.NotValidf("credential %q", cloudCredential.Id())
-		}
-		var found bool
-		for tag := range cloudCredentials {
-			if tag == cloudCredential.Id() {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return txn.Op{}, errors.NotFoundf("credential %q", cloudCredential.Id())
-		}
-		// NOTE(axw) if we add ACLs for credentials,
-		// we'll need to check access here. The map
-		// we check above contains only the credentials
-		// that the model owner has access to.
-		return txn.Op{
-			C:      cloudCredentialsC,
-			Id:     cloudCredentialDocID(cloudCredential),
-			Assert: txn.DocExists,
-		}, nil
-	}
-	var hasEmptyAuth bool
-	for _, authType := range cloud.AuthTypes {
-		if authType != jujucloud.EmptyAuthType {
-			continue
-		}
-		hasEmptyAuth = true
-		break
-	}
-	if !hasEmptyAuth {
-		return txn.Op{}, errors.NotValidf("missing CloudCredential")
-	}
-	return txn.Op{
-		C:      cloudsC,
-		Id:     cloud.Name,
-		Assert: bson.D{{"auth-types", string(jujucloud.EmptyAuthType)}},
-	}, nil
-}
-
 // Tag returns a name identifying the model.
 // The returned name will be different from other Tag values returned
 // by any other entities from the same state.
@@ -642,21 +596,6 @@ func (m *Model) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	return names.CloudCredentialTag{}, false
 }
 
-// CloudCredential returns the cloud credential used for managing the
-// model's cloud resources, and a boolean indicating whether a credential is set.
-func (m *Model) CloudCredential() (jujucloud.Credential, bool, error) {
-	tag, ok := m.CloudCredentialTag()
-	if !ok {
-		return jujucloud.Credential{}, false, nil
-	}
-	cred, err := m.st.CloudCredential(tag)
-	if err != nil {
-		return jujucloud.Credential{}, false, errors.Trace(err)
-	}
-	result := jujucloud.NewNamedCredential(cred.Name, jujucloud.AuthType(cred.AuthType), cred.Attributes, cred.Revoked)
-	return result, true, nil
-}
-
 // MigrationMode returns whether the model is active or being migrated.
 func (m *Model) MigrationMode() MigrationMode {
 	return m.doc.MigrationMode
@@ -699,7 +638,8 @@ func (m *Model) Owner() names.UserTag {
 	return names.NewUserTag(m.doc.Owner)
 }
 
-func modelStatusInvalidCredential(reason string) status.StatusInfo {
+// ModelStatusInvalidCredential returns the model status for an invalid credential.
+func ModelStatusInvalidCredential(reason string) status.StatusInfo {
 	return status.StatusInfo{
 		Status:  status.Suspended,
 		Message: "suspended since cloud credential is not valid",
@@ -712,13 +652,9 @@ func modelStatusInvalidCredential(reason string) status.StatusInfo {
 // Status returns the status of the model.
 func (m *Model) Status() (status.StatusInfo, error) {
 	// If model credential is invalid, model is suspended.
-	if credentialTag, hasCredential := m.CloudCredentialTag(); hasCredential {
-		credential, err := m.st.CloudCredential(credentialTag)
-		if err != nil {
-			return status.StatusInfo{}, errors.Annotatef(err, "could not get model credential %v", credentialTag.Id())
-		}
-		if !credential.IsValid() {
-			return modelStatusInvalidCredential(credential.InvalidReason), nil
+	if _, hasCredential := m.CloudCredentialTag(); hasCredential {
+		if m.doc.InvalidCredential {
+			return ModelStatusInvalidCredential(m.doc.InvalidCredentialReason), nil
 		}
 	}
 

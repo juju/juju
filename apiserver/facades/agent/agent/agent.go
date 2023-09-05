@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 // ControllerConfigGetter is the interface that gets ControllerConfig form DB.
@@ -38,10 +37,52 @@ type AgentAPI struct {
 	*common.ControllerConfigAPI
 	cloudspec.CloudSpecer
 
+	credentialService      CredentialService
 	controllerConfigGetter ControllerConfigGetter
 	st                     *state.State
 	auth                   facade.Authorizer
 	resources              facade.Resources
+}
+
+// NewAgentAPI returns an agent API facade.
+func NewAgentAPI(
+	auth facade.Authorizer,
+	resources facade.Resources,
+	st *state.State,
+	controllerConfigGetter ControllerConfigGetter,
+	externalController common.ExternalControllerService,
+	credentialService common.CredentialService,
+) (*AgentAPI, error) {
+	getCanChange := func() (common.AuthFunc, error) {
+		return auth.AuthOwner, nil
+	}
+
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &AgentAPI{
+		PasswordChanger:   common.NewPasswordChanger(st, getCanChange),
+		RebootFlagClearer: common.NewRebootFlagClearer(st, getCanChange),
+		ModelWatcher:      common.NewModelWatcher(model, resources, auth),
+		ControllerConfigAPI: common.NewControllerConfigAPI(
+			st,
+			externalController,
+		),
+		CloudSpecer: cloudspec.NewCloudSpecV2(
+			resources,
+			cloudspec.MakeCloudSpecGetterForModel(st, credentialService),
+			cloudspec.MakeCloudSpecWatcherForModel(st),
+			cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
+			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
+			common.AuthFuncForTag(model.ModelTag()),
+		),
+		credentialService:      credentialService,
+		controllerConfigGetter: controllerConfigGetter,
+		st:                     st,
+		auth:                   auth,
+		resources:              resources,
+	}, nil
 }
 
 func (api *AgentAPI) GetEntities(ctx context.Context, args params.Entities) params.AgentGetEntitiesResults {
@@ -163,15 +204,19 @@ func (api *AgentAPI) WatchCredentials(ctx context.Context, args params.Entities)
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		watch := api.st.WatchCredential(credentialTag)
+		watch, err := api.credentialService.WatchCredential(ctx, credentialTag)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 		// Consume the initial event. Technically, API calls to Watch
 		// 'transmit' the initial event in the Watch response. But
 		// NotifyWatchers have no state to transmit.
 		if _, ok := <-watch.Changes(); ok {
 			results.Results[i].NotifyWatcherId = api.resources.Register(watch)
 		} else {
-			err = watcher.EnsureErr(watch)
-			results.Results[i].Error = apiservererrors.ServerError(err)
+			watch.Kill()
+			results.Results[i].Error = apiservererrors.ServerError(watch.Wait())
 		}
 	}
 	return results, nil

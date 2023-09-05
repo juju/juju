@@ -55,6 +55,7 @@ func NewUpgraderAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	logger loggo.Logger,
+	credentialService common.CredentialService,
 ) (*UpgraderAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthApplicationAgent() && !authorizer.AuthModelAgent() && !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -67,8 +68,8 @@ func NewUpgraderAPI(
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
-	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
-	newEnviron := common.EnvironFuncForModel(model, configGetter)
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model, CredentialService: credentialService}
+	newEnviron := common.EnvironFuncForModel(model, credentialService, configGetter)
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
 	return &UpgraderAPI{
 		ToolsGetter: common.NewToolsGetter(st, configGetter, st, urlGetter, toolsFinder, getCanReadWrite),

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/database"
 	"github.com/juju/juju/domain"
@@ -66,7 +65,7 @@ AND    cloud_credential.cloud_uuid = (
 	return uuid["uuid"].(string), nil
 }
 
-// UpsertCloudCredential adds or updates a cloud credential with the given tag.
+// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud and owner.
 func (st *State) UpsertCloudCredential(ctx context.Context, name, cloudName, owner string, credential cloud.Credential) error {
 	db, err := st.DB()
 	if err != nil {
@@ -234,6 +233,9 @@ func dbCredentialFromCredential(ctx context.Context, tx *sqlair.TX, credentialUU
 
 	err = tx.Query(ctx, stmt, dbcloud.Cloud{Name: cloudName}).Get(cred)
 	if err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil, fmt.Errorf("cloud %q for credential %w", cloudName, errors.NotFound)
+		}
 		return nil, errors.Trace(err)
 	}
 
@@ -272,7 +274,7 @@ WHERE  cloud.name = $Cloud.name
 	return result, errors.Trace(err)
 }
 
-// InvalidateCloudCredential marks a cloud credential with the given tag as invalid.
+// InvalidateCloudCredential marks a cloud credential with the given name, cloud and owner. as invalid.
 func (st *State) InvalidateCloudCredential(ctx context.Context, name, cloudName, owner, reason string) error {
 	db, err := st.DB()
 	if err != nil {
@@ -332,7 +334,7 @@ func (st *State) CloudCredentials(ctx context.Context, owner, cloudName string) 
 	}
 	result := make(map[string]cloud.Credential)
 	for _, cred := range creds {
-		result[cred.Credential.Label] = cred.Credential
+		result[fmt.Sprintf("%s/%s/%s", cloudName, owner, cred.Credential.Label)] = cred.Credential
 	}
 	return result, nil
 }
@@ -442,7 +444,7 @@ func (st *State) AllCloudCredentials(ctx context.Context, owner string) ([]Cloud
 	return result, errors.Trace(err)
 }
 
-// RemoveCloudCredential removes a cloud credential with the given tag.
+// RemoveCloudCredential removes a cloud credential with the given name, cloud and owner..
 func (st *State) RemoveCloudCredential(ctx context.Context, name, cloudName, owner string) error {
 	db, err := st.DB()
 	if err != nil {
@@ -503,27 +505,4 @@ func (st *State) WatchCredential(
 		return errors.Trace(err)
 	})
 	return result, err
-}
-
-// TODO(wallyworld) - implement the following methods
-// once users and permissions are modelled.
-
-// CredentialOwnerModelAccess stores cloud credential model information for the credential owner
-// or an error retrieving it.
-type CredentialOwnerModelAccess struct {
-	ModelUUID   string
-	ModelName   string
-	OwnerAccess permission.Access
-	Error       error
-}
-
-// CredentialModelsAndOwnerAccess returns all models that use given cloud credential as well as
-// what access the credential owner has on these models.
-func (st *State) CredentialModelsAndOwnerAccess(ctx context.Context, name, cloudName, owner string) ([]CredentialOwnerModelAccess, error) {
-	return nil, nil
-}
-
-// RemoveModelsCredential clears out given credential reference from all models that have it.
-func (st *State) RemoveModelsCredential(ctx context.Context, name, cloudName, owner string) error {
-	return nil
 }

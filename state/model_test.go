@@ -1878,9 +1878,8 @@ func (s *ModelCloudValidationSuite) initializeState(
 			AuthTypes: authTypes,
 			Regions:   regions,
 		},
-		CloudCredentials: credentials,
-		MongoSession:     s.Session,
-		AdminPassword:    "dummy-secret",
+		MongoSession:  s.Session,
+		AdminPassword: "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return controller, owner

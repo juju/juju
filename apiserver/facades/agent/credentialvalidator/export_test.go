@@ -4,9 +4,11 @@
 package credentialvalidator
 
 import (
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/apiserver/facade"
 )
 
-func NewCredentialValidatorAPIForTest(b Backend, resources facade.Resources, authorizer facade.Authorizer) (*CredentialValidatorAPI, error) {
-	return internalNewCredentialValidatorAPI(b, resources, authorizer)
+func NewCredentialValidatorAPIForTest(st StateAccessor, credentialService CredentialService, resources facade.Resources, authorizer facade.Authorizer) (*CredentialValidatorAPI, error) {
+	return internalNewCredentialValidatorAPI(st, credentialService, resources, authorizer, loggo.GetLogger("test"))
 }

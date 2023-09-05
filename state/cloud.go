@@ -359,14 +359,7 @@ func (st *State) removeCloudOps(name string) ([]txn.Op, error) {
 		Remove: true,
 	}, countOp}
 
-	credPattern := bson.M{
-		"_id": bson.M{"$regex": "^" + name + "#"},
-	}
-	credOps, err := st.removeInCollectionOps(cloudCredentialsC, credPattern)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, credOps...)
+	// We used to remove credentials here but they are now in dqlite.
 
 	permPattern := bson.M{
 		"_id": bson.M{"$regex": "^" + cloudGlobalKey(name) + "#"},

@@ -286,7 +286,8 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	}
 
 	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
-	env, err := newEnviron(model)
+	serviceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(st.ModelUUID())
+	env, err := newEnviron(model, serviceFactory.Credential())
 	if err != nil {
 		return err
 	}

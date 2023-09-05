@@ -41,6 +41,9 @@ type Hub interface {
 	Publish(topic string, data interface{}) (func(), error)
 }
 
+// NewDBWorkerFunc creates a tracked db worker.
+type NewDBWorkerFunc func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+
 // ManifoldConfig contains:
 // - The names of other manifolds on which the DB accessor depends.
 // - Other dependencies from ManifoldsConfig required by the worker.
@@ -53,7 +56,7 @@ type ManifoldConfig struct {
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 	NewApp               func(string, ...app.Option) (DBApp, error)
-	NewDBWorker          func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+	NewDBWorker          NewDBWorkerFunc
 	NewMetricsCollector  func() *Collector
 }
 

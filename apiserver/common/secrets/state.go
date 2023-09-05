@@ -5,7 +5,6 @@ package secrets
 
 import (
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
@@ -19,7 +18,7 @@ import (
 type Model interface {
 	ControllerUUID() string
 	Cloud() (cloud.Cloud, error)
-	CloudCredential() (Credential, error)
+	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	Config() (*config.Config, error)
 	UUID() string
 	Name() string
@@ -71,17 +70,6 @@ func SecretsModel(m *state.Model) Model {
 
 type modelShim struct {
 	*state.Model
-}
-
-func (m *modelShim) CloudCredential() (Credential, error) {
-	cred, ok, err := m.Model.CloudCredential()
-	if !ok {
-		return nil, errors.New("missing model credential")
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return cred, nil
 }
 
 type SecretsGetter interface {

@@ -79,6 +79,7 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/introspection"
@@ -87,6 +88,7 @@ import (
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/modelworkermanager"
 	psworker "github.com/juju/juju/worker/pubsub"
+	"github.com/juju/juju/worker/servicefactory"
 	"github.com/juju/juju/worker/upgradesteps"
 	"github.com/juju/juju/wrench"
 )
@@ -271,6 +273,7 @@ func (a *machineAgentCmd) Info() *cmd.Info {
 func MachineAgentFactoryFn(
 	agentConfWriter agentconfig.AgentConfigWriter,
 	bufferedLogger *logsender.BufferedLogWriter,
+	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	rootDir string,
@@ -287,6 +290,7 @@ func MachineAgentFactoryFn(
 				Logger:        logger,
 			}),
 			looputil.NewLoopDeviceManager(),
+			newDBWorkerFunc,
 			newIntrospectionSocketName,
 			preUpgradeSteps,
 			rootDir,
@@ -302,6 +306,7 @@ func NewMachineAgent(
 	bufferedLogger *logsender.BufferedLogWriter,
 	runner *worker.Runner,
 	loopDeviceManager looputil.LoopDeviceManager,
+	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	newIntrospectionSocketName func(names.Tag) string,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	rootDir string,
@@ -321,6 +326,7 @@ func NewMachineAgent(
 		runner:                      runner,
 		rootDir:                     rootDir,
 		initialUpgradeCheckComplete: gate.NewLock(),
+		newDBWorkerFunc:             newDBWorkerFunc,
 		loopDeviceManager:           loopDeviceManager,
 		newIntrospectionSocketName:  newIntrospectionSocketName,
 		prometheusRegistry:          prometheusRegistry,
@@ -393,6 +399,8 @@ type MachineAgent struct {
 	upgradeComplete  gate.Lock
 	workersStarted   chan struct{}
 	machineLock      machinelock.Lock
+
+	newDBWorkerFunc dbaccessor.NewDBWorkerFunc
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -597,6 +605,7 @@ func (a *MachineAgent) makeEngineCreator(
 			AgentConfigChanged:   a.configChangedVal,
 			UpgradeStepsLock:     a.upgradeComplete,
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
+			NewDBWorkerFunc:      a.newDBWorkerFunc,
 			OpenStatePool:        a.initState,
 			OpenStateForUpgrade:  a.openStateForUpgrade,
 			MachineStartup:       a.machineStartup,
@@ -843,7 +852,6 @@ func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, upgradesteps.Sys
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
 		MongoSession:       session,
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(),
 		// state.InitDatabase is idempotent and needs to be called just
 		// prior to performing any upgrades since a new Juju binary may
 		// declare new indices or explicit collections.
@@ -947,7 +955,9 @@ func mongoDialOptions(
 	return dialOpts, nil
 }
 
-func (a *MachineAgent) initState(ctx stdcontext.Context, agentConfig agent.Config) (*state.StatePool, error) {
+func (a *MachineAgent) initState(
+	ctx stdcontext.Context, agentConfig agent.Config, serviceFactory servicefactory.ControllerServiceFactory,
+) (*state.StatePool, error) {
 	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(ctx, agentConfig); err != nil {
 		return nil, err
@@ -964,6 +974,7 @@ func (a *MachineAgent) initState(ctx stdcontext.Context, agentConfig agent.Confi
 	pool, err := openStatePool(
 		agentConfig,
 		dialOpts,
+		serviceFactory,
 		a.mongoTxnCollector.AfterRunTransaction,
 	)
 	if err != nil {
@@ -1170,6 +1181,7 @@ func (a *MachineAgent) ensureMongoServer(ctx stdcontext.Context, agentConfig age
 func openStatePool(
 	agentConfig agent.Config,
 	dialOpts mongo.DialOpts,
+	serviceFactory servicefactory.ControllerServiceFactory,
 	runTransactionObserver state.RunTransactionObserverFunc,
 ) (_ *state.StatePool, err error) {
 	info, ok := agentConfig.MongoInfo()
@@ -1182,12 +1194,16 @@ func openStatePool(
 	}
 	defer session.Close()
 
+	var credService stateenvirons.CredentialService
+	if serviceFactory != nil {
+		credService = serviceFactory.Credential()
+	}
 	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:                  clock.WallClock,
 		ControllerTag:          agentConfig.Controller(),
 		ControllerModelTag:     agentConfig.Model(),
 		MongoSession:           session,
-		NewPolicy:              stateenvirons.GetNewPolicyFunc(),
+		NewPolicy:              stateenvirons.GetNewPolicyFunc(credService),
 		RunTransactionObserver: runTransactionObserver,
 	})
 	if err != nil {

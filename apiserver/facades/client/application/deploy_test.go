@@ -60,6 +60,7 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "my-controller",
 			Charm:           ch,
@@ -74,6 +75,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -95,6 +97,7 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -116,6 +119,7 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName:  "bob",
 			Charm:            wordpressCharm,
@@ -182,6 +186,7 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		model,
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -227,6 +232,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 		context.Background(),
 		stateDeployer{State: st},
 		model,
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -271,6 +277,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		model,
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -295,6 +302,7 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -317,6 +325,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -340,6 +349,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -375,6 +385,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName:   "bob",
 			Charm:             s.charm,
@@ -399,6 +410,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -418,6 +430,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -442,6 +455,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -469,6 +483,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -501,6 +516,7 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -535,6 +551,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 		context.Background(),
 		&f,
 		model,
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
 			Charm:           charm,
@@ -561,6 +578,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 		context.Background(),
 		&f,
 		model,
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
 			Charm:           charm,
@@ -581,6 +599,7 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,

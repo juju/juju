@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
@@ -45,6 +46,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = workerstate.ManifoldConfig{
 		AgentName:              "agent",
 		StateConfigWatcherName: "state-config-watcher",
+		ServiceFactoryName:     "service-factory",
 		OpenStatePool:          s.fakeOpenState,
 		PingInterval:           10 * time.Millisecond,
 		SetStatePool: func(pool *state.StatePool) {
@@ -55,10 +57,11 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.resources = dt.StubResources{
 		"agent":                dt.NewStubResource(new(mockAgent)),
 		"state-config-watcher": dt.NewStubResource(true),
+		"service-factory":      dt.NewStubResource(new(mockServiceFactory)),
 	}
 }
 
-func (s *ManifoldSuite) fakeOpenState(context.Context, coreagent.Config) (*state.StatePool, error) {
+func (s *ManifoldSuite) fakeOpenState(context.Context, coreagent.Config, servicefactory.ControllerServiceFactory) (*state.StatePool, error) {
 	s.openStateCalled = true
 	if s.openStateErr != nil {
 		return nil, s.openStateErr
@@ -71,6 +74,7 @@ func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, []string{
 		"agent",
 		"state-config-watcher",
+		"service-factory",
 	})
 }
 
@@ -83,6 +87,13 @@ func (s *ManifoldSuite) TestStartAgentMissing(c *gc.C) {
 
 func (s *ManifoldSuite) TestStateConfigWatcherMissing(c *gc.C) {
 	s.resources["state-config-watcher"] = dt.StubResource{Error: dependency.ErrMissing}
+	w, err := s.startManifold(c)
+	c.Check(w, gc.IsNil)
+	c.Check(err, gc.Equals, dependency.ErrMissing)
+}
+
+func (s *ManifoldSuite) TestServiceFactoryMissing(c *gc.C) {
+	s.resources["service-factory"] = dt.StubResource{Error: dependency.ErrMissing}
 	w, err := s.startManifold(c)
 	c.Check(w, gc.IsNil)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
@@ -292,4 +303,8 @@ type mockConfig struct {
 
 type dummyWorker struct {
 	worker.Worker
+}
+
+type mockServiceFactory struct {
+	servicefactory.ControllerServiceFactory
 }

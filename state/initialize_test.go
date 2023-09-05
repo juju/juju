@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -87,41 +86,6 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	userPassCredentialTag := names.NewCloudCredentialTag(
 		"dummy/" + owner.Id() + "/some-credential",
 	)
-	emptyCredentialTag := names.NewCloudCredentialTag(
-		"dummy/" + owner.Id() + "/empty-credential",
-	)
-	userpassCredential := cloud.NewCredential(
-		cloud.UserPassAuthType,
-		map[string]string{
-			"username": "alice",
-			"password": "hunter2",
-		},
-	)
-	userpassCredential.Label = userPassCredentialTag.Name()
-	expectedUserpassCredential := statetesting.CloudCredential(
-		cloud.UserPassAuthType,
-		map[string]string{
-			"username": "alice",
-			"password": "hunter2",
-		},
-	)
-	expectedUserpassCredential.DocID = "dummy#initialize-admin#some-credential"
-	expectedUserpassCredential.Owner = "initialize-admin"
-	expectedUserpassCredential.Cloud = "dummy"
-	expectedUserpassCredential.Name = "some-credential"
-
-	emptyCredential := cloud.NewEmptyCredential()
-	emptyCredential.Label = emptyCredentialTag.Name()
-	expectedEmptyCredential := statetesting.NewEmptyCredential()
-	expectedEmptyCredential.DocID = "dummy#initialize-admin#empty-credential"
-	expectedEmptyCredential.Owner = "initialize-admin"
-	expectedEmptyCredential.Cloud = "dummy"
-	expectedEmptyCredential.Name = "empty-credential"
-
-	cloudCredentialsIn := map[names.CloudCredentialTag]cloud.Credential{
-		userPassCredentialTag: userpassCredential,
-		emptyCredentialTag:    emptyCredential,
-	}
 	controllerCfg := testing.FakeControllerConfig()
 
 	ctlr, err := state.Initialize(state.InitializeParams{
@@ -145,9 +109,8 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 			},
 			Regions: []cloud.Region{{Name: "dummy-region"}},
 		},
-		CloudCredentials: cloudCredentialsIn,
-		MongoSession:     s.Session,
-		AdminPassword:    "dummy-secret",
+		MongoSession:  s.Session,
+		AdminPassword: "dummy-secret",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctlr, gc.NotNil)
@@ -210,24 +173,6 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	credentialTag, ok := model.CloudCredentialTag()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(credentialTag, gc.Equals, userPassCredentialTag)
-	cred, credentialSet, err := model.CloudCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentialSet, jc.IsTrue)
-	stateCred, err := s.State.CloudCredential(credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
-	stateCredential := cloud.NewNamedCredential(
-		stateCred.Name,
-		cloud.AuthType(stateCred.AuthType),
-		stateCred.Attributes,
-		stateCred.Revoked,
-	)
-	c.Assert(cred, jc.DeepEquals, stateCredential)
-	cloudCredentials, err := s.State.CloudCredentials(model.Owner(), "dummy")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudCredentials, jc.DeepEquals, map[string]state.Credential{
-		"dummy/initialize-admin/some-credential":  expectedUserpassCredential,
-		"dummy/initialize-admin/empty-credential": expectedEmptyCredential,
-	})
 
 	// Check that the cloud owner has admin access.
 	access, err := s.State.GetCloudAccess("dummy", owner)
@@ -256,39 +201,6 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = bakeryConfig.GetOffersThirdPartyKey()
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *InitializeSuite) TestInitializeWithInvalidCredentialType(c *gc.C) {
-	owner := names.NewLocalUserTag("initialize-admin")
-	modelCfg := testing.ModelConfig(c)
-	controllerCfg := testing.FakeControllerConfig()
-	credentialTag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/borken")
-	_, err := state.Initialize(state.InitializeParams{
-		Clock:            clock.WallClock,
-		ControllerConfig: controllerCfg,
-		ControllerModelArgs: state.ModelArgs{
-			Type:                    state.ModelTypeIAAS,
-			CloudName:               "dummy",
-			Owner:                   owner,
-			Config:                  modelCfg,
-			StorageProviderRegistry: storage.StaticProviderRegistry{},
-		},
-		Cloud: cloud.Cloud{
-			Name: "dummy",
-			Type: "dummy",
-			AuthTypes: []cloud.AuthType{
-				cloud.AccessKeyAuthType, cloud.OAuth1AuthType,
-			},
-		},
-		CloudCredentials: map[names.CloudCredentialTag]cloud.Credential{
-			credentialTag: cloud.NewCredential(cloud.UserPassAuthType, nil),
-		},
-		MongoSession:  s.Session,
-		AdminPassword: "dummy-secret",
-	})
-	c.Assert(err, gc.ErrorMatches,
-		`validating initialization args: validating credential "dummy/initialize-admin/borken" for cloud "dummy": supported auth-types \["access-key" "oauth1"\], "userpass" not supported`,
-	)
 }
 
 func (s *InitializeSuite) TestInitializeWithControllerInheritedConfig(c *gc.C) {

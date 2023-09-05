@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -109,7 +110,6 @@ type Model interface {
 	CloudName() string
 	Cloud() (cloud.Cloud, error)
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
-	CloudCredential() (cloud.Credential, bool, error)
 	CloudRegion() string
 	Users() ([]permission.UserAccess, error)
 	Destroy(state.DestroyModelParams) error
@@ -123,6 +123,12 @@ type Model interface {
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
 	AutoConfigureContainerNetworking(environ environs.BootstrapEnviron) error
 	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)
+}
+
+// CredentialService provides access to credentials.
+type CredentialService interface {
+	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
+	WatchCredential(ctx context.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

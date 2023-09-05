@@ -41,9 +41,6 @@ func (s *ModelCredentialSuite) TestInvalidateModelCredentialNone(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, exists := m.CloudCredentialTag()
 	c.Assert(exists, jc.IsFalse)
-	_, exists, err = m.CloudCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(exists, jc.IsFalse)
 
 	reason := "special invalidation"
 	err = s.State.InvalidateModelCredential(reason)
@@ -53,18 +50,10 @@ func (s *ModelCredentialSuite) TestInvalidateModelCredentialNone(c *gc.C) {
 func (s *ModelCredentialSuite) TestInvalidateModelCredential(c *gc.C) {
 	st := s.addModel(c, "abcmodel", s.credentialTag)
 	defer st.Close()
-	credential, err := s.State.CloudCredential(s.credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credential.IsValid(), jc.IsTrue)
 
 	reason := "special invalidation"
-	err = st.InvalidateModelCredential(reason)
+	err := st.InvalidateModelCredential(reason)
 	c.Assert(err, jc.ErrorIsNil)
-
-	invalidated, err := s.State.CloudCredential(s.credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(invalidated.IsValid(), jc.IsFalse)
-	c.Assert(invalidated.InvalidReason, gc.DeepEquals, reason)
 
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -75,33 +64,6 @@ func (s *ModelCredentialSuite) TestInvalidateModelCredential(c *gc.C) {
 		Message: "suspended since cloud credential is not valid",
 		Data:    map[string]interface{}{"reason": "special invalidation"},
 	})
-}
-
-func (s *ModelCredentialSuite) TestValidateCloudCredentialWrongCloud(c *gc.C) {
-	m, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
-	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	err = m.ValidateCloudCredential(tag, cred)
-	c.Assert(err, gc.ErrorMatches, `validating credential "stratus/bob/foobar" for cloud "dummy": cloud "stratus" not valid`)
-}
-
-func (s *ModelCredentialSuite) TestValidateCloudCredentialWrongAuthType(c *gc.C) {
-	m, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	tag := names.NewCloudCredentialTag("dummy/bob/foobar")
-	cred := cloud.NewCredential(cloud.AccessKeyAuthType, nil)
-	err = m.ValidateCloudCredential(tag, cred)
-	c.Assert(err, gc.ErrorMatches, `validating credential "dummy/bob/foobar" for cloud "dummy": supported auth-types \["empty"\], "access-key" not supported`)
-}
-
-func (s *ModelCredentialSuite) TestValidateCloudCredentialModel(c *gc.C) {
-	m, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	tag := names.NewCloudCredentialTag("dummy/bob/foobar")
-	cred := cloud.NewCredential(cloud.EmptyAuthType, nil)
-	err = m.ValidateCloudCredential(tag, cred)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ModelCredentialSuite) TestSetCloudCredential(c *gc.C) {
@@ -127,75 +89,11 @@ func (s *ModelCredentialSuite) TestSetCloudCredentialNoUpdate(c *gc.C) {
 	credentialTag, credentialSet := m.CloudCredentialTag()
 	c.Assert(credentialTag, gc.DeepEquals, tag)
 	c.Assert(credentialSet, jc.IsTrue)
-	cred, credentialSet, err := m.CloudCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentialSet, jc.IsTrue)
-	stateCred, err := s.State.CloudCredential(credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
-	stateCredential := cloud.NewNamedCredential(
-		stateCred.Name,
-		cloud.AuthType(stateCred.AuthType),
-		stateCred.Attributes,
-		stateCred.Revoked,
-	)
-	c.Assert(cred, jc.DeepEquals, stateCredential)
-}
-
-func (s *ModelCredentialSuite) TestSetCloudCredentialInvalidCredentialContent(c *gc.C) {
-	tag := names.NewCloudCredentialTag("dummy/bob/foobar")
-	credential := cloud.NewCredential(cloud.EmptyAuthType, nil)
-	err := s.State.UpdateCloudCredential(tag, credential)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.State.InvalidateCloudCredential(tag, "test")
-	c.Assert(err, jc.ErrorIsNil)
-
-	m, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	set, err := m.SetCloudCredential(tag)
-	c.Assert(err, gc.ErrorMatches, `credential "dummy/bob/foobar" not valid`)
-	c.Assert(set, jc.IsFalse)
-
-	credentialTag, credentialSet := m.CloudCredentialTag()
-	// Make sure no credential is set.
-	c.Assert(credentialTag, gc.DeepEquals, names.CloudCredentialTag{})
-	c.Assert(credentialSet, jc.IsFalse)
-	_, credentialSet, err = m.CloudCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentialSet, jc.IsFalse)
-}
-
-func (s *ModelCredentialSuite) TestSetCloudCredentialInvalidCredentialForModel(c *gc.C) {
-	err := s.State.AddCloud(lowCloud, s.Owner.Name())
-	c.Assert(err, jc.ErrorIsNil)
-	tag := names.NewCloudCredentialTag("stratus/bob/foobar")
-	credential := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{
-		"access-key": "someverysecretaccesskey",
-		"secret-key": "someverysercretplainkey",
-	})
-	err = s.State.UpdateCloudCredential(tag, credential)
-	c.Assert(err, jc.ErrorIsNil)
-
-	m, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	set, err := m.SetCloudCredential(tag)
-	c.Assert(err, gc.ErrorMatches, `cloud "stratus" not valid`)
-	c.Assert(set, jc.IsFalse)
-
-	credentialTag, credentialSet := m.CloudCredentialTag()
-	// Make sure no credential is set.
-	c.Assert(credentialTag, gc.DeepEquals, names.CloudCredentialTag{})
-	c.Assert(credentialSet, jc.IsFalse)
-	_, credentialSet, err = m.CloudCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentialSet, jc.IsFalse)
 }
 
 func (s *ModelCredentialSuite) TestWatchModelCredential(c *gc.C) {
 	// Credential to use in this test.
 	tag := names.NewCloudCredentialTag("dummy/bob/foobar")
-	credential := cloud.NewCredential(cloud.EmptyAuthType, nil)
-	err := s.State.UpdateCloudCredential(tag, credential)
-	c.Assert(err, jc.ErrorIsNil)
 
 	// Model with credential watcher for this test.
 	m, err := s.State.Model()
@@ -236,12 +134,6 @@ func (s *ModelCredentialSuite) assertSetCloudCredential(c *gc.C, tag names.Cloud
 	// Make sure no credential is set.
 	c.Assert(credentialTag, gc.DeepEquals, names.CloudCredentialTag{})
 	c.Assert(credentialSet, jc.IsFalse)
-	_, credentialSet, err = m.CloudCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentialSet, jc.IsFalse)
-
-	err = s.State.UpdateCloudCredential(tag, credential)
-	c.Assert(err, jc.ErrorIsNil)
 
 	set, err := m.SetCloudCredential(tag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -251,18 +143,6 @@ func (s *ModelCredentialSuite) assertSetCloudCredential(c *gc.C, tag names.Cloud
 	credentialTag, credentialSet = m.CloudCredentialTag()
 	c.Assert(credentialTag, gc.DeepEquals, tag)
 	c.Assert(credentialSet, jc.IsTrue)
-	cred, credentialSet, err := m.CloudCredential()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credentialSet, jc.IsTrue)
-	stateCred, err := s.State.CloudCredential(credentialTag)
-	c.Assert(err, jc.ErrorIsNil)
-	stateCredential := cloud.NewNamedCredential(
-		stateCred.Name,
-		cloud.AuthType(stateCred.AuthType),
-		stateCred.Attributes,
-		stateCred.Revoked,
-	)
-	c.Assert(cred, jc.DeepEquals, stateCredential)
 	return m
 }
 
@@ -271,8 +151,6 @@ func (s *ModelCredentialSuite) createCloudCredential(c *gc.C, credentialName str
 	// we create a testing controller on a cloud "dummy".
 	// Test cloud "dummy" only allows credentials with an empty auth type.
 	tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", "dummy", s.Owner.Id(), credentialName))
-	err := s.State.UpdateCloudCredential(tag, cloud.NewEmptyCredential())
-	c.Assert(err, jc.ErrorIsNil)
 	return tag
 }
 
@@ -294,6 +172,49 @@ func (s *ModelCredentialSuite) addModel(c *gc.C, modelName string, tag names.Clo
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return st
+}
+
+func assertCredentialCreated(c *gc.C, testSuite ConnSuite) (string, *state.User, names.CloudCredentialTag) {
+	owner := testSuite.Factory.MakeUser(c, &factory.UserParams{
+		Password: "secret",
+		Name:     "bob",
+	})
+
+	cloudName := "stratus"
+	err := testSuite.State.AddCloud(cloud.Cloud{
+		Name:      cloudName,
+		Type:      "low",
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		Regions:   []cloud.Region{{Name: "dummy-region", Endpoint: "endpoint"}},
+	}, owner.Name())
+	c.Assert(err, jc.ErrorIsNil)
+
+	tag := names.NewCloudCredentialTag(fmt.Sprintf("%v/%v/%v", cloudName, owner.Name(), "foobar"))
+	return cloudName, owner, tag
+}
+
+func assertModelCreated(c *gc.C, testSuite ConnSuite, cloudName string, credentialTag names.CloudCredentialTag, owner names.Tag, modelName string) string {
+	// Test model needs to be on the test cloud for all validation to pass.
+	modelState := testSuite.Factory.MakeModel(c, &factory.ModelParams{
+		Name:            modelName,
+		CloudCredential: credentialTag,
+		Owner:           owner,
+		CloudName:       cloudName,
+	})
+	defer modelState.Close()
+	testModel, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	assertModelStatus(c, testSuite.StatePool, testModel.UUID(), status.Available)
+	return testModel.UUID()
+}
+
+func assertModelStatus(c *gc.C, pool *state.StatePool, testModelUUID string, expectedStatus status.Status) {
+	aModel, helper, err := pool.GetModel(testModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	defer helper.Release()
+	modelStatus, err := aModel.Status()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelStatus.Status, gc.DeepEquals, expectedStatus)
 }
 
 func (s *ModelCredentialSuite) TestInvalidateModelCredentialTouchesAllCredentialModels(c *gc.C) {
@@ -319,6 +240,29 @@ func (s *ModelCredentialSuite) TestInvalidateModelCredentialTouchesAllCredential
 		assertModelStatus(c, s.StatePool, uuid, status.Suspended)
 		assertModelHistories(c, s.StatePool, uuid, status.Suspended, status.Available)
 	}
+}
+
+func assertModelSuspended(c *gc.C, testSuite ConnSuite) (names.CloudCredentialTag, string) {
+	cloudName, credentialOwner, credentialTag := assertCredentialCreated(c, testSuite)
+	modelUUID := assertModelCreated(c, testSuite, cloudName, credentialTag, credentialOwner.Tag(), "model-for-cloud")
+	m, helper, err := testSuite.StatePool.GetModel(modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	defer helper.Release()
+	err = m.State().CloudCredentialUpdated(credentialTag)
+	c.Assert(err, jc.ErrorIsNil)
+	err = m.State().InvalidateModelCredential("broken")
+	c.Assert(err, jc.ErrorIsNil)
+	assertModelStatus(c, testSuite.StatePool, modelUUID, status.Suspended)
+
+	return credentialTag, modelUUID
+}
+
+func (s *ModelCredentialSuite) TestCloudCredentialUpdatedTouchesCredentialModels(c *gc.C) {
+	tag, testModelUUID := assertModelSuspended(c, s.ConnSuite)
+
+	err := s.State.CloudCredentialUpdated(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	assertModelStatus(c, s.StatePool, testModelUUID, status.Available)
 }
 
 func (s *ModelCredentialSuite) TestSetCredentialRevertsModelStatus(c *gc.C) {
@@ -367,7 +311,7 @@ func (s *ModelCredentialSuite) TestSetCredentialRevertsModelStatus(c *gc.C) {
 		Password: "secret",
 		Name:     "uncle",
 	})
-	anotherCredentialTag := createCredential(c, s.ConnSuite, cloudName, owner.Name(), "barfoo")
+	anotherCredentialTag := names.NewCloudCredentialTag(fmt.Sprintf("%v/%v/%v", cloudName, owner.Name(), "barfoo"))
 
 	for i := 0; i < desiredNumber; i++ {
 		oneModelState, helper, err := s.StatePool.GetModel(modelUUIDs[i])

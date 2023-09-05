@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager"
 	"github.com/juju/juju/apiserver/facades/client/machinemanager/mocks"
 	"github.com/juju/juju/core/instance"
@@ -23,9 +24,10 @@ import (
 )
 
 type machineConfigSuite struct {
-	ctrlSt *mocks.MockControllerBackend
-	st     *mocks.MockInstanceConfigBackend
-	model  *mocks.MockModel
+	ctrlSt      *mocks.MockControllerBackend
+	st          *mocks.MockInstanceConfigBackend
+	credService *commonmocks.MockCredentialService
+	model       *mocks.MockModel
 
 	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
@@ -38,6 +40,7 @@ func (s *machineConfigSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.ctrlSt = mocks.NewMockControllerBackend(ctrl)
 	s.st = mocks.NewMockInstanceConfigBackend(ctrl)
+	s.credService = commonmocks.NewMockCredentialService(ctrl)
 
 	s.model = mocks.NewMockModel(ctrl)
 	s.model.EXPECT().UUID().Return("uuid").AnyTimes()
@@ -80,7 +83,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	s.ctrlSt.EXPECT().ControllerConfig().Return(coretesting.FakeControllerConfig(), nil).MinTimes(1)
 	s.ctrlSt.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
 
-	icfg, err := machinemanager.InstanceConfig(context.Background(), s.controllerConfigGetter, s.ctrlSt, s.st, "0", "nonce", "")
+	icfg, err := machinemanager.InstanceConfig(context.Background(), s.controllerConfigGetter, s.ctrlSt, s.st, s.credService, "0", "nonce", "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(icfg.APIInfo.Addrs, gc.DeepEquals, []string{"1.2.3.4:1"})
 	c.Assert(icfg.ToolsList().URLs(), gc.DeepEquals, map[version.Binary][]string{

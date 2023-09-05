@@ -139,7 +139,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -151,7 +151,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Assert(err, gc.NotNil)
 	c.Assert(aProvisioner, gc.IsNil)
@@ -229,7 +229,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -589,7 +589,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -792,7 +792,7 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertModelConfig(c, aProvisioner)
@@ -1094,7 +1094,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -1220,7 +1220,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -1459,7 +1459,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1513,7 +1513,7 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1688,7 +1688,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)

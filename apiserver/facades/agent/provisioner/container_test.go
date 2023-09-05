@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -55,7 +54,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -110,7 +109,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)

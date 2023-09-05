@@ -188,8 +188,8 @@ func (s *credentialSuite) TestCloudCredentials(c *gc.C) {
 		creds, err := st.CloudCredentials(ctx, userName, "stratus")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(creds, jc.DeepEquals, map[string]cloud.Credential{
-			"bobcred1": cred1,
-			"bobcred2": cred2,
+			"stratus/bob/bobcred1": cred1,
+			"stratus/bob/bobcred2": cred2,
 		})
 	}
 }

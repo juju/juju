@@ -105,10 +105,12 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if mc.CloudCredential != "" {
 		var err error
 		v.credentialWatcher, err = config.Facade.WatchCredential(mc.CloudCredential)
-		if err != nil {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
-		plan.Init = append(plan.Init, v.credentialWatcher)
+		if err == nil {
+			plan.Init = append(plan.Init, v.credentialWatcher)
+		}
 	}
 
 	if err := catacomb.Invoke(plan); err != nil {

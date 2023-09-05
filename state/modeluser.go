@@ -184,9 +184,6 @@ func (st *State) ModelSummariesForUser(user names.UserTag, isSuperuser bool) ([]
 	if err := p.fillInFromStatus(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := p.fillInStatusBasedOnCloudCredentialValidity(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := p.fillInJustUser(); err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -40,5 +40,6 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 		ctx.Logger().Child("controller"),
 		serviceFactory.ControllerConfig(),
 		serviceFactory.ExternalController(),
+		serviceFactory.Credential(),
 	)
 }

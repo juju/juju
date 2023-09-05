@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -1185,7 +1186,9 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	c.Assert(err, jc.ErrorIsNil)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(
+		caas.New)(model,
+		&testing.MockCredentialService{ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))})
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	s.policy = testing.MockPolicy{

@@ -73,7 +73,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(st)
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c))
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), s.ControllerServiceFactory.Credential())
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(st), registry)
@@ -86,6 +86,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		nil,
 		blockChecker,
 		application.GetModel(model),
+		s.ControllerServiceFactory.Credential(),
 		nil, // leadership not used in these tests.
 		application.CharmToStateCharm,
 		application.DeployApplication,
