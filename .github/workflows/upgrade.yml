@@ -22,7 +22,7 @@ jobs:
 
   Upgrade:
     name: Upgrade
-    runs-on: [self-hosted, linux, x64, aws, large]
+    runs-on: [self-hosted, linux, x64, aws, xlarge]
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
