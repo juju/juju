@@ -42,10 +42,14 @@ func newStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State()),
 		common.AuthFuncForTag(model.ModelTag()),
 	)
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &FacadeV2{
 		CloudSpecer:         cloudSpecAPI,
 		ModelWatcher:        common.NewModelWatcher(model, resources, authorizer),
-		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
+		ControllerConfigAPI: common.NewStateControllerConfig(systemState),
 		auth:                authorizer,
 		resources:           resources,
 	}, nil

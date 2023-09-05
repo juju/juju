@@ -1,6 +1,5 @@
 name: "Build"
 on:
-  push:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -18,7 +17,7 @@ permissions:
 jobs:
   Build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, large]
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
