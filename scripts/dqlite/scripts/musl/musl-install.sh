@@ -113,8 +113,9 @@ musl_install_cross_arch() {
 }
 
 sha() {
-    case ${BUILD_ARCH} in
-        amd64) echo "c19e7337cd28232b44b19db7da68089dd1b957a474440046c113e507b5af0290" ;;
+    case ${BUILD_ARCH}-$(GOOS= go env GOOS)-$(GOARCH= go env GOARCH) in
+        amd64-linux-amd64) echo "d5d551f3590f7770018b178c04de04d30ae8924db25520b28d51eed390155fe8" ;; # https://jenkins.juju.canonical.com/job/build-musl-amd64/16/consoleText
+        arm64-linux-arm64) echo "7ee8ddeee5d6bb9aedeb0edff3718f682949452059ec3bcd717f15d70918b886" ;; # https://jenkins.juju.canonical.com/job/build-musl-arm64/11/consoleText
         *) echo "" ;;
     esac
 }

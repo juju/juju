@@ -23,8 +23,7 @@ jobs:
   Upgrade:
     name: Upgrade
     runs-on: [self-hosted, linux, x64, aws, large]
-    # Disabled until 3.2.0 is released.
-    if: false && github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
@@ -45,7 +44,7 @@ jobs:
           set -euxo pipefail
           sudo snap install snapcraft --classic
           sudo snap install yq
-          sudo snap install juju --channel=3.1/stable
+          sudo snap install juju --channel=3.2/stable
           mkdir -p ~/.local/share
           echo "/snap/bin" >> $GITHUB_PATH
 
