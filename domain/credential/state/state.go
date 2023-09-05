@@ -505,5 +505,5 @@ func (st *State) WatchCredential(
 		return nil, errors.Trace(err)
 	}
 	result, err := getWatcher("cloud_credential", uuid, changestream.All)
-	return result, errors.Annotatef(err, "watch credential")
+	return result, errors.Annotatef(err, "watching credential")
 }

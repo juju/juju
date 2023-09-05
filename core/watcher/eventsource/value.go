@@ -67,18 +67,7 @@ func (w *ValueWatcher) loop() error {
 	in := subscription.Changes()
 	out := w.out
 
-	select {
-	case <-w.tomb.Dying():
-		return tomb.ErrDying
-	case <-subscription.Done():
-		return ErrSubscriptionClosed
-	case _, ok := <-in:
-		if !ok {
-			w.logger.Debugf("change channel closed for %q; terminating watcher for %q", w.namespace, w.changeValue)
-			return nil
-		}
-	default:
-	}
+	w.drainInitialEvent(in)
 
 	for {
 		select {
@@ -98,5 +87,16 @@ func (w *ValueWatcher) loop() error {
 			// We have dispatched. Tick over to read mode.
 			out = nil
 		}
+	}
+}
+
+func (w *ValueWatcher) drainInitialEvent(in <-chan []changestream.ChangeEvent) {
+	select {
+	case _, ok := <-in:
+		if !ok {
+			w.logger.Debugf("change channel closed for %q; terminating watcher for %q", w.namespace, w.changeValue)
+			return
+		}
+	default:
 	}
 }

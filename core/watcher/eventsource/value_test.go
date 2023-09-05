@@ -30,7 +30,7 @@ func (s *valueSuite) TestNotificationsSent(c *gc.C) {
 	subExp := s.sub.EXPECT()
 
 	// We go through the worker loop 5 times:
-	// - Read initial delta (this isn't guaranteed).
+	// - Read initial delta (additional subsequent events aren't guaranteed).
 	// - Dispatch initial notification.
 	// - Read deltas.
 	// - Dispatch notification.
