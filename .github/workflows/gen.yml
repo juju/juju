@@ -15,7 +15,7 @@ permissions:
 jobs:
   Generate:
     name: Generate
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, xxlarge]
     if: github.event.pull_request.draft == false
 
     steps:
@@ -62,6 +62,8 @@ jobs:
           
           git add -A
           if [[ -n $(git diff HEAD) ]]; then
+            # Print the full diff for debugging purposes
+            git diff HEAD
             echo "*****"
             echo "The following generated files have been modified:"
             git diff --name-status HEAD

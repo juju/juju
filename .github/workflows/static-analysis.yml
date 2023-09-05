@@ -12,7 +12,7 @@ permissions:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, xxlarge]
     if: github.event.pull_request.draft == false
     steps:
     - name: Checkout
@@ -49,9 +49,10 @@ jobs:
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
         curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.53.3
-        sudo snap install shfmt
-        sudo apt install expect
-
+        sudo curl -sSfL https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_$(go env GOARCH) -o /usr/bin/shfmt
+        sudo chmod +x /usr/bin/shfmt
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
+    
     - name: Download Dependencies
       run: go mod download
 
@@ -83,7 +84,7 @@ jobs:
 
   schema:
     name: Schema
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, large]
     if: github.event.pull_request.draft == false
     steps:
     - name: Checkout
@@ -115,7 +116,7 @@ jobs:
     - name: Install Dependencies
       if: steps.filter.outputs.schema == 'true'
       run: |
-        sudo apt install expect
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
 
     - name: Schema Check
       if: steps.filter.outputs.schema == 'true'

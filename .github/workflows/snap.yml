@@ -15,8 +15,8 @@ permissions:
 jobs:
 
   snap:
-    name: linux-amd64
-    runs-on: ubuntu-latest
+    name: linux-arm64
+    runs-on: [self-hosted, linux, arm64, aws, large]
     if: github.event.pull_request.draft == false
     steps:
 
@@ -63,5 +63,5 @@ jobs:
       shell: bash
       run: |
         set -euxo pipefail
-        mkdir ~/.ssh
+        mkdir -p ~/.ssh
         juju bootstrap localhost --debug
