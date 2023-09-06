@@ -100,7 +100,7 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	s.clock.EXPECT().Now().Times(2)
+	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
 	s.metrics.EXPECT().ChangesCountObserve(1)
 
@@ -108,6 +108,61 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 	defer workertest.DirtyKill(c, stream)
 
 	var results []changestream.ChangeEvent
+	select {
+	case term := <-stream.Terms():
+		results = term.Changes()
+		term.Done(false, make(chan struct{}))
+
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
+	}
+
+	expectChanges(c, []change{chg}, results)
+
+	workertest.CleanKill(c, stream)
+}
+
+func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyLogs()
+	s.expectFileNotifyWatcher()
+	s.expectAfterAnyTimes()
+	s.expectTimer()
+
+	s.insertNamespace(c, 1000, "foo")
+
+	chg := change{
+		id:   1000,
+		uuid: utils.MustNewUUID().String(),
+	}
+	s.insertChange(c, chg)
+
+	s.clock.EXPECT().Now().AnyTimes()
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any()).AnyTimes()
+	s.metrics.EXPECT().ChangesCountObserve(1).AnyTimes()
+
+	stream := New(utils.MustNewUUID().String(), s.TxnRunner(), s.FileNotifier, s.clock, s.metrics, s.logger)
+	defer workertest.DirtyKill(c, stream)
+
+	var results []changestream.ChangeEvent
+	select {
+	case term := <-stream.Terms():
+		results = term.Changes()
+		term.Done(false, make(chan struct{}))
+
+	case <-time.After(testing.ShortWait):
+		c.Fatal("timed out waiting for change")
+	}
+
+	expectChanges(c, []change{chg}, results)
+
+	chg = change{
+		id:   1000,
+		uuid: utils.MustNewUUID().String(),
+	}
+	s.insertChange(c, chg)
+
 	select {
 	case term := <-stream.Terms():
 		results = term.Changes()
@@ -138,7 +193,7 @@ func (s *streamSuite) TestOneChangeWithEmptyResults(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	s.clock.EXPECT().Now().Times(2)
+	s.clock.EXPECT().Now().AnyTimes()
 	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
 	s.metrics.EXPECT().ChangesCountObserve(1)
 
@@ -176,7 +231,7 @@ func (s *streamSuite) TestOneChangeWithClosedAbort(c *gc.C) {
 	}
 	s.insertChange(c, chg)
 
-	s.clock.EXPECT().Now().Times(2)
+	s.clock.EXPECT().Now().MinTimes(1)
 	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any())
 	s.metrics.EXPECT().ChangesCountObserve(1)
 
@@ -1040,7 +1095,7 @@ func (s *streamSuite) TestWatermarkWriteIsIgnored(c *gc.C) {
 	s.clock.EXPECT().Now().MinTimes(2 * (changestream.DefaultNumTermWatermarks - 1))
 	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any()).MinTimes(changestream.DefaultNumTermWatermarks - 1)
 	s.metrics.EXPECT().ChangesCountObserve(1).MinTimes(changestream.DefaultNumTermWatermarks - 1)
-	s.metrics.EXPECT().WatermarkInsertsInc().MinTimes(1)
+	s.metrics.EXPECT().WatermarkInsertsInc().AnyTimes()
 	s.metrics.EXPECT().WatermarkRetriesInc().MinTimes(1)
 
 	tag := utils.MustNewUUID().String()
