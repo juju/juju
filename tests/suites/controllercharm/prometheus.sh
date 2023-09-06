@@ -13,6 +13,7 @@ run_prometheus() {
 	retry check_prometheus_targets 10
 
 	# TODO: need to destroy persistent storage volume here
+	#juju remove-application prometheus-k8s --destroy-storage
   destroy_model "${MODEL_NAME}"
 	destroy_controller "${MODEL_NAME}"
 }
@@ -28,7 +29,7 @@ run_prometheus_multi() {
 	juju offer controller.controller:metrics-endpoint
 
 	juju deploy prometheus-k8s p1 --trust
-	juju relate prometheus-k8s controller.controller
+	juju relate p1 controller.controller
 	wait_for "p1" "$(active_condition "p1")"
   retry check_prometheus_targets 10
 
