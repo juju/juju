@@ -828,7 +828,7 @@ func (ctx *HookContext) lookupOwnedSecretURIByLabel(label string) (*coresecrets.
 		if md.Label == nil || md.URI == nil {
 			continue
 		}
-		if *md.Label == label && md.OwnerTag.Id() == ctx.unit.Tag().Id() {
+		if *md.Label == label {
 			return md.URI, nil
 		}
 	}
