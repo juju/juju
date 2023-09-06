@@ -38,9 +38,9 @@ func (c *Client) AddMetricsUser(username, password string) error {
 	if count := len(result.Results); count != 1 {
 		return errors.Errorf("expected 1 result, got %d", count)
 	}
-	err = params.TranslateWellKnownError(result.Results[0].Error)
-	if err != nil {
-		return errors.Annotate(err, "AddMetricsUser facade call returned error")
+	if err := result.Results[0].Error; err != nil {
+		translatedErr := params.TranslateWellKnownError(err)
+		return errors.Annotate(translatedErr, "AddMetricsUser facade call failed")
 	}
 	return nil
 }
@@ -60,6 +60,9 @@ func (c *Client) RemoveMetricsUser(username string) error {
 	if err != nil {
 		return errors.Annotate(err, "making RemoveMetricsUser facade call")
 	}
-	err = params.TranslateWellKnownError(results.OneError())
-	return errors.Annotate(err, "RemoveMetricsUser facade call returned error")
+	if err := results.OneError(); err != nil {
+		translatedErr := params.TranslateWellKnownError(err)
+		return errors.Annotate(translatedErr, "RemoveMetricsUser facade call failed")
+	}
+	return nil
 }
