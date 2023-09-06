@@ -84,7 +84,7 @@ type EventMultiplexer struct {
 
 	// (un)subscription related channels to serialize adding and removing
 	// subscriptions. This allows the queue to be lock less.
-	subscriptionCh   chan subscriptionOpts
+	subscriptionCh   chan requestSubscription
 	unsubscriptionCh chan uint64
 
 	reportsCh chan reportRequest
@@ -103,7 +103,7 @@ func New(stream Stream, clock clock.Clock, metrics MetricsCollector, logger Logg
 		subscriptionsCount: 0,
 		dispatchErrorCount: 0,
 
-		subscriptionCh:   make(chan subscriptionOpts),
+		subscriptionCh:   make(chan requestSubscription),
 		unsubscriptionCh: make(chan uint64),
 
 		reportsCh: make(chan reportRequest),
@@ -122,32 +122,22 @@ func New(stream Stream, clock clock.Clock, metrics MetricsCollector, logger Logg
 // Subscribe creates a new subscription to the event queue. Options can be
 // provided to allow filter during the dispatching phase.
 func (e *EventMultiplexer) Subscribe(opts ...changestream.SubscriptionOption) (changestream.Subscription, error) {
-	// Get a new subscription count without using any mutexes.
-	subID := atomic.AddUint64(&e.subscriptionsCount, 1)
-
-	// Increase number of subscriptions metric.
-	e.metrics.SubscriptionsInc()
-
-	sub := newSubscription(subID, func() { e.unsubscribe(subID) })
-	if err := e.catacomb.Add(sub); err != nil {
-		e.metrics.SubscriptionsDec()
-		sub.Kill()
-		if errors.Is(err, e.catacomb.ErrDying()) {
-			return nil, database.ErrEventMultiplexerDying
-		}
-		return nil, errors.Trace(err)
+	result := make(chan requestSubscriptionResult)
+	select {
+	case <-e.catacomb.Dying():
+		return nil, database.ErrEventMultiplexerDying
+	case e.subscriptionCh <- requestSubscription{
+		opts:   opts,
+		result: result,
+	}:
 	}
 
 	select {
 	case <-e.catacomb.Dying():
 		return nil, database.ErrEventMultiplexerDying
-	case e.subscriptionCh <- subscriptionOpts{
-		subscription: sub,
-		opts:         opts,
-	}:
+	case res := <-result:
+		return res.sub, errors.Trace(res.err)
 	}
-
-	return sub, nil
 }
 
 // Kill stops the event queue.
@@ -269,29 +259,60 @@ func (e *EventMultiplexer) loop() error {
 			// can force false here.
 			term.Done(false, e.catacomb.Dying())
 
-		case subOpt := <-e.subscriptionCh:
-			sub := subOpt.subscription
+		case request := <-e.subscriptionCh:
+			// Get a new subscription count without using any mutexes.
+			subID := atomic.AddUint64(&e.subscriptionsCount, 1)
+
+			e.metrics.SubscriptionsInc()
+
+			sub := newSubscription(subID, func() { e.unsubscribe(subID) })
+
+			if err := e.catacomb.Add(sub); err != nil {
+				e.metrics.SubscriptionsDec()
+				sub.Kill()
+
+				if errors.Is(err, e.catacomb.ErrDying()) {
+					return err
+				}
+
+				select {
+				case <-e.catacomb.Dying():
+					return e.catacomb.ErrDying()
+				case request.result <- requestSubscriptionResult{
+					err: err,
+				}:
+					continue
+				}
+			}
 
 			// Create a new subscription and assign a unique ID to it.
 			e.subscriptions[sub.id] = sub
 
 			// No options were supplied, just add it to the all bucket, so
 			// they'll be included in every dispatch.
-			if len(subOpt.opts) == 0 {
+			if len(request.opts) == 0 {
 				e.subscriptionsAll[sub.id] = struct{}{}
-				continue
+			} else {
+				// Register filters to route changes matching the subscription criteria to
+				// the newly created subscription.
+				for _, opt := range request.opts {
+					namespace := opt.Namespace()
+					e.subscriptionsByNS[namespace] = append(e.subscriptionsByNS[namespace], &eventFilter{
+						subscriptionID: sub.id,
+						changeMask:     opt.ChangeMask(),
+						filter:         opt.Filter(),
+					})
+					sub.topics[namespace] = struct{}{}
+				}
 			}
 
-			// Register filters to route changes matching the subscription criteria to
-			// the newly created subscription.
-			for _, opt := range subOpt.opts {
-				namespace := opt.Namespace()
-				e.subscriptionsByNS[namespace] = append(e.subscriptionsByNS[namespace], &eventFilter{
-					subscriptionID: sub.id,
-					changeMask:     opt.ChangeMask(),
-					filter:         opt.Filter(),
-				})
-				sub.topics[namespace] = struct{}{}
+			select {
+			case <-e.catacomb.Dying():
+				return e.catacomb.ErrDying()
+			case request.result <- requestSubscriptionResult{
+				sub: sub,
+			}:
+				continue
 			}
 
 		case subscriptionID := <-e.unsubscriptionCh:
