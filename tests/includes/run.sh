@@ -19,9 +19,18 @@ run() {
 	set_verbosity
 
 	if [[ ${VERBOSE} -gt 1 ]]; then
-		"${CMD}" "$@" 2>&1 | tee -a "${TEST_DIR}/${TEST_CURRENT}.log"
-	else
-		"${CMD}" "$@" >>"${TEST_DIR}/${TEST_CURRENT}.log" 2>&1
+		touch "${TEST_DIR}/${TEST_CURRENT}.log"
+		tail -f "${TEST_DIR}/${TEST_CURRENT}.log" 2>/dev/null &
+		pid=$!
+
+		# SIGKILL it with fire, as we don't know what state we're in.
+		trap 'kill -9 "${pid}" >/dev/null 2>&1 || true' EXIT
+	fi
+
+	"${CMD}" "$@" >"${TEST_DIR}/${TEST_CURRENT}.log" 2>&1
+	if [[ ${VERBOSE} -gt 1 ]]; then
+		# SIGKILL because it should be safe to do so.
+		kill -9 "${pid}" >/dev/null 2>&1 || true
 	fi
 
 	END_TIME=$(date +%s)
