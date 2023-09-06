@@ -19,6 +19,7 @@ func ControllerDDL(nodeID uint64) *schema.Schema {
 		externalControllerSchema,
 		changeLogTriggersForTable("external_controller", "uuid", 1),
 		modelListSchema,
+		modelMetadataSchema,
 		controllerConfigSchema,
 		changeLogTriggersForTable("controller_config", "key", 3),
 		// These are broken up for 2 reasons:
@@ -309,6 +310,25 @@ func modelListSchema() schema.Patch {
 	return schema.MakePatch(`
 CREATE TABLE model_list (
     uuid    TEXT PRIMARY KEY
+);`)
+}
+
+func modelMetadataSchema() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE model_metadata (
+    model_uuid TEXT PRIMARY KEY,
+    cloud_uuid TEXT,
+    cloud_credential_uuid TEXT,
+
+    CONSTRAINT fk_model_metadata_model
+        FOREIGN KEY (model_uuid)
+        REFERENCES model_list(uuid),
+    CONSTRAINT fk_model_metadata_cloud
+        FOREIGN KEY (cloud_uuid)
+        REFERENCES cloud(uuid),
+    CONSTRAINT fk_model_metadata_cloud_credential
+        FOREIGN KEY (cloud_credential_uuid)
+        REFERENCES cloud_credential(uuid)
 );`)
 }
 

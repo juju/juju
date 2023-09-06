@@ -62,8 +62,9 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"external_controller_address",
 		"external_model",
 
-		// Model list
+		// Model
 		"model_list",
+		"model_metadata",
 
 		// Controller config
 		"controller_config",
