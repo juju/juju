@@ -417,7 +417,7 @@ destroy_controller() {
 		echo "====> Destroying model ($(green "${name}"))"
 
 		output="${TEST_DIR}/${name}-destroy-model.log"
-		echo "${name}" | xargs -I % juju destroy-model --no-prompt % >"${output}" 2>&1 || true
+		echo "${name}" | xargs -I % juju destroy-model --no-prompt --destroy-storage % >"${output}" 2>&1 || true
 
 		echo "====> Destroyed model ($(green "${name}"))"
 		return
@@ -442,7 +442,7 @@ destroy_controller() {
 
 	echo "====> Destroying juju ($(green "${name}"))"
 	if [[ ${KILL_CONTROLLER:-} != "true" ]]; then
-		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --no-prompt % 2>&1 | OUTPUT "${output}"
+		echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models --no-prompt --destroy-storage % 2>&1 | OUTPUT "${output}"
 	else
 		echo "${name}" | xargs -I % juju kill-controller -t 0 --no-prompt % 2>&1 | OUTPUT "${output}"
 	fi
