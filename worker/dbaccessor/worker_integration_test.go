@@ -224,6 +224,24 @@ func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*namespace "baz" not found`)
 }
 
+func (s *integrationSuite) TestWorkerDeleteKnownDBKillErr(c *gc.C) {
+	ctrlDB, err := s.dbGetter.GetDB(coredatabase.ControllerNS)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ctrlDB.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO model_list (uuid) VALUES ("baz")`)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// GetDB ensures that we've got it cached.
+	_, err = s.dbGetter.GetDB("baz")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.worker.Kill()
+	err = s.dbDeleter.DeleteDB("baz")
+	c.Assert(err, jc.ErrorIs, coredatabase.ErrDBAccessorDying)
+}
+
 // The following ensures that we can delete a db without having to call GetDB
 // first. This ensures that we don't have to have an explicit db worker for
 // each model.
