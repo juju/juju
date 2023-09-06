@@ -33,15 +33,14 @@ var _ = gc.Suite(&credentialSuite{})
 func (s *credentialSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
-	st := NewState(s.TxnRunnerFactory())
-	s.addCloud(c, st, cloud.Cloud{
+	s.addCloud(c, cloud.Cloud{
 		Name:      "stratus",
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
 	})
 }
 
-func (s *credentialSuite) addCloud(c *gc.C, st *State, cloud cloud.Cloud) string {
+func (s *credentialSuite) addCloud(c *gc.C, cloud cloud.Cloud) string {
 	cloudSt := dbcloud.NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	err := cloudSt.UpsertCloud(ctx, cloud)
@@ -287,7 +286,7 @@ func (s *credentialSuite) createCloudCredential(c *gc.C, st *State, credentialNa
 		"bar": "bar val",
 	}
 
-	s.addCloud(c, st, cloud.Cloud{
+	s.addCloud(c, cloud.Cloud{
 		Name:      cloudName,
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
