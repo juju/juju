@@ -139,6 +139,10 @@ func (c *configFromEnv) QueryTracingThreshold() time.Duration {
 	panic("not implemented")
 }
 
+func (c *configFromEnv) DqlitePort() (int, bool) {
+	panic("not implemented")
+}
+
 type configFunc func() agent.Config
 
 func defaultConfig() agent.Config {

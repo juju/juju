@@ -295,6 +295,10 @@ type Config interface {
 	// lower the threshold, the more queries will be output. A value of 0
 	// means all queries will be output.
 	QueryTracingThreshold() time.Duration
+
+	// DqlitePort returns the port that should be used by Dqlite. This should
+	// only be set during testing.
+	DqlitePort() (int, bool)
 }
 
 type configSetterOnly interface {
@@ -425,6 +429,7 @@ type configInternal struct {
 	agentLogfileMaxBackups int
 	queryTracingEnabled    bool
 	queryTracingThreshold  time.Duration
+	dqlitePort             int
 }
 
 // AgentConfigParams holds the parameters required to create
@@ -447,6 +452,7 @@ type AgentConfigParams struct {
 	AgentLogfileMaxBackups int
 	QueryTracingEnabled    bool
 	QueryTracingThreshold  time.Duration
+	DqlitePort             int
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -512,6 +518,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		agentLogfileMaxBackups: configParams.AgentLogfileMaxBackups,
 		queryTracingEnabled:    configParams.QueryTracingEnabled,
 		queryTracingThreshold:  configParams.QueryTracingThreshold,
+		dqlitePort:             configParams.DqlitePort,
 	}
 	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -977,4 +984,9 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 		Password: c.statePassword,
 		Tag:      c.tag,
 	}, true
+}
+
+// DqlitePort is defined on Config interface.
+func (c *configInternal) DqlitePort() (int, bool) {
+	return c.dqlitePort, c.dqlitePort > 0
 }

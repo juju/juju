@@ -208,6 +208,21 @@ func (mr *MockConfigMockRecorder) Dir() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dir", reflect.TypeOf((*MockConfig)(nil).Dir))
 }
 
+// DqlitePort mocks base method.
+func (m *MockConfig) DqlitePort() (int, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DqlitePort")
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// DqlitePort indicates an expected call of DqlitePort.
+func (mr *MockConfigMockRecorder) DqlitePort() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DqlitePort", reflect.TypeOf((*MockConfig)(nil).DqlitePort))
+}
+
 // Jobs mocks base method.
 func (m *MockConfig) Jobs() []model.MachineJob {
 	m.ctrl.T.Helper()
@@ -626,6 +641,21 @@ func (m *MockConfigSetter) Dir() string {
 func (mr *MockConfigSetterMockRecorder) Dir() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dir", reflect.TypeOf((*MockConfigSetter)(nil).Dir))
+}
+
+// DqlitePort mocks base method.
+func (m *MockConfigSetter) DqlitePort() (int, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DqlitePort")
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// DqlitePort indicates an expected call of DqlitePort.
+func (mr *MockConfigSetterMockRecorder) DqlitePort() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DqlitePort", reflect.TypeOf((*MockConfigSetter)(nil).DqlitePort))
 }
 
 // Jobs mocks base method.
