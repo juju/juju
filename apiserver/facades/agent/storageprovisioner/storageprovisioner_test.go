@@ -4,6 +4,7 @@
 package storageprovisioner_test
 
 import (
+	"github.com/juju/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/cloud"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type storageSetUp interface {
@@ -43,10 +43,6 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
 	s.ApiServerSuite.SetUpTest(c)
 }
-
-func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
-	s.provisionerSuite.SetUpTest(c)
-	s.provisionerSuite.storageSetUp = s
 
 func (s *provisionerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)

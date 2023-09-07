@@ -37,6 +37,11 @@ type iaasProvisionerSuite struct {
 	provisionerSuite
 }
 
+func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
+	s.provisionerSuite.SetUpTest(c)
+	s.provisionerSuite.storageSetUp = s
+}
+
 var _ = gc.Suite(&iaasProvisionerSuite{})
 
 func (s *iaasProvisionerSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -48,7 +53,7 @@ func (s *iaasProvisionerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c))
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), s.CredentialService)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	s.st = s.ControllerModel(c).State()

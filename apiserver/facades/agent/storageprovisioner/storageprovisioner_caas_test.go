@@ -53,7 +53,7 @@ func (s *caasProvisionerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m)
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, s.CredentialService)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(s.st), registry)
