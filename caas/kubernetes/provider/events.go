@@ -5,6 +5,7 @@ package provider
 
 import (
 	"context"
+	"regexp"
 
 	core "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,4 +66,19 @@ func (k *kubernetesClient) watchEvents(objName string, objKind string) (watcher.
 		}),
 	)
 	return k.newWatcher(factory.Core().V1().Events().Informer(), objName, k.clock)
+}
+
+var imageNotFoundRegex = regexp.MustCompile(`Failed to pull image "(\S+)": rpc error: code = NotFound .*`)
+
+// isImageNotFound determines if the given event is an "image not found" error,
+// and if so, returns the missing image name.
+func isImageNotFound(evt core.Event) (ok bool, imageTag string) {
+	if evt.Type != core.EventTypeWarning {
+		return false, ""
+	}
+	match := imageNotFoundRegex.FindStringSubmatch(evt.Message)
+	if len(match) < 2 {
+		return false, ""
+	}
+	return true, match[1]
 }

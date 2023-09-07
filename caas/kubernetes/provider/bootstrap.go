@@ -989,10 +989,13 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 					c.ctx.Infof(evt.Message)
 				}
 			}
-			// All warnings should be surfaced to the user.
-			if evt.Type == core.EventTypeWarning && !printedMsg.Contains(evt.Message) {
-				printedMsg.Add(evt.Message)
-				logger.Warningf(evt.Message)
+			// Surface "image not found" errors
+			if notFound, imageTag := isImageNotFound(evt); notFound {
+				message := fmt.Sprintf("image not found: %q", imageTag)
+				if !printedMsg.Contains(message) {
+					printedMsg.Add(message)
+					logger.Warningf(message)
+				}
 			}
 		}
 		return nil
