@@ -100,7 +100,7 @@ func (s *eventMultiplexerSuite) TestMultipleDispatch(c *gc.C) {
 	s.testMultipleDispatch(c, changestream.Namespace("topic", changestream.Update))
 }
 
-func (s *eventMultiplexerSuite) TestDispatchWithNoOptions(c *gc.C) {
+func (s *eventMultiplexerSuite) TestMultipleDispatchWithNoOptions(c *gc.C) {
 	s.testMultipleDispatch(c)
 }
 
@@ -695,8 +695,10 @@ func (s *eventMultiplexerSuite) TestStreamDyingOnSubscribe(c *gc.C) {
 	terms := make(chan changestream.Term)
 	s.stream.EXPECT().Terms().Return(terms).MinTimes(1)
 
-	s.metrics.EXPECT().SubscriptionsInc()
-	s.metrics.EXPECT().SubscriptionsDec()
+	// We don't care for the metrics recording here, as we might not
+	// have recorded the metrics in time before dying.
+	s.metrics.EXPECT().SubscriptionsInc().AnyTimes()
+	s.metrics.EXPECT().SubscriptionsDec().AnyTimes()
 
 	queue, err := New(s.stream, s.clock, s.metrics, s.logger)
 	c.Assert(err, jc.ErrorIsNil)

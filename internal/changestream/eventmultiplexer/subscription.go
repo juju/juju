@@ -21,9 +21,14 @@ const (
 	DefaultSignalTimeout = time.Second * 10
 )
 
-type subscriptionOpts struct {
-	*subscription
-	opts []changestream.SubscriptionOption
+type requestSubscription struct {
+	opts   []changestream.SubscriptionOption
+	result chan requestSubscriptionResult
+}
+
+type requestSubscriptionResult struct {
+	sub *subscription
+	err error
 }
 
 // subscription represents a subscriber in the event queue. It holds a tomb, so
