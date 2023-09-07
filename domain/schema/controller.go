@@ -36,7 +36,6 @@ func ControllerDDL(nodeID uint64) *schema.Schema {
 		changeLogTriggersForTable("upgrade_info", "uuid", 6),
 		modelDefaults,
 		autocertCacheSchema,
-		changeLogTriggersForTable("autocert_cache", "uuid", 10),
 	}
 
 	schema := schema.New()
