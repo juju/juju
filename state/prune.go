@@ -164,7 +164,7 @@ func (p *collectionPruner) pruneByAge() error {
 		return errors.Trace(err)
 	}
 	if deleted > 0 {
-		logger.Infof("%s age pruning (%s): %d rows deleted", p.coll.Name, modelName, deleted)
+		logger.Debugf("%s age pruning (%s): %d rows deleted", p.coll.Name, modelName, deleted)
 	}
 	return errors.Trace(iter.Close())
 }
