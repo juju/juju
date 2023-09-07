@@ -107,6 +107,22 @@ loop:
 	c.AssertNoChange()
 }
 
+func (c NotifyWatcherC) AssertAtleastOneChange() {
+	longTimeout := time.After(testing.LongWait)
+loop:
+	for {
+		select {
+		case _, ok := <-c.Watcher.Changes():
+			c.C.Logf("got change")
+			c.Assert(ok, jc.IsTrue)
+			break loop
+		case <-longTimeout:
+			c.Fatalf("watcher did not send change")
+			break loop
+		}
+	}
+}
+
 // TODO(quiescence): reimplement quiescence and delete this utility
 func (c NotifyWatcherC) AssertChanges(n int) {
 	longTimeout := time.After(testing.LongWait)
