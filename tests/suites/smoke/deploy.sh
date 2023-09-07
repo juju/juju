@@ -6,9 +6,10 @@
 run_local_deploy() {
 	echo
 
-	file="${2}"
+	model_name="test-local-deploy"
+	file="${TEST_DIR}/${model_name}.log"
 
-	ensure "test-local-deploy" "${file}"
+	ensure "${model_name}" "${file}"
 
 	juju deploy --revision=1 --channel=stable --base ubuntu@20.04 juju-qa-refresher
 	wait_for "refresher" "$(idle_condition "refresher")"
@@ -21,15 +22,16 @@ run_local_deploy() {
 	# On microk8s, there's a bug where the application blocks the model teardown
 	# TODO: remove the next line once this bug is fixed.
 	juju remove-application refresher
-	destroy_model "test-local-deploy"
+	destroy_model "${model_name}"
 }
 
 run_charmstore_deploy() {
 	echo
 
-	file="${2}"
+	model_name="test-charmstore-deploy"
+	file="${TEST_DIR}/${model_name}.log"
 
-	ensure "test-charmstore-deploy" "${file}"
+	ensure "${model_name}" "${file}"
 
 	juju deploy jameinel-ubuntu-lite --revision 9 --channel stable
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
@@ -40,7 +42,7 @@ run_charmstore_deploy() {
 	# On microk8s, there's a bug where the application blocks the model teardown
 	# TODO: remove the next line once this bug is fixed.
 	juju remove-application ubuntu-lite
-	destroy_model "test-charmstore-deploy"
+	destroy_model "${model_name}"
 }
 
 test_deploy() {
@@ -54,11 +56,8 @@ test_deploy() {
 
 		cd .. || exit
 
-		file="${1}"
-
-		# Check that deploy runs on LXD§
-		run "run_local_deploy" "${file}"
-		run "run_charmstore_deploy" "${file}"
+		run "run_local_deploy"
+		run "run_charmstore_deploy"
 	)
 }
 

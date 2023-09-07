@@ -44,6 +44,7 @@ func (s *modelSuite) SetUpTest(c *gc.C) {
 
 	s.api, err = agent.NewAgentAPIV3(facadetest.Context{
 		State_:     s.State,
+		StatePool_: s.StatePool,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 	})

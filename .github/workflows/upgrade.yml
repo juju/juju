@@ -1,8 +1,5 @@
 name: "Upgrade"
 on:
-  push:
-    branches-ignore:
-      - 'develop'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -15,7 +12,7 @@ on:
       - 'Makefile'
       - 'make_functions.sh'
     branches-ignore:
-      - 'develop'
+      - 'main'
   workflow_dispatch:
 
 permissions:
@@ -25,8 +22,7 @@ jobs:
 
   Upgrade:
     name: Upgrade
-    runs-on: ubuntu-latest
-    # Disabled until 3.2.0 is released.
+    runs-on: [self-hosted, linux, x64, aws, xlarge]
     if: false && github.event.pull_request.draft == false
     strategy:
       fail-fast: false
@@ -46,9 +42,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          sudo snap install snapcraft --classic
-          sudo snap install yq
-          sudo snap install juju --channel=3.1/stable
+          sudo snap install juju --channel=3.2/stable
           mkdir -p ~/.local/share
           echo "/snap/bin" >> $GITHUB_PATH
 
@@ -90,7 +84,7 @@ jobs:
 
       - name: Setup k8s
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
-        uses: balchua/microk8s-actions@v0.3.2
+        uses: balchua/microk8s-actions@1e8e626239c2befe7cd5d258c96ae152a7259c74
         with:
           channel: "1.25-strict/stable"
           addons: '["dns", "hostpath-storage"]'
@@ -121,7 +115,7 @@ jobs:
             -out ~/certs/registry.crt -CAcreateserial -days 365 -sha256 -extfile .github/registry.ext
           
           # Deploy registry
-          sg snap_microk8s "microk8s kubectl create -f .github/reg.yml"
+          cat .github/reg.yml | CERT_DIR=$HOME/certs envsubst | sg snap_microk8s "microk8s kubectl create -f -"
           
           # TODO:(jack-w-shaw) Figure out why we need this and do something nicer
           sudo microk8s refresh-certs --cert ca.crt
@@ -169,11 +163,13 @@ jobs:
         run: |
           set -euxo pipefail
           
-          juju bootstrap localhost c
-          juju add-model m
-          
-          juju status
+          juju bootstrap localhost c \
+            --constraints "arch=$(go env GOARCH)"
           juju version
+          
+          juju add-model m
+          juju set-model-constraints arch=$(go env GOARCH)
+          juju status
 
       - name: Bootstrap Juju - microk8s
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
@@ -186,13 +182,15 @@ jobs:
           
           sg snap_microk8s <<EOF
             juju bootstrap microk8s c \
+              --constraints "arch=$(go env GOARCH)" \
               --config caas-image-repo="${DOCKER_REGISTRY}/test-repo" \
               --config features="[developer-mode]"
           EOF
-          juju add-model m
-          
-          juju status
           juju version
+
+          juju add-model m
+          juju set-model-constraints arch=$(go env GOARCH)
+          juju status
 
       - name: Deploy some applications
         if: env.RUN_TEST == 'RUN'

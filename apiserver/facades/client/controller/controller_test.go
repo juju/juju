@@ -134,6 +134,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	endPoint, err := controller.LatestAPI(
 		facadetest.Context{
 			State_:     s.State,
+			StatePool_: s.StatePool,
 			Resources_: s.resources,
 			Auth_:      anAuthoriser,
 		})
@@ -345,6 +346,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 	controller, err := controller.NewControllerAPIv11(
 		facadetest.Context{
 			State_:     st,
+			StatePool_: s.StatePool,
 			Resources_: common.NewResources(),
 			Auth_:      authorizer,
 		})
@@ -388,6 +390,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 	var disposed bool
 	watcherAPI_, err := apiserver.NewAllWatcher(facadetest.Context{
 		State_:     s.State,
+		StatePool_: s.StatePool,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
 		ID_:        watcherId.AllWatcherId,
@@ -894,6 +897,7 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	endpoint, err := controller.NewControllerAPIv11(
 		facadetest.Context{
 			State_:     s.State,
+			StatePool_: s.StatePool,
 			Resources_: s.resources,
 			Auth_:      anAuthoriser,
 		})
@@ -980,6 +984,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 	endpoint, err := controller.NewControllerAPIv11(
 		facadetest.Context{
 			State_:     s.State,
+			StatePool_: s.StatePool,
 			Resources_: s.resources,
 			Auth_:      anAuthoriser,
 		})
@@ -1101,6 +1106,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 	endPoint, err := controller.LatestAPI(
 		facadetest.Context{
 			State_:     s.State,
+			StatePool_: s.StatePool,
 			Resources_: s.resources,
 			Auth_:      anAuthoriser,
 		})

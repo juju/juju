@@ -1,6 +1,5 @@
 name: "Static Analysis"
 on:
-  push:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 #   paths:
@@ -13,7 +12,7 @@ permissions:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, xxlarge]
     if: github.event.pull_request.draft == false
     steps:
     - name: Checkout
@@ -57,8 +56,9 @@ jobs:
           libsqlite3-dev \
           sqlite3
         curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.53.3
-        sudo snap install shfmt
-
+        sudo curl -sSfL https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_$(go env GOARCH) -o /usr/bin/shfmt
+        sudo chmod +x /usr/bin/shfmt
+    
     - name: Download Dependencies
       run: go mod download
 
@@ -95,7 +95,7 @@ jobs:
 
   schema:
     name: Schema
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, large]
     if: github.event.pull_request.draft == false
     steps:
     - name: Checkout

@@ -73,7 +73,11 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		}
 		return secrets.DrainBackendConfigInfo(backendID, secrets.SecretsModel(model), context.Auth().GetAuthTag(), leadershipChecker)
 	}
-	controllerAPI := common.NewStateControllerConfig(context.State())
+	systemState, err := context.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerAPI := common.NewStateControllerConfig(systemState)
 	remoteClientGetter := func(uri *coresecrets.URI) (CrossModelSecretsClient, error) {
 		info, err := controllerAPI.ControllerAPIInfoForModels(params.Entities{Entities: []params.Entity{{
 			Tag: names.NewModelTag(uri.SourceUUID).String(),
@@ -83,6 +87,9 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsManagerAPI, error) {
 		}
 		if len(info.Results) < 1 {
 			return nil, errors.Errorf("no controller api for model %q", uri.SourceUUID)
+		}
+		if err := info.Results[0].Error; err != nil {
+			return nil, errors.Trace(err)
 		}
 		apiInfo := api.Info{
 			Addrs:    info.Results[0].Addresses,

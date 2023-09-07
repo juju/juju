@@ -1,6 +1,5 @@
 name: "Build"
 on:
-  push:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -18,18 +17,19 @@ permissions:
 jobs:
   Build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, "${{ matrix.platform.host_arch }}", aws, large]
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
         platform:
-           - { os: linux, arch: amd64 }
-           - { os: linux, arch: arm64 }
-           - { os: linux, arch: s390x }
-           - { os: linux, arch: ppc64le }
-           - { os: windows, arch: amd64 }
-           - { os: darwin, arch: amd64 }
+           - { os: linux, arch: amd64, host_arch: x64 }
+           - { os: linux, arch: arm64, host_arch: arm64 }
+# Until we get rid of musl, lets just disable these to save build time.
+#           - { os: linux, arch: s390x }
+#           - { os: linux, arch: ppc64le }
+           - { os: windows, arch: amd64, host_arch: arm64 }
+           - { os: darwin, arch: arm64, host_arch: arm64 }
 
     steps:
     - name: "Checkout"
@@ -40,12 +40,6 @@ jobs:
       with:
         go-version-file: 'go.mod'
         cache: true
-    
-    - name: "Install musl"
-      if: (matrix.os == 'linux')
-      shell: bash
-      run: |
-        sudo make MUSL_CROSS_COMPILE=0 MUSL_PLACEMENT=local musl-install
 
     - name: "Build"
       run: |

@@ -151,7 +151,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		APIAddresser:            common.NewAPIAddresser(systemState, resources),
 		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
 		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
-		ControllerConfigAPI:     common.NewStateControllerConfig(st),
+		ControllerConfigAPI:     common.NewStateControllerConfig(systemState),
 		NetworkConfigAPI:        netConfigAPI,
 		st:                      st,
 		m:                       model,
