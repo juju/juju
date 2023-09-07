@@ -56,6 +56,18 @@ idle_condition() {
 	echo ".applications | select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current != \"error\")) | keys[$app_index]"
 }
 
+active_idle_condition() {
+	local name app_index unit_index
+
+	name=${1}
+	app_index=${2:-0}
+	unit_index=${3:-0}
+
+	path=".[\"$name\"] | .units | .[\"$name/$unit_index\"]"
+
+	echo ".applications | select(($path | .[\"juju-status\"] | .current == \"idle\") and ($path | .[\"workload-status\"] | .current == \"active\")) | keys[$app_index]"
+}
+
 idle_subordinate_condition() {
 	local name parent unit_index
 

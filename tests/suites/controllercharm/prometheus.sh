@@ -9,11 +9,18 @@ run_prometheus() {
 
 	juju deploy prometheus-k8s --trust
 	juju relate prometheus-k8s controller.controller
-	wait_for "prometheus-k8s" "$(active_condition "prometheus-k8s")"
-	retry check_prometheus_targets 10
+	wait_for "prometheus-k8s" "$(active_idle_condition "prometheus-k8s" 0 0)"
+	retry 'check_prometheus_targets prometheus-k8s 0' 10
 
-	# TODO: need to destroy persistent storage volume here
-	#juju remove-application prometheus-k8s --destroy-storage
+	juju remove-relation prometheus-k8s controller
+	# Check Juju controller is removed from Prometheus targets
+	retry 'check_prometheus_no_target prometheus-k8s 0' 10
+	# Check no errors in controller charm or Prometheus
+	check "controller" $(juju status -m controller --format json | jq -r "$(active_condition "controller")")
+	check "prometheus-k8s" $(juju status --format json | jq -r "$(active_condition "prometheus-k8s")")
+
+	juju remove-application prometheus-k8s --destroy-storage \
+	  --force --no-wait # TODO: remove these flags once storage bug is fixed
   destroy_model "${MODEL_NAME}"
 	destroy_controller "${MODEL_NAME}"
 }
@@ -30,31 +37,34 @@ run_prometheus_multi() {
 
 	juju deploy prometheus-k8s p1 --trust
 	juju relate p1 controller.controller
-	wait_for "p1" "$(active_condition "p1")"
-  retry check_prometheus_targets 10
+	wait_for "p1" "$(active_idle_condition "p1" 0 0)"
+  retry 'check_prometheus_targets p1 0' 10
 
 	juju deploy prometheus-k8s p2 --trust
-	juju relate prometheus-k8s controller.controller
-
-	wait_for "p1" "$(active_condition "p1")"
-	retry check_prometheus_targets 10
+	juju relate p2 controller.controller
+	wait_for "p2" "$(active_idle_condition "p2" 0 0)"
+	retry 'check_prometheus_targets p2 0' 10
 
 	juju add-unit p1
-	retry check_prometheus_targets 10
+	wait_for "p1" "$(active_idle_condition "p1" 0 1)"
+	retry 'check_prometheus_targets p1 1' 10
 
-	# TODO: need to destroy persistent storage volume here
-  destroy_model "${MODEL_NAME}"
+	# TODO: test scale down and remove relation
+
+	juju remove-application prometheus-k8s --destroy-storage \
+	  --force --no-wait # TODO: remove these flags once storage bug is fixed
+	destroy_model "${MODEL_NAME}"
 	destroy_controller "${MODEL_NAME}"
 }
 
-# Check the Juju controller is in the list of Prometheus targets.
+# Check the Juju controller in the list of Prometheus targets.
+#   usage: check_prometheus_targets <app-name> <unit-number>
 check_prometheus_targets() {
-	set -o pipefail
+	set -uo pipefail
+	local app_name=$1
+	local unit_number=$2
 
-	PROM_IP=$(juju status --format json | jq -r '.applications."prometheus-k8s".address')
-	TARGET=$(curl -sSm 2 "http://${PROM_IP}:9090/api/v1/targets" |
-		jq '.data.activeTargets[] | select(.labels.juju_application == "controller")')
-
+	TARGET=$(get_juju_target "$app_name" "$unit_number")
 	if [[ -z $TARGET ]]; then
 		echo "Juju controller not found in Prometheus targets"
 		return 1
@@ -67,6 +77,36 @@ check_prometheus_targets() {
 	fi
 
 	echo "Controller metrics endpoint is up"
+}
+
+# Check the Juju controller is not present in the list of Prometheus targets.
+#   usage: check_prometheus_targets <app-name> <unit-number>
+check_prometheus_no_target() {
+	set -uo pipefail
+	local app_name=$1
+	local unit_number=$2
+
+	TARGET=$(get_juju_target "$app_name" "$unit_number")
+	if [[ -n $TARGET ]]; then
+		echo "Whoops: Juju controller found in Prometheus targets"
+		return 1
+	fi
+
+	echo "Success: Juju controller not found in Prometheus targets"
+}
+
+# Extract the Juju controller from the list of Prometheus targets
+#   usage: get_juju_target <app-name> <unit-number>
+get_juju_target() {
+	set -uo pipefail
+  local app_name=$1
+  local unit_number=$2
+
+	PROM_IP=$(juju status --format json |
+  	jq -r ".applications.\"$app_name\".units.\"$app_name/$unit_number\".address")
+  TARGET=$(curl -sSm 2 "http://${PROM_IP}:9090/api/v1/targets" |
+  	jq '.data.activeTargets[] | select(.labels.juju_application == "controller")')
+  echo "$TARGET"
 }
 
 test_prometheus() {
@@ -83,10 +123,11 @@ test_prometheus() {
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"k8s")
 			run "run_prometheus"
-			#run "run_prometheus_multi"
+			run "run_prometheus_multi"
 			;;
 		*)
 			echo "==> TEST SKIPPED: run_prometheus test runs on k8s only"
+			echo "==> TEST SKIPPED: run_prometheus_multi test runs on k8s only"
 			;;
 		esac
 
