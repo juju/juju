@@ -532,8 +532,6 @@ func (s *Stream) updateWatermark() error {
 	ctx, cancel := s.scopedContext()
 	defer cancel()
 
-	s.metrics.WatermarkInsertsInc()
-
 	return s.db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		// Run this per transaction, so that we're using the latest lower bound
 		// and upper bound.
@@ -553,6 +551,9 @@ func (s *Stream) updateWatermark() error {
 			if _, err := result.RowsAffected(); err != nil {
 				return errors.Annotate(err, "recording watermark")
 			}
+
+			s.metrics.WatermarkInsertsInc()
+
 			return nil
 		})
 	})
