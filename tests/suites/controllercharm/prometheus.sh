@@ -20,8 +20,8 @@ run_prometheus() {
 	check "prometheus-k8s" $(juju status --format json | jq -r "$(active_condition "prometheus-k8s")")
 
 	juju remove-application prometheus-k8s --destroy-storage \
-	  --force --no-wait # TODO: remove these flags once storage bug is fixed
-  destroy_model "${MODEL_NAME}"
+		--force --no-wait # TODO: remove these flags once storage bug is fixed
+	destroy_model "${MODEL_NAME}"
 	destroy_controller "${MODEL_NAME}"
 }
 
@@ -38,7 +38,7 @@ run_prometheus_multi() {
 	juju deploy prometheus-k8s p1 --trust
 	juju relate p1 controller.controller
 	wait_for "p1" "$(active_idle_condition "p1" 0 0)"
-  retry 'check_prometheus_targets p1 0' 10
+	retry 'check_prometheus_targets p1 0' 10
 
 	juju deploy prometheus-k8s p2 --trust
 	juju relate p2 controller.controller
@@ -52,7 +52,7 @@ run_prometheus_multi() {
 	# TODO: test scale down and remove relation
 
 	juju remove-application prometheus-k8s --destroy-storage \
-	  --force --no-wait # TODO: remove these flags once storage bug is fixed
+		--force --no-wait # TODO: remove these flags once storage bug is fixed
 	destroy_model "${MODEL_NAME}"
 	destroy_controller "${MODEL_NAME}"
 }
@@ -99,14 +99,14 @@ check_prometheus_no_target() {
 #   usage: get_juju_target <app-name> <unit-number>
 get_juju_target() {
 	set -uo pipefail
-  local app_name=$1
-  local unit_number=$2
+	local app_name=$1
+	local unit_number=$2
 
 	PROM_IP=$(juju status --format json |
-  	jq -r ".applications.\"$app_name\".units.\"$app_name/$unit_number\".address")
-  TARGET=$(curl -sSm 2 "http://${PROM_IP}:9090/api/v1/targets" |
-  	jq '.data.activeTargets[] | select(.labels.juju_application == "controller")')
-  echo "$TARGET"
+		jq -r ".applications.\"$app_name\".units.\"$app_name/$unit_number\".address")
+	TARGET=$(curl -sSm 2 "http://${PROM_IP}:9090/api/v1/targets" |
+		jq '.data.activeTargets[] | select(.labels.juju_application == "controller")')
+	echo "$TARGET"
 }
 
 test_prometheus() {
