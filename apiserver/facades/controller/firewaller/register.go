@@ -36,7 +36,11 @@ func newFirewallerAPIV7(context facade.Context) (*FirewallerAPI, error) {
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 		common.AuthFuncForTag(m.ModelTag()),
 	)
-	controllerConfigAPI := common.NewStateControllerConfig(st)
+	systemState, err := context.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerConfigAPI := common.NewStateControllerConfig(systemState)
 
 	stShim := stateShim{st: st, State: firewall.StateShim(st, m)}
 	return NewStateFirewallerAPI(stShim, context.Resources(), context.Auth(), cloudSpecAPI, controllerConfigAPI)

@@ -937,6 +937,7 @@ func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockUnit = mocks.NewMockHookUnit(ctrl)
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).AnyTimes()
+	s.mockUnit.EXPECT().ApplicationName().Return("wordpress").AnyTimes()
 	s.mockLeadership = mocks.NewMockLeadershipContext(ctrl)
 	return ctrl
 }
@@ -1100,6 +1101,19 @@ func (s *mockHookContextSuite) TestSecretGetFromPendingCreateChanges(c *gc.C) {
 	s.assertSecretGetFromPendingChanges(c,
 		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
 			arg := uniter.SecretCreateArg{OwnerTag: s.mockUnit.Tag()}
+			arg.URI = uri
+			arg.Label = ptr(label)
+			arg.Value = coresecrets.NewSecretValue(value)
+			hc.SetPendingSecretCreates(
+				map[string]uniter.SecretCreateArg{uri.ID: arg})
+		},
+	)
+}
+
+func (s *mockHookContextSuite) TestAppSecretGetFromPendingCreateChanges(c *gc.C) {
+	s.assertSecretGetFromPendingChanges(c,
+		func(hc *context.HookContext, uri *coresecrets.URI, label string, value map[string]string) {
+			arg := uniter.SecretCreateArg{OwnerTag: names.NewApplicationTag(s.mockUnit.ApplicationName())}
 			arg.URI = uri
 			arg.Label = ptr(label)
 			arg.Value = coresecrets.NewSecretValue(value)

@@ -40,11 +40,15 @@ func newAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 	}
 
 	resources := ctx.Resources()
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &AgentAPI{
 		PasswordChanger:     common.NewPasswordChanger(st, getCanChange),
 		RebootFlagClearer:   common.NewRebootFlagClearer(st, getCanChange),
 		ModelWatcher:        common.NewModelWatcher(model, resources, auth),
-		ControllerConfigAPI: common.NewStateControllerConfig(st),
+		ControllerConfigAPI: common.NewStateControllerConfig(systemState),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,
 			cloudspec.MakeCloudSpecGetterForModel(st),

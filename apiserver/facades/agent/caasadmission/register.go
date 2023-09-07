@@ -6,6 +6,8 @@ package caasadmission
 import (
 	"reflect"
 
+	jujuerrors "github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -24,8 +26,12 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 		return nil, errors.ErrPerm
 	}
 
+	systemState, err := ctx.StatePool().SystemState()
+	if err != nil {
+		return nil, jujuerrors.Trace(err)
+	}
 	return &Facade{
 		auth:                authorizer,
-		ControllerConfigAPI: common.NewStateControllerConfig(ctx.State()),
+		ControllerConfigAPI: common.NewStateControllerConfig(systemState),
 	}, nil
 }

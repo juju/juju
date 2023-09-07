@@ -159,6 +159,8 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	paths.LogDir = s.LogDir
 	paths.MetricsSpoolDir = c.MkDir()
 
+	dqlitePort := mgotesting.FindTCPPort()
+
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths:             paths,
@@ -173,6 +175,8 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 
 			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
 			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
+
+			DqlitePort: dqlitePort,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -229,6 +233,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 	apiPort := mgotesting.FindTCPPort()
 	s.SetControllerConfigAPIPort(c, apiPort)
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
+	dqlitePort := mgotesting.FindTCPPort()
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
 			Paths: agent.NewPathsWithDefaults(agent.Paths{
@@ -246,6 +251,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			MongoMemoryProfile:    controller.DefaultMongoMemoryProfile,
 			QueryTracingEnabled:   controller.DefaultQueryTracingEnabled,
 			QueryTracingThreshold: controller.DefaultQueryTracingThreshold,
+			DqlitePort:            dqlitePort,
 		},
 		controller.StateServingInfo{
 			Cert:         coretesting.ServerCert,

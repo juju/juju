@@ -19,7 +19,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -1973,8 +1972,6 @@ func (e *environ) openPortsInGroup(ctx context.ProviderCallContext, name string,
 		return err
 	}
 	ipPerms := rulesToIPPerms(rules)
-	fmt.Println("this is the rules")
-	spew.Dump(rules)
 	_, err = e.ec2Client.AuthorizeSecurityGroupIngress(ctx, &ec2.AuthorizeSecurityGroupIngressInput{
 		GroupId:       g.GroupId,
 		IpPermissions: ipPerms,
@@ -2097,8 +2094,6 @@ func (e *environ) OpenModelPorts(ctx context.ProviderCallContext, rules firewall
 }
 
 func (e *environ) CloseModelPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error {
-	fmt.Println("closing these ports")
-	spew.Dump(rules)
 	if err := e.closePortsInGroup(ctx, e.jujuGroupName(), rules); err != nil {
 		return errors.Trace(err)
 	}
