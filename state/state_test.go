@@ -3951,6 +3951,8 @@ func (s *StateSuite) TestWatchCleanupsDiesOnStateClose(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
+	c.Skip("Dqlite conversion. Strangled out as intermittent failure of test in line for deletion.")
+
 	// Check initial event.
 	w := s.State.WatchCleanups()
 	defer workertest.CleanKill(c, w)

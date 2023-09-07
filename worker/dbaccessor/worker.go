@@ -295,21 +295,37 @@ func (w *dbWorker) loop() (err error) {
 				// Ensure the namespace exists or is allowed to open a new one
 				// before we attempt to open the database.
 				if err := w.ensureNamespace(req.namespace); err != nil {
-					req.done <- errors.Annotatef(err, "ensuring namespace %q", req.namespace)
+					select {
+					case req.done <- errors.Annotatef(err, "ensuring namespace %q", req.namespace):
+					case <-w.catacomb.Dying():
+						return w.catacomb.ErrDying()
+					}
 					continue
 				}
 				if err := w.openDatabase(req.namespace); err != nil {
-					req.done <- errors.Annotatef(err, "opening database for namespace %q", req.namespace)
+					select {
+					case req.done <- errors.Annotatef(err, "opening database for namespace %q", req.namespace):
+					case <-w.catacomb.Dying():
+						return w.catacomb.ErrDying()
+					}
 					continue
 				}
 			} else if req.op == delOp {
 				// Close the database for the namespace.
 				if err := w.closeDatabase(req.namespace); err != nil {
-					req.done <- errors.Annotatef(err, "closing database for namespace %q", req.namespace)
+					select {
+					case req.done <- errors.Annotatef(err, "closing database for namespace %q", req.namespace):
+					case <-w.catacomb.Dying():
+						return w.catacomb.ErrDying()
+					}
 					continue
 				}
 			} else {
-				req.done <- errors.Errorf("unknown op %q", req.op)
+				select {
+				case req.done <- errors.Errorf("unknown op %q", req.op):
+				case <-w.catacomb.Dying():
+					return w.catacomb.ErrDying()
+				}
 				continue
 			}
 
@@ -462,7 +478,7 @@ func (w *dbWorker) DeleteDB(namespace string) error {
 	select {
 	case <-w.dbReady:
 	case <-w.catacomb.Dying():
-		return w.catacomb.ErrDying()
+		return database.ErrDBAccessorDying
 	}
 
 	// Enqueue the request.
@@ -470,7 +486,7 @@ func (w *dbWorker) DeleteDB(namespace string) error {
 	select {
 	case w.dbRequests <- req:
 	case <-w.catacomb.Dying():
-		return w.catacomb.ErrDying()
+		return database.ErrDBAccessorDying
 	}
 
 	// Wait for the worker loop to indicate it's done.
@@ -480,7 +496,7 @@ func (w *dbWorker) DeleteDB(namespace string) error {
 			return errors.Trace(err)
 		}
 	case <-w.catacomb.Dying():
-		return w.catacomb.ErrDying()
+		return database.ErrDBAccessorDying
 	}
 	return nil
 }
