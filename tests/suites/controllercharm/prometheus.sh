@@ -16,8 +16,8 @@ run_prometheus() {
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target prometheus-k8s 0' 10
 	# Check no errors in controller charm or Prometheus
-	check "controller" $(juju status -m controller --format json | jq -r "$(active_condition "controller")")
-	check "prometheus-k8s" $(juju status --format json | jq -r "$(active_condition "prometheus-k8s")")
+	juju status -m controller --format json | jq -r "$(active_condition "controller")" | check "controller"
+	juju status --format json | jq -r "$(active_condition "prometheus-k8s")" | check "prometheus-k8s"
 
 	juju remove-application prometheus-k8s --destroy-storage \
 		--force --no-wait # TODO: remove these flags once storage bug is fixed
@@ -88,11 +88,11 @@ check_prometheus_no_target() {
 
 	TARGET=$(get_juju_target "$app_name" "$unit_number")
 	if [[ -n $TARGET ]]; then
-		echo "Whoops: Juju controller found in Prometheus targets"
+		echo "Whoops: Juju controller still found in Prometheus targets"
 		return 1
 	fi
 
-	echo "Success: Juju controller not found in Prometheus targets"
+	echo "Success: Juju controller removed from Prometheus targets"
 }
 
 # Extract the Juju controller from the list of Prometheus targets
