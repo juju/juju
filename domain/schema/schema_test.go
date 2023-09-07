@@ -34,6 +34,10 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 
 	// Ensure that each table is present.
 	expected := set.NewStrings(
+		// Autocert cache
+		"autocert_cache",
+		"autocert_cache_encoding",
+
 		// Leases
 		"lease",
 		"lease_type",
