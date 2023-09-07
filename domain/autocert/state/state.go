@@ -10,6 +10,7 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v3"
+	"golang.org/x/crypto/acme/autocert"
 
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
@@ -85,7 +86,8 @@ WHERE  name = $M.name`
 		return errors.Trace(tx.Query(ctx, s, sqlair.M{"name": name}).Get(&row))
 	}); err != nil {
 		if err.Error() == sql.ErrNoRows.Error() {
-			return nil, errors.Annotatef(errors.NotFound, "autocert %s", name)
+			return nil, autocert.ErrCacheMiss
+			// return nil, errors.Annotatef(autocert.ErrCacheMiss, "autocert %s", name)
 		}
 		return nil, errors.Annotate(err, "querying autocert cache")
 	}

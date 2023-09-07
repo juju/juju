@@ -80,7 +80,7 @@ func (s *stateSuite) TestRetrieveNoCert(c *gc.C) {
 
 	// Retrieve an arbitrary non existent cert.
 	_, err := st.Get(context.Background(), "cert1")
-	c.Assert(err, gc.ErrorMatches, "autocert cert1: not found")
+	c.Assert(err, gc.ErrorMatches, "acme/autocert: certificate cache miss")
 }
 
 func (s *stateSuite) TestInsertX509(c *gc.C) {
@@ -277,5 +277,5 @@ Hn+GmxZA
 
 	// Retrieve the non-existent cert.
 	_, err = st.Get(context.Background(), "cert1")
-	c.Assert(err, gc.ErrorMatches, "autocert cert1: not found")
+	c.Assert(err, gc.ErrorMatches, "acme/autocert: certificate cache miss")
 }

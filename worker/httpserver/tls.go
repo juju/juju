@@ -75,7 +75,9 @@ func newTLSConfig(
 	autoCertGetter := SNIGetterFunc(func(h *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		c, err := m.GetCertificate(h)
 		if err != nil {
-			logger.Errorf("cannot get autocert certificate for %q: %v",
+			// We only log on debug since this is not really an
+			// error.
+			logger.Debugf("cannot get autocert certificate for %q: %v",
 				h.ServerName, err)
 		}
 		return c, err

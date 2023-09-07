@@ -44,11 +44,6 @@ type WatcherFactory interface {
 	NewUUIDsWatcher(string, changestream.ChangeType) (watcher.StringsWatcher, error)
 }
 
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-}
-
 // Service provides the API for working with external controllers.
 type Service struct {
 	st             State

@@ -4,6 +4,7 @@
 package testing
 
 import (
+	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
@@ -18,6 +19,11 @@ type TestingServiceFactory struct{}
 // function to obtain a controller database.
 func NewTestingServiceFactory() *TestingServiceFactory {
 	return &TestingServiceFactory{}
+}
+
+// AutocertCache returns the autocert cache service.
+func (s *TestingServiceFactory) AutocertCache() *autocertcacheservice.Service {
+	return nil
 }
 
 // ControllerConfig returns the controller configuration service.

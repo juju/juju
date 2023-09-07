@@ -88,7 +88,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 		Level:   loggo.INFO,
 		Message: `getting certificate for server name "somewhere.example"`,
 	}, {
-		Level:   loggo.ERROR,
+		Level:   loggo.DEBUG,
 		Message: `.*cannot get autocert certificate for "somewhere.example": Get ["]?https://0\.1\.2\.3/no-autocert-here["]?: .*`,
 	}})
 }
@@ -121,7 +121,7 @@ func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 	})
 	// Check that we logged the mismatch.
 	c.Assert(entries, jc.LogMatches, jc.SimpleMessages{{
-		Level:   loggo.ERROR,
+		Level:   loggo.DEBUG,
 		Message: `.*cannot get autocert certificate for "somewhere.else": acme/autocert: host "somewhere.else" not configured in HostWhitelist`,
 	}})
 }
