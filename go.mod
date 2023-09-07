@@ -49,7 +49,7 @@ require (
 	github.com/juju/blobstore/v2 v2.0.0
 	github.com/juju/charm/v8 v8.0.6
 	github.com/juju/charmrepo/v6 v6.0.3
-	github.com/juju/clock v1.0.2
+	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v3 v3.0.0
 	github.com/juju/collections v1.0.2
 	github.com/juju/description/v3 v3.0.15
@@ -86,7 +86,7 @@ require (
 	github.com/juju/utils/v3 v3.0.0
 	github.com/juju/version/v2 v2.0.0
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v3 v3.1.0
+	github.com/juju/worker/v3 v3.4.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.3.1
 	github.com/lxc/lxd v0.0.0-20220816180258-7e0418163fa9
@@ -104,11 +104,11 @@ require (
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	go.uber.org/mock v0.2.0
-	golang.org/x/crypto v0.9.0
-	golang.org/x/net v0.10.0
+	golang.org/x/crypto v0.13.0
+	golang.org/x/net v0.15.0
 	golang.org/x/oauth2 v0.6.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/sys v0.8.0
+	golang.org/x/sys v0.12.0
 	golang.org/x/tools v0.7.0
 	google.golang.org/api v0.78.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
@@ -234,8 +234,8 @@ require (
 	go.opentelemetry.io/otel/metric v1.16.0 // indirect
 	go.opentelemetry.io/otel/trace v1.16.0 // indirect
 	golang.org/x/mod v0.9.0 // indirect
-	golang.org/x/term v0.8.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/term v0.12.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220720214146-176da50484ac // indirect

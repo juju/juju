@@ -23,6 +23,9 @@ import (
 	"github.com/juju/juju/worker/common"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -package undertaker_test -destination facade_mock_test.go github.com/juju/juju/worker/undertaker Facade
+//go:generate go run go.uber.org/mock/mockgen -package undertaker_test -destination credentialapi_mock_test.go github.com/juju/juju/worker/common CredentialAPI
+
 // Facade covers the parts of the api/undertaker.UndertakerClient that we
 // need for the worker. It's more than a little raw, but we'll survive.
 type Facade interface {
@@ -109,7 +112,18 @@ func (u *Undertaker) Wait() error {
 	return u.catacomb.Wait()
 }
 
-func (u *Undertaker) run() error {
+func (u *Undertaker) run() (errOut error) {
+	defer func() {
+		if errors.Is(errOut, context.Canceled) ||
+			errors.Is(errOut, context.DeadlineExceeded) {
+			select {
+			case <-u.catacomb.Dying():
+				errOut = u.catacomb.ErrDying()
+			default:
+			}
+		}
+	}()
+
 	modelWatcher, err := u.config.Facade.WatchModel()
 	if errors.Is(err, errors.NotFound) {
 		// If model already gone, exit early.
@@ -139,8 +153,8 @@ func (u *Undertaker) run() error {
 	}
 	info := result.Result
 
-	ctx, cancel := context.WithCancelCause(context.Background())
-	defer cancel(context.Canceled)
+	ctx, cancel := context.WithCancel(u.catacomb.Context(context.Background()))
+	defer cancel()
 
 	// Watch for changes to model destroy values, if so, cancel the context
 	// and restart the worker.
@@ -148,7 +162,6 @@ func (u *Undertaker) run() error {
 		for {
 			select {
 			case <-stopCh:
-				cancel(u.catacomb.ErrDying())
 				return nil
 			case <-modelWatcher.Changes():
 				result, err := u.config.Facade.ModelInfo()
@@ -197,7 +210,7 @@ func (u *Undertaker) run() error {
 func (u *Undertaker) cleanDestroy(ctx context.Context, info params.UndertakerModelInfo) error {
 	select {
 	case <-ctx.Done():
-		return context.Cause(ctx)
+		return ctx.Err()
 	default:
 	}
 
@@ -236,7 +249,7 @@ func (u *Undertaker) cleanDestroy(ctx context.Context, info params.UndertakerMod
 
 	select {
 	case <-ctx.Done():
-		return context.Cause(ctx)
+		return ctx.Err()
 	default:
 	}
 
@@ -249,7 +262,7 @@ func (u *Undertaker) cleanDestroy(ctx context.Context, info params.UndertakerMod
 
 	select {
 	case <-ctx.Done():
-		return context.Cause(ctx)
+		return ctx.Err()
 	default:
 	}
 
@@ -268,7 +281,7 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 
 	select {
 	case <-ctx.Done():
-		return context.Cause(ctx)
+		return ctx.Err()
 	default:
 	}
 
@@ -287,17 +300,17 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 		); err != nil {
 			return errors.Trace(err)
 		}
-		proccessCtx, proccessCancel := context.WithCancelCause(ctx)
+		proccessCtx, proccessCancel := context.WithCancel(ctx)
 		processTimer := u.config.Clock.AfterFunc(*info.DestroyTimeout, func() {
-			proccessCancel(errors.Timeout)
+			proccessCancel()
 		})
 		defer processTimer.Stop()
-		if err := u.processDyingModel(proccessCtx, info); err != nil && !errors.Is(err, errors.Timeout) {
-			proccessCancel(context.Canceled)
+		if err := u.processDyingModel(proccessCtx, info); err != nil && !errors.Is(err, context.Canceled) {
+			proccessCancel()
 			u.config.Logger.Errorf("destroy model failed: %v", err)
 			return fmt.Errorf("proccesing model death: %w", err)
 		}
-		proccessCancel(context.Canceled)
+		proccessCancel()
 	} else {
 		u.config.Logger.Debugf("skipping processDyingModel as model is already dead")
 	}
@@ -315,16 +328,16 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 
 	select {
 	case <-ctx.Done():
-		return context.Cause(ctx)
+		return ctx.Err()
 	default:
 	}
 
 	if *info.DestroyTimeout == 0 {
 		u.config.Logger.Infof("skipping tearing down cloud environment since timeout is 0")
 	} else {
-		destroyCtx, destroyCancel := context.WithCancelCause(ctx)
+		destroyCtx, destroyCancel := context.WithCancel(ctx)
 		destroyTimer := u.config.Clock.AfterFunc(*info.DestroyTimeout, func() {
-			destroyCancel(errors.Timeout)
+			destroyCancel()
 		})
 		defer destroyTimer.Stop()
 		retryStrategy := retry.Exponential{
@@ -332,17 +345,17 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 			Factor:   1.5,
 			MaxDelay: 5 * time.Second,
 		}
-		if err := u.destroyEnviron(destroyCtx, info, retryStrategy); err != nil && !errors.Is(err, errors.Timeout) {
-			destroyCancel(context.Canceled)
+		if err := u.destroyEnviron(destroyCtx, info, retryStrategy); err != nil && !errors.Is(err, context.Canceled) {
+			destroyCancel()
 			u.config.Logger.Errorf("destroy environ failed: %v", err)
 			return fmt.Errorf("tearing down cloud environment: %w", err)
 		}
-		destroyCancel(context.Canceled)
+		destroyCancel()
 	}
 
 	select {
 	case <-ctx.Done():
-		return context.Cause(ctx)
+		return ctx.Err()
 	default:
 	}
 
@@ -405,7 +418,7 @@ out:
 	for r.Next() {
 		select {
 		case <-ctx.Done():
-			destroyErr = context.Cause(ctx)
+			destroyErr = ctx.Err()
 			break out
 		default:
 		}
@@ -423,7 +436,7 @@ out:
 		}()
 		select {
 		case <-ctx.Done():
-			destroyErr = context.Cause(ctx)
+			destroyErr = ctx.Err()
 			break out
 		case destroyErr = <-errChan:
 			if destroyErr == nil {
@@ -456,7 +469,7 @@ func (u *Undertaker) processDyingModel(ctx context.Context, info params.Undertak
 		select {
 		case <-ctx.Done():
 			u.config.Logger.Debugf("processDyingModel timed out")
-			return errors.Annotatef(context.Cause(ctx), "process dying model")
+			return errors.Annotatef(ctx.Err(), "process dying model")
 		case <-watch.Changes():
 			err := u.config.Facade.ProcessDyingModel()
 			if err == nil {
