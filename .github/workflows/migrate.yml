@@ -69,6 +69,8 @@ jobs:
           juju bootstrap lxd test4x --build-agent
           juju switch controller
           juju wait-for application controller
+        env:
+          JUJU_SRC_PATH: /home/runner/work/juju/juju
 
         # TODO: create backup and juju restore
 

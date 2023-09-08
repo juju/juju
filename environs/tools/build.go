@@ -274,10 +274,13 @@ func buildJujus(dir string) error {
 	}
 
 	// When using integration tests, you can't build jujud from outside of the
-	// root package. So if the GOPATH is set, we'll use that as the working
-	// directory to rebuild jujud.
+	// root package. So if the JUJU_SRC_PATH is set we'll use that, falling
+	// back to the GOPATH if it is set. If no other values are set we'll assume
+	// it's in the root location.
 	var cmdDir string
-	if path, ok := os.LookupEnv("GOPATH"); ok && path != "" {
+	if jujuPath, ok := os.LookupEnv("JUJU_SRC_PATH"); ok && jujuPath != "" {
+		cmdDir = jujuPath
+	} else if path, ok := os.LookupEnv("GOPATH"); ok && path != "" {
 		cmdDir = filepath.Join(path, "src", "github.com", "juju", "juju")
 	}
 
