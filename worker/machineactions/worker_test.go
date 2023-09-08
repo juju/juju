@@ -124,17 +124,32 @@ func (s *WorkerSuite) TestCannotRetrieveAction(c *gc.C) {
 	s.facade.EXPECT().WatchActionNotifications(fakeTag).Return(newStubWatcher(false), nil)
 	s.facade.EXPECT().Action(names.NewActionTag("1")).Times(1).Return(firstAction, nil)
 	s.facade.EXPECT().Action(names.NewActionTag("2")).Times(1).Return(nil, errors.New("zbosh"))
+	s.facade.EXPECT().Action(names.NewActionTag("3")).Times(1).Return(thirdAction, nil)
+
 	s.facade.EXPECT().ActionBegin(names.NewActionTag("1")).Return(nil)
 	s.facade.EXPECT().ActionFinish(names.NewActionTag("1"), params.ActionCompleted, nil, "").Return(nil)
+
+	s.facade.EXPECT().ActionBegin(names.NewActionTag("3")).Return(nil)
+	s.facade.EXPECT().ActionFinish(names.NewActionTag("3"), params.ActionCompleted, nil, "").Return(nil)
 
 	stub := &testing.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
 	c.Assert(err, jc.ErrorIsNil)
-	err = workertest.CheckKilled(c, worker)
-	c.Check(errors.Cause(err), gc.ErrorMatches, "zbosh")
-	stub.CheckCalls(c, []testing.StubCall{{
+	defer workertest.DirtyKill(c, worker)
+
+	// Ensure we're still alive if the action can't be retrieved. Instead we'll
+	// wait for another pass.
+	workertest.CheckAlive(c, worker)
+
+	// Ensure we can clean kill.
+	workertest.CleanKill(c, worker)
+
+	stub.CheckCallsUnordered(c, []testing.StubCall{{
 		FuncName: "HandleAction",
 		Args:     []interface{}{firstAction.Name()},
+	}, {
+		FuncName: "HandleAction",
+		Args:     []interface{}{thirdAction.Name()},
 	}})
 }
 
@@ -176,29 +191,53 @@ func (s *WorkerSuite) TestRunActions(c *gc.C) {
 	c.Assert(released, jc.IsTrue)
 }
 
-func (s *WorkerSuite) TestActionHandleErr(c *gc.C) {
+func (s *WorkerSuite) TestActionHandleError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.facade.EXPECT().RunningActions(fakeTag).Return([]params.ActionResult{}, nil)
 	s.facade.EXPECT().WatchActionNotifications(fakeTag).Return(newStubWatcher(false), nil)
 	s.facade.EXPECT().Action(names.NewActionTag("1")).Times(1).Return(firstAction, nil)
 	s.facade.EXPECT().Action(names.NewActionTag("2")).Times(1).Return(nil, errors.New("boom"))
+	s.facade.EXPECT().Action(names.NewActionTag("3")).Times(1).Return(thirdAction, nil)
+
 	s.facade.EXPECT().ActionBegin(names.NewActionTag("1")).Times(1).Return(nil)
-	s.facade.EXPECT().ActionFinish(names.NewActionTag("1"), params.ActionFailed, nil, "slob").Return(nil)
+	s.facade.EXPECT().ActionBegin(names.NewActionTag("3")).Times(1).Return(nil)
+
+	// To deal with the race because of the goroutines, we will use assertions based on the message.
+	assertFinish := func(tag names.ActionTag, status string, results map[string]interface{}, message string) error {
+		if message == "slob" {
+			c.Assert(status, gc.Equals, params.ActionFailed)
+			return nil
+		}
+		c.Assert(status, gc.Equals, params.ActionCompleted)
+		return nil
+	}
+	s.facade.EXPECT().ActionFinish(names.NewActionTag("1"), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(assertFinish)
+	s.facade.EXPECT().ActionFinish(names.NewActionTag("3"), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(assertFinish)
 
 	stub := &testing.Stub{}
 	stub.SetErrors(errors.New("slob"))
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
 	c.Assert(err, jc.ErrorIsNil)
-	err = workertest.CheckKilled(c, worker)
-	c.Check(errors.Cause(err), gc.ErrorMatches, "boom")
+	defer workertest.DirtyKill(c, worker)
+
+	// Ensure we're still alive if the action can't be retrieved. Instead we'll
+	// wait for another pass.
+	workertest.CheckAlive(c, worker)
+
+	// Ensure we can clean kill.
+	workertest.CleanKill(c, worker)
+
 	stub.CheckCallsUnordered(c, []testing.StubCall{{
 		FuncName: "HandleAction",
 		Args:     []interface{}{firstAction.Name()},
+	}, {
+		FuncName: "HandleAction",
+		Args:     []interface{}{thirdAction.Name()},
 	}})
 }
 
-func (s *WorkerSuite) TestWorkerNoErr(c *gc.C) {
+func (s *WorkerSuite) TestWorkerNoError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.facade.EXPECT().RunningActions(fakeTag).Return([]params.ActionResult{}, nil)

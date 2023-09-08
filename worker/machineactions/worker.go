@@ -111,7 +111,13 @@ func (h *handler) Handle(abort <-chan struct{}, actionsSlice []string) error {
 		actionTag := names.NewActionTag(actionId)
 		action, err := h.config.Facade.Action(actionTag)
 		if err != nil {
-			return errors.Annotatef(err, "could not retrieve action %s", actionId)
+			// If there is an error attempting to get the action, then don't bounce
+			// the worker. We can't remove the action notification directly, as that
+			// requires the action to exist.
+			// TODO (stickupkid) As a follow up, we should have a new method that
+			// allows the removal of a action notification without an action present.
+			logger.Infof("unable to retrieve action %s: %v", actionId, err)
+			continue
 		}
 
 		// Acquire concurrency slot.
