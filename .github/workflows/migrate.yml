@@ -61,7 +61,7 @@ jobs:
 
       - name: Upgrade client to 4.x
         run: |
-          make go-install &>/dev/null
+          make juju >/dev/null
 
       - name: Bootstrap 4.x controller
         run: |
