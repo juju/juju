@@ -529,21 +529,39 @@ func (s *TargetPrecheckSuite) TestModelMinimumVersion(c *gc.C) {
 
 	origBackendBinary := backendVersionBinary
 	origBackend := backendVersion
-	backendVersionBinary = version.MustParseBinary("3.0.0-ubuntu-amd64")
+	backendVersionBinary = version.MustParseBinary("4.0.0-ubuntu-amd64")
 	backendVersion = backendVersionBinary.Number
 	defer func() {
 		backendVersionBinary = origBackendBinary
 		backendVersion = origBackend
 	}()
 
-	s.modelInfo.AgentVersion = version.MustParse("2.8.0")
+	s.modelInfo.AgentVersion = version.MustParse("3.0.0")
 	err := s.runPrecheck(backend, nil)
 	c.Assert(err.Error(), gc.Equals,
-		`model must be upgraded to at least version 2.9.43 before being migrated to a controller with version 3.0.0`)
+		`model must be upgraded to at least version 3.1.0 before being migrated to a controller with version 4.0.0`)
 
-	s.modelInfo.AgentVersion = version.MustParse("2.9.43")
+	s.modelInfo.AgentVersion = version.MustParse("3.1.0")
 	err = s.runPrecheck(backend, nil)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *TargetPrecheckSuite) TestModelMinimumVersion2_9(c *gc.C) {
+	backend := newFakeBackend()
+
+	origBackendBinary := backendVersionBinary
+	origBackend := backendVersion
+	backendVersionBinary = version.MustParseBinary("4.0.0-ubuntu-amd64")
+	backendVersion = backendVersionBinary.Number
+	defer func() {
+		backendVersionBinary = origBackendBinary
+		backendVersion = origBackend
+	}()
+
+	s.modelInfo.AgentVersion = version.MustParse("2.9.0")
+	err := s.runPrecheck(backend, nil)
+	c.Assert(err.Error(), gc.Equals,
+		`model must be upgraded: migrate to "4.0.0" is not supported from "2.9.0"`)
 }
 
 func (s *TargetPrecheckSuite) TestSourceControllerMajorAhead(c *gc.C) {
@@ -1011,7 +1029,7 @@ func (m *fakeModel) MigrationMode() state.MigrationMode {
 
 func (m *fakeModel) AgentVersion() (version.Number, error) {
 	if m.agentVersion == nil {
-		return version.MustParse("2.9.32"), nil
+		return version.MustParse("3.1.0"), nil
 	}
 	return *m.agentVersion, nil
 }

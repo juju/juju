@@ -105,7 +105,7 @@ func TargetPrecheck(ctx context.Context, backend PrecheckBackend, pool Pool, mod
 	// to a controller running a newer Juju version.
 	allowed, minVer, err := upgradevalidation.MigrateToAllowed(modelInfo.AgentVersion, controllerVersion)
 	if err != nil {
-		return errors.Maskf(err, "unknown target controller version %v", controllerVersion)
+		return errors.Annotatef(err, "model must be upgraded")
 	}
 	if !allowed {
 		return errors.Errorf("model must be upgraded to at least version %s before being migrated to a controller with version %s", minVer, controllerVersion)
