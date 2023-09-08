@@ -24,11 +24,10 @@ require (
 	github.com/bmizerany/pat v0.0.0-20160217103242-c068ca2f0aac
 	github.com/canonical/go-dqlite v1.20.0
 	github.com/canonical/lxd v0.0.0-20230712132802-8d2a42545fd0
-	github.com/canonical/pebble v0.0.0-20230808003337-02ad28a16a35
+	github.com/canonical/pebble v1.3.0
 	github.com/canonical/sqlair v0.0.0-20230707154306-6f89ebb4ac5c
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e
 	github.com/coreos/go-systemd/v22 v22.3.2
-	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.8.2+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-goose/goose/v5 v5.0.0-20230421180421-abaee9096e3a
@@ -162,6 +161,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cjlapao/common-go v0.0.39 // indirect
 	github.com/creack/pty v1.1.15 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/fatih/color v1.13.0 // indirect

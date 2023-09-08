@@ -155,6 +155,10 @@ func (c *configFromEnv) OpenTelemetryStackTraces() bool {
 	panic("not implemented")
 }
 
+func (c *configFromEnv) DqlitePort() (int, bool) {
+	panic("not implemented")
+}
+
 type configFunc func() agent.Config
 
 func defaultConfig() agent.Config {

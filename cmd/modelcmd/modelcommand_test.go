@@ -318,7 +318,7 @@ func (s *ModelCommandSuite) TestCAASOnlyCommandIAASModel(c *gc.C) {
 	s.setupIAASModel(c)
 
 	_, err := runCaasCommand(c, s.store)
-	c.Assert(err, gc.ErrorMatches, `Juju command "caas-command" not supported on non-container models`)
+	c.Assert(err, gc.ErrorMatches, `Juju command "caas-command" only supported on k8s container models`)
 }
 
 func (s *ModelCommandSuite) TestAllowedCommandCAASModel(c *gc.C) {

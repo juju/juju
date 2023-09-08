@@ -24,6 +24,7 @@ func newFacade(ctx facade.Context) (*Facade, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
+
 	return &Facade{
 		auth: authorizer,
 		controllerConfigAPI: common.NewControllerConfigAPI(
