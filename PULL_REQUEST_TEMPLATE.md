@@ -22,6 +22,10 @@ QA steps here
 
 *How it affects user workflow (CLI or API). Delete section if not applicable.*
 
-## Bug reference
+## Links
 
-*Link to Launchpad bug. Delete section if not applicable.*
+**Launchpad bug:** https://pad.lv/<bug-number>
+
+**Jira card:** JUJU-[XXXX]
+
+*Insert other relevant links here.*
