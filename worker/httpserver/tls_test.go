@@ -128,6 +128,18 @@ func (s *TLSAutocertSuite) TestAutocertHostPolicy(c *gc.C) {
 	c.Assert(s.autocertQueried, jc.IsFalse)
 }
 
+func (s *TLSAutocertSuite) TestAutoCertNotCalledBadDNS(c *gc.C) {
+	tlsConfig := httpserver.NewTLSConfig(
+		s.dnsName,
+		s.serverURL,
+		s.cache,
+		testSNIGetter(s.cert),
+		loggo.GetLogger("test"),
+	)
+	s.testGetCertificate(c, tlsConfig, "invalid")
+	c.Assert(s.autocertQueried, jc.IsFalse)
+}
+
 func (s *TLSAutocertSuite) testGetCertificate(c *gc.C, tlsConfig *tls.Config, serverName string) {
 	cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{
 		ServerName: serverName,
