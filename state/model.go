@@ -19,13 +19,11 @@ import (
 	jujuutils "github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 
-	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/mongo/utils"
 	"github.com/juju/juju/internal/storage"
 	stateerrors "github.com/juju/juju/state/errors"
 )
@@ -350,24 +348,7 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Ensure that the cloud region is valid, or if one is not specified,
-	// that the cloud does not support regions.
-	modelCloud, err := st.Cloud(args.CloudName)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
 	var prereqOps []txn.Op
-
-	// If no region specified and the cloud only has one, default to that.
-	if args.CloudRegion == "" && len(modelCloud.Regions) == 1 {
-		args.CloudRegion = modelCloud.Regions[0].Name
-	}
-	assertCloudRegionOp, err := validateCloudRegion(modelCloud, args.CloudRegion)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	prereqOps = append(prereqOps, assertCloudRegionOp)
 
 	// Ensure that the cloud credential is valid, or if one is not
 	// specified, that the cloud supports the "empty" authentication
@@ -405,22 +386,15 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 
 	ops := append(prereqOps, modelOps...)
 
-	// Increment the model count for the cloud to which this model belongs.
-	incCloudRefOp, err := incCloudModelRefOp(st, args.CloudName)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	ops = append(ops, incCloudRefOp)
-
 	err = newSt.db().RunTransaction(ops)
 	if err == txn.ErrAborted {
 		// Check that the cloud exists.
 		// TODO(wallyworld) - this can't yet be tested since we check that the
 		// model cloud is the same as the controller cloud, and hooks can't be
 		// used because a new state is created.
-		if _, err := newSt.Cloud(args.CloudName); err != nil {
-			return nil, nil, errors.Trace(err)
-		}
+		//if _, err := newSt.Cloud(args.CloudName); err != nil {
+		//	return nil, nil, errors.Trace(err)
+		//}
 
 		// We have a  unique key restriction on the "owner" and "name" fields,
 		// which will cause the insert to fail if there is another record with
@@ -462,35 +436,6 @@ func (ctlr *Controller) NewModel(args ModelArgs) (_ *Model, _ *State, err error)
 		return nil, nil, errors.Annotate(err, "initialising model logs collection")
 	}
 	return newModel, newSt, nil
-}
-
-// validateCloudRegion validates the given region name against the
-// provided Cloud definition, and returns a txn.Op to include in a
-// transaction to assert the same.
-func validateCloudRegion(cloud jujucloud.Cloud, regionName string) (txn.Op, error) {
-	// Ensure that the cloud region is valid, or if one is not specified,
-	// that the cloud does not support regions.
-	assertCloudRegionOp := txn.Op{
-		C:  cloudsC,
-		Id: cloud.Name,
-	}
-	if regionName != "" {
-		region, err := jujucloud.RegionByName(cloud.Regions, regionName)
-		if err != nil {
-			return txn.Op{}, errors.Trace(err)
-		}
-		assertCloudRegionOp.Assert = bson.D{
-			{"regions." + utils.EscapeKey(region.Name), bson.D{{"$exists", true}}},
-		}
-	} else {
-		if len(cloud.Regions) > 0 {
-			return txn.Op{}, errors.NotValidf("missing cloud region")
-		}
-		assertCloudRegionOp.Assert = bson.D{
-			{"regions", bson.D{{"$exists", false}}},
-		}
-	}
-	return assertCloudRegionOp, nil
 }
 
 // Tag returns a name identifying the model.
@@ -575,11 +520,6 @@ func (m *Model) Type() ModelType {
 // CloudName returns the name of the cloud to which the model is deployed.
 func (m *Model) CloudName() string {
 	return m.doc.Cloud
-}
-
-// Cloud returns the cloud to which the model is deployed.
-func (m *Model) Cloud() (jujucloud.Cloud, error) {
-	return m.st.Cloud(m.CloudName())
 }
 
 // CloudRegion returns the name of the cloud region to which the model is deployed.
@@ -907,11 +847,6 @@ type ModelMetrics struct {
 // Metrics returns model level metrics to be collected and sent to
 // Charmhub via the charm revision updater.
 func (m *Model) Metrics() (ModelMetrics, error) {
-	cloud, err := m.Cloud()
-	if err != nil {
-		return ModelMetrics{}, errors.Trace(err)
-	}
-
 	appCnt, err := m.applicationCount()
 	if err != nil {
 		return ModelMetrics{}, errors.Trace(err)
@@ -929,11 +864,12 @@ func (m *Model) Metrics() (ModelMetrics, error) {
 		ApplicationCount: strconv.Itoa(appCnt),
 		MachineCount:     strconv.Itoa(machCnt),
 		UnitCount:        strconv.Itoa(unitCnt),
-		CloudName:        cloud.Name,
+		CloudName:        m.CloudName(),
 		CloudRegion:      m.CloudRegion(),
-		Provider:         cloud.Type,
-		UUID:             m.UUID(),
-		ControllerUUID:   m.doc.ControllerUUID,
+		// TODO(wallyworld) - we no longer have cloud in state to get cloud type
+		//Provider:         cloud.Type,
+		UUID:           m.UUID(),
+		ControllerUUID: m.doc.ControllerUUID,
 	}, nil
 }
 

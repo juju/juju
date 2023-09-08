@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs"
 )
@@ -16,12 +17,16 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("EnvironUpgrader", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return newStateFacade(ctx)
+		return NewStateFacade(ctx)
 	}, reflect.TypeOf((*Facade)(nil)))
 }
 
-// newStateFacade provides the signature required for facade registration.
-func newStateFacade(ctx facade.Context) (*Facade, error) {
+// NewStateFacade provides the signature required for facade registration.
+func NewStateFacade(ctx facade.Context) (*Facade, error) {
+	if !ctx.Auth().AuthController() {
+		return nil, apiservererrors.ErrPerm
+	}
+
 	pool := NewPool(ctx.StatePool())
 	registry := environs.GlobalProviderRegistry()
 	watcher := common.NewAgentEntityWatcher(
@@ -33,5 +38,5 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 		ctx.State(),
 		common.AuthFuncForTagKind(names.ModelTagKind),
 	)
-	return NewFacade(ctx.State(), pool, registry, watcher, statusSetter, ctx.Auth())
+	return NewFacade(ctx.ServiceFactory().Cloud(), pool, registry, watcher, statusSetter)
 }

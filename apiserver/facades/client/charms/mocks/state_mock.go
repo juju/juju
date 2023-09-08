@@ -10,7 +10,6 @@ import (
 	charm "github.com/juju/charm/v11"
 	interfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
-	cloud "github.com/juju/juju/cloud"
 	charm0 "github.com/juju/juju/core/charm"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
@@ -227,21 +226,6 @@ func NewMockBackendModel(ctrl *gomock.Controller) *MockBackendModel {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockBackendModel) EXPECT() *MockBackendModelMockRecorder {
 	return m.recorder
-}
-
-// Cloud mocks base method.
-func (m *MockBackendModel) Cloud() (cloud.Cloud, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Cloud")
-	ret0, _ := ret[0].(cloud.Cloud)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Cloud indicates an expected call of Cloud.
-func (mr *MockBackendModelMockRecorder) Cloud() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockBackendModel)(nil).Cloud))
 }
 
 // CloudRegion mocks base method.

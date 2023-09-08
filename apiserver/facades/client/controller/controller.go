@@ -60,6 +60,7 @@ type ControllerAPI struct {
 	resources         facade.Resources
 	presence          facade.Presence
 	hub               facade.Hub
+	cloudService      common.CloudService
 	credentialService common.CredentialService
 	ctrlConfigService ControllerConfigService
 
@@ -84,6 +85,7 @@ func NewControllerAPI(
 	logger loggo.Logger,
 	ctrlConfigService ControllerConfigService,
 	externalCtrlService common.ExternalControllerService,
+	cloudService common.CloudService,
 	credentialService common.CredentialService,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
@@ -110,7 +112,7 @@ func NewControllerAPI(
 		),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,
-			cloudspec.MakeCloudSpecGetter(pool, credentialService),
+			cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService),
 			cloudspec.MakeCloudSpecWatcherForModel(st),
 			cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
@@ -188,8 +190,8 @@ func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 	m *state.Model,
 	applicationName string,
 ) (*params.Proxy, error) {
-	configGetter := stateenvirons.EnvironConfigGetter{Model: m, CredentialService: c.credentialService}
-	environ, err := common.EnvironFuncForModel(m, c.credentialService, configGetter)(ctx)
+	configGetter := stateenvirons.EnvironConfigGetter{Model: m, CloudService: c.cloudService, CredentialService: c.credentialService}
+	environ, err := common.EnvironFuncForModel(m, c.cloudService, c.credentialService, configGetter)(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -679,6 +681,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		hostedState.State, systemState,
 		&targetInfo, c.presence,
 		c.ctrlConfigService,
+		c.cloudService,
 		c.credentialService,
 	); err != nil {
 		return "", errors.Trace(err)
@@ -773,6 +776,7 @@ var runMigrationPrechecks = func(
 	targetInfo *coremigration.TargetInfo,
 	presence facade.Presence,
 	ctrlConfigService ControllerConfigService,
+	cloudService common.CloudService,
 	credentialService common.CredentialService,
 ) error {
 	// Check model and source controller.
@@ -787,7 +791,7 @@ var runMigrationPrechecks = func(
 		ctx,
 		backend,
 		modelPresence, controllerPresence,
-		cloudspec.MakeCloudSpecGetterForModel(st, credentialService),
+		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),
 		credentialService,
 	); err != nil {
 		return errors.Annotate(err, "source prechecks failed")

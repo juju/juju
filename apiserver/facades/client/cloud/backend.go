@@ -19,17 +19,19 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type Backend interface {
-	state.CloudAccessor
+// CloudService provides access to clouds.
+type CloudService interface {
+	ListAll(stdcontext.Context) ([]cloud.Cloud, error)
+	Get(stdcontext.Context, string) (*cloud.Cloud, error)
+	Save(ctx stdcontext.Context, cld cloud.Cloud) error
+	Delete(ctx stdcontext.Context, name string) error
+}
 
+type Backend interface {
 	ControllerTag() names.ControllerTag
 	Model() (Model, error)
 	ModelConfig(stdcontext.Context) (*config.Config, error)
 	User(tag names.UserTag) (User, error)
-
-	AddCloud(cloud.Cloud, string) error
-	UpdateCloud(cloud.Cloud) error
-	RemoveCloud(string) error
 
 	CloudCredentialUpdated(tag names.CloudCredentialTag) error
 	CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]state.CredentialOwnerModelAccess, error)
@@ -43,7 +45,7 @@ type Backend interface {
 	CreateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
 	UpdateCloudAccess(cloud string, user names.UserTag, access permission.Access) error
 	RemoveCloudAccess(cloud string, user names.UserTag) error
-	CloudsForUser(user names.UserTag, isSuperuser bool) ([]state.CloudInfo, error)
+	CloudsForUser(user names.UserTag) ([]state.CloudInfo, error)
 }
 
 type CredentialService interface {
@@ -88,7 +90,6 @@ func (s stateShim) Model() (Model, error) {
 type Model interface {
 	UUID() string
 	CloudName() string
-	Cloud() (cloud.Cloud, error)
 	CloudRegion() string
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 }

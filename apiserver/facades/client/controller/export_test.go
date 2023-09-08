@@ -17,7 +17,7 @@ type patcher interface {
 }
 
 func SetPrecheckResult(p patcher, err error) {
-	p.PatchValue(&runMigrationPrechecks, func(context.Context, *state.State, *state.State, *migration.TargetInfo, facade.Presence, ControllerConfigService, common.CredentialService) error {
+	p.PatchValue(&runMigrationPrechecks, func(context.Context, *state.State, *state.State, *migration.TargetInfo, facade.Presence, ControllerConfigService, common.CloudService, common.CredentialService) error {
 		return err
 	})
 }

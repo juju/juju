@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -68,8 +67,8 @@ type Model interface {
 	ModelTag() names.ModelTag
 	ControllerUUID() string
 	Type() state.ModelType
-	Cloud() (cloud.Cloud, error)
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
+	CloudName() string
 	CloudRegion() string
 	Config() (*config.Config, error)
 }

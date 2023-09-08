@@ -26,6 +26,17 @@ type environSuite struct {
 
 var _ = gc.Suite(&environSuite{})
 
+var testCloud = cloud.Cloud{
+	Name:              "dummy",
+	Type:              "dummy",
+	AuthTypes:         []cloud.AuthType{cloud.EmptyAuthType, cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+	Regions:           []cloud.Region{{Name: "dummy-region"}},
+	Endpoint:          "dummy-endpoint",
+	IdentityEndpoint:  "dummy-identity-endpoint",
+	StorageEndpoint:   "dummy-storage-endpoint",
+	IsControllerCloud: true,
+}
+
 func (s *environSuite) TestGetNewEnvironFunc(c *gc.C) {
 	var calls int
 	var callArgs environs.OpenParams
@@ -34,7 +45,7 @@ func (s *environSuite) TestGetNewEnvironFunc(c *gc.C) {
 		callArgs = args
 		return nil, nil
 	}
-	_, err := stateenvirons.GetNewEnvironFunc(newEnviron)(s.Model, nil)
+	_, err := stateenvirons.GetNewEnvironFunc(newEnviron)(s.Model, &cloudGetter{cloud: &testCloud}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(calls, gc.Equals, 1)
@@ -45,7 +56,6 @@ func (s *environSuite) TestGetNewEnvironFunc(c *gc.C) {
 }
 
 type credentialGetter struct {
-	stateenvirons.CredentialService
 	cred *cloud.Credential
 }
 
@@ -54,6 +64,17 @@ func (c credentialGetter) CloudCredential(_ context.Context, tag names.CloudCred
 		return cloud.Credential{}, errors.NotFoundf("credential %q", tag)
 	}
 	return *c.cred, nil
+}
+
+type cloudGetter struct {
+	cloud *cloud.Cloud
+}
+
+func (c cloudGetter) Get(_ context.Context, name string) (*cloud.Cloud, error) {
+	if c.cloud == nil {
+		return nil, errors.NotFoundf("cloud %q", name)
+	}
+	return c.cloud, nil
 }
 
 func (s *environSuite) TestCloudSpec(c *gc.C) {
@@ -74,7 +95,9 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 
 	emptyCredential.Label = "empty-credential"
 	cloudSpec, err := stateenvirons.EnvironConfigGetter{
-		Model: m, CredentialService: &credentialGetter{cred: &emptyCredential}}.CloudSpec(context.Background())
+		Model:             m,
+		CloudService:      &cloudGetter{cloud: &testCloud},
+		CredentialService: &credentialGetter{cred: &emptyCredential}}.CloudSpec(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudSpec, jc.DeepEquals, environscloudspec.CloudSpec{
 		Type:              "dummy",
@@ -105,7 +128,10 @@ func (s *environSuite) TestCloudSpecForModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	emptyCredential.Label = "empty-credential"
-	cloudSpec, err := stateenvirons.CloudSpecForModel(context.Background(), m, &credentialGetter{cred: &emptyCredential})
+	cloudSpec, err := stateenvirons.CloudSpecForModel(
+		context.Background(), m,
+		&cloudGetter{cloud: &testCloud},
+		&credentialGetter{cred: &emptyCredential})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudSpec, jc.DeepEquals, environscloudspec.CloudSpec{
 		Type:              "dummy",
@@ -127,7 +153,8 @@ func (s *environSuite) TestGetNewCAASBrokerFunc(c *gc.C) {
 		callArgs = args
 		return nil, nil
 	}
-	_, err := stateenvirons.GetNewCAASBrokerFunc(newBroker)(s.Model, nil)
+	_, err := stateenvirons.GetNewCAASBrokerFunc(newBroker)(
+		s.Model, &cloudGetter{cloud: &testCloud}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(calls, gc.Equals, 1)
 
@@ -164,7 +191,9 @@ func (s *environSuite) TestCloudAPIVersion(c *gc.C) {
 	}
 
 	envConfigGetter := stateenvirons.EnvironConfigGetter{
-		Model: m, NewContainerBroker: newBrokerFunc, CredentialService: &credentialGetter{cred: &cred}}
+		Model: m, NewContainerBroker: newBrokerFunc,
+		CloudService:      &cloudGetter{cloud: &cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
+		CredentialService: &credentialGetter{cred: &cred}}
 	cloudSpec, err := envConfigGetter.CloudSpec(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	apiVersion, err := envConfigGetter.CloudAPIVersion(cloudSpec)

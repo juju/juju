@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/secrets/provider"
@@ -115,10 +114,6 @@ var _ undertaker.Model = (*mockModel)(nil)
 
 func (m *mockModel) ControllerUUID() string {
 	return coretesting.ControllerTag.Id()
-}
-
-func (m *mockModel) Cloud() (cloud.Cloud, error) {
-	return cloud.Cloud{}, errors.NotImplemented
 }
 
 func (m *mockModel) Owner() names.UserTag {

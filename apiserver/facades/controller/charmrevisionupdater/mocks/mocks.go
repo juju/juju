@@ -10,7 +10,6 @@ import (
 
 	charm "github.com/juju/charm/v11"
 	charmrevisionupdater "github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
-	cloud "github.com/juju/juju/cloud"
 	metrics "github.com/juju/juju/core/charm/metrics"
 	config "github.com/juju/juju/environs/config"
 	charmhub "github.com/juju/juju/internal/charmhub"
@@ -354,21 +353,6 @@ func (m *MockState) Charm(arg0 *charm.URL) (*state.Charm, error) {
 func (mr *MockStateMockRecorder) Charm(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockState)(nil).Charm), arg0)
-}
-
-// Cloud mocks base method.
-func (m *MockState) Cloud(arg0 string) (cloud.Cloud, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Cloud", arg0)
-	ret0, _ := ret[0].(cloud.Cloud)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Cloud indicates an expected call of Cloud.
-func (mr *MockStateMockRecorder) Cloud(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockState)(nil).Cloud), arg0)
 }
 
 // ControllerUUID mocks base method.

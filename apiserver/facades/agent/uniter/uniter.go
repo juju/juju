@@ -55,6 +55,7 @@ type UniterAPI struct {
 	lxdProfileAPI       *LXDProfileAPIv2
 	m                   *state.Model
 	st                  *state.State
+	cloudService        common.CloudService
 	credentialService   common.CredentialService
 	clock               clock.Clock
 	cancel              <-chan struct{}
@@ -2360,7 +2361,8 @@ func (u *UniterAPI) watchOneUnitHashes(tag names.UnitTag, getWatcher func(u *sta
 func (u *UniterAPI) CloudAPIVersion(ctx context.Context) (params.StringResult, error) {
 	result := params.StringResult{}
 
-	configGetter := stateenvirons.EnvironConfigGetter{Model: u.m, NewContainerBroker: u.containerBrokerFunc, CredentialService: u.credentialService}
+	configGetter := stateenvirons.EnvironConfigGetter{
+		Model: u.m, NewContainerBroker: u.containerBrokerFunc, CloudService: u.cloudService, CredentialService: u.credentialService}
 	spec, err := configGetter.CloudSpec(ctx)
 	if err != nil {
 		return result, apiservererrors.ServerError(err)

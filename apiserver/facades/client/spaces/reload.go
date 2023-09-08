@@ -119,7 +119,7 @@ func (ReloadSpacesEnvirons) GetEnviron(ctx stdcontext.Context, st environs.Envir
 }
 
 // DefaultReloadSpacesEnvirons creates a new ReloadSpacesEnviron from state.
-func DefaultReloadSpacesEnvirons(st *state.State, credentialService common.CredentialService) (ReloadSpacesEnvirons, error) {
+func DefaultReloadSpacesEnvirons(st *state.State, cloudService common.CloudService, credentialService common.CredentialService) (ReloadSpacesEnvirons, error) {
 	m, err := st.Model()
 	if err != nil {
 		return ReloadSpacesEnvirons{}, errors.Trace(err)
@@ -127,6 +127,7 @@ func DefaultReloadSpacesEnvirons(st *state.State, credentialService common.Crede
 	return ReloadSpacesEnvirons{
 		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{
 			Model:             m,
+			CloudService:      cloudService,
 			CredentialService: credentialService,
 		},
 	}, nil

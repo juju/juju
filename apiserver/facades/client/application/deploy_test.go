@@ -60,6 +60,7 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "my-controller",
@@ -75,6 +76,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -97,6 +99,7 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -119,6 +122,7 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName:  "bob",
@@ -186,6 +190,7 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		model,
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -232,6 +237,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 		context.Background(),
 		stateDeployer{State: st},
 		model,
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -277,6 +283,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		model,
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -302,6 +309,7 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -325,6 +333,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -349,6 +358,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -385,6 +395,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName:   "bob",
@@ -410,6 +421,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -430,6 +442,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -455,6 +468,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -483,6 +497,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -516,6 +531,7 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
@@ -551,6 +567,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 		context.Background(),
 		&f,
 		model,
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
@@ -578,6 +595,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 		context.Background(),
 		&f,
 		model,
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
@@ -599,6 +617,7 @@ func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
+		s.ControllerServiceFactory.Cloud(),
 		s.ControllerServiceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",

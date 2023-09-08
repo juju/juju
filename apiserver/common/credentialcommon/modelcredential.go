@@ -23,9 +23,8 @@ import (
 
 // ValidateExistingModelCredential checks if the cloud credential that a given model uses is valid for it.
 func ValidateExistingModelCredential(
-	ctx stdcontext.Context,
 	backend PersistentBackend, credentialService common.CredentialService,
-	callCtx context.ProviderCallContext, checkCloudInstances bool,
+	callCtx context.ProviderCallContext, cld cloud.Cloud, checkCloudInstances bool,
 ) (params.ErrorResults, error) {
 	model, err := backend.Model()
 	if err != nil {
@@ -37,7 +36,7 @@ func ValidateExistingModelCredential(
 		return params.ErrorResults{}, nil
 	}
 
-	storedCredential, err := credentialService.CloudCredential(ctx, credentialTag)
+	storedCredential, err := credentialService.CloudCredential(callCtx, credentialTag)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -46,12 +45,15 @@ func ValidateExistingModelCredential(
 		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Label)
 	}
 	credential := cloud.NewCredential(storedCredential.AuthType(), storedCredential.Attributes())
-	return ValidateNewModelCredential(backend, callCtx, credentialTag, &credential, checkCloudInstances)
+	return ValidateNewModelCredential(backend, callCtx, credentialTag, &credential, cld, checkCloudInstances)
 }
 
 // ValidateNewModelCredential checks if a new cloud credential could be valid for a given model.
-func ValidateNewModelCredential(backend PersistentBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential, checkCloudInstances bool) (params.ErrorResults, error) {
-	openParams, err := buildOpenParams(backend, credentialTag, credential)
+func ValidateNewModelCredential(
+	backend PersistentBackend, callCtx context.ProviderCallContext,
+	credentialTag names.CloudCredentialTag, credential *cloud.Credential, cld cloud.Cloud, checkCloudInstances bool,
+) (params.ErrorResults, error) {
+	openParams, err := buildOpenParams(callCtx, backend, cld, credentialTag, credential)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -177,7 +179,11 @@ var (
 	newCAASBroker = caas.New
 )
 
-func buildOpenParams(backend PersistentBackend, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (environs.OpenParams, error) {
+func buildOpenParams(
+	ctx context.ProviderCallContext,
+	backend PersistentBackend, modelCloud cloud.Cloud,
+	credentialTag names.CloudCredentialTag, credential *cloud.Credential,
+) (environs.OpenParams, error) {
 	fail := func(original error) (environs.OpenParams, error) {
 		return environs.OpenParams{}, original
 	}
@@ -187,16 +193,10 @@ func buildOpenParams(backend PersistentBackend, credentialTag names.CloudCredent
 		return fail(errors.Trace(err))
 	}
 
-	modelCloud, err := backend.Cloud(model.CloudName())
+	err = validateCloudCredential(modelCloud, credentialTag)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
-
-	// TODO(wallyworld) - validate credential once clouds are moved to dqlite
-	//err = ValidateCloudCredential(credentialTag, *credential)
-	//if err != nil {
-	//	return fail(errors.Trace(err))
-	//}
 
 	tempCloudSpec, err := environscloudspec.MakeCloudSpec(modelCloud, model.CloudRegion(), credential)
 	if err != nil {
@@ -217,4 +217,30 @@ func buildOpenParams(backend PersistentBackend, credentialTag names.CloudCredent
 		Cloud:          tempCloudSpec,
 		Config:         cfg,
 	}, nil
+}
+
+// validateCloudCredential validates the given cloud credential
+// name against the provided cloud definition and credentials.
+func validateCloudCredential(
+	cld cloud.Cloud,
+	cloudCredential names.CloudCredentialTag,
+) error {
+	if cloudCredential != (names.CloudCredentialTag{}) {
+		if cloudCredential.Cloud().Id() != cld.Name {
+			return errors.NotValidf("credential %q", cloudCredential.Id())
+		}
+		return nil
+	}
+	var hasEmptyAuth bool
+	for _, authType := range cld.AuthTypes {
+		if authType != cloud.EmptyAuthType {
+			continue
+		}
+		hasEmptyAuth = true
+		break
+	}
+	if !hasEmptyAuth {
+		return errors.NotValidf("missing CloudCredential")
+	}
+	return nil
 }

@@ -34,7 +34,6 @@ type ModelManagerBackend interface {
 	APIHostPortsForAgentsGetter
 	ToolsStorageGetter
 	BlockGetter
-	state.CloudAccessor
 
 	ModelUUID() string
 	ModelBasicInfoForUser(user names.UserTag, isSuperuser bool) ([]state.ModelAccessInfo, error)
@@ -108,7 +107,6 @@ type Model interface {
 	Owner() names.UserTag
 	Status() (status.StatusInfo, error)
 	CloudName() string
-	Cloud() (cloud.Cloud, error)
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	CloudRegion() string
 	Users() ([]permission.UserAccess, error)
@@ -129,6 +127,11 @@ type Model interface {
 type CredentialService interface {
 	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
 	WatchCredential(ctx context.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error)
+}
+
+// CloudService provides access to clouds.
+type CloudService interface {
+	Get(ctx context.Context, name string) (*cloud.Cloud, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

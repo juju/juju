@@ -255,6 +255,7 @@ type validatorConfig struct {
 	charmhubHTTPClient facade.HTTPClient
 	caasBroker         CaasBrokerInterface
 	model              Model
+	cloudService       common.CloudService
 	credentialService  common.CredentialService
 	registry           storage.ProviderRegistry
 	state              DeployFromRepositoryState
@@ -265,6 +266,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 	v := &deployFromRepositoryValidator{
 		charmhubHTTPClient: cfg.charmhubHTTPClient,
 		model:              cfg.model,
+		cloudService:       cfg.cloudService,
 		credentialService:  cfg.credentialService,
 		state:              cfg.state,
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
@@ -304,6 +306,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 
 type deployFromRepositoryValidator struct {
 	model             Model
+	cloudService      common.CloudService
 	credentialService common.CredentialService
 	state             DeployFromRepositoryState
 
@@ -466,7 +469,7 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(resolvedCharm ch
 	}
 
 	// Enforce "assumes" requirements if the feature flag is enabled.
-	if err := assertCharmAssumptions(context.Background(), resolvedCharm.Meta().Assumes, v.model, v.credentialService, v.state.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(context.Background(), resolvedCharm.Meta().Assumes, v.model, v.cloudService, v.credentialService, v.state.ControllerConfig); err != nil {
 		if !errors.Is(err, errors.NotSupported) || !arg.Force {
 			errs = append(errs, err)
 		}

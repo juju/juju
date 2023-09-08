@@ -58,6 +58,12 @@ type ModelExporter interface {
 	ExportModelPartial(ctx context.Context, cfg state.ExportConfig) (description.Model, error)
 }
 
+// CloudService provides access to clouds.
+type CloudService interface {
+	common.CloudService
+	ListAll(ctx context.Context) ([]jujucloud.Cloud, error)
+}
+
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
@@ -66,6 +72,7 @@ type ModelManagerAPI struct {
 	state               common.ModelManagerBackend
 	modelExporter       ModelExporter
 	ctlrState           common.ModelManagerBackend
+	cloudService        CloudService
 	credentialService   common.CredentialService
 	check               common.BlockCheckerInterface
 	authorizer          facade.Authorizer
@@ -83,6 +90,7 @@ func NewModelManagerAPI(
 	st common.ModelManagerBackend,
 	modelExporter ModelExporter,
 	ctlrSt common.ModelManagerBackend,
+	cloudService CloudService,
 	credentialService common.CredentialService,
 	modelManagerService ModelManagerService,
 	toolsFinder common.ToolsFinder,
@@ -111,6 +119,7 @@ func NewModelManagerAPI(
 		state:               st,
 		modelExporter:       modelExporter,
 		ctlrState:           ctlrSt,
+		cloudService:        cloudService,
 		credentialService:   credentialService,
 		modelManagerService: modelManagerService,
 		getBroker:           getBroker,
@@ -267,18 +276,18 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Annotatef(apiservererrors.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
 	}
 
-	cloud, err := m.state.Cloud(cloudTag.Id())
+	cloud, err := m.cloudService.Get(ctx, cloudTag.Id())
 	if err != nil {
 		if errors.IsNotFound(err) && args.CloudTag != "" {
 			// A cloud was specified, and it was not found.
 			// Annotate the error with the supported clouds.
-			clouds, err := m.state.Clouds()
+			clouds, err := m.cloudService.ListAll(ctx)
 			if err != nil {
 				return result, errors.Trace(err)
 			}
 			cloudNames := make([]string, 0, len(clouds))
-			for tag := range clouds {
-				cloudNames = append(cloudNames, tag.Id())
+			for _, cld := range clouds {
+				cloudNames = append(cloudNames, cld.Name)
 			}
 			sort.Strings(cloudNames)
 			return result, errors.NewNotFound(err, fmt.Sprintf(
@@ -333,13 +342,13 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		credential = &cloudCredential
 	}
 
-	cloudSpec, err := environscloudspec.MakeCloudSpec(cloud, cloudRegionName, credential)
+	cloudSpec, err := environscloudspec.MakeCloudSpec(*cloud, cloudRegionName, credential)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
 	var model common.Model
-	if jujucloud.CloudIsCAAS(cloud) {
+	if jujucloud.CloudIsCAAS(*cloud) {
 		model, err = m.newCAASModel(
 			ctx,
 			cloudSpec,
@@ -1064,7 +1073,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		}
 	}
 
-	fs, err := supportedFeaturesGetter(model, m.credentialService)
+	fs, err := supportedFeaturesGetter(model, m.cloudService, m.credentialService)
 	if err != nil {
 		return params.ModelInfo{}, err
 	}

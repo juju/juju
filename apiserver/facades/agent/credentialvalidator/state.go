@@ -8,7 +8,6 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/state"
 )
 
@@ -23,7 +22,6 @@ type ModelAccessor interface {
 type StateAccessor interface {
 	credentialcommon.StateBackend
 	Model() (ModelAccessor, error)
-	Cloud(name string) (cloud.Cloud, error)
 }
 
 type stateShim struct {

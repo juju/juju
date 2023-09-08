@@ -54,7 +54,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 	}
 	defer st.Release()
 	serviceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(st.ModelUUID())
-	userTag, response, err := h.processPost(req, st.State, serviceFactory.Credential())
+	userTag, response, err := h.processPost(req, st.State, serviceFactory.Cloud(), serviceFactory.Credential())
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
@@ -103,7 +103,9 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 // NOTE(axw) it is important that the client and server choose their
 // own nonces, because reusing a nonce means that the key-stream can
 // be revealed.
-func (h *registerUserHandler) processPost(req *http.Request, st *state.State, credentialService common.CredentialService) (
+func (h *registerUserHandler) processPost(
+	req *http.Request, st *state.State, cloudService common.CloudService, credentialService common.CredentialService,
+) (
 	names.UserTag, *params.SecretKeyLoginResponse, error,
 ) {
 	ctx := req.Context()
@@ -162,7 +164,7 @@ func (h *registerUserHandler) processPost(req *http.Request, st *state.State, cr
 
 	// Respond with the CA-cert and password, encrypted again with the
 	// secret key.
-	responsePayload, err := h.getSecretKeyLoginResponsePayload(ctx, st, credentialService)
+	responsePayload, err := h.getSecretKeyLoginResponsePayload(ctx, st, cloudService, credentialService)
 	if err != nil {
 		return failure(errors.Trace(err))
 	}
@@ -180,9 +182,10 @@ func (h *registerUserHandler) processPost(req *http.Request, st *state.State, cr
 	return userTag, response, nil
 }
 
-func getConnectorInfoer(ctx context.Context, model stateenvirons.Model, credentialService common.CredentialService) (environs.ConnectorInfo, error) {
-	configGetter := stateenvirons.EnvironConfigGetter{Model: model, CredentialService: credentialService}
-	environ, err := common.EnvironFuncForModel(model, credentialService, configGetter)(ctx)
+func getConnectorInfoer(ctx context.Context, model stateenvirons.Model, cloudService common.CloudService, credentialService common.CredentialService) (environs.ConnectorInfo, error) {
+	configGetter := stateenvirons.EnvironConfigGetter{
+		Model: model, CloudService: cloudService, CredentialService: credentialService}
+	environ, err := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -200,6 +203,7 @@ var GetConnectorInfoer = getConnectorInfoer
 func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	ctx context.Context,
 	st *state.State,
+	cloudService common.CloudService,
 	credentialService common.CredentialService,
 ) (*params.SecretKeyLoginResponsePayload, error) {
 	if !st.IsController() {
@@ -219,7 +223,7 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	connInfo, err := GetConnectorInfoer(ctx, model, credentialService)
+	connInfo, err := GetConnectorInfoer(ctx, model, cloudService, credentialService)
 	if errors.Is(err, errors.NotSupported) { // Not all providers support this.
 		return &payload, nil
 	}

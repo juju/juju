@@ -61,13 +61,13 @@ type stateShim struct {
 }
 
 // NewStateShim returns a new state shim.
-func NewStateShim(st *state.State, credentialService common.CredentialService) (*stateShim, error) {
+func NewStateShim(st *state.State, cloudService common.CloudService, credentialService common.CredentialService) (*stateShim, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &stateShim{
-		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{Model: m, CredentialService: credentialService},
+		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{Model: m, CloudService: cloudService, CredentialService: credentialService},
 		State:               st,
 		model:               m,
 	}, nil

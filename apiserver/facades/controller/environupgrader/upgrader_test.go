@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/environupgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
@@ -27,7 +28,7 @@ var (
 
 type EnvironUpgraderSuite struct {
 	testing.IsolationSuite
-	backend      mockBackend
+	backend      mockCloudService
 	pool         mockPool
 	providers    mockProviderRegistry
 	watcher      mockWatcher
@@ -43,7 +44,7 @@ func (s *EnvironUpgraderSuite) SetUpTest(c *gc.C) {
 		Controller: true,
 		Tag:        names.NewMachineTag("0"),
 	}
-	s.backend = mockBackend{
+	s.backend = mockCloudService{
 		clouds: map[string]cloud.Cloud{
 			"foo": {Type: "foo-provider"},
 			"bar": {Type: "bar-provider"},
@@ -65,19 +66,22 @@ func (s *EnvironUpgraderSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *EnvironUpgraderSuite) TestAuthController(c *gc.C) {
-	_, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	_, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *EnvironUpgraderSuite) TestAuthNonController(c *gc.C) {
 	s.authorizer.Controller = false
 	s.authorizer.Tag = names.NewUserTag("admin")
-	_, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	ctx := facadetest.Context{
+		Auth_: s.authorizer,
+	}
+	_, err := environupgrader.NewStateFacade(ctx)
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *EnvironUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
-	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.ModelEnvironVersion(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -106,7 +110,7 @@ func (s *EnvironUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
 
 func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 	s.providers.SetErrors(nil, errors.New("blargh"))
-	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.ModelTargetEnvironVersion(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -143,7 +147,7 @@ func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 }
 
 func (s *EnvironUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
-	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.SetModelEnvironVersion(context.Background(), params.SetModelEnvironVersions{
 		Models: []params.SetModelEnvironVersion{
@@ -183,7 +187,7 @@ func (s *EnvironUpgraderSuite) TestSetModelStatus(c *gc.C) {
 		},
 	}
 
-	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter, &s.authorizer)
+	facade, err := environupgrader.NewFacade(&s.backend, &s.pool, &s.providers, &s.watcher, &s.statusSetter)
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := facade.SetModelStatus(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -195,14 +199,15 @@ func (s *EnvironUpgraderSuite) TestSetModelStatus(c *gc.C) {
 	})
 }
 
-type mockBackend struct {
+type mockCloudService struct {
 	testing.Stub
 	clouds map[string]cloud.Cloud
 }
 
-func (b *mockBackend) Cloud(name string) (cloud.Cloud, error) {
+func (b *mockCloudService) Get(_ context.Context, name string) (*cloud.Cloud, error) {
 	b.MethodCall(b, "Cloud", name)
-	return b.clouds[name], b.NextErr()
+	cld := b.clouds[name]
+	return &cld, b.NextErr()
 }
 
 type mockPool struct {

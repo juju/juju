@@ -171,7 +171,6 @@ var (
 // It is needed by the state policy to create an environ when validating the
 // ops needed to set up the initial controller model.
 type credentialGetter struct {
-	stateenvirons.CredentialService
 	cred *jujucloud.Credential
 }
 
@@ -180,6 +179,20 @@ func (c credentialGetter) CloudCredential(_ stdcontext.Context, tag names.CloudC
 		return jujucloud.Credential{}, errors.NotFoundf("credential %q", tag)
 	}
 	return *c.cred, nil
+}
+
+// cloudGetter serves a fixed cloud as a CloudService instance.
+// It is needed by the state policy to create an environ when validating the
+// ops needed to set up the initial controller model.
+type cloudGetter struct {
+	cloud *jujucloud.Cloud
+}
+
+func (c cloudGetter) Get(_ stdcontext.Context, name string) (*jujucloud.Cloud, error) {
+	if c.cloud == nil {
+		return nil, errors.NotFoundf("cloud %q", name)
+	}
+	return c.cloud, nil
 }
 
 // Run initializes state for an environment.
@@ -378,7 +391,9 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 				StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
 			},
 			dialOpts,
-			stateenvirons.GetNewPolicyFunc(credentialGetter{cred: args.ControllerCloudCredential}),
+			stateenvirons.GetNewPolicyFunc(
+				cloudGetter{cloud: &args.ControllerCloud},
+				credentialGetter{cred: args.ControllerCloudCredential}),
 			extraBootstrapOpts...,
 		)
 		return stateErr

@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -30,8 +30,8 @@ func (m *mockModel) Config() (*config.Config, error) {
 	return m.cfg, nil
 }
 
-func (m *mockModel) Cloud() (cloud.Cloud, error) {
-	return jujutesting.DefaultCloud, nil
+func (m *mockModel) CloudName() string {
+	return jujutesting.DefaultCloud.Name
 }
 
 func (m *mockModel) CloudRegion() string {
@@ -45,7 +45,7 @@ func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 func (s *environSuite) TestGetEnvironment(c *gc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{"name": "testmodel-foo"})
 	m := &mockModel{cfg: cfg}
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(m, nil)
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(m, apiservertesting.ConstCloudGetter(&jujutesting.DefaultCloud), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Config().UUID(), jc.DeepEquals, cfg.UUID())
 }

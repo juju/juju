@@ -298,6 +298,7 @@ func loadClouds(ctx context.Context, tx *sql.Tx, name string) ([]cloud.Cloud, er
 SELECT cloud.uuid, cloud.name, cloud_type_id, 
        cloud.endpoint, cloud.identity_endpoint, 
        cloud.storage_endpoint, skip_tls_verify, 
+       is_controller_cloud,
        auth_type.type, cloud_type.type
 FROM   cloud
        LEFT JOIN cloud_auth_type 
@@ -329,19 +330,20 @@ FROM   cloud
 		)
 		if err := rows.Scan(
 			&dbCloud.ID, &dbCloud.Name, &dbCloud.TypeID, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint,
-			&dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify, &cloudAuthType, &cloudType,
+			&dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify, &dbCloud.IsControllerCloud, &cloudAuthType, &cloudType,
 		); err != nil {
 			return nil, errors.Trace(err)
 		}
 		cld, ok := clouds[dbCloud.ID]
 		if !ok {
 			cld = &cloud.Cloud{
-				Name:             dbCloud.Name,
-				Type:             cloudType,
-				Endpoint:         dbCloud.Endpoint,
-				IdentityEndpoint: dbCloud.IdentityEndpoint,
-				StorageEndpoint:  dbCloud.StorageEndpoint,
-				SkipTLSVerify:    dbCloud.SkipTLSVerify,
+				Name:              dbCloud.Name,
+				Type:              cloudType,
+				Endpoint:          dbCloud.Endpoint,
+				IdentityEndpoint:  dbCloud.IdentityEndpoint,
+				StorageEndpoint:   dbCloud.StorageEndpoint,
+				SkipTLSVerify:     dbCloud.SkipTLSVerify,
+				IsControllerCloud: dbCloud.IsControllerCloud,
 				// These are filled in below.
 				AuthTypes:      nil,
 				Regions:        nil,
@@ -525,13 +527,14 @@ func upsertCloud(ctx context.Context, tx *sql.Tx, cloudUUID string, cloud cloud.
 	}
 
 	q := `
-INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify)
-VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify, is_controller_cloud)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
                                 endpoint=excluded.endpoint,
                                 identity_endpoint=excluded.identity_endpoint,
                                 storage_endpoint=excluded.storage_endpoint,
-                                skip_tls_verify=excluded.skip_tls_verify;`
+                                skip_tls_verify=excluded.skip_tls_verify,
+                                is_controller_cloud=excluded.is_controller_cloud;`
 
 	_, err = tx.ExecContext(ctx, q,
 		dbCloud.ID,
@@ -541,6 +544,7 @@ ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
 		dbCloud.IdentityEndpoint,
 		dbCloud.StorageEndpoint,
 		dbCloud.SkipTLSVerify,
+		dbCloud.IsControllerCloud,
 	)
 	if database.IsErrConstraintCheck(err) {
 		return fmt.Errorf("%w cloud name cannot be empty%w", errors.NotValid, errors.Hide(err))
@@ -682,12 +686,13 @@ ON CONFLICT(cloud_uuid, name) DO UPDATE SET name=excluded.name,
 
 func dbCloudFromCloud(ctx context.Context, tx *sql.Tx, cloudUUID string, cloud cloud.Cloud) (*Cloud, error) {
 	cld := &Cloud{
-		ID:               cloudUUID,
-		Name:             cloud.Name,
-		Endpoint:         cloud.Endpoint,
-		IdentityEndpoint: cloud.IdentityEndpoint,
-		StorageEndpoint:  cloud.StorageEndpoint,
-		SkipTLSVerify:    cloud.SkipTLSVerify,
+		ID:                cloudUUID,
+		Name:              cloud.Name,
+		Endpoint:          cloud.Endpoint,
+		IdentityEndpoint:  cloud.IdentityEndpoint,
+		StorageEndpoint:   cloud.StorageEndpoint,
+		SkipTLSVerify:     cloud.SkipTLSVerify,
+		IsControllerCloud: cloud.IsControllerCloud,
 	}
 
 	row := tx.QueryRowContext(ctx, "SELECT id FROM cloud_type WHERE type = ?", cloud.Type)
@@ -699,4 +704,70 @@ func dbCloudFromCloud(ctx context.Context, tx *sql.Tx, cloudUUID string, cloud c
 		return nil, errors.Trace(err)
 	}
 	return cld, nil
+}
+
+// DeleteCloud removes a cloud credential with the given name.
+func (st *State) DeleteCloud(ctx context.Context, name string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(wallyworld) - also check model reference
+	cloudDeleteQ := `
+DELETE FROM cloud
+WHERE  cloud.name = ?
+AND cloud.uuid NOT IN (
+    SELECT cloud_uuid FROM cloud_credential
+)
+`
+
+	cloudRegionDeleteQ := `
+DELETE FROM cloud_region
+    WHERE cloud_uuid IN (
+        SELECT uuid FROM cloud WHERE cloud.name = ?
+    )
+`
+
+	cloudCACertDeleteQ := `
+DELETE FROM cloud_ca_cert
+    WHERE cloud_uuid IN (
+        SELECT uuid FROM cloud WHERE cloud.name = ?
+    )
+`
+
+	cloudAuthTypeDeleteQ := `
+DELETE FROM cloud_auth_type
+    WHERE cloud_uuid IN (
+        SELECT uuid FROM cloud WHERE cloud.name = ?
+    )
+`
+
+	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, cloudRegionDeleteQ, name)
+		if err != nil {
+			return errors.Annotate(err, "deleting cloud regions")
+		}
+		_, err = tx.ExecContext(ctx, cloudCACertDeleteQ, name)
+		if err != nil {
+			return errors.Annotate(err, "deleting cloud ca certs")
+		}
+		_, err = tx.ExecContext(ctx, cloudAuthTypeDeleteQ, name)
+		if err != nil {
+			return errors.Annotate(err, "deleting cloud auth type")
+		}
+
+		result, err := tx.ExecContext(ctx, cloudDeleteQ, name)
+		if err != nil {
+			return errors.Annotate(err, "deleting cloud")
+		}
+		num, err := result.RowsAffected()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if num == 0 {
+			return errors.Errorf("cannot delete cloud as it is still in use")
+		}
+		return nil
+	})
 }

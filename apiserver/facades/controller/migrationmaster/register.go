@@ -58,7 +58,7 @@ func newMigrationMasterFacade(ctx facade.Context) (*API, error) {
 		ctx.Resources(),
 		ctx.Auth(),
 		ctx.Presence(),
-		cloudspec.MakeCloudSpecGetter(pool, credentialService),
+		cloudspec.MakeCloudSpecGetter(pool, ctx.ServiceFactory().Cloud(), credentialService),
 		leadership,
 		credentialService,
 	)

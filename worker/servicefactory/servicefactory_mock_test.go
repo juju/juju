@@ -8,11 +8,12 @@ import (
 	reflect "reflect"
 
 	service "github.com/juju/juju/domain/autocert/service"
-	service0 "github.com/juju/juju/domain/controllerconfig/service"
-	service1 "github.com/juju/juju/domain/controllernode/service"
-	service2 "github.com/juju/juju/domain/credential/service"
-	service3 "github.com/juju/juju/domain/externalcontroller/service"
-	service4 "github.com/juju/juju/domain/modelmanager/service"
+	service0 "github.com/juju/juju/domain/cloud/service"
+	service1 "github.com/juju/juju/domain/controllerconfig/service"
+	service2 "github.com/juju/juju/domain/controllernode/service"
+	service3 "github.com/juju/juju/domain/credential/service"
+	service4 "github.com/juju/juju/domain/externalcontroller/service"
+	service5 "github.com/juju/juju/domain/modelmanager/service"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -53,11 +54,25 @@ func (mr *MockControllerServiceFactoryMockRecorder) AutocertCache() *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutocertCache", reflect.TypeOf((*MockControllerServiceFactory)(nil).AutocertCache))
 }
 
+// Cloud mocks base method.
+func (m *MockControllerServiceFactory) Cloud() *service0.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Cloud")
+	ret0, _ := ret[0].(*service0.Service)
+	return ret0
+}
+
+// Cloud indicates an expected call of Cloud.
+func (mr *MockControllerServiceFactoryMockRecorder) Cloud() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockControllerServiceFactory)(nil).Cloud))
+}
+
 // ControllerConfig mocks base method.
-func (m *MockControllerServiceFactory) ControllerConfig() *service0.Service {
+func (m *MockControllerServiceFactory) ControllerConfig() *service1.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(*service0.Service)
+	ret0, _ := ret[0].(*service1.Service)
 	return ret0
 }
 
@@ -68,10 +83,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) ControllerConfig() *gomock.C
 }
 
 // ControllerNode mocks base method.
-func (m *MockControllerServiceFactory) ControllerNode() *service1.Service {
+func (m *MockControllerServiceFactory) ControllerNode() *service2.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerNode")
-	ret0, _ := ret[0].(*service1.Service)
+	ret0, _ := ret[0].(*service2.Service)
 	return ret0
 }
 
@@ -82,10 +97,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) ControllerNode() *gomock.Cal
 }
 
 // Credential mocks base method.
-func (m *MockControllerServiceFactory) Credential() *service2.Service {
+func (m *MockControllerServiceFactory) Credential() *service3.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Credential")
-	ret0, _ := ret[0].(*service2.Service)
+	ret0, _ := ret[0].(*service3.Service)
 	return ret0
 }
 
@@ -96,10 +111,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) Credential() *gomock.Call {
 }
 
 // ExternalController mocks base method.
-func (m *MockControllerServiceFactory) ExternalController() *service3.Service {
+func (m *MockControllerServiceFactory) ExternalController() *service4.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExternalController")
-	ret0, _ := ret[0].(*service3.Service)
+	ret0, _ := ret[0].(*service4.Service)
 	return ret0
 }
 
@@ -110,10 +125,10 @@ func (mr *MockControllerServiceFactoryMockRecorder) ExternalController() *gomock
 }
 
 // ModelManager mocks base method.
-func (m *MockControllerServiceFactory) ModelManager() *service4.Service {
+func (m *MockControllerServiceFactory) ModelManager() *service5.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelManager")
-	ret0, _ := ret[0].(*service4.Service)
+	ret0, _ := ret[0].(*service5.Service)
 	return ret0
 }
 
@@ -197,11 +212,25 @@ func (mr *MockServiceFactoryMockRecorder) AutocertCache() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AutocertCache", reflect.TypeOf((*MockServiceFactory)(nil).AutocertCache))
 }
 
+// Cloud mocks base method.
+func (m *MockServiceFactory) Cloud() *service0.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Cloud")
+	ret0, _ := ret[0].(*service0.Service)
+	return ret0
+}
+
+// Cloud indicates an expected call of Cloud.
+func (mr *MockServiceFactoryMockRecorder) Cloud() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockServiceFactory)(nil).Cloud))
+}
+
 // ControllerConfig mocks base method.
-func (m *MockServiceFactory) ControllerConfig() *service0.Service {
+func (m *MockServiceFactory) ControllerConfig() *service1.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerConfig")
-	ret0, _ := ret[0].(*service0.Service)
+	ret0, _ := ret[0].(*service1.Service)
 	return ret0
 }
 
@@ -212,10 +241,10 @@ func (mr *MockServiceFactoryMockRecorder) ControllerConfig() *gomock.Call {
 }
 
 // ControllerNode mocks base method.
-func (m *MockServiceFactory) ControllerNode() *service1.Service {
+func (m *MockServiceFactory) ControllerNode() *service2.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerNode")
-	ret0, _ := ret[0].(*service1.Service)
+	ret0, _ := ret[0].(*service2.Service)
 	return ret0
 }
 
@@ -226,10 +255,10 @@ func (mr *MockServiceFactoryMockRecorder) ControllerNode() *gomock.Call {
 }
 
 // Credential mocks base method.
-func (m *MockServiceFactory) Credential() *service2.Service {
+func (m *MockServiceFactory) Credential() *service3.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Credential")
-	ret0, _ := ret[0].(*service2.Service)
+	ret0, _ := ret[0].(*service3.Service)
 	return ret0
 }
 
@@ -240,10 +269,10 @@ func (mr *MockServiceFactoryMockRecorder) Credential() *gomock.Call {
 }
 
 // ExternalController mocks base method.
-func (m *MockServiceFactory) ExternalController() *service3.Service {
+func (m *MockServiceFactory) ExternalController() *service4.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExternalController")
-	ret0, _ := ret[0].(*service3.Service)
+	ret0, _ := ret[0].(*service4.Service)
 	return ret0
 }
 
@@ -254,10 +283,10 @@ func (mr *MockServiceFactoryMockRecorder) ExternalController() *gomock.Call {
 }
 
 // ModelManager mocks base method.
-func (m *MockServiceFactory) ModelManager() *service4.Service {
+func (m *MockServiceFactory) ModelManager() *service5.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelManager")
-	ret0, _ := ret[0].(*service4.Service)
+	ret0, _ := ret[0].(*service5.Service)
 	return ret0
 }
 

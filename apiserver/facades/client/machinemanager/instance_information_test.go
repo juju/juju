@@ -28,11 +28,12 @@ import (
 var over9kCPUCores uint64 = 9001
 
 type instanceTypesSuite struct {
-	authorizer  *apiservertesting.FakeAuthorizer
-	st          *mocks.MockBackend
-	leadership  *mocks.MockLeadership
-	credService *commonmocks.MockCredentialService
-	api         *machinemanager.MachineManagerAPI
+	authorizer   *apiservertesting.FakeAuthorizer
+	st           *mocks.MockBackend
+	leadership   *mocks.MockLeadership
+	cloudService *commonmocks.MockCloudService
+	credService  *commonmocks.MockCredentialService
+	api          *machinemanager.MachineManagerAPI
 
 	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
@@ -48,6 +49,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.st = mocks.NewMockBackend(ctrl)
 	s.leadership = mocks.NewMockLeadership(ctrl)
+	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
 
@@ -55,6 +57,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 	s.api, err = machinemanager.NewMachineManagerAPI(
 		s.controllerConfigGetter,
 		s.st,
+		s.cloudService,
 		s.credService,
 		nil,
 		nil,

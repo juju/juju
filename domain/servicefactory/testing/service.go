@@ -5,6 +5,7 @@ package testing
 
 import (
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
+	cloudservice "github.com/juju/juju/domain/cloud/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
@@ -48,6 +49,11 @@ func (s *TestingServiceFactory) ExternalController() *externalcontrollerservice.
 
 // Credential returns the credential service.
 func (s *TestingServiceFactory) Credential() *credentialservice.Service {
+	return nil
+}
+
+// Cloud returns the cloud service.
+func (s *TestingServiceFactory) Cloud() *cloudservice.Service {
 	return nil
 }
 

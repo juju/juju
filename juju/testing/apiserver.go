@@ -128,6 +128,7 @@ type ApiServerSuite struct {
 	Clock                    testclock.AdvanceableClock
 	ServiceFactoryGetter     *stubServiceFactoryGetter
 	ControllerServiceFactory servicefactory.ControllerServiceFactory
+	CloudService             common.CloudService
 	CredentialService        common.CredentialService
 
 	// These attributes are set before SetUpTest to indicate we want to
@@ -252,10 +253,16 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		modelType = s.WithControllerModelType
 	}
 
+	// modelUUID param is not used so can pass in anything.
+	serviceFactory := s.ServiceFactoryGetter.FactoryForModel("")
+
 	credentialService := s.CredentialService
 	if credentialService == nil {
-		// modelUUID param is not used so can pass in anything.
-		credentialService = s.ServiceFactoryGetter.FactoryForModel("").Credential()
+		credentialService = serviceFactory.Credential()
+	}
+	cloudService := s.CloudService
+	if cloudService == nil {
+		cloudService = serviceFactory.Cloud()
 	}
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
@@ -271,10 +278,10 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 			CloudRegion:     DefaultCloudRegion,
 			CloudCredential: DefaultCredentialTag,
 		},
-		Cloud:         DefaultCloud,
+		CloudName:     DefaultCloud.Name,
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
-		NewPolicy:     stateenvirons.GetNewPolicyFunc(credentialService),
+		NewPolicy:     stateenvirons.GetNewPolicyFunc(cloudService, credentialService),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl

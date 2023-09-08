@@ -168,6 +168,7 @@ CREATE TABLE cloud (
     identity_endpoint   TEXT,
     storage_endpoint    TEXT,
     skip_tls_verify     BOOLEAN NOT NULL,
+    is_controller_cloud BOOLEAN NOT NULL,
     CONSTRAINT  chk_name_empty CHECK (name != ""),
     CONSTRAINT          fk_cloud_type
         FOREIGN KEY       (cloud_type_id)

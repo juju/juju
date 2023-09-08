@@ -64,7 +64,6 @@ var (
 	CombineMeterStatus            = combineMeterStatus
 	ApplicationGlobalKey          = applicationGlobalKey
 	CloudGlobalKey                = cloudGlobalKey
-	RegionSettingsGlobalKey       = regionSettingsGlobalKey
 	ModelGlobalKey                = modelGlobalKey
 	DBCollectionSizeToInt         = dbCollectionSizeToInt
 	NewEntityWatcher              = newEntityWatcher
@@ -170,14 +169,6 @@ func SetPolicy(st *State, p Policy) Policy {
 	old := st.policy
 	st.policy = p
 	return old
-}
-
-func CloudModelRefCount(st *State, cloudName string) (int, error) {
-	refcounts, closer := st.db().GetCollection(globalRefcountsC)
-	defer closer()
-
-	key := cloudModelRefCountKey(cloudName)
-	return nsRefcounts.read(refcounts, key)
 }
 
 func ApplicationSettingsRefCount(st *State, appName string, curl *string) (int, error) {

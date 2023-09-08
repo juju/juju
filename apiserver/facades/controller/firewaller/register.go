@@ -30,7 +30,7 @@ func newFirewallerAPIV7(ctx facade.Context) (*FirewallerAPI, error) {
 	}
 	cloudSpecAPI := cloudspec.NewCloudSpecV2(
 		ctx.Resources(),
-		cloudspec.MakeCloudSpecGetterForModel(st, ctx.ServiceFactory().Credential()),
+		cloudspec.MakeCloudSpecGetterForModel(st, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential()),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, ctx.ServiceFactory().Credential()),

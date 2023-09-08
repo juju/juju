@@ -64,6 +64,7 @@ type ApplicationSuite struct {
 
 	backend            *mocks.MockBackend
 	ecService          *mocks.MockECService
+	cloudService       *commonmocks.MockCloudService
 	credService        *commonmocks.MockCredentialService
 	storageAccess      *mocks.MockStorageInterface
 	model              *mocks.MockModel
@@ -106,7 +107,7 @@ func fakeClassifyDetachedStorage(
 	return destroyed, detached, nil
 }
 
-func fakeSupportedFeaturesGetter(stateenvirons.Model, stateenvirons.CredentialService) (coreassumes.FeatureSet, error) {
+func fakeSupportedFeaturesGetter(stateenvirons.Model, stateenvirons.CloudService, stateenvirons.CredentialService) (coreassumes.FeatureSet, error) {
 	return coreassumes.FeatureSet{}, nil
 }
 
@@ -188,6 +189,7 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	ver := version.MustParse("1.15.0")
 	s.caasBroker.EXPECT().Version().Return(&ver, nil).AnyTimes()
 
+	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
 
 	api, err := application.NewAPIBase(
@@ -199,12 +201,13 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		s.blockChecker,
 		s.model,
+		s.cloudService,
 		s.credService,
 		s.leadershipReader,
 		func(application.Charm) *state.Charm {
 			return nil
 		},
-		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CredentialService, p application.DeployApplicationParams) (application.Application, error) {
+		func(_ context.Context, _ application.ApplicationDeployer, _ application.Model, _ common.CloudService, _ common.CredentialService, p application.DeployApplicationParams) (application.Application, error) {
 			s.deployParams[p.ApplicationName] = p
 			return nil, nil
 		},

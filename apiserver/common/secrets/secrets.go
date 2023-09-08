@@ -56,7 +56,9 @@ type BackendDrainConfigGetter func(string) (*provider.ModelBackendConfigInfo, er
 // the specified model.
 // If external backend is configured, it returns the external backend together with the "internal" backend and
 // the k8s backend for k8s models.
-func AdminBackendConfigInfo(ctx context.Context, model Model, credentialService common.CredentialService) (*provider.ModelBackendConfigInfo, error) {
+func AdminBackendConfigInfo(
+	ctx context.Context, model Model, cloudService common.CloudService, credentialService common.CredentialService,
+) (*provider.ModelBackendConfigInfo, error) {
 	cfg, err := model.Config()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -81,7 +83,7 @@ func AdminBackendConfigInfo(ctx context.Context, model Model, credentialService 
 	}
 
 	if model.Type() == state.ModelTypeCAAS {
-		spec, err := cloudSpecForModel(ctx, model, credentialService)
+		spec, err := cloudSpecForModel(ctx, model, cloudService, credentialService)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -128,10 +130,10 @@ func AdminBackendConfigInfo(ctx context.Context, model Model, credentialService 
 
 // DrainBackendConfigInfo returns the secret backend config for the drain worker to use.
 func DrainBackendConfigInfo(
-	ctx context.Context, backendID string, model Model, credentialService common.CredentialService,
+	ctx context.Context, backendID string, model Model, cloudService common.CloudService, credentialService common.CredentialService,
 	authTag names.Tag, leadershipChecker leadership.Checker,
 ) (*provider.ModelBackendConfigInfo, error) {
-	adminModelCfg, err := AdminBackendConfigInfo(ctx, model, credentialService)
+	adminModelCfg, err := AdminBackendConfigInfo(ctx, model, cloudService, credentialService)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets providers")
 	}
@@ -164,10 +166,11 @@ func DrainBackendConfigInfo(
 // The result includes config for all relevant backends, including the id
 // of the current active backend.
 func BackendConfigInfo(
-	ctx context.Context, model Model, credentialService common.CredentialService, backendIDs []string, wantAll bool,
+	ctx context.Context, model Model, cloudService common.CloudService, credentialService common.CredentialService,
+	backendIDs []string, wantAll bool,
 	authTag names.Tag, leadershipChecker leadership.Checker,
 ) (*provider.ModelBackendConfigInfo, error) {
-	adminModelCfg, err := AdminBackendConfigInfo(ctx, model, credentialService)
+	adminModelCfg, err := AdminBackendConfigInfo(ctx, model, cloudService, credentialService)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting configured secrets providers")
 	}
@@ -303,8 +306,10 @@ func getExternalRevisions(backend state.SecretsStore, backendID string, filter s
 	return nil
 }
 
-func cloudSpecForModel(ctx context.Context, m Model, credentialService common.CredentialService) (cloudspec.CloudSpec, error) {
-	c, err := m.Cloud()
+func cloudSpecForModel(
+	ctx context.Context, m Model, cloudService common.CloudService, credentialService common.CredentialService,
+) (cloudspec.CloudSpec, error) {
+	c, err := cloudService.Get(ctx, m.CloudName())
 	if err != nil {
 		return cloudspec.CloudSpec{}, errors.Trace(err)
 	}
@@ -316,7 +321,7 @@ func cloudSpecForModel(ctx context.Context, m Model, credentialService common.Cr
 	if err != nil {
 		return cloudspec.CloudSpec{}, errors.Trace(err)
 	}
-	return cloudspec.MakeCloudSpec(c, "", &cred)
+	return cloudspec.MakeCloudSpec(*c, "", &cred)
 }
 
 // BackendFilter is used when listing secret backends.

@@ -150,21 +150,6 @@ func (mr *MockPersistentBackendMockRecorder) AllMachines() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachines", reflect.TypeOf((*MockPersistentBackend)(nil).AllMachines))
 }
 
-// Cloud mocks base method.
-func (m *MockPersistentBackend) Cloud(arg0 string) (cloud.Cloud, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Cloud", arg0)
-	ret0, _ := ret[0].(cloud.Cloud)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Cloud indicates an expected call of Cloud.
-func (mr *MockPersistentBackendMockRecorder) Cloud(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockPersistentBackend)(nil).Cloud), arg0)
-}
-
 // ControllerConfig mocks base method.
 func (m *MockPersistentBackend) ControllerConfig() (credentialcommon.ControllerConfig, error) {
 	m.ctrl.T.Helper()

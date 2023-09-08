@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -65,10 +66,6 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	}
 	s.st = &mockState{
 		controllerUUID: coretesting.ControllerTag.Id(),
-		cloud: cloud.Cloud{
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-		},
 		cfgDefaults: config.ModelDefaultAttributes{
 			"attr": config.AttributeDefaultValues{
 				Default:    "",
@@ -120,10 +117,6 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		controllerUUID: s.st.controllerUUID,
 		isController:   false,
 		life:           state.Dying,
-		cloud: cloud.Cloud{
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-		},
 		status: status.StatusInfo{
 			Status: status.Destroying,
 			Since:  &time.Time{},
@@ -180,7 +173,11 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 	var err error
 	cred := cloud.NewEmptyCredential()
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, nil, s.ctlrSt, apiservertesting.FixedCredentialGetter(&cred), &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
+		s.st, nil, s.ctlrSt,
+		&mockCloudService{
+			clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
+		},
+		apiservertesting.ConstCredentialGetter(&cred), &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -199,7 +196,11 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	var err error
 	cred := cloud.NewEmptyCredential()
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		s.st, nil, s.ctlrSt, apiservertesting.FixedCredentialGetter(&cred), &mockModelManagerService{}, nil, nil,
+		s.st, nil, s.ctlrSt,
+		&mockCloudService{
+			clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
+		},
+		apiservertesting.ConstCredentialGetter(&cred), &mockModelManagerService{}, nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -216,9 +217,9 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 		IsController:       false,
 		OwnerTag:           "user-bob",
 		ProviderType:       "dummy",
-		CloudTag:           "cloud-some-cloud",
-		CloudRegion:        "some-region",
-		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
+		CloudTag:           "cloud-dummy",
+		CloudRegion:        "dummy-region",
+		CloudCredentialTag: "cloudcred-dummy_bob_some-credential",
 		Life:               life.Dying,
 		Status: params.EntityStatus{
 			Status: status.Destroying,
@@ -643,8 +644,6 @@ type mockState struct {
 
 	controllerCfg   *controller.Config
 	controllerUUID  string
-	cloud           cloud.Cloud
-	clouds          map[names.CloudTag]cloud.Cloud
 	cloudUsers      map[string]permission.Access
 	model           *mockModel
 	controllerModel *mockModel
@@ -830,22 +829,12 @@ func (st *mockState) AllMachines() ([]common.Machine, error) {
 	return st.machines, st.NextErr()
 }
 
-func (st *mockState) Clouds() (map[names.CloudTag]cloud.Cloud, error) {
-	st.MethodCall(st, "Clouds")
-	return st.clouds, st.NextErr()
-}
-
 func (st *mockState) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error {
 	return errors.NotImplementedf("SetModelAgentVersion")
 }
 
 func (st *mockState) AbortCurrentUpgrade() error {
 	return errors.NotImplementedf("AbortCurrentUpgrade")
-}
-
-func (st *mockState) Cloud(name string) (cloud.Cloud, error) {
-	st.MethodCall(st, "Cloud", name)
-	return st.cloud, st.NextErr()
 }
 
 func (st *mockState) Close() error {
@@ -1156,7 +1145,6 @@ type mockModel struct {
 	migrationStatus     state.MigrationMode
 	controllerUUID      string
 	isController        bool
-	cloud               cloud.Cloud
 	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
 }
 
@@ -1192,22 +1180,17 @@ func (m *mockModel) Status() (status.StatusInfo, error) {
 
 func (m *mockModel) CloudName() string {
 	m.MethodCall(m, "CloudName")
-	return "some-cloud"
-}
-
-func (m *mockModel) Cloud() (cloud.Cloud, error) {
-	m.MethodCall(m, "CloudValue")
-	return m.cloud, nil
+	return "dummy"
 }
 
 func (m *mockModel) CloudRegion() string {
 	m.MethodCall(m, "CloudRegion")
-	return "some-region"
+	return "dummy-region"
 }
 
 func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	m.MethodCall(m, "CloudCredentialTag")
-	return names.NewCloudCredentialTag("some-cloud/bob/some-credential"), true
+	return names.NewCloudCredentialTag("dummy/bob/some-credential"), true
 }
 
 func (m *mockModel) Users() ([]permission.UserAccess, error) {
@@ -1335,4 +1318,24 @@ func (mockModelManagerService) Create(ctx stdcontext.Context, uuid modelmanagers
 
 func (mockModelManagerService) Delete(ctx stdcontext.Context, uuid modelmanagerservice.UUID) error {
 	return nil
+}
+
+type mockCloudService struct {
+	clouds map[string]cloud.Cloud
+}
+
+func (m *mockCloudService) Get(ctx stdcontext.Context, name string) (*cloud.Cloud, error) {
+	cld, ok := m.clouds[name]
+	if !ok {
+		return nil, errors.NotFoundf("cloud %q", name)
+	}
+	return &cld, nil
+}
+
+func (m *mockCloudService) ListAll(ctx stdcontext.Context) ([]cloud.Cloud, error) {
+	var result []cloud.Cloud
+	for _, cld := range m.clouds {
+		result = append(result, cld)
+	}
+	return result, nil
 }

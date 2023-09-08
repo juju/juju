@@ -19,11 +19,14 @@ type CloudConfigSchemaProvider func(string) (config.ConfigSchemaSource, error)
 
 // State describes retrieval and persistence methods for storage.
 type State interface {
-	// Save persists the input cloud entity.
-	Save(context.Context, cloud.Cloud) error
+	// UpsertCloud persists the input cloud entity.
+	UpsertCloud(context.Context, cloud.Cloud) error
 
-	// List returns the clouds matching the optional filter.
-	List(context.Context, string) ([]cloud.Cloud, error)
+	// DeleteCloud deletes the input cloud entity.
+	DeleteCloud(context.Context, string) error
+
+	// ListClouds returns the clouds matching the optional filter.
+	ListClouds(context.Context, string) ([]cloud.Cloud, error)
 }
 
 // Service provides the API for working with clouds.
@@ -42,19 +45,24 @@ func NewService(st State, cloudConfigSchema CloudConfigSchemaProvider) *Service 
 
 // Save inserts or updates the specified cloud.
 func (s *Service) Save(ctx context.Context, cloud cloud.Cloud) error {
-	err := s.st.Save(ctx, cloud)
-	return errors.Annotate(err, "updating cloud state")
+	err := s.st.UpsertCloud(ctx, cloud)
+	return errors.Annotatef(err, "updating cloud %q", cloud.Name)
+}
+
+func (s *Service) Delete(ctx context.Context, name string) error {
+	err := s.st.DeleteCloud(ctx, name)
+	return errors.Annotatef(err, "deleting cloud %q", name)
 }
 
 // ListAll returns all the clouds.
 func (s *Service) ListAll(ctx context.Context) ([]cloud.Cloud, error) {
-	all, err := s.st.List(ctx, "")
+	all, err := s.st.ListClouds(ctx, "")
 	return all, errors.Trace(err)
 }
 
 // Get returns the named cloud.
 func (s *Service) Get(ctx context.Context, name string) (*cloud.Cloud, error) {
-	clouds, err := s.st.List(ctx, name)
+	clouds, err := s.st.ListClouds(ctx, name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

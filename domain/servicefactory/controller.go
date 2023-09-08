@@ -4,11 +4,17 @@
 package servicefactory
 
 import (
+	"fmt"
+
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	autocertcachestate "github.com/juju/juju/domain/autocert/state"
+	cloudservice "github.com/juju/juju/domain/cloud/service"
+	cloudstate "github.com/juju/juju/domain/cloud/state"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
@@ -19,6 +25,7 @@ import (
 	externalcontrollerstate "github.com/juju/juju/domain/externalcontroller/state"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
+	"github.com/juju/juju/environs/config"
 )
 
 // Logger defines the logging interface used by the services.
@@ -95,6 +102,19 @@ func (s *ControllerFactory) Credential() *credentialservice.Service {
 			s.controllerDB,
 			s.logger.Child("credential"),
 		),
+	)
+}
+
+// TODO(tlm) - fix me
+func dummyConfigSchemaProvider(ct string) (config.ConfigSchemaSource, error) {
+	return nil, fmt.Errorf("cloud %q schema provider %w", ct, errors.NotFound)
+}
+
+// Cloud returns the cloud service.
+func (s *ControllerFactory) Cloud() *cloudservice.Service {
+	return cloudservice.NewService(
+		cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		dummyConfigSchemaProvider,
 	)
 }
 

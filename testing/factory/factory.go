@@ -20,7 +20,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	coreconfig "github.com/juju/juju/core/config"
@@ -849,12 +848,6 @@ func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State
 		params.Owner = origEnv.Owner()
 	}
 	if params.CloudName == "" {
-		err := factory.st.AddCloud(cloud.Cloud{
-			Name:      "caascloud",
-			Type:      "kubernetes",
-			AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
-		}, params.Owner.Id())
-		c.Assert(err, jc.ErrorIsNil)
 		params.CloudName = "caascloud"
 	}
 	if params.CloudCredential.IsZero() {

@@ -122,7 +122,8 @@ func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	var err error
-	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), s.ControllerServiceFactory.Credential())
+	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(
+		s.ControllerModel(c), s.ControllerServiceFactory.Cloud(), s.ControllerServiceFactory.Credential())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.DataDir = c.MkDir()
@@ -322,7 +323,7 @@ func (s *AgentSuite) AssertCanOpenState(c *gc.C, tag names.Tag, dataDir string) 
 		ControllerTag:      config.Controller(),
 		ControllerModelTag: config.Model(),
 		MongoSession:       session,
-		NewPolicy:          stateenvirons.GetNewPolicyFunc(nil),
+		NewPolicy:          stateenvirons.GetNewPolicyFunc(nil, nil),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_ = pool.Close()

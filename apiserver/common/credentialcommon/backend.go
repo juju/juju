@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -20,9 +19,6 @@ import (
 type PersistentBackend interface {
 	// Model returns the model entity.
 	Model() (Model, error)
-
-	// Cloud returns the controller's cloud definition.
-	Cloud(name string) (cloud.Cloud, error)
 
 	// AllMachines returns all machines in the model.
 	AllMachines() ([]Machine, error)

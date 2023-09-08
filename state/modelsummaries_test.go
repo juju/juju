@@ -14,7 +14,6 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/permission"
@@ -67,20 +66,6 @@ func (s *ModelSummariesSuite) Setup4Models(c *gc.C) map[string]string {
 	modelUUIDs["user3model"] = st3.ModelUUID()
 	st3.Close()
 	owner := s.Model.Owner()
-	err := s.State.AddCloud(cloud.Cloud{
-		Name:      "stratus",
-		Type:      "low",
-		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-		Regions: []cloud.Region{
-			{
-				Name:             "dummy-region",
-				Endpoint:         "dummy-endpoint",
-				IdentityEndpoint: "dummy-identity-endpoint",
-				StorageEndpoint:  "dummy-storage-endpoint",
-			},
-		},
-	}, s.Owner.Name())
-	c.Assert(err, jc.ErrorIsNil)
 
 	tag := names.NewCloudCredentialTag(fmt.Sprintf("stratus/%v/foobar", owner.Name()))
 	sharedSt := s.Factory.MakeModel(c, &factory.ModelParams{

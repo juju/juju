@@ -27,6 +27,7 @@ func newMachinerAPI(ctx facade.Context) (*MachinerAPI, error) {
 	return NewMachinerAPIForState(
 		systemState,
 		ctx.State(),
+		ctx.ServiceFactory().Cloud(),
 		ctx.Resources(),
 		ctx.Auth(),
 	)

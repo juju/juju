@@ -20,7 +20,7 @@ var (
 
 // SupportedFeatures returns the set of features that the model makes available
 // for charms to use.
-func SupportedFeatures(model Model, credentialService CredentialService) (assumes.FeatureSet, error) {
+func SupportedFeatures(model Model, cloudService CloudService, credentialService CredentialService) (assumes.FeatureSet, error) {
 	var fs assumes.FeatureSet
 
 	// Models always include a feature flag for the current Juju version
@@ -41,13 +41,13 @@ func SupportedFeatures(model Model, credentialService CredentialService) (assume
 	var env interface{}
 	switch model.Type() {
 	case state.ModelTypeIAAS:
-		iaasEnv, err := iaasEnvironGetter(model, credentialService)
+		iaasEnv, err := iaasEnvironGetter(model, cloudService, credentialService)
 		if err != nil {
 			return fs, errors.Annotate(err, "accessing model environment")
 		}
 		env = iaasEnv
 	case state.ModelTypeCAAS:
-		caasEnv, err := caasBrokerGetter(model, credentialService)
+		caasEnv, err := caasBrokerGetter(model, cloudService, credentialService)
 		if err != nil {
 			return fs, errors.Annotate(err, "accessing model environment")
 		}

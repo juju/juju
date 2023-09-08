@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/cloud"
 )
 
-// FixedCredentialGetter returns a CredentialService which serves a fixed credential.
-func FixedCredentialGetter(cred *cloud.Credential) *credentialGetter {
+// ConstCredentialGetter returns a CredentialService which serves a fixed credential.
+func ConstCredentialGetter(cred *cloud.Credential) *credentialGetter {
 	return &credentialGetter{cred: cred}
 }
 

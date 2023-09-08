@@ -25,6 +25,7 @@ func newCredentialValidatorAPI(ctx facade.Context) (*CredentialValidatorAPI, err
 		return nil, errors.Trace(err)
 	}
 	return internalNewCredentialValidatorAPI(st,
+		ctx.ServiceFactory().Cloud(),
 		ctx.ServiceFactory().Credential(),
 		ctx.Resources(), ctx.Auth(),
 		ctx.Logger().Child("credentialvalidator"))

@@ -5,6 +5,7 @@ package servicefactory
 
 import (
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
+	cloudservice "github.com/juju/juju/domain/cloud/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
@@ -27,6 +28,8 @@ type ControllerServiceFactory interface {
 	Credential() *credentialservice.Service
 	// AutocertCache returns the autocert cache service.
 	AutocertCache() *autocertcacheservice.Service
+	// Cloud returns the cloud service.
+	Cloud() *cloudservice.Service
 }
 
 // ModelServiceFactory provides access to the services required by the

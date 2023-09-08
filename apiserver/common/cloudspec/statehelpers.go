@@ -24,7 +24,7 @@ type Pool interface {
 
 // MakeCloudSpecGetter returns a function which returns a CloudSpec
 // for a given model, using the given Pool.
-func MakeCloudSpecGetter(pool Pool, credentialService common.CredentialService) func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+func MakeCloudSpecGetter(pool Pool, cloudService common.CloudService, credentialService common.CredentialService) func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 	return func(tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 		st, err := pool.Get(tag.Id())
 		if err != nil {
@@ -41,7 +41,8 @@ func MakeCloudSpecGetter(pool Pool, credentialService common.CredentialService) 
 		// both state and model but only model.
 		// TODO (manadart 2018-02-15): This potentially frees the state from
 		// the pool. Release is called, but the state reference survives.
-		return stateenvirons.EnvironConfigGetter{Model: m, CredentialService: credentialService}.CloudSpec(context.Background())
+		return stateenvirons.EnvironConfigGetter{
+			Model: m, CloudService: cloudService, CredentialService: credentialService}.CloudSpec(context.Background())
 	}
 }
 
@@ -49,13 +50,14 @@ func MakeCloudSpecGetter(pool Pool, credentialService common.CredentialService) 
 // CloudSpec for a single model. Attempts to request a CloudSpec for
 // any other model other than the one associated with the given
 // state.State results in an error.
-func MakeCloudSpecGetterForModel(st *state.State, credentialService common.CredentialService) func(names.ModelTag) (environscloudspec.CloudSpec, error) {
+func MakeCloudSpecGetterForModel(st *state.State, cloudService common.CloudService, credentialService common.CredentialService) func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 	return func(tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 		m, err := st.Model()
 		if err != nil {
 			return environscloudspec.CloudSpec{}, errors.Trace(err)
 		}
-		configGetter := stateenvirons.EnvironConfigGetter{Model: m, CredentialService: credentialService}
+		configGetter := stateenvirons.EnvironConfigGetter{
+			Model: m, CloudService: cloudService, CredentialService: credentialService}
 
 		if tag.Id() != st.ModelUUID() {
 			return environscloudspec.CloudSpec{}, errors.New("cannot get cloud spec for this model")

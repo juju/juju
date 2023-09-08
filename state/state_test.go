@@ -30,7 +30,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -3217,19 +3216,8 @@ func (s *StateSuite) TestRemoveModel(c *gc.C) {
 	err = model.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloud, err := s.State.Cloud(model.CloudName())
-	c.Assert(err, jc.ErrorIsNil)
-	refCount, err := state.CloudModelRefCount(st, cloud.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(refCount, gc.Equals, 1)
-
 	err = st.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
-
-	cloud, err = s.State.Cloud(model.CloudName())
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = state.CloudModelRefCount(st, cloud.Name)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// test that we can not find the user:envName unique index
 	s.checkUserModelNameExists(c, checkUserModelNameArgs{st: st, id: userModelKey, exists: false})
@@ -3586,29 +3574,6 @@ func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, w)
-	wc.AssertOneChange()
-}
-
-func (s *StateSuite) TestWatchCloudSpecChanges(c *gc.C) {
-	w := s.Model.WatchCloudSpecChanges()
-	defer workertest.CleanKill(c, w)
-
-	wc := statetesting.NewNotifyWatcherC(c, w)
-	// Initially we get one change notification
-	wc.AssertOneChange()
-
-	cloud, err := s.State.Cloud(s.Model.CloudName())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Multiple changes will only result in a single change notification
-	cloud.StorageEndpoint = "https://storage"
-	err = s.State.UpdateCloud(cloud)
-	c.Assert(err, jc.ErrorIsNil)
-	// TODO(quiescence): these two changes should be one event.
-	wc.AssertOneChange()
-	cloud.StorageEndpoint = "https://storage1"
-	err = s.State.UpdateCloud(cloud)
-	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
 
@@ -4997,11 +4962,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 			Config:                  cfg,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		Cloud: cloud.Cloud{
-			Name:      "dummy",
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-		},
+		CloudName:     "dummy",
 		MongoSession:  session,
 		AdminPassword: password,
 	})

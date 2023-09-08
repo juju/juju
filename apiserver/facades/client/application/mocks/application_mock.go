@@ -14,7 +14,6 @@ import (
 	storagecommon "github.com/juju/juju/apiserver/common/storagecommon"
 	application "github.com/juju/juju/apiserver/facades/client/application"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
-	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
 	config "github.com/juju/juju/core/config"
 	constraints "github.com/juju/juju/core/constraints"
@@ -710,21 +709,6 @@ func (m *MockModel) AgentVersion() (version.Number, error) {
 func (mr *MockModelMockRecorder) AgentVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockModel)(nil).AgentVersion))
-}
-
-// Cloud mocks base method.
-func (m *MockModel) Cloud() (cloud.Cloud, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Cloud")
-	ret0, _ := ret[0].(cloud.Cloud)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Cloud indicates an expected call of Cloud.
-func (mr *MockModelMockRecorder) Cloud() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cloud", reflect.TypeOf((*MockModel)(nil).Cloud))
 }
 
 // CloudCredentialTag mocks base method.

@@ -17,7 +17,7 @@ import (
 // Model defines a subset of state model methods.
 type Model interface {
 	ControllerUUID() string
-	Cloud() (cloud.Cloud, error)
+	CloudName() string
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	Config() (*config.Config, error)
 	UUID() string
