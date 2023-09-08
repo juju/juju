@@ -81,6 +81,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	endpoint, err := controller.TestingAPI(
 		facadetest.Context{
 			State_:     s.State,
+			StatePool_: s.StatePool,
 			Resources_: s.resources,
 			Auth_:      anAuthoriser,
 		})

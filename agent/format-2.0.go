@@ -66,6 +66,7 @@ type format_2_0Serialization struct {
 	JujuDBSnapChannel     string        `yaml:"juju-db-snap-channel,omitempty"`
 	QueryTracingEnabled   bool          `yaml:"querytracingenabled,omitempty"`
 	QueryTracingThreshold time.Duration `yaml:"querytracingthreshold,omitempty"`
+	DqlitePort            int           `yaml:"dqlite-port,omitempty"`
 }
 
 func init() {
@@ -119,6 +120,8 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 
 		queryTracingEnabled:   format.QueryTracingEnabled,
 		queryTracingThreshold: format.QueryTracingThreshold,
+
+		dqlitePort: format.DqlitePort,
 	}
 	if len(format.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -189,6 +192,8 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 
 		QueryTracingEnabled:   config.queryTracingEnabled,
 		QueryTracingThreshold: config.queryTracingThreshold,
+
+		DqlitePort: config.dqlitePort,
 	}
 	if config.servingInfo != nil {
 		format.ControllerCert = config.servingInfo.Cert

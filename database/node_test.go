@@ -344,6 +344,11 @@ func (cfg fakeAgentConfig) APIAddresses() ([]string, error) {
 	return cfg.apiAddrs, nil
 }
 
+// DqlitePort implements agent.Config.
+func (cfg fakeAgentConfig) DqlitePort() (int, bool) {
+	return 0, false
+}
+
 type slowQuerySuite struct {
 	testing.IsolationSuite
 }

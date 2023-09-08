@@ -15,7 +15,7 @@ while true; do
   ip=$(juju status --format json | jq -r '.applications."prometheus-k8s".address' || echo "")
   port="9090"
   app_status=$(curl --silent --max-time 3 "${ip}:${port}/-/ready" || echo "")
-  [ "$app_status" == "Prometheus is Ready." ] && break
+  [ "$app_status" == "Prometheus Server is Ready." ] && break
 
   sleep 10
 done
