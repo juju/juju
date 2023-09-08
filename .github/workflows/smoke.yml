@@ -11,7 +11,7 @@ jobs:
 
   smoke:
     name: Smoke
-    runs-on: [self-hosted, linux, arm64, aws, xlarge]
+    runs-on: [self-hosted, linux, x64, aws, xlarge]
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
