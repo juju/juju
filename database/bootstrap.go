@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/database/schema"
 )
 
-type bootstrapOptFactory interface {
+type bootstrapNodeManager interface {
 	// EnsureDataDir ensures that a directory for Dqlite data exists at
 	// a path determined by the agent config, then returns that path.
 	EnsureDataDir() (string, error)
@@ -42,22 +42,27 @@ type bootstrapOptFactory interface {
 // At this point we know there are no peers and that we are the only user
 // of Dqlite, so we can eschew external address and clustering concerns.
 // Those will be handled by the db-accessor worker.
-func BootstrapDqlite(ctx context.Context, opt bootstrapOptFactory, logger Logger, ops ...func(db *sql.DB) error) error {
-	dir, err := opt.EnsureDataDir()
+func BootstrapDqlite(
+	ctx context.Context,
+	mgr bootstrapNodeManager,
+	logger Logger,
+	ops ...func(db *sql.DB) error,
+) error {
+	dir, err := mgr.EnsureDataDir()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	dqlite, err := app.New(dir,
-		opt.WithLoopbackAddressOption(),
-		opt.WithLogFuncOption(),
+		mgr.WithLoopbackAddressOption(),
+		mgr.WithLogFuncOption(),
 	)
 	if err != nil {
 		return errors.Annotate(err, "creating Dqlite app")
 	}
 	defer func() {
 		if err := dqlite.Close(); err != nil {
-			logger.Errorf("closing dqlite: %v", err)
+			logger.Errorf("closing Dqlite: %v", err)
 		}
 	}()
 
