@@ -317,9 +317,9 @@ func (mr *MockNodeManagerMockRecorder) EnsureDataDir() *gomock.Call {
 }
 
 // IsBootstrappedNode mocks base method.
-func (m *MockNodeManager) IsBootstrappedNode(arg0 context.Context) (bool, error) {
+func (m *MockNodeManager) IsLoopbackBound(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsBootstrappedNode", arg0)
+	ret := m.ctrl.Call(m, "IsLoopbackBound", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -328,7 +328,7 @@ func (m *MockNodeManager) IsBootstrappedNode(arg0 context.Context) (bool, error)
 // IsBootstrappedNode indicates an expected call of IsBootstrappedNode.
 func (mr *MockNodeManagerMockRecorder) IsBootstrappedNode(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsBootstrappedNode", reflect.TypeOf((*MockNodeManager)(nil).IsBootstrappedNode), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLoopbackBound", reflect.TypeOf((*MockNodeManager)(nil).IsLoopbackBound), arg0)
 }
 
 // IsExistingNode mocks base method.

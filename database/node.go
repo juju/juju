@@ -63,11 +63,9 @@ func NewNodeManager(cfg agent.Config, logger Logger, slowQueryLogger coredatabas
 	return m
 }
 
-// IsBootstrappedNode returns true if this machine or container was where we
-// first bootstrapped Dqlite, and it hasn't been reconfigured since.
-// Specifically, whether we are a cluster of one, and bound to the loopback
-// IP address.
-func (m *NodeManager) IsBootstrappedNode(ctx context.Context) (bool, error) {
+// IsLoopbackBound returns true if we are a cluster of one,
+// and bound to the loopback IP address.
+func (m *NodeManager) IsLoopbackBound(ctx context.Context) (bool, error) {
 	extant, err := m.IsExistingNode()
 	if err != nil {
 		return false, errors.Annotate(err, "determining existing Dqlite node")

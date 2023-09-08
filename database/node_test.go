@@ -101,7 +101,7 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
 	ctx := context.Background()
 
 	// Empty directory indicates we are not the bootstrapped node.
-	asBootstrapped, err := m.IsBootstrappedNode(ctx)
+	asBootstrapped, err := m.IsLoopbackBound(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(asBootstrapped, jc.IsFalse)
 
@@ -123,7 +123,7 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
 	err = os.WriteFile(clusterFile, []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	asBootstrapped, err = m.IsBootstrappedNode(ctx)
+	asBootstrapped, err = m.IsLoopbackBound(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(asBootstrapped, jc.IsFalse)
 
@@ -137,7 +137,7 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
 	err = os.WriteFile(clusterFile, []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	asBootstrapped, err = m.IsBootstrappedNode(ctx)
+	asBootstrapped, err = m.IsLoopbackBound(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(asBootstrapped, jc.IsFalse)
 
@@ -151,7 +151,7 @@ func (s *nodeManagerSuite) TestIsBootstrappedNode(c *gc.C) {
 	err = os.WriteFile(clusterFile, []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	asBootstrapped, err = m.IsBootstrappedNode(ctx)
+	asBootstrapped, err = m.IsLoopbackBound(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(asBootstrapped, jc.IsTrue)
 }

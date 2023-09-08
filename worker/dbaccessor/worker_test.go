@@ -354,7 +354,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
-	// Although the shut-down check for IsBootstrappedNode returns false,
+	// Although the shut-down check for IsLoopbackBound returns false,
 	// this call to shut-down is actually run before reconfiguring the node.
 	// When the loop exits, the node is already set to nil.
 	s.expectNodeStartupAndShutdown()
