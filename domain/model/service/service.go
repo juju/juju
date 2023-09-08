@@ -1,0 +1,58 @@
+// Copyright 2023 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package service
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/juju/errors"
+	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/domain/credential"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/modelmanager/service"
+)
+
+// State is the model state required by this service.
+type State interface {
+	// SetCloudCredential sets the cloud credential for the given mode.
+	SetCloudCredential(context.Context, service.UUID, credential.ID) error
+}
+
+// Service defines a service for interacting with the underlying state based
+// information of a model.
+type Service struct {
+	uuid service.UUID
+	st   State
+}
+
+// NewService returns a new Service for interacting with a models state.
+func NewService(modelUUID service.UUID, st State) *Service {
+	return &Service{
+		uuid: modelUUID,
+		st:   st,
+	}
+}
+
+// SetCloudCredential takes a cloud credential tag to set for this model.
+func (s *Service) SetCloudCredential(
+	ctx context.Context,
+	cred names.CloudCredentialTag,
+) error {
+	id := credential.ID{
+		Cloud: cred.Cloud().Id(),
+		Owner: cred.Owner().Id(),
+		Name:  cred.Name(),
+	}
+	err := s.st.SetCloudCredential(ctx, s.uuid, id)
+	if errors.Is(err, errors.NotFound) {
+		return fmt.Errorf("cloud credential %q %w", cred.String(), errors.NotFound)
+	} else if errors.Is(err, modelerrors.NotFound) {
+		return err
+	} else if err != nil {
+		return fmt.Errorf("setting cloud credential on model: %w", err)
+	}
+	return nil
+}

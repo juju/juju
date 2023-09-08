@@ -250,7 +250,7 @@ func defaultRetryStrategy(clock clock.Clock, logger Logger) func(context.Context
 			Clock:       clock,
 			Stop:        ctx.Done(),
 		})
-		return errors.Trace(err)
+		return err
 	}
 }
 
