@@ -164,11 +164,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
-	_, systemState, err := stTracker.Use()
-	if err != nil {
-		_ = stTracker.Done()
-		return nil, errors.Trace(err)
-	}
 
 	ctx, cancel := stdcontext.WithCancel(stdcontext.Background())
 	defer cancel()
@@ -181,7 +176,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	tlsConfig := config.NewTLSConfig(
 		controllerConfig.AutocertDNSName(),
 		controllerConfig.AutocertURL(),
-		systemState.AutocertCache(),
+		controllerServiceFactory.AutocertCache(),
 		pkitls.AuthoritySNITLSGetter(authority, config.Logger),
 		config.Logger,
 	)

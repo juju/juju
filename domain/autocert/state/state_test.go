@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
@@ -80,7 +81,7 @@ func (s *stateSuite) TestRetrieveNoCert(c *gc.C) {
 
 	// Retrieve an arbitrary non existent cert.
 	_, err := st.Get(context.Background(), "cert1")
-	c.Assert(err, gc.ErrorMatches, "autocert cert1: not found")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *stateSuite) TestInsertX509(c *gc.C) {
@@ -277,5 +278,5 @@ Hn+GmxZA
 
 	// Retrieve the non-existent cert.
 	_, err = st.Get(context.Background(), "cert1")
-	c.Assert(err, gc.ErrorMatches, "autocert cert1: not found")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

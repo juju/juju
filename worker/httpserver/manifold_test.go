@@ -23,6 +23,7 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
@@ -46,6 +47,7 @@ type ManifoldSuite struct {
 	tlsConfig              *tls.Config
 	controllerConfig       controller.Config
 	serviceFactory         servicefactory.ServiceFactory
+	autocertCacheGetter    *autocertcacheservice.Service
 	controllerConfigGetter *controllerconfigservice.Service
 
 	stub testing.Stub
@@ -70,9 +72,12 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		"controller-api-port": 2048,
 		"api-port-open-delay": "5s",
 	}
+
+	s.autocertCacheGetter = &autocertcacheservice.Service{}
 	s.controllerConfigGetter = &controllerconfigservice.Service{}
 	s.serviceFactory = stubServiceFactory{
 		controllerConfigGetter: s.controllerConfigGetter,
+		autocertCacheGetter:    s.autocertCacheGetter,
 	}
 	s.stub.ResetCalls()
 
@@ -245,16 +250,6 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 	}
 }
 
-func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
-	w := s.startWorkerClean(c)
-	defer workertest.CleanKill(c, w)
-
-	s.state.CheckCallNames(c, "Use")
-
-	workertest.CleanKill(c, w)
-	s.state.CheckCallNames(c, "Use", "Done")
-}
-
 func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	w, err := s.manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
@@ -265,6 +260,11 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 type stubServiceFactory struct {
 	servicefactory.ServiceFactory
 	controllerConfigGetter *controllerconfigservice.Service
+	autocertCacheGetter    *autocertcacheservice.Service
+}
+
+func (s stubServiceFactory) AutocertCache() *autocertcacheservice.Service {
+	return s.autocertCacheGetter
 }
 
 func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.Service {

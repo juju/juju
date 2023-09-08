@@ -7,6 +7,8 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
+	autocertcachestate "github.com/juju/juju/domain/autocert/state"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	controllerconfigstate "github.com/juju/juju/domain/controllerconfig/state"
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
@@ -21,6 +23,7 @@ import (
 
 // Logger defines the logging interface used by the services.
 type Logger interface {
+	Tracef(string, ...interface{})
 	Debugf(string, ...interface{})
 	Warningf(string, ...interface{})
 	Child(string) Logger
@@ -92,5 +95,13 @@ func (s *ControllerFactory) Credential() *credentialservice.Service {
 			s.controllerDB,
 			s.logger.Child("credential"),
 		),
+	)
+}
+
+// AutocertCache returns the autocert cache service.
+func (s *ControllerFactory) AutocertCache() *autocertcacheservice.Service {
+	return autocertcacheservice.NewService(
+		autocertcachestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.logger.Child("autocertcache"),
 	)
 }
