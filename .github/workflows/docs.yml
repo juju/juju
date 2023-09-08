@@ -11,7 +11,7 @@ on:
 jobs:
   sync:
     name: Sync to Discourse
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, large]
     env:
       TOPIC_IDS: './.github/discourse-topic-ids.yaml'
 
