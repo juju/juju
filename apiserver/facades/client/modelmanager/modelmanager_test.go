@@ -216,7 +216,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, s.modelExporter, s.ctlrSt,
 		s.cloudService,
-		apiservertesting.FixedCredentialGetter(&cred), &mockModelManagerService{},
+		apiservertesting.ConstCredentialGetter(&cred), &mockModelManagerService{},
 		nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
@@ -230,7 +230,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				"k8s-cloud": mockK8sCloud,
 			},
 		},
-		apiservertesting.FixedCredentialGetter(&caasCred), &mockModelManagerService{},
+		apiservertesting.ConstCredentialGetter(&caasCred), &mockModelManagerService{},
 		nil, newBroker, common.NewBlockChecker(s.caasSt),
 		s.authoriser, s.st.model, s.callContext,
 	)
@@ -256,7 +256,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{"dummy": jujutesting.DefaultCloud},
 		},
-		apiservertesting.FixedCredentialGetter(nil), &mockModelManagerService{},
+		apiservertesting.ConstCredentialGetter(nil), &mockModelManagerService{},
 		nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
@@ -718,7 +718,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{"dummy": jujutesting.DefaultCloud},
 		},
-		apiservertesting.FixedCredentialGetter(nil), &mockModelManagerService{},
+		apiservertesting.ConstCredentialGetter(nil), &mockModelManagerService{},
 		nil, nil, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
@@ -882,7 +882,7 @@ func (s *modelManagerStateSuite) SetUpSuite(c *gc.C) {
 
 func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 	cred := cloud.NewEmptyCredential()
-	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
+	s.CredentialService = apiservertesting.ConstCredentialGetter(&cred)
 	s.ControllerModelConfigAttrs = map[string]interface{}{
 		"agent-version": jujuversion.Current.String(),
 	}

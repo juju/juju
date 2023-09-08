@@ -73,7 +73,7 @@ func (s *networkInfoSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
+	s.CredentialService = apiservertesting.ConstCredentialGetter(&cred)
 	s.ApiServerSuite.SetUpTest(c)
 }
 

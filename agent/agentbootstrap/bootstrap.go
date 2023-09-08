@@ -116,9 +116,11 @@ func InitializeState(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting cloud credentials from args")
 	}
+	ctrlCloud := args.ControllerCloud
+	ctrlCloud.IsControllerCloud = true
 	opts := append(setupDBOpts,
 		ccbootstrap.InsertInitialControllerConfig(args.ControllerConfig),
-		cloudbootstrap.InsertInitialControllerCloud(args.ControllerCloud),
+		cloudbootstrap.InsertInitialControllerCloud(ctrlCloud),
 	)
 	if cloudCredTag.Id() != "" {
 		opts = append(opts, credbootstrap.InsertInitialControllerCredentials(cloudCredTag.Name(), cloudCredTag.Cloud().Id(), cloudCredTag.Owner().Id(), cloudCred))

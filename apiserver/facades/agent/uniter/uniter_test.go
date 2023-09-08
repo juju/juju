@@ -98,7 +98,7 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 		"username": "dummy",
 		"password": "secret",
 	})
-	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
+	s.CredentialService = apiservertesting.ConstCredentialGetter(&cred)
 
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.Features: feature.RawK8sSpec,
@@ -3858,7 +3858,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	}
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
+	s.CredentialService = apiservertesting.ConstCredentialGetter(&cred)
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.Features: feature.RawK8sSpec,
 	}
@@ -5015,7 +5015,7 @@ var _ = gc.Suite(&uniterAPIErrorSuite{})
 
 func (s *uniterAPIErrorSuite) SetupTest(c *gc.C) {
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
+	s.CredentialService = apiservertesting.ConstCredentialGetter(&cred)
 	s.ApiServerSuite.SetUpTest(c)
 }
 

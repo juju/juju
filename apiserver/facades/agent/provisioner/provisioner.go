@@ -123,7 +123,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	if isCaasModel {
 		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
 	} else {
-		env, err = environs.GetEnviron(stdcontext.TODO(), configGetter, environs.New)
+		env, err = environs.GetEnviron(stdcontext.Background(), configGetter, environs.New)
 	}
 	if err != nil {
 		return nil, errors.Trace(err)

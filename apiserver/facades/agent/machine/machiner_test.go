@@ -46,7 +46,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	machiner, err := machine.NewMachinerAPIForState(
 		st,
 		st,
-		apiservertesting.FixedCloudGetter(&testing.DefaultCloud),
+		apiservertesting.ConstCloudGetter(&testing.DefaultCloud),
 		s.resources,
 		s.authorizer,
 	)

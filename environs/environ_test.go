@@ -45,7 +45,7 @@ func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 func (s *environSuite) TestGetEnvironment(c *gc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{"name": "testmodel-foo"})
 	m := &mockModel{cfg: cfg}
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(m, apiservertesting.FixedCloudGetter(&jujutesting.DefaultCloud), nil)
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(m, apiservertesting.ConstCloudGetter(&jujutesting.DefaultCloud), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.Config().UUID(), jc.DeepEquals, cfg.UUID())
 }

@@ -177,7 +177,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
 		},
-		apiservertesting.FixedCredentialGetter(&cred), &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
+		apiservertesting.ConstCredentialGetter(&cred), &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,7 +200,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
 		},
-		apiservertesting.FixedCredentialGetter(&cred), &mockModelManagerService{}, nil, nil,
+		apiservertesting.ConstCredentialGetter(&cred), &mockModelManagerService{}, nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)

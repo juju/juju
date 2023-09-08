@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/cloud"
 )
 
-// FixedCloudGetter returns a CloudService which serves a fixed cloud.
-func FixedCloudGetter(cld *cloud.Cloud) *cloudGetter {
+// ConstCloudGetter returns a CloudService which serves a fixed cloud.
+func ConstCloudGetter(cld *cloud.Cloud) *cloudGetter {
 	return &cloudGetter{cld: cld}
 }
 

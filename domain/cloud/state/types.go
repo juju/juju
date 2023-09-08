@@ -38,6 +38,9 @@ type Cloud struct {
 
 	// SkipTLSVerify indicates if the client should skip cert validation.
 	SkipTLSVerify bool `db:"skip_tls_verify"`
+
+	// IsControllerCloud indicates if the cloud is hosting the controller model.
+	IsControllerCloud bool `db:"is_controller_cloud"`
 }
 
 type CloudAuthType struct {

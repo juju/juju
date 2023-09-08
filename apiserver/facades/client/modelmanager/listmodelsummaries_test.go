@@ -71,7 +71,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 		&mockCloudService{
 			clouds: map[string]jujucloud.Cloud{"dummy": jtesting.DefaultCloud},
 		},
-		apiservertesting.FixedCredentialGetter(&s.cred), &mockModelManagerService{},
+		apiservertesting.ConstCredentialGetter(&s.cred), &mockModelManagerService{},
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext,
 	)
@@ -98,7 +98,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		&mockCloudService{
 			clouds: map[string]jujucloud.Cloud{"dummy": jtesting.DefaultCloud},
 		},
-		apiservertesting.FixedCredentialGetter(&s.cred), &mockModelManagerService{},
+		apiservertesting.ConstCredentialGetter(&s.cred), &mockModelManagerService{},
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext,
 	)

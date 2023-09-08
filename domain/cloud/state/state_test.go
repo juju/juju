@@ -44,8 +44,9 @@ var (
 			IdentityEndpoint: "http://region-identity-endpoint2",
 			StorageEndpoint:  "http://region-identity-endpoint2",
 		}},
-		CACertificates: []string{"cert1", "cert2"},
-		SkipTLSVerify:  true,
+		CACertificates:    []string{"cert1", "cert2"},
+		SkipTLSVerify:     true,
+		IsControllerCloud: true,
 	}
 	testCloud2 = cloud.Cloud{
 		Name:             "fluffy2",
@@ -65,8 +66,9 @@ var (
 			IdentityEndpoint: "http://region-identity-endpoint3",
 			StorageEndpoint:  "http://region-identity-endpoint3",
 		}},
-		CACertificates: []string{"cert1", "cert3"},
-		SkipTLSVerify:  false,
+		CACertificates:    []string{"cert1", "cert3"},
+		SkipTLSVerify:     false,
+		IsControllerCloud: true,
 	}
 )
 
@@ -74,11 +76,11 @@ func (s *stateSuite) assertCloud(c *gc.C, cloud cloud.Cloud) string {
 	db := s.DB()
 
 	// Check the cloud record.
-	row := db.QueryRow("SELECT uuid, name, cloud_type_id, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify FROM cloud WHERE name = ?", "fluffy")
+	row := db.QueryRow("SELECT uuid, name, cloud_type_id, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify, is_controller_cloud FROM cloud WHERE name = ?", "fluffy")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var dbCloud Cloud
-	err := row.Scan(&dbCloud.ID, &dbCloud.Name, &dbCloud.TypeID, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint, &dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify)
+	err := row.Scan(&dbCloud.ID, &dbCloud.Name, &dbCloud.TypeID, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint, &dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify, &dbCloud.IsControllerCloud)
 	c.Assert(err, jc.ErrorIsNil)
 	if !utils.IsValidUUIDString(dbCloud.ID) {
 		c.Fatalf("invalid cloud uuid %q", dbCloud.ID)
@@ -89,6 +91,7 @@ func (s *stateSuite) assertCloud(c *gc.C, cloud cloud.Cloud) string {
 	c.Check(dbCloud.IdentityEndpoint, gc.Equals, cloud.IdentityEndpoint)
 	c.Check(dbCloud.StorageEndpoint, gc.Equals, cloud.StorageEndpoint)
 	c.Check(dbCloud.SkipTLSVerify, gc.Equals, cloud.SkipTLSVerify)
+	c.Check(dbCloud.IsControllerCloud, gc.Equals, cloud.IsControllerCloud)
 
 	s.assertAuthTypes(c, dbCloud.ID, cloud.AuthTypes)
 	s.assertCaCerts(c, dbCloud.ID, cloud.CACertificates)
@@ -237,8 +240,9 @@ func (s *stateSuite) TestUpsertCloudUpdateExisting(c *gc.C) {
 			IdentityEndpoint: "http://region-identity-endpoint3",
 			StorageEndpoint:  "http://region-identity-endpoint3",
 		}},
-		CACertificates: []string{"cert1", "cert3"},
-		SkipTLSVerify:  false,
+		CACertificates:    []string{"cert1", "cert3"},
+		SkipTLSVerify:     false,
+		IsControllerCloud: true,
 	}
 
 	err := st.UpsertCloud(ctx.Background(), cld)
@@ -580,13 +584,13 @@ func (s *stateSuite) TestDeleteCloudInUse(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	s.assertInsertCloud(c, st, testCloud)
 
-	cred_uuid := utils.MustNewUUID().String()
+	credUUID := utils.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		stmt := fmt.Sprintf(`
 INSERT INTO cloud_credential (uuid, name, cloud_uuid, auth_type_id, owner_uuid)
 SELECT '%s', 'default', uuid, 1, 'fred' FROM cloud
 WHERE cloud.name = ?
-`, cred_uuid)
+`, credUUID)
 		result, err := tx.ExecContext(ctx, stmt, "fluffy")
 		if err != nil {
 			return err

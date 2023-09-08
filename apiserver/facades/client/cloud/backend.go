@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// CloudService provides access to clouds.
 type CloudService interface {
 	ListAll(stdcontext.Context) ([]cloud.Cloud, error)
 	Get(stdcontext.Context, string) (*cloud.Cloud, error)

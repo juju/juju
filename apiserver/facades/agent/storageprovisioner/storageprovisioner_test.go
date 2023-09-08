@@ -71,12 +71,12 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 		"username": "dummy",
 		"password": "secret",
 	})
-	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
+	s.CredentialService = apiservertesting.ConstCredentialGetter(&cred)
 	s.ApiServerSuite.SetUpTest(c)
 }
 
 func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
-	s.CloudService = apiservertesting.FixedCloudGetter(&jujutesting.DefaultCloud)
+	s.CloudService = apiservertesting.ConstCloudGetter(&jujutesting.DefaultCloud)
 	s.provisionerSuite.SetUpTest(c)
 	s.provisionerSuite.storageSetUp = s
 
@@ -103,7 +103,7 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
-	s.CloudService = apiservertesting.FixedCloudGetter(&cloud.Cloud{
+	s.CloudService = apiservertesting.ConstCloudGetter(&cloud.Cloud{
 		Name: "caascloud",
 		Type: "kubernetes",
 	})
