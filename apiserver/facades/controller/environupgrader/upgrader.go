@@ -10,13 +10,12 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 )
 
 type Facade struct {
-	backend       Backend
+	cloudService  CloudService
 	pool          Pool
 	providers     ProviderRegistry
 	entityWatcher EntityWatcher
@@ -43,18 +42,14 @@ type StatusSetter interface {
 
 // NewFacade returns a new Facade using the given Backend and Authorizer.
 func NewFacade(
-	backend Backend,
+	cloudService CloudService,
 	pool Pool,
 	providers ProviderRegistry,
 	entityWatcher EntityWatcher,
 	statusSetter StatusSetter,
-	auth facade.Authorizer,
 ) (*Facade, error) {
-	if !auth.AuthController() {
-		return nil, apiservererrors.ErrPerm
-	}
 	return &Facade{
-		backend:       backend,
+		cloudService:  cloudService,
 		pool:          pool,
 		providers:     providers,
 		entityWatcher: entityWatcher,
@@ -100,7 +95,7 @@ func (f *Facade) ModelTargetEnvironVersion(ctx context.Context, args params.Enti
 		Results: make([]params.IntResult, len(args.Entities)),
 	}
 	for i, arg := range args.Entities {
-		v, err := f.modelTargetEnvironVersion(arg)
+		v, err := f.modelTargetEnvironVersion(ctx, arg)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -110,7 +105,7 @@ func (f *Facade) ModelTargetEnvironVersion(ctx context.Context, args params.Enti
 	return result, nil
 }
 
-func (f *Facade) modelTargetEnvironVersion(arg params.Entity) (int, error) {
+func (f *Facade) modelTargetEnvironVersion(ctx context.Context, arg params.Entity) (int, error) {
 	tag, err := names.ParseModelTag(arg.Tag)
 	if err != nil {
 		return -1, errors.Trace(err)
@@ -120,7 +115,7 @@ func (f *Facade) modelTargetEnvironVersion(arg params.Entity) (int, error) {
 		return -1, errors.Trace(err)
 	}
 	defer release()
-	cloud, err := f.backend.Cloud(model.CloudName())
+	cloud, err := f.cloudService.Get(ctx, model.CloudName())
 	if err != nil {
 		return -1, errors.Trace(err)
 	}

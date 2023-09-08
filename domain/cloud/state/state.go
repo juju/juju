@@ -700,3 +700,69 @@ func dbCloudFromCloud(ctx context.Context, tx *sql.Tx, cloudUUID string, cloud c
 	}
 	return cld, nil
 }
+
+// DeleteCloud removes a cloud credential with the given name.
+func (st *State) DeleteCloud(ctx context.Context, name string) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(wallyworld) - also check model reference
+	cloudDeleteQ := `
+DELETE FROM cloud
+WHERE  cloud.name = ?
+AND cloud.uuid NOT IN (
+    SELECT cloud_uuid FROM cloud_credential
+)
+`
+
+	cloudRegionDeleteQ := `
+DELETE FROM cloud_region
+    WHERE cloud_uuid IN (
+        SELECT uuid FROM cloud WHERE cloud.name = ?
+    )
+`
+
+	cloudCACertDeleteQ := `
+DELETE FROM cloud_ca_cert
+    WHERE cloud_uuid IN (
+        SELECT uuid FROM cloud WHERE cloud.name = ?
+    )
+`
+
+	cloudAuthTypeDeleteQ := `
+DELETE FROM cloud_auth_type
+    WHERE cloud_uuid IN (
+        SELECT uuid FROM cloud WHERE cloud.name = ?
+    )
+`
+
+	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, cloudRegionDeleteQ, name)
+		if err != nil {
+			return errors.Annotate(err, "deleting cloud regions")
+		}
+		_, err = tx.ExecContext(ctx, cloudCACertDeleteQ, name)
+		if err != nil {
+			return errors.Annotate(err, "deleting cloud ca certs")
+		}
+		_, err = tx.ExecContext(ctx, cloudAuthTypeDeleteQ, name)
+		if err != nil {
+			return errors.Annotate(err, "deleting cloud auth type")
+		}
+
+		result, err := tx.ExecContext(ctx, cloudDeleteQ, name)
+		if err != nil {
+			return errors.Annotate(err, "deleting cloud")
+		}
+		num, err := result.RowsAffected()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if num == 0 {
+			return errors.Errorf("cannot delete cloud as it is still in use")
+		}
+		return nil
+	})
+}

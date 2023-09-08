@@ -4,6 +4,7 @@
 package stateenvirons
 
 import (
+	stdcontext "context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -22,6 +23,7 @@ import (
 // terms of environs.Environ and related types.
 type environStatePolicy struct {
 	st                *state.State
+	cloudService      CloudService
 	credentialService CredentialService
 	getEnviron        NewEnvironFunc
 	getBroker         NewCAASBrokerFunc
@@ -39,10 +41,11 @@ type deployChecker interface {
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
 // a state.Policy implemented in terms of either environs.Environ
 // or caas.Broker and related types.
-func GetNewPolicyFunc(credentialService CredentialService) state.NewPolicyFunc {
+func GetNewPolicyFunc(cloudService CloudService, credentialService CredentialService) state.NewPolicyFunc {
 	return func(st *state.State) state.Policy {
 		return &environStatePolicy{
 			st:                st,
+			cloudService:      cloudService,
 			credentialService: credentialService,
 			getEnviron:        GetNewEnvironFunc(environs.New),
 			getBroker:         GetNewCAASBrokerFunc(caas.New),
@@ -68,9 +71,9 @@ func (p *environStatePolicy) getDeployChecker() (deployChecker, error) {
 		return nil, errors.Trace(err)
 	}
 	if model.Type() == state.ModelTypeIAAS {
-		p.checker, err = p.getEnviron(model, p.credentialService)
+		p.checker, err = p.getEnviron(model, p.cloudService, p.credentialService)
 	} else {
-		p.checker, err = p.getBroker(model, p.credentialService)
+		p.checker, err = p.getBroker(model, p.cloudService, p.credentialService)
 	}
 	return p.checker, err
 }
@@ -86,7 +89,7 @@ func (p *environStatePolicy) ConfigValidator() (config.Validator, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloud, err := p.st.Cloud(model.CloudName())
+	cloud, err := p.cloudService.Get(stdcontext.Background(), model.CloudName())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting cloud")
 	}
@@ -95,7 +98,7 @@ func (p *environStatePolicy) ConfigValidator() (config.Validator, error) {
 
 // ProviderConfigSchemaSource implements state.Policy.
 func (p *environStatePolicy) ProviderConfigSchemaSource(cloudName string) (config.ConfigSchemaSource, error) {
-	cloud, err := p.st.Cloud(cloudName)
+	cloud, err := p.cloudService.Get(stdcontext.Background(), cloudName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -133,7 +136,7 @@ func (p *environStatePolicy) InstanceDistributor() (context.Distributor, error) 
 	}
 	// DistributeInstances doesn't make any calls to fetch instance types,
 	// so it doesn't help to use getDeployChecker() here.
-	env, err := p.getEnviron(model, p.credentialService)
+	env, err := p.getEnviron(model, p.cloudService, p.credentialService)
 	if err != nil {
 		return nil, err
 	}
@@ -155,24 +158,25 @@ func (p *environStatePolicy) StorageProviderRegistry() (storage.ProviderRegistry
 	}
 	// ProviderRegistry doesn't make any calls to fetch instance types,
 	// so it doesn't help to use getDeployChecker() here.
-	return NewStorageProviderRegistryForModel(model, p.credentialService, p.getEnviron, p.getBroker)
+	return NewStorageProviderRegistryForModel(model, p.cloudService, p.credentialService, p.getEnviron, p.getBroker)
 }
 
 // NewStorageProviderRegistryForModel returns a storage provider registry
 // for the specified model.
 func NewStorageProviderRegistryForModel(
 	model *state.Model,
+	cloudService CloudService,
 	credentialService CredentialService,
 	newEnv NewEnvironFunc,
 	newBroker NewCAASBrokerFunc,
 ) (_ storage.ProviderRegistry, err error) {
 	var reg storage.ProviderRegistry
 	if model.Type() == state.ModelTypeIAAS {
-		if reg, err = newEnv(model, credentialService); err != nil {
+		if reg, err = newEnv(model, cloudService, credentialService); err != nil {
 			return nil, errors.Trace(err)
 		}
 	} else {
-		if reg, err = newBroker(model, credentialService); err != nil {
+		if reg, err = newBroker(model, cloudService, credentialService); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

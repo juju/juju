@@ -107,9 +107,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// We don't export the controller model at this stage.
 		controllersC,
 		controllerNodesC,
-		// Clouds aren't migrated. They must exist in the
-		// target controller already.
-		cloudsC,
 		// Users aren't migrated.
 		usersC,
 		userLastLoginC,

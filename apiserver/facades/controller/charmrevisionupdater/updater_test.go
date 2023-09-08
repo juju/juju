@@ -16,6 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -30,9 +31,10 @@ import (
 )
 
 type updaterSuite struct {
-	model     *mocks.MockModel
-	state     *mocks.MockState
-	resources *statemocks.MockResources
+	model        *mocks.MockModel
+	state        *mocks.MockState
+	cloudService *commonmocks.MockCloudService
+	resources    *statemocks.MockResources
 
 	clock clock.Clock
 }
@@ -368,9 +370,11 @@ func (s *updaterSuite) setupMocksNoResources(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.model = mocks.NewMockModel(ctrl)
 	s.resources = statemocks.NewMockResources(ctrl)
+	s.cloudService = commonmocks.NewMockCloudService(ctrl)
+	s.cloudService.EXPECT().Get(gomock.Any(), "dummy").Return(&cloud.Cloud{Type: "cloud"}, nil).AnyTimes()
+
 	s.state = mocks.NewMockState(ctrl)
 
-	s.state.EXPECT().Cloud(gomock.Any()).Return(cloud.Cloud{Type: "cloud"}, nil).AnyTimes()
 	s.state.EXPECT().ControllerUUID().Return("controller-1").AnyTimes()
 	s.state.EXPECT().Model().Return(s.model, nil).AnyTimes()
 	s.state.EXPECT().Resources().Return(s.resources).AnyTimes()

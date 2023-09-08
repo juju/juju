@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -72,16 +71,7 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 				provider.CommonStorageProviders(),
 			},
 		},
-		Cloud: cloud.Cloud{
-			Name:      "dummy",
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-			Regions: []cloud.Region{
-				{
-					Name: "dummy-region",
-				},
-			},
-		},
+		CloudName:           "dummy",
 		MongoSession:        s.Session,
 		WatcherPollInterval: 10 * time.Millisecond,
 		AdminPassword:       "dummy-secret",

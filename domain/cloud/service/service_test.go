@@ -40,7 +40,7 @@ func (s *serviceSuite) TestUpdateSuccess(c *gc.C) {
 	cloud := cloud.Cloud{
 		Name: "fluffy",
 	}
-	s.state.EXPECT().Save(gomock.Any(), cloud).Return(nil)
+	s.state.EXPECT().UpsertCloud(gomock.Any(), cloud).Return(nil)
 
 	err := NewService(s.state, dummyConfigSchemaProvider).Save(context.Background(), cloud)
 	c.Assert(err, jc.ErrorIsNil)
@@ -52,10 +52,10 @@ func (s *serviceSuite) TestUpdateError(c *gc.C) {
 	cloud := cloud.Cloud{
 		Name: "fluffy",
 	}
-	s.state.EXPECT().Save(gomock.Any(), cloud).Return(errors.New("boom"))
+	s.state.EXPECT().UpsertCloud(gomock.Any(), cloud).Return(errors.New("boom"))
 
 	err := NewService(s.state, dummyConfigSchemaProvider).Save(context.Background(), cloud)
-	c.Assert(err, gc.ErrorMatches, "updating cloud state: boom")
+	c.Assert(err, gc.ErrorMatches, `updating cloud "fluffy": boom`)
 }
 
 func (s *serviceSuite) TestListAll(c *gc.C) {
@@ -64,7 +64,7 @@ func (s *serviceSuite) TestListAll(c *gc.C) {
 	clouds := []cloud.Cloud{{
 		Name: "fluffy",
 	}}
-	s.state.EXPECT().List(gomock.Any(), "").Return(clouds, nil)
+	s.state.EXPECT().ListClouds(gomock.Any(), "").Return(clouds, nil)
 
 	result, err := NewService(s.state, dummyConfigSchemaProvider).ListAll(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -77,7 +77,7 @@ func (s *serviceSuite) TestGet(c *gc.C) {
 	one := cloud.Cloud{
 		Name: "fluffy",
 	}
-	s.state.EXPECT().List(gomock.Any(), "fluffy").Return([]cloud.Cloud{one}, nil)
+	s.state.EXPECT().ListClouds(gomock.Any(), "fluffy").Return([]cloud.Cloud{one}, nil)
 
 	result, err := NewService(s.state, dummyConfigSchemaProvider).Get(context.Background(), "fluffy")
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +87,7 @@ func (s *serviceSuite) TestGet(c *gc.C) {
 func (s *serviceSuite) TestGetNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().List(gomock.Any(), "fluffy").Return(nil, nil)
+	s.state.EXPECT().ListClouds(gomock.Any(), "fluffy").Return(nil, nil)
 
 	result, err := NewService(s.state, dummyConfigSchemaProvider).Get(context.Background(), "fluffy")
 	c.Assert(err, gc.ErrorMatches, `cloud "fluffy" not found`)

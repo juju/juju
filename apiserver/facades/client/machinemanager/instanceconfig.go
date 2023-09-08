@@ -31,7 +31,10 @@ type InstanceConfigBackend interface {
 // is needed for configuring manual machines.
 // It is exposed for testing purposes.
 // TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
-func InstanceConfig(ctx context.Context, controllerConfigGetter ControllerConfigGetter, ctrlSt ControllerBackend, st InstanceConfigBackend, credentialService common.CredentialService, machineId, nonce, dataDir string) (*instancecfg.InstanceConfig, error) {
+func InstanceConfig(
+	ctx context.Context, controllerConfigGetter ControllerConfigGetter, ctrlSt ControllerBackend, st InstanceConfigBackend,
+	cloudService common.CloudService, credentialService common.CredentialService, machineId, nonce, dataDir string,
+) (*instancecfg.InstanceConfig, error) {
 	model, err := st.Model()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting state model")
@@ -66,7 +69,8 @@ func InstanceConfig(ctx context.Context, controllerConfigGetter ControllerConfig
 		return nil, errors.New("no agent version set in model configuration")
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), ctrlSt)
-	configGetter := stateenvirons.EnvironConfigGetter{Model: model, CredentialService: credentialService}
+	configGetter := stateenvirons.EnvironConfigGetter{
+		Model: model, CloudService: cloudService, CredentialService: credentialService}
 	newEnviron := func(ctx context.Context) (environs.BootstrapEnviron, error) {
 		return environs.GetEnviron(ctx, configGetter, environs.New)
 	}

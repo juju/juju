@@ -19,7 +19,7 @@ func AuthCheck(c *gc.C, mm *ModelManagerAPI, user names.UserTag) bool {
 }
 
 func MockSupportedFeatures(fs assumes.FeatureSet) {
-	supportedFeaturesGetter = func(stateenvirons.Model, stateenvirons.CredentialService) (assumes.FeatureSet, error) {
+	supportedFeaturesGetter = func(stateenvirons.Model, stateenvirons.CloudService, stateenvirons.CredentialService) (assumes.FeatureSet, error) {
 		return fs, nil
 	}
 }

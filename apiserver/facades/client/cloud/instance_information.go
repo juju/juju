@@ -22,6 +22,7 @@ import (
 // in terms of a *state.State.
 type cloudEnvironConfigGetter struct {
 	Backend
+	CloudService      common.CloudService
 	CredentialService common.CredentialService
 	region            string
 }
@@ -32,7 +33,7 @@ func (g cloudEnvironConfigGetter) CloudSpec(ctx context.Context) (environsclouds
 	if err != nil {
 		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
-	return stateenvirons.CloudSpecForModel(ctx, model, g.CredentialService)
+	return stateenvirons.CloudSpecForModel(ctx, model, g.CloudService, g.CredentialService)
 }
 
 // InstanceTypes returns instance type information for the cloud and region
@@ -68,6 +69,7 @@ func instanceTypes(
 		}
 		backend := cloudEnvironConfigGetter{
 			Backend:           api.backend,
+			CloudService:      api.cloudService,
 			CredentialService: api.credentialService,
 			region:            cons.CloudRegion,
 		}

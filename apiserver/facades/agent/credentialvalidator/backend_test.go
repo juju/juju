@@ -75,6 +75,26 @@ func (b *testBackend) WatchModelCredential() (state.NotifyWatcher, error) {
 	return apiservertesting.NewFakeNotifyWatcher(), nil
 }
 
+func newMockCloudService() *testCloudService {
+	s := &testCloudService{
+		Stub: &testing.Stub{},
+	}
+	return s
+}
+
+type testCloudService struct {
+	common.CloudService
+	*testing.Stub
+}
+
+func (c testCloudService) Get(ctx context.Context, name string) (*cloud.Cloud, error) {
+	return &cloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+	}, nil
+}
+
 func newMockCredentialService() *testCredentialService {
 	s := &testCredentialService{
 		Stub: &testing.Stub{},

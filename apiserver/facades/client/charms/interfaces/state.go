@@ -8,7 +8,6 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/config"
@@ -18,7 +17,6 @@ import (
 type BackendModel interface {
 	Config() (*config.Config, error)
 	ModelTag() names.ModelTag
-	Cloud() (cloud.Cloud, error)
 	CloudRegion() string
 	ControllerUUID() string
 	Type() state.ModelType

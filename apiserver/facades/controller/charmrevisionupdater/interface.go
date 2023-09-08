@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -19,7 +18,6 @@ type State interface {
 	AddCharmPlaceholder(curl *charm.URL) error
 	AllApplications() ([]Application, error)
 	Charm(curl *charm.URL) (*state.Charm, error)
-	Cloud(name string) (cloud.Cloud, error)
 	ControllerUUID() string
 	Model() (Model, error)
 	Resources() state.Resources

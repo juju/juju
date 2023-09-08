@@ -37,9 +37,9 @@ type InitializeParams struct {
 	// in the controller model.
 	StoragePools map[string]storage.Attrs
 
-	// Cloud contains the properties of the cloud that the
+	// CloudName contains the name of the cloud that the
 	// controller runs in.
-	Cloud cloud.Cloud
+	CloudName string
 
 	// ControllerConfig contains config attributes for
 	// the controller.
@@ -95,12 +95,6 @@ func (p InitializeParams) Validate() error {
 	}
 	if p.AdminPassword == "" {
 		return errors.NotValidf("empty AdminPassword")
-	}
-	if err := validateCloud(p.Cloud); err != nil {
-		return errors.Annotate(err, "validating cloud")
-	}
-	if _, err := validateCloudRegion(p.Cloud, p.ControllerModelArgs.CloudRegion); err != nil {
-		return errors.Annotate(err, "validating controller model cloud region")
 	}
 	return nil
 }
@@ -193,14 +187,8 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 		dateCreated,
 	)
 
-	// The controller cloud is initially used by 1 model (the controller model).
-	cloudRefCountOp, err := incCloudModelRefOp(st, args.Cloud.Name)
-	if err != nil {
-		return nil, err
-	}
-	// Ensure the controller cloud owner has admin.
 	cloudPermissionOps := createPermissionOp(
-		cloudGlobalKey(args.Cloud.Name),
+		cloudGlobalKey(args.CloudName),
 		userGlobalKey(userAccessID(args.ControllerModelArgs.Owner)),
 		permission.AdminAccess)
 
@@ -216,13 +204,11 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 			Id:     modelGlobalKey,
 			Assert: txn.DocMissing,
 			Insert: &controllersDoc{
-				CloudName: args.Cloud.Name,
+				CloudName: args.CloudName,
 				ModelUUID: st.ModelUUID(),
 			},
 		},
-		createCloudOp(args.Cloud),
 		cloudPermissionOps,
-		cloudRefCountOp,
 		txn.Op{
 			C:      controllersC,
 			Id:     apiHostPortsKey,
@@ -249,14 +235,8 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 		},
 		initBakeryConfigOp,
 		createSettingsOp(controllersC, ControllerSettingsGlobalKey, args.ControllerConfig),
-		createSettingsOp(globalSettingsC, cloudGlobalKey(args.Cloud.Name), args.ControllerInheritedConfig),
+		createSettingsOp(globalSettingsC, cloudGlobalKey(args.CloudName), args.ControllerInheritedConfig),
 	)
-	for k, v := range args.Cloud.RegionConfig {
-		// Create an entry keyed on cloudname#<key>, value for each region in
-		// region-config. The values here are themselves
-		// map[string]interface{}.
-		ops = append(ops, createSettingsOp(globalSettingsC, regionSettingsGlobalKey(args.Cloud.Name, k), v))
-	}
 
 	ops = append(ops, modelOps...)
 	ops = append(ops, storagePoolOps...)

@@ -58,12 +58,6 @@ var _ = gc.Suite(&CAASModelSuite{})
 
 func (s *CAASModelSuite) TestNewModel(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil)
-	err := s.State.AddCloud(cloud.Cloud{
-		Name:      "caas-cloud",
-		Type:      "kubernetes",
-		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
-	}, owner.Name())
-	c.Assert(err, jc.ErrorIsNil)
 	cfg, uuid := s.createTestModelConfig(c)
 	modelTag := names.NewModelTag(uuid)
 	credTag := names.NewCloudCredentialTag(
@@ -132,7 +126,9 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	model, st := s.newCAASModel(c)
 	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(
-		model, &testing.MockCredentialService{ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))},
+		model,
+		&testing.MockCloudService{&cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
+		&testing.MockCredentialService{ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
@@ -166,19 +162,6 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	fs, err := sb.AllFilesystems()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fs, gc.HasLen, 0)
-}
-
-func (s *CAASModelSuite) TestCAASModelWrongCloudRegion(c *gc.C) {
-	cfg, _ := s.createTestModelConfig(c)
-	_, _, err := s.Controller.NewModel(state.ModelArgs{
-		Type:                    state.ModelTypeCAAS,
-		CloudName:               "dummy",
-		CloudRegion:             "fork",
-		Config:                  cfg,
-		Owner:                   names.NewUserTag("test@remote"),
-		StorageProviderRegistry: provider.CommonStorageProviders(),
-	})
-	c.Assert(err, gc.ErrorMatches, `region "fork" not found \(expected one of \["dotty.region" "dummy-region" "nether-region" "unused-region"\]\)`)
 }
 
 func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {

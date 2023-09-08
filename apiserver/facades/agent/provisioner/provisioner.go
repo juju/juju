@@ -115,12 +115,13 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	configGetter := stateenvirons.EnvironConfigGetter{Model: model, CredentialService: ctx.ServiceFactory().Credential()}
+	configGetter := stateenvirons.EnvironConfigGetter{
+		Model: model, CloudService: ctx.ServiceFactory().Cloud(), CredentialService: ctx.ServiceFactory().Credential()}
 	isCaasModel := model.Type() == state.ModelTypeCAAS
 
 	var env storage.ProviderRegistry
 	if isCaasModel {
-		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.ServiceFactory().Credential())
+		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
 	} else {
 		env, err = environs.GetEnviron(stdcontext.TODO(), configGetter, environs.New)
 	}
@@ -129,7 +130,8 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	}
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
-	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(st, getCanModify)
+	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(
+		stdcontext.Background(), st, ctx.ServiceFactory().Cloud(), getCanModify)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}

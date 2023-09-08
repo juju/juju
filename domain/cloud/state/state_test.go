@@ -5,6 +5,8 @@ package state
 
 import (
 	ctx "context"
+	"database/sql"
+	"fmt"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -560,4 +562,49 @@ func (s *stateSuite) TestListCloudsFilter(c *gc.C) {
 	clouds, err = st.ListClouds(ctx.Background(), "fluffy2")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, jc.DeepEquals, []cloud.Cloud{testCloud2})
+}
+
+func (s *stateSuite) TestDeleteCloud(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	s.assertInsertCloud(c, st, testCloud)
+
+	err := st.DeleteCloud(ctx.Background(), "fluffy")
+	c.Assert(err, jc.ErrorIsNil)
+
+	clouds, err := st.ListClouds(ctx.Background(), "fluffy")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestDeleteCloudInUse(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	s.assertInsertCloud(c, st, testCloud)
+
+	cred_uuid := utils.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		stmt := fmt.Sprintf(`
+INSERT INTO cloud_credential (uuid, name, cloud_uuid, auth_type_id, owner_uuid)
+SELECT '%s', 'default', uuid, 1, 'fred' FROM cloud
+WHERE cloud.name = ?
+`, cred_uuid)
+		result, err := tx.ExecContext(ctx, stmt, "fluffy")
+		if err != nil {
+			return err
+		}
+		numRows, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		c.Assert(numRows, gc.Equals, int64(1))
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.DeleteCloud(ctx.Background(), "fluffy")
+	c.Assert(err, gc.ErrorMatches, "cannot delete cloud as it is still in use")
+
+	clouds, err := st.ListClouds(ctx.Background(), "fluffy")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 1)
+	c.Assert(clouds[0].Name, gc.Equals, "fluffy")
 }

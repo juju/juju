@@ -46,6 +46,7 @@ type Suite struct {
 
 	controllerConfigService   *MockControllerConfigService
 	externalControllerService *MockExternalControllerService
+	cloudService              *commonmocks.MockCloudService
 	credentialService         *commonmocks.MockCredentialService
 
 	facadeContext facadetest.Context
@@ -304,10 +305,10 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 	defer st.Close()
 
 	env := mockEnv{Stub: &testing.Stub{}}
-	api, err := s.newAPI(func(model stateenvirons.Model, _ stateenvirons.CredentialService) (environs.Environ, error) {
+	api, err := s.newAPI(func(model stateenvirons.Model, _ stateenvirons.CloudService, _ stateenvirons.CredentialService) (environs.Environ, error) {
 		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
 		return &env, nil
-	}, func(model stateenvirons.Model, _ stateenvirons.CredentialService) (caas.Broker, error) {
+	}, func(model stateenvirons.Model, _ stateenvirons.CloudService, _ stateenvirons.CredentialService) (caas.Broker, error) {
 		return nil, errors.New("should not be called")
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -335,9 +336,9 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 	defer st.Close()
 
 	broker := mockBroker{Stub: &testing.Stub{}}
-	api, err := s.newAPI(func(model stateenvirons.Model, _ stateenvirons.CredentialService) (environs.Environ, error) {
+	api, err := s.newAPI(func(model stateenvirons.Model, _ stateenvirons.CloudService, _ stateenvirons.CredentialService) (environs.Environ, error) {
 		return nil, errors.New("should not be called")
-	}, func(model stateenvirons.Model, _ stateenvirons.CredentialService) (caas.Broker, error) {
+	}, func(model stateenvirons.Model, _ stateenvirons.CloudService, _ stateenvirons.CredentialService) (caas.Broker, error) {
 		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
 		return &broker, nil
 	})
@@ -449,14 +450,14 @@ func (s *Suite) TestCheckMachinesIgnoresManualMachines(c *gc.C) {
 func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	owner := s.Factory.MakeUser(c, nil)
-	err := s.State.AddCloud(cloud.Cloud{
+	s.cloudService.EXPECT().Get(gomock.Any(), "manual").Return(&cloud.Cloud{
 		Name:      "manual",
 		Type:      "manual",
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
 		Endpoint:  "10.0.0.1",
-	}, owner.Name())
-	c.Assert(err, jc.ErrorIsNil)
+	}, nil)
+
+	owner := s.Factory.MakeUser(c, nil)
 
 	cred := cloud.NewCredential(cloud.EmptyAuthType, nil)
 	tag := names.NewCloudCredentialTag(
@@ -500,6 +501,13 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil).AnyTimes()
 
 	s.externalControllerService = NewMockExternalControllerService(ctrl)
+	s.cloudService = commonmocks.NewMockCloudService(ctrl)
+	s.cloudService.EXPECT().Get(gomock.Any(), "dummy").Return(&cloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
+		Endpoint:  "10.0.0.1",
+	}, nil).AnyTimes()
 	s.credentialService = commonmocks.NewMockCredentialService(ctrl)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
@@ -524,6 +532,7 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 		s.authorizer,
 		s.controllerConfigService,
 		s.externalControllerService,
+		s.cloudService,
 		s.credentialService,
 		environFunc,
 		brokerFunc,
@@ -537,9 +546,9 @@ func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
 }
 
 func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ, broker caas.Broker) *migrationtarget.API {
-	api, err := s.newAPI(func(stateenvirons.Model, stateenvirons.CredentialService) (environs.Environ, error) {
+	api, err := s.newAPI(func(stateenvirons.Model, stateenvirons.CloudService, stateenvirons.CredentialService) (environs.Environ, error) {
 		return env, nil
-	}, func(stateenvirons.Model, stateenvirons.CredentialService) (caas.Broker, error) {
+	}, func(stateenvirons.Model, stateenvirons.CloudService, stateenvirons.CredentialService) (caas.Broker, error) {
 		return broker, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)

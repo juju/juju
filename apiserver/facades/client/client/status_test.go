@@ -1131,6 +1131,9 @@ type CAASStatusSuite struct {
 var _ = gc.Suite(&CAASStatusSuite{})
 
 func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
+	s.CloudService = apiservertesting.FixedCloudGetter(&cloud.Cloud{
+		Name: "caascloud", Type: "kubernetes",
+	})
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
 

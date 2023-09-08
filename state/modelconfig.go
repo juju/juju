@@ -172,8 +172,6 @@ func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface
 	if regionSpec != nil {
 		if regionSpec.Region == "" {
 			key = cloudGlobalKey(regionSpec.Cloud)
-		} else {
-			key = regionSettingsGlobalKey(regionSpec.Cloud, regionSpec.Region)
 		}
 	} else {
 		// For backwards compatibility default to the model's cloud.
@@ -248,11 +246,6 @@ func (model *Model) ModelConfigValues() (config.ConfigValues, error) {
 // ModelConfigDefaultValues returns the default config values to be used
 // when creating a new model, and the origin of those values.
 func (st *State) ModelConfigDefaultValues(cloudName string) (config.ModelDefaultAttributes, error) {
-	cloud, err := st.Cloud(cloudName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	result := make(config.ModelDefaultAttributes)
 	// Juju defaults
 	defaultAttrs, err := st.defaultInheritedConfig(cloudName)()
@@ -274,26 +267,6 @@ func (st *State) ModelConfigDefaultValues(cloudName string) (config.ModelDefault
 			result[k] = ds
 		} else {
 			result[k] = config.AttributeDefaultValues{Controller: v}
-		}
-	}
-	// Region config
-	for _, region := range cloud.Regions {
-		rspec := &environscloudspec.CloudRegionSpec{Cloud: cloudName, Region: region.Name}
-		riCfg, err := st.regionInheritedConfig(rspec)()
-		if err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			return nil, errors.Trace(err)
-		}
-		for k, v := range riCfg {
-			regCfg := config.RegionDefaultValue{Name: region.Name, Value: v}
-			if ds, ok := result[k]; ok {
-				ds.Regions = append(result[k].Regions, regCfg)
-				result[k] = ds
-			} else {
-				result[k] = config.AttributeDefaultValues{Regions: []config.RegionDefaultValue{regCfg}}
-			}
 		}
 	}
 	return result, nil
@@ -426,7 +399,6 @@ func modelConfigSources(st *State, regionSpec *environscloudspec.CloudRegionSpec
 	return []modelConfigSource{
 		{config.JujuDefaultSource, st.defaultInheritedConfig(regionSpec.Cloud)},
 		{config.JujuControllerSource, st.controllerInheritedConfig(regionSpec.Cloud)},
-		{config.JujuRegionSource, st.regionInheritedConfig(regionSpec)},
 	}
 }
 
@@ -463,34 +435,6 @@ func (st *State) controllerInheritedConfig(cloudName string) func() (attrValues,
 		settings, err := readSettings(st.db(), globalSettingsC, cloudGlobalKey(cloudName))
 		if err != nil {
 			return nil, errors.Annotatef(err, "controller %q", st.ControllerUUID())
-		}
-		return settings.Map(), nil
-	}
-}
-
-// regionInheritedConfig returns the configuration attributes for the region in
-// the cloud where the model is targeted.
-func (st *State) regionInheritedConfig(regionSpec *environscloudspec.CloudRegionSpec) func() (attrValues, error) {
-	if regionSpec == nil {
-		return func() (attrValues, error) {
-			return nil, errors.New(
-				"no environscloudspec.CloudRegionSpec provided")
-		}
-	}
-	if regionSpec.Region == "" {
-		// It is expected that not all clouds have regions. So return not found
-		// if there is not a region here.
-		return func() (attrValues, error) {
-			return nil, errors.NotFoundf("region")
-		}
-	}
-	return func() (attrValues, error) {
-		settings, err := readSettings(st.db(),
-			globalSettingsC,
-			regionSettingsGlobalKey(regionSpec.Cloud, regionSpec.Region),
-		)
-		if err != nil {
-			return nil, errors.Annotatef(err, "region %q on %q cloud", regionSpec.Region, regionSpec.Cloud)
 		}
 		return settings.Map(), nil
 	}

@@ -54,7 +54,9 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 		s.Model, err = s.st.Model()
 		c.Assert(err, jc.ErrorIsNil)
 		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(
-			s.Model, &testing.MockCredentialService{ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))},
+			s.Model,
+			&testing.MockCloudService{&cloud.Cloud{Name: "caascloud", Type: "kubernetes"}},
+			&testing.MockCredentialService{ptr(cloud.NewCredential(cloud.UserPassAuthType, nil))},
 		)
 		c.Assert(err, jc.ErrorIsNil)
 		registry = stateenvirons.NewStorageProviderRegistry(broker)

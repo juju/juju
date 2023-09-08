@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -45,6 +46,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	machiner, err := machine.NewMachinerAPIForState(
 		st,
 		st,
+		apiservertesting.FixedCloudGetter(&testing.DefaultCloud),
 		s.resources,
 		s.authorizer,
 	)
@@ -59,6 +61,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 	aMachiner, err := machine.NewMachinerAPIForState(
 		st,
 		st,
+		nil,
 		s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aMachiner, gc.IsNil)

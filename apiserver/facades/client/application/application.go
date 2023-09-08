@@ -84,6 +84,7 @@ type APIBase struct {
 	repoDeploy DeployFromRepository
 
 	model             Model
+	cloudService      common.CloudService
 	credentialService common.CredentialService
 
 	resources        facade.Resources
@@ -98,7 +99,7 @@ type APIBase struct {
 	storagePoolManager    poolmanager.PoolManager
 	registry              storage.ProviderRegistry
 	caasBroker            CaasBrokerInterface
-	deployApplicationFunc func(context.Context, ApplicationDeployer, Model, common.CredentialService, DeployApplicationParams) (Application, error)
+	deployApplicationFunc func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, DeployApplicationParams) (Application, error)
 }
 
 type CaasBrokerInterface interface {
@@ -127,7 +128,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 	)
 	modelType := model.Type()
 	if modelType == state.ModelTypeCAAS {
-		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.ServiceFactory().Credential())
+		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}
@@ -165,6 +166,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		charmhubHTTPClient: charmhubHTTPClient,
 		caasBroker:         caasBroker,
 		model:              m,
+		cloudService:       ctx.ServiceFactory().Cloud(),
 		credentialService:  ctx.ServiceFactory().Credential(),
 		registry:           registry,
 		state:              state,
@@ -181,6 +183,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		repoDeploy,
 		blockChecker,
 		model,
+		ctx.ServiceFactory().Cloud(),
 		ctx.ServiceFactory().Credential(),
 		leadershipReader,
 		stateCharm,
@@ -202,10 +205,11 @@ func NewAPIBase(
 	repoDeploy DeployFromRepository,
 	blockChecker BlockChecker,
 	model Model,
+	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	leadershipReader leadership.Reader,
 	stateCharm func(Charm) *state.Charm,
-	deployApplication func(context.Context, ApplicationDeployer, Model, common.CredentialService, DeployApplicationParams) (Application, error),
+	deployApplication func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	resources facade.Resources,
@@ -224,6 +228,7 @@ func NewAPIBase(
 		repoDeploy:            repoDeploy,
 		check:                 blockChecker,
 		model:                 model,
+		cloudService:          cloudService,
 		credentialService:     credentialService,
 		leadershipReader:      leadershipReader,
 		stateCharm:            stateCharm,
@@ -292,6 +297,7 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 			ctx,
 			api.backend,
 			api.model,
+			api.cloudService,
 			api.credentialService,
 			api.stateCharm,
 			arg,
@@ -489,10 +495,11 @@ func deployApplication(
 	ctx context.Context,
 	backend Backend,
 	model Model,
+	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	stateCharm func(Charm) *state.Charm,
 	args params.ApplicationDeploy,
-	deployApplicationFunc func(context.Context, ApplicationDeployer, Model, common.CredentialService, DeployApplicationParams) (Application, error),
+	deployApplicationFunc func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, DeployApplicationParams) (Application, error),
 	storagePoolManager poolmanager.PoolManager,
 	registry storage.ProviderRegistry,
 	caasBroker CaasBrokerInterface,
@@ -562,7 +569,7 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	_, err = deployApplicationFunc(ctx, backend, model, credentialService, DeployApplicationParams{
+	_, err = deployApplicationFunc(ctx, backend, model, cloudService, credentialService, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Charm:             stateCharm(ch),
 		CharmOrigin:       origin,
@@ -1109,7 +1116,7 @@ func (api *APIBase) applicationSetCharm(
 	if err != nil {
 		return errors.Annotate(err, "retrieving model")
 	}
-	if err := assertCharmAssumptions(ctx, newCharm.Meta().Assumes, model, api.credentialService, api.backend.ControllerConfig); err != nil {
+	if err := assertCharmAssumptions(ctx, newCharm.Meta().Assumes, model, api.cloudService, api.credentialService, api.backend.ControllerConfig); err != nil {
 		if !errors.IsNotSupported(err) || !params.Force.Force {
 			return errors.Trace(err)
 		}

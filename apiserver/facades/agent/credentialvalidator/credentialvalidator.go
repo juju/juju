@@ -38,6 +38,7 @@ type CredentialValidatorAPI struct {
 
 	logger            loggo.Logger
 	backend           StateAccessor
+	cloudService      common.CloudService
 	credentialService CredentialService
 	resources         facade.Resources
 }
@@ -46,7 +47,10 @@ var (
 	_ CredentialValidatorV2 = (*CredentialValidatorAPI)(nil)
 )
 
-func internalNewCredentialValidatorAPI(backend StateAccessor, credentialService CredentialService, resources facade.Resources, authorizer facade.Authorizer, logger loggo.Logger) (*CredentialValidatorAPI, error) {
+func internalNewCredentialValidatorAPI(
+	backend StateAccessor, cloudService common.CloudService, credentialService CredentialService, resources facade.Resources,
+	authorizer facade.Authorizer, logger loggo.Logger,
+) (*CredentialValidatorAPI, error) {
 	if !(authorizer.AuthMachineAgent() || authorizer.AuthUnitAgent() || authorizer.AuthApplicationAgent()) {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -55,6 +59,7 @@ func internalNewCredentialValidatorAPI(backend StateAccessor, credentialService 
 		CredentialManagerAPI: credentialcommon.NewCredentialManagerAPI(backend, credentialService),
 		resources:            resources,
 		backend:              backend,
+		cloudService:         cloudService,
 		credentialService:    credentialService,
 		logger:               logger,
 	}, nil
@@ -121,7 +126,7 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 	if !exists {
 		// A model credential is not set, we must check if the model
 		// is on the cloud that requires a credential.
-		supportsEmptyAuth, err := api.cloudSupportsNoAuth(m.CloudName())
+		supportsEmptyAuth, err := api.cloudSupportsNoAuth(ctx, m.CloudName())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -149,8 +154,8 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 	return result, nil
 }
 
-func (api *CredentialValidatorAPI) cloudSupportsNoAuth(cloudName string) (bool, error) {
-	cloud, err := api.backend.Cloud(cloudName)
+func (api *CredentialValidatorAPI) cloudSupportsNoAuth(ctx context.Context, cloudName string) (bool, error) {
+	cloud, err := api.cloudService.Get(ctx, cloudName)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

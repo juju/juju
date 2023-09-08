@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	jtesting "github.com/juju/juju/juju/testing"
 	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/ec2"
 	_ "github.com/juju/juju/provider/maas"
@@ -66,7 +67,11 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 
 	s.cred = jujucloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
-		s.st, nil, &mockState{}, apiservertesting.FixedCredentialGetter(&s.cred), &mockModelManagerService{},
+		s.st, nil, &mockState{},
+		&mockCloudService{
+			clouds: map[string]jujucloud.Cloud{"dummy": jtesting.DefaultCloud},
+		},
+		apiservertesting.FixedCredentialGetter(&s.cred), &mockModelManagerService{},
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext,
 	)
@@ -89,7 +94,11 @@ func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mock
 func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
-		s.st, nil, &mockState{}, apiservertesting.FixedCredentialGetter(&s.cred), &mockModelManagerService{},
+		s.st, nil, &mockState{},
+		&mockCloudService{
+			clouds: map[string]jujucloud.Cloud{"dummy": jtesting.DefaultCloud},
+		},
+		apiservertesting.FixedCredentialGetter(&s.cred), &mockModelManagerService{},
 		nil, nil,
 		common.NewBlockChecker(s.st), s.authoriser, s.st.model, s.callContext,
 	)
@@ -110,9 +119,9 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 					OwnerTag:           s.adminUser.String(),
 					UUID:               s.st.ModelUUID(),
 					Type:               string(state.ModelTypeIAAS),
-					CloudTag:           "some-cloud",
-					CloudRegion:        "some-region",
-					CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
+					CloudTag:           "dummy",
+					CloudRegion:        "dummy-region",
+					CloudCredentialTag: "cloudcred-dummy_bob_some-credential",
 					Life:               "alive",
 					Status:             params.EntityStatus{},
 					Counts:             []params.ModelEntityCount{},
@@ -188,9 +197,9 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetail
 					OwnerTag:           s.adminUser.String(),
 					UUID:               s.st.ModelUUID(),
 					Type:               string(state.ModelTypeIAAS),
-					CloudTag:           "some-cloud",
-					CloudRegion:        "some-region",
-					CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
+					CloudTag:           "dummy",
+					CloudRegion:        "dummy-region",
+					CloudCredentialTag: "cloudcred-dummy_bob_some-credential",
 					Life:               "alive",
 					Status:             params.EntityStatus{},
 					SLA:                &params.ModelSLAInfo{"essential", "admin"},

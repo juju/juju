@@ -166,6 +166,7 @@ func (s *secretsSuite) assertAdminBackendConfigInfoDefault(
 	model := mocks.NewMockModel(ctrl)
 	backendState := mocks.NewMockSecretBackendsStorage(ctrl)
 	secretsState := mocks.NewMockSecretsStore(ctrl)
+	cloudService := commonmocks.NewMockCloudService(ctrl)
 	credentialService := commonmocks.NewMockCredentialService(ctrl)
 
 	s.PatchValue(&secrets.GetSecretBackendsState, func(secrets.Model) state.SecretBackendsStorage { return backendState })
@@ -185,7 +186,8 @@ func (s *secretsSuite) assertAdminBackendConfigInfoDefault(
 			CACertificates:    []string{"cert-data"},
 			IsControllerCloud: true,
 		}
-		model.EXPECT().Cloud().Return(cld, nil)
+		model.EXPECT().CloudName().Return("test")
+		cloudService.EXPECT().Get(gomock.Any(), "test").Return(&cld, nil)
 		tag := names.NewCloudCredentialTag("test/fred/default")
 		model.EXPECT().CloudCredentialTag().Return(tag, true)
 		cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
@@ -201,7 +203,7 @@ func (s *secretsSuite) assertAdminBackendConfigInfoDefault(
 		},
 	}}, nil)
 
-	info, err := secrets.AdminBackendConfigInfo(context.Background(), model, credentialService)
+	info, err := secrets.AdminBackendConfigInfo(context.Background(), model, cloudService, credentialService)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, expected)
 }
@@ -225,6 +227,7 @@ func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 	p := mocks.NewMockSecretBackendProvider(ctrl)
 	backendState := mocks.NewMockSecretBackendsStorage(ctrl)
 	secretsState := mocks.NewMockSecretsStore(ctrl)
+	cloudService := commonmocks.NewMockCloudService(ctrl)
 	credentialService := commonmocks.NewMockCredentialService(ctrl)
 
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
@@ -297,7 +300,7 @@ func (s *secretsSuite) assertBackendConfigInfoLeaderUnit(c *gc.C, wanted []strin
 	)
 	p.EXPECT().RestrictedConfig(&adminCfg, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.BackendConfigInfo(context.Background(), model, credentialService, wanted, false, unitTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(context.Background(), model, cloudService, credentialService, wanted, false, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -325,6 +328,7 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 	p := mocks.NewMockSecretBackendProvider(ctrl)
 	backendState := mocks.NewMockSecretBackendsStorage(ctrl)
 	secretsState := mocks.NewMockSecretsStore(ctrl)
+	cloudService := commonmocks.NewMockCloudService(ctrl)
 	credentialService := commonmocks.NewMockCredentialService(ctrl)
 
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
@@ -409,7 +413,7 @@ func (s *secretsSuite) TestBackendConfigInfoNonLeaderUnit(c *gc.C) {
 	)
 	p.EXPECT().RestrictedConfig(&adminCfg, false, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.BackendConfigInfo(context.Background(), model, credentialService, []string{"backend-id"}, false, unitTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(context.Background(), model, cloudService, credentialService, []string{"backend-id"}, false, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -437,6 +441,7 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 	p := mocks.NewMockSecretBackendProvider(ctrl)
 	backendState := mocks.NewMockSecretBackendsStorage(ctrl)
 	secretsState := mocks.NewMockSecretsStore(ctrl)
+	cloudService := commonmocks.NewMockCloudService(ctrl)
 	credentialService := commonmocks.NewMockCredentialService(ctrl)
 
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
@@ -521,7 +526,7 @@ func (s *secretsSuite) TestDrainBackendConfigInfo(c *gc.C) {
 	)
 	p.EXPECT().RestrictedConfig(&adminCfg, true, unitTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.DrainBackendConfigInfo(context.Background(), "backend-id", model, credentialService, unitTag, leadershipChecker)
+	info, err := secrets.DrainBackendConfigInfo(context.Background(), "backend-id", model, cloudService, credentialService, unitTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -548,6 +553,7 @@ func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 	p := mocks.NewMockSecretBackendProvider(ctrl)
 	backendState := mocks.NewMockSecretBackendsStorage(ctrl)
 	secretsState := mocks.NewMockSecretsStore(ctrl)
+	cloudService := commonmocks.NewMockCloudService(ctrl)
 	credentialService := commonmocks.NewMockCredentialService(ctrl)
 
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
@@ -612,7 +618,7 @@ func (s *secretsSuite) TestBackendConfigInfoAppTagLogin(c *gc.C) {
 	)
 	p.EXPECT().RestrictedConfig(&adminCfg, false, appTag, ownedRevs, readRevs).Return(&adminCfg.BackendConfig, nil)
 
-	info, err := secrets.BackendConfigInfo(context.Background(), model, credentialService, []string{"backend-id"}, false, appTag, leadershipChecker)
+	info, err := secrets.BackendConfigInfo(context.Background(), model, cloudService, credentialService, []string{"backend-id"}, false, appTag, leadershipChecker)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id",
@@ -639,6 +645,7 @@ func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
 	p := mocks.NewMockSecretBackendProvider(ctrl)
 	backendState := mocks.NewMockSecretBackendsStorage(ctrl)
 	secretsState := mocks.NewMockSecretsStore(ctrl)
+	cloudService := commonmocks.NewMockCloudService(ctrl)
 	credentialService := commonmocks.NewMockCredentialService(ctrl)
 
 	s.PatchValue(&secrets.GetProvider, func(string) (provider.SecretBackendProvider, error) { return p, nil })
@@ -665,7 +672,7 @@ func (s *secretsSuite) TestBackendConfigInfoFailedInvalidAuthTag(c *gc.C) {
 		p.EXPECT().Initialise(gomock.Any()).Return(nil),
 	)
 
-	_, err := secrets.BackendConfigInfo(context.Background(), model, credentialService, []string{"some-id"}, false, badTag, leadershipChecker)
+	_, err := secrets.BackendConfigInfo(context.Background(), model, cloudService, credentialService, []string{"some-id"}, false, badTag, leadershipChecker)
 	c.Assert(err, gc.ErrorMatches, `login as "user-foo" not supported`)
 }
 

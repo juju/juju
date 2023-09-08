@@ -4,14 +4,16 @@
 package environupgrader
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/state"
 )
 
-type Backend interface {
-	Cloud(string) (cloud.Cloud, error)
+type CloudService interface {
+	Get(context.Context, string) (*cloud.Cloud, error)
 }
 
 type Pool interface {

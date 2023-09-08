@@ -25,7 +25,9 @@ func Register(registry facade.FacadeRegistry) {
 // state.State backing.
 func newAPI(ctx facade.Context) (*API, error) {
 	st := ctx.State()
-	stateShim, err := NewStateShim(st, ctx.ServiceFactory().Credential())
+	cloudService := ctx.ServiceFactory().Cloud()
+	credentialService := ctx.ServiceFactory().Credential()
+	stateShim, err := NewStateShim(st, cloudService, credentialService)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -33,7 +35,7 @@ func newAPI(ctx facade.Context) (*API, error) {
 	check := common.NewBlockChecker(st)
 	callContext := context.CallContext(st)
 
-	reloadSpacesEnvirons, err := DefaultReloadSpacesEnvirons(st, ctx.ServiceFactory().Credential())
+	reloadSpacesEnvirons, err := DefaultReloadSpacesEnvirons(st, cloudService, credentialService)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

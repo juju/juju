@@ -103,3 +103,14 @@ func (m *MockCredentialService) CloudCredential(ctx stdcontext.Context, tag name
 	}
 	return *m.Credential, nil
 }
+
+type MockCloudService struct {
+	Cloud *cloud.Cloud
+}
+
+func (m *MockCloudService) Get(ctx stdcontext.Context, name string) (*cloud.Cloud, error) {
+	if m.Cloud == nil {
+		return nil, errors.NotFoundf("cloud %q", name)
+	}
+	return m.Cloud, nil
+}

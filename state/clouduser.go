@@ -12,10 +12,13 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/internal/mongo"
 )
+
+// cloudGlobalKey will return the key for a given cloud.
+func cloudGlobalKey(cloudName string) string {
+	return fmt.Sprintf("cloud#%s", cloudName)
+}
 
 // CreateCloudAccess creates a new access permission for a user on a cloud.
 func (st *State) CreateCloudAccess(cloud string, user names.UserTag, access permission.Access) error {
@@ -101,46 +104,25 @@ func (st *State) RemoveCloudAccess(cloud string, user names.UserTag) error {
 
 // CloudInfo describes interesting information for a given cloud.
 type CloudInfo struct {
-	cloud.Cloud
+	// Name is the name of the cloud.
+	Name string
 
 	// Access is the access level the supplied user has on this cloud.
 	Access permission.Access
 }
 
 // CloudsForUser returns details including access level of clouds which can
-// be seen by the specified user, or all users if the caller is a superuser.
-func (st *State) CloudsForUser(user names.UserTag, isSuperuser bool) ([]CloudInfo, error) {
-	ci, err := st.ControllerInfo()
+// be seen by the specified user.
+func (st *State) CloudsForUser(user names.UserTag) ([]CloudInfo, error) {
+	cloudNames, err := st.cloudNamesForUser(user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	clouds, closer := st.db().GetCollection(cloudsC)
-	defer closer()
-
-	var cloudQuery mongo.Query
-	if isSuperuser {
-		// Fast path, we just get all the clouds.
-		cloudQuery = clouds.Find(nil)
-	} else {
-		cloudNames, err := st.cloudNamesForUser(user)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cloudQuery = clouds.Find(bson.M{
-			"_id": bson.M{"$in": cloudNames},
-		})
-	}
-	cloudQuery = cloudQuery.Sort("name")
-
-	var cloudDocs []cloudDoc
-	if err := cloudQuery.All(&cloudDocs); err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := make([]CloudInfo, len(cloudDocs))
-	for i, c := range cloudDocs {
+	result := make([]CloudInfo, len(cloudNames))
+	for i, name := range cloudNames {
 		result[i] = CloudInfo{
-			Cloud: c.toCloud(ci.CloudName),
+			Name: name,
 		}
 	}
 	if err := st.fillInCloudUserAccess(user, result); err != nil {
@@ -156,7 +138,7 @@ func (st *State) cloudNamesForUser(user names.UserTag) ([]string, error) {
 	permissions, permCloser := st.db().GetRawCollection(permissionsC)
 	defer permCloser()
 
-	findExpr := fmt.Sprintf("^.*#%s$", userGlobalKey(user.Id()))
+	findExpr := fmt.Sprintf("^cloud#.*#%s$", userGlobalKey(user.Id()))
 	query := permissions.Find(
 		bson.D{{"_id", bson.D{{"$regex", findExpr}}}},
 	).Batch(100)

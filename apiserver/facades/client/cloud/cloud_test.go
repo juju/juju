@@ -35,12 +35,13 @@ import (
 
 type cloudSuite struct {
 	jujutesting.LoggingCleanupSuite
-	backend     *mocks.MockBackend
-	ctrlBackend *mocks.MockBackend
-	credService *mocks.MockCredentialService
-	pool        *mocks.MockModelPoolBackend
-	api         *cloud.CloudAPI
-	authorizer  *apiservertesting.FakeAuthorizer
+	backend      *mocks.MockBackend
+	ctrlBackend  *mocks.MockBackend
+	cloudService *mocks.MockCloudService
+	credService  *mocks.MockCredentialService
+	pool         *mocks.MockModelPoolBackend
+	api          *cloud.CloudAPI
+	authorizer   *apiservertesting.FakeAuthorizer
 }
 
 func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
@@ -56,9 +57,10 @@ func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
 
 	s.ctrlBackend = mocks.NewMockBackend(ctrl)
 	s.ctrlBackend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
+	s.cloudService = mocks.NewMockCloudService(ctrl)
 	s.credService = mocks.NewMockCredentialService(ctrl)
 
-	api, err := cloud.NewCloudAPI(s.backend, s.ctrlBackend, s.pool, s.credService, s.authorizer, loggo.GetLogger("juju.apiserver.cloud"))
+	api, err := cloud.NewCloudAPI(s.backend, s.ctrlBackend, s.pool, s.cloudService, s.credService, s.authorizer, loggo.GetLogger("juju.apiserver.cloud"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl
@@ -75,8 +77,8 @@ func newModelBackend(c *gc.C, aCloud jujucloud.Cloud, uuid string) *mockModelBac
 func (s *cloudSuite) TestCloud(c *gc.C) {
 	defer s.setup(c, names.NewUserTag("admin")).Finish()
 
-	backend := s.backend.EXPECT()
-	backend.Cloud("my-cloud").Return(jujucloud.Cloud{
+	backend := s.cloudService.EXPECT()
+	backend.Get(gomock.Any(), "my-cloud").Return(&jujucloud.Cloud{
 		Name:      "dummy",
 		Type:      "dummy",
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
@@ -102,8 +104,8 @@ func (s *cloudSuite) TestCloud(c *gc.C) {
 func (s *cloudSuite) TestCloudNotFound(c *gc.C) {
 	defer s.setup(c, names.NewUserTag("admin")).Finish()
 
-	backend := s.backend.EXPECT()
-	backend.Cloud("no-dice").Return(jujucloud.Cloud{}, errors.NotFoundf("cloud \"no-dice\""))
+	backend := s.cloudService.EXPECT()
+	backend.Get(gomock.Any(), "no-dice").Return(&jujucloud.Cloud{}, errors.NotFoundf("cloud \"no-dice\""))
 
 	results, err := s.api.Cloud(stdcontext.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "cloud-no-dice"}},
@@ -124,16 +126,15 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 	ctrlBackend.GetCloudAccess("your-cloud",
 		bruce).Return(permission.NoAccess, nil)
 
-	backend := s.backend.EXPECT()
-	backend.Clouds().Return(map[names.CloudTag]jujucloud.Cloud{
-		names.NewCloudTag("my-cloud"): {
-			Name:      "dummy",
+	backend := s.cloudService.EXPECT()
+	backend.ListAll(gomock.Any()).Return([]jujucloud.Cloud{
+		{
+			Name:      "my-cloud",
 			Type:      "dummy",
 			AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 			Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
-		},
-		names.NewCloudTag("your-cloud"): {
-			Name:      "dummy",
+		}, {
+			Name:      "your-cloud",
 			Type:      "dummy",
 			AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 			Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
@@ -161,8 +162,8 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *gc.C) {
 	ctrlBackend.GetCloudUsers("my-cloud").Return(userPerm,
 		nil)
 
-	backend := s.backend.EXPECT()
-	backend.Cloud("my-cloud").Return(jujucloud.Cloud{
+	cloudService := s.cloudService.EXPECT()
+	cloudService.Get(gomock.Any(), "my-cloud").Return(&jujucloud.Cloud{
 		Name:      "dummy",
 		Type:      "dummy",
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
@@ -174,6 +175,7 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *gc.C) {
 	mary.EXPECT().DisplayName().Return("display-mary")
 	fred.EXPECT().DisplayName().Return("display-fred")
 
+	backend := s.backend.EXPECT()
 	maryTag := names.NewUserTag("mary")
 	backend.User(maryTag).Return(mary, nil)
 	fredTag := names.NewUserTag("fred")
@@ -226,7 +228,7 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
 
 	backend := s.backend.EXPECT()
 	backend.User(fredTag).Return(fred, nil)
-	backend.Cloud("my-cloud").Return(jujucloud.Cloud{
+	s.cloudService.EXPECT().Get(gomock.Any(), "my-cloud").Return(&jujucloud.Cloud{
 		Name:      "dummy",
 		Type:      "dummy",
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
@@ -277,8 +279,10 @@ func (s *cloudSuite) TestAddCloud(c *gc.C) {
 
 	backend := s.backend.EXPECT()
 	backend.ControllerInfo().Return(&state.ControllerInfo{CloudName: "newcloudname"}, nil)
-	backend.Cloud("newcloudname").Return(cloud, nil)
-	backend.AddCloud(newCloud, adminTag.Name()).Return(nil)
+	backend.CreateCloudAccess("newcloudname", adminTag, permission.AdminAccess).Return(nil)
+	cloudservice := s.cloudService.EXPECT()
+	cloudservice.Get(gomock.Any(), "newcloudname").Return(&cloud, nil)
+	cloudservice.Save(gomock.Any(), newCloud).Return(nil)
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
@@ -320,7 +324,7 @@ func (s *cloudSuite) TestAddCloudNotWhitelisted(c *gc.C) {
 
 	backend := s.backend.EXPECT()
 	backend.ControllerInfo().Return(&state.ControllerInfo{CloudName: "dummy"}, nil)
-	backend.Cloud("dummy").Return(cloud, nil)
+	s.cloudService.EXPECT().Get(gomock.Any(), "dummy").Return(&cloud, nil)
 
 	err := s.api.AddCloud(stdcontext.Background(), createAddCloudParam(""))
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`
@@ -350,8 +354,10 @@ func (s *cloudSuite) TestAddCloudNotWhitelistedButForceAdded(c *gc.C) {
 
 	backend := s.backend.EXPECT()
 	backend.ControllerInfo().Return(&state.ControllerInfo{CloudName: "newcloudname"}, nil)
-	backend.Cloud("newcloudname").Return(cloud, nil)
-	backend.AddCloud(newCloud, adminTag.Name()).Return(nil)
+	s.backend.EXPECT().CreateCloudAccess("newcloudname", adminTag, permission.AdminAccess).Return(nil)
+	cloudService := s.cloudService.EXPECT()
+	cloudService.Get(gomock.Any(), "newcloudname").Return(&cloud, nil)
+	cloudService.Save(gomock.Any(), newCloud).Return(nil)
 
 	force := true
 	addCloudArg := createAddCloudParam("")
@@ -377,7 +383,7 @@ func (s *cloudSuite) TestAddCloudControllerCloudErr(c *gc.C) {
 
 	backend := s.backend.EXPECT()
 	backend.ControllerInfo().Return(&state.ControllerInfo{CloudName: "kaboom"}, nil)
-	backend.Cloud("kaboom").Return(jujucloud.Cloud{}, errors.New("kaboom"))
+	s.cloudService.EXPECT().Get(gomock.Any(), "kaboom").Return(&jujucloud.Cloud{}, errors.New("kaboom"))
 
 	err := s.api.AddCloud(stdcontext.Background(), createAddCloudParam(""))
 	c.Assert(err, gc.ErrorMatches, "kaboom")
@@ -395,8 +401,8 @@ func (s *cloudSuite) TestAddCloudK8sForceIrrelevant(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "nether-endpoint"}},
 	}
 
-	backend := s.backend.EXPECT()
-	backend.AddCloud(cloud, adminTag.Name()).Return(nil).Times(2)
+	s.cloudService.EXPECT().Save(gomock.Any(), cloud).Return(nil).Times(2)
+	s.backend.EXPECT().CreateCloudAccess("newcloudname", adminTag, permission.AdminAccess).Return(nil).Times(2)
 
 	addCloudArg := createAddCloudParam(string(k8sconstants.CAASProviderType))
 
@@ -431,8 +437,10 @@ func (s *cloudSuite) TestAddCloudNoRegion(c *gc.C) {
 
 	backend := s.backend.EXPECT()
 	backend.ControllerInfo().Return(&state.ControllerInfo{CloudName: "newcloudname"}, nil)
-	backend.Cloud("newcloudname").Return(cloud, nil)
-	backend.AddCloud(newCloud, adminTag.Name()).Return(nil)
+	backend.CreateCloudAccess("newcloudname", adminTag, permission.AdminAccess).Return(nil)
+	cloudService := s.cloudService.EXPECT()
+	cloudService.Get(gomock.Any(), "newcloudname").Return(&cloud, nil)
+	cloudService.Save(gomock.Any(), newCloud).Return(nil)
 	paramsCloud := params.AddCloudArgs{
 		Name: "newcloudname",
 		Cloud: params.Cloud{
@@ -472,8 +480,7 @@ func (s *cloudSuite) TestUpdateCloud(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 
-	backend := s.backend.EXPECT()
-	backend.UpdateCloud(dummyCloud).Return(nil)
+	s.cloudService.EXPECT().Save(gomock.Any(), dummyCloud).Return(nil)
 
 	updatedCloud := jujucloud.Cloud{
 		Name:      "dummy",
@@ -525,8 +532,7 @@ func (s *cloudSuite) TestUpdateNonExistentCloud(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether-updated", Endpoint: "endpoint-updated"}},
 	}
 
-	backend := s.backend.EXPECT()
-	backend.UpdateCloud(dummyCloud).Return(errors.New("cloud \"nope\" not found"))
+	s.cloudService.EXPECT().Save(gomock.Any(), dummyCloud).Return(errors.New("cloud \"nope\" not found"))
 
 	updatedCloud := jujucloud.Cloud{
 		Name:      "nope",
@@ -550,19 +556,14 @@ func (s *cloudSuite) TestListCloudInfo(c *gc.C) {
 	fredTag := names.NewUserTag("admin")
 	defer s.setup(c, fredTag).Finish()
 
-	cloudInfo := []state.CloudInfo{
+	s.cloudService.EXPECT().ListAll(gomock.Any()).Return([]jujucloud.Cloud{
 		{
-			Cloud: jujucloud.Cloud{
-				Name:      "dummy",
-				Type:      "dummy",
-				AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
-				Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
-			},
-			Access: permission.AddModelAccess,
+			Name:      "my-cloud",
+			Type:      "dummy",
+			AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
+			Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 		},
-	}
-	ctrlBackend := s.ctrlBackend.EXPECT()
-	ctrlBackend.CloudsForUser(fredTag, true).Return(cloudInfo, nil)
+	}, nil)
 
 	result, err := s.api.ListCloudInfo(stdcontext.Background(), params.ListCloudsRequest{
 		UserTag: "user-admin",
@@ -577,7 +578,7 @@ func (s *cloudSuite) TestListCloudInfo(c *gc.C) {
 					AuthTypes: []string{"empty", "userpass"},
 					Regions:   []params.CloudRegion{{Name: "nether", Endpoint: "endpoint"}},
 				},
-				Access: "add-model",
+				Access: "admin",
 			},
 		},
 	})
@@ -656,6 +657,8 @@ func (s *cloudSuite) TestUpdateCredentials(c *gc.C) {
 	backend := s.backend.EXPECT()
 	backend.CredentialModels(tagOne).Return(nil, nil)
 	backend.CredentialModels(tagTwo).Return(nil, nil)
+	s.cloudService.EXPECT().Get(gomock.Any(), "badcloud").Return(&jujucloud.Cloud{Name: "badcloud"}, nil)
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&jujucloud.Cloud{Name: "meep"}, nil)
 	cred := jujucloud.NewCredential(
 		jujucloud.OAuth1AuthType,
 		map[string]string{"token": "foo:bar:baz"},
@@ -716,6 +719,7 @@ func (s *cloudSuite) TestUpdateCredentialsAdminAccess(c *gc.C) {
 
 	backend := s.backend.EXPECT()
 	backend.CredentialModels(tag).Return(nil, nil)
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&jujucloud.Cloud{Name: "meep"}, nil)
 	cred := jujucloud.Credential{}
 	s.credService.EXPECT().UpdateCloudCredential(gomock.Any(), names.NewCloudCredentialTag("meep/julia/three"),
 		cred).Return(nil)
@@ -747,6 +751,7 @@ func (s *cloudSuite) TestUpdateCredentialsNoModelsFound(c *gc.C) {
 
 	backend := s.backend.EXPECT()
 	backend.CredentialModels(tag).Return(nil, errors.NotFoundf("how about it"))
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&jujucloud.Cloud{Name: "meep"}, nil)
 	s.credService.EXPECT().UpdateCloudCredential(gomock.Any(), names.NewCloudCredentialTag("meep/julia/three"),
 		cred).Return(nil)
 
@@ -801,6 +806,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelsErrorForce(c *gc.C) {
 
 	backend := s.backend.EXPECT()
 	backend.CredentialModels(tag).Return(nil, errors.New("cannot get models"))
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&jujucloud.Cloud{Name: "meep"}, nil)
 	s.credService.EXPECT().UpdateCloudCredential(gomock.Any(), tag,
 		cred).Return(nil)
 
@@ -834,7 +840,7 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *gc.C) {
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(
 			_ credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ jujucloud.Cloud, _ bool,
 		) (params.ErrorResults, error) {
 			return params.ErrorResults{}, nil
 		})
@@ -845,6 +851,8 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *gc.C) {
 		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}
+
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&jujucloud.Cloud{Name: "meep"}, nil)
 
 	cred := jujucloud.Credential{}
 
@@ -893,6 +901,8 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetError(c *gc.C) {
 	backend.CredentialModels(tag).Return(map[string]string{
 		coretesting.ModelTag.Id(): "testModel1",
 	}, nil)
+
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&jujucloud.Cloud{Name: "meep"}, nil)
 
 	pool := s.pool.EXPECT()
 	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(nil, nil, errors.New("cannot get a model"))
@@ -993,7 +1003,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) {
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(backend credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ jujucloud.Cloud, _ bool,
 		) (params.ErrorResults, error) {
 			return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
 		})
@@ -1007,6 +1017,8 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) {
 
 	_, tag := cloudCredentialTag(credParams{name: "three", owner: "julia", cloudName: "meep", authType: jujucloud.EmptyAuthType,
 		attrs: map[string]string{}}, c)
+
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&jujucloud.Cloud{Name: "meep"}, nil)
 
 	cred := jujucloud.Credential{}
 
@@ -1063,7 +1075,7 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) {
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(backend credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ jujucloud.Cloud, _ bool,
 		) (params.ErrorResults, error) {
 			if backend.(*mockModelBackend).uuid == "deadbeef-0bad-400d-8000-4b1d0d06f00d" {
 				return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
@@ -1073,6 +1085,8 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) {
 
 	_, tag := cloudCredentialTag(credParams{name: "three", owner: "julia", cloudName: "meep", authType: jujucloud.EmptyAuthType,
 		attrs: map[string]string{}}, c)
+
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&jujucloud.Cloud{Name: "meep"}, nil)
 
 	backend := s.backend.EXPECT()
 	backend.CredentialModels(tag).Return(map[string]string{
@@ -1128,13 +1142,15 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *gc.
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(
 			backend credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ jujucloud.Cloud, _ bool,
 		) (params.ErrorResults, error) {
 			if backend.(*mockModelBackend).uuid == "deadbeef-0bad-400d-8000-4b1d0d06f00d" {
 				return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
 			}
 			return params.ErrorResults{Results: []params.ErrorResult{}}, nil
 		})
+
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&jujucloud.Cloud{Name: "meep"}, nil)
 
 	cred := jujucloud.Credential{}
 
@@ -1190,10 +1206,12 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidation(c *gc.C) {
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(_ credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ bool,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ jujucloud.Cloud, _ bool,
 		) (params.ErrorResults, error) {
 			return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
 		})
+
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&jujucloud.Cloud{Name: "meep"}, nil)
 
 	aCloud := jujucloud.Cloud{
 		Name:      "dummy",
@@ -1246,10 +1264,11 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidationForce(c *gc.C
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(_ credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, migrating bool) (params.ErrorResults,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ jujucloud.Cloud, migrating bool) (params.ErrorResults,
 			error) {
 			return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
 		})
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&jujucloud.Cloud{Name: "meep"}, nil)
 
 	aCloud := jujucloud.Cloud{
 		Name:      "dummy",
@@ -1572,8 +1591,7 @@ func (s *cloudSuite) TestCredential(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}
 
-	backend := s.backend.EXPECT()
-	backend.Cloud("meep").Return(cloud, nil)
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&cloud, nil)
 	s.credService.EXPECT().CloudCredentials(gomock.Any(), "bruce", "meep").Return(creds, nil)
 
 	results, err := s.api.Credential(stdcontext.Background(), params.Entities{Entities: []params.Entity{{
@@ -1619,8 +1637,7 @@ func (s *cloudSuite) TestCredentialAdminAccess(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}
 
-	backend := s.backend.EXPECT()
-	backend.Cloud("meep").Return(cloud, nil)
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&cloud, nil)
 	s.credService.EXPECT().CloudCredentials(gomock.Any(), "bruce", "meep").Return(creds, nil)
 
 	results, err := s.api.Credential(stdcontext.Background(), params.Entities{Entities: []params.Entity{{
@@ -1643,8 +1660,8 @@ func (s *cloudSuite) TestModifyCloudAccess(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}
 
+	s.cloudService.EXPECT().Get(gomock.Any(), "fluffy").Return(&cloud, nil).Times(2)
 	backend := s.backend.EXPECT()
-	backend.Cloud("fluffy").Return(cloud, nil).Times(2)
 	fred := names.NewUserTag("fred")
 	mary := names.NewUserTag("mary")
 	backend.CreateCloudAccess("fluffy", fred,
@@ -1685,8 +1702,8 @@ func (s *cloudSuite) TestModifyCloudUpdateAccess(c *gc.C) {
 
 	fredTag := names.NewUserTag("fred")
 
+	s.cloudService.EXPECT().Get(gomock.Any(), "fluffy").Return(&cloud, nil)
 	backend := s.backend.EXPECT()
-	backend.Cloud("fluffy").Return(cloud, nil)
 	backend.CreateCloudAccess("fluffy", fredTag,
 		permission.AdminAccess).Return(errors.AlreadyExistsf("access %s", permission.AdminAccess))
 	backend.GetCloudAccess("fluffy", fredTag).Return(permission.AddModelAccess,
@@ -1723,8 +1740,8 @@ func (s *cloudSuite) TestModifyCloudAlreadyHasAccess(c *gc.C) {
 
 	fredTag := names.NewUserTag("fred")
 
+	s.cloudService.EXPECT().Get(gomock.Any(), "fluffy").Return(&cloud, nil)
 	backend := s.backend.EXPECT()
-	backend.Cloud("fluffy").Return(cloud, nil)
 	backend.CreateCloudAccess("fluffy", fredTag,
 		permission.AdminAccess).Return(errors.AlreadyExistsf("access %s", permission.AdminAccess))
 	backend.GetCloudAccess("fluffy", fredTag).Return(permission.AdminAccess,
@@ -1772,8 +1789,8 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *gc.C) {
 
 	s.credService.EXPECT().AllCloudCredentials(gomock.Any(), bruceTag.Id()).Return(creds, nil)
 
+	s.cloudService.EXPECT().Get(gomock.Any(), "meep").Return(&cloud, nil)
 	backend := s.backend.EXPECT()
-	backend.Cloud("meep").Return(cloud, nil)
 	backend.CredentialModelsAndOwnerAccess(tagOne).Return([]state.CredentialOwnerModelAccess{}, nil)
 	backend.CredentialModelsAndOwnerAccess(tagTwo).Return([]state.CredentialOwnerModelAccess{}, nil)
 

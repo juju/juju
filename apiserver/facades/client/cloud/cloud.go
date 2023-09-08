@@ -49,6 +49,7 @@ type CloudV7 interface {
 type CloudAPI struct {
 	backend           Backend
 	ctlrBackend       Backend
+	cloudService      CloudService
 	credentialService CredentialService
 
 	authorizer             facade.Authorizer
@@ -66,7 +67,8 @@ var (
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
 func NewCloudAPI(
-	backend, ctlrBackend Backend, pool ModelPoolBackend, credentialService CredentialService, authorizer facade.Authorizer, logger loggo.Logger,
+	backend, ctlrBackend Backend, pool ModelPoolBackend, cloudService CloudService, credentialService CredentialService,
+	authorizer facade.Authorizer, logger loggo.Logger,
 ) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -90,6 +92,7 @@ func NewCloudAPI(
 	return &CloudAPI{
 		backend:                backend,
 		ctlrBackend:            ctlrBackend,
+		cloudService:           cloudService,
 		credentialService:      credentialService,
 		authorizer:             authorizer,
 		getCredentialsAuthFunc: getUserAuthFunc,
@@ -115,7 +118,7 @@ func (api *CloudAPI) canAccessCloud(cloud string, user names.UserTag, access per
 // that the logged in user can see.
 func (api *CloudAPI) Clouds(ctx context.Context) (params.CloudsResult, error) {
 	var result params.CloudsResult
-	clouds, err := api.backend.Clouds()
+	clouds, err := api.cloudService.ListAll(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -127,10 +130,10 @@ func (api *CloudAPI) Clouds(ctx context.Context) (params.CloudsResult, error) {
 	}
 	isAdmin := err == nil
 	result.Clouds = make(map[string]params.Cloud)
-	for tag, aCloud := range clouds {
+	for _, aCloud := range clouds {
 		// Ensure user has permission to see the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(tag.Id(), api.apiUser, permission.AddModelAccess)
+			canAccess, err := api.canAccessCloud(aCloud.Name, api.apiUser, permission.AddModelAccess)
 			if err != nil {
 				return result, err
 			}
@@ -139,7 +142,7 @@ func (api *CloudAPI) Clouds(ctx context.Context) (params.CloudsResult, error) {
 			}
 		}
 		paramsCloud := cloudToParams(aCloud)
-		result.Clouds[tag.String()] = paramsCloud
+		result.Clouds[names.NewCloudTag(aCloud.Name).String()] = paramsCloud
 	}
 	return result, nil
 }
@@ -171,11 +174,11 @@ func (api *CloudAPI) Cloud(ctx context.Context, args params.Entities) (params.Cl
 				return nil, errors.NotFoundf("cloud %q", tag.Id())
 			}
 		}
-		aCloud, err := api.backend.Cloud(tag.Id())
+		aCloud, err := api.cloudService.Get(ctx, tag.Id())
 		if err != nil {
 			return nil, err
 		}
-		paramsCloud := cloudToParams(aCloud)
+		paramsCloud := cloudToParams(*aCloud)
 		return &paramsCloud, nil
 	}
 	for i, arg := range args.Entities {
@@ -200,7 +203,7 @@ func (api *CloudAPI) CloudInfo(ctx context.Context, args params.Entities) (param
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return api.getCloudInfo(tag)
+		return api.getCloudInfo(ctx, tag)
 	}
 
 	for i, arg := range args.Entities {
@@ -214,7 +217,7 @@ func (api *CloudAPI) CloudInfo(ctx context.Context, args params.Entities) (param
 	return results, nil
 }
 
-func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error) {
+func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*params.CloudInfo, error) {
 	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
 	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, errors.Trace(err)
@@ -229,12 +232,12 @@ func (api *CloudAPI) getCloudInfo(tag names.CloudTag) (*params.CloudInfo, error)
 		isAdmin = perm == permission.AdminAccess
 	}
 
-	aCloud, err := api.backend.Cloud(tag.Id())
+	aCloud, err := api.cloudService.Get(ctx, tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	info := params.CloudInfo{
-		CloudDetails: cloudDetailsToParams(aCloud),
+		CloudDetails: cloudDetailsToParams(*aCloud),
 	}
 
 	cloudUsers, err := api.ctlrBackend.GetCloudUsers(tag.Id())
@@ -290,14 +293,38 @@ func (api *CloudAPI) ListCloudInfo(ctx context.Context, req params.ListCloudsReq
 		return result, errors.Trace(err)
 	}
 
-	cloudInfos, err := api.ctlrBackend.CloudsForUser(userTag, req.All && api.isAdmin)
+	allClouds, err := api.cloudService.ListAll(ctx)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if req.All && api.isAdmin {
+		for _, cld := range allClouds {
+			info := &params.ListCloudInfo{
+				CloudDetails: cloudDetailsToParams(cld),
+				Access:       string(permission.AdminAccess),
+			}
+			result.Results = append(result.Results, params.ListCloudInfoResult{Result: info})
+		}
+		return result, nil
+	}
+
+	cloudInfos, err := api.ctlrBackend.CloudsForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
 
+	cloudsByName := make(map[string]cloud.Cloud)
+	for _, cld := range allClouds {
+		cloudsByName[cld.Name] = cld
+	}
+
 	for _, ci := range cloudInfos {
+		cld, ok := cloudsByName[ci.Name]
+		if !ok {
+			continue
+		}
 		info := &params.ListCloudInfo{
-			CloudDetails: cloudDetailsToParams(ci.Cloud),
+			CloudDetails: cloudDetailsToParams(cld),
 			Access:       string(ci.Access),
 		}
 		result.Results = append(result.Results, params.ListCloudInfoResult{Result: info})
@@ -453,6 +480,12 @@ func (api *CloudAPI) commonUpdateCredentials(ctx context.Context, update bool, f
 			}
 		}
 
+		cld, err := api.cloudService.Get(ctx, tag.Cloud().Id())
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
 		var modelsErred bool
 		if len(models) > 0 {
 			var modelsResult []params.UpdateCredentialModelResult
@@ -461,7 +494,7 @@ func (api *CloudAPI) commonUpdateCredentials(ctx context.Context, update bool, f
 					ModelUUID: uuid,
 					ModelName: name,
 				}
-				model.Errors = api.validateCredentialForModel(uuid, tag, &in)
+				model.Errors = api.validateCredentialForModel(uuid, *cld, tag, &in)
 				modelsResult = append(modelsResult, model)
 				if len(model.Errors) > 0 {
 					modelsErred = true
@@ -526,7 +559,7 @@ func (api *CloudAPI) credentialModels(tag names.CloudCredentialTag) (map[string]
 	return models, nil
 }
 
-func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.CloudCredentialTag, credential *cloud.Credential) []params.ErrorResult {
+func (api *CloudAPI) validateCredentialForModel(modelUUID string, cld cloud.Cloud, tag names.CloudCredentialTag, credential *cloud.Credential) []params.ErrorResult {
 	var result []params.ErrorResult
 
 	m, callContext, err := api.pool.GetModelCallContext(modelUUID)
@@ -539,6 +572,7 @@ func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.Clou
 		callContext,
 		tag,
 		credential,
+		cld,
 		false,
 	)
 	if err != nil {
@@ -674,7 +708,7 @@ func (api *CloudAPI) Credential(ctx context.Context, args params.Entities) (para
 			if s, ok := schemaCache[cloudName]; ok {
 				return s, nil
 			}
-			aCloud, err := api.backend.Cloud(cloudName)
+			aCloud, err := api.cloudService.Get(ctx, cloudName)
 			if err != nil {
 				return nil, err
 			}
@@ -737,7 +771,7 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 		if err != nil {
 			return errors.Trace(err)
 		}
-		controllerCloud, err := api.backend.Cloud(controllerInfo.CloudName)
+		controllerCloud, err := api.cloudService.Get(ctx, controllerInfo.CloudName)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -755,7 +789,12 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 		aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
 	}
 
-	err = api.backend.AddCloud(aCloud, api.apiUser.Name())
+	// TODO(wallyworld) - consider txn implications
+	err = api.cloudService.Save(ctx, aCloud)
+	if err != nil {
+		return errors.Annotatef(err, "creating cloud %q", cloudArgs.Name)
+	}
+	err = api.backend.CreateCloudAccess(cloudArgs.Name, api.apiUser, permission.AdminAccess)
 	return errors.Trace(err)
 }
 
@@ -771,7 +810,7 @@ func (api *CloudAPI) UpdateCloud(ctx context.Context, cloudArgs params.UpdateClo
 		return results, apiservererrors.ServerError(err)
 	}
 	for i, aCloud := range cloudArgs.Clouds {
-		err := api.backend.UpdateCloud(cloudFromParams(aCloud.Name, aCloud.Cloud))
+		err := api.cloudService.Save(ctx, cloudFromParams(aCloud.Name, aCloud.Cloud))
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
@@ -806,7 +845,7 @@ func (api *CloudAPI) RemoveClouds(ctx context.Context, args params.Entities) (pa
 				continue
 			}
 		}
-		err = api.backend.RemoveCloud(tag.Id())
+		err = api.cloudService.Delete(ctx, tag.Id())
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
@@ -829,7 +868,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 		if s, ok := schemaCache[cloudName]; ok {
 			return s, nil
 		}
-		aCloud, err := api.backend.Cloud(cloudName)
+		aCloud, err := api.cloudService.Get(ctx, cloudName)
 		if err != nil {
 			return nil, err
 		}
@@ -944,7 +983,7 @@ func (c *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyClou
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		_, err = c.backend.Cloud(cloudTag.Id())
+		_, err = c.cloudService.Get(ctx, cloudTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue

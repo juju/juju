@@ -14,12 +14,12 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 )
 
-func NewStateShim(st *state.State, credentialService common.CredentialService) (*stateShim, error) {
+func NewStateShim(st *state.State, cloudService common.CloudService, credentialService common.CredentialService) (*stateShim, error) {
 	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &stateShim{EnvironConfigGetter: stateenvirons.EnvironConfigGetter{Model: m, CredentialService: credentialService},
+	return &stateShim{EnvironConfigGetter: stateenvirons.EnvironConfigGetter{Model: m, CloudService: cloudService, CredentialService: credentialService},
 		State: st, modelTag: m.ModelTag()}, nil
 }
 

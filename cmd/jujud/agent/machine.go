@@ -1194,16 +1194,20 @@ func openStatePool(
 	}
 	defer session.Close()
 
-	var credService stateenvirons.CredentialService
+	var (
+		credService  stateenvirons.CredentialService
+		cloudService stateenvirons.CloudService
+	)
 	if serviceFactory != nil {
 		credService = serviceFactory.Credential()
+		cloudService = serviceFactory.Cloud()
 	}
 	pool, err := state.OpenStatePool(state.OpenParams{
 		Clock:                  clock.WallClock,
 		ControllerTag:          agentConfig.Controller(),
 		ControllerModelTag:     agentConfig.Model(),
 		MongoSession:           session,
-		NewPolicy:              stateenvirons.GetNewPolicyFunc(credService),
+		NewPolicy:              stateenvirons.GetNewPolicyFunc(cloudService, credService),
 		RunTransactionObserver: runTransactionObserver,
 	})
 	if err != nil {

@@ -28,7 +28,7 @@ func newAPI(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 	newEnviron := func() (environs.Environ, error) {
-		return stateenvirons.GetNewEnvironFunc(environs.New)(model, ctx.ServiceFactory().Credential())
+		return stateenvirons.GetNewEnvironFunc(environs.New)(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
 	}
 	return createAPI(getState(st), newEnviron, ctx.Resources(), ctx.Auth())
 }

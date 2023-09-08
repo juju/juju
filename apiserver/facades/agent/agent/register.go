@@ -39,6 +39,7 @@ func NewAgentAPIV3(ctx facade.Context) (*AgentAPI, error) {
 		ctx.State(),
 		ctx.ServiceFactory().ControllerConfig(),
 		ctx.ServiceFactory().ExternalController(),
+		ctx.ServiceFactory().Cloud(),
 		ctx.ServiceFactory().Credential(),
 	)
 }

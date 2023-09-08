@@ -159,7 +159,7 @@ func InitializeState(
 			EnvironVersion:          args.ControllerModelEnvironVersion,
 		},
 		StoragePools:              args.StoragePools,
-		Cloud:                     args.ControllerCloud,
+		CloudName:                 args.ControllerCloud.Name,
 		ControllerConfig:          args.ControllerConfig,
 		ControllerInheritedConfig: args.ControllerInheritedConfig,
 		RegionInheritedConfig:     args.RegionInheritedConfig,

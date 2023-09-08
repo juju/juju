@@ -76,6 +76,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
+	s.CloudService = apiservertesting.FixedCloudGetter(&jujutesting.DefaultCloud)
 	s.provisionerSuite.SetUpTest(c)
 	s.provisionerSuite.storageSetUp = s
 
@@ -84,7 +85,7 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), s.CredentialService)
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), s.CloudService, s.CredentialService)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	s.st = s.ControllerModel(c).State()
@@ -102,6 +103,10 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
+	s.CloudService = apiservertesting.FixedCloudGetter(&cloud.Cloud{
+		Name: "caascloud",
+		Type: "kubernetes",
+	})
 	s.provisionerSuite.SetUpTest(c)
 	s.provisionerSuite.storageSetUp = s
 
@@ -119,7 +124,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, s.CredentialService)
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, s.CloudService, s.CredentialService)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(s.st), registry)

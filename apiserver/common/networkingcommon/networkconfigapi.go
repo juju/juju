@@ -34,7 +34,7 @@ type NetworkConfigAPI struct {
 
 // NewNetworkConfigAPI constructs a new common network configuration API
 // and returns its reference.
-func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) (*NetworkConfigAPI, error) {
+func NewNetworkConfigAPI(ctx context.Context, st *state.State, cloudService common.CloudService, getCanModify common.GetAuthFunc) (*NetworkConfigAPI, error) {
 	// TODO (manadart 2020-08-11): This is a second access of the model when
 	// being instantiated by the provisioner API.
 	// We should ameliorate repeat model access at some point,
@@ -44,7 +44,7 @@ func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) (*Net
 		return nil, errors.Trace(err)
 	}
 
-	cloud, err := mod.Cloud()
+	cloud, err := cloudService.Get(ctx, mod.CloudName())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

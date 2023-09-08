@@ -132,9 +132,6 @@ func allCollections() CollectionSchema {
 		// different models at a time.
 		usermodelnameC: {global: true},
 
-		// This collection holds cloud definitions.
-		cloudsC: {global: true},
-
 		// This collection holds settings from various sources which
 		// are inherited and then forked by new models.
 		globalSettingsC: {global: true},

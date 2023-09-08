@@ -51,6 +51,7 @@ func NewAgentAPI(
 	st *state.State,
 	controllerConfigService ControllerConfigService,
 	externalController common.ExternalControllerService,
+	cloudService common.CloudService,
 	credentialService common.CredentialService,
 ) (*AgentAPI, error) {
 	getCanChange := func() (common.AuthFunc, error) {
@@ -71,7 +72,7 @@ func NewAgentAPI(
 		),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,
-			cloudspec.MakeCloudSpecGetterForModel(st, credentialService),
+			cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),
 			cloudspec.MakeCloudSpecWatcherForModel(st),
 			cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),

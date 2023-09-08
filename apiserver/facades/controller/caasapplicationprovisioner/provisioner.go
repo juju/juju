@@ -85,7 +85,7 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.Context) (*APIGroup, error
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.ServiceFactory().Credential())
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}

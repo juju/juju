@@ -42,14 +42,17 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	configGetter := stateenvirons.EnvironConfigGetter{Model: model, CredentialService: ctx.ServiceFactory().Credential()}
-	newEnviron := common.EnvironFuncForModel(model, ctx.ServiceFactory().Credential(), configGetter)
+	configGetter := stateenvirons.EnvironConfigGetter{
+		Model: model, CloudService: ctx.ServiceFactory().Cloud(), CredentialService: ctx.ServiceFactory().Credential()}
+	cloudService := ctx.ServiceFactory().Cloud()
+	credentialService := ctx.ServiceFactory().Credential()
+	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
 
 	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
-	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool, ctx.ServiceFactory().Credential())
+	environscloudspecGetter := cloudspec.MakeCloudSpecGetter(pool, cloudService, credentialService)
 
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.

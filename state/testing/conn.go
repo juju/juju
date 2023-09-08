@@ -90,42 +90,11 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 			},
 		},
 		ControllerInheritedConfig: args.ControllerInheritedConfig,
-		Cloud: cloud.Cloud{
-			Name:      "dummy",
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-			Regions: []cloud.Region{
-				{
-					Name:             "dummy-region",
-					Endpoint:         "dummy-endpoint",
-					IdentityEndpoint: "dummy-identity-endpoint",
-					StorageEndpoint:  "dummy-storage-endpoint",
-				},
-				{
-					Name:             "nether-region",
-					Endpoint:         "nether-endpoint",
-					IdentityEndpoint: "nether-identity-endpoint",
-					StorageEndpoint:  "nether-storage-endpoint",
-				},
-				{
-					Name:             "unused-region",
-					Endpoint:         "unused-endpoint",
-					IdentityEndpoint: "unused-identity-endpoint",
-					StorageEndpoint:  "unused-storage-endpoint",
-				},
-				{
-					Name:             "dotty.region",
-					Endpoint:         "dotty.endpoint",
-					IdentityEndpoint: "dotty.identity-endpoint",
-					StorageEndpoint:  "dotty.storage-endpoint",
-				},
-			},
-			RegionConfig: args.RegionConfig,
-		},
-		MongoSession:        session,
-		WatcherPollInterval: 10 * time.Millisecond,
-		NewPolicy:           args.NewPolicy,
-		AdminPassword:       args.AdminPassword,
+		CloudName:                 "dummy",
+		MongoSession:              session,
+		WatcherPollInterval:       10 * time.Millisecond,
+		NewPolicy:                 args.NewPolicy,
+		AdminPassword:             args.AdminPassword,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return ctlr

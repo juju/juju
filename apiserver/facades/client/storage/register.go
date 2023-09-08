@@ -40,6 +40,7 @@ func newStorageAPI(ctx facade.Context) (*StorageAPI, error) {
 		}
 		registry, err := stateenvirons.NewStorageProviderRegistryForModel(
 			model,
+			ctx.ServiceFactory().Cloud(),
 			ctx.ServiceFactory().Credential(),
 			stateenvirons.GetNewEnvironFunc(environs.New),
 			stateenvirons.GetNewCAASBrokerFunc(caas.New))

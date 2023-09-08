@@ -31,7 +31,7 @@ func newFacadeV4(ctx facade.Context) (*StorageProvisionerAPIv4, error) {
 		return nil, errors.Trace(err)
 	}
 	registry, err := stateenvirons.NewStorageProviderRegistryForModel(
-		model, ctx.ServiceFactory().Credential(),
+		model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential(),
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New),
 	)

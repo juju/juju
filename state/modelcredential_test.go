@@ -181,13 +181,6 @@ func assertCredentialCreated(c *gc.C, testSuite ConnSuite) (string, *state.User,
 	})
 
 	cloudName := "stratus"
-	err := testSuite.State.AddCloud(cloud.Cloud{
-		Name:      cloudName,
-		Type:      "low",
-		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-		Regions:   []cloud.Region{{Name: "dummy-region", Endpoint: "endpoint"}},
-	}, owner.Name())
-	c.Assert(err, jc.ErrorIsNil)
 
 	tag := names.NewCloudCredentialTag(fmt.Sprintf("%v/%v/%v", cloudName, owner.Name(), "foobar"))
 	return cloudName, owner, tag

@@ -77,6 +77,7 @@ func (s *agentSuite) agentAPI(c *gc.C, auth facade.Authorizer, credentialService
 		s.ControllerModel(c).State(),
 		nil,
 		nil,
+		nil,
 		credentialService,
 	)
 }

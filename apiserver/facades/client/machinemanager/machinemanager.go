@@ -75,6 +75,7 @@ type CharmhubClient interface {
 type MachineManagerAPI struct {
 	controllerConfigGetter ControllerConfigGetter
 	st                     Backend
+	cloudService           common.CloudService
 	credentialService      common.CredentialService
 	storageAccess          StorageInterface
 	pool                   Pool
@@ -146,6 +147,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 	return NewMachineManagerAPI(
 		controllerConfigGetter,
 		backend,
+		ctx.ServiceFactory().Cloud(),
 		ctx.ServiceFactory().Credential(),
 		storageAccess,
 		pool,
@@ -165,6 +167,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 func NewMachineManagerAPI(
 	controllerConfigGetter ControllerConfigGetter,
 	backend Backend,
+	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	storageAccess StorageInterface,
 	pool Pool,
@@ -182,6 +185,7 @@ func NewMachineManagerAPI(
 	api := &MachineManagerAPI{
 		controllerConfigGetter: controllerConfigGetter,
 		st:                     backend,
+		cloudService:           cloudService,
 		credentialService:      credentialService,
 		pool:                   pool,
 		authorizer:             auth,
@@ -344,7 +348,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 		return result, errors.Trace(err)
 	}
 
-	icfg, err := InstanceConfig(ctx, mm.controllerConfigGetter, st, mm.st, mm.credentialService, args.MachineId, args.Nonce, args.DataDir)
+	icfg, err := InstanceConfig(ctx, mm.controllerConfigGetter, st, mm.st, mm.cloudService, mm.credentialService, args.MachineId, args.Nonce, args.DataDir)
 	if err != nil {
 		return result, apiservererrors.ServerError(errors.Annotate(
 			err, "getting instance config",

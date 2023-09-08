@@ -307,13 +307,6 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertModelMatches(model)
 
-	// Check that the cloud's model count is incremented.
-	testCloud, err := s.State.Cloud("dummy")
-	c.Assert(err, jc.ErrorIsNil)
-	refCount, err := state.CloudModelRefCount(st, testCloud.Name)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(refCount, gc.Equals, 2)
-
 	// Since the model tag for the State connection is different,
 	// asking for this model through FindEntity returns a not found error.
 	_, err = s.State.FindEntity(modelTag)
@@ -565,7 +558,6 @@ func (s *ModelSuite) TestMetrics(c *gc.C) {
 		UnitCount:        "3",
 		CloudName:        "dummy",
 		CloudRegion:      "dummy-region",
-		Provider:         "dummy",
 		UUID:             s.Model.UUID(),
 		ControllerUUID:   s.Model.ControllerUUID(),
 	}
@@ -1738,13 +1730,6 @@ func (s *ModelCloudValidationSuite) TestNewModelDifferentCloud(c *gc.C) {
 	defer controller.Close()
 	st, err := controller.SystemState()
 	c.Assert(err, jc.ErrorIsNil)
-	aCloud := cloud.Cloud{
-		Name:      "another",
-		Type:      "dummy",
-		AuthTypes: cloud.AuthTypes{"empty", "userpass"},
-	}
-	err = st.AddCloud(aCloud, owner.Name())
-	c.Assert(err, jc.ErrorIsNil)
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	cfg, err = cfg.Apply(map[string]interface{}{"name": "whatever"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1758,62 +1743,6 @@ func (s *ModelCloudValidationSuite) TestNewModelDifferentCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 	c.Assert(m.CloudName(), gc.Equals, "another")
-	cloudValue, err := m.Cloud()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloudValue, jc.DeepEquals, aCloud)
-}
-
-func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudRegion(c *gc.C) {
-	controller, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
-	defer controller.Close()
-	st, err := controller.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, _ := createTestModelConfig(c, st.ModelUUID())
-	_, _, err = controller.NewModel(state.ModelArgs{
-		Type:                    state.ModelTypeIAAS,
-		CloudName:               "dummy",
-		CloudRegion:             "dummy-region",
-		Config:                  cfg,
-		Owner:                   owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, gc.ErrorMatches, `region "dummy-region" not found \(expected one of \["some-region"\]\)`)
-}
-
-func (s *ModelCloudValidationSuite) TestNewModelDefaultCloudRegion(c *gc.C) {
-	controller, owner := s.initializeState(c, []cloud.Region{{Name: "dummy-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
-	defer controller.Close()
-	st, err := controller.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, _ := createTestModelConfig(c, st.ModelUUID())
-	cfg, err = cfg.Apply(map[string]interface{}{"name": "whatever"})
-	c.Assert(err, jc.ErrorIsNil)
-	m, newSt, err := controller.NewModel(state.ModelArgs{
-		Type:                    state.ModelTypeIAAS,
-		CloudName:               "dummy",
-		Config:                  cfg,
-		Owner:                   owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	defer newSt.Close()
-	c.Assert(m.CloudRegion(), gc.Equals, "dummy-region")
-}
-
-func (s *ModelCloudValidationSuite) TestNewModelMissingCloudRegion(c *gc.C) {
-	controller, owner := s.initializeState(c, []cloud.Region{{Name: "dummy-region"}, {Name: "dummy-region2"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
-	defer controller.Close()
-	st, err := controller.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, _ := createTestModelConfig(c, st.ModelUUID())
-	_, _, err = controller.NewModel(state.ModelArgs{
-		Type:                    state.ModelTypeIAAS,
-		CloudName:               "dummy",
-		Config:                  cfg,
-		Owner:                   owner,
-		StorageProviderRegistry: storage.StaticProviderRegistry{},
-	})
-	c.Assert(err, gc.ErrorMatches, "missing cloud region not valid")
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelMissingCloudCredentialSupportsEmptyAuth(c *gc.C) {
@@ -1872,12 +1801,7 @@ func (s *ModelCloudValidationSuite) initializeState(
 			CloudCredential:         controllerCredential,
 			StorageProviderRegistry: storage.StaticProviderRegistry{},
 		},
-		Cloud: cloud.Cloud{
-			Name:      "dummy",
-			Type:      "dummy",
-			AuthTypes: authTypes,
-			Regions:   regions,
-		},
+		CloudName:     "dummy",
 		MongoSession:  s.Session,
 		AdminPassword: "dummy-secret",
 	})

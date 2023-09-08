@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/clock"
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
@@ -52,7 +53,25 @@ type networkInfoSuite struct {
 
 var _ = gc.Suite(&networkInfoSuite{})
 
+type mockCloudService struct {
+	clouds map[string]cloud.Cloud
+}
+
+func (b *mockCloudService) Get(_ context.Context, name string) (*cloud.Cloud, error) {
+	cld, ok := b.clouds[name]
+	if !ok {
+		return nil, jujuerrors.NotFoundf("cloud %q", name)
+	}
+	return &cld, nil
+}
+
 func (s *networkInfoSuite) SetUpTest(c *gc.C) {
+	s.CloudService = &mockCloudService{
+		clouds: map[string]cloud.Cloud{
+			"dummy":     testing.DefaultCloud,
+			"caascloud": {Name: "caascloud", Type: "kubernetes"},
+		},
+	}
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
 	s.ApiServerSuite.SetUpTest(c)

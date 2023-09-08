@@ -35,7 +35,8 @@ func newOffersAPI(facadeContext facade.Context) (*OffersAPI, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		g := stateenvirons.EnvironConfigGetter{Model: model, CredentialService: facadeContext.ServiceFactory().Credential()}
+		g := stateenvirons.EnvironConfigGetter{
+			Model: model, CloudService: facadeContext.ServiceFactory().Cloud(), CredentialService: facadeContext.ServiceFactory().Credential()}
 		env, err := environs.GetEnviron(ctx, g, environs.New)
 		if err != nil {
 			return nil, errors.Trace(err)

@@ -34,7 +34,9 @@ type MachinerAPI struct {
 }
 
 // NewMachinerAPIForState creates a new instance of the Machiner API.
-func NewMachinerAPIForState(ctrlSt, st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPI, error) {
+func NewMachinerAPIForState(
+	ctrlSt, st *state.State, cloudService common.CloudService, resources facade.Resources, authorizer facade.Authorizer,
+) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -43,7 +45,7 @@ func NewMachinerAPIForState(ctrlSt, st *state.State, resources facade.Resources,
 		return authorizer.AuthOwner, nil
 	}
 
-	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(st, getCanAccess)
+	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(context.Background(), st, cloudService, getCanAccess)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}

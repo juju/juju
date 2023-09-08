@@ -26,6 +26,7 @@ type CredentialValidatorSuite struct {
 	resources         *common.Resources
 	authorizer        apiservertesting.FakeAuthorizer
 	backend           *testBackend
+	cloudService      *testCloudService
 	credentialService *testCredentialService
 
 	api *credentialvalidator.CredentialValidatorAPI
@@ -36,6 +37,7 @@ var _ = gc.Suite(&CredentialValidatorSuite{})
 func (s *CredentialValidatorSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.backend = newMockBackend()
+	s.cloudService = newMockCloudService()
 	s.credentialService = newMockCredentialService()
 
 	s.resources = common.NewResources()
@@ -44,7 +46,7 @@ func (s *CredentialValidatorSuite) SetUpTest(c *gc.C) {
 	}
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	api, err := credentialvalidator.NewCredentialValidatorAPIForTest(s.backend, s.credentialService, s.resources, s.authorizer)
+	api, err := credentialvalidator.NewCredentialValidatorAPIForTest(s.backend, s.cloudService, s.credentialService, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }

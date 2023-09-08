@@ -35,31 +35,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
-// List mocks base method.
-func (m *MockState) List(arg0 context.Context, arg1 string) ([]cloud.Cloud, error) {
+// DeleteCloud mocks base method.
+func (m *MockState) DeleteCloud(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteCloud", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteCloud indicates an expected call of DeleteCloud.
+func (mr *MockStateMockRecorder) DeleteCloud(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCloud", reflect.TypeOf((*MockState)(nil).DeleteCloud), arg0, arg1)
+}
+
+// ListClouds mocks base method.
+func (m *MockState) ListClouds(arg0 context.Context, arg1 string) ([]cloud.Cloud, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListClouds", arg0, arg1)
 	ret0, _ := ret[0].([]cloud.Cloud)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// List indicates an expected call of List.
-func (mr *MockStateMockRecorder) List(arg0, arg1 interface{}) *gomock.Call {
+// ListClouds indicates an expected call of ListClouds.
+func (mr *MockStateMockRecorder) ListClouds(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockState)(nil).List), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListClouds", reflect.TypeOf((*MockState)(nil).ListClouds), arg0, arg1)
 }
 
-// Save mocks base method.
-func (m *MockState) Save(arg0 context.Context, arg1 cloud.Cloud) error {
+// UpsertCloud mocks base method.
+func (m *MockState) UpsertCloud(arg0 context.Context, arg1 cloud.Cloud) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Save", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpsertCloud", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Save indicates an expected call of Save.
-func (mr *MockStateMockRecorder) Save(arg0, arg1 interface{}) *gomock.Call {
+// UpsertCloud indicates an expected call of UpsertCloud.
+func (mr *MockStateMockRecorder) UpsertCloud(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Save", reflect.TypeOf((*MockState)(nil).Save), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertCloud", reflect.TypeOf((*MockState)(nil).UpsertCloud), arg0, arg1)
 }

@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -223,7 +222,6 @@ type Model interface {
 	// supported by the model.
 	Config() (*config.Config, error)
 	CloudName() string
-	Cloud() (cloud.Cloud, error)
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	CloudRegion() string
 	ControllerUUID() string

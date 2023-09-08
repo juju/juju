@@ -45,7 +45,8 @@ func newSecretsAPI(context facade.Context) (*SecretsAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	backendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
-		return secrets.AdminBackendConfigInfo(stdcontext.Background(), secrets.SecretsModel(model), context.ServiceFactory().Credential())
+		return secrets.AdminBackendConfigInfo(
+			stdcontext.Background(), secrets.SecretsModel(model), context.ServiceFactory().Cloud(), context.ServiceFactory().Credential())
 	}
 	backendGetter := func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
 		p, err := provider.Provider(cfg.BackendType)

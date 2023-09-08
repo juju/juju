@@ -88,6 +88,12 @@ func (s *leadershipRevoker) RevokeLeadership(applicationId, unitId string) error
 }
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
+	s.CloudService = &mockCloudService{
+		clouds: map[string]cloud.Cloud{
+			"dummy":     testing.DefaultCloud,
+			"caascloud": {Name: "caascloud", Type: "kubernetes"},
+		},
+	}
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username": "dummy",
 		"password": "secret",
@@ -3844,6 +3850,13 @@ type uniterNetworkInfoSuite struct {
 var _ = gc.Suite(&uniterNetworkInfoSuite{})
 
 func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
+	s.CloudService = &mockCloudService{
+		clouds: map[string]cloud.Cloud{
+			"dummy":     testing.DefaultCloud,
+			"caascloud": {Name: "caascloud", Type: "kubernetes"},
+		},
+	}
+
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	s.CredentialService = apiservertesting.FixedCredentialGetter(&cred)
 	s.ControllerConfigAttrs = map[string]interface{}{
@@ -4954,7 +4967,7 @@ func (s *cloudSpecUniterSuite) SetUpTest(c *gc.C) {
 
 func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
 	facadeContext := s.facadeContext(c)
-	uniterAPI, err := uniter.NewUniterAPIWithCredentialService(facadeContext, s.CredentialService)
+	uniterAPI, err := uniter.NewUniterAPIWithCredentialService(facadeContext, s.CloudService, s.CredentialService)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := uniterAPI.CloudSpec(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -4981,7 +4994,7 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 
 	facadeContext := s.facadeContext(c)
 	facadeContext.State_ = cm.State()
-	uniterAPI, err := uniter.NewUniterAPIWithCredentialService(facadeContext, s.CredentialService)
+	uniterAPI, err := uniter.NewUniterAPIWithCredentialService(facadeContext, s.CloudService, s.CredentialService)
 	c.Assert(err, jc.ErrorIsNil)
 	uniter.SetNewContainerBrokerFunc(uniterAPI, func(context.Context, environs.OpenParams) (caas.Broker, error) {
 		return &fakeBroker{}, nil
@@ -5019,7 +5032,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		Auth_:              apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("nomatter/0")},
 		LeadershipChecker_: &fakeLeadershipChecker{false},
 	}
-	_, err := uniter.NewUniterAPIWithCredentialService(facadeContext, s.CredentialService)
+	_, err := uniter.NewUniterAPIWithCredentialService(facadeContext, s.CloudService, s.CredentialService)
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }
 
