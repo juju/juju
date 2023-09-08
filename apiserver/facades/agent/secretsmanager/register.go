@@ -85,6 +85,9 @@ func NewSecretManagerAPI(ctx facade.Context) (*SecretsManagerAPI, error) {
 		if len(info.Results) < 1 {
 			return nil, errors.Errorf("no controller api for model %q", uri.SourceUUID)
 		}
+		if err := info.Results[0].Error; err != nil {
+			return nil, errors.Trace(err)
+		}
 		apiInfo := api.Info{
 			Addrs:    info.Results[0].Addresses,
 			CACert:   info.Results[0].CACert,

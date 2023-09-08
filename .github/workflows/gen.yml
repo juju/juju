@@ -1,6 +1,5 @@
 name: "Generate"
 on:
-  push:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -17,7 +16,7 @@ permissions:
 jobs:
   Generate:
     name: Generate
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, xxlarge]
     if: github.event.pull_request.draft == false
 
     steps:
@@ -50,7 +49,7 @@ jobs:
           #  3. Unique every file, so we only go generate the file once.
           #  4. Using xargs perform go generate in parallel.
           #
-          grep -ir "//go:generate" . | awk -F : '{ print $1 }' | uniq | xargs -n 1 -P 2 -I% go generate -x $(realpath %)
+          grep -ir "//go:generate" . | awk -F : '{ print $1 }' | uniq | xargs -n 1 -P 8 -I% go generate -x $(realpath %)
 
       - name: "Check diff"
         if: success() || failure()
@@ -61,6 +60,8 @@ jobs:
           
           git add -A
           if [[ -n $(git diff HEAD) ]]; then
+            # Print the full diff for debugging purposes
+            git diff HEAD
             echo "*****"
             echo "The following generated files have been modified:"
             git diff --name-status HEAD

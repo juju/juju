@@ -71,6 +71,8 @@ type format_2_0Serialization struct {
 	OpenTelemetryEndpoint    string `yaml:"opentelemetryendpoint,omitempty"`
 	OpenTelemetryInsecure    bool   `yaml:"opentelemetryinsecure,omitempty"`
 	OpenTelemetryStackTraces bool   `yaml:"opentelemetrystacktraces,omitempty"`
+
+	DqlitePort int `yaml:"dqlite-port,omitempty"`
 }
 
 func init() {
@@ -128,6 +130,8 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 		openTelemetryEnabled:     format.OpenTelemetryEnabled,
 		openTelemetryInsecure:    format.OpenTelemetryInsecure,
 		openTelemetryStackTraces: format.OpenTelemetryStackTraces,
+
+		dqlitePort: format.DqlitePort,
 	}
 	if len(format.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -205,6 +209,8 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 		OpenTelemetryEnabled:     config.openTelemetryEnabled,
 		OpenTelemetryInsecure:    config.openTelemetryInsecure,
 		OpenTelemetryStackTraces: config.openTelemetryStackTraces,
+
+		DqlitePort: config.dqlitePort,
 	}
 	if config.servingInfo != nil {
 		format.ControllerCert = config.servingInfo.Cert

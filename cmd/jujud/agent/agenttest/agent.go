@@ -170,6 +170,8 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	paths.LogDir = s.LogDir
 	paths.MetricsSpoolDir = c.MkDir()
 
+	dqlitePort := mgotesting.FindTCPPort()
+
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			Paths:             paths,
@@ -189,6 +191,8 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 			OpenTelemetryEndpoint:    "",
 			OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
 			OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
+
+			DqlitePort: dqlitePort,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -240,6 +244,7 @@ func (s *AgentSuite) WriteStateAgentConfig(
 ) agent.ConfigSetterWriter {
 	stateInfo := mongoInfo()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", apiPort)}
+	dqlitePort := mgotesting.FindTCPPort()
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
 			Paths: agent.NewPathsWithDefaults(agent.Paths{
@@ -262,6 +267,8 @@ func (s *AgentSuite) WriteStateAgentConfig(
 			OpenTelemetryEndpoint:    "",
 			OpenTelemetryInsecure:    controller.DefaultOpenTelemetryInsecure,
 			OpenTelemetryStackTraces: controller.DefaultOpenTelemetryStackTraces,
+
+			DqlitePort: dqlitePort,
 		},
 		controller.StateServingInfo{
 			Cert:         coretesting.ServerCert,

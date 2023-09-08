@@ -1,6 +1,5 @@
 name: "Licenses"
 on:
-  push:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -15,7 +14,7 @@ permissions:
 jobs:
   go-license-check:
     name: "go.mod license check"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, arm64, aws, large]
     if: github.event.pull_request.draft == false
     steps:
     - name: Checkout

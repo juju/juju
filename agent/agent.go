@@ -310,6 +310,10 @@ type Config interface {
 	// OpenTelemetryStackTraces return if debug stack traces should be enabled
 	// for each span.
 	OpenTelemetryStackTraces() bool
+
+	// DqlitePort returns the port that should be used by Dqlite. This should
+	// only be set during testing.
+	DqlitePort() (int, bool)
 }
 
 type configSetterOnly interface {
@@ -459,6 +463,7 @@ type configInternal struct {
 	openTelemetryEndpoint    string
 	openTelemetryInsecure    bool
 	openTelemetryStackTraces bool
+	dqlitePort               int
 }
 
 // AgentConfigParams holds the parameters required to create
@@ -485,6 +490,7 @@ type AgentConfigParams struct {
 	OpenTelemetryEndpoint    string
 	OpenTelemetryInsecure    bool
 	OpenTelemetryStackTraces bool
+	DqlitePort               int
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -554,6 +560,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		openTelemetryEndpoint:    configParams.OpenTelemetryEndpoint,
 		openTelemetryInsecure:    configParams.OpenTelemetryInsecure,
 		openTelemetryStackTraces: configParams.OpenTelemetryStackTraces,
+		dqlitePort:               configParams.DqlitePort,
 	}
 	if len(configParams.APIAddresses) > 0 {
 		config.apiDetails = &apiDetails{
@@ -1059,4 +1066,9 @@ func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 		Password: c.statePassword,
 		Tag:      c.tag,
 	}, true
+}
+
+// DqlitePort is defined on Config interface.
+func (c *configInternal) DqlitePort() (int, bool) {
+	return c.dqlitePort, c.dqlitePort > 0
 }

@@ -49,12 +49,18 @@ type NodeManager struct {
 // NewNodeManager returns a new NodeManager reference
 // based on the input agent configuration.
 func NewNodeManager(cfg agent.Config, logger Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
-	return &NodeManager{
+	m := &NodeManager{
 		cfg:             cfg,
 		port:            dqlitePort,
 		logger:          logger,
 		slowQueryLogger: slowQueryLogger,
 	}
+	if cfg != nil {
+		if port, ok := cfg.DqlitePort(); ok {
+			m.port = port
+		}
+	}
+	return m
 }
 
 // IsBootstrappedNode returns true if this machine or container was where we
