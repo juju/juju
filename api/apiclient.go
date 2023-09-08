@@ -247,6 +247,11 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		host = dialResult.addr
 	}
 
+	pingerFacadeVersions := facadeVersions["Pinger"]
+	if len(pingerFacadeVersions) == 0 {
+		return nil, errors.Errorf("pinger facade version is required")
+	}
+
 	st := &state{
 		ctx:                 context.Background(),
 		client:              client,
@@ -255,7 +260,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		addr:                dialResult.addr,
 		ipAddr:              dialResult.ipAddr,
 		cookieURL:           CookieURLFromHost(host),
-		pingerFacadeVersion: facadeVersions["Pinger"],
+		pingerFacadeVersion: pingerFacadeVersions[len(pingerFacadeVersions)-1],
 		serverScheme:        "https",
 		serverRootAddress:   dialResult.addr,
 		// We populate the username and password before
