@@ -85,7 +85,7 @@ require (
 	github.com/juju/version/v2 v2.0.1
 	github.com/juju/viddy v0.0.0-beta5
 	github.com/juju/webbrowser v1.0.0
-	github.com/juju/worker/v3 v3.1.0
+	github.com/juju/worker/v3 v3.4.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.3.1
 	github.com/mattn/go-isatty v0.0.19
@@ -104,11 +104,11 @@ require (
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/vmware/govmomi v0.21.1-0.20191008161538-40aebf13ba45
 	go.uber.org/mock v0.2.0
-	golang.org/x/crypto v0.12.0
-	golang.org/x/net v0.14.0
+	golang.org/x/crypto v0.13.0
+	golang.org/x/net v0.15.0
 	golang.org/x/oauth2 v0.10.0
 	golang.org/x/sync v0.3.0
-	golang.org/x/sys v0.11.0
+	golang.org/x/sys v0.12.0
 	golang.org/x/tools v0.11.0
 	google.golang.org/api v0.126.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
@@ -274,8 +274,8 @@ require (
 	go.opentelemetry.io/otel/trace v1.16.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
-	golang.org/x/term v0.11.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/term v0.12.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230629202037-9506855d4529 // indirect
