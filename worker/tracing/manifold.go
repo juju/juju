@@ -30,6 +30,7 @@ type Logger interface {
 	Tracef(message string, args ...interface{})
 
 	IsTraceEnabled() bool
+	IsLevelEnabled(level int) bool
 }
 
 // TracerWorkerFunc is the function signature for creating a new tracer worker.

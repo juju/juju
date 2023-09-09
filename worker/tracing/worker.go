@@ -5,12 +5,15 @@ package tracing
 
 import (
 	"context"
+	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+	"go.opentelemetry.io/otel"
 	"gopkg.in/tomb.v2"
 
 	coretracing "github.com/juju/juju/core/tracing"
@@ -103,6 +106,11 @@ func NewWorker(cfg WorkerConfig) (*tracerWorker, error) {
 }
 
 func (w *tracerWorker) loop() (err error) {
+	// For some reason, unbeknownst to me, the otel sdk has a global logger
+	// that is registered on init. Considering this is a new package, I'm not
+	// sure why they decided to do it like this.
+	otel.SetLogger(logr.New(&loggoSink{Logger: w.cfg.Logger}))
+
 	for {
 		select {
 		// The following ensures that all tracerRequests are serialised and
@@ -290,3 +298,74 @@ type noopSpan struct{}
 func (noopSpan) AddEvent(string, ...coretracing.Attribute)   {}
 func (noopSpan) RecordError(error, ...coretracing.Attribute) {}
 func (noopSpan) End(...coretracing.Attribute)                {}
+
+type loggoSink struct {
+	Logger        Logger
+	name          string
+	keysAndValues []any
+}
+
+// Init receives optional information about the logr library for LogSink
+// implementations that need it.
+func (s *loggoSink) Init(info logr.RuntimeInfo) {}
+
+// Enabled tests whether this LogSink is enabled at the specified V-level.
+// For example, commandline flags might be used to set the logging
+// verbosity and disable some info logs.
+func (s *loggoSink) Enabled(level int) bool {
+	return s.Logger.IsLevelEnabled(level)
+}
+
+// Info logs a non-error message with the given key/value pairs as context.
+// The level argument is provided for optional logging.  This method will
+// only be called when Enabled(level) is true. See Logger.Info for more
+// details.
+func (s *loggoSink) Info(level int, msg string, keysAndValues ...any) {
+	format, args := s.formatKeysAndValues([]any{level, msg}, keysAndValues)
+	s.Logger.Infof("%d: %s"+format, args...)
+}
+
+// Error logs an error, with the given message and key/value pairs as
+// context.  See Logger.Error for more details.
+func (s *loggoSink) Error(err error, msg string, keysAndValues ...any) {
+	format, args := s.formatKeysAndValues([]any{msg, err}, keysAndValues)
+	s.Logger.Errorf("%s: %v"+format, args...)
+}
+
+// WithValues returns a new LogSink with additional key/value pairs.  See
+// Logger.WithValues for more details.
+func (s *loggoSink) WithValues(keysAndValues ...any) logr.LogSink {
+	return &loggoSink{
+		Logger:        s.Logger,
+		name:          s.name,
+		keysAndValues: append(s.keysAndValues, keysAndValues...),
+	}
+}
+
+// WithName returns a new LogSink with the specified name appended.  See
+// Logger.WithName for more details.
+func (s *loggoSink) WithName(name string) logr.LogSink {
+	return &loggoSink{
+		Logger:        s.Logger,
+		name:          name,
+		keysAndValues: s.keysAndValues,
+	}
+}
+
+func (s *loggoSink) formatKeysAndValues(init []any, keysAndValues []any) (string, []any) {
+	var exprs []string
+
+	kv := append(s.keysAndValues, keysAndValues...)
+	args := init
+
+	for _, v := range kv {
+		exprs = append(exprs, "%v")
+		args = append(args, v)
+	}
+	if len(exprs) == 0 {
+		return "", nil
+	}
+
+	format := ": " + strings.Join(exprs, " ")
+	return format, args
+}

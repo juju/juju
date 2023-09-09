@@ -7,7 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	jujutesting "github.com/juju/testing"
+	"go.opentelemetry.io/otel"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -41,6 +43,8 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.logger = jujujujutesting.CheckLogger{
 		Log: c,
 	}
+
+	otel.SetLogger(logr.New(&loggoSink{Logger: s.logger}))
 
 	return ctrl
 }
