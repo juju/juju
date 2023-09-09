@@ -18,6 +18,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package tracing -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -package tracing -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
+//go:generate go run go.uber.org/mock/mockgen -package tracing -destination tracer_mock_test.go github.com/juju/juju/worker/tracing TrackedTracer
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

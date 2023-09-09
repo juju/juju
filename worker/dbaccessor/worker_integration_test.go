@@ -69,6 +69,7 @@ var _ = gc.Suite(&integrationSuite{})
 
 func (s *integrationSuite) SetUpTest(c *gc.C) {
 	s.DqliteSuite.SetUpTest(c)
+	s.dqliteAppIntegrationSuite.SetUpTest(c)
 
 	params := agent.AgentConfigParams{
 		Tag:               names.NewMachineTag("1"),

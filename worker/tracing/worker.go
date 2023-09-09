@@ -169,6 +169,10 @@ func (w *tracerWorker) GetTracer(namespace string) (coretracing.Tracer, error) {
 	// we have, then return out quickly. The tracerRunner is the cache, so there
 	// is no need to have a in-memory cache here.
 	if tracer, err := w.workerFromCache(namespace); err != nil {
+		if errors.Is(err, w.catacomb.ErrDying()) {
+			return nil, coretracing.ErrTracerDying
+		}
+
 		return nil, errors.Trace(err)
 	} else if tracer != nil {
 		return tracer, nil
