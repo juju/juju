@@ -19,6 +19,13 @@ import (
 	coretracing "github.com/juju/juju/core/tracing"
 )
 
+const (
+	// States which report the state of the worker.
+	stateStarted = "started"
+)
+
+// TrackedTracer is a Tracer that is also a worker, to ensure the lifecycle of
+// the tracer is managed.
 type TrackedTracer interface {
 	worker.Worker
 	coretracing.Tracer
@@ -62,8 +69,9 @@ type traceRequest struct {
 }
 
 type tracerWorker struct {
-	cfg      WorkerConfig
-	catacomb catacomb.Catacomb
+	internalStates chan string
+	cfg            WorkerConfig
+	catacomb       catacomb.Catacomb
 
 	tracerRunner *worker.Runner
 
@@ -74,13 +82,18 @@ type tracerWorker struct {
 
 // NewWorker creates a new tracer worker.
 func NewWorker(cfg WorkerConfig) (*tracerWorker, error) {
+	return newWorker(cfg, nil)
+}
+
+func newWorker(cfg WorkerConfig, internalStates chan string) (*tracerWorker, error) {
 	var err error
 	if err = cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	w := &tracerWorker{
-		cfg: cfg,
+		internalStates: internalStates,
+		cfg:            cfg,
 		tracerRunner: worker.NewRunner(worker.RunnerParams{
 			Clock: cfg.Clock,
 			IsFatal: func(err error) bool {
@@ -110,6 +123,9 @@ func (w *tracerWorker) loop() (err error) {
 	// that is registered on init. Considering this is a new package, I'm not
 	// sure why they decided to do it like this.
 	otel.SetLogger(logr.New(&loggoSink{Logger: w.cfg.Logger}))
+
+	// Report the initial started state.
+	w.reportInternalState(stateStarted)
 
 	for {
 		select {
@@ -167,7 +183,7 @@ func (w *tracerWorker) GetTracer(namespace string) (coretracing.Tracer, error) {
 	select {
 	case w.tracerRequests <- req:
 	case <-w.catacomb.Dying():
-		return nil, w.catacomb.ErrDying()
+		return nil, coretracing.ErrTracerDying
 	}
 
 	// Wait for the worker loop to indicate it's done.
@@ -179,7 +195,7 @@ func (w *tracerWorker) GetTracer(namespace string) (coretracing.Tracer, error) {
 			return nil, errors.Trace(err)
 		}
 	case <-w.catacomb.Dying():
-		return nil, w.catacomb.ErrDying()
+		return nil, coretracing.ErrTracerDying
 	}
 
 	// This will return a not found error if the request was not honoured.
@@ -240,6 +256,14 @@ func (w *tracerWorker) initTracer(namespace string) error {
 func (w *tracerWorker) scopedContext() (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	return w.catacomb.Context(ctx), cancel
+}
+
+func (w *tracerWorker) reportInternalState(state string) {
+	select {
+	case <-w.catacomb.Dying():
+	case w.internalStates <- state:
+	default:
+	}
 }
 
 // NoopWorker ensures that we get a functioning tracer even if we're not using

@@ -5,6 +5,17 @@ package tracing
 
 import (
 	"context"
+
+	"github.com/juju/errors"
+)
+
+const (
+	// ErrTracerDying is used to indicate to *third parties* that the
+	// tracer worker is dying, instead of catacomb.ErrDying, which is
+	// unsuitable for propagating inter-worker.
+	// This error indicates to consuming workers that their dependency has
+	// become unmet and a restart by the dependency engine is imminent.
+	ErrTracerDying = errors.ConstError("tracer worker is dying")
 )
 
 // Option are options that can be passed to the Tracer.Start() method.
