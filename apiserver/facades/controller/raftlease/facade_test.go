@@ -28,29 +28,6 @@ type RaftLeaseSuite struct {
 
 var _ = gc.Suite(&RaftLeaseSuite{})
 
-func (s *RaftLeaseSuite) TestApplyLeaseV1(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.auth.EXPECT().AuthController().Return(true)
-	s.raft.EXPECT().ApplyLease(gomock.Any(), raftlease.Command{
-		Operation: "claim",
-		Lease:     "singular-worker",
-	}).Return(nil)
-
-	facade, err := newFacadeV1(s.context)
-	c.Assert(err, jc.ErrorIsNil)
-
-	results, err := facade.ApplyLease(context.Background(), params.LeaseOperations{
-		Operations: []params.LeaseOperation{{
-			Command: MustCreateStringCommand(c, "singular-worker"),
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: make([]params.ErrorResult, 1),
-	})
-}
-
 func (s *RaftLeaseSuite) TestApplyLeaseV2(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -166,15 +143,6 @@ func (s *RaftLeaseSuite) TestApplyLeaseError(c *gc.C) {
 			{},
 		},
 	})
-}
-
-func (s *RaftLeaseSuite) TestApplyLeaseAuthFailureV1(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.auth.EXPECT().AuthController().Return(false)
-
-	_, err := newFacadeV1(s.context)
-	c.Assert(err, gc.ErrorMatches, `permission denied`)
 }
 
 func (s *RaftLeaseSuite) TestApplyLeaseAuthFailureV2(c *gc.C) {

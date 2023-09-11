@@ -36579,7 +36579,8 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    }
+                    },
+                    "description": "ApplyLease is a bulk API to allow applying lease operations to a raft\ncontext. If the current controller is not the leader, then a NotLeaderError\nis returned. Information about where they can locate the leader maybe\nsupplied in the error message, but isn't guaranteed.\nIf no information is supplied, it is expected that the client performs their\nown algorithm to locate the leader (roundrobin or listen to the apidetails\ntopic)."
                 }
             },
             "definitions": {
