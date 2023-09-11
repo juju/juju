@@ -135,7 +135,7 @@ func (s *bundleMockSuite) TestExportBundleLatest(c *gc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall("ExportBundle", args, res).SetArg(2, results).Return(nil)
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
-	result, err := client.ExportBundle(true, false)
+	result, err := client.ExportBundle(true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, bundleStr)
 }
