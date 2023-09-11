@@ -1169,6 +1169,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		// add container mongoDB.
 		// TODO(bootstrap): refactor mongo package to make it usable for IAAS and CAAS,
 		// then generate mongo config from EnsureServerParams.
+		tlsPrivateKeyPath := c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKey)
 		probCmds := &core.ExecAction{
 			Command: []string{
 				"mongo",
@@ -1176,14 +1177,14 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 				"--ssl",
 				"--sslAllowInvalidHostnames",
 				"--sslAllowInvalidCertificates",
-				fmt.Sprintf("--sslPEMKeyFile=%s", c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKey)),
+				fmt.Sprintf("--sslPEMKeyFile=%s", tlsPrivateKeyPath),
 				"--eval",
 				"db.adminCommand('ping')",
 			},
 		}
 		args := []string{
 			fmt.Sprintf("--dbpath=%s", c.pathJoin(c.pcfg.DataDir, "db")),
-			fmt.Sprintf("--sslPEMKeyFile=%s", c.pathJoin(c.pcfg.DataDir, c.fileNameSSLKey)),
+			fmt.Sprintf("--sslPEMKeyFile=%s", tlsPrivateKeyPath),
 			"--sslPEMKeyPassword=ignored",
 			"--sslMode=requireSSL",
 			fmt.Sprintf("--port=%d", c.portMongoDB),
@@ -1201,7 +1202,7 @@ func (c *controllerStack) buildContainerSpecForController(statefulset *apps.Stat
 		}
 		// Create the script used to start mongo.
 		const mongoSh = "/root/mongo.sh"
-		mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "))
+		mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "), tlsPrivateKeyPath)
 		// Write it to a file so it can be executed.
 		mongoStartup = strings.ReplaceAll(mongoStartup, "\n", "\\n")
 		makeMongoCmd := fmt.Sprintf("printf '%s'>%s", mongoStartup, mongoSh)

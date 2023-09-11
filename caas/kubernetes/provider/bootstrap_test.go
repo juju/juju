@@ -607,6 +607,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		`if [ $ipv6Disabled -eq 0 ]; then`,
 		`  args="${args} --ipv6"`,
 		`fi`,
+		`while [ ! -f "/var/lib/juju/server.pem" ]; do`,
+		`  echo "Waiting for /var/lib/juju/server.pem to be created..."`,
+		`  sleep 1`,
+		`done`,
 		`exec mongod ${args}`,
 		`'>/root/mongo.sh && chmod a+x /root/mongo.sh && /root/mongo.sh`,
 	}
