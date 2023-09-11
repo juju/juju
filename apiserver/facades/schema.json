@@ -5773,8 +5773,8 @@
     },
     {
         "Name": "Bundle",
-        "Description": "APIv7 provides the Bundle API facade for version 7. It drops GetChanges\nfrom the facade, which was deprecated in favour of GetChangesMapArgs. It\nalso drops series from GetChangesMapArgs",
-        "Version": 7,
+        "Description": "APIv8 provides the Bundle API facade for version 8. It drops IncludeSeries\nfrom ExportBundle params, and drops series entirely from ExportBundle output",
+        "Version": 8,
         "AvailableTo": [
             "controller-user",
             "model-user"
@@ -5904,9 +5904,6 @@
                     "type": "object",
                     "properties": {
                         "include-charm-defaults": {
-                            "type": "boolean"
-                        },
-                        "include-series": {
                             "type": "boolean"
                         }
                     },

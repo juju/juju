@@ -39,10 +39,9 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// APIv7 provides the Bundle API facade for version 7. It drops GetChanges
-// from the facade, which was deprecated in favour of GetChangesMapArgs. It
-// also drops series from GetChangesMapArgs
-type APIv7 struct {
+// APIv8 provides the Bundle API facade for version 8. It drops IncludeSeries
+// from ExportBundle params, and drops series entirely from ExportBundle output
+type APIv8 struct {
 	*BundleAPI
 }
 
@@ -202,7 +201,7 @@ func (b *BundleAPI) ExportBundle(ctx context.Context, arg params.ExportBundlePar
 	}
 
 	// Fill it in charm.BundleData data structure.
-	bundleData, err := b.fillBundleData(model, arg.IncludeCharmDefaults, arg.IncludeSeries, b.backend)
+	bundleData, err := b.fillBundleData(model, arg.IncludeCharmDefaults, b.backend)
 	if err != nil {
 		return fail(err)
 	}
@@ -254,12 +253,11 @@ func (b *BundleAPI) ExportBundle(ctx context.Context, arg params.ExportBundlePar
 
 // bundleOutput has the same top level keys as the charm.BundleData
 // but in a more user oriented output order, with the description first,
-// then the distro base/series, then the apps, machines and releations.
+// then the distro base, then the apps, machines and releations.
 type bundleOutput struct {
 	Type         string                            `yaml:"bundle,omitempty"`
 	Description  string                            `yaml:"description,omitempty"`
 	DefaultBase  string                            `yaml:"default-base,omitempty"`
-	Series       string                            `yaml:"series,omitempty"`
 	Saas         map[string]*charm.SaasSpec        `yaml:"saas,omitempty"`
 	Applications map[string]*charm.ApplicationSpec `yaml:"applications,omitempty"`
 	Machines     map[string]*charm.MachineSpec     `yaml:"machines,omitempty"`
@@ -271,7 +269,6 @@ func bundleOutputFromBundleData(bd *charm.BundleData) *bundleOutput {
 		Type:         bd.Type,
 		Description:  bd.Description,
 		DefaultBase:  bd.DefaultBase,
-		Series:       bd.Series,
 		Saas:         bd.Saas,
 		Applications: bd.Applications,
 		Machines:     bd.Machines,
@@ -279,7 +276,7 @@ func bundleOutputFromBundleData(bd *charm.BundleData) *bundleOutput {
 	}
 }
 
-func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults, includeSeries bool, backend Backend) (*charm.BundleData, error) {
+func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults bool, backend Backend) (*charm.BundleData, error) {
 	cfg, err := config.New(config.NoDefaults, model.Config())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -303,13 +300,6 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 		data.Type = "kubernetes"
 	} else {
 		data.DefaultBase = defaultBase.String()
-		if includeSeries {
-			defaultSeries, err := corebase.GetSeriesFromBase(defaultBase)
-			if err != nil {
-				return nil, err
-			}
-			data.Series = defaultSeries
-		}
 	}
 
 	if len(model.Applications()) == 0 {
@@ -321,14 +311,14 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 		usedBases  set.Strings
 		machineIds set.Strings
 	)
-	data.Applications, machineIds, usedBases, err = b.bundleDataApplications(model.Applications(), defaultBase, isCAAS, includeCharmDefaults, includeSeries, backend)
+	data.Applications, machineIds, usedBases, err = b.bundleDataApplications(model.Applications(), defaultBase, isCAAS, includeCharmDefaults, backend)
 	if err != nil {
 		return nil, err
 	}
 
 	// Machine bundle data.
 	var machineBases set.Strings
-	data.Machines, machineBases, err = b.bundleDataMachines(model.Machines(), machineIds, defaultBase, includeSeries)
+	data.Machines, machineBases, err = b.bundleDataMachines(model.Machines(), machineIds, defaultBase)
 	if err != nil {
 		return nil, err
 	}
@@ -351,33 +341,22 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 		}
 		if used != defaultBase {
 			data.DefaultBase = used.String()
-			if includeSeries {
-				series, err := corebase.GetSeriesFromBase(used)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
-				data.Series = series
-			}
 			for _, app := range data.Applications {
 				app.Base = ""
-				app.Series = ""
 			}
 			for _, mac := range data.Machines {
 				mac.Base = ""
-				mac.Series = ""
 			}
 		}
 	case size > 1:
 		if !usedBases.Contains(defaultBase.String()) {
 			data.DefaultBase = ""
-			data.Series = ""
 		}
 	}
 
 	if isCAAS {
-		// Kubernetes bundles don't specify series right now.
+		// Kubernetes bundles don't specify bases right now.
 		data.DefaultBase = ""
-		data.Series = ""
 	}
 
 	return data, nil
@@ -386,7 +365,7 @@ func (b *BundleAPI) fillBundleData(model description.Model, includeCharmDefaults
 func (b *BundleAPI) bundleDataApplications(
 	apps []description.Application,
 	defaultBase corebase.Base,
-	isCAAS, includeCharmDefaults, includeSeries bool,
+	isCAAS, includeCharmDefaults bool,
 	backend Backend,
 ) (map[string]*charm.ApplicationSpec, set.Strings, set.Strings, error) {
 
@@ -417,14 +396,6 @@ func (b *BundleAPI) bundleDataApplications(
 			return nil, nil, nil, fmt.Errorf("extracting base from application description %w", err)
 		}
 		usedBases.Add(appBase.String())
-
-		var appSeries string
-		if includeSeries {
-			appSeries, err = corebase.GetSeriesFromBase(appBase)
-			if err != nil {
-				return nil, nil, nil, errors.Trace(err)
-			}
-		}
 
 		endpointsWithSpaceNames, err := b.endpointBindings(application.EndpointBindings(), allSpacesInfoLookup, printEndpointBindingSpaceNames)
 		if err != nil {
@@ -555,9 +526,6 @@ func (b *BundleAPI) bundleDataApplications(
 
 		if appBase != defaultBase {
 			newApplication.Base = appBase.String()
-			if includeSeries {
-				newApplication.Series = appSeries
-			}
 		}
 		if result := b.constraints(application.Constraints()); len(result) != 0 {
 			newApplication.Constraints = strings.Join(result, " ")
@@ -618,7 +586,7 @@ func applicationDataResources(resources []description.Resource) map[string]inter
 	return resourceData
 }
 
-func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineIds set.Strings, defaultBase corebase.Base, includeSeries bool) (map[string]*charm.MachineSpec, set.Strings, error) {
+func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineIds set.Strings, defaultBase corebase.Base) (map[string]*charm.MachineSpec, set.Strings, error) {
 	usedBases := set.NewStrings()
 	machineData := make(map[string]*charm.MachineSpec)
 	for _, machine := range machines {
@@ -631,21 +599,11 @@ func (b *BundleAPI) bundleDataMachines(machines []description.Machine, machineId
 		}
 		usedBases.Add(macBase.String())
 
-		var macSeries string
-		if includeSeries {
-			macSeries, err = corebase.GetSeriesFromBase(macBase)
-			if err != nil {
-				return nil, nil, errors.Trace(err)
-			}
-		}
 		newMachine := &charm.MachineSpec{
 			Annotations: machine.Annotations(),
 		}
 		if macBase != defaultBase {
 			newMachine.Base = macBase.String()
-			if includeSeries {
-				newMachine.Series = macSeries
-			}
 		}
 
 		if result := b.constraints(machine.Constraints()); len(result) != 0 {

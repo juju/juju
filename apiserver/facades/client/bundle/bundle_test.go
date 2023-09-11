@@ -28,7 +28,7 @@ import (
 type bundleSuite struct {
 	coretesting.BaseSuite
 	auth     *apiservertesting.FakeAuthorizer
-	facade   *bundle.APIv7
+	facade   *bundle.APIv8
 	st       *mockState
 	modelTag names.ModelTag
 }
@@ -46,14 +46,14 @@ func (s *bundleSuite) SetUpTest(c *gc.C) {
 	s.facade = s.makeAPI(c)
 }
 
-func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv7 {
+func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
 	api, err := bundle.NewBundleAPI(
 		s.st,
 		s.auth,
 		s.modelTag,
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return &bundle.APIv7{api}
+	return &bundle.APIv8{api}
 }
 
 func (s *bundleSuite) TestGetChangesMapArgsBundleContentError(c *gc.C) {
@@ -1130,71 +1130,6 @@ relations:
   - mysql:mysql
 `[1:]
 	expectedResult := params.StringResult{Result: output}
-
-	c.Assert(result, gc.Equals, expectedResult)
-	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
-}
-
-func (s *bundleSuite) TestExportBundleModelWithIncludeSeries(c *gc.C) {
-	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
-		Config: coretesting.FakeConfig().Merge(map[string]interface{}{
-			"default-base": "ubuntu@20.04",
-		}),
-		CloudRegion: "some-region"})
-
-	application := s.st.model.AddApplication(description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("magic"),
-		CharmURL: "ch:magic",
-	})
-	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/20.04/stable"})
-	application.AddUnit(description.UnitArgs{
-		Tag:     names.NewUnitTag("magic/0"),
-		Machine: names.NewMachineTag("0"),
-	})
-	s.st.model.AddMachine(description.MachineArgs{
-		Id:   names.NewMachineTag("0"),
-		Base: "ubuntu@20.04",
-	})
-
-	application = s.st.model.AddApplication(description.ApplicationArgs{
-		Tag:      names.NewApplicationTag("mojo"),
-		CharmURL: "ch:mojo",
-	})
-	application.SetCharmOrigin(description.CharmOriginArgs{Platform: "amd64/ubuntu/22.04/stable"})
-	application.AddUnit(description.UnitArgs{
-		Tag:     names.NewUnitTag("mojo/0"),
-		Machine: names.NewMachineTag("1"),
-	})
-	s.st.model.AddMachine(description.MachineArgs{
-		Id:   names.NewMachineTag("1"),
-		Base: "ubuntu@22.04",
-	})
-
-	result, err := s.facade.ExportBundle(context.Background(), params.ExportBundleParams{IncludeSeries: true})
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedResult := params.StringResult{Result: `
-default-base: ubuntu@20.04/stable
-series: focal
-applications:
-  magic:
-    charm: magic
-    num_units: 1
-    to:
-    - "0"
-  mojo:
-    charm: mojo
-    series: jammy
-    base: ubuntu@22.04/stable
-    num_units: 1
-    to:
-    - "1"
-machines:
-  "0": {}
-  "1":
-    series: jammy
-    base: ubuntu@22.04/stable
-`[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())

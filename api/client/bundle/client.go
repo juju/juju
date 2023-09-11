@@ -40,11 +40,10 @@ func (c *Client) GetChangesMapArgs(bundleURL, bundleDataYAML string) (params.Bun
 }
 
 // ExportBundle exports the current model configuration.
-func (c *Client) ExportBundle(includeDefaults bool, includeSeries bool) (string, error) {
+func (c *Client) ExportBundle(includeDefaults bool) (string, error) {
 	var result params.StringResult
 	arg := params.ExportBundleParams{
 		IncludeCharmDefaults: includeDefaults,
-		IncludeSeries:        includeSeries,
 	}
 	if err := c.facade.FacadeCall("ExportBundle", arg, &result); err != nil {
 		return "", errors.Trace(err)
