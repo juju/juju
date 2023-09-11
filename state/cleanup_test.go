@@ -1122,6 +1122,15 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	s.PatchValue(&k8sprovider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer st.Close()
+
+	assertCleanups := func(n int) {
+		for i := 0; i < 4; i++ {
+			err := st.Cleanup()
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		state.AssertNoCleanups(c, st)
+	}
+
 	sb, err := state.NewStorageBackend(st)
 	c.Assert(err, jc.ErrorIsNil)
 	model, err := st.Model()
@@ -1142,6 +1151,8 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	application := state.AddTestingApplicationWithStorage(c, st, "storage-filesystem", ch, storCons)
 	unit, err := application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(application.Refresh(), jc.ErrorIsNil)
+
 	fs, err := sb.AllFilesystems()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fs, gc.HasLen, 1)
@@ -1149,25 +1160,81 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fas, gc.HasLen, 1)
 
+	vols, err := sb.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 1)
+
+	c.Log("provision storage")
+	err = sb.SetVolumeInfo(vols[0].VolumeTag(), state.VolumeInfo{
+		Size:     1024,
+		VolumeId: "cloud-vol-id-1234",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.SetVolumeAttachmentInfo(unit.UnitTag(), vols[0].VolumeTag(), state.VolumeAttachmentInfo{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.SetFilesystemInfo(fs[0].FilesystemTag(), state.FilesystemInfo{
+		Size:         1024,
+		Pool:         "",
+		FilesystemId: "cloud-fs-id-123",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.SetFilesystemAttachmentInfo(unit.UnitTag(), fs[0].FilesystemTag(), state.FilesystemAttachmentInfo{
+		MountPoint: "/abc",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Log("delete op")
 	err = deleteOp(st, application)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(application.Refresh(), jc.ErrorIsNil)
 
+	c.Log("destroy app")
 	err = application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	for i := 0; i < 4; i++ {
-		err = st.Cleanup()
-		c.Assert(err, jc.ErrorIsNil)
-	}
 
-	// check no cleanups
-	state.AssertNoCleanups(c, st)
-
+	assertCleanups(4)
+	c.Assert(application.Life(), gc.Equals, state.Dying)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Assert(unit.Life(), gc.Equals, state.Dying)
 	fas, err = sb.UnitFilesystemAttachments(unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(fas, gc.HasLen, 0)
+	c.Assert(fas, gc.HasLen, 1)
+	fs, err = sb.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fs, gc.HasLen, 1)
+	sas, err := sb.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sas, gc.HasLen, 1)
+
+	c.Log("unit dying")
+	// RemoveStorageAttachment is called after storage-detaching hook.
+	err = sb.RemoveStorageAttachment(names.NewStorageTag("data/0"), unit.UnitTag(), false)
+	c.Assert(err, jc.ErrorIsNil)
+	assertCleanups(1)
+
+	err = unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+	sas, err = sb.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sas, gc.HasLen, 0)
+
+	assertCleanups(1)
 	fs, err = sb.AllFilesystems()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fs, gc.HasLen, 0)
+
+	// A storage provisioner would call this.
+	err = sb.RemoveVolumeAttachment(unit.UnitTag(), vols[0].VolumeTag(), false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.RemoveVolume(vols[0].VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertCleanups(1)
+	vols, err = sb.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 0)
 }
 
 func (s *CleanupSuite) TestCleanupVolumeAttachments(c *gc.C) {

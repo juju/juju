@@ -55,6 +55,7 @@ const (
 	cleanupMachinesForDyingModel cleanupKind = "modelMachines"
 
 	// CAAS models require storage to be cleaned up.
+	// TODO: should be renamed to something like deadCAASUnitResources.
 	cleanupDyingUnitResources cleanupKind = "dyingUnitResources"
 
 	cleanupResourceBlob          cleanupKind = "resourceBlob"
