@@ -28,11 +28,7 @@ func (*suite) TestAddMetricsUserSuccess(c *gc.C) {
 	username := "foo"
 	password := "bar"
 
-	client := newClient(func(objType string, version int, id, request string, args, results interface{}) error {
-		c.Assert(objType, gc.Equals, "ControllerCharm")
-		c.Assert(version, gc.Equals, 1)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "AddMetricsUser")
+	client := newClient(callerFunc(c, "AddMetricsUser", func(args, results any) {
 		c.Assert(args, gc.DeepEquals, params.AddUsers{[]params.AddUser{{
 			Username:    username,
 			DisplayName: username,
@@ -43,8 +39,7 @@ func (*suite) TestAddMetricsUserSuccess(c *gc.C) {
 			Tag:   username,
 			Error: nil,
 		}}
-		return nil
-	})
+	}))
 
 	err := client.AddMetricsUser("foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -55,11 +50,7 @@ func (*suite) TestAddMetricsUserFailure(c *gc.C) {
 	password := "bar"
 	errMsg := fmt.Sprintf("user %q already exists", username)
 
-	client := newClient(func(objType string, version int, id, request string, args, results interface{}) error {
-		c.Assert(objType, gc.Equals, "ControllerCharm")
-		c.Assert(version, gc.Equals, 1)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "AddMetricsUser")
+	client := newClient(callerFunc(c, "AddMetricsUser", func(args, results any) {
 		c.Assert(args, gc.DeepEquals, params.AddUsers{[]params.AddUser{{
 			Username:    username,
 			DisplayName: username,
@@ -70,8 +61,7 @@ func (*suite) TestAddMetricsUserFailure(c *gc.C) {
 			Tag:   username,
 			Error: &params.Error{Message: errMsg},
 		}}
-		return nil
-	})
+	}))
 
 	err := client.AddMetricsUser("foo", "bar")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("AddMetricsUser facade call failed: %s", errMsg))
@@ -80,11 +70,7 @@ func (*suite) TestAddMetricsUserFailure(c *gc.C) {
 func (*suite) TestRemoveMetricsUserSucceed(c *gc.C) {
 	username := "foo"
 
-	client := newClient(func(objType string, version int, id, request string, args, results interface{}) error {
-		c.Assert(objType, gc.Equals, "ControllerCharm")
-		c.Assert(version, gc.Equals, 1)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "RemoveMetricsUser")
+	client := newClient(callerFunc(c, "RemoveMetricsUser", func(args, results any) {
 		c.Assert(args, gc.DeepEquals, params.Entities{[]params.Entity{{
 			Tag: names.NewUserTag(username).String(),
 		}}})
@@ -92,8 +78,7 @@ func (*suite) TestRemoveMetricsUserSucceed(c *gc.C) {
 		results.(*params.ErrorResults).Results = []params.ErrorResult{{
 			Error: nil,
 		}}
-		return nil
-	})
+	}))
 
 	err := client.RemoveMetricsUser("foo")
 	c.Assert(err, jc.ErrorIsNil)
@@ -103,11 +88,7 @@ func (*suite) TestRemoveMetricsUserFailure(c *gc.C) {
 	username := "foo"
 	errMsg := fmt.Sprintf(`username %q should have prefix "juju-metrics-"`, username)
 
-	client := newClient(func(objType string, version int, id, request string, args, results interface{}) error {
-		c.Assert(objType, gc.Equals, "ControllerCharm")
-		c.Assert(version, gc.Equals, 1)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "RemoveMetricsUser")
+	client := newClient(callerFunc(c, "RemoveMetricsUser", func(args, results any) {
 		c.Assert(args, gc.DeepEquals, params.Entities{[]params.Entity{{
 			Tag: names.NewUserTag(username).String(),
 		}}})
@@ -115,8 +96,7 @@ func (*suite) TestRemoveMetricsUserFailure(c *gc.C) {
 		results.(*params.ErrorResults).Results = []params.ErrorResult{{
 			Error: &params.Error{Message: errMsg},
 		}}
-		return nil
-	})
+	}))
 
 	err := client.RemoveMetricsUser("foo")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("RemoveMetricsUser facade call failed: %s", errMsg))
@@ -124,4 +104,15 @@ func (*suite) TestRemoveMetricsUserFailure(c *gc.C) {
 
 func newClient(f basetesting.APICallerFunc) *controllercharm.Client {
 	return controllercharm.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: 1})
+}
+
+func callerFunc(c *gc.C, request string, f func(args, results any)) basetesting.APICallerFunc {
+	return func(objType string, version int, id, request string, args, results interface{}) error {
+		c.Assert(objType, gc.Equals, "ControllerCharm")
+		c.Assert(version, gc.Equals, 1)
+		c.Assert(id, gc.Equals, "")
+		c.Assert(request, gc.Equals, request)
+		f(args, results)
+		return nil
+	}
 }
