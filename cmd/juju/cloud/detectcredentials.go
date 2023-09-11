@@ -369,7 +369,7 @@ func (c *detectCredentialsCommand) interactiveCredentialsUpdate(ctxt *cmd.Contex
 	// by cloud, by region
 	loaded := map[string]map[string]map[string]jujucloud.Credential{}
 	quit := func(in string) bool {
-		return strings.ToLower(in) == "q"
+		return strings.EqualFold(in, "q")
 	}
 	var localErr error
 	for {

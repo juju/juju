@@ -286,7 +286,7 @@ func (z *lxdAvailabilityZone) Name() string {
 
 // Available implements AvailabilityZone.
 func (z *lxdAvailabilityZone) Available() bool {
-	return strings.ToLower(z.Status) == "online"
+	return strings.EqualFold(z.Status, "online")
 }
 
 // AvailabilityZones (ZonedEnviron) returns all availability zones in the
