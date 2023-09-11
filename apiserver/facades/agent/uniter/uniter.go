@@ -24,15 +24,35 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/facades/agent/secretsmanager"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/juju/state/watcher"
+	statewatcher "github.com/juju/juju/state/watcher"
 )
+
+// ControllerConfigService is an interface that provides the controller
+// configuration for the model.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// CloudService provides access to clouds.
+type CloudService interface {
+	Get(ctx context.Context, name string) (*cloud.Cloud, error)
+}
+
+// CredentialService provides access to credentials.
+type CredentialService interface {
+	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
+	WatchCredential(ctx context.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error)
+}
 
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
@@ -52,20 +72,21 @@ type UniterAPI struct {
 	*secretsmanager.SecretsManagerAPI
 	meterstatus.MeterStatus
 
-	lxdProfileAPI       *LXDProfileAPIv2
-	m                   *state.Model
-	st                  *state.State
-	cloudService        common.CloudService
-	credentialService   common.CredentialService
-	clock               clock.Clock
-	cancel              <-chan struct{}
-	auth                facade.Authorizer
-	resources           facade.Resources
-	leadershipChecker   leadership.Checker
-	accessUnit          common.GetAuthFunc
-	accessApplication   common.GetAuthFunc
-	accessMachine       common.GetAuthFunc
-	containerBrokerFunc caas.NewContainerBrokerFunc
+	lxdProfileAPI           *LXDProfileAPIv2
+	m                       *state.Model
+	st                      *state.State
+	cloudService            CloudService
+	credentialService       CredentialService
+	controllerConfigService ControllerConfigService
+	clock                   clock.Clock
+	cancel                  <-chan struct{}
+	auth                    facade.Authorizer
+	resources               facade.Resources
+	leadershipChecker       leadership.Checker
+	accessUnit              common.GetAuthFunc
+	accessApplication       common.GetAuthFunc
+	accessMachine           common.GetAuthFunc
+	containerBrokerFunc     caas.NewContainerBrokerFunc
 	*StorageAPI
 
 	// A cloud spec can only be accessed for the model of the unit or
@@ -1791,7 +1812,7 @@ func (u *UniterAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.Re
 			Changes:                changes,
 		}, nil
 	}
-	return params.RelationUnitsWatchResult{}, watcher.EnsureErr(watch)
+	return params.RelationUnitsWatchResult{}, statewatcher.EnsureErr(watch)
 }
 
 func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag names.UnitTag) (string, error) {
@@ -1869,7 +1890,7 @@ func leadershipSettingsAccessorFactory(
 		if _, ok := <-w.Changes(); ok {
 			return resources.Register(w), nil
 		}
-		return "", watcher.EnsureErr(w)
+		return "", statewatcher.EnsureErr(w)
 	}
 	getSettings := func(applicationId string) (map[string]string, error) {
 		application, err := st.Application(applicationId)
@@ -2041,7 +2062,7 @@ func (u *UniterAPI) watchOneUnitRelations(tag names.UnitTag) (params.StringsWatc
 			Changes:          changes,
 		}, nil
 	}
-	return nothing, watcher.EnsureErr(watch)
+	return nothing, statewatcher.EnsureErr(watch)
 }
 
 func makeAppAuthChecker(authTag names.Tag) common.AuthFunc {
@@ -2354,7 +2375,7 @@ func (u *UniterAPI) watchOneUnitHashes(tag names.UnitTag, getWatcher func(u *sta
 	if changes, ok := <-w.Changes(); ok {
 		return u.resources.Register(w), changes, nil
 	}
-	return "", nil, watcher.EnsureErr(w)
+	return "", nil, statewatcher.EnsureErr(w)
 }
 
 // CloudAPIVersion returns the cloud API version, if available.
@@ -2508,7 +2529,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 		return errors.Trace(err)
 	}
 
-	ctrlCfg, err := u.st.ControllerConfig()
+	ctrlCfg, err := u.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2717,7 +2738,7 @@ func (u *UniterAPI) CanApplyLXDProfile(ctx context.Context, args params.Entities
 
 // APIHostPorts returns the API server addresses.
 func (u *UniterAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := u.st.ControllerConfig()
+	controllerConfig, err := u.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -2727,7 +2748,7 @@ func (u *UniterAPI) APIHostPorts(ctx context.Context) (result params.APIHostPort
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (u *UniterAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := u.st.ControllerConfig()
+	controllerConfig, err := u.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

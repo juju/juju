@@ -15,8 +15,8 @@ var (
 	GetZone                = &getZone
 	WatchStorageAttachment = watchStorageAttachment
 
-	NewUniterAPI                      = newUniterAPI
-	NewUniterAPIWithCredentialService = newUniterAPIWithCredentialService
+	NewUniterAPI             = newUniterAPI
+	NewUniterAPIWithServices = newUniterAPIWithServices
 
 	_ meterstatus.MeterStatus = (*UniterAPI)(nil)
 )

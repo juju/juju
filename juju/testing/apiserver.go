@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	"github.com/juju/juju/apiserver/stateauthenticator"
@@ -40,6 +39,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
@@ -47,11 +47,11 @@ import (
 	"github.com/juju/juju/core/presence"
 	databasetesting "github.com/juju/juju/database/testing"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
-	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
+	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
-	domaintesting "github.com/juju/juju/domain/schema/testing"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/pubsub/centralhub"
@@ -94,7 +94,7 @@ var (
 
 // ApiServerSuite is a text fixture which spins up an apiserver on top of a controller model.
 type ApiServerSuite struct {
-	domaintesting.ControllerSuite
+	domaintesting.ControllerConfigSuite
 
 	// MgoSuite is needed until we finally can
 	// represent the model fully in dqlite.
@@ -122,14 +122,10 @@ type ApiServerSuite struct {
 	ControllerModelConfigAttrs map[string]interface{}
 
 	// These are exposed for the tests to use.
-
-	Server                   *apiserver.Server
-	LeaseManager             *lease.Manager
-	Clock                    testclock.AdvanceableClock
-	ServiceFactoryGetter     *stubServiceFactoryGetter
-	ControllerServiceFactory servicefactory.ControllerServiceFactory
-	CloudService             common.CloudService
-	CredentialService        common.CredentialService
+	Server               *apiserver.Server
+	LeaseManager         *lease.Manager
+	Clock                testclock.AdvanceableClock
+	ServiceFactoryGetter *stubServiceFactoryGetter
 
 	// These attributes are set before SetUpTest to indicate we want to
 	// set up the api server with real components instead of stubs.
@@ -254,16 +250,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	}
 
 	// modelUUID param is not used so can pass in anything.
-	serviceFactory := s.ServiceFactoryGetter.FactoryForModel("")
-
-	credentialService := s.CredentialService
-	if credentialService == nil {
-		credentialService = serviceFactory.Credential()
-	}
-	cloudService := s.CloudService
-	if cloudService == nil {
-		cloudService = serviceFactory.Cloud()
-	}
+	serviceFactory := s.ServiceFactory("")
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		// TODO (stickupkid): Remove controller config from the state
@@ -281,7 +268,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		CloudName:     DefaultCloud.Name,
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
-		NewPolicy:     stateenvirons.GetNewPolicyFunc(cloudService, credentialService),
+		NewPolicy:     stateenvirons.GetNewPolicyFunc(serviceFactory.Cloud(), serviceFactory.Credential()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = ctrl
@@ -304,11 +291,11 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	s.controllerModelUUID = st.ControllerModelUUID()
 
 	// Allow "dummy" cloud.
-	err = databasetesting.DummyCloudOpt(context.Background(), s.TxnRunner())
+	err = InsertDummyCloudType(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Seed the test database with the controller cloud and credential etc.
-	err = ccbootstrap.InsertInitialControllerConfig(controllerCfg)(context.Background(), s.TxnRunner())
+	err = controllerconfigbootstrap.InsertInitialControllerConfig(controllerCfg)(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	err = cloudbootstrap.InsertInitialControllerCloud(DefaultCloud)(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
@@ -351,8 +338,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	}
 
 	// Set up auth handler.
-	ctrlConfigGetter := s.ControllerServiceFactory.ControllerConfig()
-	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, ctrlConfigGetter, cfg.Clock)
+	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, s.ServiceFactory("").ControllerConfig(), cfg.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)
@@ -375,7 +361,6 @@ func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 		dbDeleter: stubDBDeleter{DB: s.DB()},
 		logger:    servicefactorytesting.NewCheckLogger(c),
 	}
-	s.ControllerServiceFactory = s.ServiceFactoryGetter.FactoryForModel(coredatabase.ControllerNS)
 
 	if s.Clock == nil {
 		s.Clock = testclock.NewClock(time.Now())
@@ -387,7 +372,6 @@ func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 		controllerCfg[key] = value
 	}
 	s.setupControllerModel(c, controllerCfg)
-
 	s.setupApiServer(c, controllerCfg)
 }
 
@@ -410,6 +394,34 @@ func (s *ApiServerSuite) TearDownTest(c *gc.C) {
 	}
 	s.ControllerSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
+}
+
+// ServiceFactory returns a service factory for the model.
+func (s *ApiServerSuite) ServiceFactory(modelUUID string) servicefactory.ServiceFactory {
+	return s.ServiceFactoryGetter.FactoryForModel(modelUUID)
+}
+
+// SeedControllerCloud is responsible for applying the controller cloud to
+// the given database.
+func (s *ApiServerSuite) SeedControllerCloud(c *gc.C, runner coredatabase.TxnRunner) {
+	err := InsertDummyCloudType(context.Background(), s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	err = cloudbootstrap.InsertInitialControllerCloud(DefaultCloud)(context.Background(), runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// AllowCloudType is responsible for applying the cloud type to
+// the given database.
+func AllowCloudType(ctx context.Context, db database.TxnRunner, version int, name string) error {
+	return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`INSERT INTO cloud_type VALUES (?, ?)`, version, name)
+		return err
+	}))
+}
+
+// InsertDummyCloudType is a db bootstrap option which inserts the dummy cloud type.
+func InsertDummyCloudType(ctx context.Context, db database.TxnRunner) error {
+	return AllowCloudType(ctx, db, 666, "dummy")
 }
 
 // URL returns a URL for this server with the given path and

@@ -321,7 +321,7 @@ FROM   cloud
 	}
 	defer func() { _ = rows.Close() }()
 
-	var clouds = map[string]*cloud.Cloud{}
+	clouds := make(map[string]*cloud.Cloud)
 	for rows.Next() {
 		var (
 			dbCloud       Cloud

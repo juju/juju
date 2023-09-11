@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/clock"
-	jujuerrors "github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/retry"
@@ -20,7 +19,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
-	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/cloud"
@@ -53,28 +51,18 @@ type networkInfoSuite struct {
 
 var _ = gc.Suite(&networkInfoSuite{})
 
-type mockCloudService struct {
-	clouds map[string]cloud.Cloud
-}
-
-func (b *mockCloudService) Get(_ context.Context, name string) (*cloud.Cloud, error) {
-	cld, ok := b.clouds[name]
-	if !ok {
-		return nil, jujuerrors.NotFoundf("cloud %q", name)
-	}
-	return &cld, nil
-}
-
 func (s *networkInfoSuite) SetUpTest(c *gc.C) {
-	s.CloudService = &mockCloudService{
-		clouds: map[string]cloud.Cloud{
-			"dummy":     testing.DefaultCloud,
-			"caascloud": {Name: "caascloud", Type: "kubernetes"},
-		},
-	}
-	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	s.CredentialService = apiservertesting.ConstCredentialGetter(&cred)
 	s.ApiServerSuite.SetUpTest(c)
+
+	serviceFactory := s.ServiceFactory("")
+	cloudService := serviceFactory.Cloud()
+	err := cloudService.Save(context.Background(), testing.DefaultCloud)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cloudService.Save(context.Background(), cloud.Cloud{Name: "caascloud", Type: "kubernetes"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
+	serviceFactory.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialTag, cred)
 }
 
 func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
