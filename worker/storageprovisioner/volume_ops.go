@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/core/status"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/wrench"
 )
 
 // createVolumes creates volumes with the specified parameters.

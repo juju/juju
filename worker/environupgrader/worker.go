@@ -15,11 +15,11 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/rpc/params"
 	jujuworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/wrench"
 )
 
 // Logger is here to stop the desire of creating a package level Logger.

@@ -14,7 +14,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/wrench"
+	"github.com/juju/juju/internal/wrench"
 )
 
 var logger = loggo.GetLogger("juju.worker.hostkeyreporter")

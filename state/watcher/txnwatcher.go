@@ -12,7 +12,7 @@ import (
 	"github.com/juju/worker/v3"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/wrench"
+	"github.com/juju/juju/internal/wrench"
 )
 
 // Hub represents a pubsub hub. The TxnWatcher only ever publishes

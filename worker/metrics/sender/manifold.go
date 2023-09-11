@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/metricsadder"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/wrench"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/wrench"
 )
 
 var (

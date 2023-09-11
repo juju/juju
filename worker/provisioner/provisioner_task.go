@@ -43,10 +43,10 @@ import (
 	"github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
+	"github.com/juju/juju/internal/wrench"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/wrench"
 )
 
 type ProvisionerTask interface {

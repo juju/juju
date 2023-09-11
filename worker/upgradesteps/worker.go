@@ -19,11 +19,11 @@ import (
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/wrench"
 )
 
 var logger = loggo.GetLogger("juju.worker.upgradesteps")
