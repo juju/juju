@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
@@ -30,7 +31,7 @@ type Logger interface {
 	Tracef(message string, args ...interface{})
 
 	IsTraceEnabled() bool
-	IsLevelEnabled(level int) bool
+	IsLevelEnabled(loggo.Level) bool
 }
 
 // TracerWorkerFunc is the function signature for creating a new tracer worker.

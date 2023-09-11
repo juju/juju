@@ -64,9 +64,9 @@ func (c CheckLogger) Logf(level loggo.Level, msg string, args ...any) {
 }
 func (c CheckLogger) Child(name string) CheckLogger { return c }
 
-func (c CheckLogger) IsErrorEnabled() bool    { return true }
-func (c CheckLogger) IsWarningEnabled() bool  { return true }
-func (c CheckLogger) IsInfoEnabled() bool     { return true }
-func (c CheckLogger) IsDebugEnabled() bool    { return true }
-func (c CheckLogger) IsTraceEnabled() bool    { return true }
-func (c CheckLogger) IsLevelEnabled(int) bool { return true }
+func (c CheckLogger) IsErrorEnabled() bool            { return true }
+func (c CheckLogger) IsWarningEnabled() bool          { return true }
+func (c CheckLogger) IsInfoEnabled() bool             { return true }
+func (c CheckLogger) IsDebugEnabled() bool            { return true }
+func (c CheckLogger) IsTraceEnabled() bool            { return true }
+func (c CheckLogger) IsLevelEnabled(loggo.Level) bool { return true }

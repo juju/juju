@@ -11,6 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"go.opentelemetry.io/otel"
@@ -341,7 +342,29 @@ func (s *loggoSink) Init(info logr.RuntimeInfo) {}
 // For example, commandline flags might be used to set the logging
 // verbosity and disable some info logs.
 func (s *loggoSink) Enabled(level int) bool {
-	return s.Logger.IsLevelEnabled(level)
+	// From the logr docs:
+	//
+	//     ...levels are additive. A higher verbosity level means a log message
+	//     is less important. Negative V-levels are treated as 0.
+	//
+	// This is the inverse of loggo levels, so we need to invert the level
+	// here.
+	var lvl loggo.Level
+	switch {
+	case level <= 0:
+		lvl = loggo.CRITICAL
+	case level == 1:
+		lvl = loggo.ERROR
+	case level == 2:
+		lvl = loggo.WARNING
+	case level == 3:
+		lvl = loggo.INFO
+	case level == 4:
+		lvl = loggo.DEBUG
+	case level >= 5:
+		lvl = loggo.TRACE
+	}
+	return s.Logger.IsLevelEnabled(lvl)
 }
 
 // Info logs a non-error message with the given key/value pairs as context.
