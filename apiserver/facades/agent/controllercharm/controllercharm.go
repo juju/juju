@@ -26,12 +26,12 @@ const (
 	UserCreator = "admin"
 )
 
-// ControllerCharmAPI provides API methods to the controllercharm worker.
-type ControllerCharmAPI struct {
+// API provides API methods to the controllercharm worker.
+type API struct {
 	state backend
 }
 
-// backend defines the state methods that ControllerCharmAPI needs.
+// backend defines the state methods that API needs.
 type backend interface {
 	AddUser(name string, displayName string, password string, creator string) (*state.User, error)
 	RemoveUser(tag names.UserTag) error
@@ -40,7 +40,7 @@ type backend interface {
 
 // AddMetricsUser creates a user with the given username and password, and
 // grants the new user permission to read the metrics endpoint.
-func (api *ControllerCharmAPI) AddMetricsUser(args params.AddUsers) (params.AddUserResults, error) {
+func (api *API) AddMetricsUser(args params.AddUsers) (params.AddUserResults, error) {
 	var results params.AddUserResults
 	for _, user := range args.Users {
 		var tag string
@@ -57,7 +57,7 @@ func (api *ControllerCharmAPI) AddMetricsUser(args params.AddUsers) (params.AddU
 	return results, nil
 }
 
-func (api *ControllerCharmAPI) addMetricsUser(args params.AddUser) error {
+func (api *API) addMetricsUser(args params.AddUser) error {
 	if !strings.HasPrefix(args.Username, JujuMetricsUserPrefix) {
 		return errors.NotValidf("username %q missing prefix %q", args.Username, JujuMetricsUserPrefix)
 	}
@@ -87,7 +87,7 @@ func (api *ControllerCharmAPI) addMetricsUser(args params.AddUser) error {
 }
 
 // RemoveMetricsUser removes the given user from the controller.
-func (api *ControllerCharmAPI) RemoveMetricsUser(entities params.Entities) (params.ErrorResults, error) {
+func (api *API) RemoveMetricsUser(entities params.Entities) (params.ErrorResults, error) {
 	var results params.ErrorResults
 	for _, e := range entities.Entities {
 		err := api.removeMetricsUser(e)
@@ -98,7 +98,7 @@ func (api *ControllerCharmAPI) RemoveMetricsUser(entities params.Entities) (para
 	return results, nil
 }
 
-func (api *ControllerCharmAPI) removeMetricsUser(e params.Entity) error {
+func (api *API) removeMetricsUser(e params.Entity) error {
 	user, err := names.ParseUserTag(e.Tag)
 	if err != nil {
 		return errors.Annotatef(err, "couldn't parse user tag %q", e.Tag)

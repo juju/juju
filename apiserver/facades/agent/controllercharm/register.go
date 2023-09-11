@@ -19,11 +19,11 @@ import (
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ControllerCharm", 1, func(ctx facade.Context) (facade.Facade, error) {
 		return newControllerCharmAPI(ctx)
-	}, reflect.TypeOf((*ControllerCharmAPI)(nil)))
+	}, reflect.TypeOf((*API)(nil)))
 }
 
 // newControllerCharmAPI creates a new server-side ControllerCharmAPI facade.
-func newControllerCharmAPI(ctx facade.Context) (*ControllerCharmAPI, error) {
+func newControllerCharmAPI(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthUnitAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -40,7 +40,7 @@ func newControllerCharmAPI(ctx facade.Context) (*ControllerCharmAPI, error) {
 			bootstrap.ControllerApplicationName, applicationName)
 	}
 
-	return &ControllerCharmAPI{
+	return &API{
 		state: ctx.State(),
 	}, nil
 }
