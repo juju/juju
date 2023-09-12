@@ -4,11 +4,8 @@
 package uniter_test
 
 import (
-	"context"
-	"database/sql"
 	stdtesting "testing"
 
-	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
@@ -23,12 +20,9 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
-	cloudstate "github.com/juju/juju/domain/cloud/state"
-	credentialstate "github.com/juju/juju/domain/credential/state"
+
 	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -71,8 +65,7 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.WithLeaseManager = true
 
 	s.ApiServerSuite.SetUpTest(c)
-
-	seedCAASCloud(c, s.TxnRunner())
+	s.ApiServerSuite.SeedCAASCloud(c)
 
 	s.setupState(c)
 
@@ -212,31 +205,6 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAA
 	u, err := apiuniter.NewFromConnection(api)
 	c.Assert(err, jc.ErrorIsNil)
 	return u, cm, app, unit
-}
-
-func seedCAASCloud(c *gc.C, db database.TxnRunner) {
-	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
-		"username": "dummy",
-		"password": "secret",
-	})
-
-	cloudUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	credUUID, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		return cloudstate.CreateCloud(ctx, tx, cloudUUID.String(), cloud.Cloud{
-			Name:      "caascloud",
-			Type:      "kubernetes",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-		})
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), "dummy-credential", "caascloud", "admin", cred)
-	})
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 type fakeBroker struct {

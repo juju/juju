@@ -52,8 +52,7 @@ var _ = gc.Suite(&networkInfoSuite{})
 
 func (s *networkInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
-
-	seedCAASCloud(c, s.TxnRunner())
+	s.ApiServerSuite.SeedCAASCloud(c)
 }
 
 func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {

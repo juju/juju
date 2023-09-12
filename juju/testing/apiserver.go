@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/cmd/v3"
@@ -47,8 +48,10 @@ import (
 	"github.com/juju/juju/core/presence"
 	databasetesting "github.com/juju/juju/database/testing"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
+	cloudstate "github.com/juju/juju/domain/cloud/state"
 	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
+	credentialstate "github.com/juju/juju/domain/credential/state"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	domaintesting "github.com/juju/juju/domain/testing"
@@ -570,6 +573,31 @@ func (s *ApiServerSuite) tearDownConn(c *gc.C) {
 		err := s.controller.Close()
 		c.Check(err, jc.ErrorIsNil)
 	}
+}
+
+func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
+	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
+		"username": "dummy",
+		"password": "secret",
+	})
+
+	cloudUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	credUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return cloudstate.CreateCloud(ctx, tx, cloudUUID.String(), cloud.Cloud{
+			Name:      "caascloud",
+			Type:      "kubernetes",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		})
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), "dummy-credential", "caascloud", "admin", cred)
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 // DefaultServerConfig returns a minimal server config.
