@@ -27,7 +27,7 @@ var _ = gc.Suite(&uniterAPIErrorSuite{})
 func (s *uniterAPIErrorSuite) SetupTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	serviceFactory := s.ServiceFactory("")
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	serviceFactory.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialTag, cred)
@@ -47,7 +47,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		LeadershipChecker_: &fakeLeadershipChecker{isLeader: false},
 	}
 
-	serviceFactory := s.ServiceFactory("")
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
 	_, err := uniter.NewUniterAPIWithServices(facadeContext, serviceFactory.ControllerConfig(), serviceFactory.Cloud(), serviceFactory.Credential())
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 }

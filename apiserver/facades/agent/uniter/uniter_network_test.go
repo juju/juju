@@ -44,9 +44,9 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 
 	s.ApiServerSuite.SetUpTest(c)
 
-	s.seedCAASCloud(c)
+	seedCAASCloud(c, s.TxnRunner())
 
-	serviceFactory := s.ServiceFactory("")
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
 	cloudService := serviceFactory.Cloud()
 	err := cloudService.Save(context.Background(), testing.DefaultCloud)
 	c.Assert(err, jc.ErrorIsNil)

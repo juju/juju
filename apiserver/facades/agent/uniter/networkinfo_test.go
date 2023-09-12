@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -54,15 +53,7 @@ var _ = gc.Suite(&networkInfoSuite{})
 func (s *networkInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	serviceFactory := s.ServiceFactory("")
-	cloudService := serviceFactory.Cloud()
-	err := cloudService.Save(context.Background(), testing.DefaultCloud)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cloudService.Save(context.Background(), cloud.Cloud{Name: "caascloud", Type: "kubernetes"})
-	c.Assert(err, jc.ErrorIsNil)
-
-	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	serviceFactory.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialTag, cred)
+	seedCAASCloud(c, s.TxnRunner())
 }
 
 func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {

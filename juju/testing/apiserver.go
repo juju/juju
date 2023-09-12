@@ -90,6 +90,11 @@ var (
 		"username": "dummy",
 		"password": "secret",
 	})
+
+	// DefaultModelUUID is the default model uuid.
+	// TODO (stickupkid): Update this to a default model uuid once we get a
+	// real model database.
+	DefaultModelUUID = ""
 )
 
 // ApiServerSuite is a text fixture which spins up an apiserver on top of a controller model.
@@ -250,7 +255,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	}
 
 	// modelUUID param is not used so can pass in anything.
-	serviceFactory := s.ServiceFactory("")
+	serviceFactory := s.ServiceFactory(DefaultModelUUID)
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		// TODO (stickupkid): Remove controller config from the state
@@ -338,7 +343,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	}
 
 	// Set up auth handler.
-	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, s.ServiceFactory("").ControllerConfig(), cfg.Clock)
+	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, s.ServiceFactory(DefaultModelUUID).ControllerConfig(), cfg.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)

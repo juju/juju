@@ -32,9 +32,9 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
+	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -3664,7 +3664,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
-		ServiceFactory_:    servicefactorytesting.NewTestingServiceFactory(),
+		ServiceFactory_:    s.ServiceFactory(jujujujutesting.DefaultModelUUID),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

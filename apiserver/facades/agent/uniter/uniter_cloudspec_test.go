@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -35,7 +36,7 @@ func (s *cloudSpecUniterSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
-	serviceFactory := s.ServiceFactory("")
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
 
 	facadeContext := s.facadeContext(c)
 	uniterAPI, err := uniter.NewUniterAPIWithServices(facadeContext, serviceFactory.ControllerConfig(), serviceFactory.Cloud(), serviceFactory.Credential())

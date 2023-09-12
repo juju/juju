@@ -25,6 +25,7 @@ import (
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/leadership"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	credentialstate "github.com/juju/juju/domain/credential/state"
@@ -71,7 +72,7 @@ func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 
 	s.ApiServerSuite.SetUpTest(c)
 
-	s.seedCAASCloud(c)
+	seedCAASCloud(c, s.TxnRunner())
 
 	s.setupState(c)
 
@@ -141,7 +142,7 @@ func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.Context {
 		Resources_:         s.resources,
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
-		ServiceFactory_:    s.ServiceFactory(""),
+		ServiceFactory_:    s.ServiceFactory(testing.DefaultModelUUID),
 	}
 }
 
@@ -213,7 +214,7 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.Client, *state.CAA
 	return u, cm, app, unit
 }
 
-func (s *uniterSuiteBase) seedCAASCloud(c *gc.C) {
+func seedCAASCloud(c *gc.C, db database.TxnRunner) {
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username": "dummy",
 		"password": "secret",
@@ -224,7 +225,7 @@ func (s *uniterSuiteBase) seedCAASCloud(c *gc.C) {
 	credUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err = db.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		return cloudstate.CreateCloud(ctx, tx, cloudUUID.String(), cloud.Cloud{
 			Name:      "caascloud",
 			Type:      "kubernetes",
@@ -232,7 +233,7 @@ func (s *uniterSuiteBase) seedCAASCloud(c *gc.C) {
 		})
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), "dummy-credential", "caascloud", "admin", cred)
 	})
 	c.Assert(err, jc.ErrorIsNil)
