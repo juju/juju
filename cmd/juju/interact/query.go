@@ -75,7 +75,7 @@ func QueryVerify(question string, scanner *bufio.Scanner, out, errOut io.Writer,
 func MatchOptions(options []string, errmsg string) VerifyFunc {
 	return func(s string) (ok bool, msg string, err error) {
 		for _, opt := range options {
-			if strings.ToLower(opt) == strings.ToLower(s) {
+			if strings.EqualFold(opt, s) {
 				return true, "", nil
 			}
 		}
@@ -87,7 +87,7 @@ func MatchOptions(options []string, errmsg string) VerifyFunc {
 // matching option.  Found reports whether s was found in the options.
 func FindMatch(s string, options []string) (match string, found bool) {
 	for _, opt := range options {
-		if strings.ToLower(opt) == strings.ToLower(s) {
+		if strings.EqualFold(opt, s) {
 			return opt, true
 		}
 	}

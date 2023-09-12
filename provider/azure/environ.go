@@ -2170,7 +2170,7 @@ func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext)
 			locationOk := false
 			if resource.Locations != nil {
 				for _, loc := range resource.Locations {
-					if strings.ToLower(toValue(loc)) == env.location {
+					if strings.EqualFold(toValue(loc), env.location) {
 						locationOk = true
 						break
 					}

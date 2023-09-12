@@ -51,7 +51,7 @@ func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) (*Net
 	getModelOp := func(machine LinkLayerMachine, incoming network.InterfaceInfos) state.ModelOperation {
 		// We discover subnets via reported link-layer devices for the
 		// manual provider, which allows us to use spaces there.
-		return newUpdateMachineLinkLayerOp(machine, incoming, strings.ToLower(cloud.Type) == "manual", st)
+		return newUpdateMachineLinkLayerOp(machine, incoming, strings.EqualFold(cloud.Type, "manual"), st)
 	}
 
 	return &NetworkConfigAPI{
