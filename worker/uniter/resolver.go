@@ -12,13 +12,13 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/resolver"
-	"github.com/juju/juju/wrench"
 )
 
 // ResolverConfig defines configuration for the uniter resolver.

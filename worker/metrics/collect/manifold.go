@@ -17,6 +17,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/internal/wrench"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/fortress"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
-	"github.com/juju/juju/wrench"
 )
 
 const (

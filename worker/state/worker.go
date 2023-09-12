@@ -13,8 +13,8 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/wrench"
 )
 
 type stateWorker struct {

@@ -23,9 +23,9 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/juju/osenv"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/wrench"
 )
 
 var logger = loggo.GetLogger("juju.testing")
