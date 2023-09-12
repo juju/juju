@@ -43,6 +43,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	pscontroller "github.com/juju/juju/internal/pubsub/controller"
+	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -118,6 +119,10 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		nil, nil,
 		servicefactorytesting.NewCheckLogger(c),
 	)
+
+	err = jujujujutesting.InsertDummyCloudType(context.Background(), s.ControllerSuite.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	jujujujutesting.SeedCloudCredentials(c, s.ControllerSuite.TxnRunner())
 
 	s.context = facadetest.Context{
 		State_:               s.State,

@@ -303,13 +303,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Seed the test database with the controller cloud and credential etc.
-	err = controllerconfigbootstrap.InsertInitialControllerConfig(controllerCfg)(context.Background(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
-	err = cloudbootstrap.InsertInitialControllerCloud(DefaultCloud)(context.Background(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
-	err = credentialbootstrap.InsertInitialControllerCredentials(
-		DefaultCredentialTag.Name(), DefaultCloud.Name, AdminUser.Id(), defaultCredential)(context.Background(), s.TxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
+	SeedDatabase(c, s.TxnRunner(), controllerCfg)
 }
 
 func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config) {
@@ -597,6 +591,23 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), "dummy-credential", "caascloud", "admin", cred)
 	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// SeedDatabase the database with test values.
+func SeedDatabase(c *gc.C, runner coredatabase.TxnRunner, controllerConfig controller.Config) {
+	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner)
+	c.Assert(err, jc.ErrorIsNil)
+
+	SeedCloudCredentials(c, runner)
+}
+
+func SeedCloudCredentials(c *gc.C, runner coredatabase.TxnRunner) {
+	err := cloudbootstrap.InsertInitialControllerCloud(DefaultCloud)(context.Background(), runner)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = credentialbootstrap.InsertInitialControllerCredentials(
+		DefaultCredentialTag.Name(), DefaultCloud.Name, AdminUser.Id(), defaultCredential)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
