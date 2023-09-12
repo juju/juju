@@ -121,9 +121,11 @@ type AgentSuite struct {
 func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
+	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+
 	var err error
 	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(
-		s.ControllerModel(c), s.ControllerServiceFactory.Cloud(), s.ControllerServiceFactory.Credential())
+		s.ControllerModel(c), serviceFactory.Cloud(), serviceFactory.Credential())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.DataDir = c.MkDir()
@@ -218,7 +220,8 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	cfg, err := s.ControllerServiceFactory.ControllerConfig().ControllerConfig(context.Background())
+	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	cfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	apiPort, ok := cfg[controller.APIPort].(int)
 	if !ok {

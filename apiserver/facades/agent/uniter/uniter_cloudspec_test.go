@@ -6,15 +6,16 @@ package uniter_test
 import (
 	"context"
 
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/environschema.v1"
+
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/environschema.v1"
 )
 
 type cloudSpecUniterSuite struct {

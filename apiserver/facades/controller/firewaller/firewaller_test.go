@@ -49,12 +49,14 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.subnet = subnet
 
+	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		s.resources,
-		cloudspec.MakeCloudSpecGetterForModel(st, s.ControllerServiceFactory.Cloud(), s.ControllerServiceFactory.Credential()),
+		cloudspec.MakeCloudSpecGetterForModel(st, serviceFactory.Cloud(), serviceFactory.Credential()),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, s.ControllerServiceFactory.Credential()),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, serviceFactory.Credential()),
 		common.AuthFuncForTag(s.ControllerModel(c).ModelTag()),
 	)
 

@@ -6,11 +6,11 @@ package uniter_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/collections/set"
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -22,7 +22,6 @@ import (
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
-
 	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

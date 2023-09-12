@@ -7,9 +7,10 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
-	gc "gopkg.in/check.v1"
 )
 
 func TestAll(t *stdtesting.T) {
