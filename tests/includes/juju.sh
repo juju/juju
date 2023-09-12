@@ -467,12 +467,6 @@ cleanup_jujus() {
 	if [[ -f "${TEST_DIR}/jujus" ]]; then
 		echo "====> Cleaning up jujus"
 
-		# If this test has failed, nuke the controllers - no need to wait for a
-		# graceful teardown.
-		if [[ ${TEST_RESULT} == "failure" ]]; then
-			KILL_CONTROLLER="true"
-		fi
-
 		while read -r juju_name; do
 			destroy_controller "${juju_name}"
 		done <"${TEST_DIR}/jujus"

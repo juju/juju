@@ -22,15 +22,12 @@ type introspectionHandler struct {
 
 // ServeHTTP is part of the http.Handler interface.
 func (h introspectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logger.Criticalf("introspectionHandler: received request")
 	if err := h.checkAuth(r); err != nil {
-		logger.Criticalf("introspectionHandler: rejecting unauthorised request: %v", err)
 		if err := sendError(w, err); err != nil {
 			logger.Debugf("%v", err)
 		}
 		return
 	}
-	logger.Criticalf("introspectionHandler: request authorised")
 	h.handler.ServeHTTP(w, r)
 }
 

@@ -70,9 +70,6 @@ func (*suite) TestAddMetricsUser(c *gc.C) {
 
 }
 
-func (*suite) TestAddMetricsUserAlreadyExists(c *gc.C) {}
-func (*suite) TestAddMetricsUserMissingPrefix(c *gc.C) {}
-
 func (*suite) TestRemoveMetricsUser(c *gc.C) {
 	tests := []struct {
 		description string
@@ -108,10 +105,6 @@ func (*suite) TestRemoveMetricsUser(c *gc.C) {
 		c.Assert(res, gc.DeepEquals, params.ErrorResults{[]params.ErrorResult{{test.expectedRes}}})
 	}
 }
-
-func (*suite) TestRemoveMetricsUserMissingPrefix(c *gc.C) {}
-
-func (*suite) TestRemoveMetricsUserNotFound(c *gc.C) {}
 
 type fakeState struct {
 	users set.Strings
