@@ -91,9 +91,9 @@ func (w *controllerCharmWorker) handleAddMetricsUserRequest(_ string, data inter
 
 	var response string
 	if err == nil {
-		response = fmt.Sprintf("successfully created user %s", userInfo.Username)
+		response = fmt.Sprintf("successfully created user %q", userInfo.Username)
 	} else {
-		response = fmt.Sprintf("error creating user %s: %s", userInfo.Username, err.Error())
+		response = fmt.Sprintf("error creating user %q: %s", userInfo.Username, err.Error())
 	}
 	w.Hub.Publish(agent.AddMetricsUserResponseTopic, response)
 }
@@ -111,9 +111,9 @@ func (w *controllerCharmWorker) handleRemoveMetricsUserRequest(_ string, data in
 
 	var response string
 	if err == nil {
-		response = fmt.Sprintf("successfully removed user %s", username)
+		response = fmt.Sprintf("successfully removed user %q", username)
 	} else {
-		response = fmt.Sprintf("error removing user %s: %s", username, err.Error())
+		response = fmt.Sprintf("error removing user %q: %s", username, err.Error())
 	}
 	w.Hub.Publish(agent.RemoveMetricsUserResponseTopic, response)
 }
