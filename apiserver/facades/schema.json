@@ -19730,7 +19730,7 @@
     },
     {
         "Name": "ControllerCharm",
-        "Description": "ControllerCharmAPI provides API methods to the controllercharm worker.",
+        "Description": "API provides API methods to the controllercharm worker.",
         "Version": 1,
         "AvailableTo": [
             "unit-agent"
