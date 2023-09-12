@@ -8,6 +8,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
+	"github.com/juju/juju/api/agent/controllercharm"
 	"github.com/juju/juju/api/base"
 )
 
@@ -84,4 +85,9 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		},
 		Start: config.start,
 	}
+}
+
+func NewFacade(apiCaller base.APICaller) (Facade, error) {
+	facade := controllercharm.NewClient(apiCaller)
+	return facade, nil
 }
