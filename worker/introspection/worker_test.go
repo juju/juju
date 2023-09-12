@@ -371,6 +371,19 @@ func (s *introspectionSuite) TestUnitStatusTimeout(c *gc.C) {
 	s.assertBody(c, response, "response timed out")
 }
 
+// TODO: these could probably be table-driven
+func (s *introspectionSuite) TestMetricsUsersMissingAction(c *gc.C) {}
+func (s *introspectionSuite) TestMetricsUsersUnknownAction(c *gc.C) {}
+
+func (s *introspectionSuite) TestMetricsUsersAddWithGet(c *gc.C)         {}
+func (s *introspectionSuite) TestMetricsUsersAddMissingUsername(c *gc.C) {}
+func (s *introspectionSuite) TestMetricsUsersAddMissingPassword(c *gc.C) {}
+func (s *introspectionSuite) TestMetricsUsersAdd(c *gc.C)                {}
+
+func (s *introspectionSuite) TestMetricsUsersRemoveWithGet(c *gc.C)         {}
+func (s *introspectionSuite) TestMetricsUsersRemoveMissingUsername(c *gc.C) {}
+func (s *introspectionSuite) TestMetricsUsersRemove(c *gc.C)                {}
+
 type reporter struct {
 	values map[string]interface{}
 }
