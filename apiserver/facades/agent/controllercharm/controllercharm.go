@@ -35,7 +35,21 @@ type API struct {
 type backend interface {
 	AddUser(name string, displayName string, password string, creator string) (*state.User, error)
 	RemoveUser(tag names.UserTag) error
-	Model() (*state.Model, error)
+	Model() (model, error)
+}
+
+// model defines the model methods that API needs.
+type model interface {
+	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
+}
+
+// stateShim allows the real state to implement backend.
+type stateShim struct {
+	*state.State
+}
+
+func (s stateShim) Model() (model, error) {
+	return s.State.Model()
 }
 
 // AddMetricsUser creates a user with the given username and password, and
@@ -43,14 +57,9 @@ type backend interface {
 func (api *API) AddMetricsUser(args params.AddUsers) (params.AddUserResults, error) {
 	var results params.AddUserResults
 	for _, user := range args.Users {
-		var tag string
 		err := api.addMetricsUser(user)
-		if err == nil {
-			tag = user.Username
-		}
-
 		results.Results = append(results.Results, params.AddUserResult{
-			Tag:   tag,
+			Tag:   user.Username, // TODO: should we populate this in the error case?
 			Error: apiservererrors.ServerError(err),
 		})
 	}

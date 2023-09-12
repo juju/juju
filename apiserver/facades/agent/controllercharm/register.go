@@ -41,6 +41,6 @@ func newControllerCharmAPI(ctx facade.Context) (*API, error) {
 	}
 
 	return &API{
-		state: ctx.State(),
+		state: stateShim{ctx.State()},
 	}, nil
 }

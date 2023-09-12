@@ -6,3 +6,5 @@ package controllercharm
 func NewAPI(state backend) *API {
 	return &API{state}
 }
+
+type Model = model

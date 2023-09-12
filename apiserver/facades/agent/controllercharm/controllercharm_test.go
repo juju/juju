@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/agent/controllercharm"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -26,20 +27,47 @@ func Test(t *testing.T) {
 }
 
 func (*suite) TestAddMetricsUser(c *gc.C) {
-	c.Skip("panicking")
-	username := "juju-metrics-r0"
+	tests := []struct {
+		description string
+		username    string
+		initUsers   []string
+		expectedRes *params.Error
+	}{{
+		description: "Add non-existent user",
+		username:    "juju-metrics-r0",
+		initUsers:   []string{},
+		expectedRes: nil,
+	}, {
+		description: "Missing metrics user prefix",
+		username:    "foo",
+		expectedRes: &params.Error{
+			Message: `username "foo" missing prefix "juju-metrics-" not valid`,
+			Code:    params.CodeNotValid,
+		},
+	}, {
+		description: "User already exists",
+		username:    "juju-metrics-r0",
+		initUsers:   []string{"juju-metrics-r0"},
+		expectedRes: &params.Error{
+			Message: `failed to create user "juju-metrics-r0": user "juju-metrics-r0" already exists`,
+			Code:    params.CodeAlreadyExists,
+		},
+	}}
 
-	api := controllercharm.NewAPI(newFakeState())
-	res, err := api.AddMetricsUser(params.AddUsers{[]params.AddUser{{
-		Username:    username,
-		DisplayName: username,
-		Password:    "supersecret",
-	}}})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, params.AddUserResults{[]params.AddUserResult{{
-		Tag:   username,
-		Error: nil,
-	}}})
+	for _, test := range tests {
+		api := controllercharm.NewAPI(newFakeState(test.initUsers...))
+		res, err := api.AddMetricsUser(params.AddUsers{[]params.AddUser{{
+			Username:    test.username,
+			DisplayName: test.username,
+			Password:    "supersecret",
+		}}})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(res, gc.DeepEquals, params.AddUserResults{[]params.AddUserResult{{
+			Tag:   test.username,
+			Error: test.expectedRes,
+		}}})
+	}
+
 }
 
 func (*suite) TestAddMetricsUserAlreadyExists(c *gc.C) {}
@@ -112,8 +140,12 @@ func (s *fakeState) RemoveUser(tag names.UserTag) error {
 	return errors.NotFoundf("user %q", name)
 }
 
-func (s *fakeState) Model() (*state.Model, error) {
-	//TODO implement me
-	panic("implement me")
-	// how do we mock a *state.Model?
+func (s *fakeState) Model() (controllercharm.Model, error) {
+	return fakeModel{}, nil
+}
+
+type fakeModel struct{}
+
+func (m fakeModel) AddUser(state.UserAccessSpec) (permission.UserAccess, error) {
+	return permission.UserAccess{}, nil
 }
