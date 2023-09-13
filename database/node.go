@@ -22,9 +22,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/client"
 	"github.com/juju/juju/database/dqlite"
+	"github.com/juju/juju/network"
 )
 
 const (
@@ -205,6 +207,47 @@ func (m *NodeManager) WithTracingOption() app.Option {
 		return app.WithTracing(client.LogWarn)
 	}
 	return app.WithTracing(client.LogNone)
+}
+
+// WithPreferredCloudLocalAddressOption uses the input network config source to
+// return a local-cloud address to which to bind Dqlite, provided that a unique
+// one can be determined.
+// If there are zero or multiple local-cloud addresses detected on the host,
+// we fall back to binding to the loopback address.
+// This method is only relevant to bootstrap. At all other times (such as when
+// joining a cluster) the bind address is determined externally and passed as
+// the argument to WithAddressOption.
+func (m *NodeManager) WithPreferredCloudLocalAddressOption(source corenetwork.ConfigSource) (app.Option, error) {
+	nics, err := source.Interfaces()
+	if err != nil {
+		return nil, errors.Annotate(err, "querying local network interfaces")
+	}
+
+	var addrs corenetwork.MachineAddresses
+	for _, nic := range nics {
+		name := nic.Name()
+		if nic.Type() == corenetwork.LoopbackDevice ||
+			name == network.DefaultLXDBridge ||
+			name == network.DefaultKVMBridge ||
+			name == network.DefaultDockerBridge {
+			continue
+		}
+
+		sysAddrs, err := nic.Addresses()
+		if err != nil || len(sysAddrs) == 0 {
+			continue
+		}
+
+		for _, addr := range sysAddrs {
+			addrs = append(addrs, corenetwork.NewMachineAddress(addr.IP().String()))
+		}
+	}
+
+	cloudLocal := addrs.AllMatchingScope(corenetwork.ScopeMatchCloudLocal).Values()
+	if len(cloudLocal) == 1 {
+		return m.WithAddressOption(cloudLocal[0]), nil
+	}
+	return m.WithLoopbackAddressOption(), nil
 }
 
 // WithLoopbackAddressOption returns a Dqlite application

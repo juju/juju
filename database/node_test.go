@@ -7,22 +7,27 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net"
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	coredatabase "github.com/juju/juju/core/database"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/dqlite"
 	dqlitetesting "github.com/juju/juju/database/testing"
+	"github.com/juju/juju/network"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -311,6 +316,77 @@ func (s *nodeManagerSuite) TestWithClusterOptionSuccess(c *gc.C) {
 
 	err = dqliteApp.Close()
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionNoAddrFallback(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// Having no interfaces will trigger the loopback address fallback.
+	src := NewMockConfigSource(ctrl)
+	src.EXPECT().Interfaces().Return(nil, nil)
+
+	m := NewNodeManager(nil, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m.port = dqlitetesting.FindTCPPort(c)
+
+	opt, err := m.WithPreferredCloudLocalAddressOption(src)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dqliteApp, err := app.New(c.MkDir(), opt)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(strings.Split(dqliteApp.Address(), ":")[0], gc.Equals, "127.0.0.1")
+
+	err = dqliteApp.Close()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *nodeManagerSuite) TestWithPreferredCloudLocalAddressOptionSingleAddrSuccess(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	localCloudIP := "192.168.10.254"
+
+	// Loopback is ignored.
+	loopback := NewMockConfigSourceNIC(ctrl)
+	loopback.EXPECT().Type().Return(corenetwork.LoopbackDevice)
+	loopback.EXPECT().Name().Return("lo")
+
+	// Default LXD bridge is ignored.
+	lxdbr0 := NewMockConfigSourceNIC(ctrl)
+	lxdbr0.EXPECT().Type().Return(corenetwork.BridgeDevice)
+	lxdbr0.EXPECT().Name().Return(network.DefaultLXDBridge)
+
+	// A unique local-cloud address is used.
+	addr := NewMockConfigSourceAddr(ctrl)
+	addr.EXPECT().IP().Return(net.ParseIP(localCloudIP))
+
+	eth0 := NewMockConfigSourceNIC(ctrl)
+	eth0.EXPECT().Type().Return(corenetwork.EthernetDevice)
+	eth0.EXPECT().Name().Return("eth0")
+	eth0.EXPECT().Addresses().Return([]corenetwork.ConfigSourceAddr{addr}, nil)
+
+	src := NewMockConfigSource(ctrl)
+	src.EXPECT().Interfaces().Return([]corenetwork.ConfigSourceNIC{loopback, lxdbr0, eth0}, nil)
+
+	m := NewNodeManager(nil, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m.port = dqlitetesting.FindTCPPort(c)
+
+	opt, err := m.WithPreferredCloudLocalAddressOption(src)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dqliteApp, err := app.New(c.MkDir(), opt)
+
+	// Now it is very unlikely that the machine we are running on just happens
+	// to have the address we've chosen above, but we can verify the correct
+	// behaviour either way.
+	if err != nil {
+		c.Check(err.Error(), jc.Contains, localCloudIP)
+	} else {
+		c.Check(strings.Split(dqliteApp.Address(), ":")[0], gc.Equals, localCloudIP)
+		err = dqliteApp.Close()
+		c.Assert(err, jc.ErrorIsNil)
+	}
 }
 
 type fakeAgentConfig struct {
