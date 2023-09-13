@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
@@ -371,18 +372,113 @@ func (s *introspectionSuite) TestUnitStatusTimeout(c *gc.C) {
 	s.assertBody(c, response, "response timed out")
 }
 
-// TODO: these could probably be table-driven
-func (s *introspectionSuite) TestMetricsUsersMissingAction(c *gc.C) {}
-func (s *introspectionSuite) TestMetricsUsersUnknownAction(c *gc.C) {}
+func (s *introspectionSuite) TestMetricsUsersMissingAction(c *gc.C) {
+	response := s.call(c, "/metrics-users")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
+	s.assertBody(c, response, "missing action")
+}
 
-func (s *introspectionSuite) TestMetricsUsersAddWithGet(c *gc.C)         {}
-func (s *introspectionSuite) TestMetricsUsersAddMissingUsername(c *gc.C) {}
-func (s *introspectionSuite) TestMetricsUsersAddMissingPassword(c *gc.C) {}
-func (s *introspectionSuite) TestMetricsUsersAdd(c *gc.C)                {}
+func (s *introspectionSuite) TestMetricsUsersUnknownAction(c *gc.C) {
+	response := s.post(c, "/metrics-users", url.Values{"action": {"foo"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
+	s.assertBody(c, response, `unknown action: "foo"`)
+}
 
-func (s *introspectionSuite) TestMetricsUsersRemoveWithGet(c *gc.C)         {}
-func (s *introspectionSuite) TestMetricsUsersRemoveMissingUsername(c *gc.C) {}
-func (s *introspectionSuite) TestMetricsUsersRemove(c *gc.C)                {}
+func (s *introspectionSuite) TestMetricsUsersAddWithGet(c *gc.C) {
+	response := s.call(c, "/metrics-users?action=add")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
+	s.assertBody(c, response, `add-user requires a POST request, got "GET"`)
+}
+
+func (s *introspectionSuite) TestMetricsUsersAddMissingUsername(c *gc.C) {
+	response := s.post(c, "/metrics-users", url.Values{"action": {"add"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
+	s.assertBody(c, response, `must provide "username"`)
+}
+
+func (s *introspectionSuite) TestMetricsUsersAddMissingPassword(c *gc.C) {
+	response := s.post(c, "/metrics-users", url.Values{"action": {"add"}, "username": {"foo"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
+	s.assertBody(c, response, `must provide "password"`)
+}
+
+func (s *introspectionSuite) TestMetricsUsersAddRemoteError(c *gc.C) {
+	unsub := s.localHub.Subscribe(agent.AddMetricsUserTopic, func(topic string, data interface{}) {
+		_, ok := data.(agent.UserInfo)
+		if !ok {
+			c.Fatalf("bad data type: %T", data)
+			return
+		}
+		s.localHub.Publish(agent.AddMetricsUserResponseTopic,
+			agent.UserResponse(errors.New(`user "juju-metrics-r0" already exists`)))
+	})
+	defer unsub()
+
+	response := s.post(c, "/metrics-users", url.Values{"action": {"add"}, "username": {"juju-metrics-r0"}, "password": {"bar"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, "{}")
+}
+
+func (s *introspectionSuite) TestMetricsUsersAddSuccess(c *gc.C) {
+	unsub := s.localHub.Subscribe(agent.AddMetricsUserTopic, func(topic string, data interface{}) {
+		_, ok := data.(agent.UserInfo)
+		if !ok {
+			c.Fatalf("bad data type: %T", data)
+			return
+		}
+		s.localHub.Publish(agent.AddMetricsUserResponseTopic, agent.UserResponse(nil))
+	})
+	defer unsub()
+
+	response := s.post(c, "/metrics-users", url.Values{"action": {"add"}, "username": {"juju-metrics-r0"}, "password": {"bar"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, "null")
+}
+
+func (s *introspectionSuite) TestMetricsUsersRemoveWithGet(c *gc.C) {
+	response := s.call(c, "/metrics-users?action=remove")
+	c.Assert(response.StatusCode, gc.Equals, http.StatusMethodNotAllowed)
+	s.assertBody(c, response, `remove-user requires a POST request, got "GET"`)
+}
+
+func (s *introspectionSuite) TestMetricsUsersRemoveMissingUsername(c *gc.C) {
+	response := s.post(c, "/metrics-users", url.Values{"action": {"remove"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusBadRequest)
+	s.assertBody(c, response, `must provide "username"`)
+}
+
+func (s *introspectionSuite) TestMetricsUsersRemoveRemoteError(c *gc.C) {
+	unsub := s.localHub.Subscribe(agent.RemoveMetricsUserTopic, func(topic string, data interface{}) {
+		_, ok := data.(string)
+		if !ok {
+			c.Fatalf("bad data type: %T", data)
+			return
+		}
+		s.localHub.Publish(agent.RemoveMetricsUserResponseTopic,
+			agent.UserResponse(errors.New(`user "juju-metrics-r0" not found`)))
+	})
+	defer unsub()
+
+	response := s.post(c, "/metrics-users", url.Values{"action": {"remove"}, "username": {"juju-metrics-r0"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, "{}")
+}
+
+func (s *introspectionSuite) TestMetricsUsersRemoveSuccess(c *gc.C) {
+	unsub := s.localHub.Subscribe(agent.RemoveMetricsUserTopic, func(topic string, data interface{}) {
+		_, ok := data.(string)
+		if !ok {
+			c.Fatalf("bad data type: %T", data)
+			return
+		}
+		s.localHub.Publish(agent.RemoveMetricsUserResponseTopic, agent.UserResponse(nil))
+	})
+	defer unsub()
+
+	response := s.post(c, "/metrics-users", url.Values{"action": {"remove"}, "username": {"juju-metrics-r0"}})
+	c.Assert(response.StatusCode, gc.Equals, http.StatusOK)
+	s.assertBody(c, response, "null")
+}
 
 type reporter struct {
 	values map[string]interface{}
