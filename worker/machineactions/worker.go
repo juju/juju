@@ -7,6 +7,7 @@ package machineactions
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -70,9 +71,10 @@ const maxConcurrency = 100
 
 // handler implements watcher.StringsHandler
 type handler struct {
-	config  WorkerConfig
-	wait    sync.WaitGroup
-	limiter chan struct{}
+	config   WorkerConfig
+	wait     sync.WaitGroup
+	limiter  chan struct{}
+	inflight int64
 }
 
 // SetUp is part of the watcher.StringsHandler interface.
@@ -130,6 +132,7 @@ func (h *handler) Handle(abort <-chan struct{}, actionsSlice []string) error {
 			return nil
 		}
 		h.wait.Add(1)
+		atomic.AddInt64(&h.inflight, 1)
 
 		// Run the action.
 		go h.runAction(actionTag, *action, abort)
@@ -143,7 +146,14 @@ func (h *handler) TearDown() error {
 	// TODO (stickupkid): This wait group could wait for ever if any of actions hang.
 	// Instead we should be much more clever and wait for a limited time before marking
 	// any outstanding actions as failed.
+	inflight := atomic.LoadInt64(&h.inflight)
+	if inflight > 0 {
+		logger.Infof("Waiting for %d running actions...", inflight)
+	}
 	h.wait.Wait()
+	if inflight > 0 {
+		logger.Infof("Done waiting for actions.")
+	}
 	return nil
 }
 
@@ -170,6 +180,7 @@ func (h *handler) runAction(actionTag names.ActionTag, action machineactions.Act
 		case <-abort:
 			logger.Debugf("action %q aborted waiting to enqueue", actionTag)
 		}
+		atomic.AddInt64(&h.inflight, -1)
 		h.wait.Done()
 	}()
 
