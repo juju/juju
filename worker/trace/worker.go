@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package tracing
+package trace
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"gopkg.in/tomb.v2"
 
-	coretracing "github.com/juju/juju/core/tracing"
+	coretrace "github.com/juju/juju/core/trace"
 )
 
 const (
@@ -29,7 +29,7 @@ const (
 // the tracer is managed.
 type TrackedTracer interface {
 	worker.Worker
-	coretracing.Tracer
+	coretrace.Tracer
 }
 
 // WorkerConfig encapsulates the configuration options for the
@@ -165,13 +165,13 @@ func (w *tracerWorker) Wait() error {
 }
 
 // GetTracer returns a tracer for the given namespace.
-func (w *tracerWorker) GetTracer(namespace string) (coretracing.Tracer, error) {
+func (w *tracerWorker) GetTracer(namespace string) (coretrace.Tracer, error) {
 	// First check if we've already got the tracer worker already running. If
 	// we have, then return out quickly. The tracerRunner is the cache, so there
 	// is no need to have a in-memory cache here.
 	if tracer, err := w.workerFromCache(namespace); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
-			return nil, coretracing.ErrTracerDying
+			return nil, coretrace.ErrTracerDying
 		}
 
 		return nil, errors.Trace(err)
@@ -188,7 +188,7 @@ func (w *tracerWorker) GetTracer(namespace string) (coretracing.Tracer, error) {
 	select {
 	case w.tracerRequests <- req:
 	case <-w.catacomb.Dying():
-		return nil, coretracing.ErrTracerDying
+		return nil, coretrace.ErrTracerDying
 	}
 
 	// Wait for the worker loop to indicate it's done.
@@ -200,7 +200,7 @@ func (w *tracerWorker) GetTracer(namespace string) (coretracing.Tracer, error) {
 			return nil, errors.Trace(err)
 		}
 	case <-w.catacomb.Dying():
-		return nil, coretracing.ErrTracerDying
+		return nil, coretrace.ErrTracerDying
 	}
 
 	// This will return a not found error if the request was not honoured.
@@ -210,13 +210,13 @@ func (w *tracerWorker) GetTracer(namespace string) (coretracing.Tracer, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return tracked.(coretracing.Tracer), nil
+	return tracked.(coretrace.Tracer), nil
 }
 
-func (w *tracerWorker) workerFromCache(namespace string) (coretracing.Tracer, error) {
+func (w *tracerWorker) workerFromCache(namespace string) (coretrace.Tracer, error) {
 	// If the worker already exists, return the existing worker early.
 	if tracer, err := w.tracerRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
-		return tracer.(coretracing.Tracer), nil
+		return tracer.(coretrace.Tracer), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the DB runner is dead due to this worker dying.
 		select {
@@ -276,7 +276,7 @@ func (w *tracerWorker) reportInternalState(state string) {
 type noopWorker struct {
 	tomb tomb.Tomb
 
-	tracer coretracing.Tracer
+	tracer coretrace.Tracer
 }
 
 // NewNoopWorker worker creates a worker that doesn't perform any new work on
@@ -300,7 +300,7 @@ func NewNoopWorker() *noopWorker {
 
 // GetTracer returns a tracer for the namespace.
 // The noopWorker will return a stub tracer in this case.
-func (w *noopWorker) GetTracer(namespace string) (coretracing.Tracer, error) {
+func (w *noopWorker) GetTracer(namespace string) (coretrace.Tracer, error) {
 	return w.tracer, nil
 }
 
@@ -315,18 +315,18 @@ func (w *noopWorker) Wait() error {
 }
 
 type noopTracer struct {
-	span coretracing.Span
+	span coretrace.Span
 }
 
-func (t noopTracer) Start(ctx context.Context, name string, opts ...coretracing.Option) (context.Context, coretracing.Span) {
+func (t noopTracer) Start(ctx context.Context, name string, opts ...coretrace.Option) (context.Context, coretrace.Span) {
 	return ctx, t.span
 }
 
 type noopSpan struct{}
 
-func (noopSpan) AddEvent(string, ...coretracing.Attribute)   {}
-func (noopSpan) RecordError(error, ...coretracing.Attribute) {}
-func (noopSpan) End(...coretracing.Attribute)                {}
+func (noopSpan) AddEvent(string, ...coretrace.Attribute)   {}
+func (noopSpan) RecordError(error, ...coretrace.Attribute) {}
+func (noopSpan) End(...coretrace.Attribute)                {}
 
 type loggoSink struct {
 	Logger        Logger

@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package tracing
+package trace
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	coretracing "github.com/juju/juju/core/tracing"
+	coretrace "github.com/juju/juju/core/trace"
 )
 
 type manifoldSuite struct {
@@ -69,7 +69,7 @@ func (s *manifoldSuite) TestInputs(c *gc.C) {
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
 	type tracerGetter interface {
-		GetTracer(string) (coretracing.Tracer, error)
+		GetTracer(string) (coretrace.Tracer, error)
 	}
 
 	test := func(enabled bool) {

@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package tracing
+package trace
 
 // Attribute allows you to add additional information to help identify
 // an operation (event, error or span end).

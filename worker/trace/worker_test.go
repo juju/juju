@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package tracing
+package trace
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	coretracing "github.com/juju/juju/core/tracing"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/testing"
 )
 
@@ -42,7 +42,7 @@ func (s *workerSuite) TestKilledGetTracerErrDying(c *gc.C) {
 
 	worker := w.(*tracerWorker)
 	_, err := worker.GetTracer("anything")
-	c.Assert(err, jc.ErrorIs, coretracing.ErrTracerDying)
+	c.Assert(err, jc.ErrorIs, coretrace.ErrTracerDying)
 }
 
 func (s *workerSuite) TestGetTracer(c *gc.C) {

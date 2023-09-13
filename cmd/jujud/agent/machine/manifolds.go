@@ -93,7 +93,7 @@ import (
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
-	"github.com/juju/juju/worker/tracing"
+	"github.com/juju/juju/worker/trace"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -551,11 +551,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 		))),
 
-		tracingName: tracing.Manifold(tracing.ManifoldConfig{
+		traceName: trace.Manifold(trace.ManifoldConfig{
 			AgentName:       agentName,
 			Clock:           config.Clock,
-			Logger:          loggo.GetLogger("juju.worker.tracing"),
-			NewTracerWorker: tracing.NewTracerWorker,
+			Logger:          loggo.GetLogger("juju.worker.trace"),
+			NewTracerWorker: trace.NewTracerWorker,
 		}),
 
 		httpServerArgsName: httpserverargs.Manifold(httpserverargs.ManifoldConfig{
@@ -1097,7 +1097,7 @@ const (
 
 	upgradeSeriesWorkerName = "upgrade-series"
 
-	tracingName = "tracing"
+	traceName = "trace"
 
 	httpServerName     = "http-server"
 	httpServerArgsName = "http-server-args"

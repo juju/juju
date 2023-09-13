@@ -115,7 +115,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"state-converter",
 			"storage-provisioner",
 			"syslog",
-			"tracing",
+			"trace",
 			"termination-signal-handler",
 			"tools-version-checker",
 			"upgrade-check-flag",
@@ -177,7 +177,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"state-config-watcher",
 			"syslog",
 			"termination-signal-handler",
-			"tracing",
+			"trace",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
 			"upgrade-steps-flag",
@@ -247,7 +247,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"service-factory",
 		"syslog",
 		"termination-signal-handler",
-		"tracing",
+		"trace",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"migration-minion",
@@ -612,7 +612,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"tracing": {
+	"trace": {
 		"agent",
 	},
 
@@ -1155,7 +1155,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state-config-watcher",
 	},
 
-	"tracing": {
+	"trace": {
 		"agent",
 	},
 

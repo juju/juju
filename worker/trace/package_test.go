@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package tracing
+package trace
 
 import (
 	"testing"
@@ -16,9 +16,9 @@ import (
 	jujujujutesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package tracing -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-//go:generate go run go.uber.org/mock/mockgen -package tracing -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
-//go:generate go run go.uber.org/mock/mockgen -package tracing -destination tracer_mock_test.go github.com/juju/juju/worker/tracing TrackedTracer
+//go:generate go run go.uber.org/mock/mockgen -package trace -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run go.uber.org/mock/mockgen -package trace -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config
+//go:generate go run go.uber.org/mock/mockgen -package trace -destination tracer_mock_test.go github.com/juju/juju/worker/trace TrackedTracer
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

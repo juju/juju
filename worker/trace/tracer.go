@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package tracing
+package trace
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/tomb.v2"
 
-	coretracing "github.com/juju/juju/core/tracing"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/version"
 )
 
@@ -71,8 +71,8 @@ func (t *tracer) Wait() error {
 }
 
 // Start creates a span and a context.Context containing the newly-created span.
-func (t *tracer) Start(ctx context.Context, name string, opts ...coretracing.Option) (context.Context, coretracing.Span) {
-	o := coretracing.NewTracerOptions()
+func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Option) (context.Context, coretrace.Span) {
+	o := coretrace.NewTracerOptions()
 	for _, opt := range opts {
 		opt(o)
 	}
@@ -176,7 +176,7 @@ type managedSpan struct {
 // AddEvent will record an event for this span. This is a manual mechanism
 // for recording an event, it is useful to log information about what
 // happened during the lifetime of a span.
-func (s *managedSpan) AddEvent(message string, attrs ...coretracing.Attribute) {
+func (s *managedSpan) AddEvent(message string, attrs ...coretrace.Attribute) {
 	// According to the docs, events can only be recorded if the span
 	// is being recorded.
 	if s.span.IsRecording() {
@@ -188,7 +188,7 @@ func (s *managedSpan) AddEvent(message string, attrs ...coretracing.Attribute) {
 
 // RecordError will record err as an exception span event for this span. This
 // also sets the span status to Error if the error is not nil.
-func (s *managedSpan) RecordError(err error, attrs ...coretracing.Attribute) {
+func (s *managedSpan) RecordError(err error, attrs ...coretrace.Attribute) {
 	if err == nil {
 		return
 	}
@@ -197,14 +197,14 @@ func (s *managedSpan) RecordError(err error, attrs ...coretracing.Attribute) {
 	s.span.SetStatus(codes.Error, err.Error())
 }
 
-func (s *managedSpan) End(attrs ...coretracing.Attribute) {
+func (s *managedSpan) End(attrs ...coretrace.Attribute) {
 	defer s.cancel()
 
 	s.span.SetAttributes(attributes(attrs)...)
 	s.span.End(trace.WithStackTrace(s.stackTracesEnabled))
 }
 
-func attributes(attrs []coretracing.Attribute) []attribute.KeyValue {
+func attributes(attrs []coretrace.Attribute) []attribute.KeyValue {
 	kv := make([]attribute.KeyValue, len(attrs))
 	for _, attr := range attrs {
 		kv = append(kv, attribute.String(attr.Key(), attr.Value()))

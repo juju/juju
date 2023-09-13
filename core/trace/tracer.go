@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package tracing
+package trace
 
 import (
 	"context"
@@ -21,6 +21,7 @@ const (
 // Option are options that can be passed to the Tracer.Start() method.
 type Option func(*TracerOption)
 
+// TraceOption is an option that can be passed to the Tracer.Start() method.
 type TracerOption struct {
 	attributes []Attribute
 	stackTrace bool

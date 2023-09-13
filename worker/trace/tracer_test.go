@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package tracing
+package trace
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
 
-	coretracing "github.com/juju/juju/core/tracing"
+	coretrace "github.com/juju/juju/core/trace"
 )
 
 type tracerSuite struct {
@@ -80,7 +80,7 @@ func (s *tracerSuite) TestTracerAddEvent(c *gc.C) {
 	defer span.End()
 
 	span.AddEvent("bar")
-	span.AddEvent("baz", coretracing.StringAttr("qux", "quux"))
+	span.AddEvent("baz", coretrace.StringAttr("qux", "quux"))
 }
 
 func (s *tracerSuite) TestTracerRecordErrorWithNil(c *gc.C) {
