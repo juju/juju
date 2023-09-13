@@ -9,5 +9,8 @@ test_controllercharm() {
 	echo "==> Checking for dependencies"
 	check_dependencies juju
 
+	# Since we are testing the controller charm here, we want to do a fresh
+	# bootstrap for every subtest.
+
 	test_prometheus
 }
