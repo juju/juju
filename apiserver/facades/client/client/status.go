@@ -1590,14 +1590,16 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 			if subUnit != nil {
 				subUnitAppCharm := ""
 				subUnitApp, err := subUnit.Application()
-				if err != nil {
-					logger.Debugf("error fetching subordinate application for %q", subUnit.ApplicationName())
-				}
-				subUnitAppCh, _, err := subUnitApp.Charm()
 				if err == nil {
-					subUnitAppCharm = subUnitAppCh.String()
+					if subUnitAppCh, _, err := subUnitApp.Charm(); err == nil {
+						subUnitAppCharm = subUnitAppCh.String()
+					} else {
+						logger.Debugf("error fetching subordinate application charm for %q: %q", subUnit.ApplicationName(), err.Error())
+					}
 				} else {
-					logger.Debugf("error fetching subordinate application charm for %q", subUnit.ApplicationName())
+					// We can still run processUnit with an empty string for
+					// the ApplicationCharm.
+					logger.Debugf("error fetching subordinate application for %q: %q", subUnit.ApplicationName(), err.Error())
 				}
 				result.Subordinates[name] = context.processUnit(subUnit, subUnitAppCharm, true)
 			}

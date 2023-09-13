@@ -153,7 +153,7 @@ func (p *collectionPruner) pruneByAge(stop <-chan struct{}) error {
 		return errors.Trace(err)
 	}
 	if deleted > 0 {
-		logger.Infof("%s age pruning (%s): %d rows deleted", p.coll.Name, modelName, deleted)
+		logger.Debugf("%s age pruning (%s): %d rows deleted", p.coll.Name, modelName, deleted)
 	}
 	return errors.Trace(iter.Close())
 }

@@ -143,15 +143,26 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 		},
 	}
 
+	sb, err := state.NewStorageBackend(st)
+	c.Assert(err, jc.ErrorIsNil)
+
 	f := factory.NewFactory(st, s.StatePool)
-	f.MakeUnit(c, &factory.UnitParams{
-		Application: f.MakeApplication(c, &factory.ApplicationParams{
-			Charm: state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-filesystem"),
-			Storage: map[string]state.StorageConstraints{
-				"data": {Count: 1, Size: 1024},
-			},
-		}),
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		Charm: state.AddTestingCharmForSeries(c, st, "kubernetes", "storage-filesystem"),
+		Storage: map[string]state.StorageConstraints{
+			"data": {Count: 1, Size: 1024},
+		},
 	})
+	unit := f.MakeUnit(c, &factory.UnitParams{
+		Application: app,
+	})
+
+	si, err := sb.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(si, gc.HasLen, 1)
+	fs, err := sb.AllFilesystems()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fs, gc.HasLen, 1)
 
 	destroyStorage := true
 	err = model.Destroy(state.DestroyModelParams{DestroyStorage: &destroyStorage})
@@ -160,13 +171,52 @@ func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 
 	assertNeedsCleanup(c, st)
-	assertCleanupCount(c, st, 5)
+	assertCleanupCount(c, st, 4)
 
-	sb, err := state.NewStorageBackend(st)
+	c.Assert(app.Refresh(), jc.ErrorIsNil)
+	c.Assert(app.Life(), gc.Equals, state.Dying)
+	c.Assert(unit.Refresh(), jc.ErrorIsNil)
+	c.Assert(unit.Life(), gc.Equals, state.Dying)
+
+	// The uniter would call this when it sees it is dying.
+	err = unit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	fs, err := sb.AllFilesystems()
+	// The deployer or the caasapplicationprovisioner would call this once the unit is Dead.
+	err = unit.Remove()
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertNeedsCleanup(c, st)
+	assertCleanupCount(c, st, 2)
+
+	// The caasapplicationprovisioner would call this when the app is gone from the cloud.
+	err = app.ClearResources()
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertNeedsCleanup(c, st)
+	assertCleanupCount(c, st, 2)
+
+	si, err = sb.AllStorageInstances()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(si, gc.HasLen, 0)
+	fs, err = sb.AllFilesystems()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fs, gc.HasLen, 0)
+
+	vols, err := sb.AllVolumes()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(vols, gc.HasLen, 1)
+	c.Assert(vols[0].Life(), gc.Equals, state.Dying)
+	// A storage provisioner would call this.
+	err = sb.RemoveVolumeAttachment(unit.UnitTag(), vols[0].VolumeTag(), false)
+	c.Assert(err, jc.ErrorIsNil)
+	err = sb.RemoveVolume(vols[0].VolumeTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Undertaker would call this.
+	err = st.ProcessDyingModel()
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.RemoveDyingModel()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *CAASModelSuite) TestCAASModelWrongCloudRegion(c *gc.C) {
