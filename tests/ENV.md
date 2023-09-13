@@ -8,6 +8,7 @@ definitive source is the code.
 | `BOOTSTRAP_ARCH`            | Architecture to bootstrap on - passed to `--bootstrap-constraints`.           |
 | `BOOTSTRAP_REUSE`           | Reuse an existing controller when asked to bootstrap (true/false).            |
 | `BOOTSTRAP_REUSE_LOCAL`     | The name of a local controller to reuse for testing. Set using the `-l` flag. |
+| `BOOTSTRAP_SERIES`          | Series to use for the controller. Set using the `-S` flag.                    |
 | `KILL_CONTROLLER`           | If `'true'`, controllers will be forcibly killed during teardown.             |
 | `MODEL_ARCH`                | Will be set as a model constraint on newly added models.                      |
 | `OPERATOR_IMAGE_ACCOUNT`    | Passed as the value of `--config caas-image-repo` when bootstrapping.         |
