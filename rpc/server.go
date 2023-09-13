@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/rpcreflect"
 )
 
@@ -121,6 +122,14 @@ type RecorderFactory func() Recorder
 type Recorder interface {
 	HandleRequest(hdr *Header, body interface{}) error
 	HandleReply(req Request, replyHdr *Header, body interface{}) error
+}
+
+type noopTracingRoot struct {
+	rpcreflect.Value
+}
+
+func (noopTracingRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
+	return ctx, trace.NoopSpan{}
 }
 
 // Note that we use "client request" and "server request" to name
@@ -252,7 +261,9 @@ func (conn *Conn) Start(ctx context.Context) {
 func (conn *Conn) Serve(root interface{}, factory RecorderFactory, transformErrors func(error) error) {
 	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
 	if rootValue.IsValid() {
-		conn.serve(rootValue, factory, transformErrors)
+		conn.serve(noopTracingRoot{
+			Value: rootValue,
+		}, factory, transformErrors)
 	} else {
 		conn.serve(nil, factory, transformErrors)
 	}
@@ -364,13 +375,19 @@ type ErrorInfoProvider interface {
 // Root represents a type that can be used to lookup a Method and place
 // calls on that method.
 type Root interface {
-	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
 	Killer
+	// FindMethod returns a MethodCaller for the given method name. The
+	// method will be associated with the given facade and version.
+	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
+	// StartTrace starts a trace for a given request.
+	StartTrace(context.Context) (context.Context, trace.Span)
 }
 
 // Killer represents a type that can be asked to abort any outstanding
 // requests.  The Kill method should return immediately.
 type Killer interface {
+	// Kill kills any outstanding requests.  It should return
+	// immediately.
 	Kill()
 }
 
@@ -587,8 +604,14 @@ func (conn *Conn) runRequest(
 	ctx, cancel := context.WithCancel(conn.context)
 	defer cancel()
 
+	ctx, span := conn.root.StartTrace(ctx)
+	defer span.End()
+
 	rv, err := req.Call(ctx, req.hdr.Request.Id, arg)
 	if err != nil {
+		// Record the first error, this is the one that will be returned to
+		// the client.
+		span.RecordError(err)
 		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), recorder)
 	} else {
 		hdr := &Header{
@@ -618,6 +641,10 @@ func (conn *Conn) runRequest(
 		msg := err.Error()
 		if !strings.Contains(msg, "websocket: close sent") &&
 			!strings.Contains(msg, "write: broken pipe") {
+
+			// Record the second error, this is the one that will be recorded if
+			// we can't write the response to the client.
+			span.RecordError(err)
 			logger.Errorf("error writing response: %T %+v", err, err)
 		}
 	}
