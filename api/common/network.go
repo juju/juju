@@ -22,7 +22,7 @@ var logger = loggo.GetLogger("juju.api.common")
 //
 //   - On any OS, the state (UP/DOWN) of each interface and the DeviceIndex field,
 //     will be correctly populated. Loopback interfaces are also properly detected
-//     and will have InterfaceType set LoopbackInterface.
+//     and will have InterfaceType set as LoopbackInterface.
 //   - On Linux only, the InterfaceType field will be reliably detected for a few
 //     types: BondInterface, BridgeInterface, VLAN_8021QInterface.
 //   - Also on Linux, for interfaces that are discovered to be ports on a bridge,
