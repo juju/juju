@@ -1197,6 +1197,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 	// add container mongoDB.
 	// TODO(bootstrap): refactor mongo package to make it usable for IAAS and CAAS,
 	// then generate mongo config from EnsureServerParams.
+	tlsPrivateKeyPath := c.pathJoin(c.pcfg.DataDir, mongo.FileNameDBSSLKey)
 	probeCmds := &core.ExecAction{
 		Command: []string{
 			"mongo",
@@ -1204,14 +1205,14 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 			"--tls",
 			"--tlsAllowInvalidHostnames",
 			"--tlsAllowInvalidCertificates",
-			fmt.Sprintf("--tlsCertificateKeyFile=%s", c.pathJoin(c.pcfg.DataDir, mongo.FileNameDBSSLKey)),
+			fmt.Sprintf("--tlsCertificateKeyFile=%s", tlsPrivateKeyPath),
 			"--eval",
 			"db.adminCommand('ping')",
 		},
 	}
 	args := []string{
 		fmt.Sprintf("--dbpath=%s", c.pathJoin(c.pcfg.DataDir, "db")),
-		fmt.Sprintf("--tlsCertificateKeyFile=%s", c.pathJoin(c.pcfg.DataDir, mongo.FileNameDBSSLKey)),
+		fmt.Sprintf("--tlsCertificateKeyFile=%s", tlsPrivateKeyPath),
 		"--tlsCertificateKeyFilePassword=ignored",
 		"--tlsMode=requireTLS",
 		fmt.Sprintf("--port=%d", c.portMongoDB),
@@ -1234,7 +1235,7 @@ func (c *controllerStack) controllerContainers(setupCmd, machineCmd, controllerI
 	}
 	// Create the script used to start mongo.
 	const mongoSh = "/root/mongo.sh"
-	mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "))
+	mongoStartup := fmt.Sprintf(caas.MongoStartupShTemplate, strings.Join(args, " "), tlsPrivateKeyPath)
 	// Write it to a file so it can be executed.
 	mongoStartup = strings.ReplaceAll(mongoStartup, "\n", "\\n")
 	makeMongoCmd := fmt.Sprintf("printf '%s'>%s", mongoStartup, mongoSh)

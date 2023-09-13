@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
+	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/agent/uniter"
@@ -324,6 +325,14 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		errorString := "<unknown>"
 		if err != nil {
 			errorString = err.Error()
+		}
+		// If something else killed the tomb, then use that error.
+		if errors.Is(err, tomb.ErrDying) {
+			select {
+			case <-u.catacomb.Dying():
+				errorString = u.catacomb.Err().Error()
+			default:
+			}
 		}
 		if errors.Is(err, ErrCAASUnitDead) {
 			errorString = err.Error()
