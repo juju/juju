@@ -8,3 +8,5 @@ func NewAPI(state backend) *API {
 }
 
 type Model = model
+
+var CheckAuth = checkAuth

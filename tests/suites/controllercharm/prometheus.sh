@@ -104,7 +104,6 @@ run_prometheus_cross_controller() {
 	juju remove-application prometheus-k8s --destroy-storage \
 		--force --no-wait # TODO: remove these flags once storage bug is fixed
 	destroy_controller "${PROMETHEUS_MODEL_NAME}"
-	destroy_controller "${CONTROLLER_MODEL_NAME}"
 }
 
 # Check the Juju controller in the list of Prometheus targets.

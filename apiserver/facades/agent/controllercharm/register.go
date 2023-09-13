@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/alecthomas/repr"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -18,29 +20,39 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ControllerCharm", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return newControllerCharmAPI(ctx)
+		return newAPI(ctx)
 	}, reflect.TypeOf((*API)(nil)))
 }
 
-// newControllerCharmAPI creates a new server-side ControllerCharmAPI facade.
-func newControllerCharmAPI(ctx facade.Context) (*API, error) {
-	authorizer := ctx.Auth()
+// newAPI creates a new server-side controllercharm API facade.
+func newAPI(ctx facade.Context) (*API, error) {
+	if err := checkAuth(ctx.Auth()); err != nil {
+		return nil, err
+	}
+
+	return &API{
+		state: stateShim{ctx.State()},
+	}, nil
+}
+
+// Check if the given client is authorized to access this facade.
+func checkAuth(authorizer facade.Authorizer) error {
+	// TODO: remove this
+	loggo.GetLogger("juju.apiserver.controllercharm").Debugf("authorizer: %s", repr.String(authorizer))
+
 	if !authorizer.AuthUnitAgent() {
-		return nil, apiservererrors.ErrPerm
+		return apiservererrors.ErrPerm
 	}
 
 	// Check this is the controller application
 	unitName := authorizer.GetAuthTag().Id()
 	applicationName, err := names.UnitApplication(unitName)
 	if err != nil {
-		return nil, errors.Annotatef(err, "invalid unit name %s", unitName)
+		return errors.Annotatef(err, "invalid unit name %s", unitName)
 	}
 	if applicationName != bootstrap.ControllerApplicationName {
-		return nil, fmt.Errorf("application name should be %q, received %q",
+		return fmt.Errorf("application name should be %q, received %q",
 			bootstrap.ControllerApplicationName, applicationName)
 	}
-
-	return &API{
-		state: stateShim{ctx.State()},
-	}, nil
+	return nil
 }

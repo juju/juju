@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/controllercharm"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
@@ -24,6 +25,23 @@ var _ = gc.Suite(&suite{})
 
 func Test(t *testing.T) {
 	gc.TestingT(t)
+}
+
+func (*suite) TestAuth(c *gc.C) {
+	// TODO: add test cases:
+	// - controller charm on k8s should be able to access
+	// - controller charm on lxd should be able to access
+	// - other charms should not be able to access
+
+	tests := []struct {
+		description string
+		authorizer  facade.Authorizer
+		expected    string
+	}{{}}
+
+	for _, test := range tests {
+		c.Assert(controllercharm.CheckAuth(test.authorizer), gc.ErrorMatches, test.expected)
+	}
 }
 
 func (*suite) TestAddMetricsUser(c *gc.C) {
