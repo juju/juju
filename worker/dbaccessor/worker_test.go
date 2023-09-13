@@ -39,7 +39,7 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil)
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil).Times(3)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).Times(3)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -80,7 +80,7 @@ func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
 	mgrExp := s.nodeManager.EXPECT()
 	mgrExp.EnsureDataDir().Return(c.MkDir(), nil).Times(2)
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil).Times(4)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).Times(4)
 
 	// We expect 2 attempts to start.
 	mgrExp.WithTLSOption().Return(nil, nil).Times(2)
@@ -137,7 +137,7 @@ func (s *workerSuite) TestStartupNotExistingNodeThenCluster(c *gc.C) {
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil)
 
 	s.client.EXPECT().Cluster(gomock.Any()).Return(nil, nil)
 
@@ -229,7 +229,7 @@ func (s *workerSuite) TestWorkerStartupExistingNode(c *gc.C) {
 	// IsBootstrapped node is called twice - once to check the startup
 	// conditions and then again upon worker shutdown.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil).Times(2)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTLSOption().Return(nil, nil)
 	mgrExp.WithTracingOption().Return(nil)
@@ -263,7 +263,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeSingleServerNoRebind(c *gc
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(3)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(4)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(4)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -324,9 +324,9 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(2)
 	gomock.InOrder(
-		mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2),
+		mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2),
 		// This is the check at shutdown.
-		mgrExp.IsBootstrappedNode(gomock.Any()).Return(false, nil))
+		mgrExp.IsLoopbackBound(gomock.Any()).Return(false, nil))
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
