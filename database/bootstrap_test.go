@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/client"
 )
@@ -54,9 +55,8 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 		return nil
 	}
 
-	err := BootstrapDqlite(context.Background(), mgr, stubLogger{}, check)
+	err := BootstrapDqlite(context.Background(), mgr, stubLogger{}, true, check)
 	c.Assert(err, jc.ErrorIsNil)
-
 }
 
 type testNodeManager struct {
@@ -70,6 +70,10 @@ func (f *testNodeManager) EnsureDataDir() (string, error) {
 		f.dataDir = f.c.MkDir()
 	}
 	return f.dataDir, nil
+}
+
+func (f *testNodeManager) WithPreferredCloudLocalAddressOption(network.ConfigSource) (app.Option, error) {
+	return f.WithLoopbackAddressOption(), nil
 }
 
 func (f *testNodeManager) WithLoopbackAddressOption() app.Option {
@@ -90,4 +94,8 @@ func (f *testNodeManager) WithLogFuncOption() app.Option {
 
 func (f *testNodeManager) WithTracingOption() app.Option {
 	return app.WithTracing(client.LogNone)
+}
+
+func (f *testNodeManager) WithTLSOption() (app.Option, error) {
+	return nil, nil
 }

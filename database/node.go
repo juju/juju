@@ -247,6 +247,8 @@ func (m *NodeManager) WithPreferredCloudLocalAddressOption(source corenetwork.Co
 	if len(cloudLocal) == 1 {
 		return m.WithAddressOption(cloudLocal[0]), nil
 	}
+
+	m.logger.Warningf("failed to determine a unique local-cloud address; falling back to 127.0.0.1 for Dqlite")
 	return m.WithLoopbackAddressOption(), nil
 }
 

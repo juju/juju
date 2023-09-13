@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/pragma"
 	"github.com/juju/juju/database/schema"
@@ -22,6 +23,15 @@ type bootstrapNodeManager interface {
 	// WithLoopbackAddressOption returns a Dqlite application
 	// Option that will bind Dqlite to the loopback IP.
 	WithLoopbackAddressOption() app.Option
+
+	// WithPreferredCloudLocalAddressOption uses the input network config
+	// source to return a local-cloud address to which to bind Dqlite,
+	// provided that a unique one can be determined.
+	WithPreferredCloudLocalAddressOption(network.ConfigSource) (app.Option, error)
+
+	// WithTLSOption returns a Dqlite application Option for TLS encryption
+	// of traffic between clients and clustered application nodes.
+	WithTLSOption() (app.Option, error)
 
 	// WithLogFuncOption returns a Dqlite application Option
 	// that will proxy Dqlite log output via this factory's
@@ -39,13 +49,16 @@ type bootstrapNodeManager interface {
 // It accepts an optional list of functions to perform operations on the
 // controller database.
 //
-// At this point we know there are no peers and that we are the only user
-// of Dqlite, so we can eschew external address and clustering concerns.
-// Those will be handled by the db-accessor worker.
+// If preferLoopback is true, we bind Dqlite to 127.0.0.1 and eschew TLS
+// termination. This is useful primarily in unit testing.
+// If it is false, we attempt to identify a unique local-cloud address.
+// If we find one, we use it as the bind address. Otherwise, we fall back
+// to the loopback binding.
 func BootstrapDqlite(
 	ctx context.Context,
 	mgr bootstrapNodeManager,
 	logger Logger,
+	preferLoopback bool,
 	ops ...func(db *sql.DB) error,
 ) error {
 	dir, err := mgr.EnsureDataDir()
@@ -53,10 +66,24 @@ func BootstrapDqlite(
 		return errors.Trace(err)
 	}
 
-	dqlite, err := app.New(dir,
-		mgr.WithLoopbackAddressOption(),
-		mgr.WithLogFuncOption(),
-	)
+	options := []app.Option{mgr.WithLogFuncOption()}
+	if preferLoopback {
+		options = append(options, mgr.WithLoopbackAddressOption())
+	} else {
+		addrOpt, err := mgr.WithPreferredCloudLocalAddressOption(network.DefaultConfigSource())
+		if err != nil {
+			return errors.Annotate(err, "generating bind address option")
+		}
+
+		tlsOpt, err := mgr.WithTLSOption()
+		if err != nil {
+			return errors.Annotate(err, "generating TLS option")
+		}
+
+		options = append(options, addrOpt, tlsOpt)
+	}
+
+	dqlite, err := app.New(dir, options...)
 	if err != nil {
 		return errors.Annotate(err, "creating Dqlite app")
 	}
