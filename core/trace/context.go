@@ -9,11 +9,14 @@ import (
 
 type contextKey string
 
-const traceContextKey contextKey = "trace"
+const (
+	traceContextKey contextKey = "trace"
+	spanContextKey  contextKey = "span"
+)
 
-// FromContext returns a tracer from the context. If no tracer is found,
+// TracerFromContext returns a tracer from the context. If no tracer is found,
 // an empty tracer is returned.
-func FromContext(ctx context.Context) Tracer {
+func TracerFromContext(ctx context.Context) Tracer {
 	value := ctx.Value(traceContextKey)
 	if value == nil {
 		return NoopTracer{}
@@ -25,12 +28,34 @@ func FromContext(ctx context.Context) Tracer {
 	return tracer
 }
 
+// SpanFromContext returns a span from the context. If no span is found,
+// an empty span is returned.
+func SpanFromContext(ctx context.Context) Span {
+	value := ctx.Value(spanContextKey)
+	if value == nil {
+		return NoopSpan{}
+	}
+	span, ok := value.(Span)
+	if !ok {
+		return NoopSpan{}
+	}
+	return span
+}
+
 // WithTracer returns a new context with the given tracer.
 func WithTracer(ctx context.Context, tracer Tracer) context.Context {
 	if tracer == nil {
 		tracer = NoopTracer{}
 	}
 	return context.WithValue(ctx, traceContextKey, tracer)
+}
+
+// WithSpan returns a new context with the given span.
+func WithSpan(ctx context.Context, span Span) context.Context {
+	if span == nil {
+		span = NoopSpan{}
+	}
+	return context.WithValue(ctx, spanContextKey, span)
 }
 
 // NoopTracer is a tracer that does nothing.

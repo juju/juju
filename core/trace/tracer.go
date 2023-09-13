@@ -130,6 +130,6 @@ func NameFromFunc() Name {
 func Start(ctx context.Context, name Name, options ...Option) (context.Context, Span) {
 	// Tracer is always guaranteed to be returned here. If there is no tracer
 	// available it will return a noop tracer.
-	tracer := FromContext(ctx)
+	tracer := TracerFromContext(ctx)
 	return tracer.Start(ctx, name.String(), options...)
 }

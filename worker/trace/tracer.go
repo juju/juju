@@ -97,11 +97,15 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 		t.logger.Tracef("SpanContext: span-id %s, trace-id %s", spanContext.SpanID(), spanContext.TraceID())
 	}
 
-	return ctx, &managedSpan{
+	managed := &managedSpan{
 		span:               span,
 		cancel:             cancel,
 		stackTracesEnabled: t.requiresStackTrace(o.StackTrace()),
 	}
+	return coretrace.WithSpan(ctx, &limitedSpan{
+		Span:   managed,
+		logger: t.logger,
+	}), managed
 }
 
 // requiresStackTrace returns true if the stack trace should be enabled on the
@@ -212,4 +216,15 @@ func attributes(attrs []coretrace.Attribute) []attribute.KeyValue {
 		kv = append(kv, attribute.String(attr.Key(), attr.Value()))
 	}
 	return kv
+}
+
+// limitedSpan prevents you shooting yourself in the foot by ending a span that
+// you don't own.
+type limitedSpan struct {
+	coretrace.Span
+	logger Logger
+}
+
+func (s *limitedSpan) End(attrs ...coretrace.Attribute) {
+	s.logger.Warningf("attempted to end a span that you don't own")
 }

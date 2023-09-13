@@ -16,8 +16,8 @@ type contextSuite struct {
 
 var _ = gc.Suite(&contextSuite{})
 
-func (contextSuite) TestFromContextEmpty(c *gc.C) {
-	tracer := FromContext(context.Background())
+func (contextSuite) TestTracerFromContextEmpty(c *gc.C) {
+	tracer := TracerFromContext(context.Background())
 	c.Assert(tracer, gc.NotNil)
 
 	ctx, span := tracer.Start(context.Background(), "test")
@@ -27,8 +27,8 @@ func (contextSuite) TestFromContextEmpty(c *gc.C) {
 	c.Check(span, gc.Equals, NoopSpan{})
 }
 
-func (contextSuite) TestFromContextTracer(c *gc.C) {
-	tracer := FromContext(WithTracer(context.Background(), stubTracer{}))
+func (contextSuite) TestTracerFromContextTracer(c *gc.C) {
+	tracer := TracerFromContext(WithTracer(context.Background(), stubTracer{}))
 	c.Assert(tracer, gc.NotNil)
 
 	ctx, span := tracer.Start(context.Background(), "test")
