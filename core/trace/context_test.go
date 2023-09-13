@@ -24,7 +24,7 @@ func (contextSuite) TestFromContextEmpty(c *gc.C) {
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(span, gc.NotNil)
 
-	c.Check(span, gc.Equals, noopSpan{})
+	c.Check(span, gc.Equals, NoopSpan{})
 }
 
 func (contextSuite) TestFromContextTracer(c *gc.C) {
@@ -37,7 +37,7 @@ func (contextSuite) TestFromContextTracer(c *gc.C) {
 
 	// Ensure that we get the correct span.
 	c.Check(span, gc.Equals, stubSpan{})
-	c.Check(span, gc.Not(gc.Equals), noopSpan{})
+	c.Check(span, gc.Not(gc.Equals), NoopSpan{})
 }
 
 type stubTracer struct{}

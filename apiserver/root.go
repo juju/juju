@@ -26,6 +26,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/internal/servicefactory"
@@ -48,6 +49,7 @@ type apiHandler struct {
 	model           *state.Model
 	rpcConn         *rpc.Conn
 	serviceFactory  servicefactory.ServiceFactory
+	tracer          trace.Tracer
 	watcherRegistry facade.WatcherRegistry
 	shared          *sharedServerContext
 
@@ -105,6 +107,11 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		return nil, errors.Trace(err)
 	}
 
+	tracer, err := srv.shared.tracerGetter.GetTracer(modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// TODO (tlm) We need to better fix up model not found here. When a model
 	// has been migrated it's valid for the model to not exist any more and we
 	// allow this code to run so that we can get a redirect out of the login
@@ -118,6 +125,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	r := &apiHandler{
 		state:           st,
 		serviceFactory:  serviceFactory,
+		tracer:          tracer,
 		model:           m,
 		resources:       common.NewResources(),
 		watcherRegistry: registry,
@@ -165,6 +173,11 @@ func (r *apiHandler) State() *state.State {
 // ServiceFactory returns the service factory.
 func (r *apiHandler) ServiceFactory() servicefactory.ServiceFactory {
 	return r.serviceFactory
+}
+
+// Tracer returns the tracer for opentelemetry.
+func (r *apiHandler) Tracer() trace.Tracer {
+	return r.tracer
 }
 
 // SharedContext returns the server shared context.
@@ -327,30 +340,14 @@ func (s *srvCaller) Call(ctx context.Context, objId string, arg reflect.Value) (
 	return s.objMethod.Call(ctx, objVal, arg)
 }
 
-// apiRoot implements basic method dispatching to the facade registry.
-type apiRoot struct {
-	rpc.Killer
-	clock           clock.Clock
-	state           *state.State
-	serviceFactory  servicefactory.ServiceFactory
-	shared          *sharedServerContext
-	facades         *facade.Registry
-	watcherRegistry facade.WatcherRegistry
-	authorizer      facade.Authorizer
-	objectMutex     sync.RWMutex
-	objectCache     map[objectKey]reflect.Value
-	requestRecorder facade.RequestRecorder
-
-	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
-	resources *common.Resources
-}
-
 type apiRootHandler interface {
 	rpc.Killer
 	// State returns the underlying state.
 	State() *state.State
 	// ServiceFactory returns the service factory.
 	ServiceFactory() servicefactory.ServiceFactory
+	// TraceGetter returns the tracer for opentelemetry.
+	Tracer() trace.Tracer
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext
 	// Resources returns the common resources.
@@ -361,6 +358,25 @@ type apiRootHandler interface {
 	WatcherRegistry() facade.WatcherRegistry
 	// Authorizer returns the authorizer used for accessing API method calls.
 	Authorizer() facade.Authorizer
+}
+
+// apiRoot implements basic method dispatching to the facade registry.
+type apiRoot struct {
+	rpc.Killer
+	clock           clock.Clock
+	state           *state.State
+	serviceFactory  servicefactory.ServiceFactory
+	tracer          trace.Tracer
+	shared          *sharedServerContext
+	facades         *facade.Registry
+	watcherRegistry facade.WatcherRegistry
+	authorizer      facade.Authorizer
+	objectMutex     sync.RWMutex
+	objectCache     map[objectKey]reflect.Value
+	requestRecorder facade.RequestRecorder
+
+	// Deprecated: Resources are deprecated. Use WatcherRegistry instead.
+	resources *common.Resources
 }
 
 // newAPIRoot returns a new apiRoot.
@@ -375,6 +391,7 @@ func newAPIRoot(
 		clock:           clock,
 		state:           root.State(),
 		serviceFactory:  root.ServiceFactory(),
+		tracer:          root.Tracer(),
 		shared:          root.SharedContext(),
 		facades:         facades,
 		resources:       root.Resources(),
@@ -457,6 +474,16 @@ func restrictAPIRootDuringMaintenance(
 	}
 
 	return apiRoot, nil
+}
+
+// StartTrace starts a trace based on the underlying given context, that
+// is in the context of the apiserver.
+func (r *apiRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
+	// TODO (stickupkid): If the context is already part of a trace, then
+	// we should not start a trace, but instead continue the trace.
+	// This will be useful for tracing workers that perform a request. For now
+	// we'll just trace a single request.
+	return trace.Start(trace.WithTracer(ctx, r.tracer), trace.NameFromFunc())
 }
 
 // FindMethod looks up the given rootName and version in our facade registry
@@ -581,6 +608,16 @@ func newAdminRoot(h *apiHandler, adminAPIs map[int]any) *adminRoot {
 	return r
 }
 
+// StartTrace starts a trace based on the underlying given context, that
+// is in the context of the apiserver.
+func (r *adminRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
+	// TODO (stickupkid): If the context is already part of a trace, then
+	// we should not start a trace, but instead continue the trace.
+	// This will be useful for tracing workers that perform a request. For now
+	// we'll just trace a single request.
+	return trace.Start(trace.WithTracer(ctx, r.tracer), trace.NameFromFunc())
+}
+
 func (r *adminRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	if rootName != "Admin" {
 		return nil, &rpcreflect.CallNotImplementedError{
@@ -678,7 +715,7 @@ func (ctx *facadeContext) LeadershipClaimer(modelUUID string) (leadership.Claime
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return leadershipClaimer{claimer}, nil
+	return leadershipClaimer{claimer: claimer}, nil
 }
 
 // LeadershipRevoker is part of the facade.Context interface.
@@ -690,7 +727,7 @@ func (ctx *facadeContext) LeadershipRevoker(modelUUID string) (leadership.Revoke
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return leadershipRevoker{revoker}, nil
+	return leadershipRevoker{claimer: revoker}, nil
 }
 
 // LeadershipChecker is part of the facade.Context interface.
@@ -702,7 +739,7 @@ func (ctx *facadeContext) LeadershipChecker() (leadership.Checker, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return leadershipChecker{checker}, nil
+	return leadershipChecker{checker: checker}, nil
 }
 
 // LeadershipPinner is part of the facade.Context interface.
@@ -715,7 +752,7 @@ func (ctx *facadeContext) LeadershipPinner(modelUUID string) (leadership.Pinner,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return leadershipPinner{pinner}, nil
+	return leadershipPinner{pinner: pinner}, nil
 }
 
 // LeadershipReader is part of the facade.Context interface.
@@ -729,7 +766,7 @@ func (ctx *facadeContext) LeadershipReader(modelUUID string) (leadership.Reader,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return leadershipReader{reader}, nil
+	return leadershipReader{reader: reader}, nil
 }
 
 // SingularClaimer is part of the facade.Context interface.
@@ -745,6 +782,8 @@ func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HT
 	case facade.CharmhubHTTPClient:
 		return ctx.r.shared.charmhubHTTPClient
 	default:
+		// TODO (stickupkid): This feels like it should at least log an
+		// info/warning about missing purpose.
 		return nil
 	}
 }

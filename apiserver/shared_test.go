@@ -64,6 +64,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		logger:               loggo.GetLogger("test"),
 		dbGetter:             StubDBGetter{},
 		serviceFactoryGetter: &StubServiceFactoryGetter{},
+		tracerGetter:         &StubTracerGetter{},
 		machineTag:           names.NewMachineTag("0"),
 		dataDir:              c.MkDir(),
 		logDir:               c.MkDir(),

@@ -270,6 +270,9 @@ func (c ServerConfig) Validate() error {
 	if c.ServiceFactoryGetter == nil {
 		return errors.NotValidf("missing ServiceFactoryGetter")
 	}
+	if c.TracerGetter == nil {
+		return errors.NotValidf("missing TracerGetter")
+	}
 	return nil
 }
 
@@ -339,6 +342,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		charmhubHTTPClient:   cfg.CharmhubHTTPClient,
 		dbGetter:             cfg.DBGetter,
 		serviceFactoryGetter: cfg.ServiceFactoryGetter,
+		tracerGetter:         cfg.TracerGetter,
 		machineTag:           cfg.Tag,
 		dataDir:              cfg.DataDir,
 		logDir:               cfg.LogDir,
