@@ -3080,6 +3080,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 	}
 	if m.Type() == ModelTypeCAAS {
 		ops = append(ops, u.removeCloudContainerOps()...)
+		ops = append(ops, newCleanupOp(cleanupDyingUnitResources, u.doc.Name, op.Force, op.MaxWait))
 	}
 	branchOps, err := unassignUnitFromBranchOp(u.doc.Name, a.doc.Name, m)
 	if err != nil {

@@ -7,6 +7,7 @@ package machineactions
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -28,7 +29,7 @@ type Facade interface {
 
 	Action(names.ActionTag) (*machineactions.Action, error)
 	ActionBegin(names.ActionTag) error
-	ActionFinish(tag names.ActionTag, status string, results map[string]interface{}, message string) error
+	ActionFinish(tag names.ActionTag, status string, results map[string]any, message string) error
 }
 
 // WorkerConfig defines the worker's dependencies.
@@ -36,7 +37,7 @@ type WorkerConfig struct {
 	Facade       Facade
 	MachineTag   names.MachineTag
 	MachineLock  machinelock.Lock
-	HandleAction func(name string, params map[string]interface{}) (results map[string]interface{}, err error)
+	HandleAction func(name string, params map[string]any) (results map[string]any, err error)
 }
 
 // Validate returns an error if the configuration is not complete.
@@ -70,9 +71,10 @@ const maxConcurrency = 100
 
 // handler implements watcher.StringsHandler
 type handler struct {
-	config  WorkerConfig
-	wait    sync.WaitGroup
-	limiter chan struct{}
+	config   WorkerConfig
+	wait     sync.WaitGroup
+	limiter  chan struct{}
+	inflight int64
 }
 
 // SetUp is part of the watcher.StringsHandler interface.
@@ -111,61 +113,29 @@ func (h *handler) Handle(abort <-chan struct{}, actionsSlice []string) error {
 		actionTag := names.NewActionTag(actionId)
 		action, err := h.config.Facade.Action(actionTag)
 		if err != nil {
-			return errors.Annotatef(err, "could not retrieve action %s", actionId)
+			// If there is an error attempting to get the action, then don't bounce
+			// the worker. We can't remove the action notification directly, as that
+			// requires the action to exist.
+			// TODO (stickupkid) As a follow up, we should have a new method that
+			// allows the removal of a action notification without an action present.
+			logger.Infof("unable to retrieve action %s: %v", actionId, err)
+			continue
 		}
 
 		// Acquire concurrency slot.
-		h.limiter <- struct{}{}
+		select {
+		case h.limiter <- struct{}{}:
+		case <-abort:
+			// The associated strings watcher has been aborted, so there isn't
+			// anything we can do here but give up.
+			logger.Debugf("action %q aborted waiting in queue", actionTag.ID)
+			return nil
+		}
 		h.wait.Add(1)
-		go func(action machineactions.Action) {
-			var results map[string]interface{}
-			var actionErr error
-			defer func() {
-				// The result returned from handling the action is sent through using ActionFinish.
-				var finishErr error
-				if actionErr != nil {
-					finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionFailed, nil, actionErr.Error())
-				} else {
-					finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionCompleted, results, "")
-				}
-				if finishErr != nil &&
-					!params.IsCodeAlreadyExists(finishErr) &&
-					!params.IsCodeNotFoundOrCodeUnauthorized(finishErr) {
-					logger.Errorf("could not finish action %s: %v", action.Name(), finishErr)
-				}
+		atomic.AddInt64(&h.inflight, 1)
 
-				// Release concurrency slot.
-				<-h.limiter
-				h.wait.Done()
-			}()
-
-			if !action.Parallel() || action.ExecutionGroup() != "" {
-				group := "exec-command"
-				worker := "machine exec command runner"
-				if g := action.ExecutionGroup(); g != "" {
-					group = fmt.Sprintf("%s-%s", group, g)
-					worker = fmt.Sprintf("%s (exec group=%s)", worker, g)
-				}
-				spec := machinelock.Spec{
-					Cancel:  abort,
-					Worker:  worker,
-					Comment: fmt.Sprintf("action %s", action.ID()),
-					Group:   group,
-				}
-				releaser, err := h.config.MachineLock.Acquire(spec)
-				if err != nil {
-					actionErr = errors.Annotatef(err, "could not acquire machine execution lock for exec action %s", action.Name())
-					return
-				}
-				defer releaser()
-			}
-			err = h.config.Facade.ActionBegin(actionTag)
-			if err != nil {
-				actionErr = errors.Annotatef(err, "could not begin action %s", action.Name())
-				return
-			}
-			results, actionErr = h.config.HandleAction(action.Name(), action.Params())
-		}(*action)
+		// Run the action.
+		go h.runAction(actionTag, *action, abort)
 	}
 	return nil
 }
@@ -173,6 +143,71 @@ func (h *handler) Handle(abort <-chan struct{}, actionsSlice []string) error {
 // TearDown is part of the watcher.NotifyHandler interface.
 func (h *handler) TearDown() error {
 	// Wait for any running actions to finish.
+	// TODO (stickupkid): This wait group could wait for ever if any of actions hang.
+	// Instead we should be much more clever and wait for a limited time before marking
+	// any outstanding actions as failed.
+	inflight := atomic.LoadInt64(&h.inflight)
+	if inflight > 0 {
+		logger.Infof("Waiting for %d running actions...", inflight)
+	}
 	h.wait.Wait()
+	if inflight > 0 {
+		logger.Infof("Done waiting for actions.")
+	}
 	return nil
+}
+
+func (h *handler) runAction(actionTag names.ActionTag, action machineactions.Action, abort <-chan struct{}) {
+	var results map[string]any
+	var actionErr error
+	defer func() {
+		// The result returned from handling the action is sent through using ActionFinish.
+		var finishErr error
+		if actionErr != nil {
+			finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionFailed, nil, actionErr.Error())
+		} else {
+			finishErr = h.config.Facade.ActionFinish(actionTag, params.ActionCompleted, results, "")
+		}
+		if finishErr != nil &&
+			!params.IsCodeAlreadyExists(finishErr) &&
+			!params.IsCodeNotFoundOrCodeUnauthorized(finishErr) {
+			logger.Errorf("could not finish action %s: %v", action.Name(), finishErr)
+		}
+
+		// Release concurrency slot.
+		select {
+		case <-h.limiter:
+		case <-abort:
+			logger.Debugf("action %q aborted waiting to enqueue", actionTag)
+		}
+		atomic.AddInt64(&h.inflight, -1)
+		h.wait.Done()
+	}()
+
+	if !action.Parallel() || action.ExecutionGroup() != "" {
+		group := "exec-command"
+		worker := "machine exec command runner"
+		if g := action.ExecutionGroup(); g != "" {
+			group = fmt.Sprintf("%s-%s", group, g)
+			worker = fmt.Sprintf("%s (exec group=%s)", worker, g)
+		}
+		spec := machinelock.Spec{
+			Cancel:  abort,
+			Worker:  worker,
+			Comment: fmt.Sprintf("action %s", action.ID()),
+			Group:   group,
+		}
+		releaser, err := h.config.MachineLock.Acquire(spec)
+		if err != nil {
+			actionErr = errors.Annotatef(err, "could not acquire machine execution lock for exec action %s", action.Name())
+			return
+		}
+		defer releaser()
+	}
+
+	if err := h.config.Facade.ActionBegin(actionTag); err != nil {
+		actionErr = errors.Annotatef(err, "could not begin action %s", action.Name())
+		return
+	}
+	results, actionErr = h.config.HandleAction(action.Name(), action.Params())
 }

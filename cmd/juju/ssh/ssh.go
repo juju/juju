@@ -130,11 +130,10 @@ Connect to the mongo db pod:
 const (
 	// SSHRetryDelay is the time to wait for an SSH connection to be established
 	// to a single endpoint of a target.
-	SSHRetryDelay = 500 * time.Millisecond
+	SSHRetryDelay = 2 * time.Second
 
-	// SSHTimeout is the time to wait for before giving up trying to establish
-	// an SSH connection to a target, after retrying.
-	SSHTimeout = 5 * time.Second
+	// SSHTimeout is the time to wait for all SSH negotiation and authentication process.
+	SSHTimeout = 20 * time.Second
 )
 
 func NewSSHCommand(
