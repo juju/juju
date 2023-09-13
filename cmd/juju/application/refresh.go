@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -408,17 +407,12 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	chBase, err := corebase.ParseBase(applicationInfo.Base.Name, applicationInfo.Base.Channel)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	cfg := refresher.RefresherConfig{
 		ApplicationName: c.ApplicationName,
 		CharmURL:        oldURL,
 		CharmOrigin:     oldOrigin.CoreCharmOrigin(),
 		CharmRef:        newRef,
 		Channel:         c.Channel,
-		DeployedBase:    chBase,
 		Force:           c.Force,
 		ForceBase:       c.ForceBase,
 		Switch:          c.SwitchURL != "",
