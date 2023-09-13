@@ -69,6 +69,7 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		// Model
 		"model_list",
 		"model_metadata",
+		"model_type",
 
 		// Controller config
 		"controller_config",

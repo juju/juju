@@ -58,9 +58,9 @@ func (s *ServiceFactorySuite) DefaultModelServiceFactory(c *gc.C) servicefactory
 // SeedModelDatabases makes sure that model's for both the controller and default
 // model have been created in the database.
 func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
-	err := bootstrap.InsertModel(s.ControllerModelUUID)(context.Background(), s.TxnRunner())
+	err := bootstrap.RegisterModel(s.ControllerModelUUID)(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
-	err = bootstrap.InsertModel(s.DefaultModelUUID)(context.Background(), s.TxnRunner())
+	err = bootstrap.RegisterModel(s.DefaultModelUUID)(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

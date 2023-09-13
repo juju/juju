@@ -19,9 +19,9 @@ type bootstrapSuite struct {
 
 var _ = gc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
+func (s *bootstrapSuite) TestInsertCloud(c *gc.C) {
 	cld := cloud.Cloud{Name: "cirrus", Type: "ec2", AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType}}
-	err := InsertInitialControllerCloud(cld)(context.Background(), s.TxnRunner())
+	err := InsertCloud(cld)(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var name string

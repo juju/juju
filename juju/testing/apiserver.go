@@ -387,7 +387,7 @@ func (s *ApiServerSuite) TearDownTest(c *gc.C) {
 func (s *ApiServerSuite) SeedControllerCloud(c *gc.C, runner database.TxnRunner) {
 	err := InsertDummyCloudType(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
-	err = cloudbootstrap.InsertInitialControllerCloud(DefaultCloud)(context.Background(), runner)
+	err = cloudbootstrap.InsertCloud(DefaultCloud)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -574,11 +574,11 @@ func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controlle
 }
 
 func SeedCloudCredentials(c *gc.C, runner database.TxnRunner) {
-	err := cloudbootstrap.InsertInitialControllerCloud(DefaultCloud)(context.Background(), runner)
+	err := cloudbootstrap.InsertCloud(DefaultCloud)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", DefaultCloud.Name, AdminUser.Name(), DefaultCredentialTag.Name()))
-	err = credentialbootstrap.InsertInitialControllerCredentials(tag, defaultCredential)(context.Background(), runner)
+	err = credentialbootstrap.InsertCredential(tag, defaultCredential)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

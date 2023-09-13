@@ -4,9 +4,9 @@
 package txn_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"github.com/mattn/go-sqlite3"
-	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/database/driver"
@@ -47,22 +47,22 @@ func (s *isErrRetryableSuite) TestIsErrRetryable(c *gc.C) {
 		},
 		{
 			name:     "database is locked",
-			err:      errors.Errorf("database is locked"),
+			err:      errors.New("database is locked"),
 			expected: true,
 		},
 		{
 			name:     "cannot start a transaction within a transaction",
-			err:      errors.Errorf("cannot start a transaction within a transaction"),
+			err:      errors.New("cannot start a transaction within a transaction"),
 			expected: true,
 		},
 		{
 			name:     "bad connection",
-			err:      errors.Errorf("bad connection"),
+			err:      errors.New("bad connection"),
 			expected: true,
 		},
 		{
 			name:     "checkpoint in progress",
-			err:      errors.Errorf("checkpoint in progress"),
+			err:      errors.New("checkpoint in progress"),
 			expected: true,
 		},
 	}

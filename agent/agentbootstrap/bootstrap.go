@@ -30,7 +30,10 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
+	"github.com/juju/juju/domain/credential"
 	credbootstrap "github.com/juju/juju/domain/credential/bootstrap"
+	modeldomain "github.com/juju/juju/domain/model"
+	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -206,8 +209,23 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	if err != nil {
 		return nil, errors.Annotate(err, "getting cloud credentials from args")
 	}
-	ctrlCloud := stateParams.ControllerCloud
-	ctrlCloud.IsControllerCloud = true
+
+	controllerModelType := modeldomain.TypeIAAS
+	if cloud.CloudIsCAAS(stateParams.ControllerCloud) {
+		controllerModelType = modeldomain.TypeCAAS
+	}
+
+	controllerUUID := modeldomain.UUID(
+		stateParams.ControllerModelConfig.UUID(),
+	)
+	controllerModelArgs := modeldomain.ModelCreationArgs{
+		Name:        stateParams.ControllerModelConfig.Name(),
+		Owner:       b.adminUser.Name(),
+		Cloud:       stateParams.ControllerCloud.Name,
+		CloudRegion: stateParams.ControllerCloudRegion,
+		Credential:  credential.IdFromTag(cloudCredTag),
+		Type:        controllerModelType,
+	}
 
 	if err := b.bootstrapDqlite(
 		ctx,
@@ -215,8 +233,9 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		b.logger,
 		false,
 		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
-		cloudbootstrap.InsertInitialControllerCloud(ctrlCloud),
-		credbootstrap.InsertInitialControllerCredentials(cloudCredTag, cloudCred),
+		cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
+		credbootstrap.InsertCredential(cloudCredTag, cloudCred),
+		modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
 	); err != nil {
 		return nil, errors.Trace(err)
 	}

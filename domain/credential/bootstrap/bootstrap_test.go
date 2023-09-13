@@ -24,13 +24,13 @@ var _ = gc.Suite(&bootstrapSuite{})
 func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 	ctx := context.Background()
 	cld := cloud.Cloud{Name: "cirrus", Type: "ec2", AuthTypes: cloud.AuthTypes{cloud.UserPassAuthType}}
-	err := cloudbootstrap.InsertInitialControllerCloud(cld)(ctx, s.TxnRunner())
+	err := cloudbootstrap.InsertCloud(cld)(ctx, s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"foo": "bar"}, false)
 
 	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
 
-	err = InsertInitialControllerCredentials(tag, cred)(ctx, s.TxnRunner())
+	err = InsertCredential(tag, cred)(ctx, s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var owner, cloudName string

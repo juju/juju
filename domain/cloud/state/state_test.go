@@ -16,6 +16,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/domain/model"
+	modelstate "github.com/juju/juju/domain/model/state"
+	modeltesting "github.com/juju/juju/domain/model/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -46,7 +49,7 @@ var (
 		}},
 		CACertificates:    []string{"cert1", "cert2"},
 		SkipTLSVerify:     true,
-		IsControllerCloud: true,
+		IsControllerCloud: false,
 	}
 	testCloud2 = cloud.Cloud{
 		Name:             "fluffy2",
@@ -68,7 +71,7 @@ var (
 		}},
 		CACertificates:    []string{"cert1", "cert3"},
 		SkipTLSVerify:     false,
-		IsControllerCloud: true,
+		IsControllerCloud: false,
 	}
 )
 
@@ -76,11 +79,11 @@ func (s *stateSuite) assertCloud(c *gc.C, cloud cloud.Cloud) string {
 	db := s.DB()
 
 	// Check the cloud record.
-	row := db.QueryRow("SELECT uuid, name, cloud_type_id, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify, is_controller_cloud FROM cloud WHERE name = ?", "fluffy")
+	row := db.QueryRow("SELECT uuid, name, cloud_type_id, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify FROM cloud WHERE name = ?", "fluffy")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var dbCloud Cloud
-	err := row.Scan(&dbCloud.ID, &dbCloud.Name, &dbCloud.TypeID, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint, &dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify, &dbCloud.IsControllerCloud)
+	err := row.Scan(&dbCloud.ID, &dbCloud.Name, &dbCloud.TypeID, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint, &dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify)
 	c.Assert(err, jc.ErrorIsNil)
 	if !utils.IsValidUUIDString(dbCloud.ID) {
 		c.Fatalf("invalid cloud uuid %q", dbCloud.ID)
@@ -91,7 +94,6 @@ func (s *stateSuite) assertCloud(c *gc.C, cloud cloud.Cloud) string {
 	c.Check(dbCloud.IdentityEndpoint, gc.Equals, cloud.IdentityEndpoint)
 	c.Check(dbCloud.StorageEndpoint, gc.Equals, cloud.StorageEndpoint)
 	c.Check(dbCloud.SkipTLSVerify, gc.Equals, cloud.SkipTLSVerify)
-	c.Check(dbCloud.IsControllerCloud, gc.Equals, cloud.IsControllerCloud)
 
 	s.assertAuthTypes(c, dbCloud.ID, cloud.AuthTypes)
 	s.assertCaCerts(c, dbCloud.ID, cloud.CACertificates)
@@ -549,6 +551,48 @@ func (s *stateSuite) TestListClouds(c *gc.C) {
 	} else {
 		c.Assert(clouds[1], jc.DeepEquals, testCloud)
 		c.Assert(clouds[0], jc.DeepEquals, testCloud2)
+	}
+}
+
+func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	err := st.UpsertCloud(ctx.Background(), testCloud)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.UpsertCloud(ctx.Background(), testCloud2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	clouds, err := st.ListClouds(ctx.Background(), "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 2)
+
+	for _, cloud := range clouds {
+		c.Assert(cloud.IsControllerCloud, gc.Equals, false)
+	}
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	modelSt := modelstate.NewState(s.TxnRunnerFactory())
+	err = modelSt.Create(
+		context.Background(),
+		modelUUID,
+		model.ModelCreationArgs{
+			Cloud: testCloud.Name,
+			Name:  "controller",
+			Owner: "admin",
+			Type:  model.TypeIAAS,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	clouds, err = st.ListClouds(ctx.Background(), "")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(clouds, gc.HasLen, 2)
+
+	for _, cloud := range clouds {
+		if cloud.Name == testCloud.Name {
+			c.Assert(cloud.IsControllerCloud, gc.Equals, true)
+		} else {
+			c.Assert(cloud.IsControllerCloud, gc.Equals, false)
+		}
 	}
 }
 

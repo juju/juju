@@ -177,7 +177,10 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
 		},
-		apiservertesting.ConstCredentialGetter(&cred), &mockModelManagerService{}, nil, nil, common.NewBlockChecker(s.st),
+		apiservertesting.ConstCredentialGetter(&cred),
+		&mockModelManagerService{},
+		&mockModelService{},
+		nil, nil, common.NewBlockChecker(s.st),
 		&s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,7 +203,10 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{"dummy": testing.DefaultCloud},
 		},
-		apiservertesting.ConstCredentialGetter(&cred), &mockModelManagerService{}, nil, nil,
+		apiservertesting.ConstCredentialGetter(&cred),
+		&mockModelManagerService{},
+		&mockModelService{},
+		nil, nil,
 		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1317,6 +1323,12 @@ func (mockModelManagerService) Create(_ stdcontext.Context, _ model.UUID) error 
 }
 
 func (mockModelManagerService) Delete(_ stdcontext.Context, _ model.UUID) error {
+	return nil
+}
+
+type mockModelService struct{}
+
+func (mockModelService) DeleteModel(_ stdcontext.Context, _ model.UUID) error {
 	return nil
 }
 

@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	jujudb "github.com/juju/juju/internal/database"
 )
 
 // State represents a type for interacting with the underlying state.
@@ -46,9 +48,12 @@ func (s *State) Create(ctx context.Context, uuid model.UUID) error {
 func Create(ctx context.Context, uuid model.UUID, tx *sql.Tx) error {
 	stmt := "INSERT INTO model_list (uuid) VALUES (?);"
 	result, err := tx.ExecContext(ctx, stmt, uuid)
-	if err != nil {
+	if jujudb.IsErrConstraintPrimaryKey(err) {
+		return fmt.Errorf("model for uuid %q %w", uuid, modelerrors.AlreadyExists)
+	} else if err != nil {
 		return errors.Trace(err)
 	}
+
 	if num, err := result.RowsAffected(); err != nil {
 		return errors.Trace(err)
 	} else if num != 1 {
@@ -67,7 +72,7 @@ func (s *State) Delete(ctx context.Context, uuid model.UUID) error {
 	}
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "DELETE FROM model_list WHERE uuid = ?;"
+		stmt := `DELETE FROM model_list WHERE uuid = ?;`
 		result, err := tx.ExecContext(ctx, stmt, uuid)
 		if err != nil {
 			return errors.Trace(err)

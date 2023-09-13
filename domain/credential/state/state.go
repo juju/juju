@@ -189,20 +189,20 @@ WHERE        cloud_credential_uuid = $M.uuid
 	insertQuery := `
 INSERT INTO cloud_credential_attributes
 VALUES (
-    $CredentialAttribute.cloud_credential_uuid,
-    $CredentialAttribute.key,
-    $CredentialAttribute.value
+    $credentialAttribute.cloud_credential_uuid,
+    $credentialAttribute.key,
+    $credentialAttribute.value
 )
 ON CONFLICT(cloud_credential_uuid, key) DO UPDATE SET key=excluded.key,
                                                       value=excluded.value
 `
-	insertStmt, err := sqlair.Prepare(insertQuery, CredentialAttribute{})
+	insertStmt, err := sqlair.Prepare(insertQuery, credentialAttribute{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	for key, value := range attr {
-		if err := tx.Query(ctx, insertStmt, CredentialAttribute{
+		if err := tx.Query(ctx, insertStmt, credentialAttribute{
 			CredentialUUID: credentialUUID,
 			Key:            key,
 			Value:          value,
@@ -374,7 +374,7 @@ SELECT (cc.uuid, cc.name,
        cc.owner_uuid) AS &Credential.*,
        auth_type.type AS &AuthType.*,
        cloud.name AS &Cloud.*,
-       (cc_attr.key, cc_attr.value) AS &CredentialAttribute.*
+       (cc_attr.key, cc_attr.value) AS &credentialAttribute.*
 FROM   cloud_credential cc
        JOIN auth_type ON cc.auth_type_id = auth_type.id
        JOIN cloud ON cc.cloud_uuid = cloud.uuid
@@ -385,7 +385,7 @@ FROM   cloud_credential cc
 		Credential{},
 		dbcloud.AuthType{},
 		dbcloud.Cloud{},
-		CredentialAttribute{},
+		credentialAttribute{},
 	}
 	condition, args := database.SqlairClauseAnd(map[string]any{
 		"cc.name":       name,
@@ -406,7 +406,7 @@ FROM   cloud_credential cc
 		dbRows      Credentials
 		dbAuthTypes []dbcloud.AuthType
 		dbclouds    []dbcloud.Cloud
-		keyValues   []CredentialAttribute
+		keyValues   []credentialAttribute
 	)
 	err = tx.Query(ctx, credStmt, args).GetAll(&dbRows, &dbAuthTypes, &dbclouds, &keyValues)
 	if err != nil {

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloud"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -294,12 +295,17 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 
 func loadClouds(ctx context.Context, tx *sql.Tx, name string) ([]cloud.Cloud, error) {
 	// First load the basic cloud info and auth types.
+	// TODO: needs controller cloud
 	q := `
 SELECT cloud.uuid, cloud.name, cloud_type_id, 
        cloud.endpoint, cloud.identity_endpoint, 
        cloud.storage_endpoint, skip_tls_verify, 
-       is_controller_cloud,
-       auth_type.type, cloud_type.type
+       auth_type.type, cloud_type.type,
+       COALESCE((SELECT true
+        FROM model_metadata
+        WHERE cloud_uuid = cloud.uuid
+        AND name = ?
+        AND owner_uuid = ?), false) AS controller_cloud
 FROM   cloud
        LEFT JOIN cloud_auth_type 
             ON cloud.uuid = cloud_auth_type.cloud_uuid
@@ -309,10 +315,13 @@ FROM   cloud
             ON cloud_type.id = cloud.cloud_type_id
 `
 
-	var args []any
+	args := []any{
+		model.ControllerModelName,
+		model.ControllerModelOwner,
+	}
 	if name != "" {
 		q = q + "WHERE cloud.name = ?"
-		args = []any{name}
+		args = append(args, name)
 	}
 
 	rows, err := tx.QueryContext(ctx, q, args...)
@@ -330,7 +339,7 @@ FROM   cloud
 		)
 		if err := rows.Scan(
 			&dbCloud.ID, &dbCloud.Name, &dbCloud.TypeID, &dbCloud.Endpoint, &dbCloud.IdentityEndpoint,
-			&dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify, &dbCloud.IsControllerCloud, &cloudAuthType, &cloudType,
+			&dbCloud.StorageEndpoint, &dbCloud.SkipTLSVerify, &cloudAuthType, &cloudType, &dbCloud.IsControllerCloud,
 		); err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -527,14 +536,13 @@ func upsertCloud(ctx context.Context, tx *sql.Tx, cloudUUID string, cloud cloud.
 	}
 
 	q := `
-INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify, is_controller_cloud)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, identity_endpoint, storage_endpoint, skip_tls_verify)
+VALUES (?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
                                 endpoint=excluded.endpoint,
                                 identity_endpoint=excluded.identity_endpoint,
                                 storage_endpoint=excluded.storage_endpoint,
-                                skip_tls_verify=excluded.skip_tls_verify,
-                                is_controller_cloud=excluded.is_controller_cloud;`
+                                skip_tls_verify=excluded.skip_tls_verify;`
 
 	_, err = tx.ExecContext(ctx, q,
 		dbCloud.ID,
@@ -544,7 +552,6 @@ ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
 		dbCloud.IdentityEndpoint,
 		dbCloud.StorageEndpoint,
 		dbCloud.SkipTLSVerify,
-		dbCloud.IsControllerCloud,
 	)
 	if database.IsErrConstraintCheck(err) {
 		return fmt.Errorf("%w cloud name cannot be empty%w", errors.NotValid, errors.Hide(err))

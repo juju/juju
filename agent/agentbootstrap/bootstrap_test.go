@@ -450,6 +450,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			Name:      "dummy",
 			Type:      "dummy",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+			Regions:   []cloud.Region{{Name: "dummy-region"}},
 		},
 		ControllerConfig:      testing.FakeControllerConfig(),
 		ControllerModelConfig: modelCfg,

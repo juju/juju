@@ -15,9 +15,8 @@ import (
 	"github.com/juju/juju/domain/cloud/state"
 )
 
-// InsertInitialControllerCloud inserts the initial
-// controller cloud into the database.
-func InsertInitialControllerCloud(cloud cloud.Cloud) func(context.Context, database.TxnRunner) error {
+// InsertCloud inserts the initial cloud during bootstrap.
+func InsertCloud(cloud cloud.Cloud) func(context.Context, database.TxnRunner) error {
 	return func(ctx context.Context, db database.TxnRunner) error {
 		return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			cloudUUID, err := utils.NewUUID()

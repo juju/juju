@@ -7,12 +7,11 @@ import (
 	"context"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	modeltesting "github.com/juju/juju/domain/model/testing"
 	"github.com/juju/juju/domain/modelmanager/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -25,20 +24,20 @@ var _ = gc.Suite(&stateSuite{})
 
 func (s *stateSuite) TestStateCreate(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
-	err := st.Create(context.TODO(), mustUUID(c))
+	err := st.Create(context.TODO(), modeltesting.GenModelUUID(c))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestStateCreateCalledTwice(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 
-	uuid := mustUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
 
 	err := st.Create(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.Create(context.TODO(), uuid)
-	c.Assert(err, gc.ErrorMatches, `UNIQUE constraint failed: model_list.uuid`)
+	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
 
 // Note: This will pass as we don't validate the UUID at this level, and we
@@ -52,15 +51,14 @@ func (s *stateSuite) TestStateCreateWithInvalidUUID(c *gc.C) {
 
 func (s *stateSuite) TestStateDeleteWithNoMatchingUUID(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
-	err := st.Delete(context.TODO(), mustUUID(c))
-	c.Assert(err, gc.ErrorMatches, domain.ErrNoRecord.Error()+".*")
-	c.Assert(errors.Cause(err), jc.ErrorIs, domain.ErrNoRecord)
+	err := st.Delete(context.TODO(), modeltesting.GenModelUUID(c))
+	c.Assert(err, jc.ErrorIs, domain.ErrNoRecord)
 }
 
 func (s *stateSuite) TestStateDelete(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 
-	uuid := mustUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
 
 	err := st.Create(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,7 +70,7 @@ func (s *stateSuite) TestStateDelete(c *gc.C) {
 func (s *stateSuite) TestStateDeleteCalledTwice(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 
-	uuid := mustUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
 
 	err := st.Create(context.TODO(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
@@ -81,9 +79,5 @@ func (s *stateSuite) TestStateDeleteCalledTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.Delete(context.TODO(), uuid)
-	c.Assert(err, gc.ErrorMatches, domain.ErrNoRecord.Error()+".*")
-}
-
-func mustUUID(c *gc.C) model.UUID {
-	return model.UUID(utils.MustNewUUID().String())
+	c.Assert(err, jc.ErrorIs, domain.ErrNoRecord)
 }
