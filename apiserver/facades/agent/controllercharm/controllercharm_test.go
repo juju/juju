@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/controllercharm"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -28,19 +29,44 @@ func Test(t *testing.T) {
 }
 
 func (*suite) TestAuth(c *gc.C) {
-	// TODO: add test cases:
-	// - controller charm on k8s should be able to access
-	// - controller charm on lxd should be able to access
-	// - other charms should not be able to access
-
 	tests := []struct {
 		description string
 		authorizer  facade.Authorizer
 		expected    string
-	}{{}}
+	}{{
+		description: "unit containeragent on k8s",
+		authorizer: apiservertesting.FakeAuthorizer{
+			Tag: names.NewUnitTag("controller/0"),
+		},
+		expected: "",
+	}, {
+		description: "machine agent on lxd",
+		authorizer: apiservertesting.FakeAuthorizer{
+			Tag:        names.NewMachineTag("0"),
+			Controller: true,
+		},
+		expected: "",
+	}, {
+		description: "non-controller application",
+		authorizer: apiservertesting.FakeAuthorizer{
+			Tag: names.NewUnitTag("mysql/0"),
+		},
+		expected: `application name should be "controller", received "mysql"`,
+	}, {
+		description: "client can't access facade",
+		authorizer: apiservertesting.FakeAuthorizer{
+			Tag: names.NewUserTag("bob"),
+		},
+		expected: "permission denied",
+	}}
 
 	for _, test := range tests {
-		c.Assert(controllercharm.CheckAuth(test.authorizer), gc.ErrorMatches, test.expected)
+		err := controllercharm.CheckAuth(test.authorizer)
+		if test.expected == "" {
+			c.Check(err, jc.ErrorIsNil, gc.Commentf(test.description))
+		} else {
+			c.Check(err, gc.ErrorMatches, test.expected, gc.Commentf(test.description))
+		}
 	}
 }
 

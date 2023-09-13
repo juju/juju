@@ -38,7 +38,9 @@ func newAPI(ctx facade.Context) (*API, error) {
 // Check if the given client is authorized to access this facade.
 func checkAuth(authorizer facade.Authorizer) error {
 	// TODO: remove this
-	loggo.GetLogger("juju.apiserver.controllercharm").Debugf("authorizer: %s", repr.String(authorizer))
+	logger := loggo.GetLogger("juju.apiserver.controllercharm")
+	logger.Criticalf("authorizer.GetAuthTag: %s", repr.String(authorizer.GetAuthTag()))
+	logger.Criticalf("authorizer.AuthController: %v", authorizer.AuthController())
 
 	if !authorizer.AuthUnitAgent() {
 		return apiservererrors.ErrPerm
