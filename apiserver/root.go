@@ -86,7 +86,16 @@ var (
 )
 
 // newAPIHandler returns a new apiHandler.
-func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, connectionID uint64, serverHost string) (*apiHandler, error) {
+func newAPIHandler(
+	srv *Server,
+	st *state.State,
+	rpcConn *rpc.Conn,
+	serviceFactory servicefactory.ServiceFactory,
+	tracer trace.Tracer,
+	modelUUID string,
+	connectionID uint64,
+	serverHost string,
+) (*apiHandler, error) {
 	m, err := st.Model()
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
@@ -105,21 +114,6 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 	registry, err := registry.NewRegistry(srv.clock, registry.WithLogger(logger.ChildWithLabels("registry", corelogger.WATCHERS)))
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	tracer, err := srv.shared.tracerGetter.GetTracer(modelUUID)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// TODO (tlm) We need to better fix up model not found here. When a model
-	// has been migrated it's valid for the model to not exist any more and we
-	// allow this code to run so that we can get a redirect out of the login
-	// process. The better way to handle this is just redirect and don't allow
-	// standing up api's on models that don't exist.
-	var serviceFactory servicefactory.ServiceFactory
-	if m != nil {
-		serviceFactory = srv.shared.serviceFactoryGetter.FactoryForModel(m.UUID())
 	}
 
 	r := &apiHandler{

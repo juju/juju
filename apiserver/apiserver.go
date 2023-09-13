@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
+	coretrace "github.com/juju/juju/core/trace"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/servicefactory"
@@ -1099,11 +1100,18 @@ func (srv *Server) serveConn(
 		resolvedModelUUID = systemState.ModelUUID()
 	}
 
+	tracer, err := srv.shared.tracerGetter.GetTracer(resolvedModelUUID)
+	if err != nil {
+		logger.Infof("failed to get tracer for model %q: %v", resolvedModelUUID, err)
+		tracer = coretrace.NoopTracer{}
+	}
+	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(resolvedModelUUID)
+
 	var handler *apiHandler
 	st, err := statePool.Get(resolvedModelUUID)
 	if err == nil {
 		defer st.Release()
-		handler, err = newAPIHandler(srv, st.State, conn, modelUUID, connectionID, host)
+		handler, err = newAPIHandler(srv, st.State, conn, serviceFactory, tracer, modelUUID, connectionID, host)
 	}
 	if errors.Is(err, errors.NotFound) {
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelUUID)
