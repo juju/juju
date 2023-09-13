@@ -107,6 +107,7 @@ var (
 		"state-config-watcher",
 		"syslog",
 		"termination-signal-handler",
+		"trace",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
