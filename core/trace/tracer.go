@@ -5,6 +5,8 @@ package trace
 
 import (
 	"context"
+	"runtime"
+	"strings"
 
 	"github.com/juju/errors"
 )
@@ -96,4 +98,38 @@ type Span interface {
 	// is called. Therefore, updates to the Span are not allowed after this
 	// method has been called.
 	End(...Attribute)
+}
+
+// Name is the name of the span.
+type Name string
+
+func (n Name) String() string {
+	return string(n)
+}
+
+// NameFromFunc will return the name from the function. This is useful for
+// automatically generating a name for a span.
+func NameFromFunc() Name {
+	// Get caller frame.
+	var pcs [1]uintptr
+	n := runtime.Callers(2, pcs[:])
+	if n < 1 {
+		return "unknown"
+	}
+
+	fn := runtime.FuncForPC(pcs[0])
+	name := fn.Name()
+	if lastSlash := strings.LastIndexByte(name, '/'); lastSlash > 0 {
+		name = name[lastSlash+1:]
+	}
+
+	return Name(name)
+}
+
+// Start returns a new context with the given trace.
+func Start(ctx context.Context, name Name, options ...Option) (context.Context, Span) {
+	// Tracer is always guaranteed to be returned here. If there is no tracer
+	// available it will return a noop tracer.
+	tracer := FromContext(ctx)
+	return tracer.Start(ctx, name.String(), options...)
 }
