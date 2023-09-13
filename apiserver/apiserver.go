@@ -56,6 +56,7 @@ import (
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/syslogger"
+	"github.com/juju/juju/worker/trace"
 )
 
 var logger = loggo.GetLogger("juju.apiserver")
@@ -217,6 +218,10 @@ type ServerConfig struct {
 
 	// DBGetter returns WatchableDB implementations based on namespace.
 	DBGetter changestream.WatchableDBGetter
+
+	// TracerGetter returns a tracer for the given namespace, this is used
+	// for opentelmetry tracing.
+	TracerGetter trace.TracerGetter
 }
 
 // Validate validates the API server configuration.

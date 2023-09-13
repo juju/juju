@@ -123,5 +123,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,
 		ServiceFactoryGetter:       s.serviceFactoryGetter,
+		TracerGetter:               s.tracerGetter,
 	})
 }

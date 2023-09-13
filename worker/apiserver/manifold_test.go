@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/syslogger"
+	"github.com/juju/juju/worker/trace"
 )
 
 type ManifoldSuite struct {
@@ -62,6 +63,7 @@ type ManifoldSuite struct {
 	charmhubHTTPClient   *http.Client
 	dbGetter             stubWatchableDBGetter
 	serviceFactoryGetter stubServiceFactoryGetter
+	tracerGetter         stubTracerGetter
 
 	stub testing.Stub
 }
@@ -99,6 +101,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		SyslogName:                        "syslog",
 		CharmhubHTTPClientName:            "charmhub-http-client",
 		ServiceFactoryName:                "service-factory",
+		TraceName:                         "trace",
 		ChangeStreamName:                  "change-stream",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
@@ -124,6 +127,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"charmhub-http-client": s.charmhubHTTPClient,
 		"change-stream":        s.dbGetter,
 		"service-factory":      s.serviceFactoryGetter,
+		"trace":                s.tracerGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -155,6 +159,7 @@ var expectedInputs = []string{
 	"agent", "authenticator", "clock", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
 	"syslog", "charmhub-http-client", "change-stream", "service-factory",
+	"trace",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -224,6 +229,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,
 		ServiceFactoryGetter:       s.serviceFactoryGetter,
+		TracerGetter:               s.tracerGetter,
 	})
 }
 
@@ -385,4 +391,8 @@ func (s stubWatchableDBGetter) GetWatchableDB(namespace string) (changestream.Wa
 
 type stubServiceFactoryGetter struct {
 	servicefactory.ServiceFactoryGetter
+}
+
+type stubTracerGetter struct {
+	trace.TracerGetter
 }

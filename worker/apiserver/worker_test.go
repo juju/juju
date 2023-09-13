@@ -44,6 +44,7 @@ type workerFixture struct {
 	charmhubHTTPClient   *http.Client
 	dbGetter             stubWatchableDBGetter
 	serviceFactoryGetter stubServiceFactoryGetter
+	tracerGetter         stubTracerGetter
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -85,6 +86,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		CharmhubHTTPClient:                s.charmhubHTTPClient,
 		DBGetter:                          s.dbGetter,
 		ServiceFactoryGetter:              s.serviceFactoryGetter,
+		TracerGetter:                      s.tracerGetter,
 	}
 }
 
@@ -154,6 +156,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.ServiceFactoryGetter = nil },
 		"nil ServiceFactoryGetter not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.TracerGetter = nil },
+		"nil TracerGetter not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)
