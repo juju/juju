@@ -3,7 +3,9 @@
 
 package trace
 
-import "context"
+import (
+	"context"
+)
 
 type contextKey string
 
@@ -14,24 +16,27 @@ const traceContextKey contextKey = "trace"
 func FromContext(ctx context.Context) Tracer {
 	value := ctx.Value(traceContextKey)
 	if value == nil {
-		return noopTracer{}
+		return NoopTracer{}
 	}
-	tracer, ok := ctx.Value(traceContextKey).(Tracer)
+	tracer, ok := value.(Tracer)
 	if !ok {
-		return noopTracer{}
+		return NoopTracer{}
 	}
 	return tracer
 }
 
 // WithTracer returns a new context with the given tracer.
 func WithTracer(ctx context.Context, tracer Tracer) context.Context {
+	if tracer == nil {
+		tracer = NoopTracer{}
+	}
 	return context.WithValue(ctx, traceContextKey, tracer)
 }
 
-// noopTracer is a tracer that does nothing.
-type noopTracer struct{}
+// NoopTracer is a tracer that does nothing.
+type NoopTracer struct{}
 
-func (noopTracer) Start(ctx context.Context, name string, options ...Option) (context.Context, Span) {
+func (NoopTracer) Start(ctx context.Context, name string, options ...Option) (context.Context, Span) {
 	return ctx, NoopSpan{}
 }
 

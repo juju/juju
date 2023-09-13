@@ -477,7 +477,8 @@ func (r *apiRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) 
 	// we should not start a trace, but instead continue the trace.
 	// This will be useful for tracing workers that perform a request. For now
 	// we'll just trace a single request.
-	return trace.Start(trace.WithTracer(ctx, r.tracer), trace.NameFromFunc())
+	ctx = trace.WithTracer(ctx, r.tracer)
+	return trace.Start(ctx, trace.NameFromFunc())
 }
 
 // FindMethod looks up the given rootName and version in our facade registry
@@ -609,7 +610,8 @@ func (r *adminRoot) StartTrace(ctx context.Context) (context.Context, trace.Span
 	// we should not start a trace, but instead continue the trace.
 	// This will be useful for tracing workers that perform a request. For now
 	// we'll just trace a single request.
-	return trace.Start(trace.WithTracer(ctx, r.tracer), trace.NameFromFunc())
+	ctx = trace.WithTracer(ctx, r.tracer)
+	return trace.Start(ctx, trace.NameFromFunc())
 }
 
 func (r *adminRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
@@ -791,6 +793,11 @@ func (ctx *facadeContext) ControllerDB() (changestream.WatchableDB, error) {
 // ServiceFactory returns the services factory for the current model.
 func (ctx *facadeContext) ServiceFactory() servicefactory.ServiceFactory {
 	return ctx.r.serviceFactory
+}
+
+// Tracer returns the tracer for the current model.
+func (ctx *facadeContext) Tracer() trace.Tracer {
+	return ctx.r.tracer
 }
 
 // MachineTag returns the current machine tag.

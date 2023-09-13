@@ -5,6 +5,7 @@ package trace
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -145,6 +146,7 @@ func newClient(ctx context.Context, namespace, endpoint string, insecureSkipVeri
 	if insecureSkipVerify {
 		options = append(options, otlptracegrpc.WithInsecure())
 	}
+
 	client := otlptracegrpc.NewClient(options...)
 	exporter, err := otlptrace.New(ctx, client)
 	if err != nil {
@@ -162,7 +164,7 @@ func newClient(ctx context.Context, namespace, endpoint string, insecureSkipVeri
 func newResource(namespace string) *resource.Resource {
 	return resource.NewWithAttributes(
 		semconv.SchemaURL,
-		semconv.ServiceName(namespace),
+		semconv.ServiceName(fmt.Sprintf("juju-%s", namespace)),
 		semconv.ServiceVersion(version.Current.String()),
 	)
 }
