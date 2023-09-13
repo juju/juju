@@ -51,17 +51,17 @@ run_prometheus_multi() {
 
 	juju remove-unit p1
 	# Check all applications are still healthy
-  juju status -m controller --format json | jq -r "$(active_condition "controller")" | check "controller"
-  juju status --format json | jq -r "$(active_condition "p1")" | check "p1"
+	juju status -m controller --format json | jq -r "$(active_condition "controller")" | check "controller"
+	juju status --format json | jq -r "$(active_condition "p1")" | check "p1"
 
-  juju remove-relation p2 controller
+	juju remove-relation p2 controller
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target p2 0' 10
 	# Check no errors in controller charm or Prometheus
 	juju status -m controller --format json | jq -r "$(active_condition "controller")" | check "controller"
 	juju status --format json | jq -r "$(active_condition "p2")" | check "p2"
 
-  juju remove-relation p1 controller
+	juju remove-relation p1 controller
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target p1 0' 10
 	# Check no errors in controller charm or Prometheus
@@ -106,7 +106,7 @@ run_prometheus_cross_controller() {
 	destroy_model "${PROMETHEUS_MODEL_NAME}"
 	destroy_controller "${PROMETHEUS_MODEL_NAME}"
 	destroy_model "${CONTROLLER_MODEL_NAME}"
-  destroy_controller "${CONTROLLER_MODEL_NAME}"
+	destroy_controller "${CONTROLLER_MODEL_NAME}"
 }
 
 # Check the Juju controller in the list of Prometheus targets.
