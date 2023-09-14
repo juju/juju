@@ -97,5 +97,5 @@ func (s *DownloaderSuite) TestDownloadHandles409Responses(c *gc.C) {
 		URL:       s.URL(c, "/archive.tgz"),
 		TargetDir: tmp,
 	})
-	c.Assert(err, jc.Satisfies, errors.IsNotYetAvailable)
+	c.Assert(err, jc.ErrorIs, errors.NotYetAvailable)
 }

@@ -30,7 +30,7 @@ func (st *State) CreateCloudAccess(cloud string, user names.UserTag, access perm
 	if user.IsLocal() {
 		_, err := st.User(user)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				return errors.Annotatef(err, "user %q does not exist locally", user.Name())
 			}
 			return errors.Trace(err)

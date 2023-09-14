@@ -89,7 +89,7 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 	// First try using a local charm specified at bootstrap time.
 	source := "local"
 	curl, origin, err := populateLocalControllerCharm(st, c.DataDir(), arch, base)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotate(err, "deploying local controller charm")
 	}
 	// If no local charm, use the one from charmhub.

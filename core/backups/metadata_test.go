@@ -203,7 +203,7 @@ func (s *metadataSuite) TestNewMetadataJSONReaderUnsupported(c *gc.C) {
 		`}` + "\n")
 	meta, err := backups.NewMetadataJSONReader(file)
 	c.Assert(meta, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *metadataSuite) TestBuildMetadata(c *gc.C) {

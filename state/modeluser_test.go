@@ -215,7 +215,7 @@ func (s *ModelUserSuite) TestCaseSensitiveModelUserErrors(c *gc.C) {
 			Access:    permission.ReadAccess,
 		})
 	c.Assert(err, gc.ErrorMatches, `user access "boB@ubuntuone" already exists`)
-	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *ModelUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
@@ -237,7 +237,7 @@ func (s *ModelUserSuite) TestCaseInsensitiveLookupInMultiEnvirons(c *gc.C) {
 			c.Assert(obtainedUser, gc.DeepEquals, expectedUser)
 
 			_, err = st2.UserAccess(userTag, m2.ModelTag())
-			c.Assert(errors.IsNotFound(err), jc.IsTrue)
+			c.Assert(err, jc.ErrorIs, errors.NotFound)
 		}
 	}
 
@@ -294,13 +294,13 @@ func (s *ModelUserSuite) TestRemoveModelUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelUserSuite) TestRemoveModelUserFails(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{NoModelUser: true})
 	err := s.State.RemoveUserAccess(user.UserTag(), s.Model.ModelTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelUserSuite) TestUpdateLastConnection(c *gc.C) {

@@ -94,7 +94,7 @@ Logged out. You are no longer logged into any controllers.
 `[1:],
 	)
 	_, err = s.store.AccountDetails("testing")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	jar, err = cookiejar.New(&cookiejar.Options{Filename: cookiefile})
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,7 +151,7 @@ func (s *LogoutCommandSuite) TestLogoutWithPasswordForced(c *gc.C) {
 	_, err := s.run(c, "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.store.AccountDetails("testing")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *LogoutCommandSuite) TestLogoutNotLoggedIn(c *gc.C) {

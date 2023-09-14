@@ -1147,7 +1147,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidBaseChannel(c *gc.C) {
 			OS:           "ubuntu",
 		},
 	})
-	c.Assert(errors.IsNotValid(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidOS(c *gc.C) {
@@ -1160,7 +1160,7 @@ func (*selectNextBaseSuite) TestSelectNextBaseWithInvalidOS(c *gc.C) {
 			OS:           "ubuntu",
 		},
 	})
-	c.Assert(errors.IsNotValid(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (*selectNextBaseSuite) TestSelectNextBaseWithValidBases(c *gc.C) {

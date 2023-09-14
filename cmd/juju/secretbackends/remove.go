@@ -97,7 +97,7 @@ func (c *removeSecretBackendCommand) Run(ctxt *cmd.Context) error {
 	defer api.Close()
 
 	err = api.RemoveSecretBackend(c.Name, c.Force)
-	if errors.IsNotSupported(err) {
+	if errors.Is(err, errors.NotSupported) {
 		cmd.WriteError(ctxt.Stderr, errors.Errorf("backend %q still contains secret content", c.Name))
 		return cmd.ErrSilent
 	}

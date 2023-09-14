@@ -709,7 +709,7 @@ network:
 `)
 	err := np.BridgeEthernetById("id7", "juju-bridge")
 	c.Check(err, gc.ErrorMatches, `ethernet device with id "id7" for bridge "juju-bridge" not found`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *NetplanSuite) TestBridgeVLAN(c *gc.C) {
@@ -803,7 +803,7 @@ network:
 `)
 	err := np.BridgeVLANById("id0.1235", "br-id0.1235")
 	c.Check(err, gc.ErrorMatches, `VLAN device with id "id0.1235" for bridge "br-id0.1235" not found`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *NetplanSuite) TestBridgeVLANAndLinkedDevice(c *gc.C) {
@@ -983,7 +983,7 @@ network:
 `)
 	err := np.BridgeBondById("bond1", "br-bond1")
 	c.Check(err, gc.ErrorMatches, `bond device with id "bond1" for bridge "br-bond1" not found`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *NetplanSuite) TestFindEthernetByName(c *gc.C) {
@@ -1034,7 +1034,7 @@ network:
 
 	_, err = np.FindEthernetByName("eno5")
 	c.Check(err, gc.ErrorMatches, "Ethernet device with name \"eno5\" not found")
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *NetplanSuite) TestFindEthernetByMAC(c *gc.C) {
@@ -1077,7 +1077,7 @@ network:
 
 	_, err = np.FindEthernetByMAC("00:11:22:33:44:88")
 	c.Check(err, gc.ErrorMatches, "Ethernet device with MAC \"00:11:22:33:44:88\" not found")
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 
 	device, err = np.FindEthernetByMAC("00:11:22:33:44:77")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1116,7 +1116,7 @@ network:
 
 	_, err = np.FindVLANByName("id0")
 	c.Check(err, gc.ErrorMatches, "VLAN device with name \"id0\" not found")
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *NetplanSuite) TestFindVLANByMAC(c *gc.C) {
@@ -1154,7 +1154,7 @@ network:
 	// This is an Ethernet, not a VLAN
 	_, err = np.FindVLANByMAC("00:11:22:33:44:55")
 	c.Check(err, gc.ErrorMatches, `VLAN device with MAC "00:11:22:33:44:55" not found`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *NetplanSuite) TestFindBondByName(c *gc.C) {
@@ -1200,12 +1200,12 @@ network:
 
 	_, err = np.FindBondByName("bond3")
 	c.Check(err, gc.ErrorMatches, "bond device with name \"bond3\" not found")
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 
 	// eno4 is an Ethernet, not a Bond
 	_, err = np.FindBondByName("eno4")
 	c.Check(err, gc.ErrorMatches, "bond device with name \"eno4\" not found")
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *NetplanSuite) TestFindBondByMAC(c *gc.C) {
@@ -1247,19 +1247,19 @@ network:
 
 	_, err = np.FindBondByMAC("00:11:22:33:44:99")
 	c.Check(err, gc.ErrorMatches, `bond device with MAC "00:11:22:33:44:99" not found`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 
 	// This is an Ethernet, not a Bond
 	_, err = np.FindBondByMAC("00:11:22:33:44:55")
 	c.Check(err, gc.ErrorMatches, `bond device with MAC "00:11:22:33:44:55" not found`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func checkFindDevice(c *gc.C, np *netplan.Netplan, name, mac, device string, dtype netplan.DeviceType, expErr string) {
 	foundDev, foundType, foundErr := np.FindDeviceByNameOrMAC(name, mac)
 	if expErr != "" {
 		c.Check(foundErr, gc.ErrorMatches, expErr)
-		c.Check(foundErr, jc.Satisfies, errors.IsNotFound)
+		c.Check(foundErr, jc.ErrorIs, errors.NotFound)
 	} else {
 		c.Assert(foundErr, jc.ErrorIsNil)
 		c.Check(foundDev, gc.Equals, device)

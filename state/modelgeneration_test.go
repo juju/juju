@@ -34,7 +34,7 @@ var _ = gc.Suite(&generationSuite{})
 
 func (s *generationSuite) TestBranchNameNotFound(c *gc.C) {
 	_, err := s.Model.Branch("non-extant-branch")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *generationSuite) TestAddBranchSuccess(c *gc.C) {

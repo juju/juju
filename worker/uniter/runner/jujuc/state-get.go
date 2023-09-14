@@ -81,7 +81,7 @@ func (c *StateGetCommand) Run(ctx *cmd.Context) error {
 	}
 
 	value, err := c.ctx.GetCharmStateValue(c.key)
-	notFound := errors.IsNotFound(err)
+	notFound := errors.Is(err, errors.NotFound)
 	if err != nil && (!notFound || (notFound && c.strict)) {
 		return err
 	}

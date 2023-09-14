@@ -29,7 +29,7 @@ type Watchers struct {
 func (fw Watchers) WatchModelManagedFilesystems() state.StringsWatcher {
 	return newFilteredStringsWatcher(fw.Backend.WatchModelFilesystems(), func(id string) (bool, error) {
 		f, err := fw.Backend.Filesystem(names.NewFilesystemTag(id))
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return false, nil
 		} else if err != nil {
 			return false, errors.Trace(err)
@@ -185,7 +185,7 @@ func (w *hostFilesystemsWatcher) loop() error {
 
 func (w *hostFilesystemsWatcher) modelFilesystemChanged(filesystemTag names.FilesystemTag) error {
 	filesystem, err := w.backend.Filesystem(filesystemTag)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// Filesystem removed: nothing more to do.
 		return nil
 	} else if err != nil {
@@ -207,10 +207,10 @@ func (w *hostFilesystemsWatcher) modelFilesystemChanged(filesystemTag names.File
 
 func (w *hostFilesystemsWatcher) modelVolumeAttachmentChanged(hostTag names.Tag, volumeTag names.VolumeTag) error {
 	va, err := w.backend.VolumeAttachment(hostTag, volumeTag)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotate(err, "getting volume attachment")
 	}
-	if errors.IsNotFound(err) || va.Life() == state.Dead {
+	if errors.Is(err, errors.NotFound) || va.Life() == state.Dead {
 		filesystemTag, ok := w.modelVolumeFilesystems[volumeTag]
 		if ok {
 			// If the volume attachment is Dead/removed,
@@ -241,7 +241,7 @@ func (fw Watchers) WatchModelManagedFilesystemAttachments() state.StringsWatcher
 			return false, errors.Annotate(err, "parsing filesystem attachment ID")
 		}
 		f, err := fw.Backend.Filesystem(filesystemTag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return false, nil
 		} else if err != nil {
 			return false, errors.Trace(err)
@@ -415,7 +415,7 @@ func (w *hostFilesystemAttachmentsWatcher) modelFilesystemAttachmentChanged(
 	filesystemTag names.FilesystemTag,
 ) error {
 	filesystem, err := w.backend.Filesystem(filesystemTag)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// Filesystem removed: nothing more to do.
 		return nil
 	} else if err != nil {
@@ -437,10 +437,10 @@ func (w *hostFilesystemAttachmentsWatcher) modelFilesystemAttachmentChanged(
 
 func (w *hostFilesystemAttachmentsWatcher) modelVolumeAttachmentChanged(hostTag names.Tag, volumeTag names.VolumeTag) error {
 	va, err := w.backend.VolumeAttachment(hostTag, volumeTag)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotate(err, "getting volume attachment")
 	}
-	if errors.IsNotFound(err) || va.Life() == state.Dead {
+	if errors.Is(err, errors.NotFound) || va.Life() == state.Dead {
 		filesystemAttachmentId, ok := w.modelVolumeFilesystemAttachments[volumeTag]
 		if ok {
 			// If the volume attachment is Dead/removed,

@@ -270,7 +270,7 @@ func (s *Service) Running() (bool, error) {
 // Start implements Service.
 func (s *Service) Start() error {
 	err := s.start()
-	if errors.IsAlreadyExists(err) {
+	if errors.Is(err, errors.AlreadyExists) {
 		logger.Debugf("service %q already running", s.Name())
 		return nil
 	} else if err != nil {
@@ -330,7 +330,7 @@ func (s *Service) wait(op string, statusCh chan string) error {
 // Stop implements Service.
 func (s *Service) Stop() error {
 	err := s.stop()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		logger.Debugf("service %q not running", s.Name())
 		return nil
 	} else if err != nil {
@@ -372,7 +372,7 @@ func (s *Service) stop() error {
 // Remove implements Service.
 func (s *Service) Remove() error {
 	err := s.remove()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		logger.Debugf("service %q not installed", s.Name())
 		return nil
 	} else if err != nil {
@@ -425,7 +425,7 @@ func (s *Service) Install() error {
 	}
 
 	err := s.install()
-	if errors.IsAlreadyExists(err) {
+	if errors.Is(err, errors.AlreadyExists) {
 		logger.Debugf("service %q already installed", s.Name())
 		return nil
 	} else if err != nil {

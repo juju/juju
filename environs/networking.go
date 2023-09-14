@@ -147,7 +147,7 @@ func SupportsSpaces(ctx context.ProviderCallContext, env BootstrapEnviron) bool 
 	}
 	ok, err := netEnv.SupportsSpaces(ctx)
 	if err != nil {
-		if !errors.IsNotSupported(err) {
+		if !errors.Is(err, errors.NotSupported) {
 			logger.Errorf("checking model spaces support failed with: %v", err)
 		}
 		return false
@@ -164,7 +164,7 @@ func SupportsContainerAddresses(ctx context.ProviderCallContext, env BootstrapEn
 	}
 	ok, err := netEnv.SupportsContainerAddresses(ctx)
 	if err != nil {
-		if !errors.IsNotSupported(err) {
+		if !errors.Is(err, errors.NotSupported) {
 			logger.Errorf("checking model container address support failed with: %v", err)
 		}
 		return false

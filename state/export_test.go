@@ -747,7 +747,7 @@ func AssertEndpointBindingsNotFoundForApplication(c *gc.C, app *Application) {
 	storedBindings, _, err := readEndpointBindings(app.st, globalKey)
 	c.Assert(storedBindings, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("endpoint bindings for %q not found", globalKey))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func StorageAttachmentCount(instance StorageInstance) int {
@@ -961,7 +961,7 @@ func IsBlobStored(c *gc.C, st *State, storagePath string) bool {
 	stor := storage.NewStorage(st.ModelUUID(), st.MongoSession())
 	r, _, err := stor.Get(storagePath)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return false
 		}
 		c.Fatalf("Get failed: %v", err)

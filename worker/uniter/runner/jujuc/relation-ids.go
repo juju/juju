@@ -27,7 +27,7 @@ func NewRelationIdsCommand(ctx Context) (cmd.Command, error) {
 	name := ""
 	if r, err := ctx.HookRelation(); err == nil {
 		name = r.Name()
-	} else if cause := errors.Cause(err); !errors.IsNotFound(cause) {
+	} else if cause := errors.Cause(err); !errors.Is(cause, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 
@@ -41,7 +41,7 @@ func (c *RelationIdsCommand) Info() *cmd.Info {
 		// There's not much we can do about this error here.
 		args = "[<name>]"
 		doc = fmt.Sprintf("Current default relation name is %q.", r.Name())
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		logger.Errorf("Could not retrieve hook relation: %v", err)
 	}
 	return jujucmd.Info(&cmd.Info{
@@ -69,14 +69,14 @@ func (c *RelationIdsCommand) Init(args []string) error {
 func (c *RelationIdsCommand) Run(ctx *cmd.Context) error {
 	result := []string{}
 	ids, err := c.ctx.RelationIds()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	for _, id := range ids {
 		r, err := c.ctx.Relation(id)
 		if err == nil && r.Name() == c.Name && r.Life() != life.Dead {
 			result = append(result, r.FakeId())
-		} else if err != nil && !errors.IsNotFound(err) {
+		} else if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 	}

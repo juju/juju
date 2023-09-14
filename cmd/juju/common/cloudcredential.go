@@ -36,7 +36,7 @@ func RegisterCredentials(
 ) error {
 	credentials, err := modelcmd.RegisterCredentials(provider, args)
 	switch {
-	case errors.IsNotFound(err):
+	case errors.Is(err, errors.NotFound):
 		return nil
 	case err != nil:
 		return errors.Trace(err)
@@ -81,7 +81,7 @@ func GetOrDetectCredential(
 		}
 	}()
 	credential, chosenCredentialName, regionName, err := modelcmd.GetCredentials(ctx, store, args)
-	if !errors.IsNotFound(err) || args.CredentialName != "" {
+	if !errors.Is(err, errors.NotFound) || args.CredentialName != "" {
 		return credential, chosenCredentialName, regionName, false, err
 	}
 

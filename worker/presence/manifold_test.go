@@ -59,35 +59,35 @@ func (s *ManifoldSuite) TestConfigValidation(c *gc.C) {
 func (s *ManifoldSuite) TestConfigValidationMissingAgentName(c *gc.C) {
 	s.config.AgentName = ""
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing AgentName not valid")
 }
 
 func (s *ManifoldSuite) TestConfigValidationMissingCentralHubName(c *gc.C) {
 	s.config.CentralHubName = ""
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing CentralHubName not valid")
 }
 
 func (s *ManifoldSuite) TestConfigValidationMissingRecorder(c *gc.C) {
 	s.config.Recorder = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing Recorder not valid")
 }
 
 func (s *ManifoldSuite) TestConfigValidationMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing Logger not valid")
 }
 
 func (s *ManifoldSuite) TestConfigValidationMissingNewWorker(c *gc.C) {
 	s.config.NewWorker = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing NewWorker not valid")
 }
 
@@ -102,7 +102,7 @@ func (s *ManifoldSuite) TestManifoldCallsValidate(c *gc.C) {
 	s.config.Recorder = nil
 	worker, err := s.manifold().Start(context)
 	c.Check(worker, gc.IsNil)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `missing Recorder not valid`)
 }
 

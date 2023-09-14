@@ -66,7 +66,7 @@ func VolumeParams(
 // nil configuration.
 func StoragePoolConfig(name string, poolManager poolmanager.PoolManager, registry storage.ProviderRegistry) (storage.ProviderType, *storage.Config, error) {
 	pool, err := poolManager.Get(name)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// If not a storage pool, then maybe a provider type.
 		providerType := storage.ProviderType(name)
 		if _, err1 := registry.StorageProvider(providerType); err1 != nil {
@@ -146,7 +146,7 @@ func VolumeAttachmentPlanFromState(v state.VolumeAttachmentPlan) (params.VolumeA
 
 	blockInfo, err := v.BlockDeviceInfo()
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return params.VolumeAttachmentPlan{}, errors.Trace(err)
 		}
 	}

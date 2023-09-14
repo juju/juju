@@ -75,7 +75,7 @@ func (s *upgradeSeriesSuite) TestMachineStatusNotFound(c *gc.C) {
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	status, err := api.MachineStatus()
 	c.Assert(err, gc.ErrorMatches, "did not find")
-	c.Check(errors.IsNotFound(err), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(string(status), gc.Equals, "")
 }
 

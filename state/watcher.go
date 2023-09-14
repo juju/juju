@@ -3930,7 +3930,7 @@ func (w *containerAddressesWatcher) loop() error {
 
 	var currentAddress *address
 	container, err := w.unit.cloudContainer()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return err
 	} else if err == nil {
 		currentAddress = container.Address
@@ -4029,7 +4029,7 @@ func (a *Application) WatchConfigSettingsHash() StringsWatcher {
 
 func hashServiceAddresses(a *Application, firstCall bool) (string, error) {
 	service, err := a.ServiceInfo()
-	if errors.IsNotFound(err) && firstCall {
+	if errors.Is(err, errors.NotFound) && firstCall {
 		// To keep behaviour the same as
 		// WatchServiceAddresses, we need to ignore NotFound
 		// errors on the first call but propagate them after

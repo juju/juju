@@ -127,7 +127,7 @@ func (s *offerConnectionsSuite) TestAddOfferConnectionTwice(c *gc.C) {
 		Username:        "fred",
 		OfferUUID:       "offer-uuid",
 	})
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *offerConnectionsSuite) TestOfferConnectionForRelation(c *gc.C) {
@@ -141,7 +141,7 @@ func (s *offerConnectionsSuite) TestOfferConnectionForRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.OfferConnectionForRelation("some-key")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	obtained, err := s.State.OfferConnectionForRelation(s.activeRel.Tag().Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained.RelationId(), gc.Equals, oc.RelationId())

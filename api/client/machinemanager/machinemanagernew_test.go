@@ -86,7 +86,7 @@ func (s *NewMachineManagerSuite) TestUpgradeSeriesPrepareAlreadyInProgress(c *gc
 	s.facade.EXPECT().FacadeCall("UpgradeSeriesPrepare", arg, gomock.Any()).SetArg(2, resultSource)
 
 	err := s.client.UpgradeSeriesPrepare(s.tag.Id(), "xenial", true)
-	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *NewMachineManagerSuite) setup(c *gc.C) *gomock.Controller {

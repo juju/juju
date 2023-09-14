@@ -38,15 +38,15 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 
 	cfg := validCfg
 	cfg.Clock = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.Logger = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.Store = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) TestWorker(c *gc.C) {

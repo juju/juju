@@ -494,7 +494,7 @@ func CharmStorageParams(
 	}
 
 	providerType, attrs, err := poolStorageProvider(poolManager, registry, maybePoolName)
-	if err != nil && (!errors.IsNotFound(err) || poolName != "") {
+	if err != nil && (!errors.Is(err, errors.NotFound) || poolName != "") {
 		return nil, errors.Trace(err)
 	}
 	if err == nil {
@@ -511,7 +511,7 @@ func CharmStorageParams(
 
 func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.ProviderRegistry, poolName string) (storage.ProviderType, map[string]interface{}, error) {
 	pool, err := poolManager.Get(poolName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// If there's no pool called poolName, maybe a provider type
 		// has been specified directly.
 		providerType := storage.ProviderType(poolName)
@@ -847,7 +847,7 @@ func (a *API) updateUnitsFromCloud(app Application, unitUpdates []params.Applica
 			// TODO(caas) - Add storage bankend API to get all unit storage instances for a named storage.
 			for _, sa := range unitStorage {
 				si, err := a.storage.StorageInstance(sa.StorageInstance())
-				if errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					a.logger.Warningf("ignoring non-existent storage instance %v for unit %v", sa.StorageInstance(), unitTag.Id())
 					continue
 				}
@@ -978,7 +978,7 @@ func (a *API) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) err
 	}
 	for _, fs := range allFilesystems {
 		fsInfo, err := fs.Info()
-		if errors.IsNotProvisioned(err) {
+		if errors.Is(err, errors.NotProvisioned) {
 			continue
 		}
 		if err != nil {
@@ -989,7 +989,7 @@ func (a *API) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) err
 		}
 
 		storageTag, err := fs.Storage()
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		if err != nil {
@@ -997,7 +997,7 @@ func (a *API) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) err
 		}
 
 		si, err := a.storage.StorageInstance(storageTag)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		if err != nil {
@@ -1012,11 +1012,11 @@ func (a *API) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) err
 		// TODO (anastasiamac 2019-04-04) We can now force storage removal
 		// but for now, while we have not an arg passed in, just hardcode.
 		err = a.storage.DestroyStorageInstance(storageTag, false, false, time.Duration(0))
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		err = a.storage.DestroyFilesystem(fs.FilesystemTag(), false)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 	}
@@ -1043,7 +1043,7 @@ func (a *API) updateVolumeInfo(volumeUpdates map[string]volumeInfo, volumeStatus
 		// If we have already recorded the provisioning info,
 		// it's an error to try and do it again.
 		_, err = vol.Info()
-		if err != nil && !errors.IsNotProvisioned(err) {
+		if err != nil && !errors.Is(err, errors.NotProvisioned) {
 			return errors.Trace(err)
 		}
 		if err != nil {
@@ -1116,7 +1116,7 @@ func (a *API) updateFilesystemInfo(filesystemUpdates map[string]filesystemInfo, 
 		// If we have already recorded the provisioning info,
 		// it's an error to try and do it again.
 		_, err = fs.Info()
-		if err != nil && !errors.IsNotProvisioned(err) {
+		if err != nil && !errors.Is(err, errors.NotProvisioned) {
 			return errors.Trace(err)
 		}
 		if err != nil {

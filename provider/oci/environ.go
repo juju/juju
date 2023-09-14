@@ -692,7 +692,7 @@ func (o *Environ) terminateInstances(ctx envcontext.ProviderCallContext, instanc
 			err := inst.waitForMachineStatus(
 				ociCore.InstanceLifecycleStateTerminated,
 				resourcePollTimeout)
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil && !errors.Is(err, errors.NotFound) {
 				providerCommon.HandleCredentialError(err, ctx)
 				errCh <- instError{id: inst.Id(), err: err}
 			}

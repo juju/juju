@@ -89,7 +89,7 @@ func (s *storageSuite) TestFilesystemSource(c *gc.C) {
 
 	_, err = s.provider.FilesystemSource(storageConfig)
 	c.Assert(err, gc.ErrorMatches, "filesystems not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *storageSuite) TestSupports(c *gc.C) {
@@ -372,7 +372,7 @@ func (s *storageSuite) TestDescribeVolumesNotFound(c *gc.C) {
 	results, err := volumeSource.DescribeVolumes(s.cloudCallCtx, []string{"volume-42"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
-	c.Assert(results[0].Error, jc.Satisfies, errors.IsNotFound)
+	c.Assert(results[0].Error, jc.ErrorIs, errors.NotFound)
 	c.Assert(results[0].Error, gc.ErrorMatches, `disk volume-42 not found`)
 }
 

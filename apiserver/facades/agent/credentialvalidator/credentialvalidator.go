@@ -141,7 +141,7 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 	result.Credential = modelCredentialTag
 	credential, err := api.credentialService.CloudCredential(ctx, modelCredentialTag)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		// In this situation, a model refers to a credential that does not exist in credentials collection.

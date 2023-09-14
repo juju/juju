@@ -1263,7 +1263,7 @@ func (ctx *HookContext) HookVars(
 				"JUJU_DEPARTING_UNIT="+ctx.departingUnitName,
 			)
 		}
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if ctx.actionData != nil {

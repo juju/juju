@@ -242,7 +242,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesMultipleArgsWithSame
 	}
 	err := s.machine.SetLinkLayerDevices(foo1, foo2)
 	c.Assert(err, gc.ErrorMatches, `.*invalid device "foo": Name specified more than once`)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *linkLayerDevicesStateSuite) setMultipleDevicesSucceedsAndCheckAllAdded(c *gc.C, allArgs []state.LinkLayerDeviceArgs) []*state.LinkLayerDevice {
@@ -311,7 +311,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineMethodReturnsNotFoundErrorWhenMi
 
 	result, err := device.Machine()
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -335,7 +335,7 @@ func (s *linkLayerDevicesStateSuite) TestParentDeviceReturnsLinkLayerDevice(c *g
 func (s *linkLayerDevicesStateSuite) TestMachineLinkLayerDeviceReturnsNotFoundErrorWhenMissing(c *gc.C) {
 	result, err := s.machine.LinkLayerDevice("missing")
 	c.Assert(result, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, "device with ID .+ not found")
 }
 
@@ -602,7 +602,7 @@ func (s *linkLayerDevicesStateSuite) TestRemoveOps(c *gc.C) {
 	state.RunTransaction(c, s.State, dev.RemoveOps())
 
 	_, err := s.State.LinkLayerDevice(dev.DocID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *linkLayerDevicesStateSuite) TestUpdateOps(c *gc.C) {

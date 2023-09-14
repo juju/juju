@@ -39,7 +39,7 @@ func (FlagSuite) TestStringMapNilOk(c *gc.C) {
 func (FlagSuite) TestStringMapBadVal(c *gc.C) {
 	sm := stringMap{&map[string]string{}}
 	err := sm.Set("foo")
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err, gc.ErrorMatches, "badly formatted name value pair: foo")
 }
 

@@ -224,7 +224,7 @@ func (api *OffersAPI) modifyOneOfferAccess(user names.UserTag, modelUUID string,
 			return apiservererrors.ErrPerm
 		}
 		access, err := backend.GetOfferAccess(offer.OfferUUID, user)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		} else if err == nil {
 			canModifyOffer = access == permission.AdminAccess
@@ -266,13 +266,13 @@ func (api *OffersAPI) changeOfferAccess(
 
 func (api *OffersAPI) grantOfferAccess(backend Backend, offerTag names.ApplicationOfferTag, targetUserTag names.UserTag, access permission.Access) error {
 	err := backend.CreateOfferAccess(offerTag, targetUserTag, access)
-	if errors.IsAlreadyExists(err) {
+	if errors.Is(err, errors.AlreadyExists) {
 		offer, err := backend.ApplicationOffer(offerTag.Id())
 		if err != nil {
 			return apiservererrors.ErrPerm
 		}
 		offerAccess, err := backend.GetOfferAccess(offer.OfferUUID, targetUserTag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Conflicts with prior check, must be inconsistent state.
 			err = jujutxn.ErrExcessiveContention
 		}

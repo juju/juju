@@ -267,7 +267,7 @@ func (s *stateSuite) TestCloudWithEmptyNameFails(c *gc.C) {
 
 	st := NewState(s.TxnRunnerFactory())
 	err := st.UpsertCloud(ctx.Background(), cld)
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *stateSuite) TestUpdateCloudDefaults(c *gc.C) {
@@ -330,7 +330,7 @@ func (s *stateSuite) TestCloudDefaultsUpdateForNonExistentCloud(c *gc.C) {
 	err := st.UpdateCloudDefaults(context.Background(), "noexist", map[string]string{
 		"wallyworld": "peachy",
 	}, nil)
-	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *stateSuite) TestCloudRegionDefaults(c *gc.C) {
@@ -466,7 +466,7 @@ func (s *stateSuite) TestCloudRegionDefaultsNoExist(c *gc.C) {
 	err = st.UpdateCloudRegionDefaults(context.Background(), cld.Name, "noexistregion", map[string]string{
 		"foo": "bar",
 	}, nil)
-	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	defaults, err := st.CloudAllRegionDefaults(context.Background(), cld.Name)
 	c.Assert(err, jc.ErrorIsNil)

@@ -68,7 +68,7 @@ func (s *StorageAPI) getOneUnitStorageAttachmentIds(canAccess common.AuthFunc, u
 		return nil, apiservererrors.ErrPerm
 	}
 	stateStorageAttachments, err := s.storage.UnitStorageAttachments(tag)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, err
@@ -343,7 +343,7 @@ func (s *StorageAPI) removeOneStorageAttachment(id params.StorageAttachmentId, c
 	// TODO (anastasiamac 2019-04-04) We can now force storage removal
 	// but for now, while we have not an arg passed in, just hardcode.
 	err = s.storage.RemoveStorageAttachment(storageTag, unitTag, false)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		err = nil
 	}
 	return err

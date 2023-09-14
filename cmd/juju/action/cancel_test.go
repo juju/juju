@@ -34,7 +34,7 @@ func (s *CancelSuite) TestInit(c *gc.C) {
 		cmd, _ := action.NewCancelCommandForTest(s.store)
 		args := append([]string{modelFlag, "admin"}, "test")
 		err := cmdtesting.InitCommand(cmd, args)
-		c.Check(errors.Is(err, errors.NotValid), jc.IsTrue)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 	}
 }
 

@@ -96,7 +96,7 @@ func (api *API) ExportEntities(ctx context.Context, entities params.Entities) (p
 		token, err := api.st.ExportLocalEntity(tag)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
-			if !errors.IsAlreadyExists(err) {
+			if !errors.Is(err, errors.AlreadyExists) {
 				continue
 			}
 		}
@@ -161,7 +161,7 @@ func (api *API) remoteRelation(entity params.Entity) (*params.RemoteRelation, er
 	for _, ep := range rel.Endpoints() {
 		// Try looking up the info for the remote application.
 		remoteApp, err := api.st.RemoteApplication(ep.ApplicationName)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		} else if err == nil {
 			result.RemoteApplicationName = remoteApp.Name()
@@ -171,7 +171,7 @@ func (api *API) remoteRelation(entity params.Entity) (*params.RemoteRelation, er
 		}
 		// Try looking up the info for the local application.
 		_, err = api.st.Application(ep.ApplicationName)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		} else if err == nil {
 			result.ApplicationName = ep.ApplicationName
@@ -369,14 +369,14 @@ func (api *API) ConsumeRemoteRelationChanges(ctx context.Context, changes params
 	for i, change := range changes.Changes {
 		relationTag, err := api.st.GetRemoteEntity(change.RelationToken)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				continue
 			}
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		applicationTag, err := api.st.GetRemoteEntity(change.ApplicationOrOfferToken)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

@@ -130,7 +130,7 @@ func (s *controllerSuite) TestWaitForAgentAPIReadyStopsRetriesWithOpenErr(c *gc.
 	runInCommand(c, func(ctx *cmd.Context, base *modelcmd.ModelCommandBase) {
 		bootstrapCtx := environscmd.BootstrapContext(context.Background(), ctx)
 		err := WaitForAgentInitialisation(bootstrapCtx, base, false, "controller")
-		c.Check(err, jc.Satisfies, errors.IsUnauthorized)
+		c.Check(err, jc.ErrorIs, errors.Unauthorized)
 	})
 	c.Check(s.mockBlockClient.retryCount, gc.Equals, 0)
 }

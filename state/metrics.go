@@ -185,7 +185,7 @@ func (st *State) AddMetrics(batch BatchParam) (*MetricBatch, error) {
 			if exists != nil && err == nil {
 				return nil, errors.AlreadyExistsf("metrics batch UUID %q", batch.UUID)
 			}
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return nil, errors.Trace(err)
 			}
 		}
@@ -235,7 +235,7 @@ func (st *State) AddModelMetrics(batch ModelBatchParam) (*MetricBatch, error) {
 			if exists != nil && err == nil {
 				return nil, errors.AlreadyExistsf("metrics batch UUID %q", batch.UUID)
 			}
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return nil, errors.Trace(err)
 			}
 		}

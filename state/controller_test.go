@@ -303,7 +303,7 @@ func (s *ControllerSuite) TestReopenWithNoMachines(c *gc.C) {
 func (s *ControllerSuite) TestStateServingInfo(c *gc.C) {
 	_, err := s.State.StateServingInfo()
 	c.Assert(err, gc.ErrorMatches, "state serving info not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	data := controller.StateServingInfo{
 		APIPort:      69,

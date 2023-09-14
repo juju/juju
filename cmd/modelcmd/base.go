@@ -44,7 +44,7 @@ func newModelMigratedError(store jujuclient.ClientStore, modelName string, redir
 	// Check if this is a known controller
 	allEndpoints := network.CollapseToHostPorts(redirErr.Servers).Strings()
 	_, existingName, err := store.ControllerByAPIEndpoints(allEndpoints...)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return err
 	}
 
@@ -224,7 +224,7 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 ) (api.Connection, error) {
 	c.assertRunStarted()
 	accountDetails, err := store.AccountDetails(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	// If there are no account details or there's no logged-in
@@ -289,7 +289,7 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 // model details on the controller.
 func (c *CommandBase) RemoveModelFromClientStore(store jujuclient.ClientStore, controllerName, modelName string) {
 	err := store.RemoveModel(controllerName, modelName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		logger.Warningf("cannot remove unknown model from cache: %v", err)
 	}
 	if c.CanClearCurrentModel {
@@ -440,7 +440,7 @@ func (c *CommandBase) ModelUUIDs(store jujuclient.ClientStore, controllerName st
 	var result []string
 	for _, modelName := range modelNames {
 		model, err := store.ModelByName(controllerName, modelName)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// The model isn't known locally, so query the models available in the controller.
 			logger.Infof("model %q not cached locally, refreshing models from controller", modelName)
 			if err := c.RefreshModels(store, controllerName); err != nil {

@@ -395,7 +395,7 @@ func (env *azureEnviron) networkInfoForInstance(
 			defaultSubnetName = controllerSubnetName
 		}
 		defaultSubnetID, err := env.findSubnetID(ctx, defaultSubnetName)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return "", nil, errors.Trace(err)
 		}
 		if err == nil {

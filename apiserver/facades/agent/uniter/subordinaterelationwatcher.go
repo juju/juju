@@ -106,7 +106,7 @@ func (w *subRelationsWatcher) shouldSend(key string) (bool, error) {
 
 func (w *subRelationsWatcher) shouldSendCheck(key string) (bool, error) {
 	rel, err := w.backend.KeyRelation(key)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// We never saw it, and it's already gone away, so we can drop it.
 		w.logger.Debugf("couldn't find unknown relation %q", key)
 		return false, nil

@@ -133,7 +133,7 @@ func (s *validatorSuite) testValidateIAASAttachStorage(c *gc.C, argStorage []str
 		})
 	} else {
 		c.Assert(errs, gc.HasLen, 1)
-		c.Assert(errors.Is(errs[0], expectedErr), jc.IsTrue)
+		c.Assert(errs[0], jc.ErrorIs, expectedErr)
 	}
 }
 
@@ -546,7 +546,7 @@ func (s *validatorSuite) TestGetCharmFindsBundle(c *gc.C) {
 		CharmName: "testcharm",
 	}
 	_, _, _, err := s.getValidator().getCharm(arg)
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
 func (s *validatorSuite) TestGetCharmNoJujuControllerCharm(c *gc.C) {
@@ -577,7 +577,7 @@ func (s *validatorSuite) TestGetCharmNoJujuControllerCharm(c *gc.C) {
 		CharmName: "testcharm",
 	}
 	_, _, _, err := s.getValidator().getCharm(arg)
-	c.Assert(errors.Is(err, errors.NotSupported), jc.IsTrue, gc.Commentf("%+v", err))
+	c.Assert(err, jc.ErrorIs, errors.NotSupported, gc.Commentf("%+v", err))
 }
 
 func (s *validatorSuite) TestDeducePlatformSimple(c *gc.C) {
@@ -780,7 +780,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatchFail(c *gc.C) {
 		},
 	}
 	_, _, err := s.getValidator().deducePlatform(arg)
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue, gc.Commentf("%+v", err))
+	c.Assert(err, jc.ErrorIs, errors.BadRequest, gc.Commentf("%+v", err))
 }
 
 var configYaml = `

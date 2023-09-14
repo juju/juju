@@ -4,7 +4,6 @@
 package eventsource
 
 import (
-	"errors"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -98,7 +97,7 @@ func (s *valueSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
-	c.Check(errors.Is(err, ErrSubscriptionClosed), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, ErrSubscriptionClosed)
 }
 
 func (s *valueSuite) TestEnsureCloseOnCleanKill(c *gc.C) {

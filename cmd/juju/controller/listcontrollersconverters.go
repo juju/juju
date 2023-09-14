@@ -75,7 +75,7 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 		var userName, access string
 		accountDetails, err := c.store.AccountDetails(controllerName)
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				addError("account details", controllerName, err)
 				continue
 			}
@@ -87,7 +87,7 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 		var modelName string
 		currentModel, err := c.store.CurrentModel(controllerName)
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				addError("model", controllerName, err)
 				continue
 			}
@@ -103,7 +103,7 @@ func (c *listControllersCommand) convertControllerDetails(storeControllers map[s
 			}
 		}
 		models, err := c.store.AllModels(controllerName)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			addError("models", controllerName, err)
 		}
 		modelCount := len(models)

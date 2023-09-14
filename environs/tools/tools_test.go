@@ -184,7 +184,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}
-			c.Check(err, jc.Satisfies, errors.IsNotFound)
+			c.Check(err, jc.ErrorIs, errors.NotFound)
 			continue
 		}
 		expect := map[version.Binary][]string{}
@@ -211,7 +211,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	_, err := envtools.FindTools(ss,
 		s.env, 1, -1, []string{"released"}, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are
 	// properly formed.
@@ -286,7 +286,7 @@ func (s *SimpleStreamsToolsSuite) TestFindExactTools(c *gc.C) {
 				c.Check(actual.URL, gc.DeepEquals, public[actual.Version])
 			}
 		} else {
-			c.Check(err, jc.Satisfies, errors.IsNotFound)
+			c.Check(err, jc.ErrorIs, errors.NotFound)
 		}
 	}
 }
@@ -363,7 +363,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsWithStreamFallback(c *gc.C) {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}
-			c.Check(err, jc.Satisfies, errors.IsNotFound)
+			c.Check(err, jc.ErrorIs, errors.NotFound)
 			continue
 		}
 		expect := map[version.Binary][]string{}

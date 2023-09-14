@@ -302,10 +302,10 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.MetricBatch(oldMetric1.UUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = s.State.MetricBatch(oldMetric2.UUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *MetricSuite) TestCleanupNoMetrics(c *gc.C) {

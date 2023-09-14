@@ -157,7 +157,7 @@ func (s *integrationSuite) TestWorkerAccessingControllerDB(c *gc.C) {
 func (s *integrationSuite) TestWorkerAccessingUnknownDB(c *gc.C) {
 	_, err := s.dbGetter.GetDB("foo")
 	c.Assert(err, gc.ErrorMatches, `.*namespace "foo" not found`)
-	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *integrationSuite) TestWorkerAccessingKnownDB(c *gc.C) {
@@ -194,7 +194,7 @@ func (s *integrationSuite) TestWorkerDeletingControllerDB(c *gc.C) {
 func (s *integrationSuite) TestWorkerDeletingUnknownDB(c *gc.C) {
 	err := s.dbDeleter.DeleteDB("foo")
 	c.Assert(err, gc.ErrorMatches, `.*"foo" not found`)
-	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *integrationSuite) TestWorkerDeletingKnownDB(c *gc.C) {

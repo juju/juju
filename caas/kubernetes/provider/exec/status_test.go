@@ -179,6 +179,6 @@ func (s *statusSuite) TestStatusPodNotFound(c *gc.C) {
 	)
 
 	status, err := s.execClient.Status(params)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(status, gc.IsNil)
 }

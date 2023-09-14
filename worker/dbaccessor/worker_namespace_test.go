@@ -68,7 +68,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 	ensureStartup(c, dbw)
 
 	err := dbw.ensureNamespace("foo")
-	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	workertest.CleanKill(c, w)
 }

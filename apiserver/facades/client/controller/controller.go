@@ -349,7 +349,7 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		st, err := c.statePool.Get(modelUUID)
 		if err != nil {
 			// This model could have been removed.
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				continue
 			}
 			return result, errors.Trace(err)
@@ -483,7 +483,7 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		st, err := c.statePool.Get(modelUUID)
 		if err != nil {
 			// This model could have been removed.
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				continue
 			}
 			return result, errors.Trace(err)
@@ -982,10 +982,10 @@ func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
 
 func grantControllerAccess(accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {
 	_, err := accessor.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
-	if errors.IsAlreadyExists(err) {
+	if errors.Is(err, errors.AlreadyExists) {
 		controllerTag := accessor.ControllerTag()
 		controllerUser, err := accessor.UserAccess(targetUserTag, controllerTag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Conflicts with prior check, must be inconsistent state.
 			err = jujutxn.ErrExcessiveContention
 		}

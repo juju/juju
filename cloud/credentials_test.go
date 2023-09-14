@@ -456,7 +456,7 @@ func (s *credentialsSuite) TestFinalizeCredentialNotSupported(c *gc.C) {
 	_, err := cloud.FinalizeCredential(
 		cred, map[cloud.AuthType]cloud.CredentialSchema{}, readFileNotSupported,
 	)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	c.Assert(err, gc.ErrorMatches, `auth-type "oauth2" not supported`)
 }
 

@@ -155,7 +155,7 @@ func (r *MachineInitReader) unmarshallConfigFile(file string) (map[string]interf
 	if err == nil {
 		return config, nil
 	}
-	if !errors.IsNotValid(err) {
+	if !errors.Is(err, errors.NotValid) {
 		return nil, errors.Trace(err)
 	}
 

@@ -112,7 +112,7 @@ func (*WorkerConfigSuite) TestValidate(c *gc.C) {
 		err := test.cfg.Validate()
 		if test.errMatch != "" {
 			c.Check(err, gc.ErrorMatches, test.errMatch)
-			c.Check(err, jc.Satisfies, errors.IsNotValid)
+			c.Check(err, jc.ErrorIs, errors.NotValid)
 		} else {
 			c.Check(err, jc.ErrorIsNil)
 		}

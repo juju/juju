@@ -150,7 +150,7 @@ func (m *ModelStatus) UnitWorkload(unitName string) (status.StatusInfo, error) {
 	}
 
 	containerInfo, err := m.getStatus(globalCloudContainerKey(unitName), "cloud container")
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return info, err
 	}
 	return status.UnitDisplayStatus(info, containerInfo), nil

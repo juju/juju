@@ -799,7 +799,7 @@ func (a *MachineAgent) machine(apiConn api.Connection) (*apimachiner.Machine, er
 
 func (a *MachineAgent) recordAgentStartInformation(apiConn api.Connection, hostname string) error {
 	m, err := a.machine(apiConn)
-	if errors.IsNotFound(err) || err == nil && m.Life() == life.Dead {
+	if errors.Is(err, errors.NotFound) || err == nil && m.Life() == life.Dead {
 		return jworker.ErrTerminateAgent
 	}
 	if err != nil {
@@ -1224,7 +1224,7 @@ func openStatePool(
 	}
 	controller, err := st.FindEntity(agentConfig.Tag())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			err = jworker.ErrTerminateAgent
 		}
 		return nil, err

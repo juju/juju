@@ -55,7 +55,7 @@ func (s *ManifoldSuite) TestMissingClock(c *gc.C) {
 	_, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"api-caller": fakeAPICaller{},
 	}))
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err.Error(), gc.Equals, "nil Clock not valid")
 }
 

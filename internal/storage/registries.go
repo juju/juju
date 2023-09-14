@@ -34,7 +34,7 @@ func (r ChainedProviderRegistry) StorageProvider(t ProviderType) (Provider, erro
 		if err == nil {
 			return p, nil
 		}
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		return nil, errors.Annotatef(err, "getting storage provider %q", t)

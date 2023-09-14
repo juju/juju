@@ -390,7 +390,7 @@ func (HelpersSuite) TestAPIResult2ApplicationResourcesNotFound(c *gc.C) {
 		},
 	})
 
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (HelpersSuite) TestAPI2Resource(c *gc.C) {

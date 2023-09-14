@@ -88,7 +88,7 @@ func (s *serviceAccountSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = saResource.Get(context.TODO(), s.client)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = s.client.CoreV1().ServiceAccounts("test").Get(context.TODO(), "sa1", metav1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)

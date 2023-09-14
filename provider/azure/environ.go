@@ -247,7 +247,7 @@ func (env *azureEnviron) Bootstrap(
 			)
 		}(names.NewMachineTag(agent.BootstrapControllerId).String())
 		wg.Wait()
-		if cancelResult != nil && !errors.IsNotFound(cancelResult) {
+		if cancelResult != nil && !errors.Is(cancelResult, errors.NotFound) {
 			return nil, errors.Annotate(cancelResult, "aborting failed bootstrap")
 		}
 
@@ -1143,7 +1143,7 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 	for _, err := range cancelResults {
 		if err == nil {
 			existing++
-		} else if !errors.IsNotFound(err) {
+		} else if !errors.Is(err, errors.NotFound) {
 			return err
 		}
 	}
@@ -1171,7 +1171,7 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 	// Delete the deployments, virtual machines, and related armresources.
 	deleteResults := make([]error, len(ids))
 	for i, id := range ids {
-		if errors.IsNotFound(cancelResults[i]) {
+		if errors.Is(cancelResults[i], errors.NotFound) {
 			continue
 		}
 		// The deployment does not exist, so there's nothing more to do.
@@ -1192,7 +1192,7 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 	}
 	wg.Wait()
 	for _, err := range deleteResults {
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 	}
@@ -2055,7 +2055,7 @@ func (env *azureEnviron) deleteResources(sdkCtx stdcontext.Context, toDelete []*
 
 	var errStrings []string
 	for i, err := range deleteResults {
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			msg := fmt.Sprintf("error deleting resource %q: %#v", toValue(toDelete[i].ID), err)
 			errStrings = append(errStrings, msg)
 		}

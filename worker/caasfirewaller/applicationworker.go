@@ -110,7 +110,7 @@ func (w *applicationWorker) setUp() (err error) {
 func (w *applicationWorker) loop() (err error) {
 	defer func() {
 		// If the application has been deleted, we can return nil.
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			w.logger.Debugf("sidecar caas firewaller application %v has been removed", w.appName)
 			err = nil
 		}
@@ -195,7 +195,7 @@ func (w *applicationWorker) onApplicationChanged() (err error) {
 	defer func() {
 		// Not found could be because the app got removed or there's
 		// no container service created yet as the app is still being set up.
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Perhaps the app got removed while we were processing.
 			if _, err2 := w.lifeGetter.Life(w.appName); err2 != nil {
 				err = err2

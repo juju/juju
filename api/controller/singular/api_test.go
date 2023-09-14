@@ -34,7 +34,7 @@ func (s *APISuite) TestBadClaimantTag(c *gc.C) {
 	badTag := names.NewMachineTag("")
 	api, err := singular.NewAPI(apiCaller, badTag, nil)
 	c.Check(api, gc.IsNil)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "claimant tag not valid")
 }
 

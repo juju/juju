@@ -42,7 +42,7 @@ func NewRelationer(ru api.RelationUnit, stateMgr StateManager, unitGetter UnitGe
 // ContextInfo returns a representation of the relationer's current state.
 func (r *relationer) ContextInfo() *context.RelationInfo {
 	st, err := r.stateMgr.Relation(r.relationId)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		st = NewState(r.relationId)
 	}
 	members := st.Members

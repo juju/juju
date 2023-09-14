@@ -301,7 +301,7 @@ func (v *volume) SetStatus(volumeStatus status.StatusInfo) error {
 			return errors.Trace(err)
 		}
 		_, err = v.Info()
-		if errors.IsNotProvisioned(err) {
+		if errors.Is(err, errors.NotProvisioned) {
 			break
 		}
 		return errors.Errorf("cannot set status %q", volumeStatus.Status)
@@ -710,7 +710,7 @@ func (sb *storageBackend) DetachVolume(host names.Tag, volume names.VolumeTag, f
 	// until the filesystem has been detached.
 	if _, err := sb.volumeFilesystemAttachment(host, volume); err == nil {
 		return &errContainsFilesystem{errors.New("volume contains attached filesystem")}
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -756,7 +756,7 @@ func (sb *storageBackend) detachVolumeAttachmentPlanOps(host names.Tag, v names.
 	if force {
 		// Since we are force destroying, life assert should be current attachment plan's life.
 		va, err := sb.VolumeAttachmentPlan(host, v)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, nil
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -776,7 +776,7 @@ func (sb *storageBackend) detachVolumeOps(host names.Tag, v names.VolumeTag, for
 	if force {
 		// Since we are force destroying, life assert should be current attachment's life.
 		va, err := sb.VolumeAttachment(host, v)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, nil
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -797,7 +797,7 @@ func (sb *storageBackend) RemoveVolumeAttachment(host names.Tag, volume names.Vo
 	defer errors.DeferredAnnotatef(&err, "removing attachment of volume %s from %s", volume.Id(), names.ReadableString(host))
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		attachment, err := sb.VolumeAttachment(host, volume)
-		if errors.IsNotFound(err) && attempt > 0 {
+		if errors.Is(err, errors.NotFound) && attempt > 0 {
 			// We only ignore IsNotFound on attempts after the
 			// first, since we expect the volume attachment to
 			// be there initially.
@@ -905,12 +905,12 @@ func (sb *storageBackend) DestroyVolume(tag names.VolumeTag, force bool) (err er
 	defer errors.DeferredAnnotatef(&err, "destroying volume %s", tag.Id())
 	if _, err := sb.VolumeFilesystem(tag); err == nil {
 		return &errContainsFilesystem{errors.New("volume contains filesystem")}
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		volume, err := getVolumeByTag(sb.mb, tag)
-		if errors.IsNotFound(err) && attempt > 0 {
+		if errors.Is(err, errors.NotFound) && attempt > 0 {
 			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -1004,7 +1004,7 @@ func (sb *storageBackend) RemoveVolume(tag names.VolumeTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "removing volume %s", tag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		volume, err := sb.Volume(tag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -1401,7 +1401,7 @@ func (sb *storageBackend) RemoveVolumeAttachmentPlan(hostTag names.Tag, volume n
 	defer errors.DeferredAnnotatef(&err, "removing attachment plan of volume %s from machine %s", volume.Id(), hostTag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		plans, err := sb.machineVolumeAttachmentPlans(hostTag, volume)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		}
 		if err != nil {

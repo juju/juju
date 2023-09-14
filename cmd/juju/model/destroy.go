@@ -559,7 +559,7 @@ func handlePersistentStorageError(
 	}
 	modelStatus := modelStatuses[0]
 	if modelStatus.Error != nil {
-		if errors.IsNotFound(modelStatus.Error) {
+		if errors.Is(modelStatus.Error, errors.NotFound) {
 			// This most likely occurred because a model was
 			// destroyed half-way through the call.
 			return nil

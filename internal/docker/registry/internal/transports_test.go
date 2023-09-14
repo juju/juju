@@ -260,7 +260,7 @@ func (s *transportSuite) TestTokenTransportTokenRefreshFailedServiceMissing(c *g
 
 func (s *transportSuite) TestUnwrapNetError(c *gc.C) {
 	originalErr := errors.NotFoundf("jujud-operator:2.6.6")
-	c.Assert(errors.IsNotFound(originalErr), jc.IsTrue)
+	c.Assert(originalErr, jc.ErrorIs, errors.NotFound)
 	var urlErr error = &url.Error{
 		Op:  "Get",
 		URL: "https://example.com",
@@ -268,6 +268,6 @@ func (s *transportSuite) TestUnwrapNetError(c *gc.C) {
 	}
 	unwrapedErr := internal.UnwrapNetError(urlErr)
 	c.Assert(unwrapedErr, gc.NotNil)
-	c.Assert(unwrapedErr, jc.Satisfies, errors.IsNotFound)
+	c.Assert(unwrapedErr, jc.ErrorIs, errors.NotFound)
 	c.Assert(unwrapedErr, gc.ErrorMatches, `Get "https://example.com": jujud-operator:2.6.6 not found`)
 }

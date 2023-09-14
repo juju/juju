@@ -61,7 +61,7 @@ func (s *UnitSuite) SetUpTest(c *gc.C) {
 func (s *UnitSuite) TestUnitNotFound(c *gc.C) {
 	_, err := s.State.Unit("subway/0")
 	c.Assert(err, gc.ErrorMatches, `unit "subway/0" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *UnitSuite) TestApplication(c *gc.C) {
@@ -83,7 +83,7 @@ func (s *UnitSuite) TestCharmStateQuotaLimitWithMissingStateDocument(c *gc.C) {
 	err := s.unit.SetState(newState, state.UnitStateSizeLimits{
 		MaxCharmStateSize: 16,
 	})
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
 
 	// Try again with a more generous quota limit
 	err = s.unit.SetState(newState, state.UnitStateSizeLimits{
@@ -113,7 +113,7 @@ func (s *UnitSuite) TestCharmStateQuotaLimit(c *gc.C) {
 	err = s.unit.SetState(newState, state.UnitStateSizeLimits{
 		MaxCharmStateSize: 10,
 	})
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
 }
 
 func (s *UnitSuite) TestCombinedUnitStateQuotaLimit(c *gc.C) {
@@ -135,7 +135,7 @@ func (s *UnitSuite) TestCombinedUnitStateQuotaLimit(c *gc.C) {
 	err = s.unit.SetState(newState, state.UnitStateSizeLimits{
 		MaxAgentStateSize: 42,
 	})
-	c.Assert(errors.IsQuotaLimitExceeded(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
 }
 
 func (s *UnitSuite) TestUnitStateWithDualQuotaLimits(c *gc.C) {
@@ -790,7 +790,7 @@ func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {
 
 func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	mid, err := u.AssignedMachineId()
-	if errors.IsNotAssigned(err) {
+	if errors.Is(err, errors.NotAssigned) {
 		err = u.AssignToNewMachine()
 		c.Assert(err, jc.ErrorIsNil)
 		mid, err = u.AssignedMachineId()
@@ -1257,7 +1257,7 @@ func (s *UnitSuite) TestRemoveUnitWRelationLastUnit(c *gc.C) {
 	c.Assert(s.unit.Remove(), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	// Now the application should be gone
-	c.Assert(s.application.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(s.application.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *UnitSuite) TestRefresh(c *gc.C) {
@@ -1278,7 +1278,7 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 	err = unit1.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit1.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *UnitSuite) TestSetCharmURLSuccess(c *gc.C) {
@@ -1488,7 +1488,7 @@ func (s *UnitSuite) TestDestroyAssignErrorRetry(c *gc.C) {
 	err := s.unit.SetAgentStatus(sInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.unit.AssignedMachineId()
-	c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
+	c.Assert(err, jc.ErrorIs, errors.NotAssigned)
 
 	defer state.SetRetryHooks(c, s.State, func() {
 		err := s.unit.AssignToNewMachine()
@@ -1673,7 +1673,7 @@ func assertLife(c *gc.C, entity state.Living, life state.Life) {
 }
 
 func assertRemoved(c *gc.C, entity state.Living) {
-	c.Assert(entity.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(entity.Refresh(), jc.ErrorIs, errors.NotFound)
 	c.Assert(entity.Destroy(), jc.ErrorIsNil)
 	if entity, ok := entity.(state.AgentLiving); ok {
 		c.Assert(entity.EnsureDead(), jc.ErrorIsNil)
@@ -1681,7 +1681,7 @@ func assertRemoved(c *gc.C, entity state.Living) {
 			c.Assert(err, gc.ErrorMatches, ".*already removed.*")
 		}
 		err := entity.Refresh()
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		c.Assert(err, jc.ErrorIs, errors.NotFound)
 	}
 }
 
@@ -1795,7 +1795,7 @@ func (s *UnitSuite) TestGetSetClearResolved(c *gc.C) {
 func (s *UnitSuite) TesOpenedPorts(c *gc.C) {
 	// Accessing the port ranges for the unit should fail if it's not assigned to a machine.
 	_, err := s.unit.OpenedPortRanges()
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
+	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotAssigned)
 
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1958,7 +1958,7 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 	err = s.unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Because that was the only range open, the ports doc will be
 	// removed as well.
@@ -2000,7 +2000,7 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	err = s.unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Verify only otherUnit still has open ports.
 	machPortRanges, err = machine.OpenedPortRanges()
@@ -2036,12 +2036,12 @@ func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
 
 	// Any attempts to read/write a unit's state when not Alive should fail
 	_, err = s.unit.State()
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	newUS := state.NewUnitState()
 	newUS.SetCharmState(map[string]string{"foo": "bar"})
 	err = s.unit.SetState(newUS, state.UnitStateSizeLimits{})
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *UnitSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
@@ -2109,7 +2109,7 @@ func (s *UnitSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
 	err = s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.GetSecret(uri)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Create again, no label clash.
 	s.unit, err = s.application.AddUnit(state.AddUnitParams{})
@@ -2144,7 +2144,7 @@ func (s *UnitSuite) TestDestroyAlsoDeletesConsumerInfo(c *gc.C) {
 	err = s.unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.GetSecretConsumer(uri, s.unit.Tag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *gc.C) {
@@ -2390,7 +2390,7 @@ func (s *UnitSuite) TestRemove(c *gc.C) {
 	err = s.unit.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.unit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	units, err := s.application.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 0)
@@ -2455,8 +2455,8 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	// relation and the other application are cleaned up.
 	c.Assert(mysql0ru.LeaveScope(), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
-	c.Assert(wordpress.Refresh(), jc.Satisfies, errors.IsNotFound)
-	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(wordpress.Refresh(), jc.ErrorIs, errors.NotFound)
+	c.Assert(rel.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
@@ -2497,8 +2497,8 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	c.Assert(mysql0.EnsureDead(), jc.ErrorIsNil)
 	c.Assert(mysql0.Remove(), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
-	c.Assert(wordpress.Refresh(), jc.Satisfies, errors.IsNotFound)
-	c.Assert(rel.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(wordpress.Refresh(), jc.ErrorIs, errors.NotFound)
+	c.Assert(rel.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
@@ -3116,7 +3116,7 @@ func (s *CAASUnitSuite) TestRemoveUnitDeletesContainerInfo(c *gc.C) {
 	err = existingUnit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = existingUnit.ContainerInfo()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CAASUnitSuite) TestPrivateAddress(c *gc.C) {
@@ -3243,7 +3243,7 @@ func (s *CAASUnitSuite) TestWatchContainerAddresses(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("watcher not closed")
 	}
-	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(w.Err(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
@@ -3315,7 +3315,7 @@ func (s *CAASUnitSuite) TestWatchServiceAddressesHash(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("watcher not closed")
 	}
-	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(w.Err(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CAASUnitSuite) TestOperatorAddAction(c *gc.C) {

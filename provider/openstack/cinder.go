@@ -74,7 +74,7 @@ func (e *Environ) StorageProviderTypes() ([]storage.ProviderType, error) {
 	var types []storage.ProviderType
 	if _, err := e.cinderProvider(); err == nil {
 		types = append(types, CinderProviderType)
-	} else if !errors.IsNotSupported(err) {
+	} else if !errors.Is(err, errors.NotSupported) {
 		return nil, errors.Trace(err)
 	}
 	return types, nil
@@ -679,7 +679,7 @@ func detachVolume(instanceId, volumeId string, storageAdapter OpenstackStorage) 
 }
 
 func IsNotFoundError(err error) bool {
-	return errors.IsNotFound(err) || gooseerrors.IsNotFound(err)
+	return errors.Is(err, errors.NotFound) || gooseerrors.IsNotFound(err)
 }
 
 func findAttachment(volId string, attachments []nova.VolumeAttachment) *nova.VolumeAttachment {

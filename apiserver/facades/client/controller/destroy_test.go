@@ -150,7 +150,7 @@ func (s *destroyControllerSuite) TestDestroyControllerNoHostedModels(c *gc.C) {
 	c.Assert(s.otherModel.Refresh(), jc.ErrorIsNil)
 	c.Assert(s.otherModel.Life(), gc.Equals, state.Dying)
 	c.Assert(s.otherModel.State().RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(s.otherModel.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(s.otherModel.Refresh(), jc.ErrorIs, errors.NotFound)
 
 	err = s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,7 +201,7 @@ func (s *destroyControllerSuite) TestDestroyControllerDestroyStorageNotSpecified
 	err := s.controller.DestroyController(context.Background(), params.DestroyControllerArgs{
 		DestroyModels: true,
 	})
-	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.PersistentStorageError)
 
 	c.Assert(s.ControllerModel(c).Life(), gc.Equals, state.Alive)
 }

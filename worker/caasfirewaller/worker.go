@@ -121,7 +121,7 @@ func (p *firewaller) loop() error {
 			for _, appName := range apps {
 				// If charm is a v1 charm, skip processing.
 				format, err := p.charmFormat(appName)
-				if errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					p.config.Logger.Debugf("application %q no longer exists", appName)
 					continue
 				} else if err != nil {
@@ -133,7 +133,7 @@ func (p *firewaller) loop() error {
 				}
 
 				appLife, err := p.config.LifeGetter.Life(appName)
-				if errors.IsNotFound(err) || appLife == life.Dead {
+				if errors.Is(err, errors.NotFound) || appLife == life.Dead {
 					w, ok := p.appWorkers[appName]
 					if ok {
 						if err := worker.Stop(w); err != nil {

@@ -449,7 +449,7 @@ func NewRelationIdValue(ctx Context, result *int) (*relationIdValue, error) {
 	if r, err := ctx.HookRelation(); err == nil {
 		id = r.Id()
 		v.value = r.FakeId()
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	*result = id

@@ -65,7 +65,7 @@ func validConfig() undertaker.Config {
 
 func checkInvalid(c *gc.C, config undertaker.Config, message string) {
 	check := func(err error) {
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, message)
 	}
 	err := config.Validate()

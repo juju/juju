@@ -124,7 +124,7 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 		}
 		err = api.state.RemoveUser(user)
 		if err != nil {
-			if errors.IsUserNotFound(err) {
+			if errors.Is(err, errors.UserNotFound) {
 				deletions.Results[i].Error = apiservererrors.ServerError(err)
 			} else {
 				deletions.Results[i].Error = apiservererrors.ServerError(
@@ -218,7 +218,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 		access, err := common.GetPermission(api.state.UserPermission, userTag, api.state.ControllerTag())
 		if err == nil {
 			result.Result.Access = string(access)
-		} else if err != nil && !errors.IsNotFound(err) {
+		} else if err != nil && !errors.Is(err, errors.NotFound) {
 			result.Result = nil
 			result.Error = apiservererrors.ServerError(err)
 		}

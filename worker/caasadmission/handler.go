@@ -130,13 +130,13 @@ func admissionHandler(logger Logger, rbacMapper RBACMapper, legacyLabels bool) h
 
 		appName, err := rbacMapper.AppNameForServiceAccount(
 			types.UID(admissionReview.Request.UserInfo.UID))
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			http.Error(res, fmt.Sprintf(
 				"could not determine if admission request belongs to juju: %v", err,
 			),
 				http.StatusInternalServerError)
 			return
-		} else if errors.IsNotFound(err) {
+		} else if errors.Is(err, errors.NotFound) {
 			finalise(admissionReview, reviewResponse)
 			return
 		}

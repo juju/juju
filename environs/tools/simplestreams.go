@@ -355,7 +355,7 @@ func ReadMetadata(ss SimplestreamsFetcher, store storage.StorageReader, stream s
 		return nil, err
 	}
 	metadata, _, err := Fetch(ss, []simplestreams.DataSource{dataSource}, toolsConstraint)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, err
 	}
 	return metadata, nil

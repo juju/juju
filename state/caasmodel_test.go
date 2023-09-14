@@ -89,7 +89,7 @@ func (s *CAASModelSuite) TestDestroyEmptyModel(c *gc.C) {
 	c.Assert(model.Refresh(), jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 	c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(model.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
@@ -117,9 +117,9 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 	assertCleanupCount(c, st, 2)
 
 	err = app.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = unit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	assertDoesNotNeedCleanup(c, st)
 }
 
@@ -255,11 +255,11 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModels(c *gc.C) {
 	c.Assert(st2.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(st2.RemoveDyingModel(), jc.ErrorIsNil)
 
-	c.Assert(model2.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(model2.Refresh(), jc.ErrorIs, errors.NotFound)
 
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(model.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c *gc.C) {
@@ -307,7 +307,7 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	assertModel(controllerModel, s.State, state.Dying, 0)
 
 	err = s.State.ProcessDyingModel()
-	c.Assert(errors.Is(err, stateerrors.HasHostedModelsError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.HasHostedModelsError)
 	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
 	assertCleanupCount(c, otherSt, 2)
@@ -323,11 +323,11 @@ func (s *CAASModelSuite) TestDestroyControllerAndHostedCAASModelsWithResources(c
 	c.Assert(otherSt.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(otherSt.RemoveDyingModel(), jc.ErrorIsNil)
 
-	c.Assert(otherModel.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(otherModel.Refresh(), jc.ErrorIs, errors.NotFound)
 
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(controllerModel.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(controllerModel.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CAASModelSuite) TestContainers(c *gc.C) {

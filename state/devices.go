@@ -92,7 +92,7 @@ func (db *deviceBackend) DeviceConstraints(id string) (map[string]DeviceConstrai
 	devices, err := readDeviceConstraints(db.mb, id)
 	if err == nil {
 		return devices, nil
-	} else if errors.IsNotFound(err) {
+	} else if errors.Is(err, errors.NotFound) {
 		return map[string]DeviceConstraints{}, nil
 	}
 	return nil, err

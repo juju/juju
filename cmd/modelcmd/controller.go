@@ -269,7 +269,7 @@ func (c *ControllerCommandBase) NewModelAPIRoot(modelName string) (api.Connectio
 	}
 	_, err = c.store.ModelByName(controllerName, modelName)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		// The model isn't known locally, so query the models
@@ -404,7 +404,7 @@ func (w *controllerCommandWrapper) Run(ctx *cmd.Context) error {
 }
 
 func translateControllerError(store jujuclient.ClientStore, err error) error {
-	if !errors.IsNotFound(err) {
+	if !errors.Is(err, errors.NotFound) {
 		return err
 	}
 	controllers, err2 := store.AllControllers()
@@ -479,7 +479,7 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 	}
 
 	currentController, err := DetermineCurrentController(c.Store)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 

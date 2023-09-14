@@ -132,7 +132,7 @@ func (s *servicesSuite) TestFindServiceForApplicationWithMultiple(c *gc.C) {
 		false,
 	)
 
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *servicesSuite) TestFindServiceForApplicationMissing(c *gc.C) {
@@ -143,5 +143,5 @@ func (s *servicesSuite) TestFindServiceForApplicationMissing(c *gc.C) {
 		false,
 	)
 
-	c.Assert(errors.Is(err, errors.NotFound), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

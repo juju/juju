@@ -296,7 +296,7 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 
 	bootstrapParams.BootstrapSeries = "bionic"
 	_, err = s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *K8sBrokerSuite) setupOperatorStorageConfig(c *gc.C) {
@@ -350,7 +350,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *gc
 	)
 	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	c.Assert(
-		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.Satisfies, errors.IsAlreadyExists,
+		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIs, errors.AlreadyExists,
 	)
 }
 
@@ -368,7 +368,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistControllerAnnotation
 	)
 	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	c.Assert(
-		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.Satisfies, errors.IsAlreadyExists,
+		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIs, errors.AlreadyExists,
 	)
 }
 
@@ -398,7 +398,7 @@ func (s *K8sBrokerSuite) TestGetNamespaceNotFound(c *gc.C) {
 	)
 
 	out, err := s.broker.GetNamespace("unknown-namespace")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(out, gc.IsNil)
 }
 
@@ -799,7 +799,7 @@ func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
 		&context.CloudCallContext{},
 		environs.CreateParams{},
 	)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *K8sBrokerSuite) TestSupportedFeatures(c *gc.C) {

@@ -39,20 +39,20 @@ func (s *manifoldSuite) TestConfigValidation(c *gc.C) {
 func (s *manifoldSuite) TestConfigValidationMissingClock(c *gc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing Clock not valid")
 }
 
 func (s *manifoldSuite) TestConfigValidationMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing Logger not valid")
 }
 
 func (s *manifoldSuite) TestConfigValidationMissingHub(c *gc.C) {
 	s.config.Hub = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing Hub not valid")
 }

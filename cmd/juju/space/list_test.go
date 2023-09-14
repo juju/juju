@@ -337,7 +337,7 @@ func (s *ListSuite) TestRunWhenSpacesNotSupported(c *gc.C) {
 	s.api.SetErrors(errors.NewNotSupported(nil, "spaces not supported"))
 
 	err := s.AssertRunSpacesNotSupported(c, "cannot list spaces: spaces not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 
 	s.api.CheckCallNames(c, "ListSpaces", "Close")
 	s.api.CheckCall(c, 0, "ListSpaces")

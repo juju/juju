@@ -23,7 +23,7 @@ func AddDefaultStoragePools(p storage.Provider, pm PoolManager) error {
 
 func addDefaultPool(pm PoolManager, pool *storage.Config) error {
 	_, err := pm.Get(pool.Name())
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotatef(err, "loading default pool %q", pool.Name())
 	}
 	if err != nil {

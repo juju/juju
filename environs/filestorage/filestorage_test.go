@@ -137,12 +137,12 @@ func (s *filestorageSuite) TestGet(c *gc.C) {
 
 	// Get on a non-existent path returns errors.NotFound
 	_, err = s.reader.Get("nowhere")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Get on a directory returns errors.NotFound
 	s.createFile(c, "dir/file")
 	_, err = s.reader.Get("dir")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *filestorageSuite) TestGetRefusesTemp(c *gc.C) {

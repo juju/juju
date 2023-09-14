@@ -30,5 +30,5 @@ func (s *brokerSuite) TestDeploymentTypeValidation(c *gc.C) {
 		c.Check(t.Validate(), jc.ErrorIsNil)
 	}
 
-	c.Assert(caas.DeploymentType("bad type").Validate(), jc.Satisfies, errors.IsNotSupported)
+	c.Assert(caas.DeploymentType("bad type").Validate(), jc.ErrorIs, errors.NotSupported)
 }

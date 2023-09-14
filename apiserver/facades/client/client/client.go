@@ -266,7 +266,7 @@ func (c *Client) FindTools(ctx stdcontext.Context, args params.FindToolsParams) 
 		return result, errors.Annotate(err, "finding tool version from simple streams")
 	}
 	// Continue to check agent image tags via registry API for CAAS model.
-	if err != nil && !errors.IsNotFound(err) || result.Error != nil && !params.IsCodeNotFound(result.Error) {
+	if err != nil && !errors.Is(err, errors.NotFound) || result.Error != nil && !params.IsCodeNotFound(result.Error) {
 		return result, errors.Annotate(err, "finding tool versions from simplestream")
 	}
 	streamsVersions := set.NewStrings()
@@ -334,7 +334,7 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 			}
 		}
 		arch, err := reg.GetArchitecture(imageName, number.String())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		if err != nil {

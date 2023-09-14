@@ -93,7 +93,7 @@ func TestClaimHasJujuLabelNilData(t *testing.T) {
 		t.Error("expected claim has juju label with nil data returns false")
 	}
 
-	if !errors.IsNotValid(err) {
+	if !errors.Is(err, errors.NotValid) {
 		t.Error("expected claim has juju label with nil to be a not valid error")
 	}
 }
@@ -199,7 +199,7 @@ func TestClaimIsManagedByJujuNilData(t *testing.T) {
 		t.Error("expected claim is managed by juju with nil data returns false")
 	}
 
-	if !errors.IsNotValid(err) {
+	if !errors.Is(err, errors.NotValid) {
 		t.Error("expected claim is managed by juju with nil to be a not valid error")
 	}
 }

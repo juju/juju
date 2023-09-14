@@ -1899,7 +1899,7 @@ func (i *importer) addSubnet(id string, args network.SubnetInfo) error {
 				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 			}
 			if err := subnet.Refresh(); err != nil {
-				if errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
 				}
 				return nil, errors.Trace(err)

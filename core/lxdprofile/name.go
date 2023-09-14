@@ -115,7 +115,7 @@ func MatchProfileNameByAppName(names []string, appName string) (string, error) {
 		rev, err := ProfileRevision(p)
 		if err != nil {
 			// "Shouldn't" happen since we used LXDProfileNames...
-			if errors.IsBadRequest(err) {
+			if errors.Is(err, errors.BadRequest) {
 				continue
 			}
 			return "", err

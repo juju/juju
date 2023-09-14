@@ -111,7 +111,7 @@ func (s *factorySuite) TestMakeUserInvalidCreator(c *gc.C) {
 
 	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
 	saved, err := s.State.User(names.NewUserTag("bob"))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(saved, gc.IsNil)
 }
 
@@ -131,7 +131,7 @@ func (s *factorySuite) TestMakeUserNoModelUser(c *gc.C) {
 	_, err := s.State.User(user.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *factorySuite) TestMakeModelUserNil(c *gc.C) {
@@ -189,7 +189,7 @@ func (s *factorySuite) TestMakeModelUserInvalidCreatedBy(c *gc.C) {
 
 	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
 	saved, err := s.State.UserAccess(names.NewLocalUserTag("bob"), s.Model.ModelTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(saved, gc.DeepEquals, permission.UserAccess{})
 }
 

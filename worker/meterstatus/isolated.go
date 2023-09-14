@@ -95,7 +95,7 @@ func NewIsolatedStatusWorker(cfg IsolatedConfig) (worker.Worker, error) {
 func (w *isolatedStatusWorker) loop() error {
 	st, err := w.config.StateReadWriter.Read()
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 

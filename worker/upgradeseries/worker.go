@@ -155,7 +155,7 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 
 	var err error
 	if w.machineStatus, err = w.MachineStatus(); err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// No upgrade-series lock. This can happen when:
 			// - The first watch call is made.
 			// - The lock is removed after a completed upgrade.

@@ -36,7 +36,7 @@ func (s *environNetSuite) TestSubnetsForUnknownContainer(c *gc.C) {
 
 	ctx := context.NewEmptyCloudCallContext()
 	_, err := env.Subnets(ctx, "bogus", nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *gc.C) {
@@ -62,7 +62,7 @@ func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *
 		},
 	}, "", nil)
 	_, err = env.Subnets(ctx, instance.UnknownId, nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {

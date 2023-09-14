@@ -257,7 +257,7 @@ func (s *Subnet) Update(args network.SubnetInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
 			if err := s.Refresh(); err != nil {
-				if errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					return nil, errors.Errorf("ProviderId %q not unique", args.ProviderId)
 				}
 				return nil, errors.Trace(err)
@@ -305,9 +305,9 @@ func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
 	var spaceNameChange bool
 	sp, err := s.st.Space(s.doc.SpaceID)
 	switch {
-	case err != nil && !errors.IsNotFound(err):
+	case err != nil && !errors.Is(err, errors.NotFound):
 		return false, errors.Trace(err)
-	case errors.IsNotFound(err):
+	case errors.Is(err, errors.NotFound):
 		spaceNameChange = true
 	case err == nil:
 		// Only change space name it's a default one at this time.
@@ -400,7 +400,7 @@ func (st *State) AddSubnet(args network.SubnetInfo) (subnet *Subnet, err error) 
 				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 			}
 			if err := subnet.Refresh(); err != nil {
-				if errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					return nil, errors.Errorf("provider ID %q not unique", args.ProviderId)
 				}
 				return nil, errors.Trace(err)

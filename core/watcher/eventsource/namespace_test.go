@@ -6,7 +6,6 @@ package eventsource
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -169,7 +168,7 @@ func (s *namespaceSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
-	c.Check(errors.Is(err, ErrSubscriptionClosed), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, ErrSubscriptionClosed)
 }
 
 func (s *namespaceSuite) TestInvalidChangeMask(c *gc.C) {

@@ -124,7 +124,7 @@ func (m *Machine) IsLockedForSeriesUpgrade() (bool, error) {
 	if err == nil {
 		return true, nil
 	}
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}
 	return false, errors.Trace(err)
@@ -506,7 +506,7 @@ func (m *Machine) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, messa
 // notifications sorted by timestamp.
 func (m *Machine) GetUpgradeSeriesMessages() ([]string, bool, error) {
 	lock, err := m.getUpgradeSeriesLock()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// If the lock is not found here then there are no more messages
 		return nil, true, nil
 	}

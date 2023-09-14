@@ -109,7 +109,7 @@ func (sa *ServiceAccount) Ensure(
 
 	existing := ServiceAccount{sa.ServiceAccount}
 	err := existing.Get(ctx, client)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return cleanups, errors.Annotatef(
 			err,
 			"checking for existing service account %q",

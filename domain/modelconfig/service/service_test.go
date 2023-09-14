@@ -61,7 +61,7 @@ func (s *serviceSuite) TestUpdateModelDefaultsWithBadSpec(c *gc.C) {
 			},
 			[]string{"noexist"},
 			cloudspec.CloudRegionSpec{})
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *serviceSuite) TestUpdateModelDefaultsWithCloud(c *gc.C) {

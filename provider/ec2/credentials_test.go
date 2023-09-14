@@ -53,7 +53,7 @@ func (s *credentialsSuite) TestDetectCredentialsNotFound(c *gc.C) {
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "")
 	_, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsEnvironmentVariables(c *gc.C) {

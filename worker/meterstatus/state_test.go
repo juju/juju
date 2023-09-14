@@ -32,7 +32,7 @@ func (t *DiskBackedStateSuite) SetUpTest(c *gc.C) {
 
 func (t *DiskBackedStateSuite) TestReadNonExist(c *gc.C) {
 	_, err := t.state.Read()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (t *DiskBackedStateSuite) TestWriteRead(c *gc.C) {
@@ -92,7 +92,7 @@ func (t *ControllerBackedStateSuite) TestReadNonExist(c *gc.C) {
 
 	stateReader := meterstatus.NewControllerBackedState(api)
 	_, err := stateReader.Read()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (t *ControllerBackedStateSuite) TestRead(c *gc.C) {

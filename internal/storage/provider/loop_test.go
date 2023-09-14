@@ -154,7 +154,7 @@ func (s *loopSuite) TestDestroyVolumesInvalidVolumeId(c *gc.C) {
 func (s *loopSuite) TestDescribeVolumes(c *gc.C) {
 	source, _ := s.loopVolumeSource(c)
 	_, err := source.DescribeVolumes(s.callCtx, []string{"a", "b"})
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *loopSuite) TestAttachVolumes(c *gc.C) {

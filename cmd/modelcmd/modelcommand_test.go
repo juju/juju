@@ -355,7 +355,7 @@ func (s *ModelCommandSuite) TestPartialModelUUIDTooShortError(c *gc.C) {
 	s.setupIAASModel(c)
 
 	_, err := runTestCommand(c, s.store, "-m", "uuidf")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelCommandSuite) setupIAASModel(c *gc.C) {

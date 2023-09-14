@@ -198,7 +198,7 @@ func (u *UnitStateAPI) SetState(ctx context.Context, args params.SetUnitStateArg
 		)
 		if err = u.backend.ApplyOperation(ops); err != nil {
 			// Log quota-related errors to aid operators
-			if errors.IsQuotaLimitExceeded(err) {
+			if errors.Is(err, errors.QuotaLimitExceeded) {
 				logger.Errorf("%s: %v", unitTag, err)
 			}
 			res[i].Error = apiservererrors.ServerError(err)

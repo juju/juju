@@ -162,7 +162,7 @@ func (api *API) RenameSpace(ctx context.Context, args params.RenameSpacesParams)
 			continue
 		}
 		toSpace, err := api.backing.SpaceByName(toTag.Id())
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			newErr := errors.Annotatef(err, "retrieving space %q", toTag.Id())
 			result.Results[i].Error = apiservererrors.ServerError(errors.Trace(newErr))
 			continue

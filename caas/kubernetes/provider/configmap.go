@@ -24,7 +24,7 @@ func (k *kubernetesClient) ensureConfigMap(cm *core.ConfigMap) (func(), error) {
 		cleanUp = func() { _ = k.deleteConfigMap(out.GetName(), out.GetUID()) }
 		return cleanUp, nil
 	}
-	if !errors.IsAlreadyExists(err) {
+	if !errors.Is(err, errors.AlreadyExists) {
 		return cleanUp, errors.Trace(err)
 	}
 	err = k.updateConfigMap(cm)

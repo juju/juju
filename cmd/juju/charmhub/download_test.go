@@ -52,7 +52,7 @@ func (s *downloadSuite) TestInitErrorCSSchema(c *gc.C) {
 		charmHubCommand: s.newCharmHubCommand(),
 	}
 	err := command.Init([]string{"cs:test"})
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *downloadSuite) TestInitSuccess(c *gc.C) {

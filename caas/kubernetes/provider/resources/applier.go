@@ -48,7 +48,7 @@ func (op *operation) process(ctx context.Context, api kubernetes.Interface, roll
 	// Because it's not good for non namespaced resources.
 	err := existingRes.Get(ctx, api)
 	found := true
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		found = false
 	} else if err != nil {
 		return errors.Annotatef(err, "checking if resource %q exists or not", existingRes)

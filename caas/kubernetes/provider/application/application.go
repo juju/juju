@@ -245,7 +245,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 		}
 		exists := true
 		ss, getErr := a.getStatefulSet()
-		if errors.IsNotFound(getErr) {
+		if errors.Is(getErr, errors.NotFound) {
 			exists = false
 		} else if getErr != nil {
 			return errors.Trace(getErr)
@@ -307,7 +307,7 @@ func (a *app) Ensure(config caas.ApplicationConfig) (err error) {
 	case caas.DeploymentStateless:
 		exists := true
 		d, getErr := a.getDeployment()
-		if errors.IsNotFound(getErr) {
+		if errors.Is(getErr, errors.NotFound) {
 			exists = false
 		} else if getErr != nil {
 			return errors.Trace(getErr)
@@ -856,7 +856,7 @@ func (a *app) getDaemonSet() (*resources.DaemonSet, error) {
 func (a *app) statefulSetExists() (exists bool, terminating bool, err error) {
 	ss := resources.NewStatefulSet(a.name, a.namespace, nil)
 	err = ss.Get(context.Background(), a.client)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
@@ -867,7 +867,7 @@ func (a *app) statefulSetExists() (exists bool, terminating bool, err error) {
 func (a *app) deploymentExists() (exists bool, terminating bool, err error) {
 	ss := resources.NewDeployment(a.name, a.namespace, nil)
 	err = ss.Get(context.Background(), a.client)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
@@ -878,7 +878,7 @@ func (a *app) deploymentExists() (exists bool, terminating bool, err error) {
 func (a *app) daemonSetExists() (exists bool, terminating bool, err error) {
 	ss := resources.NewDaemonSet(a.name, a.namespace, nil)
 	err = ss.Get(context.Background(), a.client)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
@@ -889,7 +889,7 @@ func (a *app) daemonSetExists() (exists bool, terminating bool, err error) {
 func (a *app) secretExists() (exists bool, terminating bool, err error) {
 	ss := resources.NewSecret(a.secretName(), a.namespace, nil)
 	err = ss.Get(context.Background(), a.client)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
@@ -900,7 +900,7 @@ func (a *app) secretExists() (exists bool, terminating bool, err error) {
 func (a *app) serviceExists() (exists bool, terminating bool, err error) {
 	ss := resources.NewService(a.name, a.namespace, nil)
 	err = ss.Get(context.Background(), a.client)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
@@ -911,7 +911,7 @@ func (a *app) serviceExists() (exists bool, terminating bool, err error) {
 func (a *app) roleExists() (exists bool, terminating bool, err error) {
 	r := resources.NewRole(a.serviceAccountName(), a.namespace, nil)
 	err = r.Get(context.Background(), a.client)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
@@ -922,7 +922,7 @@ func (a *app) roleExists() (exists bool, terminating bool, err error) {
 func (a *app) roleBindingExists() (exists bool, terminating bool, err error) {
 	rb := resources.NewRoleBinding(a.serviceAccountName(), a.namespace, nil)
 	err = rb.Get(context.Background(), a.client)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
@@ -933,7 +933,7 @@ func (a *app) roleBindingExists() (exists bool, terminating bool, err error) {
 func (a *app) clusterRoleExists() (exists bool, terminating bool, err error) {
 	r := resources.NewClusterRole(a.qualifiedClusterName(), nil)
 	err = r.Get(context.Background(), a.client)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
@@ -944,7 +944,7 @@ func (a *app) clusterRoleExists() (exists bool, terminating bool, err error) {
 func (a *app) clusterRoleBindingExists() (exists bool, terminating bool, err error) {
 	rb := resources.NewClusterRoleBinding(a.qualifiedClusterName(), nil)
 	err = rb.Get(context.Background(), a.client)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
@@ -955,7 +955,7 @@ func (a *app) clusterRoleBindingExists() (exists bool, terminating bool, err err
 func (a *app) serviceAccountExists() (exists bool, terminating bool, err error) {
 	sa := resources.NewServiceAccount(a.serviceAccountName(), a.namespace, nil)
 	err = sa.Get(context.Background(), a.client)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, false, nil
 	} else if err != nil {
 		return false, false, errors.Trace(err)
@@ -1767,7 +1767,7 @@ func (a *app) getStorageUniqPrefix(getMeta func() (annotationGetter, error)) (st
 		if uniqID := r.GetAnnotations()[utils.AnnotationKeyApplicationUUID(false)]; len(uniqID) > 0 {
 			return uniqID, nil
 		}
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return "", errors.Trace(err)
 	}
 	return a.randomPrefix()

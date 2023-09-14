@@ -129,7 +129,7 @@ func (s *remoteApplicationSuite) TestNoStatusForConsumerProxy(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = application.Status()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *remoteApplicationSuite) TestUseSuppliedVersionForConsumerProxy(c *gc.C) {
@@ -367,7 +367,7 @@ func (s *remoteApplicationSuite) TestApplicationRefresh(c *gc.C) {
 	err = s1.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *remoteApplicationSuite) TestAddRelationBothRemote(c *gc.C) {
@@ -549,7 +549,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConflicting(c *gc.C) {
 		{Name: "ep4", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	err = foo.AddEndpoints(newEps)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 	c.Assert(err, gc.ErrorMatches, "endpoint ep1 already exists")
 }
 
@@ -633,7 +633,7 @@ func (s *remoteApplicationSuite) TestAddEndpointsConcurrentConflictingOneAdded(c
 		{Name: "ep4", Role: charm.RoleProvider, Scope: charm.ScopeGlobal, Limit: 1},
 	}
 	err = foo.AddEndpoints(newEps)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 	c.Assert(err, gc.ErrorMatches, "endpoint ep3 already exists")
 }
 
@@ -762,7 +762,7 @@ func (s *remoteApplicationSuite) TestDestroySimple(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.application.Life(), gc.Equals, state.Dying)
 	err = s.application.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 }
 
@@ -780,9 +780,9 @@ func (s *remoteApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *remoteApplicationSuite) TestDestroyWithRemoteTokens(c *gc.C) {
@@ -804,18 +804,18 @@ func (s *remoteApplicationSuite) TestDestroyWithRemoteTokens(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = re.GetToken(s.application.Tag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = re.GetToken(rel.Tag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = re.GetRemoteEntity("app-token")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = re.GetRemoteEntity(relToken)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *remoteApplicationSuite) TestDestroyWithOfferConnections(c *gc.C) {
@@ -896,16 +896,16 @@ func (s *remoteApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, re
 
 	// ...while the second is removed directly.
 	err = rel1.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Drop the last reference to the first relation; check the relation and
 	// the application are both removed.
 	err = ru.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = rel0.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretConsumerInfo(c *gc.C) {
@@ -941,9 +941,9 @@ func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretConsumerInfo(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.GetSecretRemoteConsumer(uri, s.application.Tag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = s.State.GetSecretRemoteConsumer(uri, unit)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
@@ -1062,7 +1062,7 @@ func (s *remoteApplicationSuite) assertDestroyAppWithStatus(c *gc.C, appStatus *
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(s.application.Life(), gc.Equals, state.Dying)
 	} else {
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		c.Assert(err, jc.ErrorIs, errors.NotFound)
 	}
 
 	// If the remote app is terminated, any remote units are
@@ -1093,7 +1093,7 @@ func (s *remoteApplicationSuite) TestDestroyTerminatedDead(c *gc.C) {
 	err = s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.application.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *remoteApplicationSuite) TestAllRemoteApplicationsNone(c *gc.C) {
@@ -1227,7 +1227,7 @@ func (s *remoteApplicationSuite) TestWatchRemoteApplications(c *gc.C) {
 	err = db2.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = db2.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	wc.AssertChange("db2")
 	wc.AssertNoChange()
 }

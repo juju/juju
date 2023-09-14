@@ -225,7 +225,7 @@ func (u *Unit) Life() Life {
 // opposed to the version of the postgresql charm).
 func (u *Unit) WorkloadVersion() (string, error) {
 	unitStatus, err := getStatus(u.st.db(), u.globalWorkloadVersionKey(), "workload")
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return "", nil
 	} else if err != nil {
 		return "", errors.Trace(err)
@@ -374,7 +374,7 @@ func (op *UpdateUnitOperation) Build(_ int) ([]txn.Op, error) {
 	op.setStatusDocs = make(map[string]statusDoc)
 
 	containerInfo, err := op.unit.cloudContainer()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if containerInfo == nil {
@@ -428,7 +428,7 @@ func (op *UpdateUnitOperation) Build(_ int) ([]txn.Op, error) {
 		// It's possible we're getting a first status update (i.e. cloud container)
 		_, err = getStatus(op.unit.st.db(), key, badge)
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return errors.Trace(err)
 			}
 			statusOps := createStatusOp(op.unit.st, key, doc)
@@ -545,7 +545,7 @@ type DestroyUnitOperation struct {
 // Build is part of the ModelOperation interface.
 func (op *DestroyUnitOperation) Build(attempt int) ([]txn.Op, error) {
 	if attempt > 0 {
-		if err := op.unit.Refresh(); errors.IsNotFound(err) {
+		if err := op.unit.Refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -713,7 +713,7 @@ func (op *DestroyUnitOperation) destroyOps() ([]txn.Op, error) {
 	shouldBeAssigned := op.unit.ShouldBeAssigned()
 	agentStatusDocId := op.unit.globalAgentKey()
 	agentStatusInfo, agentErr := getStatus(op.unit.st.db(), agentStatusDocId, "agent")
-	if errors.IsNotFound(agentErr) {
+	if errors.Is(agentErr, errors.NotFound) {
 		return nil, errAlreadyDying
 	} else if agentErr != nil {
 		if !op.Force {
@@ -811,13 +811,13 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 
 	m, err := u.st.Machine(u.doc.MachineId)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, nil
 		}
 		return nil, err
 	}
 	node, err := u.st.ControllerNode(u.doc.MachineId)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, err
 	}
 	haveControllerNode := err == nil
@@ -918,7 +918,7 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 // If the 'force' is not set, any error will be fatal and no operations will be returned.
 func (u *Unit) removeOps(asserts bson.D, op *ForcedOperation, destroyStorage bool) ([]txn.Op, error) {
 	app, err := u.st.Application(u.doc.Application)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// If the application has been removed, the unit must already have been.
 		return nil, errAlreadyRemoved
 	} else if err != nil {
@@ -975,7 +975,7 @@ func (u *Unit) EnsureDead() (err error) {
 	} else if !notDead {
 		return nil
 	}
-	if err := u.Refresh(); errors.IsNotFound(err) {
+	if err := u.Refresh(); errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return err
@@ -1006,7 +1006,7 @@ type RemoveUnitOperation struct {
 // Build is part of the ModelOperation interface.
 func (op *RemoveUnitOperation) Build(attempt int) ([]txn.Op, error) {
 	if attempt > 0 {
-		if err := op.unit.Refresh(); errors.IsNotFound(err) {
+		if err := op.unit.Refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -1238,7 +1238,7 @@ func (u *Unit) AllAddresses() (addrs network.SpaceAddresses, _ error) {
 
 	// First the addresses of the service.
 	serviceAddrs, err := u.serviceAddresses()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if err == nil {
@@ -1274,7 +1274,7 @@ func (u *Unit) serviceAddresses() (network.SpaceAddresses, error) {
 // containerAddress returns the address of the pod's container.
 func (u *Unit) containerAddress() (network.SpaceAddress, error) {
 	containerInfo, err := u.cloudContainer()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return network.SpaceAddress{}, network.NoAddressError("container")
 	}
 	if err != nil {
@@ -1439,7 +1439,7 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 		// attempting to set, make sure the right history is set.
 		cloudContainerStatus, err := getStatus(u.st.db(), globalCloudContainerKey(u.Name()), "cloud container")
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return errors.Trace(err)
 			}
 		}
@@ -2056,7 +2056,7 @@ func (u *Unit) assignToNewMachineOps(
 // Constraints returns the unit's deployment constraints.
 func (u *Unit) Constraints() (*constraints.Value, error) {
 	cons, err := readConstraints(u.st, u.globalAgentKey())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// Lack of constraints indicates lack of unit.
 		return nil, errors.NotFoundf("unit")
 	} else if err != nil {
@@ -2365,7 +2365,7 @@ func storageParamsForStorageInstance(
 				// The filesystem is volume-backed, so make sure we attach the volume too.
 				volumeBacked = true
 			}
-		} else if errors.IsNotFound(err) {
+		} else if errors.Is(err, errors.NotFound) {
 			filesystemParams := FilesystemParams{
 				storage: storage.StorageTag(),
 				Pool:    storage.doc.Constraints.Pool,
@@ -2410,7 +2410,7 @@ func storageParamsForStorageInstance(
 				}
 			}
 			volumeAttachments[volume.VolumeTag()] = volumeAttachmentParams
-		} else if errors.IsNotFound(err) {
+		} else if errors.Is(err, errors.NotFound) {
 			volumeParams := VolumeParams{
 				storage: storage.StorageTag(),
 				Pool:    storage.doc.Constraints.Pool,
@@ -2506,7 +2506,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 			return nil, errors.Trace(err)
 		}
 		cIds, err := m.Containers()
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		omitMachineIds = append(omitMachineIds, cIds...)
@@ -2646,7 +2646,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		return failure(err)
 	}
 	if err := validateDynamicStoragePools(sb, storagePools); err != nil {
-		if errors.IsNotSupported(err) {
+		if errors.Is(err, errors.NotSupported) {
 			return failure(noCleanMachines)
 		}
 		return failure(err)
@@ -2678,7 +2678,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 	for _, mdoc := range mdocs {
 		m := newMachine(u.st, mdoc)
 		inst, err := m.InstanceId()
-		if errors.IsNotProvisioned(err) {
+		if errors.Is(err, errors.NotProvisioned) {
 			unprovisioned = append(unprovisioned, m)
 		} else if err != nil {
 			return failure(err)
@@ -2724,7 +2724,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachineOps(requireEmpty bool) (_ *Machine,
 		// Check that the unit storage is compatible with
 		// the machine in question.
 		if err := validateDynamicMachineStorageParams(m, storageParams); err != nil {
-			if errors.IsNotSupported(err) {
+			if errors.Is(err, errors.NotSupported) {
 				continue
 			}
 			return failure(err)
@@ -2964,7 +2964,7 @@ func (u *Unit) StorageConstraints() (map[string]StorageConstraints, error) {
 	}
 	key := applicationStorageConstraintsKey(u.doc.Application, u.doc.CharmURL)
 	cons, err := readStorageConstraints(u.st, key)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Trace(err)

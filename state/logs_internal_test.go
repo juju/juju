@@ -55,7 +55,7 @@ func (s *LogsInternalSuite) TestCollStatsForMissingDB(c *gc.C) {
 	_, err := collStats(coll)
 
 	c.Assert(err.Error(), gc.Equals, "Collection [logs.missing] not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *LogsInternalSuite) createLogsDB(c *gc.C) *mgo.Collection {
@@ -85,7 +85,7 @@ func (s *LogsInternalSuite) TestCollStatsForMissingCollection(c *gc.C) {
 	_, err := collStats(coll)
 
 	c.Assert(err.Error(), gc.Equals, "Collection [logs.missing] not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *LogsInternalSuite) TestCappedInfoForNormalCollection(c *gc.C) {

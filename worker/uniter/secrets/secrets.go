@@ -59,7 +59,7 @@ func NewSecrets(
 // state read from the controller.
 func (s *Secrets) init() error {
 	existingSecretsState, err := s.stateOps.Read()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotate(err, "reading secrets state")
 	}
 	s.secretsState = existingSecretsState

@@ -170,7 +170,7 @@ func (op *unitSetStateOperation) fields(currentDoc unitStateDoc) (bson.D, bson.D
 				quotaChecker := op.getCharmStateQuotaChecker()
 				quotaChecker.Check(escapedCharmState)
 				if err := quotaChecker.Outcome(); err != nil {
-					if errors.IsQuotaLimitExceeded(err) {
+					if errors.Is(err, errors.QuotaLimitExceeded) {
 						return nil, nil, errors.Annotatef(err, "persisting charm state")
 					}
 					return nil, nil, errors.Trace(err)
@@ -232,7 +232,7 @@ func (op *unitSetStateOperation) fields(currentDoc unitStateDoc) (bson.D, bson.D
 	}
 
 	if err := quotaChecker.Outcome(); err != nil {
-		if errors.IsQuotaLimitExceeded(err) {
+		if errors.Is(err, errors.QuotaLimitExceeded) {
 			return nil, nil, errors.Annotatef(err, "persisting internal uniter state")
 		}
 		return nil, nil, errors.Trace(err)

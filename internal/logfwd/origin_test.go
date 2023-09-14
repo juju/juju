@@ -91,7 +91,7 @@ func (s *OriginSuite) TestValidateEmpty(c *gc.C) {
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *OriginSuite) TestValidateEmptyControllerUUID(c *gc.C) {
@@ -100,7 +100,7 @@ func (s *OriginSuite) TestValidateEmptyControllerUUID(c *gc.C) {
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `empty ControllerUUID`)
 }
 
@@ -110,7 +110,7 @@ func (s *OriginSuite) TestValidateBadControllerUUID(c *gc.C) {
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `ControllerUUID "..." not a valid UUID`)
 }
 
@@ -120,7 +120,7 @@ func (s *OriginSuite) TestValidateEmptyModelUUID(c *gc.C) {
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `empty ModelUUID`)
 }
 
@@ -130,7 +130,7 @@ func (s *OriginSuite) TestValidateBadModelUUID(c *gc.C) {
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `ModelUUID "..." not a valid UUID`)
 }
 
@@ -149,7 +149,7 @@ func (s *OriginSuite) TestValidateBadOriginType(c *gc.C) {
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `invalid Type: unsupported origin type`)
 }
 
@@ -159,7 +159,7 @@ func (s *OriginSuite) TestValidateEmptyName(c *gc.C) {
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `empty Name`)
 }
 
@@ -169,7 +169,7 @@ func (s *OriginSuite) TestValidateBadName(c *gc.C) {
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `invalid Name "...": bad user name`)
 }
 
@@ -188,7 +188,7 @@ func (s *OriginSuite) TestValidateBadSoftware(c *gc.C) {
 
 	err := origin.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `invalid Software: empty Version`)
 }
 

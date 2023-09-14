@@ -273,7 +273,7 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 	}
 
 	_, bindingsErr := readEndpointBindingsDoc(b.app.st, b.app.globalKey())
-	if bindingsErr != nil && !errors.IsNotFound(err) {
+	if bindingsErr != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if err != nil {
@@ -463,7 +463,7 @@ func (st *State) DefaultEndpointBindingSpace() (string, error) {
 	defaultBinding := network.AlphaSpaceId
 
 	space, err := st.SpaceByName(cfg.DefaultSpace())
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return "", errors.Trace(err)
 	}
 	if err == nil {

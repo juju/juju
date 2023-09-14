@@ -254,7 +254,7 @@ func (s *RelationUnitSuite) TestAllRemoteUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = rel.AllRemoteUnits("wordpress")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = rel.AllRemoteUnits("another")
 	c.Assert(err, gc.ErrorMatches, `application "another" is not a member of "wordpress:db mysql:server"`)
 	all, err := rel.AllRemoteUnits("mysql")
@@ -471,7 +471,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, pr.ru1)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// The settings were not themselves actually deleted yet...
 	assertSettings()
@@ -862,7 +862,7 @@ func (s *RelationUnitSuite) testPrepareLeaveScope(c *gc.C, rel *state.Relation, 
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNoScopeChange(c, w0)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *RelationUnitSuite) assertScopeChange(c *gc.C, w *state.RelationScopeWatcher, entered, left []string) {

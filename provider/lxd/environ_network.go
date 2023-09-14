@@ -231,7 +231,7 @@ func (e *environ) NetworkInterfaces(_ context.ProviderCallContext, ids []instanc
 	for instIdx, id := range ids {
 		container, state, err := getContainerDetails(srv, string(id))
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				missing++
 				continue
 			}

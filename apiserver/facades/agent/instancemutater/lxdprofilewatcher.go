@@ -178,7 +178,7 @@ func (w *machineLXDProfileWatcher) loop() error {
 				unitLife := state.Dead
 				if err == nil {
 					unitLife = u.Life()
-				} else if !errors.IsNotFound(err) {
+				} else if !errors.Is(err, errors.NotFound) {
 					return errors.Annotatef(err, "processing change for unit %q", unitName)
 				}
 				if unitLife == state.Dead {
@@ -204,7 +204,7 @@ func (w *machineLXDProfileWatcher) loop() error {
 func (w *machineLXDProfileWatcher) unitMachineID(u Unit) (string, error) {
 	principalName, isSubordinate := u.PrincipalName()
 	machineID, err := u.AssignedMachineId()
-	if err == nil || !errors.IsNotAssigned(err) {
+	if err == nil || !errors.Is(err, errors.NotAssigned) {
 		return machineID, errors.Trace(err)
 	}
 	if !isSubordinate {
@@ -212,14 +212,14 @@ func (w *machineLXDProfileWatcher) unitMachineID(u Unit) (string, error) {
 		return machineID, errors.Trace(err)
 	}
 	principal, err := w.backend.Unit(principalName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		w.logger.Warningf("unit %s is subordinate, principal %s not found", u.Name(), principalName)
 		return "", errors.NotFoundf("principal unit %q", principalName)
 	} else if err != nil {
 		return "", errors.Trace(err)
 	}
 	machineID, err = principal.AssignedMachineId()
-	if errors.IsNotAssigned(err) {
+	if errors.Is(err, errors.NotAssigned) {
 		w.logger.Warningf("principal unit %s has no machine id, start watching when machine id assigned.", principalName)
 	}
 	return machineID, errors.Trace(err)
@@ -241,13 +241,13 @@ func (w *machineLXDProfileWatcher) init() error {
 			continue
 		}
 		app, err := unit.Application()
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// This is unlikely, but could happen because Units()
 			// added the parent'd machine id to subordinates.
 			// If the unit has no machineId, it will be added
 			// to what is watched when the machineId is assigned.
 			// Otherwise return an error.
-			if _, err := unit.AssignedMachineId(); errors.IsNotAssigned(err) {
+			if _, err := unit.AssignedMachineId(); errors.Is(err, errors.NotAssigned) {
 				w.logger.Warningf("unit %s has no application, nor machine id, start watching when machine id assigned.", unitName)
 				continue
 			} else if err != nil {
@@ -298,7 +298,7 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(appName string) err
 	}(&notify)
 
 	app, err := w.backend.Application(appName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		w.logger.Debugf("not watching removed %s on machine-%s", appName, w.machine.Id())
 		return nil
 	} else if err != nil {
@@ -317,7 +317,7 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(appName string) err
 			return errors.Trace(err)
 		}
 		ch, err := w.backend.Charm(chURL)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			w.logger.Debugf("not watching %s with removed charm %s on machine-%s", appName, *cURL, w.machine.Id())
 			return nil
 		} else if err != nil {
@@ -379,7 +379,7 @@ func (w *machineLXDProfileWatcher) charmChange(chURL string) error {
 			return errors.Trace(err)
 		}
 		ch, err := w.backend.Charm(curl)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			w.logger.Debugf("charm %s removed for %s on machine-%s", chURL, appName, w.machine.Id())
 			continue
 		} else if err != nil {
@@ -425,7 +425,7 @@ func (w *machineLXDProfileWatcher) addUnit(unit Unit) error {
 
 	unitName := unit.Name()
 	unitMachineId, err := w.unitMachineID(unit)
-	if errors.IsNotAssigned(err) || errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotAssigned) || errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Annotatef(err, "finding assigned machine for unit %q", unitName)
@@ -454,7 +454,7 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 		if curlStr == nil {
 			// this happens for new units to existing machines.
 			app, err := unit.Application()
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				w.logger.Debugf("failed to process new unit %s for %s on machine-%s; application removed", unitName, appName, w.machine.Id())
 				return false, nil
 			} else if err != nil {
@@ -468,7 +468,7 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 			return false, errors.Annotatef(err, "application charm url")
 		}
 		ch, err := w.backend.Charm(curl)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			w.logger.Debugf("charm %s removed for %s on machine-%s", *curlStr, unitName, w.machine.Id())
 			return false, nil
 		} else if err != nil {
@@ -569,7 +569,7 @@ func (w *machineLXDProfileWatcher) provisionedChange() error {
 		return err
 	}
 	_, err = m.InstanceId()
-	if errors.IsNotProvisioned(err) {
+	if errors.Is(err, errors.NotProvisioned) {
 		w.logger.Debugf("machine-%s not provisioned yet", w.machine.Id())
 		return nil
 	} else if err != nil {

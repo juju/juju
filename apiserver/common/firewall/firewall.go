@@ -93,7 +93,7 @@ func localApplication(st State, relationTag names.RelationTag) (*localEndpointIn
 	for _, ep := range rel.Endpoints() {
 		// Try looking up the info for the local application.
 		_, err = st.Application(ep.ApplicationName)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		} else if err == nil {
 			localEndpoint.application = ep.ApplicationName

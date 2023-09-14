@@ -339,7 +339,7 @@ func (c *ModelCommandBase) modelDetails(controllerName, modelIdentifier string) 
 
 	name, details, err := c.modelFromStore(controllerName, modelIdentifier)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return "", nil, errors.Trace(err)
 		}
 		logger.Debugf("model %q not found, refreshing", modelIdentifier)
@@ -366,7 +366,7 @@ func (c *ModelCommandBase) modelFromStore(controllerName, modelIdentifier string
 	if err == nil {
 		return modelIdentifier, details, nil
 	}
-	if !errors.IsNotFound(err) {
+	if !errors.Is(err, errors.NotFound) {
 		return "", nil, errors.Trace(err)
 	}
 
@@ -588,7 +588,7 @@ func (w *modelCommandWrapper) validateCommandForModelType(runStarted bool) error
 		// We need to error if Run() has been invoked the model is known and there was
 		// some other error. If the model is not yet known, we'll grab the details
 		// during the Run() API call later.
-		if runStarted || (err != ErrNoModelSpecified && !errors.IsNotFound(err)) {
+		if runStarted || (err != ErrNoModelSpecified && !errors.Is(err, errors.NotFound)) {
 			return errors.Trace(err)
 		}
 		return nil

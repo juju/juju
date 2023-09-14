@@ -63,7 +63,7 @@ func (s *serviceSuite) TestServiceCreateDuplicateError(c *gc.C) {
 	svc := NewService(s.state, s.dbDeleter)
 	err := svc.Create(context.TODO(), uuid)
 	c.Assert(err, gc.ErrorMatches, "creating model .*: record already exists")
-	c.Assert(errors.Is(errors.Cause(err), domain.ErrDuplicate), jc.IsTrue)
+	c.Assert(errors.Cause(err), jc.ErrorIs, domain.ErrDuplicate)
 }
 
 func (s *serviceSuite) TestServiceCreateInvalidUUID(c *gc.C) {

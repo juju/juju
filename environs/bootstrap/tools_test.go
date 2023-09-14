@@ -179,7 +179,7 @@ func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
 	})
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	_, err := bootstrap.FindPackagedTools(env, ss, nil, nil, nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {

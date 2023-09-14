@@ -42,5 +42,5 @@ func (s *MultiCheckerSuite) TestExceedMaxSize(c *gc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
 }

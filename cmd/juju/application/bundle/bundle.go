@@ -172,7 +172,7 @@ func BuildModelRepresentation(
 	sequences, err := modelExtractor.Sequences()
 	if err == nil {
 		mod.Sequence = sequences
-	} else if !errors.IsNotSupported(err) {
+	} else if !errors.Is(err, errors.NotSupported) {
 		return nil, errors.Annotate(err, "getting model sequences")
 	}
 

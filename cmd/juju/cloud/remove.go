@@ -109,7 +109,7 @@ func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
 	}
 	if c.ControllerName != "" {
 		if err := c.removeControllerCloud(ctxt); err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				ctxt.Infof("No cloud called %q exists on controller %q", c.Cloud, c.ControllerName)
 			} else {
 				ctxt.Infof("ERROR %v", err)

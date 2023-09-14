@@ -41,7 +41,7 @@ func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
 	config := s.validConfig()
 	config.ConfigAPI = nil
 	s.testValidate(c, config, func(err error) {
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, "nil ConfigAPI not valid")
 	})
 }
@@ -50,7 +50,7 @@ func (s *TrackerSuite) TestValidateNewBrokerFunc(c *gc.C) {
 	config := s.validConfig()
 	config.NewContainerBrokerFunc = nil
 	s.testValidate(c, config, func(err error) {
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, "nil NewContainerBrokerFunc not valid")
 	})
 }
@@ -59,7 +59,7 @@ func (s *TrackerSuite) TestValidateLogger(c *gc.C) {
 	config := s.validConfig()
 	config.Logger = nil
 	s.testValidate(c, config, func(err error) {
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, "nil Logger not valid")
 	})
 }

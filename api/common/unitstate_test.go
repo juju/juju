@@ -63,7 +63,7 @@ func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *gc.C) {
 	err := api.SetState(params.SetUnitStateArg{
 		CharmState: &map[string]string{"one": "two"},
 	})
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded, gc.Commentf("expected the client to reconstruct QuotaLimitExceeded error from server response"))
+	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded, gc.Commentf("expected the client to reconstruct QuotaLimitExceeded error from server response"))
 }
 
 func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *gc.C) {

@@ -149,7 +149,7 @@ func (s *relationerSuite) TestCommitHookRelationFail(c *gc.C) {
 	r := s.newRelationer()
 
 	err := r.CommitHook(hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *relationerSuite) TestPrepareHookRelationFail(c *gc.C) {
@@ -161,7 +161,7 @@ func (s *relationerSuite) TestPrepareHookRelationFail(c *gc.C) {
 	r := s.newRelationer()
 
 	_, err := r.PrepareHook(hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *relationerSuite) TestPrepareHookValidateFail(c *gc.C) {

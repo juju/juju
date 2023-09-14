@@ -83,7 +83,7 @@ func (s *clusterRoleBindingSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = rbResource.Get(context.TODO(), s.client)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)
@@ -107,7 +107,7 @@ func (s *clusterRoleBindingSuite) TestDeleteWithoutPreconditions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = rbResource.Get(context.TODO(), s.client)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = s.client.RbacV1().ClusterRoleBindings().Get(context.TODO(), "roleBinding1", metav1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)

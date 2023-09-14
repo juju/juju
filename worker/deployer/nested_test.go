@@ -100,49 +100,49 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 func (s *NestedContextSuite) TestConfigMissingAgentConfig(c *gc.C) {
 	s.config.Agent = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Agent not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingClock(c *gc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Clock not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingHub(c *gc.C) {
 	s.config.Hub = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Hub not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Logger not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingSetupLogging(c *gc.C) {
 	s.config.SetupLogging = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing SetupLogging not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingUnitEngineConfig(c *gc.C) {
 	s.config.UnitEngineConfig = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing UnitEngineConfig not valid")
 }
 
 func (s *NestedContextSuite) TestConfigMissingUnitManifolds(c *gc.C) {
 	s.config.UnitManifolds = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing UnitManifolds not valid")
 }
 

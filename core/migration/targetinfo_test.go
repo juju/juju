@@ -95,7 +95,7 @@ func (s *TargetInfoSuite) TestValidation(c *gc.C) {
 		if test.errorPattern == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(errors.Is(err, errors.NotValid), jc.IsTrue)
+			c.Check(err, jc.ErrorIs, errors.NotValid)
 			c.Check(err, gc.ErrorMatches, test.errorPattern)
 		}
 	}

@@ -275,7 +275,7 @@ func linkLayerDevicesForSpaces(host Machine, spaces corenetwork.SpaceInfos) (map
 
 		subnet, err := addr.Subnet()
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				// We don't understand the error, so error out for now
 				return nil, errors.Trace(err)
 			}

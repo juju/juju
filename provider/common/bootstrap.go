@@ -248,7 +248,7 @@ func BootstrapInstance(
 	}
 
 	zones, err := startInstanceZones(env, callCtx, startInstanceArgs)
-	if errors.IsNotImplemented(err) {
+	if errors.Is(err, errors.NotImplemented) {
 		// No zone support, so just call StartInstance with
 		// a blank StartInstanceParams.AvailabilityZone.
 		zones = []string{""}

@@ -265,7 +265,7 @@ func (*Suite) TestSupportsContainerAddresses(c *gc.C) {
 	callCtx := context.NewEmptyCloudCallContext()
 	var env *environ
 	supported, err := env.SupportsContainerAddresses(callCtx)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	c.Assert(supported, jc.IsFalse)
 	c.Check(environs.SupportsContainerAddresses(callCtx, env), jc.IsFalse)
 }

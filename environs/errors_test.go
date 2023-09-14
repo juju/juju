@@ -6,7 +6,6 @@ package environs_test
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,12 +19,12 @@ var _ = gc.Suite(&errorsSuite{})
 
 func (*errorsSuite) TestZoneIndependentErrorConforms(c *gc.C) {
 	err := fmt.Errorf("fly screens on a submarine: %w", environs.ErrAvailabilityZoneIndependent)
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 
 	err = fmt.Errorf("replace with solid doors: %w", err)
 	err = environs.ZoneIndependentError(err)
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 
 	err = fmt.Errorf("or stay on dry land: %w", err)
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 }

@@ -400,7 +400,7 @@ func (s *bindingsMockSuite) TestNewBindingsNotFound(c *gc.C) {
 	}
 
 	binding, err := state.NewBindings(s.endpointBinding, initial)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(binding, gc.IsNil)
 }
 

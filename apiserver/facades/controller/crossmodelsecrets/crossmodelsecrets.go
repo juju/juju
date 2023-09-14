@@ -297,7 +297,7 @@ func (s *CrossModelSecretsAPI) canRead(secretsConsumer SecretsConsumer, uri *cor
 func (s *CrossModelSecretsAPI) accessScope(secretsConsumer SecretsConsumer, uri *coresecrets.URI, entity names.Tag) (names.Tag, error) {
 	s.logger.Debugf("scope for %q on secret %s", entity, uri.ID)
 	scope, err := secretsConsumer.SecretAccessScope(uri, entity)
-	if err == nil || !errors.IsNotFound(err) || entity.Kind() != names.UnitTagKind {
+	if err == nil || !errors.Is(err, errors.NotFound) || entity.Kind() != names.UnitTagKind {
 		return scope, errors.Trace(err)
 	}
 	appName, _ := names.UnitApplication(entity.Id())

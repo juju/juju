@@ -124,7 +124,7 @@ func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoMissingBlock
 	s.blockDevices = nil
 	s.volumeAttachment.info.DeviceName = "sda"
 	_, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
 }
 
@@ -201,7 +201,7 @@ func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoNoBlockDevic
 	// devices; there are none (yet), so NotProvisioned is returned.
 	s.volumeAttachment.info.BusAddress = "scsi@1:2.3.4"
 	_, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume", "VolumeAttachment", "VolumeAttachmentPlan", "BlockDevices")
 }
 
@@ -210,7 +210,7 @@ func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentInfoVolumeNotFou
 		return nil, errors.NotFoundf("volume for storage %s", tag.Id())
 	}
 	_, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceVolume")
 }
 
@@ -279,6 +279,6 @@ func (s *FilesystemStorageAttachmentInfoSuite) TestStorageAttachmentInfoFilesyst
 		return nil, errors.NotFoundf("filesystem for storage %s", tag.Id())
 	}
 	_, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.hostTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	s.st.CheckCallNames(c, "StorageInstance", "StorageInstanceFilesystem")
 }

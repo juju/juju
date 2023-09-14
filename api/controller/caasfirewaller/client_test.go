@@ -148,7 +148,7 @@ func (s *firewallerSuite) TestIsExposedError(c *gc.C) {
 	client := s.newFunc(apiCaller)
 	_, err := client.IsExposed("gitlab")
 	c.Assert(err, gc.ErrorMatches, "bletch")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *firewallerSuite) TestIsExposedInvalidEntityame(c *gc.C) {
@@ -200,7 +200,7 @@ func (s *firewallerSuite) TestLifeError(c *gc.C) {
 	client := s.newFunc(apiCaller)
 	_, err := client.Life("gitlab")
 	c.Assert(err, gc.ErrorMatches, "bletch")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *firewallerSuite) TestLifeInvalidEntityame(c *gc.C) {

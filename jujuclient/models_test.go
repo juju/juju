@@ -77,22 +77,22 @@ func (s *ModelsSuite) TestCurrentModel(c *gc.C) {
 
 func (s *ModelsSuite) TestCurrentModelNotSet(c *gc.C) {
 	_, err := s.store.CurrentModel("ctrl")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelsSuite) TestCurrentModelControllerNotFound(c *gc.C) {
 	_, err := s.store.CurrentModel("not-found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelsSuite) TestSetCurrentModelControllerNotFound(c *gc.C) {
 	err := s.store.SetCurrentModel("not-found", "admin/admin")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelsSuite) TestSetCurrentModelModelNotFound(c *gc.C) {
 	err := s.store.SetCurrentModel("kontroll", "admin/not-found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelsSuite) TestSetCurrentModel(c *gc.C) {
@@ -187,24 +187,24 @@ func (s *ModelsSuite) TestRemoveModelNoFile(c *gc.C) {
 	err := os.Remove(jujuclient.JujuModelsPath())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.store.RemoveModel("not-found", "admin/admin")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelsSuite) TestRemoveModelControllerNotFound(c *gc.C) {
 	err := s.store.RemoveModel("not-found", "admin/admin")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelsSuite) TestRemoveModelNotFound(c *gc.C) {
 	err := s.store.RemoveModel("kontroll", "admin/not-found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelsSuite) TestRemoveModel(c *gc.C) {
 	err := s.store.RemoveModel("kontroll", "admin/admin")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.store.ModelByName("kontroll", "admin/admin")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelsSuite) TestRemoveControllerRemovesModels(c *gc.C) {

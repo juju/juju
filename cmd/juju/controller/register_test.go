@@ -169,7 +169,7 @@ one of them:
 	// Instead, the command will output the list of models and inform
 	// the user how to set the current model.
 	_, err := s.store.CurrentModel("controller-name")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 // testRegisterSuccess tests that the register command when the given
@@ -602,7 +602,7 @@ See "juju help change-user-password" for more information.`[1:])
 
 	// Check that the controller hasn't been added.
 	_, err = s.store.ControllerByName("controller-name")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *RegisterSuite) TestRegisterPublic(c *gc.C) {

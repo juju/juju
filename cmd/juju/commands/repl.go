@@ -197,7 +197,7 @@ func (c *replCommand) getPrompt() (prompt string, err error) {
 	store := modelcmd.QualifyingClientStore{c.store}
 
 	controllerName, err := modelcmd.DetermineCurrentController(store)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return "", errors.Trace(err)
 	}
 	if err != nil {
@@ -212,7 +212,7 @@ func (c *replCommand) getPrompt() (prompt string, err error) {
 		return "", nil
 	}
 	modelName, err := store.CurrentModel(controllerName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		modelName = ""
 	} else if err != nil {
 		return "", errors.Trace(err)
@@ -220,7 +220,7 @@ func (c *replCommand) getPrompt() (prompt string, err error) {
 
 	userName := ""
 	account, err := store.AccountDetails(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return "", errors.Trace(err)
 	}
 	if err == nil {

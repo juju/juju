@@ -655,7 +655,7 @@ func (s *uniterSuite) TestDestroy(c *gc.C) {
 
 	// Verify wordpressUnit is destroyed and removed.
 	err = s.wordpressUnit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *uniterSuite) TestDestroyAllSubordinates(c *gc.C) {
@@ -3564,7 +3564,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 
 	// Verify state
 	_, err = store.GetSecret(uri3)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	md, err := store.GetSecret(uri)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md.Description, gc.Equals, "a secret")

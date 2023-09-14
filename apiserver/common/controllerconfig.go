@@ -106,7 +106,7 @@ func (s *ControllerConfigAPI) getModelControllerInfo(ctx context.Context, model 
 			CACert:    ctrl.CACert,
 		}, nil
 	}
-	if !errors.IsNotFound(err) {
+	if !errors.Is(err, errors.NotFound) {
 		return params.ControllerAPIInfoResult{}, errors.Trace(err)
 	}
 

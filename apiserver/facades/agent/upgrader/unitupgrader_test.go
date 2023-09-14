@@ -239,7 +239,7 @@ func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 func (s *unitUpgraderSuite) TestSetTools(c *gc.C) {
 	cur := testing.CurrentVersion()
 	_, err := s.rawUnit.AgentTools()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
 			Tag: s.rawUnit.Tag().String(),

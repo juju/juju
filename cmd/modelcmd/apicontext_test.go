@@ -106,7 +106,7 @@ func (s *APIContextSuite) TestNewAPIContextEmbedded(c *gc.C) {
 	interactor := modelcmd.Interactor(ctx)
 	c.Assert(interactor, gc.Not(gc.IsNil))
 	_, err = interactor.Interact(context.TODO(), nil, "", nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *APIContextSuite) TestNewAPIContextNoBrowser(c *gc.C) {

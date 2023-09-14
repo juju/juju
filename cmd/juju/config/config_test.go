@@ -13,7 +13,6 @@ import (
 	stdtesting "testing"
 
 	jujucmd "github.com/juju/cmd/v3"
-	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -208,7 +207,7 @@ func (s *suite) TestReadNoSuchFile(c *gc.C) {
 	dir := c.MkDir()
 	filename := "cfg.yaml"
 	_, err := os.Stat(path.Join(dir, filename))
-	c.Assert(errors.Is(err, fs.ErrNotExist), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, fs.ErrNotExist)
 
 	cmd := ConfigCommandBase{
 		ConfigFile: jujucmd.FileVar{Path: filename},

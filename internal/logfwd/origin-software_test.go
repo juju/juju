@@ -36,7 +36,7 @@ func (s *SoftwareSuite) TestValidateZeroValue(c *gc.C) {
 
 	err := sw.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *SoftwareSuite) TestValidateEmptyPEN(c *gc.C) {
@@ -47,7 +47,7 @@ func (s *SoftwareSuite) TestValidateEmptyPEN(c *gc.C) {
 
 	err := sw.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `missing PrivateEnterpriseNumber`)
 }
 
@@ -60,7 +60,7 @@ func (s *SoftwareSuite) TestValidateNegativePEN(c *gc.C) {
 
 	err := sw.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `missing PrivateEnterpriseNumber`)
 }
 
@@ -72,7 +72,7 @@ func (s *SoftwareSuite) TestValidateEmptyName(c *gc.C) {
 
 	err := sw.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `empty Name`)
 }
 
@@ -84,6 +84,6 @@ func (s *SoftwareSuite) TestValidateEmptyVersion(c *gc.C) {
 
 	err := sw.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `empty Version`)
 }

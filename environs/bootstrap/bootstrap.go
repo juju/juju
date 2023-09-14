@@ -469,7 +469,7 @@ func bootstrapIAAS(
 		ctx.Infof("Looking for %vpackaged Juju agent version %s for %s", latestPatchTxt, versionTxt, bootstrapArch)
 
 		availableTools, err = findPackagedTools(environ, ss, args.AgentVersion, &bootstrapArch, &bootstrapBase)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return err
 		}
 		if len(availableTools) != 0 {
@@ -1135,7 +1135,7 @@ func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metad
 		return nil, errors.Trace(err)
 	}
 	existingMetadata, _, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{dataSource}, imageConstraint)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Annotate(err, "cannot read image metadata")
 	}
 

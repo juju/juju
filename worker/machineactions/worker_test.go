@@ -33,7 +33,7 @@ func (*WorkerSuite) TestInvalidFacade(c *gc.C) {
 		Facade: nil,
 	})
 	c.Assert(err, gc.ErrorMatches, "nil Facade not valid")
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(worker, gc.IsNil)
 }
 
@@ -43,7 +43,7 @@ func (s *WorkerSuite) TestInvalidMachineTag(c *gc.C) {
 		MachineTag: names.MachineTag{},
 	})
 	c.Assert(err, gc.ErrorMatches, "unspecified MachineTag not valid")
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(worker, gc.IsNil)
 }
 
@@ -55,7 +55,7 @@ func (s *WorkerSuite) TestInvalidHandleAction(c *gc.C) {
 		HandleAction: nil,
 	})
 	c.Assert(err, gc.ErrorMatches, "nil HandleAction not valid")
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(worker, gc.IsNil)
 }
 

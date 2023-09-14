@@ -114,7 +114,7 @@ func (s *secretsSuite) TestDeleteJujuSecret(c *gc.C) {
 	err = s.broker.DeleteJujuSecret(context.Background(), "provider-id")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.broker.DeleteJujuSecret(context.Background(), "provider-id")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	result, err := s.mockSecrets.List(context.Background(), v1.ListOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Items, gc.HasLen, 1)

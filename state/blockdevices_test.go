@@ -151,7 +151,7 @@ func (s *BlockDevicesSuite) TestBlockDevicesMachineRemove(c *gc.C) {
 	sb, err := state.NewStorageBackend(s.State)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = sb.BlockDevices(s.machine.MachineTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *BlockDevicesSuite) TestWatchBlockDevices(c *gc.C) {

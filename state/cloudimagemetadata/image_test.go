@@ -142,7 +142,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadataNotFound(c *gc.C) {
 		Stream: "something else",
 	})
 	// Make sure that we are explicit that we could not find what we wanted.
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, "matching cloud image metadata not found")
 	c.Assert(none, gc.HasLen, 0)
 }
@@ -175,7 +175,7 @@ func (s *cloudImageMetadataSuite) TestFindMetadata(c *gc.C) {
 	m := cloudimagemetadata.Metadata{attrs, 0, "1", 0}
 
 	_, err := s.storage.FindMetadata(buildAttributesFilter(attrs))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	s.assertRecordMetadata(c, m)
 	expected := []cloudimagemetadata.Metadata{m}
@@ -586,7 +586,7 @@ func (s *cloudImageMetadataSuite) assertNoMetadata(c *gc.C) {
 	// No metadata should be in store.
 	// So when looking for all and none is found, err.
 	found, err := s.storage.FindMetadata(cloudimagemetadata.MetadataFilter{})
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, "matching cloud image metadata not found")
 	c.Assert(found, gc.HasLen, 0)
 }

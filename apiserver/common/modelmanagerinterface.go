@@ -190,14 +190,14 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 	otherModel, err := otherState.Model()
 	if err != nil {
 		defer otherState.Release()
-		if !errors.IsNotFound(err) || st.user.Id() == "" {
+		if !errors.Is(err, errors.NotFound) || st.user.Id() == "" {
 			return nil, nil, err
 		}
 
 		// Check if this model has been migrated and this user had
 		// access to it before its migration.
 		mig, mErr := otherState.CompletedMigration()
-		if mErr != nil && !errors.IsNotFound(mErr) {
+		if mErr != nil && !errors.Is(mErr, errors.NotFound) {
 			return nil, nil, errors.Trace(mErr)
 		}
 

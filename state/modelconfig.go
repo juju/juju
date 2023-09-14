@@ -80,7 +80,7 @@ func (st *State) inheritedConfigAttributes() (map[string]interface{}, error) {
 	values := make(attrValues)
 	for _, src := range configSources {
 		cfg, err := src.sourceFunc()
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		if err != nil {
@@ -113,7 +113,7 @@ func (model *Model) modelConfigValues(modelCfg attrValues) (config.ConfigValues,
 	for _, src := range configSources {
 		sourceNames = append(sourceNames, src.name)
 		cfg, err := src.sourceFunc()
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		if err != nil {
@@ -183,7 +183,7 @@ func (st *State) UpdateModelConfigDefaultValues(updateAttrs map[string]interface
 	}
 	settings, err := readSettings(st.db(), globalSettingsC, key)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return errors.Annotatef(err, "model %q", st.ModelUUID())
 		}
 		// We haven't created settings for this region yet.
@@ -257,7 +257,7 @@ func (st *State) ModelConfigDefaultValues(cloudName string) (config.ModelDefault
 	}
 	// Controller config
 	ciCfg, err := st.controllerInheritedConfig(cloudName)()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 
 	}
@@ -411,7 +411,7 @@ func (st *State) defaultInheritedConfig(cloudName string) func() (attrValues, er
 			defaults[k] = v
 		}
 		providerDefaults, err := st.environsProviderConfigSchemaSource(cloudName)
-		if errors.IsNotImplemented(err) {
+		if errors.Is(err, errors.NotImplemented) {
 			return defaults, nil
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -464,7 +464,7 @@ func composeModelConfigAttributes(
 	// Compose default settings from all known sources.
 	for _, source := range configSources {
 		newSettings, err := source.sourceFunc()
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		if err != nil {

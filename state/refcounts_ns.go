@@ -141,7 +141,7 @@ func (ns nsRefcounts_) RemoveOp(coll mongo.Collection, key string, value int) (t
 // exist instead, and no error is returned.
 func (ns nsRefcounts_) CurrentOp(coll mongo.Collection, key string) (txn.Op, int, error) {
 	refcount, err := ns.read(coll, key)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return txn.Op{
 			C:      coll.Name(),
 			Id:     key,

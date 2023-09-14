@@ -69,7 +69,7 @@ func (s *ManifoldSuite) TestMissingHub(c *gc.C) {
 
 	worker, err := s.manifold().Start(context)
 	c.Check(worker, gc.IsNil)
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
+	c.Check(errors.Cause(err), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *ManifoldSuite) TestHubOutput(c *gc.C) {

@@ -403,7 +403,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentSame(c *gc.C) {
 
 	// Machine 0 should never have been created.
 	_, err = s.State.Machine("0")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *EnableHASuite) TestEnableHAConcurrentLess(c *gc.C) {
@@ -429,7 +429,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentLess(c *gc.C) {
 
 	// Machine 0 should never have been created.
 	_, err = s.State.Machine("0")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
@@ -453,7 +453,7 @@ func (s *EnableHASuite) TestEnableHAConcurrentMore(c *gc.C) {
 
 	// Machine 0 should never have been created.
 	_, err = s.State.Machine("0")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *EnableHASuite) TestWatchControllerInfo(c *gc.C) {

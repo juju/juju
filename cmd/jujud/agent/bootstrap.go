@@ -279,7 +279,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			if toolsErr == nil {
 				logger.Infof("agent binaries are available, upgrade will occur after bootstrap")
 			}
-			if errors.IsNotFound(toolsErr) {
+			if errors.Is(toolsErr, errors.NotFound) {
 				// Newer tools not available, so revert to using the tools
 				// matching the current agent version.
 				logger.Warningf("newer agent binaries for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
@@ -413,7 +413,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	if err = model.AutoConfigureContainerNetworking(env); err != nil {
-		if errors.IsNotSupported(err) {
+		if errors.Is(err, errors.NotSupported) {
 			logger.Debugf("Not performing container networking auto-configuration on a non-networking environment")
 		} else {
 			return err

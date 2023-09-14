@@ -241,7 +241,7 @@ func (m *MapperSuite) TestRBACMapperDeleteSync(c *gc.C) {
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		_, err = mapper.AppNameForServiceAccount(uid)
 		if err != nil {
-			c.Assert(errors.IsNotFound(err), jc.IsTrue)
+			c.Assert(err, jc.ErrorIs, errors.NotFound)
 			break
 		}
 		if !a.HasNext() {
@@ -258,5 +258,5 @@ func (m *MapperSuite) TestRBACMapperNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = mapper.AppNameForServiceAccount("testing")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

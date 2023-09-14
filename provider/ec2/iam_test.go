@@ -66,7 +66,7 @@ func (i *IAMSuite) TestFindInstanceProfileExists(c *gc.C) {
 func (i *IAMSuite) TestFindInstanceProfileWithNotFoundError(c *gc.C) {
 	instanceProfile, err := findInstanceProfileFromName(context.Background(), i.server, "test")
 	c.Assert(instanceProfile, gc.IsNil)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (i *IAMSuite) TestFindRoleExists(c *gc.C) {

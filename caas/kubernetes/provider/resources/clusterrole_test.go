@@ -83,7 +83,7 @@ func (s *clusterRoleSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = roleResource.Get(context.TODO(), s.client)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = s.client.RbacV1().ClusterRoles().Get(context.TODO(), "role1", metav1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)

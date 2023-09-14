@@ -169,7 +169,7 @@ func (r *workloadHookResolver) NextOp(
 	case operation.Continue:
 		for _, id := range remoteState.WorkloadEvents {
 			evt, cb, err := r.events.GetWorkloadEvent(id)
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				continue
 			} else if err != nil {
 				return nil, errors.Trace(err)

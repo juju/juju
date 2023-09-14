@@ -216,7 +216,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(
 		return nil, apiservererrors.ErrPerm
 	}
 	entity, err := entityFinder.FindEntity(tag)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		logger.Debugf("entity %s not found", tag.String())
 		return nil, errors.Trace(apiservererrors.ErrBadCreds)
 	} else if err != nil {

@@ -4,8 +4,6 @@
 package reboot_test
 
 import (
-	"errors"
-
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -69,7 +67,7 @@ func (s *rebootSuite) TestWorkerReboot(c *gc.C) {
 	w, err := reboot.NewReboot(client, names.NewMachineTag("666"), lock)
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.Satisfies, func(e any) bool { return errors.Is(e.(error), worker.ErrRebootMachine) })
+	c.Assert(err, jc.ErrorIs, worker.ErrRebootMachine)
 }
 
 func (s *rebootSuite) TestContainerShutdown(c *gc.C) {
@@ -95,5 +93,5 @@ func (s *rebootSuite) TestContainerShutdown(c *gc.C) {
 	w, err := reboot.NewReboot(client, names.NewMachineTag("666/lxd/0"), lock)
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.Satisfies, func(e any) bool { return errors.Is(e.(error), worker.ErrShutdownMachine) })
+	c.Assert(err, jc.ErrorIs, worker.ErrShutdownMachine)
 }

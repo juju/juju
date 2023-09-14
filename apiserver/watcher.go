@@ -1063,7 +1063,7 @@ func (w *srvMigrationStatusWatcher) Next() (params.MigrationStatus, error) {
 	}
 
 	mig, err := w.st.LatestMigration()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return params.MigrationStatus{
 			Phase: migration.NONE.String(),
 		}, nil

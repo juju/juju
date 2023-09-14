@@ -279,7 +279,7 @@ func (s *workerEnvironSuite) TestNoMachineFound(c *gc.C) {
 	s.expectFacadeReturnsNoMachine()
 
 	err := s.errorKill(c, s.workerForScenario(c))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *workerEnvironSuite) TestCharmProfilingInfoNotProvisioned(c *gc.C) {

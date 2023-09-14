@@ -114,7 +114,7 @@ func updateToolsAvailability(modelGetter ModelGetter, newEnviron newEnvironFunc,
 	}
 	ver, err := checkToolsAvailability(newEnviron, cfg, finder)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// No newer tools, so exit silently.
 			return nil
 		}

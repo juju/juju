@@ -76,5 +76,5 @@ func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {
 func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {
 	err := s.config.Validate()
 	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 }

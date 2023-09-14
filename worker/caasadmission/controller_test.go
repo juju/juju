@@ -104,7 +104,7 @@ func (s *ControllerSuite) TestControllerStartupMuxError(c *gc.C) {
 	waitGroup.Wait()
 	ctrl.Kill()
 	err = ctrl.Wait()
-	c.Assert(errors.IsNotValid(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *ControllerSuite) TestControllerStartupAdmissionError(c *gc.C) {
@@ -130,5 +130,5 @@ func (s *ControllerSuite) TestControllerStartupAdmissionError(c *gc.C) {
 	waitGroup.Wait()
 	ctrl.Kill()
 	err = ctrl.Wait()
-	c.Assert(errors.IsNotValid(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }

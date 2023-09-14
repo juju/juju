@@ -132,7 +132,7 @@ func (s *destroyModelSuite) TestDestroyModelNotIgnoreErrorsrWithForce(c *gc.C) {
 	)
 	true_ := true
 	err := common.DestroyModel(context.Background(), s.modelManager, nil, &true_, nil, nil)
-	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.PersistentStorageError)
 
 	s.modelManager.CheckCallNames(c, "GetBlockForType", "GetBlockForType", "GetBlockForType", "Model")
 	s.modelManager.models[0].CheckCallNames(c, "Destroy")

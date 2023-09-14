@@ -313,7 +313,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 	c.Check(app, gc.IsNil)
 	// The application should not have been added
 	_, err = st.Application("bob")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
@@ -390,7 +390,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
 	)
 	c.Assert(err, gc.ErrorMatches, `option "skill-level" expected int, got 99.01`)
 	_, err = st.Application("bob")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func sampleApplicationConfigSchema() environschema.Fields {

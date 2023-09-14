@@ -63,7 +63,7 @@ func (s *ControllerUserSuite) TestRemoveControllerUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.UserAccess(user.UserTag(), ctag)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ControllerUserSuite) TestRemoveControllerUserSucceeds(c *gc.C) {
@@ -79,5 +79,5 @@ func (s *ControllerUserSuite) TestRemoveControllerUserFails(c *gc.C) {
 	err := s.State.RemoveUserAccess(user.UserTag(), ctag)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveUserAccess(user.UserTag(), ctag)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

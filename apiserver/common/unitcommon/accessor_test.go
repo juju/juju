@@ -50,7 +50,7 @@ func (s *UnitAccessorSuite) TestApplicationNotFound(c *gc.C) {
 	}
 	getAuthFunc := unitcommon.UnitAccessor(auth, appGetter{false})
 	_, err := getAuthFunc()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *UnitAccessorSuite) TestUnitAgent(c *gc.C) {

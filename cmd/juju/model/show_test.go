@@ -156,7 +156,7 @@ func (s *ShowCommandSuite) TestShowUnknownCallsRefresh(c *gc.C) {
 	}
 	_, err := cmdtesting.RunCommand(c, model.NewShowCommandForTest(&s.fake, refresh, s.store), "unknown")
 	c.Check(called, jc.IsTrue)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ShowCommandSuite) TestShowFormatYaml(c *gc.C) {

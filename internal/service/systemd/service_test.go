@@ -489,7 +489,7 @@ func (s *initSystemSuite) TestStartNotInstalled(c *gc.C) {
 	s.exec.EXPECT().RunCommands(listCmdArg).Return(&exec.ExecResponse{Stdout: []byte("")}, nil)
 
 	err := s.newService(c).Start()
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *initSystemSuite) TestStop(c *gc.C) {

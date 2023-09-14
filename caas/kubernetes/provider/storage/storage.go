@@ -204,7 +204,7 @@ func FilesystemInfo(ctx context.Context, client kubernetes.Interface,
 
 	pv := resources.NewPersistentVolume(pvc.Spec.VolumeName, nil)
 	err = pv.Get(ctx, client)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// Ignore volumes which don't exist (yet).
 		return nil, nil
 	}

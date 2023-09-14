@@ -26,14 +26,14 @@ func (*subnetSuite) TestFindSubnetIDsForAZ(c *gc.C) {
 		zoneName       string
 		subnetsToZones map[network.Id][]string
 		expected       []network.Id
-		expectedErr    func(error) bool
+		expectedErr    error
 	}{
 		{
 			name:           "empty",
 			zoneName:       "",
 			subnetsToZones: make(map[network.Id][]string),
 			expected:       make([]network.Id, 0),
-			expectedErr:    errors.IsNotFound,
+			expectedErr:    errors.NotFound,
 		},
 		{
 			name:     "no match",
@@ -42,7 +42,7 @@ func (*subnetSuite) TestFindSubnetIDsForAZ(c *gc.C) {
 				"bar": {"foo", "baz"},
 			},
 			expected:    make([]network.Id, 0),
-			expectedErr: errors.IsNotFound,
+			expectedErr: errors.NotFound,
 		},
 		{
 			name:     "match",
@@ -77,7 +77,7 @@ func (*subnetSuite) TestFindSubnetIDsForAZ(c *gc.C) {
 
 		res, err := network.FindSubnetIDsForAvailabilityZone(t.zoneName, t.subnetsToZones)
 		if t.expectedErr != nil {
-			c.Check(t.expectedErr(err), jc.IsTrue)
+			c.Check(err, jc.ErrorIs, t.expectedErr)
 		} else {
 			c.Assert(err, gc.IsNil)
 			c.Check(res, gc.DeepEquals, t.expected)
@@ -204,7 +204,7 @@ func (*subnetSuite) TestSubnetInfosGetByUnderLayCIDR(c *gc.C) {
 	}
 
 	_, err := s.GetByUnderlayCIDR("invalid")
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 
 	overlays, err := s.GetByUnderlayCIDR(s[0].FanLocalUnderlay())
 	c.Assert(err, jc.ErrorIsNil)
@@ -227,7 +227,7 @@ func (*subnetSuite) TestSubnetInfosGetByCIDR(c *gc.C) {
 	}
 
 	_, err := s.GetByCIDR("invalid")
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 
 	subs, err := s.GetByCIDR("30.30.30.0/25")
 	c.Assert(err, jc.ErrorIsNil)
@@ -276,7 +276,7 @@ func (*subnetSuite) TestSubnetInfosGetByAddress(c *gc.C) {
 	}
 
 	_, err := s.GetByAddress("invalid")
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 
 	subs, err := s.GetByAddress("10.10.10.5")
 	c.Assert(err, jc.ErrorIsNil)

@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"errors"
 
 	"github.com/juju/collections/set"
 	jujuerrors "github.com/juju/errors"
@@ -81,7 +80,7 @@ func (s *stateSuite) TestSelectModelUUID(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	uuid, err := st.SelectModelUUID(context.Background(), "not-there")
-	c.Assert(errors.Is(err, jujuerrors.NotFound), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotFound)
 	c.Check(uuid, gc.Equals, "")
 
 	uuid, err = st.SelectModelUUID(context.Background(), "some-uuid")

@@ -152,7 +152,7 @@ func NewK8sClientConfigFromReader(
 	credentialResolver K8sCredentialResolver,
 ) (*ClientConfig, error) {
 	config, err := configFromPossibleReader(reader)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		config, err = GetLocalKubeConfig()
 	}
 	if err != nil {

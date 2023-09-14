@@ -368,7 +368,7 @@ type DestroyApplicationOperation struct {
 // Build is part of the ModelOperation interface.
 func (op *DestroyApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 	if attempt > 0 {
-		if err := op.app.Refresh(); errors.IsNotFound(err) {
+		if err := op.app.Refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -1281,7 +1281,7 @@ func (a *Application) changeCharmOps(
 		for k, v := range updatedSettings {
 			newSettings[k] = v
 		}
-	} else if errors.IsNotFound(err) {
+	} else if errors.Is(err, errors.NotFound) {
 		// No old settings, start with the updated settings.
 		newSettings = updatedSettings
 	} else {
@@ -1292,7 +1292,7 @@ func (a *Application) changeCharmOps(
 	// Create or replace application settings.
 	var settingsOp txn.Op
 	newSettingsKey := applicationCharmConfigKey(a.doc.Name, &cURL)
-	if _, err := readSettings(a.st.db(), settingsC, newSettingsKey); errors.IsNotFound(err) {
+	if _, err := readSettings(a.st.db(), settingsC, newSettingsKey); errors.Is(err, errors.NotFound) {
 		// No settings for this key yet, create it.
 		settingsOp = createSettingsOp(settingsC, newSettingsKey, newSettings)
 	} else if err != nil {
@@ -1452,7 +1452,7 @@ func (a *Application) DeployedMachines() ([]*Machine, error) {
 		// whether principal or subordinate.
 		id, err := u.AssignedMachineId()
 		if err != nil {
-			if errors.IsNotAssigned(err) {
+			if errors.Is(err, errors.NotAssigned) {
 				// We aren't interested in this unit at this time.
 				continue
 			}
@@ -1526,7 +1526,7 @@ func (a *Application) newCharmStorageOps(
 	}
 	cURL := ch.URL().String()
 	newStorageConstraintsKey := applicationStorageConstraintsKey(a.doc.Name, &cURL)
-	if _, err := readStorageConstraints(sb.mb, newStorageConstraintsKey); errors.IsNotFound(err) {
+	if _, err := readStorageConstraints(sb.mb, newStorageConstraintsKey); errors.Is(err, errors.NotFound) {
 		storageConstraintsOp = createStorageConstraintsOp(
 			newStorageConstraintsKey, newStorageConstraints,
 		)
@@ -1757,7 +1757,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 			// If the operator specified --force, we still allow
 			// the upgrade to continue with a warning.
-			if errors.IsQuotaLimitExceeded(quotaErr) && cfg.Force {
+			if errors.Is(quotaErr, errors.QuotaLimitExceeded) && cfg.Force {
 				logger.Warningf("%v; allowing upgrade to proceed as the operator specified --force", quotaErr)
 			} else if quotaErr != nil {
 				return nil, errors.Trace(quotaErr)
@@ -1846,7 +1846,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		// Always update bindings regardless of whether we upgrade to a
 		// new version or stay at the previous version.
 		currentMap, txnRevno, err := readEndpointBindings(a.st, a.globalKey())
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return ops, errors.Trace(err)
 		}
 		b, err := a.bindingsForOps(currentMap)
@@ -1856,7 +1856,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		endpointBindingsOps, err := b.updateOps(txnRevno, cfg.EndpointBindings, cfg.Charm.Meta(), cfg.Force)
 		if err == nil {
 			ops = append(ops, endpointBindingsOps...)
-		} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
+		} else if !errors.Is(err, errors.NotFound) && err != jujutxn.ErrNoOperations {
 			// If endpoint bindings do not exist this most likely means the application
 			// itself no longer exists, which will be caught soon enough anyway.
 			// ErrNoOperations on the other hand means there's nothing to update.
@@ -2058,7 +2058,7 @@ func (a *Application) MergeBindings(operatorBindings *Bindings, force bool) erro
 		}
 
 		currentMap, txnRevno, err := readEndpointBindings(a.st, a.globalKey())
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		b, err := a.bindingsForOps(currentMap)
@@ -2066,7 +2066,7 @@ func (a *Application) MergeBindings(operatorBindings *Bindings, force bool) erro
 			return nil, errors.Trace(err)
 		}
 		endpointBindingsOps, err := b.updateOps(txnRevno, operatorBindings.Map(), ch.Meta(), force)
-		if err != nil && !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
+		if err != nil && !errors.Is(err, errors.NotFound) && err != jujutxn.ErrNoOperations {
 			return nil, errors.Trace(err)
 		}
 
@@ -2298,7 +2298,7 @@ func (a *Application) SetScale(scale int, generation int64, force bool) error {
 		return errors.NotValidf("application scale %d", scale)
 	}
 	svcInfo, err := a.ServiceInfo()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	if err == nil {
@@ -2427,7 +2427,7 @@ func (a *Application) addUnitOps(
 	var cons constraints.Value
 	if !a.doc.Subordinate {
 		scons, err := a.Constraints()
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return "", nil, errors.NotFoundf("application %q", a.Name())
 		}
 		if err != nil {
@@ -3086,7 +3086,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		// as well as all operational errors encountered.
 		// If the 'force' is not set, any error will be fatal and no operations will be returned.
 		decOps, err := appCharmDecRefOps(a.st, a.doc.Name, u.doc.CharmURL, maybeDoFinal, op)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, errRefresh
 		} else if op.FatalError(err) {
 			return nil, errors.Trace(err)
@@ -3307,7 +3307,7 @@ func (a *Application) updateBranchConfig(branchName string, current *Settings, v
 func (a *Application) ApplicationConfig() (config.ConfigAttributes, error) {
 	cfg, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return config.ConfigAttributes(nil), nil
 		}
 		return nil, errors.Annotatef(err, "application config for application %q", a.doc.Name)
@@ -3328,7 +3328,7 @@ func (a *Application) UpdateApplicationConfig(
 	defaults schema.Defaults,
 ) error {
 	node, err := readSettings(a.st.db(), settingsC, a.applicationConfigKey())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return errors.Errorf("cannot update application config since no config exists for application %v", a.doc.Name)
 	} else if err != nil {
 		return errors.Annotatef(err, "application config for application %q", a.doc.Name)
@@ -3367,7 +3367,7 @@ func (a *Application) LeaderSettings() (map[string]string, error) {
 	// type getting even more cluttered.
 
 	doc, err := readSettingsDoc(a.st.db(), settingsC, leadershipSettingsKey(a.doc.Name))
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, errors.NotFoundf("application %q", a.doc.Name)
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
@@ -3401,7 +3401,7 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 
 	modelOp := newUpdateLeaderSettingsOperation(a.st.db(), token, key, converted)
 	err := a.st.ApplyOperation(modelOp)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return errors.NotFoundf("application %q", a.doc.Name)
 	} else if err != nil {
 		return errors.Annotatef(err, "application %q", a.doc.Name)
@@ -3439,7 +3439,7 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 	// If the constraints returns a not found error, we don't actually care,
 	// this implies that it's never been set and we want to just take all the
 	// valid constraints.
-	if current, consErr := a.Constraints(); !errors.IsNotFound(consErr) {
+	if current, consErr := a.Constraints(); !errors.Is(consErr, errors.NotFound) {
 		if consErr != nil {
 			return errors.Annotate(consErr, "unable to read constraints")
 		}
@@ -3493,7 +3493,7 @@ func (a *Application) OpenedPortRanges() (ApplicationPortRanges, error) {
 func (a *Application) EndpointBindings() (*Bindings, error) {
 	// We don't need the TxnRevno below.
 	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if bindings == nil {
@@ -3557,7 +3557,7 @@ func (a *Application) SetMetricCredentials(b []byte) error {
 // StorageConstraints returns the storage constraints for the application.
 func (a *Application) StorageConstraints() (map[string]StorageConstraints, error) {
 	cons, err := readStorageConstraints(a.st, a.storageConstraintsKey())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
@@ -3568,7 +3568,7 @@ func (a *Application) StorageConstraints() (map[string]StorageConstraints, error
 // DeviceConstraints returns the device constraints for the application.
 func (a *Application) DeviceConstraints() (map[string]DeviceConstraints, error) {
 	cons, err := readDeviceConstraints(a.st, a.deviceConstraintsKey())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, nil
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -3609,7 +3609,7 @@ func (a *Application) SetStatus(statusInfo status.StatusInfo) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-		} else if !errors.IsNotFound(err) {
+		} else if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 	}

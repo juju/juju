@@ -48,7 +48,7 @@ func (v *vmTemplateManager) EnsureTemplate(ctx context.Context, series string, a
 		logger.Debugf("found requested template for series %s", series)
 		return tpl, arch, nil
 	}
-	if !errors.IsNotFound(err) {
+	if !errors.Is(err, errors.NotFound) {
 		return nil, "", errors.Annotate(err, "searching for template")
 	}
 
@@ -62,7 +62,7 @@ func (v *vmTemplateManager) EnsureTemplate(ctx context.Context, series string, a
 	logger.Debugf("could not find cached image: %s", err)
 	// Exit here if we do not have a Not Found error. A Not Found error means we we have
 	// not imported a template yet, keep going
-	if !errors.IsNotFound(err) {
+	if !errors.Is(err, errors.NotFound) {
 		return nil, "", errors.Trace(err)
 	}
 	logger.Debugf("downloading and importing template from simplestreams")
@@ -144,7 +144,7 @@ func (v *vmTemplateManager) getImportedTemplate(ctx context.Context, series stri
 	for _, item := range seriesTemplates {
 		arch, err = v.getVMArch(ctx, item)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				logger.Debugf("failed find arch for template %q: %s", item.InventoryPath, err)
 			} else {
 				logger.Infof("failed to get arch for template %q: %s", item.InventoryPath, err)

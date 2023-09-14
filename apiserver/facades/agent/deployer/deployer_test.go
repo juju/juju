@@ -220,7 +220,7 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	err = s.subordinate0.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	results, err = s.deployer.SetPasswords(context.Background(), params.EntityPasswords{
 		Changes: []params.EntityPassword{
@@ -268,7 +268,7 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 	err = s.subordinate0.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.subordinate0.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	result, err = s.deployer.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -331,7 +331,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	c.Assert(s.revoker.revoked.Contains("logging/0"), jc.IsTrue)
 
 	err = s.subordinate0.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Make sure the subordinate is detected as removed.
 	result, err = s.deployer.Remove(context.Background(), args)

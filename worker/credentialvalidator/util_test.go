@@ -90,7 +90,7 @@ func validConfig() credentialvalidator.Config {
 func checkNotValid(c *gc.C, config credentialvalidator.Config, expect string) {
 	check := func(err error) {
 		c.Check(err, gc.ErrorMatches, expect)
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 	}
 
 	err := config.Validate()
@@ -117,7 +117,7 @@ func validManifoldConfig() credentialvalidator.ManifoldConfig {
 func checkManifoldNotValid(c *gc.C, config credentialvalidator.ManifoldConfig, expect string) {
 	err := config.Validate()
 	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
 // stubCaller is a base.APICaller that only implements ModelTag.

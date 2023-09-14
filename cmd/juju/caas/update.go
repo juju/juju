@@ -221,7 +221,7 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 	haveBuiltinCloud := false
 	// First, see if we're updating a built-in cloud.
 	builtinCloud, credential, credentialName, err := c.builtInCloudsFunc(c.caasName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	if err == nil {
@@ -307,7 +307,7 @@ func (c *UpdateCAASCommand) Run(ctx *cmd.Context) (err error) {
 		defer cloudClient.Close()
 
 		existing, err := cloudClient.Cloud(names.NewCloudTag(newCloud.Name))
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		if existing.Type != k8sconstants.CAASProviderType {

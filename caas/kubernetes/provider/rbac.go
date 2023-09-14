@@ -80,12 +80,12 @@ func (k *kubernetesClient) ensureServiceAccount(sa *core.ServiceAccount) (out *c
 		cleanups = append(cleanups, func() { _ = k.deleteServiceAccount(out.GetName(), out.GetUID()) })
 		return out, cleanups, nil
 	}
-	if !errors.IsAlreadyExists(err) {
+	if !errors.Is(err, errors.AlreadyExists) {
 		return nil, cleanups, errors.Trace(err)
 	}
 	_, err = k.listServiceAccount(sa.GetLabels())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// sa.Name is already used for an existing service account.
 			return nil, cleanups, errors.AlreadyExistsf("service account %q", sa.GetName())
 		}
@@ -165,12 +165,12 @@ func (k *kubernetesClient) ensureRole(role *rbacv1.Role) (out *rbacv1.Role, clea
 		cleanups = append(cleanups, func() { _ = k.deleteRole(out.GetName(), out.GetUID()) })
 		return out, cleanups, nil
 	}
-	if !errors.IsAlreadyExists(err) {
+	if !errors.Is(err, errors.AlreadyExists) {
 		return nil, cleanups, errors.Trace(err)
 	}
 	_, err = k.listRoles(utils.LabelsToSelector(role.GetLabels()))
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// role.Name is already used for an existing role.
 			return nil, cleanups, errors.AlreadyExistsf("role %q", role.GetName())
 		}
@@ -296,7 +296,7 @@ func ensureResourceDeleted(clock jujuclock.Clock, getResource func() error) erro
 	notReadyYetErr := errors.New("resource is still being deleted")
 	deletionChecker := func() error {
 		err := getResource()
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil
 		}
 		if err == nil {

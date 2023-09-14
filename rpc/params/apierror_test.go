@@ -29,28 +29,28 @@ func (*errorSuite) TestErrCode(c *gc.C) {
 
 func (*errorSuite) TestTranslateWellKnownError(c *gc.C) {
 	var tests = []struct {
-		name string
-		err  params.Error
-		test func(err error) bool
+		name    string
+		err     params.Error
+		errType errors.ConstError
 	}{
-		{params.CodeNotFound, params.Error{Code: params.CodeNotFound, Message: "look a NotFound error"}, errors.IsNotFound},
-		{params.CodeUserNotFound, params.Error{Code: params.CodeUserNotFound, Message: "look a UserNotFound error"}, errors.IsUserNotFound},
-		{params.CodeUnauthorized, params.Error{Code: params.CodeUnauthorized, Message: "look a Unauthorized error"}, errors.IsUnauthorized},
-		{params.CodeNotImplemented, params.Error{Code: params.CodeNotImplemented, Message: "look a NotImplemented error"}, errors.IsNotImplemented},
-		{params.CodeAlreadyExists, params.Error{Code: params.CodeAlreadyExists, Message: "look a AlreadyExists error"}, errors.IsAlreadyExists},
-		{params.CodeNotSupported, params.Error{Code: params.CodeNotSupported, Message: "look a NotSupported error"}, errors.IsNotSupported},
-		{params.CodeNotValid, params.Error{Code: params.CodeNotValid, Message: "look a NotValid error"}, errors.IsNotValid},
-		{params.CodeNotProvisioned, params.Error{Code: params.CodeNotProvisioned, Message: "look a NotProvisioned error"}, errors.IsNotProvisioned},
-		{params.CodeNotAssigned, params.Error{Code: params.CodeNotAssigned, Message: "look a NotAssigned error"}, errors.IsNotAssigned},
-		{params.CodeBadRequest, params.Error{Code: params.CodeBadRequest, Message: "look a BadRequest error"}, errors.IsBadRequest},
-		{params.CodeMethodNotAllowed, params.Error{Code: params.CodeMethodNotAllowed, Message: "look a MethodNotAllowed error"}, errors.IsMethodNotAllowed},
-		{params.CodeForbidden, params.Error{Code: params.CodeForbidden, Message: "look a Forbidden error"}, errors.IsForbidden},
-		{params.CodeQuotaLimitExceeded, params.Error{Code: params.CodeQuotaLimitExceeded, Message: "look a QuotaLimitExceeded error"}, errors.IsQuotaLimitExceeded},
-		{params.CodeNotYetAvailable, params.Error{Code: params.CodeNotYetAvailable, Message: "look a NotYetAvailable error"}, errors.IsNotYetAvailable},
+		{params.CodeNotFound, params.Error{Code: params.CodeNotFound, Message: "look a NotFound error"}, errors.NotFound},
+		{params.CodeUserNotFound, params.Error{Code: params.CodeUserNotFound, Message: "look a UserNotFound error"}, errors.UserNotFound},
+		{params.CodeUnauthorized, params.Error{Code: params.CodeUnauthorized, Message: "look a Unauthorized error"}, errors.Unauthorized},
+		{params.CodeNotImplemented, params.Error{Code: params.CodeNotImplemented, Message: "look a NotImplemented error"}, errors.NotImplemented},
+		{params.CodeAlreadyExists, params.Error{Code: params.CodeAlreadyExists, Message: "look a AlreadyExists error"}, errors.AlreadyExists},
+		{params.CodeNotSupported, params.Error{Code: params.CodeNotSupported, Message: "look a NotSupported error"}, errors.NotSupported},
+		{params.CodeNotValid, params.Error{Code: params.CodeNotValid, Message: "look a NotValid error"}, errors.NotValid},
+		{params.CodeNotProvisioned, params.Error{Code: params.CodeNotProvisioned, Message: "look a NotProvisioned error"}, errors.NotProvisioned},
+		{params.CodeNotAssigned, params.Error{Code: params.CodeNotAssigned, Message: "look a NotAssigned error"}, errors.NotAssigned},
+		{params.CodeBadRequest, params.Error{Code: params.CodeBadRequest, Message: "look a BadRequest error"}, errors.BadRequest},
+		{params.CodeMethodNotAllowed, params.Error{Code: params.CodeMethodNotAllowed, Message: "look a MethodNotAllowed error"}, errors.MethodNotAllowed},
+		{params.CodeForbidden, params.Error{Code: params.CodeForbidden, Message: "look a Forbidden error"}, errors.Forbidden},
+		{params.CodeQuotaLimitExceeded, params.Error{Code: params.CodeQuotaLimitExceeded, Message: "look a QuotaLimitExceeded error"}, errors.QuotaLimitExceeded},
+		{params.CodeNotYetAvailable, params.Error{Code: params.CodeNotYetAvailable, Message: "look a NotYetAvailable error"}, errors.NotYetAvailable},
 	}
 
 	for _, v := range tests {
-		c.Assert(v.test(v.err), jc.IsFalse, gc.Commentf("test %s: params error is not a juju/errors error", v.name))
-		c.Assert(v.test(params.TranslateWellKnownError(v.err)), jc.IsTrue, gc.Commentf("test %s: translated error is a juju/errors error", v.name))
+		c.Assert(v.err, gc.Not(jc.ErrorIs), v.errType, gc.Commentf("test %s: params error is not a juju/errors error", v.name))
+		c.Assert(params.TranslateWellKnownError(v.err), jc.ErrorIs, v.errType, gc.Commentf("test %s: translated error is a juju/errors error", v.name))
 	}
 }

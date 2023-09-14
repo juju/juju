@@ -219,7 +219,7 @@ type DestroyRelationOperation struct {
 // Build is part of the ModelOperation interface.
 func (op *DestroyRelationOperation) Build(attempt int) ([]txn.Op, error) {
 	if attempt > 0 {
-		if err := op.r.Refresh(); errors.IsNotFound(err) {
+		if err := op.r.Refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -280,7 +280,7 @@ func (r *Relation) Destroy() error {
 func destroyCrossModelRelationUnitsOps(op *ForcedOperation, remoteApp *RemoteApplication, rel *Relation, onlyForTerminated bool) ([]txn.Op, error) {
 	if onlyForTerminated {
 		statusInfo, err := remoteApp.Status()
-		if op.FatalError(err) && !errors.IsNotFound(err) {
+		if op.FatalError(err) && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		if err != nil || statusInfo.Status != status.Terminated {
@@ -727,7 +727,7 @@ func (r *Relation) RemoteApplication() (*RemoteApplication, bool, error) {
 		app, err := r.st.RemoteApplication(ep.ApplicationName)
 		if err == nil {
 			return app, true, nil
-		} else if !errors.IsNotFound(err) {
+		} else if !errors.Is(err, errors.NotFound) {
 			return nil, false, errors.Trace(err)
 		}
 	}
@@ -838,7 +838,7 @@ func (r *Relation) UpdateApplicationSettings(appName string, token leadership.To
 	}
 
 	err = r.st.ApplyOperation(modelOp)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return errors.NotFoundf("relation %q application %q", r, appName)
 	} else if err != nil {
 		return errors.Annotatef(err, "relation %q application %q", r, appName)

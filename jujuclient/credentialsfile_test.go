@@ -70,7 +70,7 @@ func (s *CredentialsFileSuite) TestReadEmptyFile(c *gc.C) {
 
 	credentialstore := jujuclient.NewFileCredentialStore()
 	_, err = credentialstore.CredentialForCloud("foo")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func parseCredentials(c *gc.C) *cloud.CredentialCollection {

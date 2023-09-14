@@ -167,7 +167,7 @@ func (s *ControllersSuite) TestRemoveController(c *gc.C) {
 
 func (s *ControllersSuite) TestCurrentControllerNoneExists(c *gc.C) {
 	_, err := s.store.CurrentController()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, "current controller not found")
 }
 
@@ -216,7 +216,7 @@ func (s *ControllersSuite) TestSetCurrentController(c *gc.C) {
 
 func (s *ControllersSuite) TestSetCurrentControllerNoneExists(c *gc.C) {
 	err := s.store.SetCurrentController(s.controllerName)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, "controller test.controller not found")
 }
 

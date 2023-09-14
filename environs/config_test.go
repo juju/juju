@@ -113,9 +113,9 @@ func (s *suite) TestUnregisterProvider(c *gc.C) {
 	unreg := environs.RegisterProvider("test", registered, "alias1", "alias2")
 	unreg()
 	_, err := environs.Provider("test")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = environs.Provider("alias1")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = environs.Provider("alias2")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

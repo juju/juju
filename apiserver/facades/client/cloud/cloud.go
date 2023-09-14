@@ -105,7 +105,7 @@ func NewCloudAPI(
 
 func (api *CloudAPI) canAccessCloud(cloud string, user names.UserTag, access permission.Access) (bool, error) {
 	perm, err := api.ctlrBackend.GetCloudAccess(cloud, user)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}
 	if err != nil {
@@ -226,7 +226,7 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 	// If not a controller admin, check for cloud admin.
 	if !isAdmin {
 		perm, err := api.ctlrBackend.GetCloudAccess(tag.Id(), api.apiUser)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		isAdmin = perm == permission.AdminAccess
@@ -521,14 +521,14 @@ func (api *CloudAPI) commonUpdateCredentials(ctx context.Context, update bool, f
 		if update {
 			existing, err := api.credentialService.CloudCredential(ctx, tag)
 			if err != nil {
-				if !errors.IsNotFound(err) {
+				if !errors.Is(err, errors.NotFound) {
 					results[i].Error = apiservererrors.ServerError(err)
 					continue
 				}
 			}
 			exists := err == nil
 			if err := api.credentialService.UpdateCloudCredential(ctx, tag, in); err != nil {
-				if errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					err = errors.Errorf(
 						"cannot update credential %q: controller does not manage cloud %q",
 						tag.Name(), tag.Cloud().Id())
@@ -553,7 +553,7 @@ func (api *CloudAPI) commonUpdateCredentials(ctx context.Context, update bool, f
 
 func (api *CloudAPI) credentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
 	models, err := api.backend.CredentialModels(tag)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	return models, nil
@@ -915,7 +915,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 
 		// get models
 		models, err := api.backend.CredentialModelsAndOwnerAccess(tag)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
 		}
 		info.Models = make([]params.ModelAccess, len(models))
@@ -1047,9 +1047,9 @@ func ChangeCloudAccess(backend Backend, cloud string, targetUserTag names.UserTa
 
 func grantCloudAccess(backend Backend, cloud string, targetUserTag names.UserTag, access permission.Access) error {
 	err := backend.CreateCloudAccess(cloud, targetUserTag, access)
-	if errors.IsAlreadyExists(err) {
+	if errors.Is(err, errors.AlreadyExists) {
 		cloudAccess, err := backend.GetCloudAccess(cloud, targetUserTag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Conflicts with prior check, must be inconsistent state.
 			err = jujutxn.ErrExcessiveContention
 		}

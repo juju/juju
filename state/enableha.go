@@ -174,7 +174,7 @@ func (st *State) enableHAIntentionOps(
 
 	// TODO(wallyworld) - only need until we transition away from enable-ha
 	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, ControllersChanges{}, errors.Trace(err)
 	}
 
@@ -469,7 +469,7 @@ func (st *State) AddControllerNode() (*controllerNode, error) {
 	}
 
 	currentInfo, err := st.ControllerInfo()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	ops := []txn.Op{addControllerNodeOp(st, id, false)}
@@ -637,7 +637,7 @@ func (c *controllerNode) Refresh() error {
 	id := c.st.localID(c.doc.DocID)
 	cdoc, err := c.st.getControllerNodeDoc(id)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return err
 		}
 		return errors.Annotatef(err, "cannot refresh controller node %v", c)
@@ -677,7 +677,7 @@ func (c *controllerNode) SetHasVote(hasVote bool) error {
 		var ops []txn.Op
 		// Check the host entity life (machine on IAAS models).
 		host, err := c.st.Machine(c.Id())
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		if err == nil {

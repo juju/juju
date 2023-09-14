@@ -1183,7 +1183,7 @@ func (m *Model) destroyOps(
 			newSt, err := m.st.newStateNoWorkers(aModelUUID)
 			if err != nil {
 				// This model could have been removed.
-				if errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					continue
 				}
 				// TODO (force 2019-4-24) we should not break out here but

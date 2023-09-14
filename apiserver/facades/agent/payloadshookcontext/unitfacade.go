@@ -189,7 +189,7 @@ func newPayloadResult(id string, err error) params.PayloadResult {
 	result := payloads.Result{
 		ID:       id,
 		Payload:  nil,
-		NotFound: errors.IsNotFound(err),
+		NotFound: errors.Is(err, errors.NotFound),
 		Error:    err,
 	}
 	return Result2api(result)

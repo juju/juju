@@ -629,7 +629,7 @@ func (s *cloudSuite) TestRemoveCloudErrorMapping(c *gc.C) {
 	client := cloudapi.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.RemoveCloud("foo")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound, gc.Commentf("expected client to be map server error into a NotFound error"))
+	c.Assert(err, jc.ErrorIs, errors.NotFound, gc.Commentf("expected client to be map server error into a NotFound error"))
 }
 
 func (s *cloudSuite) TestGrantCloud(c *gc.C) {

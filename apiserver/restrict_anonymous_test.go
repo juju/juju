@@ -32,7 +32,7 @@ func (s *restrictAnonymousSuite) TestAllowed(c *gc.C) {
 func (s *restrictAnonymousSuite) TestNotAllowed(c *gc.C) {
 	caller, err := s.root.FindMethod("Client", clientFacadeVersion, "FullStatus")
 	c.Assert(err, gc.ErrorMatches, `facade "Client" not supported for anonymous API connections`)
-	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	c.Assert(caller, gc.IsNil)
 }
 

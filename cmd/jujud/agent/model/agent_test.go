@@ -25,14 +25,14 @@ var _ = gc.Suite(&WrapAgentSuite{})
 func (s *WrapAgentSuite) TestRequiresControllerUUID(c *gc.C) {
 	agent, err := model.WrapAgent(&mockAgent{}, "lol-nope-no-hope", coretesting.ModelTag.Id())
 	c.Check(err, gc.ErrorMatches, `controller uuid "lol-nope-no-hope" not valid`)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(agent, gc.IsNil)
 }
 
 func (s *WrapAgentSuite) TestRequiresModelUUID(c *gc.C) {
 	agent, err := model.WrapAgent(&mockAgent{}, coretesting.ControllerTag.Id(), "lol-nope-no-hope")
 	c.Check(err, gc.ErrorMatches, `model uuid "lol-nope-no-hope" not valid`)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(agent, gc.IsNil)
 }
 

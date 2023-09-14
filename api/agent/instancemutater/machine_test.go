@@ -105,7 +105,7 @@ func (s *instanceMutaterMachineSuite) TestWatchLXDProfileVerificationNeededNotSu
 		s.expectWatchLXDProfileVerificationNeededWithError("not supported", "failed"),
 	)
 	_, err := api.WatchLXDProfileVerificationNeeded()
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *instanceMutaterMachineSuite) TestWatchContainers(c *gc.C) {

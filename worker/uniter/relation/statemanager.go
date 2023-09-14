@@ -121,7 +121,7 @@ func (m *stateManager) RelationFound(id int) bool {
 // initialize loads the current state into the manager.
 func (m *stateManager) initialize() error {
 	unitState, err := m.unitStateRW.State()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	m.relationState = make(map[int]State, len(unitState.RelationState))

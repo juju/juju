@@ -137,7 +137,7 @@ func (c *Client) GetSecretAccessScope(uri *coresecrets.URI, appToken string, uni
 			return apiErr
 		},
 		IsFatalError: func(err error) bool {
-			if errors.IsNotFound(err) || errors.Is(err, apiservererrors.ErrPerm) {
+			if errors.Is(err, errors.NotFound) || errors.Is(err, apiservererrors.ErrPerm) {
 				return true
 			}
 			return false
@@ -239,7 +239,7 @@ func (c *Client) GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, 
 			return apiErr
 		},
 		IsFatalError: func(err error) bool {
-			if errors.IsNotFound(err) || errors.Is(err, apiservererrors.ErrPerm) {
+			if errors.Is(err, errors.NotFound) || errors.Is(err, apiservererrors.ErrPerm) {
 				return true
 			}
 			if params.ErrCode(apiErr) != params.CodeDischargeRequired {

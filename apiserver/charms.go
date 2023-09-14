@@ -140,7 +140,7 @@ func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
 	charmArchivePath, fileArg, serveIcon, err := h.processGet(r, st.State)
 	if err != nil {
 		// An error occurred retrieving the charm bundle.
-		if errors.IsNotFound(err) || errors.IsNotYetAvailable(err) {
+		if errors.Is(err, errors.NotFound) || errors.Is(err, errors.NotYetAvailable) {
 			return errors.Trace(err)
 		}
 
@@ -533,7 +533,7 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 // the error is encoded in the Error field as a string, not an Error
 // object.
 func sendJSONError(w http.ResponseWriter, req *http.Request, err error) error {
-	if errors.IsNotYetAvailable(err) {
+	if errors.Is(err, errors.NotYetAvailable) {
 		// This error is typically raised when trying to fetch the blob
 		// contents for a charm which is still pending to be downloaded.
 		//

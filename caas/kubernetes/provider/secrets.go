@@ -61,12 +61,12 @@ func (k *kubernetesClient) ensureSecret(sec *core.Secret) (func(), error) {
 		cleanUp = func() { _ = k.deleteSecret(out.GetName(), out.GetUID()) }
 		return cleanUp, nil
 	}
-	if !errors.IsAlreadyExists(err) {
+	if !errors.Is(err, errors.AlreadyExists) {
 		return cleanUp, errors.Trace(err)
 	}
 	_, err = k.listSecrets(sec.GetLabels())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// sec.Name is already used for an existing secret.
 			return cleanUp, errors.AlreadyExistsf("secret %q", sec.GetName())
 		}

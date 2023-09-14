@@ -39,7 +39,7 @@ func (op *openClosePortRangesOperation) Build(attempt int) ([]txn.Op, error) {
 	var createDoc = !op.mpr.docExists
 	if attempt > 0 {
 		if err := op.mpr.Refresh(); err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return nil, errors.Annotate(err, "cannot open/close ports")
 			}
 

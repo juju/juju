@@ -68,7 +68,7 @@ func (s *mutaterSuite) TestProcessMachineProfileChangesMachineDead(c *gc.C) {
 
 	info := s.info(startingProfiles, 1, false)
 	err := instancemutater.ProcessMachineProfileChanges(s.mutaterMachine, info)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *mutaterSuite) TestProcessMachineProfileChangesError(c *gc.C) {
@@ -210,7 +210,7 @@ func (s *mutaterSuite) TestVerifyCurrentProfilesError(c *gc.C) {
 	s.expectLXDProfileNames([]string{}, errors.NotFoundf("instId"))
 
 	ok, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, []string{"default"})
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(ok, jc.IsFalse)
 }
 

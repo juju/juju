@@ -931,7 +931,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 	globalAppWorkloadKey := applicationGlobalOperatorKey(appName)
 	operatorStatusArgs, err := e.statusArgs(globalAppWorkloadKey)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return errors.Annotatef(err, "application operator status for application %s", appName)
 		}
 	}
@@ -1069,7 +1069,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 			globalCCKey := unit.globalCloudContainerKey()
 			_, err = e.statusArgs(globalCCKey)
 			if err != nil {
-				if !errors.IsNotFound(err) {
+				if !errors.Is(err, errors.NotFound) {
 					return errors.Annotatef(err, "cloud container workload status for unit %s", unit.Name())
 				}
 			}
@@ -1240,7 +1240,7 @@ func (e *exporter) relations() error {
 		statusArgs, err := e.statusArgs(globalKey)
 		if err == nil {
 			exRelation.SetStatus(statusArgs)
-		} else if !errors.IsNotFound(err) {
+		} else if !errors.Is(err, errors.NotFound) {
 			return errors.Annotatef(err, "status for relation %v", relation.Id())
 		}
 
@@ -1565,7 +1565,7 @@ func (e *exporter) sshHostKeys() error {
 	}
 	for _, machine := range machines {
 		keys, err := e.st.GetSSHHostKeys(machine.MachineTag())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			return errors.Trace(err)
@@ -2500,7 +2500,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc, 
 		// only returns an error when no storage tag.
 		args.Storage = tag
 	} else {
-		if !errors.IsNotAssigned(err) {
+		if !errors.Is(err, errors.NotAssigned) {
 			// This is an unexpected error.
 			return errors.Trace(err)
 		}
@@ -2570,7 +2570,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc, 
 			logger.Debugf("    plan info %#v", info)
 			args.DeviceType = string(info.DeviceType)
 			args.DeviceAttributes = info.DeviceAttributes
-		} else if !errors.IsNotFound(err) {
+		} else if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		if info, err := va.BlockDeviceInfo(); err == nil {
@@ -2586,7 +2586,7 @@ func (e *exporter) addVolume(vol *volume, volAttachments []volumeAttachmentDoc, 
 			args.FilesystemType = info.FilesystemType
 			args.InUse = info.InUse
 			args.MountPoint = info.MountPoint
-		} else if !errors.IsNotFound(err) {
+		} else if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		exVolume.AddAttachmentPlan(args)

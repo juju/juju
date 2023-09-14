@@ -506,7 +506,7 @@ func (c *Client) EnsureVMFolder(ctx context.Context, parentFolderName string, re
 func (c *Client) DestroyVMFolder(ctx context.Context, folderPath string) error {
 	c.logger.Tracef("DestroyVMFolder() path=%q", folderPath)
 	folder, err := c.FindFolder(ctx, folderPath)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	}
 	if err != nil {

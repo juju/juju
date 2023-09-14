@@ -1084,7 +1084,7 @@ func (s *LegacySuite) TestSupportsSpacesWithoutNetworking(c *gc.C) {
 		apiservertesting.WithoutSubnets)
 
 	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *LegacySuite) TestSupportsSpacesWithoutSpaces(c *gc.C) {
@@ -1103,7 +1103,7 @@ func (s *LegacySuite) TestSupportsSpacesWithoutSpaces(c *gc.C) {
 	)
 
 	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *LegacySuite) TestSupportsSpaces(c *gc.C) {

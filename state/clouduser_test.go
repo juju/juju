@@ -30,7 +30,7 @@ func (s *CloudUserSuite) makeCloud(c *gc.C, access permission.Access) (string, n
 
 	// Initially no access.
 	_, err = s.State.UserPermission(user.UserTag(), names.NewCloudTag(cloudName))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	err = s.State.CreateCloudAccess(cloudName, user.UserTag(), access)
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,7 +51,7 @@ func (s *CloudUserSuite) assertAddCloud(c *gc.C, wantedAccess permission.Access)
 
 	// Everyone else has no access.
 	_, err = s.State.GetCloudAccess(cloudName, names.NewUserTag("everyone@external"))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	return cloudName
 }
 
@@ -93,13 +93,13 @@ func (s *CloudUserSuite) TestRemoveCloudAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.GetCloudAccess(cloudName, user)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CloudUserSuite) TestRemoveCloudAccessNoUser(c *gc.C) {
 	cloudName, _ := s.makeCloud(c, permission.AddModelAccess)
 	err := s.State.RemoveCloudAccess(cloudName, names.NewUserTag("fred"))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CloudUserSuite) TestCloudsForUser(c *gc.C) {

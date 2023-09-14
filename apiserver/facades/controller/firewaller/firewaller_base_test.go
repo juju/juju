@@ -154,7 +154,7 @@ func (s *firewallerBaseSuite) testLife(
 	err = s.machines[1].Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	args = params.Entities{
 		Entities: []params.Entity{

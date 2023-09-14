@@ -150,7 +150,7 @@ func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string
 	}
 
 	m, err := api.getMachine(tag)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -426,7 +426,7 @@ func (o *updateMachineLinkLayerOp) processSubnets(name string) ([]txn.Op, error)
 	for _, cidr := range cidrs {
 		addOps, err := o.st.AddSubnetOps(network.SubnetInfo{CIDR: cidr})
 		if err != nil {
-			if errors.IsAlreadyExists(err) {
+			if errors.Is(err, errors.AlreadyExists) {
 				continue
 			}
 			return nil, errors.Trace(err)

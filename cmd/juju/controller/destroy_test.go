@@ -240,7 +240,7 @@ func checkControllerExistsInStore(c *gc.C, name string, store jujuclient.Control
 
 func checkControllerRemovedFromStore(c *gc.C, name string, store jujuclient.ControllerGetter) {
 	_, err := store.ControllerByName(name)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *DestroySuite) TestDestroyNoControllerNameError(c *gc.C) {

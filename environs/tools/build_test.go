@@ -235,7 +235,7 @@ func (b *buildSuite) TestGetVersionFromJujudNoJujud(c *gc.C) {
 	b.PatchValue(&tools.ExecCommand, execCommand)
 
 	_, err := tools.GetVersionFromJujud("foo")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {

@@ -135,7 +135,7 @@ func ProbeHandler(name string, aggProbe *probe.Aggregate) http.Handler {
 			}),
 		)
 
-		if jujuerrors.IsNotImplemented(err) {
+		if jujuerrors.Is(err, jujuerrors.NotImplemented) {
 			http.Error(res, fmt.Sprintf("%s: probe %s",
 				http.StatusText(http.StatusNotImplemented), name),
 				http.StatusNotImplemented)

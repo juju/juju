@@ -73,7 +73,7 @@ func (s *ExternalControllerUpdaterSuite) TestExternalControllerInfoError(c *gc.C
 	})
 	client := externalcontrollerupdater.New(apiCaller)
 	info, err := client.ExternalControllerInfo(coretesting.ControllerTag.Id())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(info, gc.IsNil)
 }
 

@@ -461,7 +461,7 @@ func (s Simplestreams) getMaybeSignedMetadata(source DataSource, params GetMetad
 		params.ValueParams,
 	)
 	logger.Debugf("looking for data index using URL %s", indexURL)
-	if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
+	if errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized) {
 		legacyIndexPath := makeIndexPath(defaultLegacyIndexPath)
 		logger.Debugf("%s not accessed, actual error: %v", indexPath, errors.Details(err))
 		logger.Debugf("%s not accessed, trying legacy index path: %s", indexPath, legacyIndexPath)
@@ -478,7 +478,7 @@ func (s Simplestreams) getMaybeSignedMetadata(source DataSource, params GetMetad
 	}
 	resolveInfo.IndexURL = indexURL
 	if err != nil {
-		if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
+		if errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized) {
 			logger.Debugf("cannot load index %q: %v", indexURL, err)
 		}
 		return nil, resolveInfo, err
@@ -486,7 +486,7 @@ func (s Simplestreams) getMaybeSignedMetadata(source DataSource, params GetMetad
 	logger.Debugf("read metadata index at %q", indexURL)
 	items, err := indexRef.getLatestMetadataWithFormat(cons, ProductFormat, signed)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			logger.Debugf("skipping index %q because of missing information: %v", indexURL, err)
 			return nil, resolveInfo, err
 		}
@@ -568,7 +568,7 @@ func (s Simplestreams) GetIndexWithFormat(source DataSource,
 
 	data, url, err := fetchData(source, indexPath, requireSigned)
 	if err != nil {
-		if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
+		if errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized) {
 			return nil, err
 		}
 		return nil, fmt.Errorf("cannot read index data, %v", err)
@@ -585,7 +585,7 @@ func (s Simplestreams) GetIndexWithFormat(source DataSource,
 	}
 
 	mirrors, url, err := getMirrorRefs(source, mirrorsPath, requireSigned)
-	if err != nil && !errors.IsNotFound(err) && !errors.IsUnauthorized(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, errors.Unauthorized) {
 		return nil, fmt.Errorf("cannot load mirror metadata at URL %q: %v", url, err)
 	}
 
@@ -627,7 +627,7 @@ func getMirrorRefs(source DataSource, baseMirrorsPath string, requireSigned bool
 	var mirrors MirrorRefs
 	data, url, err := fetchData(source, mirrorsPath, requireSigned)
 	if err != nil {
-		if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
+		if errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized) {
 			return mirrors, url, err
 		}
 		return mirrors, url, fmt.Errorf("cannot read mirrors data, %v", err)
@@ -779,7 +779,7 @@ func GetMirrorMetadataWithFormat(source DataSource, mirrorPath, format string,
 
 	data, url, err := fetchData(source, mirrorPath, requireSigned)
 	if err != nil {
-		if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
+		if errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized) {
 			return nil, err
 		}
 		return nil, fmt.Errorf("cannot read mirror data, %v", err)

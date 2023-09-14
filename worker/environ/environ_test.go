@@ -42,7 +42,7 @@ func (s *TrackerSuite) TestValidateObserver(c *gc.C) {
 	config := s.validConfig(nil)
 	config.Observer = nil
 	s.testValidate(c, config, func(err error) {
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, "nil Observer not valid")
 	})
 }
@@ -51,7 +51,7 @@ func (s *TrackerSuite) TestValidateNewEnvironFunc(c *gc.C) {
 	config := s.validConfig(nil)
 	config.NewEnvironFunc = nil
 	s.testValidate(c, config, func(err error) {
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, "nil NewEnvironFunc not valid")
 	})
 }
@@ -60,7 +60,7 @@ func (s *TrackerSuite) TestValidateLogger(c *gc.C) {
 	config := s.validConfig(nil)
 	config.Logger = nil
 	s.testValidate(c, config, func(err error) {
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, "nil Logger not valid")
 	})
 }

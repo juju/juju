@@ -181,7 +181,7 @@ func (c *infoCommand) Run(cmdContext *cmd.Context) error {
 	}
 
 	info, err := client.Info(ctx, c.charmOrBundle, options...)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return errors.Wrap(err, errors.Errorf("No information found for charm or bundle with the name %q", c.charmOrBundle))
 	} else if err != nil {
 		return errors.Trace(err)

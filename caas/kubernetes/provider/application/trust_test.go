@@ -61,7 +61,7 @@ func (s *applicationSuite) TestTrustRoleNotFound(c *gc.C) {
 	defer ctrl.Finish()
 
 	err := app.Trust(true)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *applicationSuite) TestTrustClusterRoleNotFound(c *gc.C) {
@@ -77,7 +77,7 @@ func (s *applicationSuite) TestTrustClusterRoleNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = app.Trust(true)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	role, err := s.client.RbacV1().Roles(s.namespace).Get(context.Background(), s.appName, metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(role.Rules, jc.DeepEquals, []rbacv1.PolicyRule(nil))

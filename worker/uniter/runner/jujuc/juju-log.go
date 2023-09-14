@@ -82,10 +82,10 @@ func (c *JujuLogCommand) Run(ctx *cmd.Context) error {
 	prefix := ""
 	if r, err := c.ctx.HookRelation(); err == nil {
 		prefix = r.FakeId() + ": "
-	} else if errors.IsNotImplemented(err) {
+	} else if errors.Is(err, errors.NotImplemented) {
 		// if the hook relation is not implemented, then we want to continue
 		// without a FakeId
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 

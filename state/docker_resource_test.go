@@ -122,7 +122,7 @@ func (s *dockerMetadataStorageSuite) TestRemove(c *gc.C) {
 	err = s.metadataStorage.Remove(id)
 	c.Assert(err, jc.ErrorIsNil)
 	_, _, err = s.metadataStorage.Get(id)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func readerToDockerDetails(c *gc.C, r io.ReadCloser) *resources.DockerImageDetails {

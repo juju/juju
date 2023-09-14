@@ -42,7 +42,7 @@ func (s *InteractionsSuite) TestDone(c *gc.C) {
 
 func (s *InteractionsSuite) TestDoneNotFound(c *gc.C) {
 	err := s.interactions.Done("not-found", names.NewUserTag("admin@local"), nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `interaction "not-found" not found`)
 }
 

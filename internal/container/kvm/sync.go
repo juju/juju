@@ -119,7 +119,7 @@ type ProgressCallback func(message string)
 func Sync(o Oner, f Fetcher, imageDownloadURL string, progress ProgressCallback) error {
 	md, err := o.One()
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
+		if errors.Is(err, errors.AlreadyExists) {
 			// We've already got a backing file for this series/architecture.
 			return nil
 		}

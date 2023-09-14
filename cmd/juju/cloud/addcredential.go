@@ -183,7 +183,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	// Check that the supplied cloud is valid.
 	if c.ControllerName != "" {
 		if err := c.maybeRemoteCloud(ctxt); err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				logger.Errorf("%v", err)
 			}
 			ctxt.Infof("Cloud %q is not found on the controller, looking for a locally stored cloud.", c.CloudName)
@@ -333,10 +333,10 @@ func (c *addCredentialCommand) internalAddCredential(ctxt *cmd.Context, verb str
 
 func (c *addCredentialCommand) existingCredentialsForCloud() (*jujucloud.CloudCredential, error) {
 	existingCredentials, err := c.Store.CredentialForCloud(c.CloudName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Annotate(err, "reading existing credentials for cloud")
 	}
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		existingCredentials = &jujucloud.CloudCredential{
 			AuthCredentials: make(map[string]jujucloud.Credential),
 		}

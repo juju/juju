@@ -167,7 +167,7 @@ func (d *DefaultMapper) processNextQueueItem() bool {
 	}
 
 	appName, err := provider.AppNameForServiceAccount(sa)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return true
 	} else if err != nil {
 		d.logger.Errorf("failure getting app name for service account: %v", err)

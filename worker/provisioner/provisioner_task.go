@@ -370,7 +370,7 @@ func (task *provisionerTask) processMachines(ctx context.ProviderCallContext, id
 
 	// Maintain zone-machine distributions.
 	err := task.updateAvailabilityZoneMachines(ctx)
-	if err != nil && !errors.IsNotImplemented(err) {
+	if err != nil && !errors.Is(err, errors.NotImplemented) {
 		return errors.Annotate(err, "updating AZ distributions")
 	}
 

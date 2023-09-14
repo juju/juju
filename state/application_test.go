@@ -1169,7 +1169,7 @@ resources:
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.ClearResources()
@@ -1254,7 +1254,7 @@ func (s *ApplicationSuite) TestSetCharmWithRemovedApplication(c *gc.C) {
 	}
 
 	err = s.mysql.SetCharm(cfg)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestSetCharmWhenRemoved(c *gc.C) {
@@ -1271,7 +1271,7 @@ func (s *ApplicationSuite) TestSetCharmWhenRemoved(c *gc.C) {
 		ForceUnits: true,
 	}
 	err := s.mysql.SetCharm(cfg)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestSetCharmWhenDyingIsOK(c *gc.C) {
@@ -1589,7 +1589,7 @@ requires:
 	wpCharmWithRelLimit := s.AddMetaCharm(c, "wordpress", wp1Charm, 2)
 	cfg := state.SetCharmConfig{Charm: wpCharmWithRelLimit}
 	err = wpApp.SetCharm(cfg)
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded, gc.Commentf("expected quota limit error due to max relation mismatch"))
+	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded, gc.Commentf("expected quota limit error due to max relation mismatch"))
 
 	// Try again with --force
 	cfg.Force = true
@@ -1609,7 +1609,7 @@ func (s *ApplicationSuite) TestSetDownloadedIDAndHash(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetDownloadedIDAndHashFailEmptyStrings(c *gc.C) {
 	err := s.mysql.SetDownloadedIDAndHash("", "")
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
 func (s *ApplicationSuite) TestSetDownloadedIDAndHashFailChangeID(c *gc.C) {
@@ -1619,7 +1619,7 @@ func (s *ApplicationSuite) TestSetDownloadedIDAndHashFailChangeID(c *gc.C) {
 		Hash:   "testing-hash",
 	})
 	err := s.mysql.SetDownloadedIDAndHash("change-ID", "testing-hash")
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
 func (s *ApplicationSuite) TestSetDownloadedIDAndHashReplaceHash(c *gc.C) {
@@ -1883,7 +1883,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateFail(c *gc.
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	err := app.UpdateApplicationBase(state.UbuntuBase("16.04"), false)
-	c.Assert(errors.Is(err, stateerrors.IncompatibleBaseError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.IncompatibleBaseError)
 	assertApplicationBaseUpdate(c, app, state.UbuntuBase("20.04"))
 	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("20.04"))
 }
@@ -1967,7 +1967,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 	).Check()
 
 	err = app.UpdateApplicationBase(state.UbuntuBase("18.04"), false)
-	c.Assert(errors.Is(err, stateerrors.IncompatibleBaseError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.IncompatibleBaseError)
 	assertApplicationBaseUpdate(c, app, state.UbuntuBase("20.04"))
 	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("20.04"))
 
@@ -1979,7 +1979,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 func assertNoSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm) {
 	cURL := sch.String()
 	_, err := state.ApplicationSettingsRefCount(st, appName, &cURL)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
+	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotFound)
 }
 
 func assertSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm, refcount int) {
@@ -2076,9 +2076,9 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	err = s.State.Cleanup()
 	c.Assert(err, jc.ErrorIsNil)
 	err = oldCh.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = newCh.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestSettingsRefCreateRace(c *gc.C) {
@@ -2134,7 +2134,7 @@ func (s *ApplicationSuite) TestSettingsRefRemoveRace(c *gc.C) {
 
 func assertNoOffersRef(c *gc.C, st *state.State, appName string) {
 	_, err := state.ApplicationOffersRefCount(st, appName)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
+	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotFound)
 }
 
 func assertOffersRef(c *gc.C, st *state.State, appName string, refcount int) {
@@ -2316,7 +2316,7 @@ func (s *ApplicationSuite) TestNewPeerRelationsAddedOnUpgrade(c *gc.C) {
 	// Check the peer relations got destroyed as well.
 	for _, rel := range rels {
 		err = rel.Refresh()
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		c.Assert(err, jc.ErrorIs, errors.NotFound)
 	}
 }
 
@@ -2356,7 +2356,7 @@ func (s *ApplicationSuite) TestStalePeerRelationsRemovedOnUpgrade(c *gc.C) {
 	// Check the peer relations got destroyed as well.
 	for _, rel := range rels {
 		err = rel.Refresh()
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		c.Assert(err, jc.ErrorIs, errors.NotFound)
 	}
 }
 
@@ -2926,7 +2926,7 @@ func (s *ApplicationSuite) TestAddUnitWithProviderIdNonCAASModel(c *gc.C) {
 	u, err := s.mysql.AddUnit(state.AddUnitParams{ProviderId: strPtr("provider-id")})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = u.ContainerInfo()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestReadUnit(c *gc.C) {
@@ -2987,7 +2987,7 @@ func (s *ApplicationSuite) TestDestroySimple(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestDestroyRemovesStatusHistory(c *gc.C) {
@@ -3022,7 +3022,7 @@ func (s *ApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
 	c.Assert(unit.Remove(), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
@@ -3037,7 +3037,7 @@ func (s *ApplicationSuite) TestDestroyOnceHadUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
@@ -3054,7 +3054,7 @@ func (s *ApplicationSuite) TestDestroyStaleNonZeroUnitCount(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.mysql.Life(), gc.Equals, state.Dying)
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
@@ -3078,7 +3078,7 @@ func (s *ApplicationSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 	c.Assert(unit.Remove(), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
@@ -3093,9 +3093,9 @@ func (s *ApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	err = wordpress.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = wordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestDestroyWithRemovableApplicationOpenedPortRanges(c *gc.C) {
@@ -3300,16 +3300,16 @@ func (s *ApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh 
 
 	// ...while the second is removed directly.
 	err = rel1.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Drop the last reference to the first relation; check the relation and
 	// the application are are both removed.
 	c.Assert(ru.LeaveScope(), jc.ErrorIsNil)
 	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = rel0.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
@@ -3369,7 +3369,7 @@ func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
 	// Application.Destroy adds units to cleanup, make it happen now.
 	c.Assert(s.State.Cleanup(), gc.IsNil)
 
-	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(unit.Refresh(), jc.ErrorIs, errors.NotFound)
 	assertLife(c, machine, state.Dying)
 }
 
@@ -3415,7 +3415,7 @@ func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesSecretPermissions(c *gc.C
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.SecretAccess(uri, s.mysql.Tag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesOwnedSecrets(c *gc.C) {
@@ -3436,7 +3436,7 @@ func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesOwnedSecrets(c *gc.C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = store.GetSecret(uri)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Create again, no label clash.
 	s.AddTestingApplication(c, "mysql", s.charm)
@@ -3499,10 +3499,10 @@ func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc
 
 	// Ensure storage constraints and settings are now gone.
 	_, err = state.AppStorageConstraints(app)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	cfg := state.GetApplicationCharmConfig(s.State, app)
 	err = cfg.Read()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestApplicationCleanupRemovesAppFromActiveBranches(c *gc.C) {
@@ -3556,7 +3556,7 @@ func (s *ApplicationSuite) TestRemoveQueuesLocalCharmCleanup(c *gc.C) {
 
 	// Check charm removed
 	err = s.charm.Refresh()
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 
 	// Check we're now clean.
 	s.assertNoCleanup(c)
@@ -4307,7 +4307,7 @@ func (s *ApplicationSuite) assertApplicationRemovedWithItsBindings(c *gc.C, appl
 	err := application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = application.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	state.AssertEndpointBindingsNotFoundForApplication(c, application)
 }
 
@@ -4964,7 +4964,7 @@ func (s *CAASApplicationSuite) assertUpdateCAASUnits(c *gc.C, aliveApp bool) {
 	c.Assert(containerStatusHistory[0].Message, gc.Equals, "new container running")
 
 	err = removedUnit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CAASApplicationSuite) TestAddUnitWithProviderId(c *gc.C) {
@@ -5021,7 +5021,7 @@ func (s *CAASApplicationSuite) TestRemoveApplicationDeletesServiceInfo(c *gc.C) 
 	c.Assert(si, gc.NotNil)
 	assertCleanupCount(c, s.caasSt, 2)
 	_, err = s.app.ServiceInfo()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CAASApplicationSuite) TestInvalidScale(c *gc.C) {
@@ -5030,7 +5030,7 @@ func (s *CAASApplicationSuite) TestInvalidScale(c *gc.C) {
 
 	// set scale without force for caas workers - a new Generation is required.
 	err = s.app.SetScale(3, 0, false)
-	c.Assert(err, jc.Satisfies, errors.IsForbidden)
+	c.Assert(err, jc.ErrorIs, errors.Forbidden)
 }
 
 func (s *CAASApplicationSuite) TestSetScale(c *gc.C) {
@@ -5234,7 +5234,7 @@ func (s *CAASApplicationSuite) TestForceDestroyQueuesForceCleanup(c *gc.C) {
 	assertCleanupRuns(c, s.caasSt)
 
 	err = s.app.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CAASApplicationSuite) TestDestroyStillHasUnits(c *gc.C) {
@@ -5323,7 +5323,7 @@ func (s *CAASApplicationSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	assertLife(c, mysql, state.Dead)
 
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CAASApplicationSuite) TestDestroyWithReferencedRelation(c *gc.C) {
@@ -5369,7 +5369,7 @@ func (s *CAASApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refr
 
 	// ...while the second is removed directly.
 	err = rel1.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Drop the last reference to the first relation; check the relation and
 	// the application are are both removed.
@@ -5379,7 +5379,7 @@ func (s *CAASApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, refr
 	assertLife(c, s.app, state.Dead)
 
 	err = rel0.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CAASApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
@@ -5426,7 +5426,7 @@ func (s *CAASApplicationSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetOperatorStatusNonCAAS(c *gc.C) {
 	_, err := s.mysql.OperatorStatus()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
@@ -5491,7 +5491,7 @@ func (s *ApplicationSuite) TestDeployedMachinesNotAssignedUnit(c *gc.C) {
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
+	c.Assert(err, jc.ErrorIs, errors.NotAssigned)
 
 	machines, err := app.DeployedMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -5653,7 +5653,7 @@ func (s *ApplicationSuite) TestProvisioningState(c *gc.C) {
 		Scaling:     true,
 		ScaleTarget: 10,
 	})
-	c.Assert(errors.Is(err, stateerrors.ProvisioningStateInconsistent), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.ProvisioningStateInconsistent)
 
 	err = s.mysql.SetScale(10, 0, true)
 	c.Assert(err, jc.ErrorIsNil)

@@ -64,7 +64,7 @@ func (st *State) precheckInstance(
 		return nil
 	}
 	prechecker, err := st.policy.Prechecker()
-	if errors.IsNotImplemented(err) {
+	if errors.Is(err, errors.NotImplemented) {
 		return nil
 	} else if err != nil {
 		return err
@@ -93,7 +93,7 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 	if st.policy != nil {
 		var err error
 		validator, err = st.policy.ConstraintsValidator(context.CallContext(st))
-		if errors.IsNotImplemented(err) {
+		if errors.Is(err, errors.NotImplemented) {
 			validator = constraints.NewValidator()
 		} else if err != nil {
 			return nil, err
@@ -172,7 +172,7 @@ func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err er
 		return cfg, nil
 	}
 	configValidator, err := st.policy.ConfigValidator()
-	if errors.IsNotImplemented(err) {
+	if errors.Is(err, errors.NotImplemented) {
 		return cfg, nil
 	} else if err != nil {
 		return nil, err

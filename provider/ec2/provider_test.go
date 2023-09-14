@@ -82,7 +82,7 @@ func (s *ProviderSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec,
 func (s *ProviderSuite) TestVerifyCredentialsErrs(c *gc.C) {
 	err := ec2.VerifyCredentials(context.NewEmptyCloudCallContext())
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsFalse)
+	c.Assert(err, gc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
 }
 
 func (s *ProviderSuite) TestMaybeConvertCredentialErrorIgnoresNil(c *gc.C) {
@@ -103,7 +103,7 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorConvertsCredentialRelated
 		err := ec2.MaybeConvertCredentialError(
 			&smithy.GenericAPIError{Code: code}, context.NewEmptyCloudCallContext())
 		c.Assert(err, gc.NotNil)
-		c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+		c.Assert(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 	}
 }
 
@@ -115,7 +115,7 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorNotInvalidCredential(c *g
 		err := ec2.MaybeConvertCredentialError(
 			&smithy.GenericAPIError{Code: code}, context.NewEmptyCloudCallContext())
 		c.Assert(err, gc.NotNil)
-		c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsFalse)
+		c.Assert(err, gc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
 	}
 }
 
@@ -123,7 +123,7 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorHandlesOtherProviderError
 	// Any other ec2.Error is returned unwrapped.
 	err := ec2.MaybeConvertCredentialError(&smithy.GenericAPIError{Code: "DryRunOperation"}, context.NewEmptyCloudCallContext())
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
-	c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsFalse)
+	c.Assert(err, gc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
 }
 
 func (s *ProviderSuite) TestConvertedCredentialError(c *gc.C) {
@@ -132,22 +132,22 @@ func (s *ProviderSuite) TestConvertedCredentialError(c *gc.C) {
 		&smithy.GenericAPIError{Code: "Blocked"}, context.NewEmptyCloudCallContext())
 	traced := errors.Trace(inner)
 	c.Assert(traced, gc.NotNil)
-	c.Assert(errors.Is(traced, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Assert(traced, jc.ErrorIs, common.ErrorCredentialNotValid)
 
 	// Annotate() will keep error type
 	annotated := errors.Annotate(inner, "annotation")
 	c.Assert(annotated, gc.NotNil)
-	c.Assert(errors.Is(annotated, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Assert(annotated, jc.ErrorIs, common.ErrorCredentialNotValid)
 
 	// Running a CredentialNotValid through conversion call again is a no-op.
 	again := ec2.MaybeConvertCredentialError(inner, context.NewEmptyCloudCallContext())
 	c.Assert(again, gc.NotNil)
-	c.Assert(errors.Is(again, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Assert(again, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(again.Error(), jc.Contains, "\nYour Amazon account is currently blocked.: api error Blocked:")
 
 	// Running an annotated CredentialNotValid through conversion call again is a no-op too.
 	againAnotated := ec2.MaybeConvertCredentialError(annotated, context.NewEmptyCloudCallContext())
 	c.Assert(againAnotated, gc.NotNil)
-	c.Assert(errors.Is(againAnotated, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Assert(againAnotated, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(againAnotated.Error(), jc.Contains, "\nYour Amazon account is currently blocked.: api error Blocked:")
 }

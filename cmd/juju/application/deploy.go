@@ -696,7 +696,7 @@ func (c *DeployCommand) Init(args []string) error {
 		return err
 	}
 	if err := c.validatePlacementByModelType(); err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		// It is possible that we will not be able to get model type to validate with.

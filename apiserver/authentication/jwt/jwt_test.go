@@ -73,7 +73,7 @@ func (s *loginTokenSuite) TestCacheRegistrationFailureWithBadURL(c *gc.C) {
 func (s *loginTokenSuite) TestAuthenticateLoginRequestNotSupported(c *gc.C) {
 	authenticator := jwt.NewAuthenticator(s.url)
 	_, err := authenticator.AuthenticateLoginRequest(context.Background(), "", "", authentication.AuthParams{Token: ""})
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
@@ -141,7 +141,7 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *gc.C) {
 		User: names.NewUserTag("wallyworld"),
 	}
 	perm, err := authInfo.Delegator.SubjectPermissions(badUser, modelTag)
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(perm, gc.Equals, permission.NoAccess)
 
 	badUser = jwt.TokenEntity{

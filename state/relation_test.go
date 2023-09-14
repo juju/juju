@@ -107,7 +107,7 @@ func (s *StateSuite) TestAddRelationWithMaxLimit(c *gc.C) {
 	eps, err = s.State.InferEndpoints("wordpress", "mariadb")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded, gc.Commentf("expected second AddRelation attempt to fail due to the limit:1 entry in the wordpress charm's metadata.yaml"))
+	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded, gc.Commentf("expected second AddRelation attempt to fail due to the limit:1 entry in the wordpress charm's metadata.yaml"))
 }
 
 func (s *RelationSuite) TestRetrieveSuccess(c *gc.C) {
@@ -161,11 +161,11 @@ func (s *RelationSuite) TestRetrieveNotFound(c *gc.C) {
 	}
 	_, err := s.State.EndpointsRelation(subway, mongo)
 	c.Assert(err, gc.ErrorMatches, `relation "subway:db mongo:server" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = s.State.Relation(999)
 	c.Assert(err, gc.ErrorMatches, `relation 999 not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *RelationSuite) TestAddRelation(c *gc.C) {
@@ -324,7 +324,7 @@ func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 	err = rel.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 
@@ -337,7 +337,7 @@ func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
@@ -356,14 +356,14 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNoRelations(c, riak)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Create a new application (and hence a new relation in the background); check
 	// that refreshing the old one does not accidentally get the new one.
 	newriak := s.AddTestingApplication(c, "riak", riakch)
 	assertOneRelation(c, newriak, 1, riakEP)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *RelationSuite) TestDestroyRelationIncorrectUnitCount(c *gc.C) {
@@ -501,9 +501,9 @@ func (s *RelationSuite) TestForceDestroyCrossModelRelationOfferSide(c *gc.C) {
 	c.Assert(errs, gc.HasLen, 0)
 	c.Assert(err, jc.ErrorIsNil)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = rwordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	s.assertInScope(c, wpru, false)
 	s.assertInScope(c, mysqlru, true)
@@ -635,9 +635,9 @@ func (s *RelationSuite) TestRemoveAlsoDeletesNetworks(c *gc.C) {
 
 	state.RemoveRelation(c, relation, false)
 	_, err = relIngress.Networks(relation.Tag().Id())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = relEgress.Networks(relation.Tag().Id())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *RelationSuite) TestRemoveAlsoDeletesRemoteTokens(c *gc.C) {
@@ -657,9 +657,9 @@ func (s *RelationSuite) TestRemoveAlsoDeletesRemoteTokens(c *gc.C) {
 
 	state.RemoveRelation(c, relation, false)
 	_, err = re.GetToken(relation.Tag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = re.GetRemoteEntity(relToken)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *RelationSuite) TestRemoveAlsoDeletesRemoteOfferConnections(c *gc.C) {
@@ -752,7 +752,7 @@ func (s *RelationSuite) TestRemoveNoFeatureFlag(c *gc.C) {
 
 	state.RemoveRelation(c, relation, false)
 	_, err = s.State.KeyRelation(relation.Tag().Id())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *RelationSuite) TestWatchLifeSuspendedStatus(c *gc.C) {
@@ -1116,7 +1116,7 @@ func (s *RelationSuite) TestDestroyForceSchedulesCleanupForStuckUnits(c *gc.C) {
 	err = unit.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	s.assertRelationCleanedUp(c, rel, relUnits)
 }
@@ -1202,7 +1202,7 @@ func (s *RelationSuite) TestDestroyForceStuckRemoteUnits(c *gc.C) {
 	assertNotInScope(c, localRelUnit)
 
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *RelationSuite) TestDestroyForceIsFineIfUnitsAlreadyLeft(c *gc.C) {
@@ -1244,7 +1244,7 @@ func (s *RelationSuite) TestDestroyForceIsFineIfUnitsAlreadyLeft(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	s.Clock.Advance(30 * time.Second)
 
 	err = s.State.Cleanup()
@@ -1290,7 +1290,7 @@ func (s *RelationSuite) assertRelationCleanedUp(c *gc.C, rel *state.Relation, re
 	}
 
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *RelationSuite) assertNeedsCleanup(c *gc.C) {

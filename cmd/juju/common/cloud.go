@@ -32,7 +32,7 @@ func IsChooseCloudRegionError(err error) bool {
 // CloudOrProvider finds and returns cloud or provider.
 func CloudOrProvider(cloudName string, cloudByNameFunc func(string) (*jujucloud.Cloud, error)) (cloud *jujucloud.Cloud, err error) {
 	if cloud, err = cloudByNameFunc(cloudName); err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return nil, err
 		}
 		builtInClouds, err := BuiltInClouds()
@@ -106,7 +106,7 @@ func BuiltInClouds() (map[string]jujucloud.Cloud, error) {
 func CloudByName(cloudName string) (*jujucloud.Cloud, error) {
 	cloud, err := jujucloud.CloudByName(cloudName)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Check built in clouds like localhost (lxd).
 			builtinClouds, err := BuiltInClouds()
 			if err != nil {

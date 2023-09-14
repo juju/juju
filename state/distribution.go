@@ -26,7 +26,7 @@ func distributeUnit(u *Unit, candidates []instance.Id, limitZones []string) ([]i
 	}
 
 	distributor, err := u.st.policy.InstanceDistributor()
-	if errors.IsNotImplemented(err) {
+	if errors.Is(err, errors.NotImplemented) {
 		return candidates, nil
 	} else if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func ApplicationInstances(st *State, application string) ([]instance.Id, error) 
 	instanceIds := make([]instance.Id, 0, len(units))
 	for _, unit := range units {
 		machineId, err := unit.AssignedMachineId()
-		if errors.IsNotAssigned(err) {
+		if errors.Is(err, errors.NotAssigned) {
 			continue
 		} else if err != nil {
 			return nil, err
@@ -67,7 +67,7 @@ func ApplicationInstances(st *State, application string) ([]instance.Id, error) 
 		instanceId, err := machine.InstanceId()
 		if err == nil {
 			instanceIds = append(instanceIds, instanceId)
-		} else if errors.IsNotProvisioned(err) {
+		} else if errors.Is(err, errors.NotProvisioned) {
 			continue
 		} else {
 			return nil, err

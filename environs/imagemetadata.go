@@ -137,7 +137,7 @@ func environmentDataSources(bootstrapEnviron BootstrapEnviron) ([]simplestreams.
 	for _, f := range datasourceFuncs {
 		datasource, err := f.f(env)
 		if err != nil {
-			if errors.IsNotSupported(err) {
+			if errors.Is(err, errors.NotSupported) {
 				continue
 			}
 			return nil, err

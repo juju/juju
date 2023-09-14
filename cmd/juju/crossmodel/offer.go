@@ -122,7 +122,7 @@ func (c *offerCommand) Run(ctx *cmd.Context) error {
 	if c.QualifiedModelName == "" {
 		c.QualifiedModelName, err = c.ClientStore().CurrentModel(controllerName)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				return errors.New("no current model, use juju switch to select a model on which to operate")
 			} else {
 				return errors.Annotate(err, "cannot load current model")
@@ -138,7 +138,7 @@ func (c *offerCommand) Run(ctx *cmd.Context) error {
 
 	store := c.ClientStore()
 	modelDetails, err := store.ModelByName(controllerName, c.QualifiedModelName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		if err := c.refreshModels(store, controllerName); err != nil {
 			return errors.Annotate(err, "refreshing models cache")
 		}

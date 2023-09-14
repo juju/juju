@@ -89,7 +89,7 @@ var (
 func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID string, connectionID uint64, serverHost string) (*apiHandler, error) {
 	m, err := st.Model()
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 
@@ -525,7 +525,7 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 func (r *apiRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
 	goType, err := r.facades.GetType(rootName, version)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, rpcreflect.ObjMethod{}, &rpcreflect.CallNotImplementedError{
 				RootMethod: rootName,
 				Version:    version,

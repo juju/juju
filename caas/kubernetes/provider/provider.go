@@ -187,7 +187,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	}
 
 	ns, err := findControllerNamespace(k8sClient, args.ControllerUUID)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// The controller is currently bootstrapping.
 		return newK8sBroker(
 			args.ControllerUUID, k8sRestConfig, args.Config, "",

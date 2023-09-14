@@ -399,7 +399,7 @@ func (s *secretsStore) UpdateSecret(uri *secrets.URI, p UpdateSecretParams) (*se
 		}...)
 		_, _, err = s.getSecretValue(uri, metadataDoc.LatestRevision, false)
 		revisionExists := err == nil
-		if !revisionExists && !errors.IsNotFound(err) {
+		if !revisionExists && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		if len(p.Data) > 0 || p.ValueRef != nil {
@@ -2275,7 +2275,7 @@ func (st *State) findSecretEntity(tag names.Tag) (entity Lifer, collName, docID 
 		docID = id
 		if err == nil {
 			collName = applicationsC
-		} else if errors.IsNotFound(err) {
+		} else if errors.Is(err, errors.NotFound) {
 			entity, err = st.RemoteApplication(id)
 			collName = remoteApplicationsC
 		}
@@ -2436,7 +2436,7 @@ func (st *State) RevokeSecretAccess(uri *secrets.URI, p SecretAccessParams) erro
 	var doc secretPermissionDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if err := st.checkExists(uri); err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				return nil, jujutxn.ErrNoOperations
 			}
 			return nil, errors.Trace(err)

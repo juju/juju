@@ -716,7 +716,7 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
 	// Ensure that the user has NO read access to the model but SuperuserAccess
 	// to the controller it belongs to.
 	err := s.authorizer.HasPermission(permission.ReadAccess, s.state.ModelTag())
-	c.Assert(errors.Is(err, authentication.ErrorEntityMissingPermission), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
 	err = s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -736,13 +736,13 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
 	// Ensure that the user has NO read access to the model and NO SuperuserAccess
 	// to the controller it belongs to.
 	err := s.authorizer.HasPermission(permission.ReadAccess, s.state.ModelTag())
-	c.Assert(errors.Is(err, authentication.ErrorEntityMissingPermission), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
 	err = s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
-	c.Assert(errors.Is(err, authentication.ErrorEntityMissingPermission), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
 
 	// ListStorageDetails should fail with perm error
 	_, err = s.api.ListStorageDetails(stdcontext.Background(), params.StorageFilters{})
-	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 type filesystemImporter struct {

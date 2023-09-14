@@ -575,7 +575,7 @@ func (env *maasEnviron) networkSpaceRequirements(ctx context.ProviderCallContext
 	positiveSpaceInfo, negativeSpaceInfo, err := env.spaceNamesToSpaceInfo(ctx, positiveSpaceNames, negativeSpaceNames)
 	if err != nil {
 		// Spaces are not supported by this MAAS instance.
-		if errors.IsNotSupported(err) {
+		if errors.Is(err, errors.NotSupported) {
 			return nil, nil, nil
 		}
 
@@ -842,7 +842,7 @@ func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, i
 	retryStrategy := env.longRetryStrategy
 	retryStrategy.MaxDuration = timeout
 	retryStrategy.IsFatalError = func(err error) bool {
-		if errors.IsNotProvisioned(err) {
+		if errors.Is(err, errors.NotProvisioned) {
 			return true
 		}
 		if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
@@ -851,7 +851,7 @@ func (env *maasEnviron) waitForNodeDeployment(ctx context.ProviderCallContext, i
 		return false
 	}
 	retryStrategy.NotifyFunc = func(lastErr error, attempts int) {
-		if errors.IsNotFound(lastErr) {
+		if errors.Is(lastErr, errors.NotFound) {
 			logger.Warningf("failed to get instance from provider attempt %d", attempts)
 		}
 	}

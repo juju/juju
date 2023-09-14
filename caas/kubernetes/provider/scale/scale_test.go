@@ -91,7 +91,7 @@ func (s *ScaleSuite) TestDeploymentScaleNotFound(c *gc.C) {
 		3,
 		scale.DeploymentScalePatcher(s.client.AppsV1().Deployments("test")),
 	)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ScaleSuite) TestStatefulSetScaleNotFound(c *gc.C) {
@@ -101,7 +101,7 @@ func (s *ScaleSuite) TestStatefulSetScaleNotFound(c *gc.C) {
 		3,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
 	)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ScaleSuite) TestStatefulSetScale(c *gc.C) {
@@ -158,5 +158,5 @@ func (s *ScaleSuite) TestInvalidScale(c *gc.C) {
 		-1,
 		scale.StatefulSetScalePatcher(s.client.AppsV1().StatefulSets("test")),
 	)
-	c.Assert(errors.IsNotValid(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }

@@ -295,7 +295,7 @@ type DestroyRemoteApplicationOperation struct {
 // Build is part of the ModelOperation interface.
 func (op *DestroyRemoteApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 	if attempt > 0 {
-		if err := op.app.Refresh(); errors.IsNotFound(err) {
+		if err := op.app.Refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -409,7 +409,7 @@ func (op *DestroyRemoteApplicationOperation) destroyOps() (ops []txn.Op, err err
 
 	// We'll need status below when processing relations.
 	statusInfo, statusErr := op.app.Status()
-	if op.FatalError(statusErr) && !errors.IsNotFound(statusErr) {
+	if op.FatalError(statusErr) && !errors.Is(statusErr, errors.NotFound) {
 		return nil, statusErr
 	}
 	// If the application is already terminated and dead, the removal
@@ -573,7 +573,7 @@ type terminateRemoteApplicationOperation struct {
 func (op *terminateRemoteApplicationOperation) Build(attempt int) ([]txn.Op, error) {
 	if attempt > 0 {
 		err := op.app.Refresh()
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		if err != nil || op.app.Life() == Dead {

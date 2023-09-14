@@ -74,7 +74,7 @@ func (v *volumeSource) createVolume(ctx envcontext.ProviderCallContext, p storag
 				v.getVolumeStatus, details.Id,
 				string(ociCore.VolumeLifecycleStateTerminated),
 				5*time.Minute)
-			if nestedErr != nil && !errors.IsNotFound(nestedErr) {
+			if nestedErr != nil && !errors.Is(nestedErr, errors.NotFound) {
 				logger.Warningf("failed to cleanup volume: %s", *details.Id)
 				return
 			}
@@ -276,7 +276,7 @@ func (v *volumeSource) DestroyVolumes(ctx envcontext.ProviderCallContext, volIds
 			v.getVolumeStatus, volumeDetails.Id,
 			string(ociCore.VolumeLifecycleStateTerminated),
 			5*time.Minute)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			if isAuthFailure(err, ctx) {
 				common.HandleCredentialError(err, ctx)
 				credErr = err
@@ -430,7 +430,7 @@ func (v *volumeSource) attachVolume(ctx envcontext.ProviderCallContext, param st
 				v.getAttachmentStatus, volAttach.GetId(),
 				string(ociCore.VolumeAttachmentLifecycleStateDetached),
 				5*time.Minute)
-			if nestedErr != nil && !errors.IsNotFound(nestedErr) {
+			if nestedErr != nil && !errors.Is(nestedErr, errors.NotFound) {
 				logger.Warningf("failed to cleanup volume attachment: %v", volAttach.GetId())
 				return
 			}
@@ -630,7 +630,7 @@ func (v *volumeSource) DetachVolumes(ctx envcontext.ProviderCallContext, params 
 					v.getAttachmentStatus, attachment.Id,
 					string(ociCore.VolumeAttachmentLifecycleStateDetached),
 					5*time.Minute)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !errors.Is(err, errors.NotFound) {
 					if isAuthFailure(err, ctx) {
 						credErr = err
 						common.HandleCredentialError(err, ctx)

@@ -88,7 +88,7 @@ func (s *daemonsetSuite) TestDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = dsResource.Get(context.TODO(), s.client)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = s.client.AppsV1().DaemonSets("test").Get(context.TODO(), "ds1", metav1.GetOptions{})
 	c.Assert(err, jc.Satisfies, k8serrors.IsNotFound)

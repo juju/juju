@@ -115,7 +115,7 @@ func (c *bindCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = apiRoot.Close() }()
 
-	if err = c.parseBindExpression(apiRoot); err != nil && errors.IsNotSupported(err) {
+	if err = c.parseBindExpression(apiRoot); err != nil && errors.Is(err, errors.NotSupported) {
 		ctx.Infof("Spaces not supported by this model's cloud, nothing to do.")
 		return nil
 	} else if err != nil {

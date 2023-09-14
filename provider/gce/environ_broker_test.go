@@ -107,7 +107,7 @@ func (s *environBrokerSuite) TestStartInstanceAvailabilityZoneIndependentError(c
 
 	_, err := s.Env.StartInstance(s.CallCtx, s.StartInstArgs)
 	c.Assert(err, gc.ErrorMatches, "blargh")
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 }
 
 func (s *environBrokerSuite) TestStartInstanceVolumeAvailabilityZone(c *gc.C) {
@@ -189,7 +189,7 @@ func (s *environBrokerSuite) TestNewRawInstanceZoneInvalidCredentialError(c *gc.
 	_, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsFalse)
+	c.Assert(err, gc.Not(jc.ErrorIs), environs.ErrAvailabilityZoneIndependent)
 }
 
 func (s *environBrokerSuite) TestNewRawInstanceZoneSpecificError(c *gc.C) {
@@ -197,7 +197,7 @@ func (s *environBrokerSuite) TestNewRawInstanceZoneSpecificError(c *gc.C) {
 
 	_, err := gce.NewRawInstance(s.Env, s.CallCtx, s.StartInstArgs, s.spec)
 	c.Assert(err, gc.ErrorMatches, "blargh")
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsFalse)
+	c.Assert(err, gc.Not(jc.ErrorIs), environs.ErrAvailabilityZoneIndependent)
 }
 
 func (s *environBrokerSuite) TestGetMetadataUbuntu(c *gc.C) {

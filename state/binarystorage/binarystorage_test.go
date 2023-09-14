@@ -147,7 +147,7 @@ func (s *binaryStorageSuite) TestAllMetadata(c *gc.C) {
 
 func (s *binaryStorageSuite) TestMetadata(c *gc.C) {
 	_, err := s.storage.Metadata(current)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
 	metadata, err := s.storage.Metadata(current)
@@ -161,12 +161,12 @@ func (s *binaryStorageSuite) TestMetadata(c *gc.C) {
 
 func (s *binaryStorageSuite) TestOpen(c *gc.C) {
 	_, _, err := s.storage.Open(current)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `.* binary metadata not found`)
 
 	s.addMetadataDoc(c, current, 3, "hash(abc)", "path")
 	_, _, err = s.storage.Open(current)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `resource at path "buckets/my-uuid/path" not found`)
 
 	err = s.managedStorage.PutForBucket("my-uuid", "path", strings.NewReader("blah"), 4)
@@ -203,7 +203,7 @@ func (s *binaryStorageSuite) TestAddRemovesExisting(c *gc.C) {
 
 	// old blob should be gone
 	_, _, err = s.managedStorage.GetForBucket("my-uuid", "path")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	s.assertMetadataAndContent(c, addedMetadata, "xyzzzz")
 }
@@ -256,7 +256,7 @@ func (s *binaryStorageSuite) TestAddRemovesBlobOnFailure(c *gc.C) {
 
 	path := fmt.Sprintf("tools/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
 	_, _, err = s.managedStorage.GetForBucket("my-uuid", path)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *binaryStorageSuite) TestAddRemovesBlobOnFailureRemoveFails(c *gc.C) {
@@ -308,7 +308,7 @@ func (s *binaryStorageSuite) TestAddConcurrent(c *gc.C) {
 
 	// Blob added in before-hook should be removed.
 	_, _, err = s.managedStorage.GetForBucket("my-uuid", fmt.Sprintf("tools/%s-0", current))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	s.assertMetadataAndContent(c, metadata1, "1")
 }
@@ -336,7 +336,7 @@ func (s *binaryStorageSuite) TestAddExcessiveContention(c *gc.C) {
 	for _, metadata := range metadata[:3] {
 		path := fmt.Sprintf("tools/%s-%s", metadata.Version, metadata.SHA256)
 		_, _, err = s.managedStorage.GetForBucket("my-uuid", path)
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		c.Assert(err, jc.ErrorIs, errors.NotFound)
 	}
 
 	s.assertMetadataAndContent(c, metadata[3], "3")

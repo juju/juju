@@ -220,7 +220,7 @@ func (h *toolsDownloadHandler) getToolsForRequest(r *http.Request, st *state.Sta
 	defer locker.Unlock()
 
 	md, reader, err := storage.Open(storageVers.String())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// Tools could not be found in tools storage,
 		// so look for them in simplestreams,
 		// fetch them and cache in tools storage.

@@ -58,7 +58,7 @@ leader.
 	if name, err := c.ctx.RemoteUnitName(); err == nil {
 		args = "[<key> [<unit id>]]"
 		doc += fmt.Sprintf("Current default unit id is %q.", name)
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		logger.Errorf("Failed to retrieve remote unit name: %v", err)
 	}
 	return jujucmd.Info(&cmd.Info{
@@ -110,7 +110,7 @@ func (c *RelationGetCommand) determineUnitOrAppName(args *[]string) error {
 	}
 	if c.Application {
 		name, err := c.ctx.RemoteApplicationName()
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return fmt.Errorf("no unit or application specified")
 		} else if err != nil {
 			return errors.Trace(err)
@@ -122,7 +122,7 @@ func (c *RelationGetCommand) determineUnitOrAppName(args *[]string) error {
 	if name, err := c.ctx.RemoteUnitName(); err == nil {
 		c.UnitOrAppName = name
 		return nil
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	// Unit name not found, look for app context
@@ -131,7 +131,7 @@ func (c *RelationGetCommand) determineUnitOrAppName(args *[]string) error {
 		c.UnitOrAppName = name
 		c.Application = true
 		return nil
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	// If we got this far, there is no default value to give and nothing was

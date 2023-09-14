@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	. "gopkg.in/check.v1"
+	gc "gopkg.in/check.v1"
 
 	ssh "github.com/juju/juju/worker/simplesignalhandler"
 )
@@ -19,9 +19,9 @@ import (
 type signalSuite struct {
 }
 
-var _ = Suite(&signalSuite{})
+var _ = gc.Suite(&signalSuite{})
 
-func (_ *signalSuite) TestSignalHandling(c *C) {
+func (_ *signalSuite) TestSignalHandling(c *gc.C) {
 	testErr := errors.ConstError("test")
 	handler := ssh.SignalHandlerFunc(func(sig os.Signal) error {
 		return testErr
@@ -35,10 +35,10 @@ func (_ *signalSuite) TestSignalHandling(c *C) {
 	sigChan <- syscall.SIGTERM
 
 	err = watcher.Wait()
-	c.Assert(errors.Is(err, testErr), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, testErr)
 }
 
-func (_ *signalSuite) TestSignalHandlingClosed(c *C) {
+func (_ *signalSuite) TestSignalHandlingClosed(c *gc.C) {
 	handler := ssh.SignalHandlerFunc(func(sig os.Signal) error {
 		return fmt.Errorf("should not be called")
 	})
@@ -51,28 +51,28 @@ func (_ *signalSuite) TestSignalHandlingClosed(c *C) {
 	close(sigChan)
 
 	err = watcher.Wait()
-	c.Assert(err.Error(), Equals, "signal channel closed unexpectedly")
+	c.Assert(err.Error(), gc.Equals, "signal channel closed unexpectedly")
 }
 
-func (_ *signalSuite) TestDefaultSignalHandlerNilMap(c *C) {
+func (_ *signalSuite) TestDefaultSignalHandlerNilMap(c *gc.C) {
 	testErr := errors.ConstError("test")
 	err := ssh.SignalHandler(testErr, nil)(syscall.SIGTERM)
-	c.Assert(errors.Is(err, testErr), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, testErr)
 }
 
-func (_ *signalSuite) TestDefaultSignalHandlerNoMap(c *C) {
+func (_ *signalSuite) TestDefaultSignalHandlerNoMap(c *gc.C) {
 	testErr := errors.ConstError("test")
 	err := ssh.SignalHandler(testErr, map[os.Signal]error{
 		syscall.SIGINT: errors.New("test error"),
 	})(syscall.SIGTERM)
-	c.Assert(errors.Is(err, testErr), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, testErr)
 }
 
-func (_ *signalSuite) TestDefaultSignalHandlerMap(c *C) {
+func (_ *signalSuite) TestDefaultSignalHandlerMap(c *gc.C) {
 	testErr := errors.ConstError("test")
 	err := ssh.SignalHandler(testErr, map[os.Signal]error{
 		syscall.SIGINT: errors.New("test error"),
 	})(syscall.SIGINT)
-	c.Assert(errors.Is(err, testErr), jc.IsFalse)
-	c.Assert(err.Error(), Equals, "test error")
+	c.Assert(err, gc.Not(jc.ErrorIs), testErr)
+	c.Assert(err.Error(), gc.Equals, "test error")
 }

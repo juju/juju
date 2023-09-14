@@ -244,7 +244,7 @@ func getSecurityGroupInfoForInterfaces(ctx stdcontext.Context, env *azureEnviron
 	groupsByName := make(map[string]securityGroupInfo)
 	for _, nic := range networkInterfaces {
 		info, err := primarySecurityGroupInfo(ctx, env, nic)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		if err != nil {
@@ -425,7 +425,7 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 		}
 		var err error
 		info, err = primarySecurityGroupInfo(ctx, inst.env, nic)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		if err != nil {

@@ -406,7 +406,7 @@ func (c *registerCommand) updateController(
 	}
 	if c.replace {
 		if err := store.UpdateController(controllerName, controllerDetails); err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return errors.Trace(err)
 			}
 			if err := store.AddController(controllerName, controllerDetails); err != nil {
@@ -710,7 +710,7 @@ func (r byteAtATimeReader) Read(out []byte) (int, error) {
 // case.
 func ensureNotKnownEndpoint(store jujuclient.ClientStore, endpoint string) error {
 	existingDetails, existingName, err := store.ControllerByAPIEndpoints(endpoint)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 
@@ -720,7 +720,7 @@ func ensureNotKnownEndpoint(store jujuclient.ClientStore, endpoint string) error
 
 	// Check if we know the username for this controller
 	accountDetails, err := store.AccountDetails(existingName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 

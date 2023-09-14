@@ -68,7 +68,7 @@ func (a *Attachments) init() error {
 		attachmentsByTag.Add(storageTag)
 	}
 	existingStorageState, err := a.stateOps.Read()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotate(err, "reading storage State")
 	}
 	newStateStorage := NewState()

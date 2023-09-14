@@ -90,7 +90,7 @@ func (s *storageSuite) TestStorageDefaultPoolsDriverNotSupported(c *gc.C) {
 func (s *storageSuite) TestVolumeSource(c *gc.C) {
 	_, err := s.provider.VolumeSource(nil)
 	c.Assert(err, gc.ErrorMatches, "volumes not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *storageSuite) TestFilesystemSource(c *gc.C) {

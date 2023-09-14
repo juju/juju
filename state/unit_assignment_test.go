@@ -35,7 +35,7 @@ func (s *UnitAssignmentSuite) testAddApplicationUnitAssignment(c *gc.C) (*state.
 	c.Assert(units, gc.HasLen, 2)
 	for _, u := range units {
 		_, err := u.AssignedMachineId()
-		c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
+		c.Assert(err, jc.ErrorIs, errors.NotAssigned)
 	}
 
 	assignments, err := s.State.AllUnitAssignments()

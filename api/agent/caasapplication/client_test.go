@@ -93,7 +93,7 @@ func (s *provisionerSuite) TestUnitIntroductionFailAlreadyExists(c *gc.C) {
 		return nil
 	})
 	_, err := client.UnitIntroduction("pod-name", "pod-uuid")
-	c.Assert(errors.Is(err, errors.AlreadyExists), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -115,7 +115,7 @@ func (s *provisionerSuite) TestUnitIntroductionFailNotAssigned(c *gc.C) {
 		return nil
 	})
 	_, err := client.UnitIntroduction("pod-name", "pod-uuid")
-	c.Assert(errors.Is(err, errors.NotAssigned), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotAssigned)
 	c.Assert(called, jc.IsTrue)
 }
 

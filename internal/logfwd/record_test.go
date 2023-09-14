@@ -34,7 +34,7 @@ func (s *RecordSuite) TestValidateZero(c *gc.C) {
 
 	err := rec.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *RecordSuite) TestValidateBadOrigin(c *gc.C) {
@@ -43,7 +43,7 @@ func (s *RecordSuite) TestValidateBadOrigin(c *gc.C) {
 
 	err := rec.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `invalid Origin: invalid Name "...": bad user name`)
 }
 
@@ -53,7 +53,7 @@ func (s *RecordSuite) TestValidateEmptyTimestamp(c *gc.C) {
 
 	err := rec.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `empty Timestamp`)
 }
 
@@ -63,7 +63,7 @@ func (s *RecordSuite) TestValidateBadLocation(c *gc.C) {
 
 	err := rec.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `invalid Location: Line set but Filename empty`)
 }
 
@@ -156,7 +156,7 @@ func (s *LocationSuite) TestValidateBadLine(c *gc.C) {
 
 	err := loc.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `Line set but Filename empty`)
 }
 

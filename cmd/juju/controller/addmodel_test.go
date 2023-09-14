@@ -637,7 +637,7 @@ func (s *AddModelSuite) TestAddErrorRemoveConfigstoreInfo(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "bah humbug")
 
 	_, err = s.store.ModelByName("test-master", "bob/test")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
@@ -666,7 +666,7 @@ func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
 	const controllerName = "test-master"
 	checkNoModelSelected := func() {
 		_, err := s.store.CurrentModel(controllerName)
-		c.Check(err, jc.Satisfies, errors.IsNotFound)
+		c.Check(err, jc.ErrorIs, errors.NotFound)
 	}
 	checkNoModelSelected()
 
@@ -691,7 +691,7 @@ func (s *AddModelSuite) TestNoEnvCacheOtherUser(c *gc.C) {
 
 	// Creating a model for another user does not update the model cache.
 	_, err = s.store.ModelByName("test-master", "bob/test")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *AddModelSuite) TestNamespaceAnnotationsErr(c *gc.C) {

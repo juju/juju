@@ -346,7 +346,7 @@ func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error)
 	if err == nil {
 		return secret, nil
 	}
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		_, err = c.broker.createSecret(&core.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        c.resourceNameSecret,
@@ -374,7 +374,7 @@ func (c *controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err erro
 	if err == nil {
 		return cm, nil
 	}
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		_, err = c.broker.createConfigMap(&core.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        c.resourceNameConfigMap,
@@ -654,7 +654,7 @@ func (c *controllerStack) createControllerService(ctx context.Context) error {
 		Clock:    c.broker.clock,
 		Func:     publicAddressPoller,
 		IsFatalError: func(err error) bool {
-			return !errors.IsNotProvisioned(err)
+			return !errors.Is(err, errors.NotProvisioned)
 		},
 		NotifyFunc: func(err error, attempt int) {
 			logger.Debugf("polling k8s controller svc DNS, in %d attempt, %v", attempt, err)
@@ -1053,7 +1053,7 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 		case <-podWatcher.Changes():
 			_ = printPodEvents()
 			pod, err := c.broker.getPod(podName)
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				logger.Debugf("pod %q is not provisioned yet", podName)
 				continue
 			}

@@ -339,7 +339,7 @@ func (api *API) HasActiveBranch(ctx context.Context, arg params.BranchArg) (para
 	}
 
 	if _, err := api.model.Branch(arg.BranchName); err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			result.Result = false
 		} else {
 			result.Error = apiservererrors.ServerError(err)

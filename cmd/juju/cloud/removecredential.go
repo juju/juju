@@ -172,14 +172,14 @@ func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
 func (c *removeCredentialCommand) checkCloud(ctxt *cmd.Context, client RemoveCredentialAPI) {
 	if c.ControllerName != "" {
 		if err := c.maybeRemoteCloud(ctxt, client); err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				logger.Errorf("%v", err)
 			}
 		}
 	}
 	if c.Client {
 		if err := c.maybeLocalCloud(ctxt); err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				logger.Errorf("%v", err)
 			}
 		}
@@ -236,7 +236,7 @@ func (c *removeCredentialCommand) removeFromLocal(ctxt *cmd.Context) error {
 		return nil
 	}
 	cred, err := c.Store.CredentialForCloud(c.cloud)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		ctxt.Infof("No stored credentials exist for cloud %q on this client.", c.cloud)
 		return nil
 	} else if err != nil {

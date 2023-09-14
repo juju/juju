@@ -53,7 +53,7 @@ func getExistingLocalCredential(store credentialGetter, cloudName, credentialNam
 func decideCredentialUID(store credentialGetter, cloudName, credentialName string) (string, error) {
 	var credUID string
 	existingCredential, err := getExistingLocalCredential(store, cloudName, credentialName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return "", errors.Trace(err)
 	}
 	if err == nil && existingCredential.Attributes() != nil {

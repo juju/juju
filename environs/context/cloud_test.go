@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -24,5 +25,5 @@ func (s *CloudCallContextSuite) TestCloudCallContext(c *gc.C) {
 	c.Assert(ctx.Context, gc.Equals, stdctx)
 
 	err := ctx.InvalidateCredential("call")
-	c.Assert(errors.Is(err, errors.NotImplemented), gc.Equals, true)
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }

@@ -472,7 +472,7 @@ func (s *ebsSuite) TestDestroyVolumesCredentialError(c *gc.C) {
 	c.Assert(results, gc.HasLen, len(in))
 	for i, result := range results {
 		c.Logf("checking volume deletion %d", i)
-		c.Assert(errors.Is(result, common.ErrorCredentialNotValid), jc.IsTrue)
+		c.Assert(result, jc.ErrorIs, common.ErrorCredentialNotValid)
 	}
 }
 
@@ -544,7 +544,7 @@ func (s *ebsSuite) TestReleaseVolumesCredentialError(c *gc.C) {
 	c.Assert(results, gc.HasLen, len(in))
 	for i, result := range results {
 		c.Logf("checking volume release %d", i)
-		c.Assert(errors.Is(result, common.ErrorCredentialNotValid), jc.IsTrue)
+		c.Assert(result, jc.ErrorIs, common.ErrorCredentialNotValid)
 	}
 }
 
@@ -579,7 +579,7 @@ func (s *ebsSuite) TestAttachVolumesCredentialError(c *gc.C) {
 	results, err := vs.AttachVolumes(s.cloudCallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
-	c.Assert(errors.Is(results[0].Error, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Assert(results[0].Error, jc.ErrorIs, common.ErrorCredentialNotValid)
 }
 
 func (s *ebsSuite) TestReleaseVolumesNotFound(c *gc.C) {
@@ -625,7 +625,7 @@ func (s *ebsSuite) TestDescribeVolumesCredentialError(c *gc.C) {
 	s.srv.ec2srv.SetAPIError("DescribeVolumes", &smithy.GenericAPIError{Code: "Blocked"})
 
 	results, err := vs.DescribeVolumes(s.cloudCallCtx, []string{"vol-42"})
-	c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(results, gc.IsNil)
 }
 
@@ -646,7 +646,7 @@ func (s *ebsSuite) TestListVolumesCredentialError(c *gc.C) {
 	s.srv.ec2srv.SetAPIError("DescribeVolumes", &smithy.GenericAPIError{Code: "Blocked"})
 
 	results, err := vs.ListVolumes(s.cloudCallCtx)
-	c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(results, gc.IsNil)
 }
 
@@ -885,7 +885,7 @@ func (s *ebsSuite) TestCreateVolumesCredentialError(c *gc.C) {
 		c.Logf("checking volume creation %d", i)
 		c.Assert(result.Volume, gc.IsNil)
 		c.Assert(result.VolumeAttachment, gc.IsNil)
-		c.Assert(errors.Is(result.Error, common.ErrorCredentialNotValid), jc.IsTrue)
+		c.Assert(result.Error, jc.ErrorIs, common.ErrorCredentialNotValid)
 	}
 }
 
@@ -1091,7 +1091,7 @@ func (s *ebsSuite) TestImportVolumeCredentialError(c *gc.C) {
 	_, err = vs.(storage.VolumeImporter).ImportVolume(s.cloudCallCtx, aws.ToString(resp.VolumeId), map[string]string{
 		"foo": "bar",
 	})
-	c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 }
 
 func (s *ebsSuite) TestImportVolumeInUse(c *gc.C) {

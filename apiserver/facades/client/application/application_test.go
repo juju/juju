@@ -228,7 +228,7 @@ func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `option "skill-level" expected int, got "fred"`)
 	_, err = s.ControllerModel(c).State().Application("application-name")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
@@ -1186,9 +1186,9 @@ func (s *applicationSuite) assertAddRelation(c *gc.C, endpoints, viaCIDRs []stri
 	// or an application in another model.
 	var mySqlApplication state.ApplicationEntity
 	mySqlApplication, err = st.RemoteApplication("hosted-mysql")
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		mySqlApplication, err = st.RemoteApplication("othermysql")
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			mySqlApplication, err = st.Application("mysql")
 			c.Assert(err, jc.ErrorIsNil)
 			s.checkEndpoints(c, "mysql", res.Endpoints)

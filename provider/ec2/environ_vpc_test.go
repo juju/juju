@@ -52,7 +52,7 @@ func (s *vpcSuite) TestValidateBootstrapVPCCredentialError(c *gc.C) {
 	s.stubAPI.SetErrors(fmt.Errorf("%w: AWS failed!", common.ErrorCredentialNotValid))
 	err := validateBootstrapVPC(s.stubAPI, s.cloudCallCtx, "region", anyVPCID, false, envtesting.BootstrapTODOContext(c))
 	s.checkErrorMatchesCannotVerifyVPC(c, err)
-	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 }
 
 func (*vpcSuite) checkErrorMatchesCannotVerifyVPC(c *gc.C, err error) {
@@ -83,7 +83,7 @@ func (s *vpcSuite) TestValidateModelVPCCredentialError(c *gc.C) {
 	err := validateModelVPC(s.stubAPI, s.cloudCallCtx, "model", "foo")
 	expectedError := `Juju could not verify whether the given vpc-id(.|\n)*`
 	c.Check(err, gc.ErrorMatches, expectedError)
-	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 }
 
 func (s *vpcSuite) TestValidateModelVPCIDNotSetOrNone(c *gc.C) {
@@ -239,7 +239,7 @@ func (s *vpcSuite) TestGetVPCByIDCredentialError(c *gc.C) {
 	s.stubAPI.SetErrors(fmt.Errorf("%w: AWS failed!", common.ErrorCredentialNotValid))
 
 	vpc, err := getVPCByID(s.stubAPI, s.cloudCallCtx, "bar")
-	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Check(vpc, gc.IsNil)
 }
 
@@ -314,7 +314,7 @@ func (s *vpcSuite) TestGetVPCSubnetCredentialError(c *gc.C) {
 	s.stubAPI.SetErrors(fmt.Errorf("%w: AWS failed!", common.ErrorCredentialNotValid))
 
 	subnets, err := getVPCSubnets(s.stubAPI, s.cloudCallCtx, anyVPCID)
-	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Check(subnets, gc.IsNil)
 }
 
@@ -384,7 +384,7 @@ func (s *vpcSuite) TestGetVPCInternetGatewayCredentialError(c *gc.C) {
 
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
 	gateway, err := getVPCInternetGateway(s.stubAPI, s.cloudCallCtx, &anyVPC)
-	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Check(gateway, gc.IsNil)
 }
 
@@ -479,7 +479,7 @@ func (s *vpcSuite) TestFindDefaultVPCIDUnexpectedAWSError(c *gc.C) {
 func (s *vpcSuite) TestFindDefaultVPCIDCredentialError(c *gc.C) {
 	s.stubAPI.SetErrors(fmt.Errorf("%w: AWS failed!", common.ErrorCredentialNotValid))
 	_, err := findDefaultVPCID(s.stubAPI, s.cloudCallCtx)
-	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 }
 
 func (s *vpcSuite) TestFindDefaultVPCIDNoAttributeOrNoValue(c *gc.C) {
@@ -488,7 +488,7 @@ func (s *vpcSuite) TestFindDefaultVPCIDNoAttributeOrNoValue(c *gc.C) {
 	checkFailed := func() {
 		vpcID, err := findDefaultVPCID(s.stubAPI, s.cloudCallCtx)
 		c.Assert(err, gc.ErrorMatches, "default-vpc account attribute not found")
-		c.Check(err, jc.Satisfies, errors.IsNotFound)
+		c.Check(err, jc.ErrorIs, errors.NotFound)
 		c.Check(vpcID, gc.Equals, "")
 
 		s.stubAPI.CheckSingleAccountAttributesCall(c, "default-vpc")
@@ -523,7 +523,7 @@ func (s *vpcSuite) TestFindDefaultVPCIDWithExplicitNoneValue(c *gc.C) {
 
 	vpcID, err := findDefaultVPCID(s.stubAPI, s.cloudCallCtx)
 	c.Assert(err, gc.ErrorMatches, "default VPC not found")
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(vpcID, gc.Equals, "")
 
 	s.stubAPI.CheckSingleAccountAttributesCall(c, "default-vpc")
@@ -561,7 +561,7 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneWithSubnetsCredentialEr
 	subnetIDs, err := getVPCSubnetsForAvailabilityZone(s.stubAPI, s.cloudCallCtx, vpcID, anyZone, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot get VPC "vpc-anything" subnets: unexpected AWS .*: too cloudy`)
 	c.Check(subnetIDs, gc.IsNil)
-	c.Check(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 }
 
 func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneNoSubnetsAtAll(c *gc.C) {
@@ -584,7 +584,7 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneNoSubnetsInAZ(c *gc.C) 
 	vpcID := aws.ToString(anyVPC.VpcId)
 	subnets, err := getVPCSubnetsForAvailabilityZone(s.stubAPI, s.cloudCallCtx, vpcID, "given-zone", nil)
 	c.Assert(err, gc.ErrorMatches, `VPC "vpc-anything" has no subnets in AZ "given-zone"`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(subnets, gc.IsNil)
 
 	s.stubAPI.CheckSingleSubnetsCall(c, vpcID)

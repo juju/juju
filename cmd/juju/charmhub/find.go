@@ -149,7 +149,7 @@ func (c *findCommand) Run(cmdContext *cmd.Context) error {
 	options := populateFindOptions(c)
 
 	results, err := client.Find(ctx, c.query, options...)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return errors.Wrap(err, errors.Errorf("Nothing found for query %q.", c.query))
 	} else if err != nil {
 		return errors.Trace(err)

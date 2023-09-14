@@ -475,7 +475,7 @@ func (s *Server) RemoveContainer(name string) error {
 	retryArgs := retry.CallArgs{
 		Clock: s.Clock(),
 		IsFatalError: func(err error) bool {
-			return errors.IsBadRequest(err)
+			return errors.Is(err, errors.BadRequest)
 		},
 		Func: func() error {
 			op, err := s.DeleteInstance(name)

@@ -80,7 +80,7 @@ func (pm *poolManager) validatedConfig(name string, providerType storage.Provide
 // Delete is defined on PoolManager interface.
 func (pm *poolManager) Delete(name string) error {
 	err := pm.settings.RemoveSettings(globalKey(name))
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return errors.NotFoundf("storage pool %q", name)
 	}
 	return errors.Annotatef(err, "deleting pool %q", name)
@@ -118,7 +118,7 @@ func (pm *poolManager) Replace(name, provider string, attrs map[string]interface
 func (pm *poolManager) Get(name string) (*storage.Config, error) {
 	settings, err := pm.settings.ReadSettings(globalKey(name))
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, errors.NotFoundf("pool %q", name)
 		} else {
 			return nil, errors.Annotatef(err, "reading pool %q", name)

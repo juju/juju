@@ -315,7 +315,7 @@ func (c *runCommandBase) waitForTasks(ctx *cmd.Context, runningTasks []enqueuedA
 			}
 		}
 		if err != nil {
-			if errors.IsTimeout(err) {
+			if errors.Is(err, errors.Timeout) {
 				return nil, c.handleTimeout(runningTasks, resultReceivers)
 			}
 			return nil, errors.Trace(err)

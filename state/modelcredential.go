@@ -79,7 +79,7 @@ func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([
 	for _, m := range models {
 		ownerAccess, err := st.UserAccess(tag.Owner(), names.NewModelTag(m.UUID))
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				results = append(results, CredentialOwnerModelAccess{ModelName: m.Name, ModelUUID: m.UUID, OwnerAccess: permission.NoAccess})
 				continue
 			}
@@ -190,7 +190,7 @@ func (st *State) model(uuid string) (*Model, func() error, error) {
 	modelState, err := st.newStateNoWorkers(uuid)
 	if err != nil {
 		// This model could have been removed.
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, closer, nil
 		}
 		return nil, closer, errors.Trace(err)
@@ -286,7 +286,7 @@ func (m *Model) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
 func (st *State) modelsToRevert(tag names.CloudCredentialTag) (map[*Model]func() error, error) {
 	revert := map[*Model]func() error{}
 	credentialModels, err := st.modelsWithCredential(tag)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return revert, errors.Annotatef(err, "getting models for credential %v", tag)
 	}
 	for _, m := range credentialModels {

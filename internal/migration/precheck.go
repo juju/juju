@@ -311,7 +311,7 @@ func (c *precheckContext) checkRelations(appUnits map[string][]PrecheckUnit) err
 	}
 	for _, rel := range relations {
 		remoteAppName, crossModel, err := rel.RemoteApplication()
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Annotatef(err, "checking whether relation %s is cross-model", rel)
 		}
 

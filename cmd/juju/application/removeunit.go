@@ -131,7 +131,7 @@ func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *removeUnitCommand) Init(args []string) error {
 	c.EntityNames = args
 	if err := c.validateArgsByModelType(); err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 
