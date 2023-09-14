@@ -359,7 +359,8 @@ go-install: $(INSTALL_TARGETS)
 .PHONY: clean
 clean:
 ## clean: Clean the cache and test caches
-	go clean -n -r --cache --testcache $(PROJECT)/...
+	go clean -r --cache --testcache
+	go clean $(PROJECT)/...
 
 .PHONY: vendor-dependencies
 vendor-dependencies:
