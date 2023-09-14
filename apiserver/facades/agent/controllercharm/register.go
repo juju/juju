@@ -7,14 +7,13 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/alecthomas/repr"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -26,7 +25,13 @@ func Register(registry facade.FacadeRegistry) {
 
 // newAPI creates a new server-side controllercharm API facade.
 func newAPI(ctx facade.Context) (*API, error) {
-	if err := checkAuth(ctx.Auth()); err != nil {
+	model, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "error getting model")
+	}
+
+	err = checkAuth(ctx.Auth(), model.Type())
+	if err != nil {
 		return nil, err
 	}
 
@@ -36,12 +41,19 @@ func newAPI(ctx facade.Context) (*API, error) {
 }
 
 // Check if the given client is authorized to access this facade.
-func checkAuth(authorizer facade.Authorizer) error {
-	// TODO: remove this
-	logger := loggo.GetLogger("juju.apiserver.controllercharm")
-	logger.Criticalf("authorizer.GetAuthTag: %s", repr.String(authorizer.GetAuthTag()))
-	logger.Criticalf("authorizer.AuthController: %v", authorizer.AuthController())
+func checkAuth(authorizer facade.Authorizer, modelType state.ModelType) error {
+	switch modelType {
+	case state.ModelTypeCAAS:
+		return checkAuthCAAS(authorizer)
+	case state.ModelTypeIAAS:
+		return checkAuthIAAS(authorizer)
+	default:
+		return errors.NotValidf("unknown model type %q", modelType)
+	}
+}
 
+// On CAAS, we are looking for unit-controller-x.
+func checkAuthCAAS(authorizer facade.Authorizer) error {
 	if !authorizer.AuthUnitAgent() {
 		return apiservererrors.ErrPerm
 	}
@@ -55,6 +67,14 @@ func checkAuth(authorizer facade.Authorizer) error {
 	if applicationName != bootstrap.ControllerApplicationName {
 		return fmt.Errorf("application name should be %q, received %q",
 			bootstrap.ControllerApplicationName, applicationName)
+	}
+	return nil
+}
+
+// On IAAS, we are looking for the controller machine.
+func checkAuthIAAS(authorizer facade.Authorizer) error {
+	if !authorizer.AuthMachineAgent() || !authorizer.AuthController() {
+		return apiservererrors.ErrPerm
 	}
 	return nil
 }

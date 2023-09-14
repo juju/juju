@@ -32,36 +32,41 @@ func (*suite) TestAuth(c *gc.C) {
 	tests := []struct {
 		description string
 		authorizer  facade.Authorizer
+		modelType   state.ModelType
 		expected    string
 	}{{
 		description: "unit containeragent on k8s",
 		authorizer: apiservertesting.FakeAuthorizer{
 			Tag: names.NewUnitTag("controller/0"),
 		},
-		expected: "",
+		modelType: state.ModelTypeCAAS,
+		expected:  "",
 	}, {
 		description: "machine agent on lxd",
 		authorizer: apiservertesting.FakeAuthorizer{
 			Tag:        names.NewMachineTag("0"),
 			Controller: true,
 		},
-		expected: "",
+		modelType: state.ModelTypeIAAS,
+		expected:  "",
 	}, {
 		description: "non-controller application",
 		authorizer: apiservertesting.FakeAuthorizer{
 			Tag: names.NewUnitTag("mysql/0"),
 		},
-		expected: `application name should be "controller", received "mysql"`,
+		modelType: state.ModelTypeCAAS,
+		expected:  `application name should be "controller", received "mysql"`,
 	}, {
 		description: "client can't access facade",
 		authorizer: apiservertesting.FakeAuthorizer{
 			Tag: names.NewUserTag("bob"),
 		},
-		expected: "permission denied",
+		modelType: state.ModelTypeCAAS,
+		expected:  "permission denied",
 	}}
 
 	for _, test := range tests {
-		err := controllercharm.CheckAuth(test.authorizer)
+		err := controllercharm.CheckAuth(test.authorizer, test.modelType)
 		if test.expected == "" {
 			c.Check(err, jc.ErrorIsNil, gc.Commentf(test.description))
 		} else {
