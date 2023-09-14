@@ -84,7 +84,7 @@ run_prometheus_cross_controller() {
 
 	PROMETHEUS_MODEL_NAME="test-prometheus-cmr-prom"
 	file="${TEST_DIR}/${PROMETHEUS_MODEL_NAME}.log"
-	export BOOTSTRAP_ADDITIONAL_ARGS=''  # TODO: remove
+	export BOOTSTRAP_ADDITIONAL_ARGS='' # TODO: remove
 	BOOTSTRAP_PROVIDER='k8s' BOOTSTRAP_CLOUD='microk8s' bootstrap "${PROMETHEUS_MODEL_NAME}" "${file}"
 
 	juju offer -c "${CONTROLLER_NAME}" controller.controller:metrics-endpoint
