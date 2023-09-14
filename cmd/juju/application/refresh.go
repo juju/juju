@@ -431,8 +431,10 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 		DeployedBase:    chBase,
 		Force:           c.Force,
 		ForceSeries:     c.ForceSeries,
-		Switch:          c.SwitchURL != "",
-		Logger:          ctx,
+		// If revision is supplied by the user, treat it as a switch operation,
+		// the revision has already been added to the "newRef" above.
+		Switch: c.SwitchURL != "" || c.Revision != -1,
+		Logger: ctx,
 	}
 	factory, err := c.getRefresherFactory(apiRoot)
 	if err != nil {
