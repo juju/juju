@@ -95,6 +95,7 @@ require (
 	github.com/mitchellh/go-linereader v0.0.0-20190213213312-1b945b3263eb
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/mittwald/vaultgo v0.1.1
+	github.com/moby/sys/mountinfo v0.6.2
 	github.com/oracle/oci-go-sdk/v47 v47.1.0
 	github.com/packethost/packngo v0.28.1
 	github.com/pkg/sftp v1.13.5
