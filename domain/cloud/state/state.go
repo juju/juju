@@ -771,3 +771,12 @@ DELETE FROM cloud_auth_type
 		return nil
 	})
 }
+
+// AllowCloudType is responsible for applying the cloud type to
+// the given database.
+func AllowCloudType(ctx context.Context, db coredatabase.TxnRunner, version int, name string) error {
+	return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.Exec(`INSERT INTO cloud_type VALUES (?, ?)`, version, name)
+		return err
+	}))
+}

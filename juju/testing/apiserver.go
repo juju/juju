@@ -412,18 +412,9 @@ func (s *ApiServerSuite) SeedControllerCloud(c *gc.C, runner coredatabase.TxnRun
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// AllowCloudType is responsible for applying the cloud type to
-// the given database.
-func AllowCloudType(ctx context.Context, db database.TxnRunner, version int, name string) error {
-	return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.Exec(`INSERT INTO cloud_type VALUES (?, ?)`, version, name)
-		return err
-	}))
-}
-
 // InsertDummyCloudType is a db bootstrap option which inserts the dummy cloud type.
 func InsertDummyCloudType(ctx context.Context, db database.TxnRunner) error {
-	return AllowCloudType(ctx, db, 666, "dummy")
+	return cloudstate.AllowCloudType(ctx, db, 666, "dummy")
 }
 
 // URL returns a URL for this server with the given path and
