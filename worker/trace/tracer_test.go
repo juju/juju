@@ -108,7 +108,7 @@ func (s *tracerSuite) TestTracerRecordError(c *gc.C) {
 }
 
 func (s *tracerSuite) newTracer(c *gc.C) TrackedTracer {
-	tracer, err := NewTracerWorker(context.Background(), "agent", "http://meshuggah.com", false, false, s.logger)
+	tracer, err := NewTracerWorker(context.Background(), Namespace("agent", "controller"), "http://meshuggah.com", false, false, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	return tracer
 }

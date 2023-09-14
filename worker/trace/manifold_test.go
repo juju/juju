@@ -46,7 +46,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		AgentName: "agent",
 		Clock:     s.clock,
 		Logger:    s.logger,
-		NewTracerWorker: func(context.Context, string, string, bool, bool, Logger) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, TracerNamespace, string, bool, bool, Logger) (TrackedTracer, error) {
 			return nil, nil
 		},
 	}

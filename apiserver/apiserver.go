@@ -1100,7 +1100,9 @@ func (srv *Server) serveConn(
 		resolvedModelUUID = systemState.ModelUUID()
 	}
 
-	tracer, err := srv.shared.tracerGetter.GetTracer(resolvedModelUUID)
+	tracer, err := srv.shared.tracerGetter.GetTracer(
+		trace.Namespace("apiserver", resolvedModelUUID),
+	)
 	if err != nil {
 		logger.Infof("failed to get tracer for model %q: %v", resolvedModelUUID, err)
 		tracer = coretrace.NoopTracer{}

@@ -12,10 +12,11 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/trace"
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"golang.org/x/sync/semaphore"
+
+	"github.com/juju/juju/core/trace"
 )
 
 // Logger describes methods for emitting log output.

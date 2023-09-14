@@ -41,7 +41,7 @@ func (s *workerSuite) TestKilledGetTracerErrDying(c *gc.C) {
 	w.Kill()
 
 	worker := w.(*tracerWorker)
-	_, err := worker.GetTracer("anything")
+	_, err := worker.GetTracer(Namespace("agent", "anything"))
 	c.Assert(err, jc.ErrorIs, coretrace.ErrTracerDying)
 }
 
@@ -63,7 +63,7 @@ func (s *workerSuite) TestGetTracer(c *gc.C) {
 	}).AnyTimes()
 
 	worker := w.(*tracerWorker)
-	tracer, err := worker.GetTracer("anything")
+	tracer, err := worker.GetTracer(Namespace("agent", "anything"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.trackedTracer.EXPECT().Start(gomock.Any(), "foo")
@@ -92,7 +92,7 @@ func (s *workerSuite) TestGetTracerIsCached(c *gc.C) {
 
 	worker := w.(*tracerWorker)
 	for i := 0; i < 10; i++ {
-		_, err := worker.GetTracer("anything")
+		_, err := worker.GetTracer(Namespace("agent", "anything"))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -120,7 +120,7 @@ func (s *workerSuite) TestGetTracerIsNotCachedForDifferentNamespaces(c *gc.C) {
 
 	worker := w.(*tracerWorker)
 	for i := 0; i < 10; i++ {
-		_, err := worker.GetTracer(fmt.Sprintf("anything-%d", i))
+		_, err := worker.GetTracer(Namespace("agent", fmt.Sprintf("anything-%d", i)))
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
@@ -153,7 +153,7 @@ func (s *workerSuite) TestGetTracerConcurrently(c *gc.C) {
 	for i := 0; i < 10; i++ {
 		go func(i int) {
 			defer wg.Done()
-			_, err := worker.GetTracer(fmt.Sprintf("anything-%d", i))
+			_, err := worker.GetTracer(Namespace("agent", fmt.Sprintf("anything-%d", i)))
 			c.Assert(err, jc.ErrorIsNil)
 		}(i)
 	}
@@ -169,7 +169,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		Clock:    s.clock,
 		Logger:   s.logger,
 		Endpoint: "https://meshuggah.com",
-		NewTracerWorker: func(context.Context, string, string, bool, bool, Logger) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, TracerNamespace, string, bool, bool, Logger) (TrackedTracer, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedTracer, nil
 		},

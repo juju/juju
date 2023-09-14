@@ -65,7 +65,7 @@ func (c *WorkerConfig) Validate() error {
 // traceRequest is used to pass requests for Tracer
 // instances into the worker loop.
 type traceRequest struct {
-	namespace string
+	namespace TracerNamespace
 	done      chan error
 }
 
@@ -165,7 +165,7 @@ func (w *tracerWorker) Wait() error {
 }
 
 // GetTracer returns a tracer for the given namespace.
-func (w *tracerWorker) GetTracer(namespace string) (coretrace.Tracer, error) {
+func (w *tracerWorker) GetTracer(namespace TracerNamespace) (coretrace.Tracer, error) {
 	// First check if we've already got the tracer worker already running. If
 	// we have, then return out quickly. The tracerRunner is the cache, so there
 	// is no need to have a in-memory cache here.
@@ -205,7 +205,7 @@ func (w *tracerWorker) GetTracer(namespace string) (coretrace.Tracer, error) {
 
 	// This will return a not found error if the request was not honoured.
 	// The error will be logged - we don't crash this worker for bad calls.
-	tracked, err := w.tracerRunner.Worker(namespace, w.catacomb.Dying())
+	tracked, err := w.tracerRunner.Worker(namespace.String(), w.catacomb.Dying())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -213,9 +213,9 @@ func (w *tracerWorker) GetTracer(namespace string) (coretrace.Tracer, error) {
 	return tracked.(coretrace.Tracer), nil
 }
 
-func (w *tracerWorker) workerFromCache(namespace string) (coretrace.Tracer, error) {
+func (w *tracerWorker) workerFromCache(namespace TracerNamespace) (coretrace.Tracer, error) {
 	// If the worker already exists, return the existing worker early.
-	if tracer, err := w.tracerRunner.Worker(namespace, w.catacomb.Dying()); err == nil {
+	if tracer, err := w.tracerRunner.Worker(namespace.String(), w.catacomb.Dying()); err == nil {
 		return tracer.(coretrace.Tracer), nil
 	} else if errors.Is(errors.Cause(err), worker.ErrDead) {
 		// Handle the case where the DB runner is dead due to this worker dying.
@@ -235,8 +235,8 @@ func (w *tracerWorker) workerFromCache(namespace string) (coretrace.Tracer, erro
 	return nil, nil
 }
 
-func (w *tracerWorker) initTracer(namespace string) error {
-	err := w.tracerRunner.StartWorker(namespace, func() (worker.Worker, error) {
+func (w *tracerWorker) initTracer(namespace TracerNamespace) error {
+	err := w.tracerRunner.StartWorker(namespace.String(), func() (worker.Worker, error) {
 		ctx, cancel := w.scopedContext()
 		defer cancel()
 
