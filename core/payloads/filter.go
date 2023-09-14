@@ -57,24 +57,22 @@ func BuildPredicatesFor(patterns []string) ([]PayloadPredicate, error) {
 
 // Match determines if the given payload matches the pattern.
 func Match(payload FullPayloadInfo, pattern string) bool {
-	pattern = strings.ToLower(pattern)
-
 	switch {
-	case strings.ToLower(payload.Name) == pattern:
+	case strings.EqualFold(payload.Name, pattern):
 		return true
-	case strings.ToLower(payload.Type) == pattern:
+	case strings.EqualFold(payload.Type, pattern):
 		return true
-	case strings.ToLower(payload.ID) == pattern:
+	case strings.EqualFold(payload.ID, pattern):
 		return true
-	case strings.ToLower(payload.Status) == pattern:
+	case strings.EqualFold(payload.Status, pattern):
 		return true
-	case strings.ToLower(payload.Unit) == pattern:
+	case strings.EqualFold(payload.Unit, pattern):
 		return true
-	case strings.ToLower(payload.Machine) == pattern:
+	case strings.EqualFold(payload.Machine, pattern):
 		return true
 	default:
 		for _, tag := range payload.Labels {
-			if strings.ToLower(tag) == pattern {
+			if strings.EqualFold(tag, pattern) {
 				return true
 			}
 		}

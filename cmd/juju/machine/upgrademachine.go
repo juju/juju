@@ -565,7 +565,7 @@ func checkSubCommands(validCommands []string, argCommand string) (string, error)
 
 func checkSeries(supportedSeries []string, seriesArgument string) (string, error) {
 	for _, s := range supportedSeries {
-		if s == strings.ToLower(seriesArgument) {
+		if strings.EqualFold(s, seriesArgument) {
 			return s, nil
 		}
 	}

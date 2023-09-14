@@ -260,7 +260,7 @@ func VerifyOptions(singular string, options []string, hasDefault bool) VerifyFun
 			return hasDefault, "", nil
 		}
 		for _, opt := range options {
-			if strings.ToLower(opt) == strings.ToLower(s) {
+			if strings.EqualFold(opt, s) {
 				return true, "", nil
 			}
 		}

@@ -16,42 +16,42 @@ type facadeVersionSuite struct {
 
 var _ = gc.Suite(&facadeVersionSuite{})
 
-func checkBestVersion(c *gc.C, desiredVersion int, versions []int, expectedVersion int) {
+func checkBestVersion(c *gc.C, desiredVersion []int, versions []int, expectedVersion int) {
 	resultVersion := api.BestVersion(desiredVersion, versions)
 	c.Check(resultVersion, gc.Equals, expectedVersion)
 }
 
 func (*facadeVersionSuite) TestBestVersionDesiredAvailable(c *gc.C) {
-	checkBestVersion(c, 0, []int{0, 1, 2}, 0)
-	checkBestVersion(c, 1, []int{0, 1, 2}, 1)
-	checkBestVersion(c, 2, []int{0, 1, 2}, 2)
+	checkBestVersion(c, []int{0}, []int{0, 1, 2}, 0)
+	checkBestVersion(c, []int{0, 1}, []int{0, 1, 2}, 1)
+	checkBestVersion(c, []int{0, 1, 2}, []int{0, 1, 2}, 2)
 }
 
 func (*facadeVersionSuite) TestBestVersionDesiredNewer(c *gc.C) {
-	checkBestVersion(c, 3, []int{0}, 0)
-	checkBestVersion(c, 3, []int{0, 1, 2}, 2)
+	checkBestVersion(c, []int{1, 2, 3}, []int{0}, 0)
+	checkBestVersion(c, []int{1, 2, 3}, []int{0, 1, 2}, 2)
 }
 
 func (*facadeVersionSuite) TestBestVersionDesiredGap(c *gc.C) {
-	checkBestVersion(c, 1, []int{0, 2}, 0)
+	checkBestVersion(c, []int{1}, []int{0, 2}, 0)
 }
 
 func (*facadeVersionSuite) TestBestVersionNoVersions(c *gc.C) {
-	checkBestVersion(c, 0, []int{}, 0)
-	checkBestVersion(c, 1, []int{}, 0)
-	checkBestVersion(c, 0, []int(nil), 0)
-	checkBestVersion(c, 1, []int(nil), 0)
+	checkBestVersion(c, []int{0}, []int{}, 0)
+	checkBestVersion(c, []int{1}, []int{}, 0)
+	checkBestVersion(c, []int{0}, []int(nil), 0)
+	checkBestVersion(c, []int{1}, []int(nil), 0)
 }
 
 func (*facadeVersionSuite) TestBestVersionNotSorted(c *gc.C) {
-	checkBestVersion(c, 0, []int{0, 3, 1, 2}, 0)
-	checkBestVersion(c, 3, []int{0, 3, 1, 2}, 3)
-	checkBestVersion(c, 1, []int{0, 3, 1, 2}, 1)
-	checkBestVersion(c, 2, []int{0, 3, 1, 2}, 2)
+	checkBestVersion(c, []int{0}, []int{0, 3, 1, 2}, 0)
+	checkBestVersion(c, []int{3}, []int{0, 3, 1, 2}, 3)
+	checkBestVersion(c, []int{1}, []int{0, 3, 1, 2}, 1)
+	checkBestVersion(c, []int{2}, []int{0, 3, 1, 2}, 2)
 }
 
 func (s *facadeVersionSuite) TestBestFacadeVersionExactMatch(c *gc.C) {
-	s.PatchValue(&api.FacadeVersions, map[string]int{"Client": 1})
+	s.PatchValue(&api.FacadeVersions, map[string][]int{"Client": {1}})
 	conn := api.NewTestingConnection(api.TestingConnectionParams{
 		FacadeVersions: map[string][]int{
 			"Client": {0, 1},
@@ -60,7 +60,7 @@ func (s *facadeVersionSuite) TestBestFacadeVersionExactMatch(c *gc.C) {
 }
 
 func (s *facadeVersionSuite) TestBestFacadeVersionNewerServer(c *gc.C) {
-	s.PatchValue(&api.FacadeVersions, map[string]int{"Client": 1})
+	s.PatchValue(&api.FacadeVersions, map[string][]int{"Client": {1}})
 	conn := api.NewTestingConnection(api.TestingConnectionParams{
 		FacadeVersions: map[string][]int{
 			"Client": {0, 1, 2},
@@ -69,7 +69,7 @@ func (s *facadeVersionSuite) TestBestFacadeVersionNewerServer(c *gc.C) {
 }
 
 func (s *facadeVersionSuite) TestBestFacadeVersionNewerClient(c *gc.C) {
-	s.PatchValue(&api.FacadeVersions, map[string]int{"Client": 2})
+	s.PatchValue(&api.FacadeVersions, map[string][]int{"Client": {1, 2}})
 	conn := api.NewTestingConnection(api.TestingConnectionParams{
 		FacadeVersions: map[string][]int{
 			"Client": {0, 1},
@@ -78,7 +78,7 @@ func (s *facadeVersionSuite) TestBestFacadeVersionNewerClient(c *gc.C) {
 }
 
 func (s *facadeVersionSuite) TestBestFacadeVersionServerUnknown(c *gc.C) {
-	s.PatchValue(&api.FacadeVersions, map[string]int{"TestingAPI": 2})
+	s.PatchValue(&api.FacadeVersions, map[string][]int{"TestingAPI": {1, 2}})
 	conn := api.NewTestingConnection(api.TestingConnectionParams{
 		FacadeVersions: map[string][]int{
 			"Client": {0, 1},
