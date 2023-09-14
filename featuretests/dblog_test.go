@@ -88,7 +88,12 @@ func (s *dblogSuite) TestControllerAgentLogsGoToDBCAAS(c *gc.C) {
 	cfg, _ := s.PrimeAgentVersion(c, node.Tag(), password, vers)
 
 	logger := loggo.GetLogger("juju.featuretests")
-	err = database.BootstrapDqlite(context.TODO(), database.NewNodeManager(cfg, logger, coredatabase.NoopSlowQueryLogger{}), logger, s.InitialDBOps...)
+	err = database.BootstrapDqlite(
+		context.Background(),
+		database.NewNodeManager(cfg, logger, coredatabase.NoopSlowQueryLogger{}),
+		logger,
+		true,
+		s.InitialDBOps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertAgentLogsGoToDB(c, node.Tag(), true)
