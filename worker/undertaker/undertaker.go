@@ -23,9 +23,6 @@ import (
 	"github.com/juju/juju/worker/common"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package undertaker_test -destination facade_mock_test.go github.com/juju/juju/worker/undertaker Facade
-//go:generate go run go.uber.org/mock/mockgen -package undertaker_test -destination credentialapi_mock_test.go github.com/juju/juju/worker/common CredentialAPI
-
 // Facade covers the parts of the api/undertaker.UndertakerClient that we
 // need for the worker. It's more than a little raw, but we'll survive.
 type Facade interface {

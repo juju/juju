@@ -352,7 +352,7 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 	facade.EXPECT().WatchModelResources().DoAndReturn(func() (watcher.NotifyWatcher, error) {
 		return watchertest.NewMockNotifyWatcher(modelResources), nil
 	})
-	facade.EXPECT().ModelConfig().Return(nil, nil)
+	facade.EXPECT().ModelConfig(gomock.Any()).Return(nil, nil)
 
 	gomock.InOrder(
 		facade.EXPECT().ModelInfo().Return(params.UndertakerModelInfoResult{
@@ -362,7 +362,7 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 			},
 		}, nil),
 		facade.EXPECT().ProcessDyingModel().Return(nil),
-		facade.EXPECT().CloudSpec().DoAndReturn(func() (cloudspec.CloudSpec, error) {
+		facade.EXPECT().CloudSpec(gomock.Any()).DoAndReturn(func(_ context.Context) (cloudspec.CloudSpec, error) {
 			modelChanged <- struct{}{}
 			return cloudspec.CloudSpec{}, nil
 		}),
@@ -387,7 +387,9 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	workertest.CheckKilled(c, w)
+	// Ignore the error from the CheckKilled call, we'll check the specifics
+	// later. We just want to make sure that the worker exits.
+	_ = workertest.CheckKilled(c, w)
 
 	err = w.Wait()
 	c.Assert(err, gc.ErrorMatches, "model destroy parameters changed")

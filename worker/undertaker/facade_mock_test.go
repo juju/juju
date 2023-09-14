@@ -5,6 +5,7 @@
 package undertaker_test
 
 import (
+	context "context"
 	reflect "reflect"
 
 	status "github.com/juju/juju/core/status"
@@ -39,33 +40,33 @@ func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 }
 
 // CloudSpec mocks base method.
-func (m *MockFacade) CloudSpec() (cloudspec.CloudSpec, error) {
+func (m *MockFacade) CloudSpec(arg0 context.Context) (cloudspec.CloudSpec, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudSpec")
+	ret := m.ctrl.Call(m, "CloudSpec", arg0)
 	ret0, _ := ret[0].(cloudspec.CloudSpec)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CloudSpec indicates an expected call of CloudSpec.
-func (mr *MockFacadeMockRecorder) CloudSpec() *gomock.Call {
+func (mr *MockFacadeMockRecorder) CloudSpec(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockFacade)(nil).CloudSpec))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockFacade)(nil).CloudSpec), arg0)
 }
 
 // ModelConfig mocks base method.
-func (m *MockFacade) ModelConfig() (*config.Config, error) {
+func (m *MockFacade) ModelConfig(arg0 context.Context) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig")
+	ret := m.ctrl.Call(m, "ModelConfig", arg0)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockFacadeMockRecorder) ModelConfig() *gomock.Call {
+func (mr *MockFacadeMockRecorder) ModelConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockFacade)(nil).ModelConfig))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockFacade)(nil).ModelConfig), arg0)
 }
 
 // ModelInfo mocks base method.
@@ -126,10 +127,10 @@ func (mr *MockFacadeMockRecorder) SetStatus(arg0, arg1, arg2 interface{}) *gomoc
 }
 
 // WatchModel mocks base method.
-func (m *MockFacade) WatchModel() (watcher.NotifyWatcher, error) {
+func (m *MockFacade) WatchModel() (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchModel")
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -141,10 +142,10 @@ func (mr *MockFacadeMockRecorder) WatchModel() *gomock.Call {
 }
 
 // WatchModelResources mocks base method.
-func (m *MockFacade) WatchModelResources() (watcher.NotifyWatcher, error) {
+func (m *MockFacade) WatchModelResources() (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchModelResources")
-	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
