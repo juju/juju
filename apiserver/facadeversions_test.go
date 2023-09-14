@@ -24,17 +24,17 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	// code just to list out what versions are available. However, we do
 	// want to make sure that the two sides are kept in sync.
 	clientFacadeNames := set.NewStrings()
-	for name, version := range api.FacadeVersions {
+	for name, versions := range api.FacadeVersions {
 		clientFacadeNames.Add(name)
 		// All versions should now be non-zero.
-		c.Check(version, jc.GreaterThan, 0)
+		c.Check(set.NewInts(versions...).Contains(0), jc.IsFalse)
 	}
 	allServerFacades := apiserver.AllFacades().List()
 	serverFacadeNames := set.NewStrings()
-	serverFacadeBestVersions := make(map[string]int, len(allServerFacades))
+	serverFacadeBestVersions := make(map[string][]int, len(allServerFacades))
 	for _, facade := range allServerFacades {
 		serverFacadeNames.Add(facade.Name)
-		serverFacadeBestVersions[facade.Name] = facade.Versions[len(facade.Versions)-1]
+		serverFacadeBestVersions[facade.Name] = facade.Versions
 	}
 	// First check that both sides know about all the same versions
 	c.Check(serverFacadeNames.Difference(clientFacadeNames).SortedValues(), gc.HasLen, 0)

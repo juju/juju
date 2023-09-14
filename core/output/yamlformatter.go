@@ -192,10 +192,7 @@ func (f *YamlFormatter) isComment() bool {
 }
 
 func (f *YamlFormatter) isValueBoolean() bool {
-	if (strings.ToLower(f.val) == "true") || (strings.ToLower(f.val) == "false") {
-		return true
-	}
-	return false
+	return strings.EqualFold(f.val, "true") || strings.EqualFold(f.val, "false")
 }
 
 func (f *YamlFormatter) isValueNumber() bool {

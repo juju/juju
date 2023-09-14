@@ -667,7 +667,7 @@ func queryCloudType(pollster *interact.Pollster) (string, error) {
 		// Print out a different message if they entered a valid provider that
 		// just isn't something we want people to add (like ec2).
 		for _, name := range unsupported {
-			if strings.ToLower(name) == strings.ToLower(s) {
+			if strings.EqualFold(name, s) {
 				return false, fmt.Sprintf("Cloud type %q not supported for interactive add-cloud.", s), nil
 			}
 		}

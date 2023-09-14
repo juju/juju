@@ -202,7 +202,7 @@ func buildApplicationMatcherShims(a *state.Application, patterns ...string) (shi
 	// Match on name.
 	shims = append(shims, func() (bool, bool, error) {
 		for _, p := range patterns {
-			if strings.ToLower(a.Name()) == strings.ToLower(p) {
+			if strings.EqualFold(a.Name(), p) {
 				return true, true, nil
 			}
 		}
