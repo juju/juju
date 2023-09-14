@@ -585,7 +585,8 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// SeedDatabase the database with test values.
+// SeedDatabase the database with a supplied controller config, and dummy
+// cloud and dummy credentials.
 func SeedDatabase(c *gc.C, runner coredatabase.TxnRunner, controllerConfig controller.Config) {
 	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
