@@ -63,7 +63,7 @@ func (p *tmpfsProvider) FilesystemSource(sourceConfig *storage.Config) (storage.
 	// storageDir is validated by validateFullConfig.
 	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
 	return &tmpfsFilesystemSource{
-		&osDirFuncs{p.run},
+		&osDirFuncs{run: p.run},
 		p.run,
 		storageDir,
 	}, nil

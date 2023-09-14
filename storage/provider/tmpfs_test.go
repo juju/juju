@@ -5,6 +5,7 @@ package provider_test
 
 import (
 	"errors"
+	"fmt"
 	"runtime"
 
 	"github.com/juju/names/v4"
@@ -26,6 +27,10 @@ type tmpfsSuite struct {
 	fakeEtcDir string
 
 	callCtx context.ProviderCallContext
+}
+
+func mountInfoTmpfsLine(id int, mountPoint, source string) string {
+	return fmt.Sprintf("%d 6666 8:1 / %s rw,relatime shared:1 - tmpfs %s rw,size=5120k,uid=1000000,gid=1000000,inode64", id, mountPoint, source)
 }
 
 func (s *tmpfsSuite) SetUpTest(c *gc.C) {
@@ -85,12 +90,13 @@ func (s *tmpfsSuite) TestScope(c *gc.C) {
 	c.Assert(p.Scope(), gc.Equals, storage.ScopeMachine)
 }
 
-func (s *tmpfsSuite) tmpfsFilesystemSource(c *gc.C) storage.FilesystemSource {
+func (s *tmpfsSuite) tmpfsFilesystemSource(c *gc.C, fakeMountInfo ...string) storage.FilesystemSource {
 	s.commands = &mockRunCommand{c: c}
 	return provider.TmpfsFilesystemSource(
 		s.fakeEtcDir,
 		s.storageDir,
 		s.commands.run,
+		fakeMountInfo...,
 	)
 }
 
@@ -177,9 +183,9 @@ func (s *tmpfsSuite) TestAttachFilesystemsPathNotDir(c *gc.C) {
 }
 
 func (s *tmpfsSuite) TestAttachFilesystemsAlreadyMounted(c *gc.C) {
-	source := s.tmpfsFilesystemSource(c)
-	cmd := s.commands.expect("df", "--output=source", "exists")
-	cmd.respond("header\nfilesystem-123", nil)
+	mountInfo := mountInfoTmpfsLine(666, testMountPoint, names.NewFilesystemTag("123").String())
+	mountInfo2 := mountInfoTmpfsLine(667, "/some/mount/point", names.NewFilesystemTag("666").String())
+	source := s.tmpfsFilesystemSource(c, mountInfo, mountInfo2)
 	_, err := source.CreateFilesystems(s.callCtx, []storage.FilesystemParams{{
 		Tag:  names.NewFilesystemTag("123"),
 		Size: 1,
@@ -187,14 +193,14 @@ func (s *tmpfsSuite) TestAttachFilesystemsAlreadyMounted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem: names.NewFilesystemTag("123"),
-		Path:       "exists",
+		Path:       testMountPoint,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
 		FilesystemAttachment: &storage.FilesystemAttachment{
 			Filesystem: names.NewFilesystemTag("123"),
 			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
-				Path: "exists",
+				Path: testMountPoint,
 			},
 		},
 	}})
@@ -208,8 +214,6 @@ func (s *tmpfsSuite) TestAttachFilesystemsMountReadOnly(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cmd := s.commands.expect("df", "--output=source", "/var/lib/juju/storage/fs/foo")
-	cmd.respond("header\nvalue", nil)
 	s.commands.expect("mount", "-t", "tmpfs", "filesystem-1", "/var/lib/juju/storage/fs/foo", "-o", "size=1024m,ro")
 
 	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
@@ -241,9 +245,7 @@ func (s *tmpfsSuite) TestAttachFilesystemsMountFails(c *gc.C) {
 	}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cmd := s.commands.expect("df", "--output=source", "/var/lib/juju/storage/fs/foo")
-	cmd.respond("header\nvalue", nil)
-	cmd = s.commands.expect("mount", "-t", "tmpfs", "filesystem-1", "/var/lib/juju/storage/fs/foo", "-o", "size=1024m")
+	cmd := s.commands.expect("mount", "-t", "tmpfs", "filesystem-1", "/var/lib/juju/storage/fs/foo", "-o", "size=1024m")
 	cmd.respond("", errors.New("mount failed"))
 
 	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
@@ -279,7 +281,8 @@ func (s *tmpfsSuite) TestAttachFilesystemsNoFilesystem(c *gc.C) {
 }
 
 func (s *tmpfsSuite) TestDetachFilesystems(c *gc.C) {
-	source := s.tmpfsFilesystemSource(c)
+	mountInfo := mountInfoTmpfsLine(666, testMountPoint, names.NewFilesystemTag("0/0").String())
+	source := s.tmpfsFilesystemSource(c, mountInfo)
 	testDetachFilesystems(c, s.commands, source, s.callCtx, true, s.fakeEtcDir, "")
 }
 

@@ -22,7 +22,7 @@ func LoopVolumeSource(
 	run func(string, ...string) (string, error),
 ) (storage.VolumeSource, *MockDirFuncs) {
 	dirFuncs := &MockDirFuncs{
-		osDirFuncs{run},
+		osDirFuncs{run: run},
 		etcDir,
 		set.NewStrings(),
 	}
@@ -40,9 +40,11 @@ func NewMockManagedFilesystemSource(
 	run func(string, ...string) (string, error),
 	volumeBlockDevices map[names.VolumeTag]storage.BlockDevice,
 	filesystems map[names.FilesystemTag]storage.Filesystem,
+	fakeMountInfo ...string,
 ) (storage.FilesystemSource, *MockDirFuncs) {
+	rdr := strings.NewReader(strings.Join(fakeMountInfo, "\n"))
 	dirFuncs := &MockDirFuncs{
-		osDirFuncs{run},
+		osDirFuncs{run: run, mountInfoRdr: rdr},
 		etcDir,
 		set.NewStrings(),
 	}
@@ -111,9 +113,10 @@ func (m *MockDirFuncs) fileCount(name string) (int, error) {
 	return 0, nil
 }
 
-func RootfsFilesystemSource(etcDir, storageDir string, run func(string, ...string) (string, error)) (storage.FilesystemSource, *MockDirFuncs) {
+func RootfsFilesystemSource(etcDir, storageDir string, run func(string, ...string) (string, error), fakeMountInfo ...string) (storage.FilesystemSource, *MockDirFuncs) {
+	rdr := strings.NewReader(strings.Join(fakeMountInfo, "\n"))
 	d := &MockDirFuncs{
-		osDirFuncs{run},
+		osDirFuncs{run: run, mountInfoRdr: rdr},
 		etcDir,
 		set.NewStrings(),
 	}
@@ -124,10 +127,11 @@ func RootfsProvider(run func(string, ...string) (string, error)) storage.Provide
 	return &rootfsProvider{run}
 }
 
-func TmpfsFilesystemSource(etcDir, storageDir string, run func(string, ...string) (string, error)) storage.FilesystemSource {
+func TmpfsFilesystemSource(etcDir, storageDir string, run func(string, ...string) (string, error), fakeMountInfo ...string) storage.FilesystemSource {
+	rdr := strings.NewReader(strings.Join(fakeMountInfo, "\n"))
 	return &tmpfsFilesystemSource{
 		&MockDirFuncs{
-			osDirFuncs{run},
+			osDirFuncs{run: run, mountInfoRdr: rdr},
 			etcDir,
 			set.NewStrings(),
 		},

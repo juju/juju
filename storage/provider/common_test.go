@@ -48,14 +48,8 @@ func testDetachFilesystems(
 	mounted bool,
 	etcDir, fstab string,
 ) {
-	cmd := commands.expect("df", "--output=source", filepath.Dir(testMountPoint))
-	cmd.respond("headers\n/same/as/rootfs", nil)
-	cmd = commands.expect("df", "--output=source", testMountPoint)
 	if mounted {
-		cmd.respond("headers\n/different/to/rootfs", nil)
 		commands.expect("umount", testMountPoint)
-	} else {
-		cmd.respond("headers\n/same/as/rootfs", nil)
 	}
 
 	results, err := source.DetachFilesystems(callCtx, []storage.FilesystemAttachmentParams{{

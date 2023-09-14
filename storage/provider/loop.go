@@ -59,7 +59,7 @@ func (lp *loopProvider) VolumeSource(sourceConfig *storage.Config) (storage.Volu
 	// storageDir is validated by validateFullConfig.
 	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
 	return &loopVolumeSource{
-		&osDirFuncs{lp.run},
+		&osDirFuncs{run: lp.run},
 		lp.run,
 		storageDir,
 	}, nil
