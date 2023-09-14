@@ -10,9 +10,16 @@ import (
 	"github.com/juju/names/v4"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/rpc/params"
 )
+
+// ControllerConfigService is an interface that provides the controller
+// configuration for the model.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // ExternalControllerService defines the methods that the controller
 // facade needs from the controller state.

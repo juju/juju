@@ -34,6 +34,7 @@ func Stop(w Stopper, t *tomb.Tomb) {
 
 // EnsureErr returns the error with which w died. Calling it will also
 // return an error if w is still running or was stopped cleanly.
+// Deprecated: This function is deprecated. Use apiserver/internal/EnsureRegisterWatcher
 func EnsureErr(w Errer) error {
 	err := w.Err()
 	if err == nil {

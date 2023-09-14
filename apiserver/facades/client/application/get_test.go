@@ -4,11 +4,9 @@
 package application_test
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/juju/charm/v11"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/environschema.v1"
@@ -19,7 +17,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
-	"github.com/juju/juju/cloud"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
@@ -39,28 +36,9 @@ type getSuite struct {
 
 var _ = gc.Suite(&getSuite{})
 
-type mockCloudService struct {
-	clouds map[string]cloud.Cloud
-}
-
-func (b *mockCloudService) Get(_ context.Context, name string) (*cloud.Cloud, error) {
-	cld, ok := b.clouds[name]
-	if !ok {
-		return nil, errors.NotFoundf("cloud %q", name)
-	}
-	return &cld, nil
-}
-
 func (s *getSuite) SetUpTest(c *gc.C) {
-	s.CloudService = &mockCloudService{
-		clouds: map[string]cloud.Cloud{
-			"dummy":     jujutesting.DefaultCloud,
-			"caascloud": {Name: "caascloud", Type: "kubernetes"},
-		},
-	}
-	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	s.CredentialService = apiservertesting.ConstCredentialGetter(&cred)
 	s.ApiServerSuite.SetUpTest(c)
+	s.ApiServerSuite.SeedCAASCloud(c)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: jujutesting.AdminUser,
@@ -71,6 +49,9 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	blockChecker := common.NewBlockChecker(st)
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+
+	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+
 	api, err := application.NewAPIBase(
 		application.GetState(st),
 		nil,
@@ -80,8 +61,8 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		nil,
 		blockChecker,
 		application.GetModel(model),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,
@@ -199,6 +180,9 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	blockChecker := common.NewBlockChecker(st)
 	mod, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
+
+	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+
 	api, err := application.NewAPIBase(
 		application.GetState(st),
 		nil,
@@ -208,8 +192,8 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		nil,
 		blockChecker,
 		application.GetModel(mod),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		nil, // leadership not used in this suite.
 		application.CharmToStateCharm,
 		application.DeployApplication,

@@ -48,7 +48,6 @@ import (
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/database"
-	dbtesting "github.com/juju/juju/database/testing"
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
@@ -119,7 +118,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	})
 	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 	s.PatchValue(&extraBootstrapOpts, []database.BootstrapOpt{
-		dbtesting.DummyCloudOpt,
+		jujutesting.InsertDummyCloudType,
 	})
 
 	s.MgoSuite.SetUpTest(c)

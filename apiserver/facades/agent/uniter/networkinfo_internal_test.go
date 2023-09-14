@@ -4,19 +4,21 @@
 package uniter
 
 import (
+	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc/params"
 )
 
-type networkInfoSuite struct {
+type internalNetworkInfoSuite struct {
+	testing.IsolationSuite
 }
 
-var _ = gc.Suite(&networkInfoSuite{})
+var _ = gc.Suite(&internalNetworkInfoSuite{})
 
 // TestUniqueNetworkInfoResults ensures that
 // we don't get a regression for LP1864072.
-func (s *networkInfoSuite) TestUniqueNetworkInfoResults(c *gc.C) {
+func (s *internalNetworkInfoSuite) TestUniqueNetworkInfoResults(c *gc.C) {
 	resWithDups := params.NetworkInfoResults{
 		Results: map[string]params.NetworkInfoResult{
 			"ep0": {

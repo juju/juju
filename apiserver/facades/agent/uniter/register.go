@@ -26,11 +26,22 @@ func Register(registry facade.FacadeRegistry) {
 
 // newUniterAPI creates a new instance of the core Uniter API.
 func newUniterAPI(context facade.Context) (*UniterAPI, error) {
-	return newUniterAPIWithCredentialService(context, context.ServiceFactory().Cloud(), context.ServiceFactory().Credential())
+	serviceFactory := context.ServiceFactory()
+	return newUniterAPIWithServices(
+		context,
+		serviceFactory.ControllerConfig(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
+	)
 }
 
-// newUniterAPI creates a new instance of the core Uniter API.
-func newUniterAPIWithCredentialService(context facade.Context, cloudService common.CloudService, credentialService common.CredentialService) (*UniterAPI, error) {
+// newUniterAPIWithServices creates a new instance using the services.
+func newUniterAPIWithServices(
+	context facade.Context,
+	controllerConfigService ControllerConfigService,
+	cloudService CloudService,
+	credentialService CredentialService,
+) (*UniterAPI, error) {
 	authorizer := context.Auth()
 	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -67,9 +78,7 @@ func newUniterAPIWithCredentialService(context facade.Context, cloudService comm
 		return nil, errors.Trace(err)
 	}
 
-	controllerConfigGetter := context.ServiceFactory().ControllerConfig()
-
-	msAPI, err := meterstatus.NewMeterStatusAPI(controllerConfigGetter, st, resources, authorizer, context.Logger().Child("meterstatus"))
+	msAPI, err := meterstatus.NewMeterStatusAPI(controllerConfigService, st, resources, authorizer, context.Logger().Child("meterstatus"))
 	if err != nil {
 		return nil, errors.Annotate(err, "could not create meter status API handler")
 	}
@@ -100,7 +109,7 @@ func newUniterAPIWithCredentialService(context facade.Context, cloudService comm
 		ModelWatcher:               common.NewModelWatcher(m, resources, authorizer),
 		RebootRequester:            common.NewRebootRequester(st, accessMachine),
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
-		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigGetter, st, resources, authorizer, accessUnit, logger),
+		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigService, st, resources, authorizer, accessUnit, logger),
 		SecretsManagerAPI:          secretsAPI,
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
 		MeterStatus:                msAPI,
@@ -109,21 +118,22 @@ func newUniterAPIWithCredentialService(context facade.Context, cloudService comm
 		// own status *and* its application's? This is not a pleasing arrangement.
 		StatusAPI: NewStatusAPI(m, accessUnitOrApplication, leadershipChecker),
 
-		m:                 m,
-		st:                st,
-		cloudService:      cloudService,
-		credentialService: credentialService,
-		clock:             aClock,
-		cancel:            context.Cancel(),
-		auth:              authorizer,
-		resources:         resources,
-		leadershipChecker: leadershipChecker,
-		accessUnit:        accessUnit,
-		accessApplication: accessApplication,
-		accessMachine:     accessMachine,
-		accessCloudSpec:   accessCloudSpec,
-		cloudSpecer:       cloudSpec,
-		StorageAPI:        storageAPI,
-		logger:            logger,
+		m:                       m,
+		st:                      st,
+		controllerConfigService: controllerConfigService,
+		cloudService:            cloudService,
+		credentialService:       credentialService,
+		clock:                   aClock,
+		cancel:                  context.Cancel(),
+		auth:                    authorizer,
+		resources:               resources,
+		leadershipChecker:       leadershipChecker,
+		accessUnit:              accessUnit,
+		accessApplication:       accessApplication,
+		accessMachine:           accessMachine,
+		accessCloudSpec:         accessCloudSpec,
+		cloudSpecer:             cloudSpec,
+		StorageAPI:              storageAPI,
+		logger:                  logger,
 	}, nil
 }

@@ -44,15 +44,14 @@ func (s *lxdProfileSuite) assertBackendAPI(c *gc.C, tag names.Tag) (*uniter.LXDP
 
 	unitAuthFunc := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
-			if tag.Id() == s.unitTag1.Id() {
-				return true
-			}
-			return false
+			return tag.Id() == s.unitTag1.Id()
 		}, nil
 	}
 
 	api := uniter.NewLXDProfileAPI(
-		mockBackend, resources, authorizer, unitAuthFunc, loggo.GetLogger("juju.apiserver.facades.agent.uniter"))
+		mockBackend, resources, authorizer, unitAuthFunc,
+		loggo.GetLogger("juju.apiserver.facades.agent.uniter"),
+	)
 	return api, ctrl, mockBackend
 }
 

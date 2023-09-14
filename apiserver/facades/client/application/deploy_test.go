@@ -55,13 +55,16 @@ func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
+
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "juju-controller"})
 	_, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "my-controller",
 			Charm:           ch,
@@ -72,12 +75,14 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+
 	app, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -93,14 +98,15 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
-	var f fakeDeployer
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
 
+	var f fakeDeployer
 	_, err := application.DeployApplication(
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -116,14 +122,16 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 
 	app, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName:  "bob",
 			Charm:            wordpressCharm,
@@ -176,6 +184,8 @@ func (s *DeployLocalSuite) assertBindings(c *gc.C, app application.Application, 
 }
 
 func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+
 	wordpressCharm := s.addWordpressCharm(c)
 	st := s.ControllerModel(c).State()
 	dbSpace, err := st.AddSpace("db", "", nil, false)
@@ -190,8 +200,8 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		model,
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -221,6 +231,8 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames(c *gc.C) {
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 	st := s.ControllerModel(c).State()
 	dbSpace, err := st.AddSpace("db", "", nil, false)
@@ -237,8 +249,8 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 		context.Background(),
 		stateDeployer{State: st},
 		model,
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -269,6 +281,8 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 }
 
 func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+
 	wordpressCharm := s.addWordpressCharm(c)
 	st := s.ControllerModel(c).State()
 	_, err := st.AddSpace("db", "", nil, false)
@@ -283,8 +297,8 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		model,
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
@@ -303,14 +317,15 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
-	var f fakeDeployer
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
 
+	var f fakeDeployer
 	_, err := application.DeployApplication(
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -329,12 +344,14 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+
 	app, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -353,13 +370,15 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+
 	st := s.ControllerModel(c).State()
 	_, err := application.DeployApplication(
 		context.Background(),
 		stateDeployer{State: st},
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -385,6 +404,8 @@ func sampleApplicationConfigSchema() environschema.Fields {
 }
 
 func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+
 	cfg, err := coreconfig.NewConfig(map[string]interface{}{
 		"outlook":     "good",
 		"skill-level": 1,
@@ -395,8 +416,8 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: s.ControllerModel(c).State()},
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName:   "bob",
 			Charm:             s.charm,
@@ -412,6 +433,8 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+
 	st := s.ControllerModel(c).State()
 	err := st.SetModelConstraints(constraints.MustParse("mem=2G"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -421,8 +444,8 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 		context.Background(),
 		stateDeployer{State: st},
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -435,15 +458,16 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
-	var f fakeDeployer
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
 
+	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
 	_, err := application.DeployApplication(
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -461,15 +485,16 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
-	var f fakeDeployer
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
 
+	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
 	_, err := application.DeployApplication(
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -490,15 +515,16 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
-	var f fakeDeployer
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
 
+	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
 	_, err := application.DeployApplication(
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -518,8 +544,9 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
-	var f fakeDeployer
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
 
+	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{
 		{Scope: s.ControllerModelUUID(), Directive: "valid"},
@@ -531,8 +558,8 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
@@ -552,6 +579,8 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
 	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
 	st := s.ControllerModel(c).State()
@@ -567,8 +596,8 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 		context.Background(),
 		&f,
 		model,
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
 			Charm:           charm,
@@ -580,6 +609,8 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C) {
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
 	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
 	st := s.ControllerModel(c).State()
@@ -595,8 +626,8 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 		context.Background(),
 		&f,
 		model,
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "assume-metal",
 			Charm:           charm,
@@ -609,16 +640,17 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 }
 
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
-	var f fakeDeployer
+	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
 
+	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
 	placement := []*instance.Placement{{Scope: s.ControllerModelUUID(), Directive: "valid"}}
 	_, err := application.DeployApplication(
 		context.Background(),
 		&f,
 		s.ControllerModel(c),
-		s.ControllerServiceFactory.Cloud(),
-		s.ControllerServiceFactory.Credential(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		application.DeployApplicationParams{
 			ApplicationName: "bob",
 			Charm:           s.charm,
