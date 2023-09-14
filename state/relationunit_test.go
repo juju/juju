@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"golang.org/x/sync/errgroup"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
@@ -397,7 +399,7 @@ func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, pru)
 	err = pru.EnterScope(nil)
-	c.Assert(err, gc.Equals, stateerrors.ErrCannotEnterScopeYet)
+	c.Assert(err, gc.ErrorMatches, ".*"+stateerrors.ErrCannotEnterScopeYet.Error())
 	assertNotInScope(c, pru)
 
 	// Remove the subordinate, and enter scope again; this should work, and
@@ -438,7 +440,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	// Check that we can't add a new unit now.
 	assertNotInScope(c, pr.ru2)
 	err = pr.ru2.EnterScope(nil)
-	c.Assert(err, gc.Equals, stateerrors.ErrCannotEnterScope)
+	c.Assert(err, gc.ErrorMatches, ".*"+stateerrors.ErrCannotEnterScope.Error())
 	assertNotInScope(c, pr.ru2)
 
 	// Check that we created no settings for the unit we failed to add.
@@ -528,7 +530,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertNotInScope(c, pr.ru3)
 	err = pr.ru3.EnterScope(nil)
-	c.Assert(err, gc.Equals, stateerrors.ErrCannotEnterScope)
+	c.Assert(err, gc.ErrorMatches, ".*"+stateerrors.ErrCannotEnterScope.Error())
 	assertNotInScope(c, pr.ru3)
 }
 
@@ -1045,13 +1047,14 @@ func (prr *ProReqRelation) watches() []*state.RelationScopeWatcher {
 }
 
 func (prr *ProReqRelation) allEnterScope(c *gc.C) {
-	err := prr.pru0.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = prr.pru1.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rru0.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = prr.rru1.EnterScope(nil)
+	g, _ := errgroup.WithContext(context.Background())
+
+	g.Go(func() error { return prr.pru0.EnterScope(nil) })
+	g.Go(func() error { return prr.pru1.EnterScope(nil) })
+	g.Go(func() error { return prr.rru0.EnterScope(nil) })
+	g.Go(func() error { return prr.rru1.EnterScope(nil) })
+
+	err := g.Wait()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
