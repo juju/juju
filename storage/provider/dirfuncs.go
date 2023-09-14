@@ -4,12 +4,14 @@
 package provider
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/moby/sys/mountinfo"
 )
 
 // dirFuncs is used to allow the real directory operations to
@@ -39,7 +41,8 @@ type dirFuncs interface {
 // osDirFuncs is an implementation of dirFuncs that operates on the real
 // filesystem.
 type osDirFuncs struct {
-	run runCommandFunc
+	run          runCommandFunc
+	mountInfoRdr io.ReadSeeker
 }
 
 func (*osDirFuncs) etcDir() string {
@@ -79,14 +82,91 @@ func (o *osDirFuncs) bindMount(source, target string) error {
 	return err
 }
 
-func (o *osDirFuncs) mountPoint(path string) (string, error) {
-	target, err := df(o.run, path, "target")
-	return target, err
+const mountInfoPath = "/proc/self/mountinfo"
+
+func (o *osDirFuncs) infoReader() (io.ReadSeeker, func(), error) {
+	if o.mountInfoRdr == nil {
+		f, err := os.Open(mountInfoPath)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		return f, func() {
+			_ = f.Close()
+		}, nil
+	}
+	return o.mountInfoRdr, func() {
+		_, _ = o.mountInfoRdr.Seek(0, 0)
+	}, nil
 }
 
-func (o *osDirFuncs) mountPointSource(path string) (string, error) {
-	source, err := df(o.run, path, "source")
-	return source, err
+func (o *osDirFuncs) mountPoint(path string) (string, error) {
+	infoReader, closer, err := o.infoReader()
+	if err != nil {
+		return "", errors.Annotatef(err, "opening %s", mountInfoPath)
+	}
+	defer closer()
+	mi, err := getMountsFromReader(infoReader, mountinfo.SingleEntryFilter(path))
+	if err != nil {
+		return "", errors.Annotatef(err, "getting info for mount point %q", path)
+	}
+	if len(mi) == 0 {
+		return "", nil
+	}
+	return mi[0].Source, nil
+}
+
+func (o *osDirFuncs) mountPointSource(target string) (result string, _ error) {
+	defer func() {
+		logger.Debugf("mount point source for %q is %q", target, result)
+	}()
+
+	infoReader, closer, err := o.infoReader()
+	if err != nil {
+		return "", errors.Annotate(err, "opening /proc/self/mountinfo")
+	}
+	defer closer()
+
+	mi, err := getMountsFromReader(infoReader, nil)
+	if err != nil {
+		return "", errors.Annotatef(err, "getting info for mount point %q", target)
+	}
+	if len(mi) == 0 {
+		return "", nil
+	}
+
+	mountsById := make(map[int]*mountinfo.Info)
+	var targetInfo *mountinfo.Info
+	for _, m := range mi {
+		mountsById[m.ID] = m
+		if m.Mountpoint == target {
+			mp := *m
+			targetInfo = &mp
+		}
+	}
+	if targetInfo == nil {
+		return "", nil
+	}
+
+	if targetInfo.FSType == "tmpfs" {
+		return targetInfo.Source, nil
+	}
+
+	// Step through any parent records to progressively
+	// resolve the absolute source path.
+	source := targetInfo.Root
+	for {
+		next, ok := mountsById[targetInfo.Parent]
+		if !ok {
+			break
+		}
+		next.Root = strings.TrimSuffix(next.Root, "/")
+		next.Mountpoint = strings.TrimSuffix(next.Mountpoint, "/")
+		if strings.HasPrefix(source, next.Root+"/") {
+			source = strings.Replace(source, next.Root, next.Mountpoint, 1)
+		}
+		targetInfo = next
+	}
+	return source, nil
 }
 
 func df(run runCommandFunc, path, field string) (string, error) {
