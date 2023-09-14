@@ -44,10 +44,12 @@ jobs:
 
     - name: Setup MicroK8s
       if: matrix.cloud == 'microk8s'
-      uses: balchua/microk8s-actions@1e8e626239c2befe7cd5d258c96ae152a7259c74
+      uses: hpidcock/microk8s-actions@87ce537eca04c0755e5b236503066634c4dc187e
       with:
         channel: "1.25/stable"
         addons: '["dns", "hostpath-storage", "rbac"]'
+        docker-user: '${{ secrets.DOCKERHUB_USERNAME }}'
+        docker-password: '${{ secrets.DOCKERHUB_PUBLIC_TOKEN }}'
 
     - name: Set up Go
       uses: actions/setup-go@v3

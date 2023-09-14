@@ -37,11 +37,13 @@ jobs:
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-    - uses: balchua/microk8s-actions@1e8e626239c2befe7cd5d258c96ae152a7259c74
+    - uses: hpidcock/microk8s-actions@87ce537eca04c0755e5b236503066634c4dc187e
       with:
         channel: '${{ matrix.microk8s }}'
         # enable now to give microk8s more time to settle down.
         addons: '["dns", "storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49"]'
+        docker-user: '${{ secrets.DOCKERHUB_USERNAME }}'
+        docker-password: '${{ secrets.DOCKERHUB_PUBLIC_TOKEN }}'
 
     - name: Install Dependencies
       run: |
