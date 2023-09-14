@@ -19733,7 +19733,10 @@
         "Description": "API provides API methods to the controllercharm worker.",
         "Version": 1,
         "AvailableTo": [
-            "unit-agent"
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
         ],
         "Schema": {
             "type": "object",
