@@ -69,7 +69,7 @@ func (p *rootfsProvider) FilesystemSource(sourceConfig *storage.Config) (storage
 	// storageDir is validated by validateFullConfig.
 	storageDir, _ := sourceConfig.ValueString(storage.ConfigStorageDir)
 	return &rootfsFilesystemSource{
-		&osDirFuncs{p.run},
+		&osDirFuncs{run: p.run},
 		p.run,
 		storageDir,
 	}, nil
