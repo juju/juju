@@ -370,8 +370,8 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, 
 		},
 	}
 	servingInfo := controller.StateServingInfo{
-		Cert:         "some cert",
-		PrivateKey:   "some key",
+		Cert:         testing.CACert,
+		PrivateKey:   testing.CAKey,
 		CAPrivateKey: "another key",
 		APIPort:      3737,
 		StatePort:    mgotesting.MgoServer.Port(),

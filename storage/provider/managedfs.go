@@ -49,7 +49,7 @@ func NewManagedFilesystemSource(
 ) storage.FilesystemSource {
 	return &managedFilesystemSource{
 		logAndExec,
-		&osDirFuncs{logAndExec},
+		&osDirFuncs{run: logAndExec},
 		volumeBlockDevices, filesystems,
 	}
 }
