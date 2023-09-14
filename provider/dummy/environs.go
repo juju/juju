@@ -37,10 +37,12 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/auditlog"
 	corebase "github.com/juju/juju/core/base"
@@ -994,6 +996,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				return errors.Trace(err)
 			}
 
+			jwtAuthenticator, err := gatherJWTAuthenticator(icfg.ControllerConfig)
+			if err != nil {
+				return fmt.Errorf("gathering authenticators for apiserver: %w", err)
+			}
+
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
 				StatePool:                  statePool,
 				Controller:                 estate.controller,
@@ -1024,6 +1031,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				MetricsCollector: apiserver.NewMetricsCollector(),
 				SysLogger:        noopSysLogger{},
 				DBGetter:         stubDBGetter{},
+				JWTAuthenticator: jwtAuthenticator,
 			})
 			if err != nil {
 				panic(err)
@@ -1051,6 +1059,19 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 		CloudBootstrapFinalizer: finalize,
 	}
 	return bsResult, nil
+}
+
+// if this controller has been provisioned to trust external jwt tokens.
+func gatherJWTAuthenticator(controllerConfig jujucontroller.Config) (jwt.Authenticator, error) {
+	jwtRefreshURL := controllerConfig.LoginTokenRefreshURL()
+	if jwtRefreshURL == "" {
+		return nil, nil
+	}
+	jwtAuthenticator := jwt.NewAuthenticator(jwtRefreshURL)
+	if err := jwtAuthenticator.RegisterJWKSCache(stdcontext.Background()); err != nil {
+		return nil, err
+	}
+	return jwtAuthenticator, nil
 }
 
 type noopSysLogger struct{}
