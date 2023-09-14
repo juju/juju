@@ -1,0 +1,12 @@
+---
+version: 0.1.0
+extraKubeletArgs:
+  --cluster-domain: cluster.local
+  --cluster-dns: 10.152.183.10
+addons:
+  - name: dns
+containerdRegistryConfigs:
+  docker.io: |
+    [host."http://10.0.1.123:80"]
+      capabilities = ["pull", "resolve"]
+      skip_verify = true
