@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/caasagent"
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
+	"github.com/juju/juju/apiserver/facades/agent/controllercharm"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
@@ -147,6 +148,7 @@ func AllFacades() *facade.Registry {
 	caasunitprovisioner.Register(registry)
 
 	controller.Register(registry)
+	controllercharm.Register(registry)
 	crossmodelrelations.Register(registry)
 	crossmodelsecrets.Register(registry)
 	crosscontroller.Register(registry)

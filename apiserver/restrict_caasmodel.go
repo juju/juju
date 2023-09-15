@@ -27,6 +27,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"Cleaner",
 	"Client",
 	"Cloud",
+	"ControllerCharm",
 	"CredentialValidator",
 	"CrossController",
 	"CrossModelRelations",

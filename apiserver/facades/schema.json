@@ -19729,6 +19729,191 @@
         }
     },
     {
+        "Name": "ControllerCharm",
+        "Description": "API provides API methods to the controllercharm worker.",
+        "Version": 1,
+        "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
+            "model-user"
+        ],
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "AddMetricsUser": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/AddUsers"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/AddUserResults"
+                        }
+                    },
+                    "description": "AddMetricsUser creates a user with the given username and password, and\ngrants the new user permission to read the metrics endpoint."
+                },
+                "RemoveMetricsUser": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    },
+                    "description": "RemoveMetricsUser removes the given user from the controller."
+                }
+            },
+            "definitions": {
+                "AddUser": {
+                    "type": "object",
+                    "properties": {
+                        "display-name": {
+                            "type": "string"
+                        },
+                        "password": {
+                            "type": "string"
+                        },
+                        "username": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "username",
+                        "display-name"
+                    ]
+                },
+                "AddUserResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "secret-key": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "AddUserResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AddUserResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "AddUsers": {
+                    "type": "object",
+                    "properties": {
+                        "users": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/AddUser"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "users"
+                    ]
+                },
+                "Entities": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
+                },
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "ErrorResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "ErrorResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ErrorResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "CredentialManager",
         "Description": "",
         "Version": 1,
