@@ -40,7 +40,6 @@ type RefresherConfig struct {
 	CharmOrigin     corecharm.Origin
 	CharmRef        string
 	Channel         charm.Channel
-	DeployedBase    corebase.Base
 	Force           bool
 	ForceBase       bool
 	Switch          bool
@@ -107,14 +106,13 @@ func (d *factory) Run(cfg RefresherConfig) (*CharmID, error) {
 func (d *factory) maybeReadLocal(charmAdder store.CharmAdder, charmRepo CharmRepository) func(RefresherConfig) (Refresher, error) {
 	return func(cfg RefresherConfig) (Refresher, error) {
 		return &localCharmRefresher{
-			charmAdder:   charmAdder,
-			charmOrigin:  cfg.CharmOrigin,
-			charmRepo:    charmRepo,
-			charmURL:     cfg.CharmURL,
-			charmRef:     cfg.CharmRef,
-			deployedBase: cfg.DeployedBase,
-			force:        cfg.Force,
-			forceBase:    cfg.ForceBase,
+			charmAdder:  charmAdder,
+			charmOrigin: cfg.CharmOrigin,
+			charmRepo:   charmRepo,
+			charmURL:    cfg.CharmURL,
+			charmRef:    cfg.CharmRef,
+			force:       cfg.Force,
+			forceBase:   cfg.ForceBase,
 		}, nil
 	}
 }
@@ -137,7 +135,6 @@ func (d *factory) maybeCharmHub(charmAdder store.CharmAdder, charmResolver Charm
 				charmOrigin:     cfg.CharmOrigin,
 				charmRef:        cfg.CharmRef,
 				channel:         cfg.Channel,
-				deployedBase:    cfg.DeployedBase,
 				switchCharm:     cfg.Switch,
 				force:           cfg.Force,
 				forceBase:       cfg.ForceBase,
@@ -148,14 +145,13 @@ func (d *factory) maybeCharmHub(charmAdder store.CharmAdder, charmResolver Charm
 }
 
 type localCharmRefresher struct {
-	charmAdder   store.CharmAdder
-	charmRepo    CharmRepository
-	charmOrigin  corecharm.Origin
-	charmURL     *charm.URL
-	charmRef     string
-	deployedBase corebase.Base
-	force        bool
-	forceBase    bool
+	charmAdder  store.CharmAdder
+	charmRepo   CharmRepository
+	charmOrigin corecharm.Origin
+	charmURL    *charm.URL
+	charmRef    string
+	force       bool
+	forceBase   bool
 }
 
 // Allowed will attempt to check if a local charm is allowed to be refreshed.
@@ -168,12 +164,9 @@ func (d *localCharmRefresher) Allowed(_ RefresherConfig) (bool, error) {
 // Refresh a given local charm.
 // Bundles are not supported as there is no physical representation in Juju.
 func (d *localCharmRefresher) Refresh() (*CharmID, error) {
-	var deployedSeries string
-	if !d.deployedBase.Channel.Empty() {
-		var err error
-		if deployedSeries, err = corebase.GetSeriesFromBase(d.deployedBase); err != nil {
-			return nil, errors.Trace(err)
-		}
+	deployedSeries, err := corebase.GetSeriesFromChannel(d.charmOrigin.Platform.OS, d.charmOrigin.Platform.Channel)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	ch, newURL, err := d.charmRepo.NewCharmAtPathForceSeries(d.charmRef, deployedSeries, d.forceBase)
 	if err == nil {
@@ -236,7 +229,6 @@ type baseRefresher struct {
 	charmOrigin     corecharm.Origin
 	charmRef        string
 	channel         charm.Channel
-	deployedBase    corebase.Base
 	switchCharm     bool
 	force           bool
 	forceBase       bool
@@ -268,12 +260,9 @@ func (r baseRefresher) ResolveCharm() (*charm.URL, commoncharm.Origin, error) {
 	if err != nil {
 		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
-
-	var deployedSeries string
-	if !r.deployedBase.Channel.Empty() {
-		if deployedSeries, err = corebase.GetSeriesFromBase(r.deployedBase); err != nil {
-			return nil, commoncharm.Origin{}, errors.Trace(err)
-		}
+	deployedSeries, err := corebase.GetSeriesFromChannel(r.charmOrigin.Platform.OS, r.charmOrigin.Platform.Channel)
+	if err != nil {
+		return nil, commoncharm.Origin{}, errors.Trace(err)
 	}
 	_, seriesSupportedErr := corecharm.SeriesForCharm(deployedSeries, supportedSeries)
 	if !r.forceBase && deployedSeries != "" && newURL.Series == "" && seriesSupportedErr != nil {
@@ -347,7 +336,7 @@ type charmHubRefresher struct {
 	baseRefresher
 }
 
-// Allowed will attempt to check if the charm store is allowed to refresh.
+// Allowed will attempt to check if the charm is allowed to refresh.
 // Depending on the charm url, will then determine if that's true or not.
 func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 	path, err := charm.EnsureSchema(cfg.CharmRef, charm.CharmHub)
@@ -393,10 +382,6 @@ func (r *charmHubRefresher) Refresh() (*CharmID, error) {
 		}, err
 	} else if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	if !r.deployedBase.Channel.Empty() {
-		origin.Base = r.deployedBase
 	}
 
 	curl, actualOrigin, err := store.AddCharmFromURL(r.charmAdder, newURL, origin, r.force)
