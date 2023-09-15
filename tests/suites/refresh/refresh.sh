@@ -111,6 +111,39 @@ run_refresh_channel_no_new_revision() {
 	destroy_model "${model_name}"
 }
 
+run_refresh_revision() {
+	# Test juju refresh from revision to another
+	echo
+
+	model_name="test-refresh-revision"
+	file="${TEST_DIR}/${model_name}.log"
+
+	ensure "${model_name}" "${file}"
+
+	juju deploy juju-qa-test --revision 22 --channel stable --series focal
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+
+	# refresh to a revision not at the tip of the stable channel
+	juju refresh juju-qa-test --revision 23
+	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" "23")"
+	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "stable")"
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+
+	# do a generic refresh, should pick up revision from latest stable
+	OUT=$(juju refresh juju-qa-test 2>&1 || true)
+	# shellcheck disable=SC2059
+	printf "${OUT}\n"
+
+	# format: Added charm-store charm "ubuntu", revision 21 in channel stable, to the model
+	revision=$(echo "${OUT}" | awk 'BEGIN{FS=","} {print $2}' | awk 'BEGIN{FS=" "} {print $2}')
+
+	wait_for "juju-qa-test" "$(charm_rev "juju-qa-test" "${revision}")"
+	wait_for "juju-qa-test" "$(charm_channel "juju-qa-test" "stable")"
+	wait_for "juju-qa-test" "$(idle_condition "juju-qa-test")"
+
+	destroy_model "${model_name}"
+}
+
 test_basic() {
 	if [ "$(skip 'test_basic')" ]; then
 		echo "==> TEST SKIPPED: basic refresh"
@@ -126,5 +159,6 @@ test_basic() {
 		run "run_refresh_local_resources"
 		run "run_refresh_channel"
 		run "run_refresh_channel_no_new_revision"
+		run "run_refresh_revision"
 	)
 }
