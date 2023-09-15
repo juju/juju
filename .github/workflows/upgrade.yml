@@ -37,7 +37,6 @@ jobs:
         run: |
           set -euxo pipefail
           sudo snap install snapcraft --classic
-          sudo snap install yq
           sudo snap install juju --classic --channel=${{ matrix.snap_version }}
           echo "/snap/bin" >> $GITHUB_PATH
 
@@ -45,8 +44,8 @@ jobs:
         if: env.RUN_TEST == 'RUN'
         uses: actions/checkout@v3
 
-        # We use LXD in the microk8s test too, to build the snap.
       - name: Setup LXD
+        if: env.RUN_TEST == 'RUN' && matrix.model_type == 'localhost'
         uses: canonical/setup-lxd@90d76101915da56a42a562ba766b1a77019242fd
         with:
           channel: 4.0/candidate
@@ -83,6 +82,7 @@ jobs:
         shell: bash
         run: |
           (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json '.registry-mirrors += ["http://10.0.1.123:80"]' | sudo tee /etc/docker/daemon.json
+          (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json ".insecure-registries += [\"${DOCKER_REGISTRY}\"]" | sudo tee /etc/docker/daemon.json
           sudo systemctl restart docker
           docker system info
 
@@ -109,23 +109,15 @@ jobs:
           # Recognise CA
           sudo cp ~/certs/ca.crt /usr/local/share/ca-certificates
           sudo update-ca-certificates
-          
-          sudo mkdir -p /etc/docker/certs.d/${DOCKER_REGISTRY}/
-          sudo cp ~/certs/ca.crt /etc/docker/certs.d/${DOCKER_REGISTRY}/
-          
+                    
           # Generate certs
           openssl req -nodes -newkey rsa:2048 -keyout ~/certs/registry.key -out ~/certs/registry.csr -subj "/CN=registry"
           
           openssl x509 -req -in ~/certs/registry.csr -CA ~/certs/ca.crt -CAkey ~/certs/ca.key \
-            -out ~/certs/registry.crt -CAcreateserial -days 365 -sha256 -extfile .github/registry.ext
+            -out ~/certs/registry.crt -CAcreateserial -days 365 -sha256 -extfile $GITHUB_WORKSPACE/.github/registry.ext
           
           # Deploy registry
-          cat .github/reg.yml | CERT_DIR=$HOME/certs envsubst | sg microk8s "microk8s kubectl create -f -"
-          
-          # TODO:(jack-w-shaw) Figure out why we need this and do something nicer
-          sudo microk8s refresh-certs --cert ca.crt
-          sudo microk8s refresh-certs --cert server.crt
-          sg microk8s "microk8s status --wait-ready"
+          cat $GITHUB_WORKSPACE/.github/reg.yml | CERT_DIR=$HOME/certs envsubst | sg microk8s "microk8s kubectl create -f -"
           
           # Wait for registry
           sg microk8s "microk8s kubectl wait --for condition=available deployment registry -n container-registry --timeout 180s" || true
@@ -200,12 +192,7 @@ jobs:
       - name: Add `wait-for` plugin
         shell: bash
         run: |
-          # Download a stable version of Juju
-          curl -L -O https://github.com/juju/juju/archive/refs/tags/juju-2.9.29.tar.gz
-          tar -xf juju-2.9.29.tar.gz
-          cd juju-juju-2.9.29/
           go install github.com/juju/juju/cmd/plugins/juju-wait-for
-          cd ..
 
       - name: Deploy some applications
         if: env.RUN_TEST == 'RUN'
@@ -225,21 +212,17 @@ jobs:
           
           juju wait-for application ${CHARM_${{ matrix.model_type }}}
           
-          .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
+          $GITHUB_WORKSPACE/.github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
 
-      - name: Build snap
+      - name: Install local juju
         if: env.RUN_TEST == 'RUN'
         shell: bash
         run: |
           set -euxo pipefail
-          snapcraft --use-lxd
-
-      - name: Install snap
-        if: env.RUN_TEST == 'RUN'
-        shell: bash
-        run: |
-          set -euxo pipefail
-          sudo snap install juju*.snap --dangerous --classic
+          which juju
+          sudo snap remove juju --purge
+          make install
+          which juju
 
       - name: Build jujud image
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
@@ -295,17 +278,10 @@ jobs:
           
           # Upgrade to the latest stable.
           juju upgrade-controller --debug
-          .github/verify-agent-version.sh $CURRENT_STABLE_JUJU_TAG
+          $GITHUB_WORKSPACE/.github/verify-agent-version.sh $CURRENT_STABLE_JUJU_TAG
           
-          make go-install
-          $GOPATH/bin/juju upgrade-controller --build-agent --debug
-          .github/verify-agent-version.sh "${UPSTREAM_JUJU_TAG}.1"
-          rm -rf $GOPATH/bin/juju*
-          
-          # Upgrade to local built snap version - upload snap jujud.
-          snap_version=$(juju version | cut -d '-' -f 1);
-          juju upgrade-controller --agent-version $snap_version
-          .github/verify-agent-version.sh "${UPSTREAM_JUJU_TAG}.2"
+          juju upgrade-controller --build-agent --debug
+          $GITHUB_WORKSPACE/.github/verify-agent-version.sh "${UPSTREAM_JUJU_TAG}.1"
           
           PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
           if [ "$PANIC" != "" ]; then
@@ -314,7 +290,7 @@ jobs:
               exit 1
           fi
           
-          .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
+          $GITHUB_WORKSPACE/.github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
 
       - name: Test upgrade controller - microk8s
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
@@ -327,11 +303,11 @@ jobs:
           
           # Upgrade to the latest stable.
           juju upgrade-controller --debug
-          .github/verify-agent-version.sh $CURRENT_STABLE_JUJU_TAG
+          $GITHUB_WORKSPACE/.github/verify-agent-version.sh $CURRENT_STABLE_JUJU_TAG
           
           # Upgrade to local built version.
           juju upgrade-controller --agent-stream=develop --debug
-          .github/verify-agent-version.sh $UPSTREAM_JUJU_TAG
+          $GITHUB_WORKSPACE/.github/verify-agent-version.sh $UPSTREAM_JUJU_TAG
           
           PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
           if [ "$PANIC" != "" ]; then
@@ -340,7 +316,7 @@ jobs:
               exit 1
           fi
           
-          .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
+          $GITHUB_WORKSPACE/.github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
 
       - name: Test upgrade model
         if: env.RUN_TEST == 'RUN'
@@ -379,7 +355,7 @@ jobs:
             exit 1
           fi
           
-          .github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
+          $GITHUB_WORKSPACE/.github/verify-${CHARM_${{ matrix.model_type }}}.sh 30
 
       - name: Wrap up
         if: env.RUN_TEST == 'RUN'

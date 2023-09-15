@@ -10,3 +10,8 @@ containerdRegistryConfigs:
     [host."http://10.0.1.123:80"]
       capabilities = ["pull", "resolve"]
       skip_verify = true
+  10.152.183.69: |
+    [host."https://10.152.183.69:443"]
+      capabilities = ["pull", "resolve", "push"]
+      skip_verify = true
+  
