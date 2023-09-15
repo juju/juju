@@ -128,3 +128,7 @@ func (*App) Client(context.Context) (*client.Client, error) {
 func (*App) Close() error {
 	return nil
 }
+
+func (*App) Address() string {
+	return ""
+}

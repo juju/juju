@@ -400,8 +400,8 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	cfg.SetStateServingInfo(controller.StateServingInfo{
 		APIPort:        5555,
 		StatePort:      s.mgoInst.Port(),
-		Cert:           "foo",
-		PrivateKey:     "bar",
+		Cert:           testing.CACert,
+		PrivateKey:     testing.CAKey,
 		SharedSecret:   "baz",
 		SystemIdentity: "qux",
 	})
