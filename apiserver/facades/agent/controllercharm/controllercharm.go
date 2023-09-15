@@ -18,12 +18,12 @@ import (
 )
 
 const (
-	// JujuMetricsUserPrefix defines the "namespace" in which this facade is
+	// jujuMetricsUserPrefix defines the "namespace" in which this facade is
 	// allowed to create/remove users.
-	JujuMetricsUserPrefix = "juju-metrics-"
+	jujuMetricsUserPrefix = "juju-metrics-"
 
-	// UserCreator is the listed "creator" of metrics users in state.
-	UserCreator = "admin"
+	// userCreator is the listed "creator" of metrics users in state.
+	userCreator = "admin"
 )
 
 // API provides API methods to the controllercharm worker.
@@ -59,7 +59,7 @@ func (api *API) AddMetricsUser(args params.AddUsers) (params.AddUserResults, err
 	for _, user := range args.Users {
 		err := api.addMetricsUser(user)
 		results.Results = append(results.Results, params.AddUserResult{
-			Tag:   user.Username, // TODO: should we populate this in the error case?
+			Tag:   user.Username,
 			Error: apiservererrors.ServerError(err),
 		})
 	}
@@ -67,15 +67,15 @@ func (api *API) AddMetricsUser(args params.AddUsers) (params.AddUserResults, err
 }
 
 func (api *API) addMetricsUser(args params.AddUser) error {
-	if !strings.HasPrefix(args.Username, JujuMetricsUserPrefix) {
-		return errors.NotValidf("username %q missing prefix %q", args.Username, JujuMetricsUserPrefix)
+	if !strings.HasPrefix(args.Username, jujuMetricsUserPrefix) {
+		return errors.NotValidf("username %q missing prefix %q", args.Username, jujuMetricsUserPrefix)
 	}
 
 	if args.Password == "" {
 		return errors.NotValidf("empty password for user %q", args.Username)
 	}
 
-	_, err := api.state.AddUser(args.Username, args.DisplayName, args.Password, UserCreator)
+	_, err := api.state.AddUser(args.Username, args.DisplayName, args.Password, userCreator)
 	if err != nil {
 		return errors.Annotatef(err, "failed to create user %q", args.Username)
 	}
@@ -88,7 +88,7 @@ func (api *API) addMetricsUser(args params.AddUser) error {
 	userTag := names.NewUserTag(args.Username)
 	_, err = model.AddUser(state.UserAccessSpec{
 		User:      userTag,
-		CreatedBy: names.NewUserTag(UserCreator),
+		CreatedBy: names.NewUserTag(userCreator),
 		Access:    permission.ReadAccess,
 	})
 	return errors.Annotatef(err, "adding user %q to model %q",
@@ -113,8 +113,8 @@ func (api *API) removeMetricsUser(e params.Entity) error {
 		return errors.Annotatef(err, "couldn't parse user tag %q", e.Tag)
 	}
 
-	if !strings.HasPrefix(user.Name(), JujuMetricsUserPrefix) {
-		return fmt.Errorf("username %q should have prefix %q", user.Name(), JujuMetricsUserPrefix)
+	if !strings.HasPrefix(user.Name(), jujuMetricsUserPrefix) {
+		return fmt.Errorf("username %q should have prefix %q", user.Name(), jujuMetricsUserPrefix)
 	}
 
 	err = api.state.RemoveUser(user)
