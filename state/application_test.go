@@ -1238,7 +1238,7 @@ func (s *ApplicationSuite) TestSetCharmWhenDead(c *gc.C) {
 		ForceUnits: true,
 	}
 	err := s.mysql.SetCharm(cfg)
-	c.Assert(errors.Cause(err), gc.Equals, stateerrors.ErrDead)
+	c.Assert(err, jc.ErrorIs, stateerrors.ErrDead)
 }
 
 func (s *ApplicationSuite) TestSetCharmWithRemovedApplication(c *gc.C) {
@@ -1979,7 +1979,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 func assertNoSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm) {
 	cURL := sch.String()
 	_, err := state.ApplicationSettingsRefCount(st, appName, &cURL)
-	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func assertSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm, refcount int) {
@@ -2134,7 +2134,7 @@ func (s *ApplicationSuite) TestSettingsRefRemoveRace(c *gc.C) {
 
 func assertNoOffersRef(c *gc.C, st *state.State, appName string) {
 	_, err := state.ApplicationOffersRefCount(st, appName)
-	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func assertOffersRef(c *gc.C, st *state.State, appName string, refcount int) {

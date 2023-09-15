@@ -67,7 +67,7 @@ func (ResourceSuite) TestValidateZeroValue(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(errors.Cause(err), jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `.*bad info.*`)
 }
 
@@ -81,7 +81,7 @@ func (ResourceSuite) TestValidateBadInfo(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(errors.Cause(err), jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `.*bad info.*`)
 }
 
@@ -108,7 +108,7 @@ func (ResourceSuite) TestValidateMissingApplicationID(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(errors.Cause(err), jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `.*missing application ID.*`)
 }
 
@@ -137,7 +137,7 @@ func (ResourceSuite) TestValidateMissingTimestamp(c *gc.C) {
 
 	err := res.Validate()
 
-	c.Check(errors.Cause(err), jc.ErrorIs, errors.NotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `.*missing timestamp.*`)
 }
 

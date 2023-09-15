@@ -203,7 +203,7 @@ func claimLoop(holderTag names.UnitTag, claimer coreleadership.Claimer, claimDur
 				}
 				isLeader = true
 			} else {
-				if errors.Cause(err) == coreleadership.ErrClaimDenied {
+				if errors.Is(err, coreleadership.ErrClaimDenied) {
 					now := time.Now()
 					sinceStart := now.Sub(agentStart).Round(time.Millisecond).Seconds()
 					if isLeader {
@@ -239,7 +239,7 @@ func claimLoop(holderTag names.UnitTag, claimer coreleadership.Claimer, claimDur
 							sinceStart, leaseName, holderTag.Id(), reqDuration)
 					}
 					next = time.After(0)
-				} else if errors.Cause(err) == lease.ErrTimeout {
+				} else if errors.Is(err, lease.ErrTimeout) {
 					fmt.Fprintf(os.Stderr, "%9.3fs claim of %q for %q timed out in %s, retrying\n",
 						sinceStart, leaseName, holderTag.Id(), reqDuration)
 					fmt.Fprintf(os.Stdout, "%9.3fs claim of %q for %q timed out in %s, retrying\n",

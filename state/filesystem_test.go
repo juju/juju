@@ -316,7 +316,7 @@ func (s *FilesystemStateSuite) addUnitWithFilesystemUnprovisioned(c *gc.C, pool 
 	} else {
 		c.Assert(err, jc.ErrorIs, errors.NotFound)
 		_, err = filesystem.Volume()
-		c.Assert(errors.Cause(err), gc.Equals, state.ErrNoBackingVolume)
+		c.Assert(err, jc.ErrorIs, state.ErrNoBackingVolume)
 	}
 
 	if s.series != "focal" {

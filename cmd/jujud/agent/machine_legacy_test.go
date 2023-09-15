@@ -390,10 +390,9 @@ func (s *MachineLegacySuite) TestDyingModelCleanedUp(c *gc.C) {
 				select {
 				case <-watch.Changes():
 					err := m.Refresh()
-					cause := errors.Cause(err)
 					if err == nil {
 						continue // still there
-					} else if errors.Is(cause, errors.NotFound) {
+					} else if errors.Is(err, errors.NotFound) {
 						return // successfully removed
 					}
 					c.Assert(err, jc.ErrorIsNil) // guaranteed fail

@@ -31,7 +31,7 @@ func (*errorSuite) TestTranslateWellKnownError(c *gc.C) {
 	var tests = []struct {
 		name    string
 		err     params.Error
-		errType errors.ConstError
+		errType error
 	}{
 		{params.CodeNotFound, params.Error{Code: params.CodeNotFound, Message: "look a NotFound error"}, errors.NotFound},
 		{params.CodeUserNotFound, params.Error{Code: params.CodeUserNotFound, Message: "look a UserNotFound error"}, errors.UserNotFound},

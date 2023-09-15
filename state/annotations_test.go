@@ -36,7 +36,7 @@ func (s *AnnotationsSuite) TestSetAnnotationsInvalidKey(c *gc.C) {
 	key := "tes.tkey"
 	expected := "typo"
 	err := s.setAnnotationResult(c, key, expected)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*invalid key.*")
+	c.Assert(err, gc.ErrorMatches, ".*invalid key.*")
 }
 
 func (s *AnnotationsSuite) TestSetAnnotationsCreate(c *gc.C) {
@@ -100,7 +100,7 @@ func (s *AnnotationsSuite) TestSetAnnotationsDestroyedEntity(c *gc.C) {
 	err = s.testEntity.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.Machine(s.testEntity.Id())
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*not found.*")
+	c.Assert(err, gc.ErrorMatches, ".*not found.*")
 
 	annts, err := s.Model.Annotations(s.testEntity)
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,16 +108,14 @@ func (s *AnnotationsSuite) TestSetAnnotationsDestroyedEntity(c *gc.C) {
 
 	annts[key] = "oops"
 	err = s.Model.SetAnnotations(s.testEntity, annts)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*no longer exists.*")
-	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*")
+	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*no longer exists.*")
 }
 
 func (s *AnnotationsSuite) TestSetAnnotationsNonExistentEntity(c *gc.C) {
 	annts := map[string]string{"key": "oops"}
 	err := s.Model.SetAnnotations(state.MockGlobalEntity{}, annts)
 
-	c.Assert(errors.Cause(err), gc.ErrorMatches, ".*no longer exists.*")
-	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*")
+	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*no longer exists.*")
 }
 
 func (s *AnnotationsSuite) TestSetAnnotationsConcurrently(c *gc.C) {
@@ -168,8 +166,7 @@ func (s *AnnotationsModelSuite) TestSetAnnotationsDestroyedModel(c *gc.C) {
 	expected = "fail"
 	annts[key] = expected
 	err = s.Model.SetAnnotations(model, annts)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "model.* no longer exists")
-	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*")
+	c.Assert(err, gc.ErrorMatches, ".*cannot update annotations.*model.* no longer exists")
 }
 
 func (s *AnnotationsModelSuite) createTestModel(c *gc.C) (*state.Model, *state.State) {

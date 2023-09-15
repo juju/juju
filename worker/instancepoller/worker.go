@@ -387,7 +387,7 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 		//
 		// This error is meant as a hint to folks working on new providers
 		// in the future to ensure that they implement this method.
-		if errors.Is(errors.Cause(err), errors.NotSupported) {
+		if errors.Is(err, errors.NotSupported) {
 			return errors.Errorf("BUG: substrate does not implement required NetworkInterfaces method")
 		}
 

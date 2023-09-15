@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	jujuerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -80,7 +80,7 @@ func (s *stateSuite) TestSelectModelUUID(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	uuid, err := st.SelectModelUUID(context.Background(), "not-there")
-	c.Assert(err, jc.ErrorIs, jujuerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Check(uuid, gc.Equals, "")
 
 	uuid, err = st.SelectModelUUID(context.Background(), "some-uuid")

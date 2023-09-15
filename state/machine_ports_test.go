@@ -49,7 +49,7 @@ func (s *MachinePortsDocSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.machPortRanges.UniquePortRanges(), gc.HasLen, 0, gc.Commentf("expected no port ranges to be open for machine"))
 }
 
-func assertRefreshMachinePortsDoc(c *gc.C, p state.MachinePortRanges, errType error) {
+func assertRefreshMachinePortsDoc(c *gc.C, p state.MachinePortRanges, errIs error) {
 	type refresher interface {
 		Refresh() error
 	}
@@ -58,8 +58,8 @@ func assertRefreshMachinePortsDoc(c *gc.C, p state.MachinePortRanges, errType er
 	c.Assert(supports, jc.IsTrue, gc.Commentf("machine ports interface does not implement Refresh()"))
 
 	err := portRefresher.Refresh()
-	if errType != nil {
-		c.Assert(err, jc.ErrorIs, errType)
+	if errIs != nil {
+		c.Assert(err, jc.ErrorIs, errIs)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 	}

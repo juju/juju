@@ -4029,7 +4029,7 @@ func (a *Application) WatchConfigSettingsHash() StringsWatcher {
 
 func hashServiceAddresses(a *Application, firstCall bool) (string, error) {
 	service, err := a.ServiceInfo()
-	if errors.Is(err, errors.NotFound) && firstCall {
+	if firstCall && errors.Is(err, errors.NotFound) {
 		// To keep behaviour the same as
 		// WatchServiceAddresses, we need to ignore NotFound
 		// errors on the first call but propagate them after

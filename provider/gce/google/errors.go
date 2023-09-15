@@ -133,8 +133,9 @@ func IsNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
-	if gerr, ok := errors.Cause(err).(*googleapi.Error); ok {
-		return gerr.Code == http.StatusNotFound
+	var gError *googleapi.Error
+	if errors.As(err, &gError) {
+		return gError.Code == http.StatusNotFound
 	}
-	return errors.Is(errors.Cause(err), errors.NotFound)
+	return errors.Is(err, errors.NotFound)
 }

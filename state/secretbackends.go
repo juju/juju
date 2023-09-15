@@ -387,7 +387,7 @@ func (st *State) decSecretBackendRefCountOp(backendID string) ([]txn.Op, error) 
 	defer ccloser()
 
 	op, err := nsRefcounts.AliveDecRefOp(refCountCollection, secretBackendRefCountKey(backendID))
-	if errors.Is(err, errors.NotFound) || errors.Cause(err) == errRefcountAlreadyZero {
+	if errors.Is(err, errors.NotFound) || errors.Is(err, errRefcountAlreadyZero) {
 		return nil, nil
 	}
 	return []txn.Op{op}, errors.Trace(err)

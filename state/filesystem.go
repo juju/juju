@@ -25,7 +25,7 @@ import (
 
 // ErrNoBackingVolume is returned by Filesystem.Volume() for filesystems
 // without a backing volume.
-var ErrNoBackingVolume = errors.New("filesystem has no backing volume")
+var ErrNoBackingVolume = errors.ConstError("filesystem has no backing volume")
 
 // Filesystem describes a filesystem in the model. Filesystems may be
 // backed by a volume, and managed by Juju; otherwise they are first-class
@@ -669,7 +669,7 @@ func (sb *storageBackend) RemoveFilesystemAttachment(host names.Tag, filesystem 
 		}
 		volumeAttachment, err := sb.filesystemVolumeAttachment(host, filesystem)
 		if err != nil {
-			if errors.Cause(err) != ErrNoBackingVolume && !errors.Is(err, errors.NotFound) {
+			if !errors.Is(err, ErrNoBackingVolume) && !errors.Is(err, errors.NotFound) {
 				return nil, errors.Trace(err)
 			}
 		} else {

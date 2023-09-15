@@ -797,13 +797,6 @@ func (s *StateSuite) TestPing(c *gc.C) {
 	c.Assert(s.State.Ping(), gc.NotNil)
 }
 
-func (s *StateSuite) TestIsNotFound(c *gc.C) {
-	err1 := fmt.Errorf("unrelated error")
-	err2 := errors.NotFoundf("foo")
-	c.Assert(err1, gc.Not(jc.ErrorIs), errors.NotFound)
-	c.Assert(err2, jc.ErrorIs, errors.NotFound)
-}
-
 func (s *StateSuite) AssertMachineCount(c *gc.C, expect int) {
 	ms, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2213,37 +2206,37 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 		about         string
 		bindings      map[string]string
 		expectedError string
-		errorType     errors.ConstError
+		errIs         error
 	}{{ // 0
 		about:         "extra endpoint bound to unknown space",
 		bindings:      map[string]string{"extra": "4"},
 		expectedError: `space not found`,
-		errorType:     errors.NotFound,
+		errIs:         errors.NotFound,
 	}, { // 1
 		about:         "extra endpoint not bound to a space",
 		bindings:      map[string]string{"extra": ""},
 		expectedError: `unknown endpoint "extra" not valid`,
-		errorType:     errors.NotValid,
+		errIs:         errors.NotValid,
 	}, { // 2
 		about:         "two extra endpoints, both bound to known spaces",
 		bindings:      map[string]string{"ex1": dbSpace.Id(), "ex2": clientSpace.Id()},
 		expectedError: `unknown endpoint "ex(1|2)" not valid`,
-		errorType:     errors.NotValid,
+		errIs:         errors.NotValid,
 	}, { // 3
 		about:         "empty endpoint bound to unknown space",
 		bindings:      map[string]string{"": "anything"},
 		expectedError: `space not found`,
-		errorType:     errors.NotFound,
+		errIs:         errors.NotFound,
 	}, { // 4
 		about:         "known endpoint bound to unknown space",
 		bindings:      map[string]string{"server": "invalid"},
 		expectedError: `space not found`,
-		errorType:     errors.NotFound,
+		errIs:         errors.NotFound,
 	}, { // 5
 		about:         "known endpoint bound correctly and an extra endpoint",
 		bindings:      map[string]string{"server": dbSpace.Id(), "foo": "public"},
 		expectedError: `space not found`,
-		errorType:     errors.NotFound,
+		errIs:         errors.NotFound,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
 
@@ -2257,7 +2250,7 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 			EndpointBindings: test.bindings,
 		})
 		c.Check(err, gc.ErrorMatches, `cannot add application "yoursql": `+test.expectedError)
-		c.Check(err, jc.ErrorIs, test.errorType)
+		c.Check(err, jc.ErrorIs, test.errIs)
 	}
 }
 
@@ -3270,7 +3263,7 @@ func (s *StateSuite) TestSetDyingModelToDeadRequiresDyingModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.SetDyingModelToDead()
-	c.Assert(errors.Cause(err), gc.Equals, state.ErrModelNotDying)
+	c.Assert(err, jc.ErrorIs, state.ErrModelNotDying)
 
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(model.Refresh(), jc.ErrorIsNil)
@@ -3280,7 +3273,7 @@ func (s *StateSuite) TestSetDyingModelToDeadRequiresDyingModel(c *gc.C) {
 	c.Assert(model.Life(), jc.DeepEquals, state.Dead)
 
 	err = st.SetDyingModelToDead()
-	c.Assert(errors.Cause(err), gc.Equals, state.ErrModelNotDying)
+	c.Assert(err, jc.ErrorIs, state.ErrModelNotDying)
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
@@ -3505,7 +3498,7 @@ func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogTrackers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = t1.Get()
-	c.Check(errors.Cause(err), gc.Equals, state.ErrNeverForwarded)
+	c.Check(err, jc.ErrorIs, state.ErrNeverForwarded)
 
 	id, count, err := t2.Get()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3648,12 +3641,12 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	info := statetesting.NewMongoInfo()
 	info.Tag, info.Password = names.NewUserTag("arble"), "bar"
 	err := tryOpenState(s.modelTag, s.State.ControllerTag(), info)
-	c.Check(errors.Cause(err), jc.ErrorIs, errors.Unauthorized)
+	c.Check(err, jc.ErrorIs, errors.Unauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "user-arble": unauthorized mongo access: .*`)
 
 	info.Tag, info.Password = names.NewUserTag("arble"), ""
 	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
-	c.Check(errors.Cause(err), jc.ErrorIs, errors.Unauthorized)
+	c.Check(err, jc.ErrorIs, errors.Unauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "user-arble": unauthorized mongo access: .*`)
 
 	info.Tag, info.Password = nil, ""
@@ -4404,7 +4397,7 @@ func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
 	state.SetMaxTxnAttempts(c, s.State, 3)
 	defer state.SetTestHooks(c, s.State, hooks...).Check()
 	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
-	c.Assert(errors.Cause(err), gc.Equals, jujutxn.ErrExcessiveContention)
+	c.Assert(err, jc.ErrorIs, jujutxn.ErrExcessiveContention)
 	// Make sure the version remained the same.
 	assertAgentVersion(c, s.State, currentVersion, "released")
 }
@@ -4984,7 +4977,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = tryOpenState(m.ModelTag(), st.ControllerTag(), noAuthInfo)
-	c.Check(errors.Cause(err), jc.ErrorIs, errors.Unauthorized)
+	c.Check(err, jc.ErrorIs, errors.Unauthorized)
 	// note: collections are set up in arbitrary order, proximate cause of
 	// failure may differ.
 	c.Check(err, gc.ErrorMatches, `[^:]+: unauthorized mongo access: .*`)

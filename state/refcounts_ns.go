@@ -35,8 +35,8 @@ type refcountDoc struct {
 }
 
 var (
-	errRefcountChanged     = errors.New("refcount changed")
-	errRefcountAlreadyZero = errors.New("cannot decRef below 0")
+	errRefcountChanged     = errors.ConstError("refcount changed")
+	errRefcountAlreadyZero = errors.ConstError("cannot decRef below 0")
 )
 
 // nsRefcounts exposes methods for safely manipulating reference count

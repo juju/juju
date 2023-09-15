@@ -48,13 +48,13 @@ type NewAPIConnectionParams struct {
 	ModelUUID string
 }
 
-var errNoAddresses = errors.New("no API addresses")
+var errNoAddresses = errors.ConstError("no API addresses")
 
 // IsNoAddressesError reports whether the error (from NewAPIConnection) is an
 // error due to the controller having no API addresses yet (likely because a
 // bootstrap is still in progress).
 func IsNoAddressesError(err error) bool {
-	return errors.Cause(err) == errNoAddresses
+	return errors.Is(err, errNoAddresses)
 }
 
 // NewAPIConnection returns an api.Connection to the specified Juju controller,
@@ -66,7 +66,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 	}
 	apiInfo, controller, err := connectionInfo(args)
 	if err != nil {
-		if errors.Is(errors.Cause(err), errors.NotValid) {
+		if errors.Is(err, errors.NotValid) {
 			err = errors.NewNotValid(nil, fmt.Sprintf("%v\n"+
 				"A user name may contain any case alpha-numeric characters, '+', '.', and '-'; \n"+
 				"'@' to specify an optional domain. The user name and domain must begin and end \n"+
@@ -86,8 +86,8 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 	logger.Infof("connecting to API addresses: %v", apiInfo.Addrs)
 	st, err := args.OpenAPI(apiInfo, args.DialOpts)
 	if err != nil {
-		redirErr, ok := errors.Cause(err).(*api.RedirectError)
-		if !ok || !redirErr.FollowRedirect {
+		var redirErr *api.RedirectError
+		if !errors.As(err, &redirErr) || !redirErr.FollowRedirect {
 			return nil, errors.Trace(err)
 		}
 		// We've been told to connect to a different API server,

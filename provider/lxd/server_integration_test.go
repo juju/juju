@@ -185,7 +185,7 @@ func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsInstallMessage(
 	)
 
 	_, err := factory.LocalServer()
-	c.Assert(errors.Cause(err).Error(), gc.Equals, `bad
+	c.Assert(err.Error(), gc.Equals, `bad
 
 Please install LXD by running:
 	$ sudo snap install lxd
@@ -217,7 +217,7 @@ func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsConfigureMessag
 	)
 
 	_, err := factory.LocalServer()
-	c.Assert(errors.Cause(err).Error(), gc.Equals, `LXD refused connections; is LXD running?
+	c.Assert(err.Error(), gc.Equals, `LXD refused connections; is LXD running?
 
 Please configure LXD by running:
 	$ newgrp lxd
@@ -247,7 +247,7 @@ func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsConfigureMessag
 	)
 
 	_, err := factory.LocalServer()
-	c.Assert(errors.Cause(err).Error(), gc.Equals, `Permission denied, are you in the lxd group?
+	c.Assert(err.Error(), gc.Equals, `Permission denied, are you in the lxd group?
 
 Please configure LXD by running:
 	$ newgrp lxd
@@ -277,7 +277,7 @@ func (s *serverIntegrationSuite) TestLocalServerErrorMessageShowsInstallMessageW
 	)
 
 	_, err := factory.LocalServer()
-	c.Assert(errors.Cause(err).Error(), gc.Equals, `LXD socket not found; is LXD installed & running?
+	c.Assert(err.Error(), gc.Equals, `LXD socket not found; is LXD installed & running?
 
 Please install LXD by running:
 	$ sudo snap install lxd
@@ -452,7 +452,7 @@ func (s *serverIntegrationSuite) TestRemoteServerMissingCertificates(c *gc.C) {
 			},
 		})
 	c.Assert(svr, gc.IsNil)
-	c.Assert(errors.Cause(err).Error(), gc.Equals, "credentials not valid")
+	c.Assert(err, gc.ErrorMatches, "credentials not valid")
 }
 
 func (s *serverIntegrationSuite) TestRemoteServerBadServerFuncError(c *gc.C) {
@@ -471,7 +471,7 @@ func (s *serverIntegrationSuite) TestRemoteServerBadServerFuncError(c *gc.C) {
 			},
 		})
 	c.Assert(svr, gc.IsNil)
-	c.Assert(errors.Cause(err).Error(), gc.Equals, "oops")
+	c.Assert(err, gc.ErrorMatches, "oops")
 }
 
 func (s *serverIntegrationSuite) TestRemoteServerWithUnSupportedAPIVersion(c *gc.C) {
@@ -497,7 +497,7 @@ func (s *serverIntegrationSuite) TestRemoteServerWithUnSupportedAPIVersion(c *gc
 				Credential: &creds,
 			},
 		})
-	c.Assert(errors.Cause(err).Error(), gc.Equals, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
+	c.Assert(err, gc.ErrorMatches, `LXD version has to be at least "5.0.0", but current version is only "4.0.0"`)
 }
 
 func (s *serverIntegrationSuite) TestIsSupportedAPIVersion(c *gc.C) {

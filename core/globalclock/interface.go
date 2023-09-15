@@ -12,12 +12,12 @@ import (
 var (
 	// ErrOutOfSyncUpdate is returned by Updater.Advance when the
 	// clock value has been changed since the last read.
-	ErrOutOfSyncUpdate = errors.New("clock update attempt by out-of-sync caller, retry")
+	ErrOutOfSyncUpdate = errors.ConstError("clock update attempt by out-of-sync caller, retry")
 
 	// ErrTimeout is returned by Updater.Advance if the attempt to
 	// update the global clock timed out - in that case the advance
 	// should be tried again.
-	ErrTimeout = errors.New("clock update timed out, retry")
+	ErrTimeout = errors.ConstError("clock update timed out, retry")
 )
 
 // Updater provides a means of updating the global clock time.
@@ -36,16 +36,4 @@ type Updater interface {
 	// to non-monotonic time, since there is no way of knowing in
 	// general whether or not the clock was updated.
 	Advance(d time.Duration, stop <-chan struct{}) error
-}
-
-// IsOutOfSyncUpdate returns whether the specified error represents
-// ErrOutOfSyncUpdate (even if it's wrapped).
-func IsOutOfSyncUpdate(err error) bool {
-	return errors.Cause(err) == ErrOutOfSyncUpdate
-}
-
-// IsTimeout returns whether the specified error represents ErrTimeout
-// (even if it's wrapped).
-func IsTimeout(err error) bool {
-	return errors.Cause(err) == ErrTimeout
 }

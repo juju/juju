@@ -27,7 +27,7 @@ func NewRelationIdsCommand(ctx Context) (cmd.Command, error) {
 	name := ""
 	if r, err := ctx.HookRelation(); err == nil {
 		name = r.Name()
-	} else if cause := errors.Cause(err); !errors.Is(cause, errors.NotFound) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 

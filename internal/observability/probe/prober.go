@@ -65,7 +65,7 @@ var (
 
 	// NotImplemented is a convenience wrapper for supplying a probe that
 	// indiciates to it's caller that it's not implemented. Resulting error
-	// should hold true with errors.Is(err, errors.NotImplemented)
+	// will be of type errors.NotImplemented
 	NotImplemented Prober = ProberFn(func() (bool, error) {
 		return false, errors.NotImplementedf("probe not implemented")
 	})

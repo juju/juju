@@ -91,7 +91,7 @@ func (s *storageMockSuite) TestStorageDetailsFacadeCallError(c *gc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.StorageDetails([]names.StorageTag{oneTag})
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(found, gc.HasLen, 0)
 }
 
@@ -142,7 +142,7 @@ func (s *storageMockSuite) TestListStorageDetailsFacadeCallError(c *gc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.ListStorageDetails()
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(found, gc.HasLen, 0)
 }
 
@@ -201,7 +201,7 @@ func (s *storageMockSuite) TestListPoolsFacadeCallError(c *gc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.ListPools(nil, nil)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(found, gc.HasLen, 0)
 }
 
@@ -247,7 +247,7 @@ func (s *storageMockSuite) TestCreatePoolFacadeCallError(c *gc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	err := storageClient.CreatePool("", "", nil)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (s *storageMockSuite) TestListVolumes(c *gc.C) {
@@ -335,7 +335,7 @@ func (s *storageMockSuite) TestListVolumesFacadeCallError(c *gc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	_, err := storageClient.ListVolumes(nil)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (s *storageMockSuite) TestListFilesystems(c *gc.C) {
@@ -422,7 +422,7 @@ func (s *storageMockSuite) TestListFilesystemsFacadeCallError(c *gc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	_, err := storageClient.ListFilesystems(nil)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
@@ -498,7 +498,7 @@ func (s *storageMockSuite) TestAddToUnitFacadeCallError(c *gc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.AddToUnit(unitStorages)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(found, gc.HasLen, 0)
 }
 
@@ -745,7 +745,7 @@ func (s *storageMockSuite) TestRemovePoolFacadeCallError(c *gc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	err := storageClient.RemovePool("")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(err, gc.ErrorMatches, msg)
 }
 
 func (s *storageMockSuite) TestUpdatePool(c *gc.C) {
@@ -791,5 +791,5 @@ func (s *storageMockSuite) TestUpdatePoolFacadeCallError(c *gc.C) {
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	err := storageClient.UpdatePool("", "", nil)
-	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(err, gc.ErrorMatches, msg)
 }
