@@ -160,7 +160,10 @@ func (s *baseRefresherSuite) TestResolveCharm(c *gc.C) {
 	ref := "meshuggah"
 	curl := charm.MustParseURL(ref)
 	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
-	origin := commoncharm.Origin{}
+	origin := commoncharm.Origin{
+		Architecture: "amd64",
+		Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
+	}
 
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []string{}, nil)
@@ -169,13 +172,14 @@ func (s *baseRefresherSuite) TestResolveCharm(c *gc.C) {
 		charmRef:        "meshuggah",
 		charmURL:        charm.MustParseURL("meshuggah"),
 		charmResolver:   charmResolver,
+		charmOrigin:     corecharm.Origin{Platform: corecharm.MustParsePlatform("amd64/ubuntu/22.04")},
 		resolveOriginFn: charmHubOriginResolver,
 		logger:          fakeLogger{},
 	}
-	url, origin, err := refresher.ResolveCharm()
+	url, obtainedOrigin, err := refresher.ResolveCharm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.DeepEquals, charm.MustParseURL("ch:meshuggah-1"))
-	c.Assert(origin, gc.DeepEquals, commoncharm.Origin{})
+	c.Assert(obtainedOrigin, gc.DeepEquals, origin)
 }
 
 func (s *baseRefresherSuite) TestResolveCharmWithSeriesError(c *gc.C) {
@@ -185,21 +189,26 @@ func (s *baseRefresherSuite) TestResolveCharmWithSeriesError(c *gc.C) {
 	ref := "meshuggah"
 	curl := charm.MustParseURL(ref)
 	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
-	origin := commoncharm.Origin{}
+	origin := commoncharm.Origin{
+		Architecture: "amd64",
+		Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
+	}
 
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []string{"focal"}, nil)
 
 	refresher := baseRefresher{
-		charmRef:        "meshuggah",
-		deployedBase:    corebase.MakeDefaultBase("ubuntu", "18.04"),
+		charmRef: "meshuggah",
+		charmOrigin: corecharm.Origin{
+			Platform: corecharm.MustParsePlatform("amd64/ubuntu/22.04"),
+		},
 		charmURL:        charm.MustParseURL("meshuggah"),
 		charmResolver:   charmResolver,
 		resolveOriginFn: charmHubOriginResolver,
 		logger:          fakeLogger{},
 	}
 	_, _, err := refresher.ResolveCharm()
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade from single series "bionic" charm to a charm supporting \["focal"\]. Use --force-series to override.`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade from single series "jammy" charm to a charm supporting \["focal"\]. Use --force-series to override.`)
 }
 
 func (s *baseRefresherSuite) TestResolveCharmWithNoCharmURL(c *gc.C) {
@@ -209,7 +218,10 @@ func (s *baseRefresherSuite) TestResolveCharmWithNoCharmURL(c *gc.C) {
 	ref := "meshuggah"
 	curl := charm.MustParseURL(ref)
 	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
-	origin := commoncharm.Origin{}
+	origin := commoncharm.Origin{
+		Architecture: "amd64",
+		Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
+	}
 
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []string{}, nil)
@@ -217,6 +229,7 @@ func (s *baseRefresherSuite) TestResolveCharmWithNoCharmURL(c *gc.C) {
 	refresher := baseRefresher{
 		charmRef:        "meshuggah",
 		charmResolver:   charmResolver,
+		charmOrigin:     corecharm.Origin{Platform: corecharm.MustParsePlatform("amd64/ubuntu/22.04")},
 		resolveOriginFn: charmHubOriginResolver,
 		logger:          fakeLogger{},
 	}
@@ -244,9 +257,9 @@ func (s *localCharmRefresherSuite) TestRefresh(c *gc.C) {
 	charmAdder.EXPECT().AddLocalCharm(curl, ch, false).Return(curl, nil)
 
 	charmRepo := NewMockCharmRepository(ctrl)
-	charmRepo.EXPECT().NewCharmAtPathForceSeries(ref, "", false).Return(ch, curl, nil)
+	charmRepo.EXPECT().NewCharmAtPathForceSeries(ref, "jammy", false).Return(ch, curl, nil)
 
-	cfg := basicRefresherConfig(curl, ref)
+	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 
 	refresher := (&factory{}).maybeReadLocal(charmAdder, charmRepo)
 	task, err := refresher(cfg)
@@ -267,9 +280,9 @@ func (s *localCharmRefresherSuite) TestRefreshBecomesExhausted(c *gc.C) {
 
 	charmAdder := NewMockCharmAdder(ctrl)
 	charmRepo := NewMockCharmRepository(ctrl)
-	charmRepo.EXPECT().NewCharmAtPathForceSeries(ref, "", false).Return(nil, nil, os.ErrNotExist)
+	charmRepo.EXPECT().NewCharmAtPathForceSeries(ref, "jammy", false).Return(nil, nil, os.ErrNotExist)
 
-	cfg := basicRefresherConfig(curl, ref)
+	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 
 	refresher := (&factory{}).maybeReadLocal(charmAdder, charmRepo)
 	task, err := refresher(cfg)
@@ -288,9 +301,9 @@ func (s *localCharmRefresherSuite) TestRefreshDoesNotFindLocal(c *gc.C) {
 
 	charmAdder := NewMockCharmAdder(ctrl)
 	charmRepo := NewMockCharmRepository(ctrl)
-	charmRepo.EXPECT().NewCharmAtPathForceSeries(ref, "", false).Return(nil, nil, errors.NotFoundf("fail"))
+	charmRepo.EXPECT().NewCharmAtPathForceSeries(ref, "jammy", false).Return(nil, nil, errors.NotFoundf("fail"))
 
-	cfg := basicRefresherConfig(curl, ref)
+	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 
 	refresher := (&factory{}).maybeReadLocal(charmAdder, charmRepo)
 	task, err := refresher(cfg)
@@ -312,8 +325,9 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	curl := charm.MustParseURL(ref)
 	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmHub,
-		Base:   corebase.MakeDefaultBase("ubuntu", "18.04"),
+		Source:       commoncharm.OriginCharmHub,
+		Architecture: "amd64",
+		Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
 	}
 	actualOrigin := origin
 	actualOrigin.ID = "charmid"
@@ -324,9 +338,7 @@ func (s *charmHubCharmRefresherSuite) TestRefresh(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []string{}, nil)
 
-	base := corebase.MakeDefaultBase("ubuntu", "18.04")
-	cfg := refresherConfigWithOrigin(curl, ref, base)
-	cfg.DeployedBase = base
+	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -348,8 +360,9 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoOrigin(c *gc.C) {
 	curl := charm.MustParseURL(ref)
 	newCurl := charm.MustParseURL(fmt.Sprintf("%s-1", ref))
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmHub,
-		Base:   corebase.MakeDefaultBase("ubuntu", "18.04"),
+		Source:       commoncharm.OriginCharmHub,
+		Architecture: "amd64",
+		Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
 	}
 
 	charmAdder := NewMockCharmAdder(ctrl)
@@ -358,9 +371,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoOrigin(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(newCurl, origin, []string{}, nil)
 
-	base := corebase.MakeDefaultBase("ubuntu", "18.04")
-	cfg := refresherConfigWithOrigin(curl, ref, base)
-	cfg.DeployedBase = base
+	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -381,7 +392,9 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 	ref := "ch:meshuggah"
 	curl := charm.MustParseURL(ref)
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmHub,
+		Source:       commoncharm.OriginCharmHub,
+		Architecture: "amd64",
+		Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
 	}
 
 	charmAdder := NewMockCharmAdder(ctrl)
@@ -389,7 +402,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithNoUpdates(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(curl, origin, []string{}, nil)
 
-	cfg := refresherConfigWithOrigin(curl, ref, corebase.Base{})
+	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -406,7 +419,9 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 	ref := "ch:meshuggah-1"
 	curl := charm.MustParseURL(ref)
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmHub,
+		Source:       commoncharm.OriginCharmHub,
+		Architecture: "amd64",
+		Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
 	}
 
 	charmAdder := NewMockCharmAdder(ctrl)
@@ -414,7 +429,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithARevision(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(curl, origin, []string{}, nil)
 
-	cfg := refresherConfigWithOrigin(curl, ref, corebase.Base{})
+	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -431,8 +446,10 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
 	ref := "ch:meshuggah-1"
 	curl := charm.MustParseURL(ref)
 	origin := commoncharm.Origin{
-		Source: commoncharm.OriginCharmHub,
-		Risk:   "beta",
+		Source:       commoncharm.OriginCharmHub,
+		Risk:         "beta",
+		Architecture: "amd64",
+		Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
 	}
 
 	charmAdder := NewMockCharmAdder(ctrl)
@@ -440,13 +457,11 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithOriginChannel(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, false).Return(curl, origin, []string{}, nil)
 
-	cfg := basicRefresherConfig(curl, ref)
-	cfg.CharmOrigin = corecharm.Origin{
-		Source: corecharm.CharmHub,
-		Channel: &charm.Channel{
-			Risk: charm.Edge,
-		},
+	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
+	cfg.CharmOrigin.Channel = &charm.Channel{
+		Risk: charm.Edge,
 	}
+	cfg.CharmOrigin.Source = corecharm.CharmHub
 	cfg.Channel = charm.Channel{
 		Risk: charm.Beta,
 	}
@@ -470,6 +485,7 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
 		Risk:         "beta",
 		Architecture: "amd64",
 		Revision:     &curl.Revision,
+		Base:         corebase.MakeDefaultBase("ubuntu", "22.04"),
 	}
 
 	charmAdder := NewMockCharmAdder(ctrl)
@@ -477,14 +493,12 @@ func (s *charmHubCharmRefresherSuite) TestRefreshWithCharmSwitch(c *gc.C) {
 	charmResolver := NewMockCharmResolver(ctrl)
 	charmResolver.EXPECT().ResolveCharm(curl, origin, true).Return(curl, origin, []string{}, nil)
 
-	cfg := basicRefresherConfig(curl, ref)
+	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 	cfg.Switch = true // flag this as a refresh --switch operation
-	cfg.CharmOrigin = corecharm.Origin{
-		Source: corecharm.CharmHub,
-		Channel: &charm.Channel{
-			Risk: charm.Edge,
-		},
+	cfg.CharmOrigin.Channel = &charm.Channel{
+		Risk: charm.Edge,
 	}
+	cfg.CharmOrigin.Source = corecharm.CharmHub
 	cfg.Channel = charm.Channel{
 		Risk: charm.Beta,
 	}
@@ -507,8 +521,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowed(c *gc.C) {
 	charmAdder := NewMockCharmAdder(ctrl)
 	charmResolver := NewMockCharmResolver(ctrl)
 
-	cfg := refresherConfigWithOrigin(curl, ref, corebase.Base{})
-	cfg.DeployedBase = corebase.MakeDefaultBase("ubuntu", "18.04")
+	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
 	task, err := refresher(cfg)
@@ -531,8 +544,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowedWithSwitch(c *gc.C) {
 
 	charmResolver := NewMockCharmResolver(ctrl)
 
-	cfg := refresherConfigWithOrigin(curl, ref, corebase.Base{})
-	cfg.DeployedBase = corebase.MakeDefaultBase("ubuntu", "18.04")
+	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 	cfg.Switch = true
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
@@ -556,8 +568,7 @@ func (s *charmHubCharmRefresherSuite) TestAllowedError(c *gc.C) {
 
 	charmResolver := NewMockCharmResolver(ctrl)
 
-	cfg := refresherConfigWithOrigin(curl, ref, corebase.Base{})
-	cfg.DeployedBase = corebase.MakeDefaultBase("ubuntu", "18.04")
+	cfg := refresherConfigWithOrigin(curl, ref, corecharm.MustParsePlatform("amd64/ubuntu/22.04"))
 	cfg.Switch = true
 
 	refresher := (&factory{}).maybeCharmHub(charmAdder, charmResolver)
@@ -629,24 +640,17 @@ func (s *charmHubCharmRefresherSuite) TestCharmHubResolveOriginEmptyTrackEmptyCh
 	c.Assert(result, gc.DeepEquals, coreOrigin)
 }
 
-func basicRefresherConfig(curl *charm.URL, ref string) RefresherConfig {
-	return RefresherConfig{
+func refresherConfigWithOrigin(curl *charm.URL, ref string, platform corecharm.Platform) RefresherConfig {
+	rc := RefresherConfig{
 		ApplicationName: "winnie",
 		CharmURL:        curl,
 		CharmRef:        ref,
 		Logger:          &fakeLogger{},
 	}
-}
-
-func refresherConfigWithOrigin(curl *charm.URL, ref string, base corebase.Base) RefresherConfig {
-	rc := basicRefresherConfig(curl, ref)
 	rc.CharmOrigin = corecharm.Origin{
-		Source:  corecharm.CharmHub,
-		Channel: &charm.Channel{},
-		Platform: corecharm.Platform{
-			OS:      base.OS,
-			Channel: base.Channel.String(),
-		},
+		Source:   corecharm.CharmHub,
+		Channel:  &charm.Channel{},
+		Platform: platform,
 	}
 	return rc
 }
