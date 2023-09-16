@@ -53,7 +53,7 @@ func (m *MetricsManager) GracePeriod() time.Duration {
 // MetricsManager returns an existing metricsmanager, or a new one if non exists.
 func (st *State) MetricsManager() (*MetricsManager, error) {
 	mm, err := st.getMetricsManager()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return st.newMetricsManager()
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -130,7 +130,7 @@ func (st *State) getMetricsManager() (*MetricsManager, error) {
 func (m *MetricsManager) updateMetricsManager(update bson.M, status *bson.M) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			if _, err := m.st.getMetricsManager(); errors.IsNotFound(err) {
+			if _, err := m.st.getMetricsManager(); errors.Is(err, errors.NotFound) {
 				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, errors.Trace(err)

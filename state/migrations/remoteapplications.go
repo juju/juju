@@ -117,7 +117,7 @@ func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSour
 	descApp := dst.AddRemoteApplication(args)
 
 	status, err := src.StatusArgs(app.GlobalKey())
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	// Not all remote applications have status.

@@ -255,11 +255,11 @@ func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 		}
 		if detectCredentials, ok := provider.(environs.ProviderCredentials); ok {
 			detected, err := detectCredentials.DetectCredentials("")
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil && !errors.Is(err, errors.NotFound) {
 				logger.Errorf("could not detect credentials for provider %q: %v", providerName, err)
 				continue
 			}
-			if errors.IsNotFound(err) || len(detected.AuthCredentials) == 0 {
+			if errors.Is(err, errors.NotFound) || len(detected.AuthCredentials) == 0 {
 				continue
 			}
 			// Some providers, eg Azure can have spaces in cred names and we don't want that.
@@ -341,7 +341,7 @@ func (c *detectCredentialsCommand) guessCloudInfo(
 			continue
 		}
 		credentials, err := c.Store.CredentialForCloud(cloudName)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return "", "", false, errors.Trace(err)
 		}
 		if err != nil {
@@ -422,11 +422,11 @@ func (c *detectCredentialsCommand) interactiveCredentialsUpdate(ctxt *cmd.Contex
 
 		// Reading existing info so we can apply updated values.
 		existing, err := c.Store.CredentialForCloud(cloudName)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			fmt.Fprintf(ctxt.Stderr, "error reading credential file: %v\n", err)
 			continue
 		}
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			existing = &jujucloud.CloudCredential{
 				AuthCredentials: make(map[string]jujucloud.Credential),
 			}

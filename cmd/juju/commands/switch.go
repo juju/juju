@@ -93,7 +93,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Get the current name for logging the transition or printing
 	// the current controller/model.
 	currentControllerName, err := modelcmd.DetermineCurrentController(store)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		currentControllerName = ""
 	} else if err != nil {
 		return errors.Trace(err)
@@ -152,7 +152,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 			}
 			return errors.Trace(store.SetCurrentController(newControllerName))
 		}
-	} else if !errors.IsNotFound(err) || forceController {
+	} else if !errors.Is(err, errors.NotFound) || forceController {
 		return errors.Trace(err)
 	}
 
@@ -178,13 +178,13 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	newName = modelcmd.JoinModelName(newControllerName, modelName)
 
 	err = store.SetCurrentModel(newControllerName, modelName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// The model isn't known locally, so we must query the controller.
 		if err := c.RefreshModels(store, newControllerName); err != nil {
 			return errors.Annotate(err, "refreshing models cache")
 		}
 		err := store.SetCurrentModel(newControllerName, modelName)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return unknownSwitchTargetError(c.Target)
 		} else if err != nil {
 			return errors.Trace(err)
@@ -223,7 +223,7 @@ func (c *switchCommand) name(store jujuclient.ModelGetter, controllerName string
 	if err == nil {
 		return modelcmd.JoinModelName(controllerName, modelName), nil
 	}
-	if !errors.IsNotFound(err) {
+	if !errors.Is(err, errors.NotFound) {
 		return "", errors.Trace(err)
 	}
 	// No current account or model.

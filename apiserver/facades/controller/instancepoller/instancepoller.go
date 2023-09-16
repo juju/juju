@@ -225,7 +225,7 @@ func mapNetworkConfigsToProviderAddresses(
 				// If we were unable to infer the space using the
 				// currently available subnet information, use
 				// alpha space as a fall-back
-				if !errors.IsNotFound(err) {
+				if !errors.Is(err, errors.NotFound) {
 					return network.ProviderAddresses{}, err
 				}
 				spaceInfo = alphaSpaceInfo
@@ -249,7 +249,7 @@ func mapNetworkConfigsToProviderAddresses(
 				// For those cases we auto-assign the alpha space. In the
 				// future we might want to consider defining a public-alpha
 				// space.
-				if !errors.IsNotFound(err) {
+				if !errors.Is(err, errors.NotFound) {
 					return network.ProviderAddresses{}, err
 				}
 				spaceInfo = alphaSpaceInfo

@@ -118,14 +118,14 @@ func (h *modelRestHandler) processRemoteApplication(r *http.Request, w http.Resp
 	store := storage.NewStorage(sourceSt.ModelUUID(), sourceSt.MongoSession())
 	// Use the storage to retrieve and save the charm archive.
 	charmPath, err := common.ReadCharmFromStorage(store, h.dataDir, ch.StoragePath())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return h.byteSender(w, ".svg", []byte(common.DefaultCharmIcon))
 	}
 	if err != nil {
 		return errors.Trace(err)
 	}
 	iconContents, err := common.CharmArchiveEntry(charmPath, "icon.svg", true)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return h.byteSender(w, ".svg", []byte(common.DefaultCharmIcon))
 	}
 	if err != nil {

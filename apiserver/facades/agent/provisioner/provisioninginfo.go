@@ -126,7 +126,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 	// The root disk source constraint might refer to a storage pool.
 	if result.Constraints.HasRootDiskSource() {
 		sp, err := api.storagePoolManager.Get(*result.Constraints.RootDiskSource)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return result, errors.Annotate(err, "cannot load storage pool")
 		}
 		if err == nil {
@@ -216,7 +216,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 		if err != nil {
 			return nil, nil, errors.Annotatef(err, "getting volume %q parameters", volumeTag.Id())
 		}
-		if _, err := env.StorageProvider(storage.ProviderType(volumeParams.Provider)); errors.IsNotFound(err) {
+		if _, err := env.StorageProvider(storage.ProviderType(volumeParams.Provider)); errors.Is(err, errors.NotFound) {
 			// This storage type is not managed by the environ
 			// provider, so ignore it. It'll be managed by one
 			// of the storage provisioners.
@@ -229,7 +229,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 		volumeInfo, err := volume.Info()
 		if err == nil {
 			volumeProvisioned = true
-		} else if !errors.IsNotProvisioned(err) {
+		} else if !errors.Is(err, errors.NotProvisioned) {
 			return nil, nil, errors.Annotate(err, "getting volume info")
 		}
 		stateVolumeAttachmentParams, volumeDetached := volumeAttachment.Params()
@@ -624,7 +624,7 @@ func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env enviro
 func (api *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.ImageConstraint, env environs.Environ) ([]params.CloudImageMetadata, error) {
 	// Look for image metadata in state.
 	stateMetadata, err := api.imageMetadataFromState(imageConstraint)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		// look into simple stream if for some reason can't get from controller,
 		// so do not exit on error.
 		api.logger.Infof("could not get image metadata from controller: %v", err)
@@ -641,7 +641,7 @@ func (api *ProvisionerAPI) findImageMetadata(imageConstraint *imagemetadata.Imag
 	// to what is in state.
 	dsMetadata, err := api.imageMetadataFromDataSources(env, imageConstraint)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 	}

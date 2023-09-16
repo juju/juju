@@ -296,7 +296,7 @@ func (st *State) ModelUUIDsForUser(user names.UserTag) ([]string, error) {
 	// The mgo query below wont work for superuser case because it needs at
 	// least one model user per model.
 	access, err := st.UserAccess(user, st.controllerTag)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 
@@ -351,7 +351,7 @@ func (st *State) IsControllerAdmin(user names.UserTag) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	ua, err := st.UserAccess(user, model.ControllerTag())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}
 	if err != nil {
@@ -369,7 +369,7 @@ func (st *State) isControllerOrModelAdmin(user names.UserTag) (bool, error) {
 		return true, nil
 	}
 	ua, err := st.UserAccess(user, names.NewModelTag(st.ModelUUID()))
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}
 	if err != nil {

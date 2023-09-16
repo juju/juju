@@ -531,7 +531,7 @@ func controllerInstances(st *state.State) ([]instance.Id, error) {
 		instanceId, err := machine.InstanceId()
 		if err == nil {
 			instances = append(instances, instanceId)
-		} else if !errors.IsNotProvisioned(err) {
+		} else if !errors.Is(err, errors.NotProvisioned) {
 			return nil, err
 		}
 	}
@@ -840,7 +840,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx stdcontext.Context, args par
 		return errors.Trace(err)
 	}
 	_, err = hostMachine.InstanceId()
-	if errors.IsNotProvisioned(err) {
+	if errors.Is(err, errors.NotProvisioned) {
 		return errors.NotProvisionedf("cannot prepare container %s config: host machine %q",
 			handler.ConfigType(), hostMachine)
 	} else if err != nil {
@@ -913,7 +913,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		}
 	}
 	// The only error we allow is NotProvisioned
-	if err != nil && !errors.IsNotProvisioned(err) {
+	if err != nil && !errors.Is(err, errors.NotProvisioned) {
 		return errors.Trace(err)
 	}
 

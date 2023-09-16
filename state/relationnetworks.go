@@ -177,7 +177,7 @@ func (rin *relationNetworksState) Save(relationKey string, adminOverride bool, c
 		}
 
 		existing, err := rin.Networks(relationKey)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		var ops []txn.Op

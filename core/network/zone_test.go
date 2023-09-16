@@ -30,7 +30,7 @@ func (s *zoneSuite) SetUpTest(c *gc.C) {
 func (s *zoneSuite) TestAvailabilityZones(c *gc.C) {
 	c.Assert(s.zones.Validate("zone1"), jc.ErrorIsNil)
 	c.Assert(s.zones.Validate("zone2"), gc.ErrorMatches, `zone "zone2" is unavailable`)
-	c.Assert(s.zones.Validate("zone3"), jc.Satisfies, errors.IsNotValid)
+	c.Assert(s.zones.Validate("zone3"), jc.ErrorIs, errors.NotValid)
 }
 
 type az struct {

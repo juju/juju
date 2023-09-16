@@ -133,7 +133,7 @@ func environmentDataSources(bootstrapEnviron environs.BootstrapEnviron) ([]simpl
 		logger.Debugf("trying datasource %q", f.id)
 		datasource, err := f.f(env)
 		if err != nil {
-			if errors.IsNotSupported(err) {
+			if errors.Is(err, errors.NotSupported) {
 				continue
 			}
 			return nil, err

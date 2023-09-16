@@ -34,7 +34,7 @@ func (s *addBranchSuite) TestInitNoName(c *gc.C) {
 
 func (s *addBranchSuite) TestInitInvalidName(c *gc.C) {
 	err := s.runInit(coremodel.GenerationMaster)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *addBranchSuite) TestRunCommand(c *gc.C) {

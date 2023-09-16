@@ -133,7 +133,7 @@ func validConfig() migrationflag.Config {
 func checkNotValid(c *gc.C, config migrationflag.Config, expect string) {
 	check := func(err error) {
 		c.Check(err, gc.ErrorMatches, expect)
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 	}
 
 	err := config.Validate()
@@ -162,7 +162,7 @@ func checkManifoldNotValid(c *gc.C, config migrationflag.ManifoldConfig, expect 
 	worker, err := manifold.Start(dt.StubContext(nil, nil))
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
 // stubCaller is a base.APICaller that only implements ModelTag.

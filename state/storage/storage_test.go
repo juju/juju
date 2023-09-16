@@ -89,8 +89,8 @@ func (s *StorageSuite) TestStorageRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = s.storage.Get("path")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	err = s.storage.Remove("path")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

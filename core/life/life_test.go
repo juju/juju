@@ -35,7 +35,7 @@ func (*LifeSuite) TestValidateInvalid(c *gc.C) {
 	} {
 		c.Logf("test %d: %s", i, test)
 		err := test.Validate()
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, `life value ".*" not valid`)
 	}
 }

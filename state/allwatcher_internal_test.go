@@ -1549,7 +1549,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 			// within the same test loop, so we look for bob, and if not found,
 			// add him in.
 			bob, err := st.User(names.NewUserTag("bob"))
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				bob, err = st.AddUser("bob", "", "pwd", "admin")
 			}
 			c.Assert(err, jc.ErrorIsNil)
@@ -3127,7 +3127,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 
 			unitPortRanges, err := u.OpenedPortRanges()
 			if flag&assignUnit == 0 {
-				c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
+				c.Assert(err, jc.ErrorIs, errors.NotAssigned)
 			} else {
 				c.Assert(err, jc.ErrorIsNil)
 				unitPortRanges.Open(allEndpoints, corenetwork.MustParsePortRange("12345/tcp"))

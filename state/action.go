@@ -275,7 +275,7 @@ func (a *action) Begin() (Action, error) {
 		return nil, errors.Trace(err)
 	}
 	parentOperation, err := m.Operation(a.doc.Operation)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	startedTime := a.st.nowToTheSecond()
@@ -288,7 +288,7 @@ func (a *action) Begin() (Action, error) {
 		if parentOperation != nil {
 			if attempt > 0 {
 				err = parentOperation.Refresh()
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !errors.Is(err, errors.NotFound) {
 					return nil, errors.Trace(err)
 				}
 			}
@@ -343,7 +343,7 @@ func (a *action) Cancel() (Action, error) {
 	}
 
 	parentOperation, err := m.Operation(a.doc.Operation)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 
@@ -397,7 +397,7 @@ func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 	}
 
 	parentOperation, err := m.Operation(a.doc.Operation)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 
@@ -446,7 +446,7 @@ func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[stri
 			}
 			if attempt > 0 {
 				err = parentOperation.Refresh()
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !errors.Is(err, errors.NotFound) {
 					return nil, errors.Trace(err)
 				}
 			}

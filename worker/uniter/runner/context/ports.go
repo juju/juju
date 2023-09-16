@@ -142,7 +142,7 @@ func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange 
 	// Ensure port range does not conflict with the ones already recorded
 	// for closing by this unit.
 	if err := r.checkForConflict(endpointName, portRange, r.unitTag, r.pendingCloseRanges, true); err != nil {
-		if !errors.IsAlreadyExists(err) {
+		if !errors.Is(err, errors.AlreadyExists) {
 			return errors.Annotatef(err, "cannot close %v (unit %q)", portRange, r.unitTag.Id())
 		}
 
@@ -160,7 +160,7 @@ func (r *portRangeChangeRecorder) ClosePortRange(endpointName string, portRange 
 	for otherUnitTag, otherUnitRanges := range r.machinePortRanges {
 		if err := r.checkForConflict(endpointName, portRange, otherUnitTag, otherUnitRanges, false); err != nil {
 			// Conflicts with an open port range for another unit.
-			if !errors.IsAlreadyExists(err) {
+			if !errors.Is(err, errors.AlreadyExists) {
 				return errors.Annotatef(err, "cannot close %v (unit %q)", portRange, r.unitTag.Id())
 			}
 		}

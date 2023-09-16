@@ -65,7 +65,7 @@ func (s *ValidateSuite) TestBadPeriods(c *gc.C) {
 
 func (s *ValidateSuite) checkNotValid(c *gc.C, match string) {
 	check := func(err error) {
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, match)
 	}
 	err := s.config.Validate()

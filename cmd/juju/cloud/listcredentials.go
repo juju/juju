@@ -316,7 +316,7 @@ func (c *listCredentialsCommand) localCredentials(ctxt *cmd.Context) (map[string
 	var missingClouds []string
 	for _, cloudName := range cloudNames {
 		cred, err := c.Store.CredentialForCloud(cloudName)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			ctxt.Warningf("error loading credential for cloud %v: %v", cloudName, err)
@@ -324,7 +324,7 @@ func (c *listCredentialsCommand) localCredentials(ctxt *cmd.Context) (map[string
 		}
 		if !c.showSecrets {
 			if err := removeSecrets(cloudName, cred, c.cloudByNameFunc); err != nil {
-				if errors.IsNotValid(err) {
+				if errors.Is(err, errors.NotValid) {
 					missingClouds = append(missingClouds, cloudName)
 					continue
 				}

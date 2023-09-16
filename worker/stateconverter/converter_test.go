@@ -42,7 +42,7 @@ func (s *converterSuite) TestSetupMachinerErr(c *gc.C) {
 
 	conv := s.newConverter()
 	w, err := conv.SetUp(context.Background())
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(w, gc.IsNil)
 }
 
@@ -54,7 +54,7 @@ func (s *converterSuite) TestSetupWatchErr(c *gc.C) {
 
 	conv := s.newConverter()
 	w, err := conv.SetUp(context.Background())
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(w, gc.IsNil)
 }
 

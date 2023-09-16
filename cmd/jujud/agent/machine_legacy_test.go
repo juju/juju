@@ -390,10 +390,9 @@ func (s *MachineLegacySuite) TestDyingModelCleanedUp(c *gc.C) {
 				select {
 				case <-watch.Changes():
 					err := m.Refresh()
-					cause := errors.Cause(err)
 					if err == nil {
 						continue // still there
-					} else if errors.IsNotFound(cause) {
+					} else if errors.Is(err, errors.NotFound) {
 						return // successfully removed
 					}
 					c.Assert(err, jc.ErrorIsNil) // guaranteed fail
@@ -546,7 +545,7 @@ func (s *MachineLegacySuite) TestManageModelRunsCleaner(c *gc.C) {
 				c.Fatalf("unit not cleaned up")
 			case <-w.Changes():
 				err := unit.Refresh()
-				if errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					done = true
 				} else {
 					c.Assert(err, jc.ErrorIsNil)

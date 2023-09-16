@@ -224,7 +224,7 @@ func (s *SubnetsSuite) TestAllZonesWhenBackingAvailabilityZonesFails(c *gc.C) {
 	results, err := s.facade.AllZones(stdcontext.Background())
 	c.Assert(err, gc.ErrorMatches, "zones not supported")
 	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
@@ -275,7 +275,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 		`cannot update known zones: setting not supported`,
 	)
 	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
@@ -303,7 +303,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 		`cannot update known zones: foo not valid`,
 	)
 	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
@@ -327,7 +327,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C
 		`cannot update known zones: opening environment: retrieving model config: config not found`,
 	)
 	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
@@ -350,7 +350,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndOpenFails(c *gc.C) {
 		`cannot update known zones: opening environment: creating environ for model \"stub-zoned-environ\" \(.*\): config not valid`,
 	)
 	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
@@ -370,7 +370,7 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndZonesNotSupported(c *gc.
 		`cannot update known zones: availability zones not supported`,
 	)
 	// Verify the cause is not obscured.
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
 	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,

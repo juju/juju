@@ -91,7 +91,7 @@ func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuCert(c *gc.C) {
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, errors.NotValidf("certs"))
 
 	_, err := deps.provider.DetectCredentials("")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "certs not valid")
+	c.Assert(err, gc.ErrorMatches, "certs not valid")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuAndLXCCert(c *gc.C) {
@@ -107,7 +107,7 @@ func (s *credentialsSuite) TestDetectCredentialsFailsWithJujuAndLXCCert(c *gc.C)
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, errors.NotValidf("certs"))
 
 	_, err := deps.provider.DetectCredentials("")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "certs not valid")
+	c.Assert(err, gc.ErrorMatches, "certs not valid")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToWriteOnError(c *gc.C) {
@@ -124,7 +124,7 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToWriteOnError
 	deps.certGenerator.EXPECT().Generate(true, true).Return(nil, nil, errors.Errorf("bad"))
 
 	_, err := deps.provider.DetectCredentials("")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "bad")
+	c.Assert(err, gc.ErrorMatches, "bad")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToGetCertificateOnError(c *gc.C) {
@@ -142,7 +142,7 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToGetCertifica
 	deps.certReadWriter.EXPECT().Write(path, []byte(coretesting.CACert), []byte(coretesting.CAKey)).Return(errors.Errorf("bad"))
 
 	_, err := deps.provider.DetectCredentials("")
-	c.Assert(errors.Cause(err), gc.ErrorMatches, "bad")
+	c.Assert(err, gc.ErrorMatches, "bad")
 }
 
 func (s *credentialsSuite) setupLocalhost(deps credentialsSuiteDeps, c *gc.C) {
@@ -825,7 +825,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithInsecureError(c *gc.C
 	deps.serverFactory.EXPECT().InsecureRemoteServer(insecureSpec).Return(nil, errors.New("bad"))
 
 	_, err := deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
-	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
+	c.Assert(err, gc.ErrorMatches, "bad")
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateError(c *gc.C) {
@@ -868,7 +868,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithCreateCertificateErro
 	}).Return(errors.New("bad"))
 
 	_, err = deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
-	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
+	c.Assert(err, gc.ErrorMatches, "bad")
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *gc.C) {
@@ -912,7 +912,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoveWithGetServerError(c *gc.
 	deps.server.EXPECT().GetServer().Return(nil, "etag", errors.New("bad"))
 
 	_, err = deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
-	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
+	c.Assert(err, gc.ErrorMatches, "bad")
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(c *gc.C) {
@@ -972,7 +972,7 @@ func (s *credentialsSuite) TestFinalizeCredentialRemoteWithNewRemoteServerError(
 	deps.serverFactory.EXPECT().RemoteServer(secureSpec).Return(nil, errors.New("bad"))
 
 	_, err = deps.provider.FinalizeCredential(cmdtesting.Context(c), params)
-	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
+	c.Assert(err, gc.ErrorMatches, "bad")
 }
 
 func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithValidCredentials(c *gc.C) {
@@ -1045,7 +1045,7 @@ func (s *credentialsSuite) TestInteractiveFinalizeCredentialWithCertFailure(c *g
 			"trust-password": "password1",
 		}),
 	})
-	c.Assert(errors.Cause(err).Error(), gc.Equals, "bad")
+	c.Assert(err, gc.ErrorMatches, "bad")
 }
 
 func (s *credentialsSuite) clientCert() *containerLXD.Certificate {

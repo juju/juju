@@ -297,7 +297,7 @@ func insertAnyCharmOps(mb modelBackend, cdoc *charmDoc) ([]txn.Op, error) {
 	defer cCloser()
 
 	life, err := nsLife.read(charms, cdoc.DocID)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// everything is as it should be
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -593,7 +593,7 @@ func (c *Charm) Remove() error {
 
 	stor := storage.NewStorage(c.st.ModelUUID(), c.st.MongoSession())
 	err := stor.Remove(c.doc.StoragePath)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// Not a problem, but we might still need to run the
 		// transaction further down to complete the process.
 	} else if err != nil {

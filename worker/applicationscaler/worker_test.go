@@ -23,7 +23,7 @@ func (s *WorkerSuite) TestValidate(c *gc.C) {
 	config := applicationscaler.Config{}
 	check := func(err error) {
 		c.Check(err, gc.ErrorMatches, "nil Facade not valid")
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 	}
 
 	err := config.Validate()

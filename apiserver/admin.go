@@ -366,14 +366,14 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) erro
 	defer func() { _ = st.Release() }()
 
 	// If the model exists on this controller then no redirect is possible.
-	if _, err := st.Model(); err == nil || !errors.IsNotFound(err) {
+	if _, err := st.Model(); err == nil || !errors.Is(err, errors.NotFound) {
 		return nil
 	}
 
 	// Check if the model was not found due to
 	// being migrated to another controller.
 	mig, err := st.CompletedMigration()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 
@@ -461,7 +461,7 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 	if !userTag.IsLocal() {
 		everyoneTag := names.NewUserTag(common.EveryoneTagName)
 		everyoneGroupUser, err := state.ControllerAccess(a.root.state, everyoneTag)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 		}
 		everyoneGroupAccess = everyoneGroupUser.Access

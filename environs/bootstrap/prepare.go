@@ -97,7 +97,7 @@ func PrepareController(
 	_, err := store.ControllerByName(args.ControllerName)
 	if err == nil {
 		return nil, errors.AlreadyExistsf("controller %q", args.ControllerName)
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return nil, errors.Annotatef(err, "error reading controller %q info", args.ControllerName)
 	}
 

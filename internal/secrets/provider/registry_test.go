@@ -21,7 +21,7 @@ var _ = gc.Suite(&registrySuite{})
 
 func (*registrySuite) TestProvider(c *gc.C) {
 	_, err := provider.Provider("bad")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = provider.Provider("controller")
 	c.Assert(err, jc.ErrorIsNil)

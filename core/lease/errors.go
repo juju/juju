@@ -42,29 +42,29 @@ const (
 // IsInvalid returns whether the specified error represents ErrInvalid
 // (even if it's wrapped).
 func IsInvalid(err error) bool {
-	return errors.Cause(err) == ErrInvalid
+	return errors.Is(err, ErrInvalid)
 }
 
 // IsHeld returns whether the specified error represents ErrHeld
 // (even if it's wrapped).
 func IsHeld(err error) bool {
-	return errors.Cause(err) == ErrHeld
+	return errors.Is(err, ErrHeld)
 }
 
 // IsTimeout returns whether the specified error represents ErrTimeout
 // (even if it's wrapped).
 func IsTimeout(err error) bool {
-	return errors.Cause(err) == ErrTimeout
+	return errors.Is(err, ErrTimeout)
 }
 
 // IsAborted returns whether the specified error represents ErrAborted
 // (even if it's wrapped).
 func IsAborted(err error) bool {
-	return errors.Cause(err) == ErrAborted
+	return errors.Is(err, ErrAborted)
 }
 
 // IsNotHeld returns whether the specified error represents ErrNotHeld
 // (even if it's wrapped).
 func IsNotHeld(err error) bool {
-	return errors.Cause(err) == ErrNotHeld
+	return errors.Is(err, ErrNotHeld)
 }

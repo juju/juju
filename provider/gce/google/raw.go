@@ -382,7 +382,7 @@ func (rc *rawConn) waitOperation(projectID string, op *compute.Operation, retryS
 	logger.Infof("GCE operation %q, waiting...", op.Name)
 
 	retryStrategy.IsFatalError = func(err error) bool {
-		return !errors.IsNotProvisioned(err)
+		return !errors.Is(err, errors.NotProvisioned)
 	}
 	retryStrategy.Func = func() error {
 		var err error

@@ -104,7 +104,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusNotFound(c *gc.C) {
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
 	_, _, err := api.UpgradeSeriesUnitStatus()
 	c.Assert(err, gc.ErrorMatches, "testing")
-	c.Check(errors.IsNotFound(err), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMultiple(c *gc.C) {

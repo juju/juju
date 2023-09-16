@@ -98,7 +98,7 @@ func NewTracker(config Config) (*Tracker, error) {
 	if len(result) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(result))
 	}
-	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
+	if errors.Is(result[0].Err, errors.NotFound) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
 		return nil, dependency.ErrUninstall
 	}
 	machine := result[0].Machine

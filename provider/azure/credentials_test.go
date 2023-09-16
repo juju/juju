@@ -65,7 +65,7 @@ func (s *credentialsSuite) TestServicePrincipalSecretHiddenAttributes(c *gc.C) {
 
 func (s *credentialsSuite) TestDetectCredentialsNoAccounts(c *gc.C) {
 	_, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	calls := s.azureCLI.Calls()
 	c.Assert(calls, gc.HasLen, 1)
 	c.Assert(calls[0].FuncName, gc.Equals, "ListAccounts")
@@ -74,7 +74,7 @@ func (s *credentialsSuite) TestDetectCredentialsNoAccounts(c *gc.C) {
 func (s *credentialsSuite) TestDetectCredentialsListError(c *gc.C) {
 	s.azureCLI.SetErrors(errors.New("test error"))
 	_, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsOneAccount(c *gc.C) {
@@ -131,7 +131,7 @@ func (s *credentialsSuite) TestDetectCredentialsCloudError(c *gc.C) {
 	}}
 	s.azureCLI.SetErrors(nil, errors.New("test error"))
 	cred, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(cred, gc.IsNil)
 
 	calls := s.azureCLI.Calls()

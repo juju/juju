@@ -398,7 +398,7 @@ func (sb *storageBackend) destroyStorageInstance(
 ) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := sb.storageInstance(tag)
-		if errors.IsNotFound(err) && attempt > 0 {
+		if errors.Is(err, errors.NotFound) && attempt > 0 {
 			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -575,7 +575,7 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D, force bool) ([
 		}
 		ops = append(ops, fsOps...)
 		haveFilesystem = true
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		if !force {
 			return nil, errors.Trace(err)
 		}
@@ -600,7 +600,7 @@ func removeStorageInstanceOps(si *storageInstance, assert bson.D, force bool) ([
 			}
 			ops = append(ops, volOps...)
 		}
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		if !force {
 			return nil, errors.Trace(err)
 		}
@@ -908,7 +908,7 @@ func unitAssignedMachineStorageOps(
 ) (ops []txn.Op, err error) {
 	m, err := machineAssignable.machine()
 	if err != nil {
-		if errors.IsNotAssigned(err) {
+		if errors.Is(err, errors.NotAssigned) {
 			// The unit is not assigned to a machine; return
 			// txn.Op that ensures that this remains the case
 			// until the transaction is committed.
@@ -1044,7 +1044,7 @@ func (sb *storageBackend) AttachStorage(storage names.StorageTag, unit names.Uni
 			return nil, errors.Trace(err)
 		}
 		ops, err := sb.attachStorageOps(si, u.UnitTag(), uSeries, ch, u)
-		if errors.IsAlreadyExists(err) {
+		if errors.Is(err, errors.AlreadyExists) {
 			return nil, jujutxn.ErrNoOperations
 		}
 		if err != nil {
@@ -1116,7 +1116,7 @@ func (sb *storageBackend) attachStorageOps(
 			unitTag,
 		); err == nil {
 			return nil, errors.AlreadyExistsf("storage attachment %q on %q", si.StorageTag().Id(), unitTag.Id())
-		} else if !errors.IsNotFound(err) {
+		} else if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 	} else {
@@ -1222,7 +1222,7 @@ func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.Uni
 	defer errors.DeferredAnnotatef(&err, "cannot destroy storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := sb.storageAttachment(storage, unit)
-		if errors.IsNotFound(err) && attempt > 0 {
+		if errors.Is(err, errors.NotFound) && attempt > 0 {
 			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -1270,7 +1270,7 @@ func (sb *storageBackend) DetachStorage(storage names.StorageTag, unit names.Uni
 		var hostTag names.Tag = unit
 		if u.ShouldBeAssigned() {
 			machineId, err := u.AssignedMachineId()
-			if errors.IsNotAssigned(err) {
+			if errors.Is(err, errors.NotAssigned) {
 				// The unit is not assigned to a machine, therefore
 				// there can be no associated machine storage. It
 				// is safe to remove.
@@ -1389,7 +1389,7 @@ func (sb *storageBackend) RemoveStorageAttachment(storage names.StorageTag, unit
 	defer errors.DeferredAnnotatef(&err, "cannot remove storage attachment %s:%s", storage.Id(), unit.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		s, err := sb.storageAttachment(storage, unit)
-		if errors.IsNotFound(err) && attempt > 0 {
+		if errors.Is(err, errors.NotFound) && attempt > 0 {
 			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -1400,7 +1400,7 @@ func (sb *storageBackend) RemoveStorageAttachment(storage names.StorageTag, unit
 			return nil, errors.New("storage attachment is not dying")
 		}
 		inst, err := sb.storageInstance(storage)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// This implies that the attachment was removed
 			// after the call to st.storageAttachment.
 			return nil, jujutxn.ErrNoOperations
@@ -1527,7 +1527,7 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 	var hostTag names.Tag = unitTag
 	if sb.modelType == ModelTypeIAAS {
 		machineId, err := unit.AssignedMachineId()
-		if errors.IsNotAssigned(err) {
+		if errors.Is(err, errors.NotAssigned) {
 			return []txn.Op{unit.noAssignedMachineOp()}, nil
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -1538,7 +1538,7 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 	switch si.Kind() {
 	case StorageKindBlock:
 		volume, err := sb.storageInstanceVolume(si.StorageTag())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// The volume has already been removed, so must have
 			// already been detached.
 			logger.Debugf("%s", err)
@@ -1567,7 +1567,7 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 			return nil, nil
 		}
 		att, err := sb.VolumeAttachment(hostTag, volume.VolumeTag())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Since the storage attachment is Dying, it is not
 			// possible to create a volume attachment for the
 			// machine, associated with the same storage.
@@ -1596,7 +1596,7 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 
 	case StorageKindFilesystem:
 		filesystem, err := sb.storageInstanceFilesystem(si.StorageTag())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// The filesystem has already been removed, so must
 			// have already been detached.
 			logger.Debugf("%s", err)
@@ -1623,7 +1623,7 @@ func (sb *storageBackend) detachStorageAttachmentOps(si *storageInstance, unitTa
 			return nil, nil
 		}
 		att, err := sb.FilesystemAttachment(hostTag, filesystem.FilesystemTag())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Since the storage attachment is Dying, it is not
 			// possible to create a volume attachment for the
 			// machine, associated with the same storage.
@@ -1914,7 +1914,7 @@ func poolStorageProvider(sb *storageBackend, poolName string) (storage.ProviderT
 	}
 	poolManager := poolmanager.New(sb.settings, registry)
 	pool, err := poolManager.Get(poolName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// If there's no pool called poolName, maybe a provider type
 		// has been specified directly.
 		providerType := storage.ProviderType(poolName)

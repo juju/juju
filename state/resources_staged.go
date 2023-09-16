@@ -109,7 +109,7 @@ func (staged StagedResource) hasNewBytes() (bool, error) {
 	var current resourceDoc
 	err := staged.p.one(resourcesC, staged.stored.ID, &current)
 	switch {
-	case errors.IsNotFound(err):
+	case errors.Is(err, errors.NotFound):
 		// if there's no current resource stored, then any non-zero bytes will
 		// be new.
 		return !staged.stored.Fingerprint.IsZero(), nil

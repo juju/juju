@@ -144,7 +144,7 @@ func (st *State) AddSpace(
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if _, err := st.SpaceByName(name); err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return nil, errors.Annotatef(err, "checking for existing space")
 			}
 		} else {

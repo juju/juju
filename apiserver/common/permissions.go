@@ -50,11 +50,11 @@ func HasPermission(
 	}
 
 	userAccess, err := GetPermission(accessGetter, userTag, target)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return false, errors.Annotatef(err, "while obtaining %s user", target.Kind())
 	}
 	// returning this kind of information would be too much information to reveal too.
-	if errors.IsNotFound(err) || userAccess == permission.NoAccess {
+	if errors.Is(err, errors.NotFound) || userAccess == permission.NoAccess {
 		return false, nil
 	}
 
@@ -71,7 +71,7 @@ func HasPermission(
 // GetPermission returns the permission a user has on the specified target.
 func GetPermission(accessGetter UserAccessFunc, userTag names.UserTag, target names.Tag) (permission.Access, error) {
 	userAccess, err := accessGetter(userTag, target)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return permission.NoAccess, errors.Annotatef(err, "while obtaining %s user", target.Kind())
 	}
 	// there is a special case for external users, a group called everyone@external
@@ -80,7 +80,7 @@ func GetPermission(accessGetter UserAccessFunc, userTag names.UserTag, target na
 		// when groups are implemented.
 		everyoneTag := names.NewUserTag(EveryoneTagName)
 		everyoneAccess, err := accessGetter(everyoneTag, target)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return permission.NoAccess, errors.Trace(err)
 		}
 		if userAccess == permission.NoAccess && everyoneAccess != permission.NoAccess {

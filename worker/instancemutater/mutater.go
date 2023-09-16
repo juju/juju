@@ -94,7 +94,7 @@ func (m *mutater) startMachines(tags []names.MachineTag) error {
 
 			profileChangeWatcher, err := api.WatchLXDProfileVerificationNeeded()
 			if err != nil {
-				if errors.IsNotSupported(err) {
+				if errors.Is(err, errors.NotSupported) {
 					m.logger.Tracef("ignoring manual machine-%s", id)
 					continue
 				}
@@ -171,7 +171,7 @@ func (m MutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profile
 				}
 				return errors.Trace(err)
 			}
-			if err = m.processMachineProfileChanges(info); err != nil && errors.IsNotValid(err) {
+			if err = m.processMachineProfileChanges(info); err != nil && errors.Is(err, errors.NotValid) {
 				// Return to stop mutating the machine, but no need to restart
 				// the worker.
 				return nil

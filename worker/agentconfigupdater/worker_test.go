@@ -118,7 +118,7 @@ func (s *WorkerSuite) TestWorkerConfig(c *gc.C) {
 		if test.expectErr == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(err, jc.Satisfies, errors.IsNotValid)
+			c.Check(err, jc.ErrorIs, errors.NotValid)
 			c.Check(err, gc.ErrorMatches, test.expectErr)
 		}
 	}
@@ -129,7 +129,7 @@ func (s *WorkerSuite) TestNewWorkerValidatesConfig(c *gc.C) {
 	config.Agent = nil
 	w, err := agentconfigupdater.NewWorker(config)
 	c.Assert(w, gc.IsNil)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *WorkerSuite) TestNormalStart(c *gc.C) {

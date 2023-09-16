@@ -61,17 +61,17 @@ func (s *SecretBackendsSuite) TestCreate(c *gc.C) {
 	c.Assert(nextTime, gc.Equals, next)
 
 	_, err = s.storage.CreateSecretBackend(p)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 
 	p.Name = "another"
 	p.ID = id
 	_, err = s.storage.CreateSecretBackend(p)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *SecretBackendsSuite) TestGetNotFound(c *gc.C) {
 	_, err := s.storage.GetSecretBackend("myvault")
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *SecretBackendsSuite) TestList(c *gc.C) {
@@ -125,7 +125,7 @@ func (s *SecretBackendsSuite) TestRemove(c *gc.C) {
 	err = s.storage.DeleteSecretBackend("myvault", false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.storage.GetSecretBackend("myvault")
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	err = s.storage.DeleteSecretBackend("myvault", false)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -158,7 +158,7 @@ func (s *SecretBackendsSuite) TestRemoveWithRevisionsFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.storage.DeleteSecretBackend("myvault", false)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	count, err := state.SecretBackendRefCount(s.State, b.ID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(count, gc.Equals, 1)
@@ -198,9 +198,9 @@ func (s *SecretBackendsSuite) TestRemoveWithRevisionsForce(c *gc.C) {
 	err = s.storage.DeleteSecretBackend("myvault", true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = state.SecretBackendRefCount(s.State, b.ID)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = s.storage.GetSecretBackend("myvault")
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *SecretBackendsSuite) TestDeleteSecretUpdatesRefCount(c *gc.C) {
@@ -437,7 +437,7 @@ func (s *SecretBackendsSuite) TestUpdateNameDuplicate(c *gc.C) {
 		Config:     map[string]interface{}{"foo": "bar2"},
 	}
 	err = s.storage.UpdateSecretBackend(u)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *SecretBackendsSuite) TestUpdateResetRotationInterval(c *gc.C) {

@@ -53,7 +53,7 @@ func (a *AuthoritySuite) TestMissingLeafGroup(c *gc.C) {
 	leaf, err := authority.LeafForGroup("noexist")
 	c.Assert(err, gc.NotNil)
 	c.Assert(leaf, gc.IsNil)
-	c.Assert(errors.IsNotFound(err), gc.Equals, true)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (a *AuthoritySuite) TestLeafRequest(c *gc.C) {

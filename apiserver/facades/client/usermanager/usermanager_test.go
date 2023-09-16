@@ -182,7 +182,7 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	_, err = s.ControllerModel(c).State().User(names.NewLocalUserTag("foobar"))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *userManagerSuite) TestDisableUser(c *gc.C) {

@@ -283,5 +283,5 @@ func (s *OperationSuite) TestOperationWithActions(c *gc.C) {
 
 func (s *OperationSuite) TestOperationWithActionsNotFound(c *gc.C) {
 	_, err := s.Model.OperationWithActions("1")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

@@ -474,7 +474,7 @@ func (c *sshMachine) resolveWithRetry(target resolvedTarget, getAddress addressG
 	callArgs.Func = func() error {
 		var err error
 		out.host, err = getAddress(out.entity)
-		if errors.IsNotFound(err) || params.IsCodeNotFound(err) {
+		if errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err) {
 			// Catch issues like passing invalid machine/unit IDs early.
 			return errors.Trace(err)
 		}

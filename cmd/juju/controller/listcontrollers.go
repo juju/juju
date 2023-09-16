@@ -126,7 +126,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintln(ctx.Stderr, strings.Join(errs, "\n"))
 	}
 	currentController, err := modelcmd.DetermineCurrentController(c.store)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		currentController = ""
 	} else if err != nil {
 		return errors.Annotate(err, "getting current controller")
@@ -173,7 +173,7 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 	machineCount := 0
 	for _, s := range modelStatus {
 		if s.Error != nil {
-			if errors.IsNotFound(s.Error) {
+			if errors.Is(s.Error, errors.NotFound) {
 				// This most likely occurred because a model was
 				// destroyed half-way through the call.
 				continue

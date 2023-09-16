@@ -111,7 +111,7 @@ func (s *ConfigSuite) TestNilLogger(c *gc.C) {
 
 func (s *ConfigSuite) checkNotValid(c *gc.C, match string) {
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, match)
 }
 

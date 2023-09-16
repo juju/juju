@@ -125,7 +125,7 @@ func (s *ipAddressesStateSuite) TestMachineMethodReturnsNotFoundErrorWhenMissing
 
 	result, err := addresses[0].Machine()
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -160,7 +160,7 @@ func (s *ipAddressesStateSuite) TestDeviceMethodReturnsNotFoundErrorWhenMissing(
 
 	result, err := addresses[0].Device()
 	c.Assert(result, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `device with ID .+ not found`)
 }
 
@@ -179,7 +179,7 @@ func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWhenMissing(
 	s.ensureEntityDeadAndRemoved(c, subnet)
 
 	result, err := addresses[0].Subnet()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `subnet "10.20.0.0/16" not found`)
 	c.Assert(result, gc.IsNil)
 }
@@ -192,7 +192,7 @@ func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWithUnknownO
 	for _, address := range addresses {
 		result, err := address.Subnet()
 		c.Check(result, gc.IsNil)
-		c.Check(err, jc.Satisfies, errors.IsNotFound)
+		c.Check(err, jc.ErrorIs, errors.NotFound)
 		expectedError := fmt.Sprintf("subnet %q not found", address.SubnetCIDR())
 		c.Check(err, gc.ErrorMatches, expectedError)
 		missingCIDRs.Remove(address.SubnetCIDR())
@@ -420,7 +420,7 @@ func (s *ipAddressesStateSuite) assertSetDevicesAddressesFailsValidationForArgs(
 ) {
 	invalidAddressPrefix := fmt.Sprintf("invalid address %q: ", args.CIDRAddress)
 	err := s.assertSetDevicesAddressesFailsForArgs(c, args, invalidAddressPrefix+errorCauseMatches)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *ipAddressesStateSuite) assertSetDevicesAddressesFailsForArgs(
@@ -462,7 +462,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithUnknownDeviceNam
 	}
 	expectedError := `invalid address "0.1.2.3/24": DeviceName "missing" on machine "0" not found`
 	err := s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithInvalidGatewayAddress(c *gc.C) {

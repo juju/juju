@@ -673,7 +673,7 @@ func DiscardSecurityGroup(e environs.Environ, name string) error {
 	neutronClient := env.neutron()
 	groups, err := neutronClient.SecurityGroupByNameV2(name)
 	if err != nil || len(groups) == 0 {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Group already deleted, done
 			return nil
 		}

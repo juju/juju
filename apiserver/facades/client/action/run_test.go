@@ -258,7 +258,7 @@ func (s *runSuite) TestRunRequiresAdmin(c *gc.C) {
 	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.Run(context.Background(), params.RunParams{})
-	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
 	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{})
@@ -277,7 +277,7 @@ func (s *runSuite) TestRunOnAllMachinesRequiresAdmin(c *gc.C) {
 	client, err := action.NewActionAPI(st, nil, auth, action.FakeLeadership{})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.RunOnAllMachines(context.Background(), params.RunParams{})
-	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 
 	auth.AdminTag = alpha
 	client, err = action.NewActionAPI(st, nil, auth, action.FakeLeadership{})

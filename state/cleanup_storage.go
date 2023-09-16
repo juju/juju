@@ -52,7 +52,7 @@ func (c *dyingEntityStorageCleaner) cleanupStorage(
 	// filesystems will have to be fixed manually.
 	if !c.manual {
 		for _, f := range filesystems {
-			if err := c.sb.RemoveFilesystem(f.FilesystemTag()); err != nil && !errors.IsNotFound(err) {
+			if err := c.sb.RemoveFilesystem(f.FilesystemTag()); err != nil && !errors.Is(err, errors.NotFound) {
 				if !c.force {
 					return errors.Trace(err)
 				}
@@ -63,7 +63,7 @@ func (c *dyingEntityStorageCleaner) cleanupStorage(
 
 	// Detach all remaining volumes from the machine.
 	for _, va := range volumeAttachments {
-		if detachable, err := isDetachableVolumeTag(c.sb.mb.db(), va.Volume()); err != nil && !errors.IsNotFound(err) {
+		if detachable, err := isDetachableVolumeTag(c.sb.mb.db(), va.Volume()); err != nil && !errors.Is(err, errors.NotFound) {
 			if !c.force {
 				return errors.Trace(err)
 			}
@@ -72,7 +72,7 @@ func (c *dyingEntityStorageCleaner) cleanupStorage(
 			// Non-detachable volumes will be removed along with the machine.
 			continue
 		}
-		if err := c.sb.DetachVolume(va.Host(), va.Volume(), c.force); err != nil && !errors.IsNotFound(err) {
+		if err := c.sb.DetachVolume(va.Host(), va.Volume(), c.force); err != nil && !errors.Is(err, errors.NotFound) {
 			if IsContainsFilesystem(err) {
 				// The volume will be destroyed when the
 				// contained filesystem is removed, whose
@@ -93,7 +93,7 @@ func (c *dyingEntityStorageCleaner) cleanupStorage(
 // presence of a host ID; see `filesystemDoc`.
 func (c *dyingEntityStorageCleaner) destroyNonDetachableFileSystems() ([]*filesystem, error) {
 	filesystems, err := c.sb.filesystems(bson.D{{"hostid", c.hostTag.Id()}})
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		err = errors.Annotate(err, "getting host filesystems")
 		if !c.force {
 			return nil, err
@@ -102,7 +102,7 @@ func (c *dyingEntityStorageCleaner) destroyNonDetachableFileSystems() ([]*filesy
 	}
 
 	for _, f := range filesystems {
-		if err := c.sb.DestroyFilesystem(f.FilesystemTag(), c.force); err != nil && !errors.IsNotFound(err) {
+		if err := c.sb.DestroyFilesystem(f.FilesystemTag(), c.force); err != nil && !errors.Is(err, errors.NotFound) {
 			if !c.force {
 				return nil, errors.Trace(err)
 			}
@@ -117,14 +117,14 @@ func (c *dyingEntityStorageCleaner) detachFileSystem(fsa FilesystemAttachment) e
 	filesystem := fsa.Filesystem()
 
 	detachable, err := isDetachableFilesystemTag(c.sb.mb.db(), filesystem)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		if !c.force {
 			return errors.Trace(err)
 		}
 		logger.Warningf("could not determine if filesystem %v for %v is detachable: %v", filesystem.Id(), c.hostTag, err)
 	}
 	if detachable {
-		if err := c.sb.DetachFilesystem(fsa.Host(), filesystem); err != nil && !errors.IsNotFound(err) {
+		if err := c.sb.DetachFilesystem(fsa.Host(), filesystem); err != nil && !errors.Is(err, errors.NotFound) {
 			if !c.force {
 				return errors.Trace(err)
 			}
@@ -148,7 +148,7 @@ func (c *dyingEntityStorageCleaner) detachFileSystem(fsa FilesystemAttachment) e
 	} else {
 		f, err := c.sb.Filesystem(filesystem)
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				if !c.force {
 					return errors.Trace(err)
 				}
@@ -157,7 +157,7 @@ func (c *dyingEntityStorageCleaner) detachFileSystem(fsa FilesystemAttachment) e
 			return nil
 		}
 
-		if v, err := f.Volume(); err == nil && !errors.IsNotFound(err) {
+		if v, err := f.Volume(); err == nil && !errors.Is(err, errors.NotFound) {
 			// Filesystem is volume-backed.
 			volumeTag = v
 		}
@@ -168,21 +168,21 @@ func (c *dyingEntityStorageCleaner) detachFileSystem(fsa FilesystemAttachment) e
 		}
 	}
 
-	if err := c.sb.RemoveFilesystemAttachment(fsa.Host(), filesystem, c.force); err != nil && !errors.IsNotFound(err) {
+	if err := c.sb.RemoveFilesystemAttachment(fsa.Host(), filesystem, c.force); err != nil && !errors.Is(err, errors.NotFound) {
 		if !c.force {
 			return errors.Trace(err)
 		}
 		logger.Warningf("could not remove attachment for filesystem %v for %v: %v", filesystem.Id(), c.hostTag, err)
 	}
 	if volumeTag != (names.VolumeTag{}) {
-		if err := c.sb.RemoveVolumeAttachmentPlan(machineTag, volumeTag, c.force); err != nil && !errors.IsNotFound(err) {
+		if err := c.sb.RemoveVolumeAttachmentPlan(machineTag, volumeTag, c.force); err != nil && !errors.Is(err, errors.NotFound) {
 			if !c.force {
 				return errors.Trace(err)
 			}
 			logger.Warningf("could not remove attachment plan for volume %v for %v: %v", volumeTag.Id(), c.hostTag, err)
 		}
 	}
-	if err := updateStatus(); err != nil && !errors.IsNotFound(err) {
+	if err := updateStatus(); err != nil && !errors.Is(err, errors.NotFound) {
 		if !c.force {
 			return errors.Trace(err)
 		}

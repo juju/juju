@@ -764,7 +764,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	// whereas this one is not.
 	u.unit, err = u.client.Unit(unitTag)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return u.stopUnitError()
 		}
 		return errors.Trace(err)

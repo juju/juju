@@ -54,7 +54,7 @@ func (s *SettingsSuite) TestCannotOverwrite(c *gc.C) {
 func (s *SettingsSuite) TestCannotReadMissing(c *gc.C) {
 	_, err := s.readSettings()
 	c.Assert(err, gc.ErrorMatches, "settings not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *SettingsSuite) TestCannotWriteMissing(c *gc.C) {
@@ -67,7 +67,7 @@ func (s *SettingsSuite) TestCannotWriteMissing(c *gc.C) {
 	node.Set("foo", "bar")
 	_, err = node.Write()
 	c.Assert(err, gc.ErrorMatches, "settings not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *SettingsSuite) TestUpdateWithWrite(c *gc.C) {
@@ -572,7 +572,7 @@ func (s *SettingsSuite) TestReplaceSettings(c *gc.C) {
 func (s *SettingsSuite) TestReplaceSettingsNotFound(c *gc.C) {
 	options := map[string]interface{}{"alpha": "beta", "foo2": "zap100"}
 	err := replaceSettings(s.state.db(), s.collection, s.key, options)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *SettingsSuite) TestUpdatingInterfaceSliceValue(c *gc.C) {

@@ -131,7 +131,7 @@ func FindToolsForCloud(ss SimplestreamsFetcher,
 			return nil, err
 		}
 		toolsMetadata, _, err := Fetch(ss, sources, toolsConstraint)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			noToolsCount++
 			continue
 		}

@@ -780,7 +780,7 @@ func checkMachinePlacement(backend MachinePlacementBackend, app string, placemen
 
 		m, err := backend.Machine(dir)
 		if err != nil {
-			if errors.IsNotFound(err) && !toProvisionedMachine {
+			if errors.Is(err, errors.NotFound) && !toProvisionedMachine {
 				continue
 			}
 			return errors.Annotatef(err, errTemplate, app, dir)
@@ -1117,7 +1117,7 @@ func (api *APIBase) applicationSetCharm(
 		return errors.Annotate(err, "retrieving model")
 	}
 	if err := assertCharmAssumptions(ctx, newCharm.Meta().Assumes, model, api.cloudService, api.credentialService, api.backend.ControllerConfig); err != nil {
-		if !errors.IsNotSupported(err) || !params.Force.Force {
+		if !errors.Is(err, errors.NotSupported) || !params.Force.Force {
 			return errors.Trace(err)
 		}
 
@@ -1480,7 +1480,7 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 
 		name := unitTag.Id()
 		unit, err := api.backend.Unit(name)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, errors.Errorf("unit %q does not exist", name)
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -1732,7 +1732,7 @@ func (api *APIBase) ScaleApplications(ctx context.Context, args params.ScaleAppl
 		}
 		name := appTag.Id()
 		app, err := api.backend.Application(name)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, errors.Errorf("application %q does not exist", name)
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -1866,7 +1866,7 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 			if err == nil {
 				isCrossModel = true
 				break
-			} else if !errors.IsNotFound(err) {
+			} else if !errors.Is(err, errors.NotFound) {
 				return params.AddRelationResults{}, errors.Trace(err)
 			}
 		}
@@ -1945,7 +1945,7 @@ func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.Relat
 			return nil
 		}
 		oc, err := api.backend.OfferConnectionForRelation(rel.Tag().Id())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return errors.Errorf("cannot set suspend status for %q which is not associated with an offer", rel.Tag().Id())
 		}
 		if oc != nil && !arg.Suspended && rel.Suspended() {
@@ -2082,7 +2082,7 @@ func (api *APIBase) saveRemoteApplication(
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, errors.Annotatef(err, "removing terminated saas application %q", applicationName)
 		}
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 
@@ -2600,10 +2600,10 @@ func validateAgentVersions(application Application, versioner AgentVersioner) er
 	// fallthrough to check the agent version as well. This should take care
 	// of places where the application.AgentTools version is not set (IAAS).
 	ver, err := getAgentToolsVersion(application)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
-	if errors.IsNotFound(err) || ver.Compare(epoch) >= 0 {
+	if errors.Is(err, errors.NotFound) || ver.Compare(epoch) >= 0 {
 		// Check to see if the model config version is valid
 		// Arguably we could check on the per-unit level, as that is the
 		// *actual* version of the agent that is running, looking at the
@@ -2721,7 +2721,7 @@ func (api *APIBase) unitResultForUnit(unit Unit) (*params.UnitResult, error) {
 		result.OpenedPorts = openPorts
 	}
 	container, err := unit.ContainerInfo()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, err
 	}
 	if err == nil {
@@ -2791,7 +2791,7 @@ func (api *APIBase) relationData(app Application, myUnit Unit) ([]params.Endpoin
 		}
 
 		otherApp, err := api.backend.Application(related.ApplicationName)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			erd.CrossModel = true
 			if err := api.crossModelRelationData(rel, related.ApplicationName, &erd); err != nil {
 				return nil, errors.Trace(err)
@@ -2821,7 +2821,7 @@ func (api *APIBase) relationData(app Application, myUnit Unit) ([]params.Endpoin
 			}
 			if inScope {
 				settings, err := ru.Settings()
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !errors.Is(err, errors.NotFound) {
 					return nil, errors.Trace(err)
 				}
 				if err == nil {
@@ -2854,7 +2854,7 @@ func (api *APIBase) crossModelRelationData(rel Relation, appName string, erd *pa
 		}
 		if inScope {
 			settings, err := ru.Settings()
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil && !errors.Is(err, errors.NotFound) {
 				return errors.Trace(err)
 			}
 			if err == nil {

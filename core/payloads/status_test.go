@@ -40,12 +40,12 @@ func (s *statusSuite) TestValidateStateUndefined(c *gc.C) {
 	var state string
 	err := payloads.ValidateState(state)
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *statusSuite) TestValidateStateBadState(c *gc.C) {
 	state := "some bogus state"
 	err := payloads.ValidateState(state)
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 }

@@ -34,7 +34,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticateLoginRequestHandleNotSupported
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.authenticator.AuthenticateLoginRequest(context.TODO(), "", "", authentication.AuthParams{Token: "token"})
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {

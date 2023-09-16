@@ -47,7 +47,7 @@ func (b *Backing) Changed(store multiwatcher.Store, change watcher.Change) error
 		ID:        changeID,
 	}
 	info, err := b.fetch(id)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		store.Remove(id)
 		return nil
 	}

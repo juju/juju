@@ -41,34 +41,34 @@ func (*UploadSuite) TestInitEmpty(c *gc.C) {
 	var u resourcecmd.UploadCommand
 
 	err := u.Init([]string{})
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
 func (s *UploadSuite) TestInitOneArg(c *gc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 	err := u.Init([]string{"foo"})
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
 func (s *UploadSuite) TestInitJustName(c *gc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 
 	err := u.Init([]string{"foo", "bar"})
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *UploadSuite) TestInitNoName(c *gc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 
 	err := u.Init([]string{"foo", "=foobar"})
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
+	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *UploadSuite) TestInitNoPath(c *gc.C) {
 	u := resourcecmd.NewUploadCommandForTest(nil, s.stubDeps)
 
 	err := u.Init([]string{"foo", "foobar="})
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
+	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *UploadSuite) TestInitGood(c *gc.C) {

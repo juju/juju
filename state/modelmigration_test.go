@@ -190,13 +190,13 @@ func (s *MigrationSuite) TestSpecValidation(c *gc.C) {
 
 		// Check Validate directly.
 		err := spec.Validate()
-		c.Check(errors.IsNotValid(err), jc.IsTrue)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, test.errorPattern)
 
 		// Ensure that CreateMigration rejects the bad spec too.
 		mig, err := s.State2.CreateMigration(spec)
 		c.Check(mig, gc.IsNil)
-		c.Check(errors.IsNotValid(err), jc.IsTrue)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, test.errorPattern)
 	}
 }
@@ -263,7 +263,7 @@ func (s *MigrationSuite) TestLatestMigration(c *gc.C) {
 func (s *MigrationSuite) TestLatestMigrationNotExist(c *gc.C) {
 	mig, err := s.State.LatestMigration()
 	c.Check(mig, gc.IsNil)
-	c.Check(errors.IsNotFound(err), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *MigrationSuite) TestGetsLatestAttempt(c *gc.C) {
@@ -311,7 +311,7 @@ func (s *MigrationSuite) TestLatestMigrationWithPrevious(c *gc.C) {
 
 	// Previous migration shouldn't be reported.
 	_, err := s.State2.LatestMigration()
-	c.Check(errors.IsNotFound(err), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 
 	// Start a new migration attempt, which should be reported.
 	migNext, err := s.State2.CreateMigration(s.stdSpec)
@@ -338,7 +338,7 @@ func (s *MigrationSuite) TestLatestRemovedModelMigration(c *gc.C) {
 
 	// CompletedMigration should fail as the model docs are still there
 	_, err = s.State2.CompletedMigration()
-	c.Assert(errors.IsNotFound(err), gc.Equals, true)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Delete the model and check that we get back the MigrationModel
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
@@ -362,7 +362,7 @@ func (s *MigrationSuite) TestMigration(c *gc.C) {
 
 func (s *MigrationSuite) TestMigrationNotFound(c *gc.C) {
 	_, err := s.State2.Migration("does not exist")
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(err, gc.ErrorMatches, "migration not found")
 }
 

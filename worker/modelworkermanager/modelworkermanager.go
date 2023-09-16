@@ -196,7 +196,7 @@ func (m *modelWorkerManager) loop() error {
 
 	modelChanged := func(modelUUID string) error {
 		model, release, err := m.config.Controller.Model(modelUUID)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Model was removed, ignore it.
 			// The reason we ignore it here is that one of the embedded
 			// workers is also responding to the model life changes and
@@ -249,7 +249,7 @@ func (m *modelWorkerManager) loop() error {
 
 func (m *modelWorkerManager) ensure(cfg NewModelConfig) error {
 	starter := m.starter(cfg)
-	if err := m.runner.StartWorker(cfg.ModelUUID, starter); !errors.IsAlreadyExists(err) {
+	if err := m.runner.StartWorker(cfg.ModelUUID, starter); !errors.Is(err, errors.AlreadyExists) {
 		return errors.Trace(err)
 	}
 	return nil

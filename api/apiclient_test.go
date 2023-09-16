@@ -1178,7 +1178,7 @@ func (s *apiclientSuite) TestAPICallError(c *gc.C) {
 
 	err := conn.APICall("facade", 1, "id", "method", nil, nil)
 	c.Check(err.Error(), gc.Equals, "boom")
-	c.Check(err, jc.Satisfies, errors.IsBadRequest)
+	c.Check(err, jc.ErrorIs, errors.BadRequest)
 	c.Check(clock.waits, gc.HasLen, 0)
 }
 

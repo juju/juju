@@ -226,7 +226,7 @@ func validatePlacementForSpaces(st *state.State, spaceNames *[]string, placement
 
 		m, err := st.Machine(p.Directive)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				// Don't throw out of here when the machine does not exist.
 				// Validate others if required and leave it handled downstream.
 				continue

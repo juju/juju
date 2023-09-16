@@ -127,7 +127,7 @@ func (s *suite) TestSupportsSpaces(c *gc.C) {
 	c.Assert(isEnabled, jc.IsTrue)
 	ok, err = e.SupportsSpaces(s.callCtx)
 	c.Assert(ok, jc.IsFalse)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 
 	// And finally turn it on again.
 	isEnabled = dummy.SetSupportsSpaces(true)

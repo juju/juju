@@ -376,7 +376,7 @@ func (c *nestedContext) startUnitWorkers(unitName string) error {
 
 	err := c.runner.StartWorker(unitName, agent.start)
 	// Ensure starting a unit worker is idempotent.
-	if err == nil || errors.IsAlreadyExists(err) {
+	if err == nil || errors.Is(err, errors.AlreadyExists) {
 		return nil
 	}
 	return errors.Trace(err)
@@ -393,7 +393,7 @@ func (c *nestedContext) stopUnitWorkers(unitName string) error {
 		return nil
 	}
 	if err := c.runner.StopAndRemoveWorker(unitName, nil); err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// NotFound, assume it's already stopped.
 			return nil
 		}

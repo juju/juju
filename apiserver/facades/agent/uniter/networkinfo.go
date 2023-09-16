@@ -232,7 +232,7 @@ func (n *NetworkInfoBase) getEgressForRelation(
 ) ([]string, error) {
 	egressSubnets, err := state.NewRelationEgressNetworks(n.st).Networks(rel.Tag().Id())
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 	}

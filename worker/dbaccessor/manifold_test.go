@@ -26,41 +26,41 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
 	cfg.AgentName = ""
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.QueryLoggerName = ""
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.Clock = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Hub = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.LogDir = ""
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.PrometheusRegisterer = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewApp = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewDBWorker = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewMetricsCollector = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {

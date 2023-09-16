@@ -74,49 +74,49 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 func (s *sharedServerContextSuite) TestConfigNoStatePool(c *gc.C) {
 	s.config.statePool = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "nil statePool not valid")
 }
 
 func (s *sharedServerContextSuite) TestConfigNoMultiwatcherFactory(c *gc.C) {
 	s.config.multiwatcherFactory = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "nil multiwatcherFactory not valid")
 }
 
 func (s *sharedServerContextSuite) TestConfigNoHub(c *gc.C) {
 	s.config.centralHub = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "nil centralHub not valid")
 }
 
 func (s *sharedServerContextSuite) TestConfigNoPresence(c *gc.C) {
 	s.config.presence = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "nil presence not valid")
 }
 
 func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *gc.C) {
 	s.config.leaseManager = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "nil leaseManager not valid")
 }
 
 func (s *sharedServerContextSuite) TestConfigNoControllerconfig(c *gc.C) {
 	s.config.controllerConfig = nil
 	err := s.config.validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "nil controllerConfig not valid")
 }
 
 func (s *sharedServerContextSuite) TestNewCallsConfigValidate(c *gc.C) {
 	s.config.statePool = nil
 	ctx, err := newSharedServerContext(s.config)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "nil statePool not valid")
 	c.Check(ctx, gc.IsNil)
 }

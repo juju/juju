@@ -47,7 +47,7 @@ func (s *applicationSuite) TestApplicationScaleStatefulLessThanZero(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(c, app, false, constraints.Value{}, false, "", func() {})
 
-	c.Assert(errors.IsNotValid(app.Scale(-1)), jc.IsTrue)
+	c.Assert(app.Scale(-1), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *applicationSuite) TestCurrentScale(c *gc.C) {

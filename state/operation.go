@@ -169,7 +169,7 @@ func (op *operation) Status() ActionStatus {
 func (op *operation) Refresh() error {
 	doc, taskStatus, err := op.st.getOperationDoc(op.Id())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return err
 		}
 		return errors.Annotatef(err, "cannot refresh operation %v", op.Id())

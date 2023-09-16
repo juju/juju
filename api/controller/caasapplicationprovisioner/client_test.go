@@ -140,7 +140,7 @@ func (s *provisionerSuite) TestLifeError(c *gc.C) {
 	client := caasapplicationprovisioner.NewClient(apiCaller)
 	_, err := client.Life("gitlab")
 	c.Assert(err, gc.ErrorMatches, "bletch")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *provisionerSuite) TestLifeInvalidApplicationName(c *gc.C) {

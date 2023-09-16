@@ -68,7 +68,7 @@ func (u unitAssignerHandler) Handle(_ <-chan struct{}, ids []string) error {
 	// errors indicate that the unit was removed before the assignment was
 	// requested, which can be safely ignored.
 	for i, err := range results {
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			failures[units[i].String()] = err
 		}
 	}

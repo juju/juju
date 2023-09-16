@@ -103,7 +103,7 @@ func (r *RemoteEntities) ExportLocalEntity(entity names.Tag) (string, error) {
 				"token for %s",
 				names.ReadableString(entity),
 			)
-		} else if !errors.IsNotFound(err) {
+		} else if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 
@@ -114,7 +114,7 @@ func (r *RemoteEntities) ExportLocalEntity(entity names.Tag) (string, error) {
 		}
 		token = uuid.String()
 		_, err = r.GetRemoteEntity(token)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		if err == nil {

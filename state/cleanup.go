@@ -270,7 +270,7 @@ func (st *State) cleanupResourceBlob(storagePath string) error {
 
 	storage := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
 	err := storage.Remove(storagePath)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	}
 	return errors.Trace(err)
@@ -286,7 +286,7 @@ func (st *State) cleanupRelationSettings(prefix string) error {
 
 func (st *State) cleanupForceDestroyedRelation(prefix string) (err error) {
 	relation, err := st.KeyRelation(prefix)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	}
 	if err != nil {
@@ -388,7 +388,7 @@ func (st *State) cleanupModelsForDyingController(cleanupArgs []bson.Raw) (err er
 		// We explicitly don't start the workers.
 		if err != nil {
 			// This model could have been removed.
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				continue
 			}
 			return errors.Trace(err)
@@ -502,7 +502,7 @@ func (st *State) cleanupStorageForDyingModel(modelUUID string, cleanupArgs []bso
 	for _, s := range storage {
 		const destroyAttached = true
 		err := destroyStorage(s.StorageTag(), destroyAttached, force, args.MaxWait)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			return errors.Trace(err)
@@ -563,7 +563,7 @@ func (st *State) cleanupBranchesForDyingModel(cleanupArgs []bson.Raw) (err error
 func (st *State) cleanupApplication(applicationname string, cleanupArgs []bson.Raw) (err error) {
 	app, err := st.Application(applicationname)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Nothing to do, the application is already gone.
 			logger.Tracef("cleanupApplication(%s): application already gone", applicationname)
 			return nil
@@ -607,7 +607,7 @@ func (st *State) cleanupForceApplication(applicationName string, cleanupArgs []b
 	logger.Debugf("force destroy application: %v", applicationName)
 	app, err := st.Application(applicationName)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Nothing to do, the application is already gone.
 			logger.Tracef("forceCleanupApplication(%s): application already gone", applicationName)
 			return nil
@@ -820,7 +820,7 @@ func (st *State) cleanupCharm(charmURL string) error {
 	}
 
 	ch, err := st.Charm(curl)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// Charm already removed.
 		logger.Tracef("cleanup charm(%s) no-op, charm already gone", charmURL)
 		return nil
@@ -879,7 +879,7 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	}
 
 	unit, err := st.Unit(name)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return err
@@ -897,7 +897,7 @@ func (st *State) cleanupDyingUnit(name string, cleanupArgs []bson.Raw) error {
 	}
 	for _, relation := range relations {
 		relationUnit, err := relation.Unit(unit)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			if !force {
@@ -953,7 +953,7 @@ func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw
 	}
 
 	unit, err := st.Unit(unitId)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		logger.Debugf("no need to force unit to dead %q", unitId)
 		return nil
 	} else if err != nil {
@@ -967,7 +967,7 @@ func (st *State) cleanupForceDestroyedUnit(unitId string, cleanupArgs []bson.Raw
 	// Destroy all subordinates.
 	for _, subName := range unit.SubordinateNames() {
 		subUnit, err := st.Unit(subName)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			logger.Warningf("couldn't get subordinate %q to force destroy: %v", subName, err)
@@ -1054,7 +1054,7 @@ func (st *State) cleanupForceRemoveUnit(unitId string, cleanupArgs []bson.Raw) e
 		return errors.Annotate(err, "unmarshalling cleanup arg 'maxWait'")
 	}
 	unit, err := st.Unit(unitId)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		logger.Debugf("no need to force remove unit %q", unitId)
 		return nil
 	} else if err != nil {
@@ -1121,7 +1121,7 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 	for _, storageAttachment := range storageAttachments {
 		storageTag := storageAttachment.StorageInstance()
 		err := sb.DetachStorage(storageTag, unitTag, force, maxWait)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			if !force {
@@ -1133,7 +1133,7 @@ func (st *State) cleanupUnitStorageAttachments(unitTag names.UnitTag, remove boo
 			continue
 		}
 		err = sb.RemoveStorageAttachment(storageTag, unitTag, force)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			if !force {
@@ -1157,7 +1157,7 @@ func (st *State) cleanupUnitStorageInstances(unitTag names.UnitTag, force bool, 
 	for _, storageAttachment := range storageAttachments {
 		storageTag := storageAttachment.StorageInstance()
 		err := sb.DestroyStorageInstance(storageTag, true, force, maxWait)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			return err
@@ -1242,7 +1242,7 @@ func (st *State) cleanupDyingMachine(machineID string, cleanupArgs []bson.Raw) e
 	}
 
 	machine, err := st.Machine(machineID)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
@@ -1291,7 +1291,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait 
 	}
 
 	machine, err := st.Machine(machineID)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
@@ -1350,7 +1350,7 @@ func (st *State) cleanupForceDestroyedMachineInternal(machineID string, maxWait 
 	// We need to refresh the machine at this point, because the local copy
 	// of the document will not reflect changes caused by the unit cleanups
 	// above, and may thus fail immediately.
-	if err := machine.Refresh(); errors.IsNotFound(err) {
+	if err := machine.Refresh(); errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
@@ -1406,7 +1406,7 @@ func (st *State) cleanupForceRemoveMachine(machineId string, cleanupArgs []bson.
 	}
 	for _, va := range machineVolumeAttachments {
 		v, err := sb.Volume(va.Volume())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		if err != nil {
@@ -1426,7 +1426,7 @@ func (st *State) cleanupForceRemoveMachine(machineId string, cleanupArgs []bson.
 	}
 
 	machine, err := st.Machine(machineId)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
@@ -1445,7 +1445,7 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 	}
 
 	machine, err := st.Machine(machineId)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
@@ -1497,7 +1497,7 @@ func (st *State) cleanupEvacuateMachine(machineId string, cleanupArgs []bson.Raw
 // machine's containers, and removes them from state entirely.
 func (st *State) cleanupContainers(machine *Machine, maxWait time.Duration) error {
 	containerIds, err := machine.Containers()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return err
@@ -1507,7 +1507,7 @@ func (st *State) cleanupContainers(machine *Machine, maxWait time.Duration) erro
 			return err
 		}
 		container, err := st.Machine(containerId)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil
 		} else if err != nil {
 			return err
@@ -1563,7 +1563,7 @@ func cleanupDyingMachineResources(m *Machine, force bool) error {
 func (st *State) obliterateUnit(unitName string, force bool, maxWait time.Duration) ([]error, error) {
 	var opErrs []error
 	unit, err := st.Unit(unitName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return opErrs, nil
 	} else if err != nil {
 		return opErrs, err
@@ -1579,7 +1579,7 @@ func (st *State) obliterateUnit(unitName string, force bool, maxWait time.Durati
 		}
 		opErrs = append(opErrs, err)
 	}
-	if err := unit.Refresh(); errors.IsNotFound(err) {
+	if err := unit.Refresh(); errors.Is(err, errors.NotFound) {
 		return opErrs, nil
 	} else if err != nil {
 		if !force {
@@ -1734,7 +1734,7 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err 
 func (st *State) cleanupUpgradeSeriesLock(machineID string) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if _, err := st.getUpgradeSeriesLock(machineID); err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				return nil, jujutxn.ErrNoOperations
 			}
 			return nil, errors.Trace(err)

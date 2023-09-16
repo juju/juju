@@ -53,7 +53,7 @@ func (s *RemoteEntitiesSuite) TestExportLocalEntityTwice(c *gc.C) {
 	expected := s.assertExportLocalEntity(c, entity)
 	re := s.State.RemoteEntities()
 	token, err := re.ExportLocalEntity(entity)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 	c.Assert(token, gc.Equals, expected)
 }
 
@@ -76,7 +76,7 @@ func (s *RemoteEntitiesSuite) TestMacaroon(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = re.SaveMacaroon(names.NewApplicationTag("foo"), mac)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	err = re.SaveMacaroon(entity, mac)
 	c.Assert(err, jc.ErrorIsNil)
@@ -96,7 +96,7 @@ func (s *RemoteEntitiesSuite) TestRemoveRemoteEntity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	re = s.State.RemoteEntities()
 	_, err = re.GetRemoteEntity(token)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *RemoteEntitiesSuite) TestImportRemoteEntity(c *gc.C) {
@@ -125,7 +125,7 @@ func (s *RemoteEntitiesSuite) TestImportRemoteEntityOverwrites(c *gc.C) {
 
 	re = s.State.RemoteEntities()
 	_, err = re.GetRemoteEntity(token)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	expected, err := re.GetRemoteEntity(anotherToken)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity, gc.Equals, expected)
@@ -135,5 +135,5 @@ func (s *RemoteEntitiesSuite) TestImportRemoteEntityEmptyToken(c *gc.C) {
 	re := s.State.RemoteEntities()
 	entity := names.NewApplicationTag("mysql")
 	err := re.ImportRemoteEntity(entity, "")
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }

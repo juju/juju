@@ -60,7 +60,7 @@ func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(volumeStorageTag, gc.Equals, storageInstance.StorageTag())
 	_, err = volume.Info()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	_, ok := volume.Params()
 	c.Assert(ok, jc.IsTrue)
 
@@ -73,7 +73,7 @@ func (s *VolumeStateSuite) assertMachineVolume(c *gc.C, unit *state.Unit) {
 	c.Assert(volumeAttachments[0].Volume(), gc.Equals, volume.VolumeTag())
 	c.Assert(volumeAttachments[0].Host(), gc.Equals, machine.MachineTag())
 	_, err = volumeAttachments[0].Info()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	_, ok = volumeAttachments[0].Params()
 	c.Assert(ok, jc.IsTrue)
 
@@ -226,7 +226,7 @@ func (s *VolumeStateSuite) TestSetVolumeInfoNoStorageAssigned(c *gc.C) {
 
 	volume := s.volume(c, volumeTag)
 	_, err = volume.StorageInstance()
-	c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
+	c.Assert(err, jc.ErrorIs, errors.NotAssigned)
 
 	s.assertVolumeUnprovisioned(c, volumeTag)
 	volumeInfoSet := state.VolumeInfo{Size: 123, VolumeId: "vol-ume"}
@@ -659,7 +659,7 @@ func (s *VolumeStateSuite) TestDestroyVolume(c *gc.C) {
 func (s *VolumeStateSuite) TestDestroyVolumeNotFound(c *gc.C) {
 	err := s.storageBackend.DestroyVolume(names.NewVolumeTag("0"), false)
 	c.Assert(err, gc.ErrorMatches, `destroying volume 0: volume "0" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *VolumeStateSuite) TestDestroyVolumeStorageAssigned(c *gc.C) {
@@ -756,7 +756,7 @@ func (s *VolumeStateSuite) TestDetachVolumeDyingAttachmentPlan(c *gc.C) {
 	err = s.storageBackend.RemoveVolumeAttachmentPlan(machineTag, volumeTag, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.storageBackend.VolumeAttachmentPlan(machineTag, volumeTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	volumeAttachment = s.volumeAttachment(c, machineTag, volumeTag)
 	c.Assert(volumeAttachment.Life(), gc.Equals, state.Dying)
 }
@@ -772,7 +772,7 @@ func (s *VolumeStateSuite) TestRemoveVolume(c *gc.C) {
 		err = s.storageBackend.RemoveVolume(volume.VolumeTag())
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = s.storageBackend.Volume(volume.VolumeTag())
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		c.Assert(err, jc.ErrorIs, errors.NotFound)
 	}
 	defer state.SetBeforeHooks(c, s.State, assertRemove).Check()
 	assertRemove()
@@ -873,7 +873,7 @@ func (s *VolumeStateSuite) TestRemoveLastVolumeAttachmentConcurrently(c *gc.C) {
 
 func (s *VolumeStateSuite) TestRemoveVolumeAttachmentNotFound(c *gc.C) {
 	err := s.storageBackend.RemoveVolumeAttachment(names.NewMachineTag("42"), names.NewVolumeTag("42"), false)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `removing attachment of volume 42 from machine 42: volume "42" on "machine 42" not found`)
 }
 
@@ -944,7 +944,7 @@ func (s *VolumeStateSuite) TestRemoveMachineRemovesVolumes(c *gc.C) {
 
 	// Cannot advance to Dead while there are detachable dynamic volumes.
 	err = machine.EnsureDead()
-	c.Assert(errors.Is(err, stateerrors.HasAttachmentsError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.HasAttachmentsError)
 	c.Assert(err, gc.ErrorMatches, "machine 0 has attachments \\[volume-0\\]")
 	s.obliterateVolumeAttachment(c, machine.MachineTag(), names.NewVolumeTag("0"))
 	c.Assert(machine.EnsureDead(), jc.ErrorIsNil)
@@ -1034,7 +1034,7 @@ func (s *VolumeStateSuite) TestVolumeMachineScoped(c *gc.C) {
 	err = machine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	volume, err = s.storageBackend.Volume(volume.VolumeTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *VolumeStateSuite) TestVolumeBindingStorage(c *gc.C) {
@@ -1105,5 +1105,5 @@ func removeStorageInstance(c *gc.C, sb *state.StorageBackend, storageTag names.S
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	_, err = sb.StorageInstance(storageTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

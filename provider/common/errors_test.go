@@ -26,7 +26,7 @@ func (*ErrorsSuite) TestWrapZoneIndependentError(c *gc.C) {
 	err1 := errors.New("foo")
 	err2 := errors.Annotate(err1, "bar")
 	wrapped := environs.ZoneIndependentError(err2)
-	c.Assert(errors.Is(wrapped, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
+	c.Assert(wrapped, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 	c.Assert(wrapped, gc.ErrorMatches, "bar: foo")
 }
 
@@ -36,7 +36,7 @@ func (s *ErrorsSuite) TestInvalidCredentialWrapped(c *gc.C) {
 	err := common.CredentialNotValidError(err2)
 
 	// This is to confirm that Is(err, ErrorCredentialNotValid) is correct.
-	c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(err, gc.ErrorMatches, "bar: foo")
 }
 
@@ -49,14 +49,14 @@ func (s *ErrorsSuite) TestCredentialNotValidErrorLocationer(c *gc.C) {
 
 func (s *ErrorsSuite) TestInvalidCredentialNew(c *gc.C) {
 	err := fmt.Errorf("%w: Your account is blocked.", common.ErrorCredentialNotValid)
-	c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(err, gc.ErrorMatches, "credential not valid: Your account is blocked.")
 }
 
 func (s *ErrorsSuite) TestInvalidCredentialf(c *gc.C) {
 	err1 := errors.New("foo")
 	err := fmt.Errorf("bar: %w", common.CredentialNotValidError(err1))
-	c.Assert(errors.Is(err, common.ErrorCredentialNotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(err, gc.ErrorMatches, "bar: foo")
 }
 

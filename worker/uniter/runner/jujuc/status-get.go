@@ -79,7 +79,7 @@ func toDetails(info StatusInfo, includeData bool) map[string]interface{} {
 func (c *StatusGetCommand) ApplicationStatus(ctx *cmd.Context) error {
 	applicationStatus, err := c.ctx.ApplicationStatus()
 	if err != nil {
-		if errors.IsNotImplemented(err) {
+		if errors.Is(err, errors.NotImplemented) {
 			return c.out.Write(ctx, status.Unknown)
 		}
 		return errors.Annotatef(err, "finding application status")
@@ -112,7 +112,7 @@ func (c *StatusGetCommand) unitOrApplicationStatus(ctx *cmd.Context) error {
 
 	unitStatus, err := c.ctx.UnitStatus()
 	if err != nil {
-		if errors.IsNotImplemented(err) {
+		if errors.Is(err, errors.NotImplemented) {
 			return c.out.Write(ctx, status.Unknown)
 		}
 		return errors.Annotatef(err, "finding workload status")

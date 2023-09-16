@@ -86,7 +86,7 @@ func destroyMachines(st stateInterface, force bool, maxWait time.Duration, ids .
 	for _, id := range ids {
 		machine, err := st.Machine(id)
 		switch {
-		case errors.IsNotFound(err):
+		case errors.Is(err, errors.NotFound):
 			err = errors.Errorf("machine %s does not exist", id)
 		case err != nil:
 		case force:
@@ -166,7 +166,7 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 		case err == nil:
 			mInfo.InstanceId = string(instId)
 			mInfo.DisplayName = displayName
-		case errors.IsNotProvisioned(err):
+		case errors.Is(err, errors.NotProvisioned):
 			// ok, but no instance ID to get.
 		default:
 			return nil, errors.Trace(err)
@@ -177,7 +177,7 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 		}
 		// Only include cores for physical machines.
 		hw, err := m.HardwareCharacteristics()
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		if hw != nil && hw.String() != "" {

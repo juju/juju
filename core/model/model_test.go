@@ -31,7 +31,7 @@ func (*ModelSuite) TestValidateBranchName(c *gc.C) {
 		if t.valid {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(err, jc.Satisfies, errors.IsNotValid)
+			c.Check(err, jc.ErrorIs, errors.NotValid)
 		}
 	}
 }

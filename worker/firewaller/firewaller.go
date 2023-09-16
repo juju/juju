@@ -632,7 +632,7 @@ func (fw *Firewaller) reconcileInstances() error {
 			return err
 		}
 		instanceId, err := m.InstanceId()
-		if errors.IsNotProvisioned(err) {
+		if errors.Is(err, errors.NotProvisioned) {
 			fw.logger.Errorf("Machine not yet provisioned: %v", err)
 			continue
 		}
@@ -1107,7 +1107,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	machineId := machined.tag.Id()
 	instanceId, err := m.InstanceId()
-	if errors.IsNotProvisioned(err) {
+	if errors.Is(err, errors.NotProvisioned) {
 		// Not provisioned yet, so nothing to do for this instance
 		return nil
 	}
@@ -1328,7 +1328,7 @@ func (ad *applicationData) watchLoop(curExposed bool, curExposedEndpoints map[st
 			}
 			newExposed, newExposedEndpoints, err := ad.application.ExposeInfo()
 			if err != nil {
-				if errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					ad.fw.logger.Debugf("application(%q).IsExposed() returned NotFound: %v", ad.application.Name(), err)
 					return nil
 				}
@@ -1670,7 +1670,7 @@ func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
 		BakeryVersion:   bakery.LatestVersion,
 	}
 	err = remoteModelAPI.PublishIngressNetworkChange(event)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		rd.fw.logger.Debugf("relation id not found publishing %+v", event)
 		return nil
 	}

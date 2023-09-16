@@ -87,7 +87,7 @@ func DeployApplication(
 
 	// Enforce "assumes" requirements.
 	if err := assertCharmAssumptions(ctx, args.Charm.Meta().Assumes, model, cloudService, credentialService, st.ControllerConfig); err != nil {
-		if !errors.IsNotSupported(err) || !args.Force {
+		if !errors.Is(err, errors.NotSupported) || !args.Force {
 			return nil, errors.Trace(err)
 		}
 

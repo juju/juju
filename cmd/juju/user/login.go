@@ -170,7 +170,7 @@ func (c *loginCommand) run(ctx *cmd.Context) error {
 	switch {
 	case c.controllerName == "" && c.domain == "":
 		current, err := modelcmd.DetermineCurrentController(store)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Annotatef(err, "cannot get current controller")
 		}
 		c.controllerName = current
@@ -192,7 +192,7 @@ func (c *loginCommand) run(ctx *cmd.Context) error {
 	var controllerDetails *jujuclient.ControllerDetails
 	if c.controllerName != "" {
 		d, err := store.ControllerByName(c.controllerName)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		controllerDetails = d
@@ -210,7 +210,7 @@ func (c *loginCommand) run(ctx *cmd.Context) error {
 		// Fetch current details for the specified controller name so we
 		// can tell if the logged in user has changed.
 		d, err := store.AccountDetails(c.controllerName)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		oldAccountDetails = d
@@ -312,7 +312,7 @@ func (c *loginCommand) publicControllerLogin(
 	}
 	if !strings.ContainsAny(host, ".:") {
 		host1, err := c.getKnownControllerDomain(host, controllerName)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return fail(errors.Errorf("%q is not a known public controller", host))
 		}
 		if err != nil {
@@ -442,7 +442,7 @@ Run "juju logout" first before attempting to log in as a different user.`,
 		if err == nil {
 			return conn, accountDetails, nil
 		}
-		if !errors.IsUnauthorized(err) {
+		if !errors.Is(err, errors.Unauthorized) {
 			return nil, nil, errors.Trace(err)
 		}
 	}
@@ -655,7 +655,7 @@ func friendlyUserName(user string) string {
 // case.
 func ensureNotKnownEndpoint(store jujuclient.ClientStore, endpoint string) error {
 	existingDetails, existingName, err := store.ControllerByAPIEndpoints(endpoint)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 
@@ -665,7 +665,7 @@ func ensureNotKnownEndpoint(store jujuclient.ClientStore, endpoint string) error
 
 	// Check if we know the username for this controller
 	accountDetails, err := store.AccountDetails(existingName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 

@@ -42,7 +42,7 @@ func (s *ApplicationOfferUserSuite) makeOffer(c *gc.C, access permission.Access)
 
 	// Initially no access.
 	_, err = s.State.GetOfferAccess(offer.OfferUUID, user.UserTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	err = s.State.CreateOfferAccess(names.NewApplicationOfferTag(offer.OfferName), user.UserTag(), access)
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,13 +197,13 @@ func (s *ApplicationOfferUserSuite) TestRemoveOfferAccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.GetOfferAccess(offer.OfferUUID, user)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationOfferUserSuite) TestRemoveOfferAccessNoUser(c *gc.C) {
 	offer, _ := s.makeOffer(c, permission.ConsumeAccess)
 	err := s.State.RemoveOfferAccess(names.NewApplicationOfferTag(offer.OfferName), names.NewUserTag("fred"))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationOfferUserSuite) TestRemoveOfferAccessSetsRelationSuspended(c *gc.C) {

@@ -210,7 +210,7 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfoRace(c *gc.C) {
 
 	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v100, v200)
 	c.Assert(err, gc.ErrorMatches, "current upgrade info not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(info, gc.IsNil)
 }
 

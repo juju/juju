@@ -118,7 +118,7 @@ func (s *ModelSuite) TestNewModelSameUserSameNameFails(c *gc.C) {
 	})
 	errMsg := fmt.Sprintf("model %q for %s already exists", cfg2.Name(), owner.Id())
 	c.Assert(err, gc.ErrorMatches, errMsg)
-	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 
 	// Remove the first model.
 	model1, err := st1.Model()
@@ -224,7 +224,7 @@ func (s *ModelSuite) TestNewCAASModelSameUserFails(c *gc.C) {
 	})
 	errMsg := fmt.Sprintf("model %q for %s already exists", cfg2.Name(), owner.Name())
 	c.Assert(err, gc.ErrorMatches, errMsg)
-	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 
 	// Remove the first model.
 	model1, err := st1.Model()
@@ -310,7 +310,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	// Since the model tag for the State connection is different,
 	// asking for this model through FindEntity returns a not found error.
 	_, err = s.State.FindEntity(modelTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	entity, err := st.FindEntity(modelTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -664,7 +664,7 @@ func (s *ModelSuite) TestDestroyOtherModel(c *gc.C) {
 	c.Assert(model.Refresh(), jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 	c.Assert(st2.RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(model.Refresh(), jc.ErrorIs, errors.NotFound)
 	// Destroying an empty model also removes the name index doc.
 	c.Assert(model.UniqueIndexExists(), jc.IsFalse)
 }
@@ -712,7 +712,7 @@ func (s *ModelSuite) TestDestroyControllerWithEmptyModel(c *gc.C) {
 	c.Logf("model %s, life %s", hostedModel.UUID(), hostedModel.Life())
 	c.Assert(hostedModel.Life(), gc.Equals, state.Dying)
 	c.Assert(st2.RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(hostedModel.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(hostedModel.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
@@ -746,11 +746,11 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModels(c *gc.C) {
 	c.Assert(st2.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(st2.RemoveDyingModel(), jc.ErrorIsNil)
 
-	c.Assert(model2.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(model2.Refresh(), jc.ErrorIs, errors.NotFound)
 
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(model.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) {
@@ -804,7 +804,7 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	assertModel(controllerModel, s.State, state.Dying, 0, 0)
 
 	err = s.State.ProcessDyingModel()
-	c.Assert(errors.Is(err, stateerrors.HasHostedModelsError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.HasHostedModelsError)
 	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
 	assertCleanupCount(c, otherSt, 3)
@@ -813,11 +813,11 @@ func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithResources(c *gc.C) 
 	c.Assert(otherSt.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(otherSt.RemoveDyingModel(), jc.ErrorIsNil)
 
-	c.Assert(otherModel.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(otherModel.Refresh(), jc.ErrorIs, errors.NotFound)
 
 	c.Assert(s.State.ProcessDyingModel(), jc.ErrorIsNil)
 	c.Assert(s.State.RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(controllerModel.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(controllerModel.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelSuite) assertDestroyControllerAndHostedModelsWithPersistentStorage(c *gc.C, force *bool) {
@@ -845,7 +845,7 @@ func (s *ModelSuite) assertDestroyControllerAndHostedModelsWithPersistentStorage
 		DestroyHostedModels: true,
 		Force:               force,
 	})
-	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.PersistentStorageError)
 }
 
 func (s *ModelSuite) TestDestroyControllerAndHostedModelsWithPersistentStorage(c *gc.C) {
@@ -964,7 +964,7 @@ func (s *ModelSuite) assertDestroyModelPersistentStorage(c *gc.C, force *bool) {
 	})
 
 	err = m.Destroy(state.DestroyModelParams{Force: force})
-	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.PersistentStorageError)
 	c.Assert(m.Refresh(), jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, state.Alive)
 }
@@ -1104,7 +1104,7 @@ func (s *ModelSuite) TestDestroyModelEmpty(c *gc.C) {
 	c.Assert(m.Refresh(), jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, state.Dying)
 	c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(m.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(m.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelSuite) TestDestroyModelWithApplicationOffers(c *gc.C) {
@@ -1132,9 +1132,9 @@ func (s *ModelSuite) TestDestroyModelWithApplicationOffers(c *gc.C) {
 	assertCleanupCount(c, s.State, 2)
 
 	_, err = ao.ApplicationOffer(offer.OfferName)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = app.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ModelSuite) TestForceDestroySetsForceDestroyed(c *gc.C) {
@@ -1234,7 +1234,7 @@ func (s *ModelSuite) assertDyingModelTransitionDyingToDead(c *gc.C, st *state.St
 		c.Assert(st.ProcessDyingModel(), jc.ErrorIsNil)
 		c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
 
-		c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+		c.Assert(model.Refresh(), jc.ErrorIs, errors.NotFound)
 		c.Check(model.UniqueIndexExists(), jc.IsFalse)
 	}).Check()
 
@@ -1286,7 +1286,7 @@ func (s *ModelSuite) TestProcessDyingModelWithMachinesAndApplicationsNoOp(c *gc.
 	defer state.SetAfterHooks(c, st, func() {
 		assertModel(state.Dying, 1, 1)
 		err := st.ProcessDyingModel()
-		c.Assert(errors.Is(err, stateerrors.ModelNotEmptyError), jc.IsTrue)
+		c.Assert(err, jc.ErrorIs, stateerrors.ModelNotEmptyError)
 		c.Assert(err, gc.ErrorMatches, `model not empty, found 1 machine, 1 application`)
 	}).Check()
 
@@ -1320,7 +1320,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	c.Assert(filesystems, gc.HasLen, 1)
 
 	err = model.Destroy(state.DestroyModelParams{})
-	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.PersistentStorageError)
 
 	destroyStorage := true
 	c.Assert(model.Destroy(state.DestroyModelParams{
@@ -1341,7 +1341,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumeBackedFilesystems(c *gc.C) {
 	// The filesystem will be gone, but the volume is persistent and should
 	// not have been removed.
 	err = st.ProcessDyingModel()
-	c.Assert(errors.Is(err, stateerrors.ModelNotEmptyError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.ModelNotEmptyError)
 	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume, 1 filesystem`)
 }
 
@@ -1372,7 +1372,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	volumeTag := volumes[0].VolumeTag()
 
 	err = model.Destroy(state.DestroyModelParams{})
-	c.Assert(errors.Is(err, stateerrors.PersistentStorageError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.PersistentStorageError)
 
 	destroyStorage := true
 	c.Assert(model.Destroy(state.DestroyModelParams{
@@ -1389,7 +1389,7 @@ func (s *ModelSuite) TestProcessDyingModelWithVolumes(c *gc.C) {
 	// The volume is persistent and should not have been removed along with
 	// the machine it was attached to.
 	err = st.ProcessDyingModel()
-	c.Assert(errors.Is(err, stateerrors.ModelNotEmptyError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.ModelNotEmptyError)
 	c.Assert(err, gc.ErrorMatches, `model not empty, found 1 volume`)
 }
 
@@ -1406,7 +1406,7 @@ func (s *ModelSuite) TestProcessDyingControllerModelWithHostedModelsNoOp(c *gc.C
 	}), jc.ErrorIsNil)
 
 	err = s.State.ProcessDyingModel()
-	c.Assert(errors.Is(err, stateerrors.HasHostedModelsError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.HasHostedModelsError)
 	c.Assert(err, gc.ErrorMatches, `hosting 1 other model`)
 
 	c.Assert(controllerModel.Refresh(), jc.ErrorIsNil)

@@ -121,7 +121,7 @@ func (s *RefreshSuite) TestRefeshConfigValidate(c *gc.C) {
 
 func (s *RefreshSuite) testRefeshConfigValidate(c *gc.C, rp RefreshBase) error {
 	_, err := DownloadOneFromChannel("meshuggah", "latest/stable", rp)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	return err
 }
 
@@ -527,7 +527,7 @@ func (s *RefreshConfigSuite) TestRefreshOneFail(c *gc.C) {
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *RefreshConfigSuite) TestRefreshOneEnsure(c *gc.C) {
@@ -569,7 +569,7 @@ func (s *RefreshConfigSuite) TestInstallOneFromRevisionBuild(c *gc.C) {
 
 func (s *RefreshConfigSuite) TestInstallOneFromRevisionFail(c *gc.C) {
 	_, err := InstallOneFromRevision("", 1)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *RefreshConfigSuite) TestInstallOneBuildRevisionResources(c *gc.C) {
@@ -650,7 +650,7 @@ func (s *RefreshConfigSuite) TestInstallOneChannelFail(c *gc.C) {
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *RefreshConfigSuite) TestInstallOneWithPartialPlatform(c *gc.C) {
@@ -693,7 +693,7 @@ func (s *RefreshConfigSuite) TestInstallOneWithMissingArch(c *gc.C) {
 	config = DefineInstanceKey(c, config, "foo-bar")
 
 	_, err = config.Build()
-	c.Assert(errors.IsNotValid(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *RefreshConfigSuite) TestInstallOneFromChannelEnsure(c *gc.C) {
@@ -745,7 +745,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionBuild(c *gc.C) {
 
 func (s *RefreshConfigSuite) TestDownloadOneFromRevisionFail(c *gc.C) {
 	_, err := DownloadOneFromRevision("", 7)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameBuild(c *gc.C) {
@@ -772,7 +772,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameBuild(c *gc.C) {
 
 func (s *RefreshConfigSuite) TestDownloadOneFromRevisionByNameFail(c *gc.C) {
 	_, err := DownloadOneFromRevisionByName("", 7)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuild(c *gc.C) {
@@ -812,7 +812,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelFail(c *gc.C) {
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameBuild(c *gc.C) {
@@ -852,7 +852,7 @@ func (s *RefreshConfigSuite) TestDownloadOneFromChannelByNameFail(c *gc.C) {
 		Channel:      "20.04",
 		Architecture: arch.DefaultArchitecture,
 	})
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *RefreshConfigSuite) TestDownloadOneFromChannelBuildK8s(c *gc.C) {

@@ -55,42 +55,42 @@ func (s *IsolatedWorkerConfigSuite) TestConfigValid(c *gc.C) {
 func (s *IsolatedWorkerConfigSuite) TestMissingRunner(c *gc.C) {
 	s.config.Runner = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Runner not valid")
 }
 
 func (s *IsolatedWorkerConfigSuite) TestMissingStateReadWriter(c *gc.C) {
 	s.config.StateReadWriter = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing StateReadWriter not valid")
 }
 
 func (s *IsolatedWorkerConfigSuite) TestMissingClock(c *gc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Clock not valid")
 }
 
 func (s *IsolatedWorkerConfigSuite) TestMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Logger not valid")
 }
 
 func (s *IsolatedWorkerConfigSuite) TestMissingAmberGracePeriod(c *gc.C) {
 	s.config.AmberGracePeriod = 0
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "amber grace period not valid")
 }
 
 func (s *IsolatedWorkerConfigSuite) TestMissingRedGracePeriod(c *gc.C) {
 	s.config.RedGracePeriod = 0
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "red grace period not valid")
 }
 

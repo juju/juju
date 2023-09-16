@@ -44,7 +44,7 @@ func (s *PayloadsSuite) TestListPartial(c *gc.C) {
 	c.Check(missing.ID, gc.Equals, "whatever")
 	c.Check(missing.Payload, gc.IsNil)
 	c.Check(missing.NotFound, jc.IsTrue)
-	c.Check(missing.Error, jc.Satisfies, errors.IsNotFound)
+	c.Check(missing.Error, jc.ErrorIs, errors.NotFound)
 	c.Check(missing.Error, gc.ErrorMatches, "whatever not found")
 
 	found := results[1]
@@ -67,7 +67,7 @@ func (s *PayloadsSuite) TestTrackInvalidPayload(c *gc.C) {
 	pl := fix.SamplePayload("")
 
 	err := fix.UnitPayloads.Track(pl)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `missing ID not valid`)
 	fix.CheckNoPayload(c)
 }
@@ -88,7 +88,7 @@ func (s *PayloadsSuite) TestTrackInvalidUnit(c *gc.C) {
 	err := fix.UnitPayloads.Track(track)
 	// In a sensible implementation, this would be:
 	//
-	//    c.Check(err, jc.Satisfies, errors.IsNotValid)
+	//    c.Check(err, jc.ErrorIs, errors.NotValid)
 	//    c.Check(err, gc.ErrorMatches, `unexpected Unit "different/0" not valid`)
 	//
 	//    fix.CheckUnitPayloads(c)
@@ -169,7 +169,7 @@ func (s *PayloadsSuite) TestSetStatusInvalid(c *gc.C) {
 	fix, initial := s.newPayloadFixture(c)
 
 	err := fix.UnitPayloads.SetStatus(initial.Name, "twirling")
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err.Error(), gc.Equals, `status "twirling" not supported; expected one of ["running", "starting", "stopped", "stopping"]`)
 
 	fix.CheckOnePayload(c, initial)

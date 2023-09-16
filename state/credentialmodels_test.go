@@ -91,7 +91,7 @@ func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessNoModels(c *gc
 	anotherCredential := s.createCloudCredential(c, "another")
 
 	out, err := s.State.CredentialModelsAndOwnerAccess(anotherCredential)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(out, gc.HasLen, 0)
 }
 
@@ -132,6 +132,6 @@ func (s *CredentialModelsSuite) TestCredentialNoModels(c *gc.C) {
 	anotherCredential := s.createCloudCredential(c, "another")
 
 	out, err := s.State.CredentialModels(anotherCredential)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(out, gc.HasLen, 0)
 }

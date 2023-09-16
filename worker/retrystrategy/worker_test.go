@@ -23,7 +23,7 @@ var _ = gc.Suite(&WorkerSuite{})
 func (s *WorkerSuite) testValidate(c *gc.C, config retrystrategy.WorkerConfig, errMsg string) {
 	check := func(err error) {
 		c.Check(err, gc.ErrorMatches, errMsg)
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 	}
 
 	err := config.Validate()

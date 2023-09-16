@@ -77,7 +77,7 @@ func (w *stateWorker) Report() map[string]interface{} {
 func (w *stateWorker) processModelLifeChange(modelUUID string) error {
 	model, hp, err := w.pool.GetModel(modelUUID)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Model has been removed from state.
 			logger.Debugf("model %q removed from state", modelUUID)
 			w.remove(modelUUID)
@@ -152,7 +152,7 @@ func newModelStateWorker(
 func (w *modelStateWorker) loop() error {
 	st, err := w.pool.Get(w.modelUUID)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Ignore not found error here, because the pooledState has already
 			// been removed.
 			return nil

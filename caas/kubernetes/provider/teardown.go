@@ -207,7 +207,7 @@ func ensureResourcesDeletedFunc(
 	}()
 
 	if err = deleter(selector); err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			err = nil
 		}
 		return
@@ -223,7 +223,7 @@ func ensureResourcesDeletedFunc(
 			return
 		case <-ticker.Chan():
 			err = checker(selector)
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				// Deleted already.
 				err = nil
 				return
@@ -270,7 +270,7 @@ func (k *kubernetesClient) deleteNamespaceModelTeardown(ctx context.Context, wg 
 		case <-w.Changes():
 			// Ensures the namespace to be deleted - notfound error expected.
 			_, err = k.GetNamespace(k.namespace)
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				// Namespace has been deleted.
 				err = nil
 				return

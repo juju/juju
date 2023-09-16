@@ -88,7 +88,7 @@ func (s *kvmProvisionerSuite) TestDoesNotHaveRetryWatcher(c *gc.C) {
 
 	w, err := provisioner.GetRetryWatcher(p)
 	c.Assert(w, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *kvmProvisionerSuite) sendMachineContainersChange(c *gc.C, ids ...string) {

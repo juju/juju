@@ -68,7 +68,7 @@ func (s *UnregisterSuite) TestUnregisterUnknownController(c *gc.C) {
 	command := controller.NewUnregisterCommand(s.store)
 	_, err := cmdtesting.RunCommand(c, command, "fake3")
 
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, "controller fake3 not found")
 	c.Check(s.store.lookupName, gc.Equals, "fake3")
 }

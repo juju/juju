@@ -422,5 +422,5 @@ func (s *upgradeValidationSuite) TestCheckForCharmStoreCharmsError(c *gc.C) {
 	st.EXPECT().AllCharmURLs().Return([]*string{}, errors.BadRequestf("charm urls"))
 
 	_, err := upgradevalidation.CheckForCharmStoreCharms("", nil, st, nil)
-	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }

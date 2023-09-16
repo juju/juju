@@ -74,7 +74,7 @@ func NewConnectedStatusHandler(cfg ConnectedConfig) (watcher.NotifyHandler, erro
 func (w *connectedStatusHandler) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
 	var err error
 	if w.st, err = w.config.StateReadWriter.Read(); err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 

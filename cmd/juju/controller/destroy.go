@@ -588,7 +588,7 @@ func (c *destroyCommandBase) getControllerEnviron(
 	// We should try to destroy via the API first, from store is a
 	// fall back position.
 	env, err := c.getControllerEnvironFromStore(ctx, store, controllerName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return c.getControllerEnvironFromAPI(sysAPI, controllerName)
 	} else if err != nil {
 		return nil, errors.Annotate(err, "getting environ using bootstrap config from client store")

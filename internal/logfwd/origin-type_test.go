@@ -98,7 +98,7 @@ func (s *OriginTypeSuite) TestValidateInvalid(c *gc.C) {
 
 	err := ot.Validate()
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `unsupported origin type`)
 }
 
@@ -145,7 +145,7 @@ func (s *OriginTypeSuite) TestValidateNameInvalid(c *gc.C) {
 
 		err := test.ot.ValidateName(test.name)
 
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 		c.Check(err, gc.ErrorMatches, test.err)
 	}
 }

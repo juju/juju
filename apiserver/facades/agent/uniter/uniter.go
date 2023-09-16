@@ -816,7 +816,7 @@ func (u *UniterAPI) ConfigSettings(ctx context.Context, args params.Entities) (p
 			// issues with propagating the charm URL, use the state model.
 			var unit *state.Unit
 			unit, err = u.st.Unit(tag.Id())
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 				continue
 			}
@@ -849,7 +849,7 @@ func (u *UniterAPI) CharmArchiveSha256(ctx context.Context, args params.CharmURL
 		} else {
 			var sch *state.Charm
 			sch, err = u.st.Charm(curl)
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				err = apiservererrors.ErrPerm
 			}
 			if err == nil {
@@ -1102,7 +1102,7 @@ func (u *UniterAPI) Refresh(ctx context.Context, args params.Entities) (params.U
 
 				var err1 error
 				result.Results[i].ProviderID, err1 = u.getProviderID(unit)
-				if err1 != nil && !errors.IsNotFound(err1) {
+				if err1 != nil && !errors.Is(err1, errors.NotFound) {
 					// initially, it returns not found error, so just ignore it.
 					err = err1
 				}
@@ -1546,7 +1546,7 @@ func (u *UniterAPI) SetRelationStatus(ctx context.Context, args params.RelationS
 			return nil, errors.Trace(err)
 		}
 		unit, err := u.st.Unit(unitTag.Id())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, apiservererrors.ErrPerm
 		}
 		if err != nil {
@@ -1575,13 +1575,13 @@ func (u *UniterAPI) SetRelationStatus(ctx context.Context, args params.RelationS
 		}
 
 		rel, err := u.st.Relation(arg.RelationId)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return apiservererrors.ErrPerm
 		} else if err != nil {
 			return errors.Trace(err)
 		}
 		_, err = rel.Unit(unit)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return apiservererrors.ErrPerm
 		} else if err != nil {
 			return errors.Trace(err)
@@ -1628,7 +1628,7 @@ func (u *UniterAPI) getRelationUnit(canAccess common.AuthFunc, relTag string, un
 func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
 	rel, err := u.st.Relation(relId)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nothing, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nothing, err
@@ -1665,7 +1665,7 @@ func (u *UniterAPI) getRelation(relTag string) (*state.Relation, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 	rel, err := u.st.KeyRelation(tag.Id())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, err
@@ -1733,7 +1733,7 @@ func (u *UniterAPI) getRelationAppSettings(canAccess common.AuthFunc, relTag str
 		return nil, apiservererrors.ErrPerm
 	}
 	rel, err := u.st.KeyRelation(tag.Id())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -1744,7 +1744,7 @@ func (u *UniterAPI) getRelationAppSettings(canAccess common.AuthFunc, relTag str
 	}
 
 	settings, err := rel.ApplicationSettings(appTag.Id())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -2188,7 +2188,7 @@ func (u *UniterAPI) goalStateRelations(appName, principalName string, allRelatio
 			app, err := u.st.Application(e.ApplicationName)
 			if err == nil {
 				key = app.Name()
-			} else if errors.IsNotFound(err) {
+			} else if errors.Is(err, errors.NotFound) {
 				u.logger.Debugf("application %q must be a remote application.", e.ApplicationName)
 				remoteApplication, err := u.st.RemoteApplication(e.ApplicationName)
 				if err != nil {
@@ -2513,7 +2513,7 @@ func (u *UniterAPI) CommitHookChanges(ctx context.Context, args params.CommitHoo
 
 		if err := u.commitHookChangesForOneUnit(ctx, unitTag, arg, canAccessUnit, canAccessApp); err != nil {
 			// Log quota-related errors to aid operators
-			if errors.IsQuotaLimitExceeded(err) {
+			if errors.Is(err, errors.QuotaLimitExceeded) {
 				u.logger.Errorf("%s: %v", unitTag, err)
 			}
 			res[i].Error = apiservererrors.ServerError(err)

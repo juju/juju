@@ -80,7 +80,7 @@ func (w *EgressAddressWatcher) loop() error {
 	defer close(w.out)
 
 	ruw, err := w.rel.WatchUnits(w.appName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	}
 	if err != nil {
@@ -226,7 +226,7 @@ func (w *EgressAddressWatcher) loop() error {
 
 func (w *EgressAddressWatcher) unitAddress(unit Unit) (string, bool, error) {
 	addr, err := unit.PublicAddress()
-	if errors.IsNotAssigned(err) {
+	if errors.Is(err, errors.NotAssigned) {
 		logger.Debugf("unit %s is not assigned to a machine, can't get address", unit.Name())
 		return "", false, nil
 	}
@@ -246,7 +246,7 @@ func (w *EgressAddressWatcher) processUnitChanges(c watcher.RelationUnitsChange)
 	for name := range c.Changed {
 
 		u, err := w.backend.Unit(name)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		if err != nil {
@@ -301,7 +301,7 @@ func (w *EgressAddressWatcher) processUnitChanges(c watcher.RelationUnitsChange)
 
 func (w *EgressAddressWatcher) trackUnit(unit Unit) error {
 	machine, err := w.assignedMachine(unit)
-	if errors.IsNotAssigned(err) {
+	if errors.Is(err, errors.NotAssigned) {
 		logger.Errorf("unit %q entered scope without a machine assigned - addresses will not be tracked", unit)
 		return nil
 	}
@@ -379,7 +379,7 @@ func (w *EgressAddressWatcher) processMachineAddresses(machineId string) (change
 	}
 	for unitName := range mData.units {
 		unit, err := w.backend.Unit(unitName)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		if err != nil {

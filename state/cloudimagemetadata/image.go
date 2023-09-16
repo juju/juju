@@ -80,7 +80,7 @@ func (s *storage) SaveMetadata(metadata []Metadata) error {
 
 			// Check if this image metadata is already known.
 			existing, err := s.getMetadata(newDocCopy.Id)
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				op.Assert = txn.DocMissing
 				op.Insert = &newDocCopy
 				ops = append(ops, op)

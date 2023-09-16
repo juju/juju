@@ -426,7 +426,7 @@ func (info *UpgradeInfo) SetControllerDone(controllerId string) error {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		doc, err := currentUpgradeInfoDoc(info.st)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -481,7 +481,7 @@ func (info *UpgradeInfo) SetControllerDone(controllerId string) error {
 func (info *UpgradeInfo) Abort() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		doc, err := currentUpgradeInfoDoc(info.st)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -522,7 +522,7 @@ func (st *State) IsUpgrading() (bool, error) {
 	doc, err := currentUpgradeInfoDoc(st)
 	if doc != nil && err == nil {
 		return true, nil
-	} else if errors.IsNotFound(err) {
+	} else if errors.Is(err, errors.NotFound) {
 		return false, nil
 	} else {
 		return false, errors.Trace(err)
@@ -535,7 +535,7 @@ func (st *State) IsUpgrading() (bool, error) {
 func (st *State) AbortCurrentUpgrade() error {
 	doc, err := currentUpgradeInfoDoc(st)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil
 		}
 		return errors.Trace(err)

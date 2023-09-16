@@ -92,7 +92,7 @@ func formatWhoAmITabular(writer io.Writer, value interface{}) error {
 // Run implements Command.Run
 func (c *whoAmICommand) Run(ctx *cmd.Context) error {
 	controllerName, err := modelcmd.DetermineCurrentController(c.store)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return err
 	}
 	if err != nil {
@@ -100,11 +100,11 @@ func (c *whoAmICommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 	modelName, err := c.store.CurrentModel(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return err
 	}
 	userDetails, err := c.store.AccountDetails(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return err
 	}
 	if err != nil {

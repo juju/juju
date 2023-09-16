@@ -302,7 +302,7 @@ users:
 			},
 		},
 	)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *cloudSuite) TestCloudFromKubeConfigContextClusterDoesNotExist(c *gc.C) {
@@ -344,7 +344,7 @@ users:
 			},
 		},
 	)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *cloudSuite) CloudFromKubeConfigClusterReader(c *gc.C) {
@@ -436,5 +436,5 @@ users:
 			},
 		},
 	)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

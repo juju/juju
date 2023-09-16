@@ -108,7 +108,7 @@ func (s *SubnetSuite) TestAddSubnetFailsWithAlreadyExistsForDuplicateCIDRInSameM
 	s.assertSubnetMatchesInfo(c, subnet, subnetInfo)
 
 	err = s.assertAddSubnetForInfoFailsWithSuffix(c, subnetInfo, `subnet "192.168.0.1/24" already exists`)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *SubnetSuite) TestAddSubnetSuccessForDuplicateCIDRDiffProviderIDInSameModel(c *gc.C) {
@@ -257,7 +257,7 @@ func (s *SubnetSuite) assertSubnetWithCIDRNotFound(c *gc.C, cidr string) {
 
 func (s *SubnetSuite) assertSubnetNotFoundError(c *gc.C, err error) {
 	c.Assert(err, gc.ErrorMatches, "subnet .* not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *SubnetSuite) TestRemoveSucceedsWhenCalledTwice(c *gc.C) {

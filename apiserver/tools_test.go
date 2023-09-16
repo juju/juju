@@ -369,7 +369,7 @@ func (s *toolsSuite) TestBlockUpload(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer storage.Close()
 	_, _, err = storage.Open(vers)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {

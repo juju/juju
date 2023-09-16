@@ -29,12 +29,12 @@ func (s *certSuite) TestGenerateClientCertificate(c *gc.C) {
 
 func (s *certSuite) TestValidateMissingCertPEM(c *gc.C) {
 	cert := lxd.NewCertificate([]byte(testCertPEM), nil)
-	c.Check(cert.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(cert.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *certSuite) TestValidateMissingKeyPEM(c *gc.C) {
 	cert := lxd.NewCertificate(nil, []byte(testKeyPEM))
-	c.Check(cert.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(cert.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *certSuite) TestWriteCertPEM(c *gc.C) {

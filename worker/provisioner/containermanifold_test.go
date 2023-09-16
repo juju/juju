@@ -126,7 +126,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainersNotK
 		ContainerType: instance.LXD,
 	}
 	_, err := provisioner.MachineSupportsContainers(cfg, s.getter, tag)
-	c.Assert(errors.Is(err, errors.NotYetAvailable), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotYetAvailable)
 }
 
 func (s *containerManifoldSuite) TestContainerProvisioningManifoldNoContainerSupport(c *gc.C) {

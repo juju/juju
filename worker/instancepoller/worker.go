@@ -236,7 +236,7 @@ func (u *updaterWorker) queueMachineForPolling(tag names.MachineTag) error {
 		if err := entry.m.Refresh(); err != nil {
 			// If the machine is not found, this probably means
 			// that it is dead and has been removed from the DB.
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return errors.Trace(err)
 			}
 			isDead = true
@@ -387,7 +387,7 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 		//
 		// This error is meant as a hint to folks working on new providers
 		// in the future to ensure that they implement this method.
-		if errors.IsNotSupported(errors.Cause(err)) {
+		if errors.Is(err, errors.NotSupported) {
 			return errors.Errorf("BUG: substrate does not implement required NetworkInterfaces method")
 		}
 

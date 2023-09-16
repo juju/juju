@@ -50,7 +50,7 @@ func (s *MachineRemovalSuite) TestMarkingAndCompletingMachineRemoval(c *gc.C) {
 
 	_, err = s.State.Machine(m1.Id())
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	// But m2 is still there.
 	_, err = s.State.Machine(m2.Id())
 	c.Assert(err, jc.ErrorIsNil)

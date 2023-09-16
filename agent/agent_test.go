@@ -678,7 +678,7 @@ func (*suite) TestSetAPIHostPortsErrorOnEmpty(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = conf.SetAPIHostPorts([]network.HostPorts{})
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
 func (*suite) TestSetCACert(c *gc.C) {

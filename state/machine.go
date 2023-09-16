@@ -419,7 +419,7 @@ func (m *Machine) KeepInstance() (bool, error) {
 // which were defined in the charm deployed to that machine.
 func (m *Machine) CharmProfiles() ([]string, error) {
 	instData, err := getInstanceData(m.st, m.Id())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		err = errors.NotProvisionedf("machine %v", m.Id())
 	}
 	if err != nil {
@@ -841,13 +841,13 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 		// could perhaps be made that this is not a helpful convention in the
 		// context of the new state API, but we maintain consistency in the
 		// face of uncertainty.
-		if m, err = m.st.Machine(m.doc.Id); errors.IsNotFound(err) {
+		if m, err = m.st.Machine(m.doc.Id); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
 		}
 		node, err := m.st.ControllerNode(m.doc.Id)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, err
 		}
 		hasVote := err == nil && node.HasVote()
@@ -1226,7 +1226,7 @@ func (m *Machine) Remove() (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
 			machine, err = machine.st.Machine(machine.Id())
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				// The machine's gone away, that's fine.
 				return nil, jujutxn.ErrNoOperations
 			}
@@ -1249,7 +1249,7 @@ func (m *Machine) Remove() (err error) {
 func (m *Machine) Refresh() error {
 	mdoc, err := m.st.getMachineDoc(m.Id())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return err
 		}
 		return errors.Annotatef(err, "cannot refresh machine %v", m)
@@ -1270,7 +1270,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 // is ignored internally.
 func (m *Machine) InstanceNames() (instance.Id, string, error) {
 	instData, err := getInstanceData(m.st, m.Id())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		err = errors.NotProvisionedf("machine %v", m.Id())
 	}
 	if err != nil {
@@ -1346,7 +1346,7 @@ func (m *Machine) SetModificationStatus(sInfo status.StatusInfo) (err error) {
 // zone in which the machine was provisioned.
 func (m *Machine) AvailabilityZone() (string, error) {
 	instData, err := getInstanceData(m.st, m.Id())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return "", errors.Trace(errors.NotProvisionedf("machine %v", m.Id()))
 	}
 	if err != nil {
@@ -1799,7 +1799,7 @@ func (m *Machine) setAddresses(controllerConfig controller.Config, machineAddres
 
 func (st *State) maybeUpdateControllerCharm(controllerConfig controller.Config, publicAddr string) error {
 	controllerApp, err := st.Application(bootstrap.ControllerApplicationName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	}
 	if err != nil {
@@ -1898,7 +1898,7 @@ func (m *Machine) setConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
 	}
 	if _, err := m.InstanceId(); err == nil {
 		return nil, fmt.Errorf("machine is already provisioned")
-	} else if !errors.IsNotProvisioned(err) {
+	} else if !errors.Is(err, errors.NotProvisioned) {
 		return nil, err
 	}
 
@@ -1937,7 +1937,7 @@ func (m *Machine) SetStatus(statusInfo status.StatusInfo) error {
 		// If a machine is not yet provisioned, we allow its status
 		// to be set back to pending (when a retry is to occur).
 		_, err := m.InstanceId()
-		allowPending := errors.IsNotProvisioned(err)
+		allowPending := errors.Is(err, errors.NotProvisioned)
 		if allowPending {
 			break
 		}

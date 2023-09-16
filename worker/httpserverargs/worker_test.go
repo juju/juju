@@ -60,7 +60,7 @@ func (s *workerConfigSuite) TestMissing(c *gc.C) {
 	for _, test := range tests {
 		cfg := test.fn(s.config)
 		err := cfg.Validate()
-		c.Assert(err, jc.Satisfies, errors.IsNotValid)
+		c.Assert(err, jc.ErrorIs, errors.NotValid)
 	}
 }
 

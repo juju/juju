@@ -460,7 +460,7 @@ func setInstanceProfileWithWait(
 			return err
 		},
 		IsFatalError: func(err error) bool {
-			return !errors.IsNotProvisioned(err)
+			return !errors.Is(err, errors.NotProvisioned)
 		},
 		BackoffFunc: retry.DoubleDelay,
 		Clock:       clock.WallClock,
@@ -490,7 +490,7 @@ func setInstanceProfileWithWait(
 			)
 		},
 		IsFatalError: func(err error) bool {
-			return !errors.IsNotProvisioned(err)
+			return !errors.Is(err, errors.NotProvisioned)
 		},
 		BackoffFunc: retry.DoubleDelay,
 		Clock:       clock.WallClock,

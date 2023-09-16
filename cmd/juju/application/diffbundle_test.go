@@ -111,7 +111,7 @@ func (s *diffSuite) TestNotABundle(c *gc.C) {
 	c.Logf(errors.ErrorStack(err))
 	// Fails because the series that comes back from the charm store
 	// is xenial rather than "bundle" (and there's no local bundle).
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *diffSuite) TestLocalBundle(c *gc.C) {
@@ -137,7 +137,7 @@ machines:
 
 func (s *diffSuite) TestLocalBundleInvalidYaml(c *gc.C) {
 	_, err := s.runDiffBundle(c, s.writeLocalBundle(c, invalidYaml))
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err, gc.ErrorMatches, `.*cannot unmarshal bundle contents.*`[1:])
 }
 

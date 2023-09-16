@@ -126,6 +126,6 @@ func (s *PrepareSuite) assertPrepare(c *gc.C, skipVerify bool) {
 		Cloud:            testing.FakeCloudSpec(),
 		AdminSecret:      "admin-secret",
 	})
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 	c.Assert(err, gc.ErrorMatches, `controller "erewhemos" already exists`)
 }

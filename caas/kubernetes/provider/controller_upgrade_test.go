@@ -100,5 +100,5 @@ func (s *ControllerUpgraderSuite) TestControllerDoesNotExist(c *gc.C) {
 	)
 	err := controllerUpgrade(appName, version.MustParse("9.9.9"), s.broker)
 	c.Assert(err, gc.NotNil)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

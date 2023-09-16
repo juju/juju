@@ -248,7 +248,7 @@ func (s *StorageStateSuiteBase) storageInstanceExists(c *gc.C, tag names.Storage
 func (s *StorageStateSuiteBase) assertFilesystemUnprovisioned(c *gc.C, tag names.FilesystemTag) {
 	filesystem := s.filesystem(c, tag)
 	_, err := filesystem.Info()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	_, ok := filesystem.Params()
 	c.Assert(ok, jc.IsTrue)
 }
@@ -265,7 +265,7 @@ func (s *StorageStateSuiteBase) assertFilesystemInfo(c *gc.C, tag names.Filesyst
 func (s *StorageStateSuiteBase) assertFilesystemAttachmentUnprovisioned(c *gc.C, host names.Tag, f names.FilesystemTag) {
 	filesystemAttachment := s.filesystemAttachment(c, host, f)
 	_, err := filesystemAttachment.Info()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	_, ok := filesystemAttachment.Params()
 	c.Assert(ok, jc.IsTrue)
 }
@@ -282,7 +282,7 @@ func (s *StorageStateSuiteBase) assertFilesystemAttachmentInfo(c *gc.C, host nam
 func (s *StorageStateSuiteBase) assertVolumeUnprovisioned(c *gc.C, tag names.VolumeTag) {
 	volume := s.volume(c, tag)
 	_, err := volume.Info()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	_, ok := volume.Params()
 	c.Assert(ok, jc.IsTrue)
 }
@@ -378,7 +378,7 @@ func (s *StorageStateSuiteBase) obliterateUnitStorage(c *gc.C, tag names.UnitTag
 
 func (s *StorageStateSuiteBase) obliterateVolume(c *gc.C, tag names.VolumeTag) {
 	err := s.storageBackend.DestroyVolume(tag, false)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return
 	}
 	attachments, err := s.storageBackend.VolumeAttachments(tag)
@@ -399,7 +399,7 @@ func (s *StorageStateSuiteBase) obliterateVolumeAttachment(c *gc.C, m names.Tag,
 
 func (s *StorageStateSuiteBase) obliterateFilesystem(c *gc.C, tag names.FilesystemTag) {
 	err := s.storageBackend.DestroyFilesystem(tag, false)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return
 	}
 	attachments, err := s.storageBackend.FilesystemAttachments(tag)
@@ -1307,7 +1307,7 @@ func (s *StorageStateSuite) TestConcurrentDestroyStorageInstance(c *gc.C) {
 func (s *StorageStateSuite) TestDestroyStorageInstanceNotFound(c *gc.C) {
 	err := s.storageBackend.DestroyStorageInstance(names.NewStorageTag("foo/0"), true, false, dontWait)
 	c.Assert(err, gc.ErrorMatches, `cannot destroy storage "foo/0": storage instance "foo/0" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *StorageStateSuite) TestDestroyStorageInstanceAttachedError(c *gc.C) {
@@ -1318,7 +1318,7 @@ func (s *StorageStateSuite) TestDestroyStorageInstanceAttachedError(c *gc.C) {
 
 	err := s.storageBackend.DestroyStorageInstance(storageTag, false, false, dontWait)
 	c.Assert(err, gc.ErrorMatches, `cannot destroy storage "data/0": storage is attached`)
-	c.Assert(errors.Is(err, stateerrors.StorageAttachedError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.StorageAttachedError)
 }
 
 func (s *StorageStateSuite) TestWatchStorageAttachments(c *gc.C) {
@@ -1661,7 +1661,7 @@ func (s *StorageSubordinateStateSuite) TestSubordinateStoragePrincipalUnassigned
 	// The principal unit is not yet assigned to a machine, so there should
 	// be no filesystem associated with the storage instance yet.
 	_, err = s.storageBackend.StorageInstanceFilesystem(storageTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Assigning the principal unit to a machine should cause the subordinate
 	// unit's machine storage to be created.

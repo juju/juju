@@ -35,7 +35,7 @@ func (s *SerializationSuite) TestDeserializeFingerprintOkay(c *gc.C) {
 func (s *SerializationSuite) TestDeserializeFingerprintInvalid(c *gc.C) {
 	_, err := resources.DeserializeFingerprint([]byte("<too short>"))
 
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *SerializationSuite) TestDeserializeFingerprintZeroValue(c *gc.C) {

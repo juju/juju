@@ -608,7 +608,7 @@ func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(data), jc.Contains, `"mirrors":`)
 	} else {
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		c.Assert(err, jc.ErrorIs, errors.NotFound)
 	}
 }
 

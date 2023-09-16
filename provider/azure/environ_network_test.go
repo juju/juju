@@ -23,7 +23,7 @@ func (s *environSuite) TestSubnetsInstanceIDError(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 
 	_, err := netEnv.Subnets(s.callCtx, "some-ID", nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *environSuite) TestSubnetsSuccess(c *gc.C) {

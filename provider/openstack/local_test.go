@@ -787,7 +787,7 @@ func (s *localServerSuite) TestStartInstanceGetServerFail(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot run instance: "+
 		"request \\(.*/servers\\) returned unexpected status: "+
 		"500; error info: .*GetServer failed on purpose")
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 }
 
 func (s *localServerSuite) TestStartInstanceWaitForActiveDetails(c *gc.C) {
@@ -1715,7 +1715,7 @@ func (s *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	s.srv.Nova.SetAvailabilityZones() // no availability zone support
 	placement := "zone=test-unknown"
 	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{Base: jujuversion.DefaultSupportedLTSBase(), Placement: placement})
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceVolumeAvailZonesNoPlacement(c *gc.C) {
@@ -2963,12 +2963,12 @@ func (s *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceAvailZoneUnavailable(c *gc.C) {
 	_, err := s.testStartInstanceAvailZone(c, "test-unavailable")
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsFalse)
+	c.Assert(err, gc.Not(jc.ErrorIs), environs.ErrAvailabilityZoneIndependent)
 }
 
 func (s *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 	_, err := s.testStartInstanceAvailZone(c, "test-unknown")
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsFalse)
+	c.Assert(err, gc.Not(jc.ErrorIs), environs.ErrAvailabilityZoneIndependent)
 }
 
 func (s *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instances.Instance, error) {
@@ -3755,7 +3755,7 @@ func (s *noNeutronSuite) TestSupport(c *gc.C) {
 		jujuclient.NewMemStore(),
 		prepareParams(attrs, s.cred),
 	)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `OpenStack Neutron service`)
 }
 

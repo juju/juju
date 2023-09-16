@@ -580,7 +580,7 @@ var destroyVolumeAttempt = utils.AttemptStrategy{
 func destroyVolume(client Client, ctx context.ProviderCallContext, volumeId string) (err error) {
 	defer func() {
 		if err != nil {
-			if ec2ErrCode(err) == volumeNotFound || errors.IsNotFound(err) {
+			if ec2ErrCode(err) == volumeNotFound || errors.Is(err, errors.NotFound) {
 				// Either the volume isn't found, or we queried the
 				// instance corresponding to a DeleteOnTermination
 				// attachment; in either case, the volume is or will

@@ -132,7 +132,7 @@ credentials:
       trust-password: "123"
 `)
 	result, err := cloud.CredentialsFromFile(testFile, "anothercloud", "")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -171,7 +171,7 @@ credentials:
       trust-password: "123"
 `)
 	result, err := cloud.CredentialsFromFile(testFile, "somecloud", "its-credential")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -188,7 +188,7 @@ credentials:
       trust-password: "123"
 `)
 	result, err := cloud.CredentialsFromFile(testFile, "somecloud", "its-credential")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(result, gc.IsNil)
 }
 
@@ -201,7 +201,7 @@ credentials:
       trust-password: "123"
 `)
 	result, err := cloud.CredentialsFromFile(testFile, "somecloud", "its-credential")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(result, gc.IsNil)
 }
 

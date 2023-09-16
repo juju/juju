@@ -38,7 +38,7 @@ func (h *UnitResourcesHandler) ServeHTTP(resp http.ResponseWriter, req *http.Req
 		name := req.URL.Query().Get(":resource")
 		opened, err := opener.OpenResource(name)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				// non internal errors is not real errors.
 				logger.Warningf("cannot fetch resource reader: %v", err)
 			} else {

@@ -113,7 +113,7 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 	for i, change := range changes.Changes {
 		relationTag, err := api.st.GetRemoteEntity(change.RelationToken)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				api.logger.Debugf("no relation tag %+v in model %v, exit early", change.RelationToken, api.st.ModelUUID())
 				continue
 			}
@@ -128,7 +128,7 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 		// Look up the application on the remote side of this relation
 		// ie from the model which published this change.
 		remoteAppTag, err := api.st.GetRemoteEntity(change.ApplicationOrOfferToken)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -231,7 +231,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	}
 
 	existingRemoteApp, err := api.st.RemoteApplication(uniqueRemoteApplicationName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if err == nil {
@@ -254,20 +254,20 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		ConsumeVersion:  relation.ConsumeVersion,
 	})
 	// If it already exists, that's fine.
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Annotatef(err, "adding remote application %v", uniqueRemoteApplicationName)
 	}
 	api.logger.Debugf("added remote application %v to local model with token %v from model %v", uniqueRemoteApplicationName, relation.ApplicationToken, sourceModelTag.Id())
 
 	// Now add the relation if it doesn't already exist.
 	localRel, err := api.st.EndpointsRelation(*localEndpoint, remoteEndpoint)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if err != nil { // not found
 		localRel, err = api.st.AddRelation(*localEndpoint, remoteEndpoint)
 		// Again, if it already exists, that's fine.
-		if err != nil && !errors.IsAlreadyExists(err) {
+		if err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return nil, errors.Annotate(err, "adding remote relation")
 		}
 		api.logger.Debugf("added relation %v to model %v", localRel.Tag().Id(), api.st.ModelUUID())
@@ -278,7 +278,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		RelationId:  localRel.Id(),
 		RelationKey: localRel.Tag().Id(),
 	})
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Annotate(err, "adding offer connection details")
 	}
 	api.relationToOffer[localRel.Tag().Id()] = relation.OfferUUID
@@ -288,7 +288,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	api.logger.Debugf("remote model is %v", sourceModelTag.Id())
 
 	err = api.st.ImportRemoteEntity(localRel.Tag(), relation.RelationToken)
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Annotatef(err, "importing remote relation %v to local model", localRel.Tag().Id())
 	}
 	api.logger.Debugf("relation token %v exported for %v ", relation.RelationToken, localRel.Tag().Id())
@@ -300,7 +300,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 	// NB we need to export the application last so that everything else is in place when the worker is
 	// woken up by the watcher.
 	token, err := api.st.ExportLocalEntity(names.NewApplicationOfferTag(appOffer.OfferName))
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Annotatef(err, "exporting local application offer %q", appOffer.OfferName)
 	}
 	api.logger.Debugf("local application offer %v from model %v exported with token %q ", appOffer.OfferName, api.st.ModelUUID(), token)

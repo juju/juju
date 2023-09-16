@@ -69,7 +69,7 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 	// To have a non-allocating status, a unit needs to
 	// be assigned to a machine.
 	_, err := u.AssignedMachineId()
-	if errors.IsNotAssigned(err) {
+	if errors.Is(err, errors.NotAssigned) {
 		err = u.AssignToNewMachine()
 	}
 	c.Assert(err, jc.ErrorIsNil)
@@ -797,13 +797,6 @@ func (s *StateSuite) TestPing(c *gc.C) {
 	c.Assert(s.State.Ping(), gc.NotNil)
 }
 
-func (s *StateSuite) TestIsNotFound(c *gc.C) {
-	err1 := fmt.Errorf("unrelated error")
-	err2 := errors.NotFoundf("foo")
-	c.Assert(err1, gc.Not(jc.Satisfies), errors.IsNotFound)
-	c.Assert(err2, jc.Satisfies, errors.IsNotFound)
-}
-
 func (s *StateSuite) AssertMachineCount(c *gc.C, expect int) {
 	ms, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1048,14 +1041,14 @@ func (s *StateSuite) TestAddMachineWithVolumes(c *gc.C) {
 	}
 	for i, att := range volumeAttachments {
 		_, err = att.Info()
-		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+		c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 		attachmentParams, ok := att.Params()
 		c.Assert(ok, jc.IsTrue)
 		c.Check(attachmentParams, gc.Equals, machineTemplate.Volumes[i].Attachment)
 		volume, err := sb.Volume(att.Volume())
 		c.Assert(err, jc.ErrorIsNil)
 		_, err = volume.Info()
-		c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+		c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 		volumeParams, ok := volume.Params()
 		c.Assert(ok, jc.IsTrue)
 		c.Check(volumeParams, gc.Equals, machineTemplate.Volumes[i].Volume)
@@ -1400,7 +1393,7 @@ func (s *StateSuite) TestReadMachine(c *gc.C) {
 func (s *StateSuite) TestMachineNotFound(c *gc.C) {
 	_, err := s.State.Machine("0")
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *StateSuite) TestMachineIdLessThan(c *gc.C) {
@@ -1797,7 +1790,7 @@ func (s *StateSuite) TestAddApplicationFailCharmOriginIDOnly(c *gc.C) {
 		Charm:       &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{ID: "testing", Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}},
 	})
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
 func (s *StateSuite) TestAddApplicationFailCharmOriginHashOnly(c *gc.C) {
@@ -1806,7 +1799,7 @@ func (s *StateSuite) TestAddApplicationFailCharmOriginHashOnly(c *gc.C) {
 		Charm:       &state.Charm{},
 		CharmOrigin: &state.CharmOrigin{Hash: "testing", Platform: &state.Platform{OS: "ubuntu", Channel: "22.04"}},
 	})
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
 func (s *StateSuite) TestAddCAASApplication(c *gc.C) {
@@ -2132,7 +2125,7 @@ func (s *StateSuite) TestAddApplicationModelDyingAfterInitial(c *gc.C) {
 func (s *StateSuite) TestApplicationNotFound(c *gc.C) {
 	_, err := s.State.Application("bummer")
 	c.Assert(err, gc.ErrorMatches, `application "bummer" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *StateSuite) TestAddApplicationWithDefaultBindings(c *gc.C) {
@@ -2162,7 +2155,7 @@ func (s *StateSuite) TestAddApplicationWithDefaultBindings(c *gc.C) {
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	state.AssertEndpointBindingsNotFoundForApplication(c, app)
 }
 
@@ -2213,37 +2206,37 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 		about         string
 		bindings      map[string]string
 		expectedError string
-		errorType     func(error) bool
+		errIs         error
 	}{{ // 0
 		about:         "extra endpoint bound to unknown space",
 		bindings:      map[string]string{"extra": "4"},
 		expectedError: `space not found`,
-		errorType:     errors.IsNotFound,
+		errIs:         errors.NotFound,
 	}, { // 1
 		about:         "extra endpoint not bound to a space",
 		bindings:      map[string]string{"extra": ""},
 		expectedError: `unknown endpoint "extra" not valid`,
-		errorType:     errors.IsNotValid,
+		errIs:         errors.NotValid,
 	}, { // 2
 		about:         "two extra endpoints, both bound to known spaces",
 		bindings:      map[string]string{"ex1": dbSpace.Id(), "ex2": clientSpace.Id()},
 		expectedError: `unknown endpoint "ex(1|2)" not valid`,
-		errorType:     errors.IsNotValid,
+		errIs:         errors.NotValid,
 	}, { // 3
 		about:         "empty endpoint bound to unknown space",
 		bindings:      map[string]string{"": "anything"},
 		expectedError: `space not found`,
-		errorType:     errors.IsNotFound,
+		errIs:         errors.NotFound,
 	}, { // 4
 		about:         "known endpoint bound to unknown space",
 		bindings:      map[string]string{"server": "invalid"},
 		expectedError: `space not found`,
-		errorType:     errors.IsNotFound,
+		errIs:         errors.NotFound,
 	}, { // 5
 		about:         "known endpoint bound correctly and an extra endpoint",
 		bindings:      map[string]string{"server": dbSpace.Id(), "foo": "public"},
 		expectedError: `space not found`,
-		errorType:     errors.IsNotFound,
+		errIs:         errors.NotFound,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
 
@@ -2257,7 +2250,7 @@ func (s *StateSuite) TestAddApplicationWithInvalidBindings(c *gc.C) {
 			EndpointBindings: test.bindings,
 		})
 		c.Check(err, gc.ErrorMatches, `cannot add application "yoursql": `+test.expectedError)
-		c.Check(err, jc.Satisfies, test.errorType)
+		c.Check(err, jc.ErrorIs, test.errIs)
 	}
 }
 
@@ -2667,7 +2660,7 @@ func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	c.Assert(alive.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(alive.Refresh(), jc.ErrorIsNil)
 	c.Assert(alive.Life(), gc.Equals, state.Dying)
-	c.Assert(dying.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(dying.Refresh(), jc.ErrorIs, errors.NotFound)
 	wc.AssertChange(alive.UUID())
 }
 
@@ -2700,7 +2693,7 @@ func (s *StateSuite) TestWatchModelsLifecycle(c *gc.C) {
 	c.Assert(st1.RemoveDyingModel(), jc.ErrorIsNil)
 	wc.AssertChange(model.UUID())
 	wc.AssertNoChange()
-	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(model.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *StateSuite) TestWatchApplicationsBulkEvents(c *gc.C) {
@@ -3244,7 +3237,7 @@ func (s *StateSuite) TestRemoveDyingModelForDyingModel(c *gc.C) {
 	c.Assert(model.Life(), jc.DeepEquals, state.Dead)
 
 	c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(model.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *StateSuite) TestRemoveDyingModelForDeadModel(c *gc.C) {
@@ -3259,7 +3252,7 @@ func (s *StateSuite) TestRemoveDyingModelForDeadModel(c *gc.C) {
 	c.Assert(model.Life(), jc.DeepEquals, state.Dying)
 
 	c.Assert(st.RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(model.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *StateSuite) TestSetDyingModelToDeadRequiresDyingModel(c *gc.C) {
@@ -3270,7 +3263,7 @@ func (s *StateSuite) TestSetDyingModelToDeadRequiresDyingModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.SetDyingModelToDead()
-	c.Assert(errors.Cause(err), gc.Equals, state.ErrModelNotDying)
+	c.Assert(err, jc.ErrorIs, state.ErrModelNotDying)
 
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(model.Refresh(), jc.ErrorIsNil)
@@ -3280,7 +3273,7 @@ func (s *StateSuite) TestSetDyingModelToDeadRequiresDyingModel(c *gc.C) {
 	c.Assert(model.Life(), jc.DeepEquals, state.Dead)
 
 	err = st.SetDyingModelToDead()
-	c.Assert(errors.Cause(err), gc.Equals, state.ErrModelNotDying)
+	c.Assert(err, jc.ErrorIs, state.ErrModelNotDying)
 }
 
 func (s *StateSuite) TestRemoveImportingModelDocsFailsActive(c *gc.C) {
@@ -3505,7 +3498,7 @@ func (s *StateSuite) TestRemoveExportingModelDocsRemovesLogTrackers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = t1.Get()
-	c.Check(errors.Cause(err), gc.Equals, state.ErrNeverForwarded)
+	c.Check(err, jc.ErrorIs, state.ErrNeverForwarded)
 
 	id, count, err := t2.Get()
 	c.Assert(err, jc.ErrorIsNil)
@@ -3648,12 +3641,12 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	info := statetesting.NewMongoInfo()
 	info.Tag, info.Password = names.NewUserTag("arble"), "bar"
 	err := tryOpenState(s.modelTag, s.State.ControllerTag(), info)
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(err, jc.ErrorIs, errors.Unauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "user-arble": unauthorized mongo access: .*`)
 
 	info.Tag, info.Password = names.NewUserTag("arble"), ""
 	err = tryOpenState(s.modelTag, s.State.ControllerTag(), info)
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(err, jc.ErrorIs, errors.Unauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "user-arble": unauthorized mongo access: .*`)
 
 	info.Tag, info.Password = nil, ""
@@ -4404,7 +4397,7 @@ func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
 	state.SetMaxTxnAttempts(c, s.State, 3)
 	defer state.SetTestHooks(c, s.State, hooks...).Check()
 	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
-	c.Assert(errors.Cause(err), gc.Equals, jujutxn.ErrExcessiveContention)
+	c.Assert(err, jc.ErrorIs, jujutxn.ErrExcessiveContention)
 	// Make sure the version remained the same.
 	assertAgentVersion(c, s.State, currentVersion, "released")
 }
@@ -4449,7 +4442,7 @@ func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.SetModelAgentVersion(nextVersion, nil, false)
-	c.Assert(errors.Is(err, stateerrors.ErrUpgradeInProgress), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.ErrUpgradeInProgress)
 }
 
 func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {
@@ -4556,7 +4549,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	_, err := s.State.StateServingInfo()
 	c.Assert(err, gc.ErrorMatches, "state serving info not found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	data := controller.StateServingInfo{
 		APIPort:      69,
@@ -4984,7 +4977,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	err = tryOpenState(m.ModelTag(), st.ControllerTag(), noAuthInfo)
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(err, jc.ErrorIs, errors.Unauthorized)
 	// note: collections are set up in arbitrary order, proximate cause of
 	// failure may differ.
 	c.Check(err, gc.ErrorMatches, `[^:]+: unauthorized mongo access: .*`)

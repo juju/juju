@@ -667,7 +667,7 @@ type openstackPlacement struct {
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
 func (e *Environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	availabilityZone, err := e.deriveAvailabilityZone(ctx, args.Placement, args.VolumeAttachments)
-	if err != nil && !errors.IsNotImplemented(err) {
+	if err != nil && !errors.Is(err, errors.NotImplemented) {
 		handleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
@@ -1898,7 +1898,7 @@ func (e *Environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 
 func (e *Environ) adoptVolumes(controllerTag map[string]string, ctx context.ProviderCallContext) ([]string, error) {
 	cinder, err := e.cinderProvider()
-	if errors.IsNotSupported(err) {
+	if errors.Is(err, errors.NotSupported) {
 		logger.Debugf("volumes not supported: not transferring ownership for volumes")
 		return nil, nil
 	}
@@ -2069,7 +2069,7 @@ func (e *Environ) destroyControllerManagedEnvirons(ctx context.ProviderCallConte
 			handleCredentialError(err, ctx)
 			return errors.Annotatef(err, "destroying volume %q", volIds[i])
 		}
-	} else if !errors.IsNotSupported(err) {
+	} else if !errors.Is(err, errors.NotSupported) {
 		handleCredentialError(err, ctx)
 		return errors.Trace(err)
 	}

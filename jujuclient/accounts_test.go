@@ -92,19 +92,19 @@ func (s *AccountsSuite) TestRemoveAccountNoFile(c *gc.C) {
 	err := os.Remove(jujuclient.JujuAccountsPath())
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.store.RemoveAccount("not-found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *AccountsSuite) TestRemoveAccountControllerNotFound(c *gc.C) {
 	err := s.store.RemoveAccount("not-found")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *AccountsSuite) TestRemoveAccount(c *gc.C) {
 	err := s.store.RemoveAccount("kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.store.AccountDetails("kontroll")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *AccountsSuite) TestRemoveControllerRemovesaccounts(c *gc.C) {

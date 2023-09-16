@@ -236,13 +236,13 @@ func storageAttachmentInfo(
 	a state.StorageAttachment,
 ) (_ names.MachineTag, location string, _ error) {
 	machineTag, err := unitAssignedMachine(backend, a.Unit())
-	if errors.IsNotAssigned(err) {
+	if errors.Is(err, errors.NotAssigned) {
 		return names.MachineTag{}, "", nil
 	} else if err != nil {
 		return names.MachineTag{}, "", errors.Trace(err)
 	}
 	info, err := storagecommon.StorageAttachmentInfo(st, st.VolumeAccess(), st.FilesystemAccess(), a, machineTag)
-	if errors.IsNotProvisioned(err) {
+	if errors.Is(err, errors.NotProvisioned) {
 		return machineTag, "", nil
 	} else if err != nil {
 		return names.MachineTag{}, "", errors.Trace(err)
@@ -898,7 +898,7 @@ func (a *StorageAPI) detachStorage(storageTag names.StorageTag, unitTag names.Un
 			continue
 		}
 		err := a.storageAccess.DetachStorage(storageTag, att.Unit(), forcing, common.MaxWait(maxWait))
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			// We only care about NotFound errors if
 			// the user specified a unit explicitly.
 			return errors.Trace(err)
@@ -977,7 +977,7 @@ func (a *StorageAPI) importStorage(arg params.ImportStorageParams) (*params.Impo
 	}
 
 	cfg, err := pm.Get(arg.Pool)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		cfg, err = storage.NewConfig(
 			arg.Pool,
 			storage.ProviderType(arg.Pool),

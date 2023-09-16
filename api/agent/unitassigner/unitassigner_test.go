@@ -56,7 +56,7 @@ func (testsuite) TestAssignUnitsNotFound(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.HasLen, 1)
-	c.Assert(errs[0], jc.Satisfies, errors.IsNotFound)
+	c.Assert(errs[0], jc.ErrorIs, errors.NotFound)
 }
 
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {

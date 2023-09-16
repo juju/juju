@@ -129,7 +129,7 @@ func (s *environPolSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	err := s.Env.PrecheckInstance(s.CallCtx, environs.PrecheckInstanceParams{
 		Base: version.DefaultSupportedLTSBase(), Placement: placement})
 
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *environPolSuite) TestPrecheckInstanceVolumeAvailZoneNoPlacement(c *gc.C) {

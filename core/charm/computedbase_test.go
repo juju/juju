@@ -86,7 +86,7 @@ func (s *computedBaseSuite) TestComputedBaseError(c *gc.C) {
 		Description: "c",
 	}).AnyTimes()
 	_, err := ComputedBases(cm)
-	c.Assert(errors.IsNotValid(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *computedBaseSuite) TestBaseToUse(c *gc.C) {

@@ -241,7 +241,7 @@ func (s *Settings) WriteOperation() ModelOperation {
 // Read (re)reads the node data into c.
 func (s *Settings) Read() error {
 	doc, err := readSettingsDoc(s.db, s.collection, s.key)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		s.disk = nil
 		s.core = make(map[string]interface{})
 		return err

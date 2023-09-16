@@ -58,7 +58,7 @@ func (s *InterfaceSuite) TestHookRelation(c *gc.C) {
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
 	r, err := ctx.HookRelation()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(r, gc.IsNil)
 }
 
@@ -68,7 +68,7 @@ func (s *InterfaceSuite) TestRemoteUnitName(c *gc.C) {
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
 	name, err := ctx.RemoteUnitName()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(name, gc.Equals, "")
 }
 
@@ -78,7 +78,7 @@ func (s *InterfaceSuite) TestRemoteApplicationName(c *gc.C) {
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
 	name, err := ctx.RemoteApplicationName()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(name, gc.Equals, "")
 }
 
@@ -88,7 +88,7 @@ func (s *InterfaceSuite) TestWorkloadName(c *gc.C) {
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
 	name, err := ctx.WorkloadName()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(name, gc.Equals, "")
 }
 
@@ -107,7 +107,7 @@ func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:0")
 	r, err = ctx.Relation(123)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(r, gc.IsNil)
 }
 
@@ -815,7 +815,7 @@ func (s *HookContextSuite) TestSetCache(c *gc.C) {
 		strings.Repeat("a", quota.MaxCharmStateKeySize+1),
 		"lol",
 	)
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
 	c.Assert(err, gc.ErrorMatches, ".*max allowed key.*")
 
 	// Test value len limit
@@ -823,7 +823,7 @@ func (s *HookContextSuite) TestSetCache(c *gc.C) {
 		"lol",
 		strings.Repeat("a", quota.MaxCharmStateValueSize+1),
 	)
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
 	c.Assert(err, gc.ErrorMatches, ".*max allowed value.*")
 }
 

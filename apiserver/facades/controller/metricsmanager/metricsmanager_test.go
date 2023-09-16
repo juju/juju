@@ -98,7 +98,7 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 	st := s.ControllerModel(c).State()
 	_, err = st.MetricBatch(oldMetric.UUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = st.MetricBatch(newMetric.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 }

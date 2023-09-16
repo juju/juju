@@ -185,7 +185,7 @@ func WaitForProxyService(
 	return retry.Call(retry.CallArgs{
 		Func: hasSASecret,
 		IsFatalError: func(err error) bool {
-			return !errors.IsNotProvisioned(err)
+			return !errors.Is(err, errors.NotProvisioned)
 		},
 		Attempts: 5,
 		Delay:    time.Second * 3,
@@ -265,7 +265,7 @@ func FetchTokenReadySecret(ctx context.Context, name string, api core.SecretInte
 			return err
 		},
 		IsFatalError: func(err error) bool {
-			return !errors.IsNotFound(err)
+			return !errors.Is(err, errors.NotFound)
 		},
 		NotifyFunc: func(err error, attempt int) {
 			logger.Debugf("polling caas credential rbac secret, in %d attempt, %v", attempt, err)

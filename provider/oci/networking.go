@@ -110,7 +110,7 @@ func (e *Environ) secListName(controllerUUID, modelUUID string) string {
 
 func (e *Environ) ensureVCN(controllerUUID, modelUUID string) (ociCore.Vcn, error) {
 	if vcn, err := e.getVCN(controllerUUID, modelUUID); err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return ociCore.Vcn{}, errors.Trace(err)
 		}
 	} else {
@@ -207,7 +207,7 @@ func (e *Environ) getSecurityList(controllerUUID, modelUUID string, vcnId *strin
 
 func (e *Environ) ensureSecurityList(controllerUUID, modelUUID string, vcnid *string) (ociCore.SecurityList, error) {
 	if seclist, err := e.getSecurityList(controllerUUID, modelUUID, vcnid); err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return ociCore.SecurityList{}, errors.Trace(err)
 		}
 	} else {
@@ -516,7 +516,7 @@ func (e *Environ) removeSubnets(subnets map[string][]ociCore.Subnet) error {
 				e.getSubnetStatus, subnet.Id,
 				string(ociCore.SubnetLifecycleStateTerminated),
 				resourcePollTimeout)
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil && !errors.Is(err, errors.NotFound) {
 				errorMessages = append(errorMessages, err.Error())
 				continue
 			}
@@ -546,7 +546,7 @@ func (e *Environ) removeSecurityLists(secLists []ociCore.SecurityList) error {
 			e.getSecurityListStatus, secList.Id,
 			string(ociCore.SecurityListLifecycleStateTerminated),
 			resourcePollTimeout)
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return err
 		}
 	}
@@ -570,7 +570,7 @@ func (e *Environ) removeVCN(vcn ociCore.Vcn) error {
 		e.getVCNStatus, vcn.Id,
 		string(ociCore.VcnLifecycleStateTerminated),
 		resourcePollTimeout)
-	if !errors.IsNotFound(err) {
+	if !errors.Is(err, errors.NotFound) {
 		return err
 	}
 	return nil
@@ -660,7 +660,7 @@ func (e *Environ) internetGatewayName(controllerUUID, modelUUID string) string {
 
 func (e *Environ) ensureInternetGateway(controllerUUID, modelUUID string, vcnID *string) (ociCore.InternetGateway, error) {
 	if ig, err := e.getInternetGateway(vcnID); err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return ociCore.InternetGateway{}, errors.Trace(err)
 		}
 	} else {
@@ -702,7 +702,7 @@ func (e *Environ) ensureInternetGateway(controllerUUID, modelUUID string, vcnID 
 func (e *Environ) deleteInternetGateway(vcnID *string) error {
 	ig, err := e.getInternetGateway(vcnID)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		return nil
@@ -730,7 +730,7 @@ func (e *Environ) deleteInternetGateway(vcnID *string) error {
 		string(terminatedStatus),
 		resourcePollTimeout); err != nil {
 
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 	}
@@ -804,7 +804,7 @@ func (e *Environ) ensureRouteTable(
 	controllerUUID, modelUUID string, vcnId *string, routeRules []ociCore.RouteRule,
 ) (ociCore.RouteTable, error) {
 	if rt, err := e.getRouteTable(vcnId); err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return ociCore.RouteTable{}, errors.Trace(err)
 		}
 	} else {
@@ -851,7 +851,7 @@ func (e *Environ) ensureRouteTable(
 func (e *Environ) deleteRouteTable(controllerUUID, modelUUID string, vcnId *string) error {
 	rts, err := e.jujuRouteTables(vcnId)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return err
 		}
 		return nil
@@ -879,7 +879,7 @@ func (e *Environ) deleteRouteTable(controllerUUID, modelUUID string, vcnId *stri
 			string(ociCore.RouteTableLifecycleStateTerminated),
 			resourcePollTimeout); err != nil {
 
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return errors.Trace(err)
 			}
 		}

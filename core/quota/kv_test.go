@@ -23,7 +23,7 @@ func (s *MapKeyValueCheckerSuite) TestNonMapValue(c *gc.C) {
 	chk.Check("not-a-map")
 
 	err := chk.Outcome()
-	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *MapKeyValueCheckerSuite) TestMapWithMixedValueTypes(c *gc.C) {
@@ -69,7 +69,7 @@ func (s *MapKeyValueCheckerSuite) TestExceedMaxKeySize(c *gc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
 	c.Assert(err, gc.ErrorMatches, "max allowed key length.*", gc.Commentf("expected error about exceeding max key length"))
 }
 
@@ -81,6 +81,6 @@ func (s *MapKeyValueCheckerSuite) TestExceedMaxValueSize(c *gc.C) {
 	})
 
 	err := chk.Outcome()
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
 	c.Assert(err, gc.ErrorMatches, "max allowed value length.*", gc.Commentf("expected error about exceeding max value length"))
 }

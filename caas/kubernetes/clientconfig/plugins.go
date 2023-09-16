@@ -198,7 +198,7 @@ func getOrCreateServiceAccount(
 	api corev1.ServiceAccountInterface,
 ) (sa *core.ServiceAccount, cleanUps cleanUpFuncs, err error) {
 	sa, err = getServiceAccount(objMeta.GetName(), api)
-	if !errors.IsNotFound(err) {
+	if !errors.Is(err, errors.NotFound) {
 		return sa, cleanUps, errors.Trace(err)
 	}
 

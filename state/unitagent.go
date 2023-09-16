@@ -59,7 +59,7 @@ func (u *UnitAgent) Status() (status.StatusInfo, error) {
 // allow to pass additional helpful status data.
 func (u *UnitAgent) SetStatus(unitAgentStatus status.StatusInfo) (err error) {
 	unit, err := u.st.Unit(u.name)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return errors.Annotate(errors.NotFoundf("agent"), "cannot set status")
 	}
 	if err != nil {

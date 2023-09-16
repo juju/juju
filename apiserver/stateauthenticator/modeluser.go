@@ -34,7 +34,7 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		return nil, errors.Trace(err)
 	}
 	modelAccess, err := f.st.UserAccess(utag, model.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 
@@ -42,7 +42,7 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 	// access to the controller.
 	if permission.IsEmptyUserAccess(modelAccess) {
 		controllerAccess, err := state.ControllerAccess(f.st, utag)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		// TODO(perrito666) remove the following section about everyone group
@@ -53,7 +53,7 @@ func (f modelUserEntityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
 		if permission.IsEmptyUserAccess(controllerAccess) && !utag.IsLocal() {
 			everyoneTag := names.NewUserTag(common.EveryoneTagName)
 			controllerAccess, err = f.st.UserAccess(everyoneTag, f.st.ControllerTag())
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil && !errors.Is(err, errors.NotFound) {
 				return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 			}
 		}

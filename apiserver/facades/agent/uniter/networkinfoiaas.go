@@ -484,7 +484,7 @@ func (n *NetworkInfoIAAS) networkInfoForSpace(spaceID string) params.NetworkInfo
 		mac, err := addr.HWAddr()
 		if err == nil {
 			MAC = mac
-		} else if !errors.IsNotFound(err) {
+		} else if !errors.Is(err, errors.NotFound) {
 			res.Error = apiservererrors.ServerError(err)
 			return res
 		}

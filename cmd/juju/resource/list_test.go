@@ -39,7 +39,7 @@ func (*ShowApplicationSuite) TestInitEmpty(c *gc.C) {
 	s := resourcecmd.NewListCommandForTest(nil)
 
 	err := s.Init([]string{})
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
 func (*ShowApplicationSuite) TestInitGood(c *gc.C) {
@@ -53,7 +53,7 @@ func (*ShowApplicationSuite) TestInitTooManyArgs(c *gc.C) {
 	s := resourcecmd.NewListCommandForTest(nil)
 
 	err := s.Init([]string{"foo", "bar"})
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
 func (s *ShowApplicationSuite) TestInfo(c *gc.C) {

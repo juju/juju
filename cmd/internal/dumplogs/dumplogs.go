@@ -171,7 +171,7 @@ func (c *dumpLogsCommand) findAgentTag(dataDir string) (names.Tag, error) {
 func (c *dumpLogsCommand) dumpLogsForEnv(ctx *cmd.Context, statePool *state.StatePool, tag names.ModelTag) error {
 	st, err := statePool.Get(tag.Id())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			ctx.Infof("model with uuid %v has been removed", tag.Id())
 			return nil
 		}

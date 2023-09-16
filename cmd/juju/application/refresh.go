@@ -370,7 +370,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.BindToSpaces != "" {
-		if err := c.parseBindFlag(apiRoot); err != nil && errors.IsNotSupported(err) {
+		if err := c.parseBindFlag(apiRoot); err != nil && errors.Is(err, errors.NotSupported) {
 			ctx.Infof("Spaces not supported by this model's cloud, ignoring bindings.")
 		} else if err != nil {
 			return err

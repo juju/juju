@@ -55,7 +55,7 @@ func (s *credentialsSuite) TestNewCredentialsUnrecognized(c *gc.C) {
 	}
 	_, err := google.NewCredentials(values)
 
-	c.Check(err, jc.Satisfies, errors.IsNotSupported)
+	c.Check(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *credentialsSuite) TestNewCredentialsValidates(c *gc.C) {

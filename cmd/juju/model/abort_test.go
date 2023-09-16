@@ -34,7 +34,7 @@ func (s *abortSuite) TestInitNoName(c *gc.C) {
 
 func (s *abortSuite) TestInitInvalidName(c *gc.C) {
 	err := s.runInit(coremodel.GenerationMaster)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *abortSuite) TestRunCommand(c *gc.C) {

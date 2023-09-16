@@ -637,7 +637,7 @@ func (np *Netplan) FindDeviceByNameOrMAC(name, mac string) (string, DeviceType, 
 		if err == nil {
 			return bond, TypeBond, nil
 		}
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return "", "", errors.Trace(err)
 		}
 		vlan, err := np.FindVLANByName(name)
@@ -656,7 +656,7 @@ func (np *Netplan) FindDeviceByNameOrMAC(name, mac string) (string, DeviceType, 
 		if err == nil {
 			return bond, TypeBond, nil
 		}
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return "", "", errors.Trace(err)
 		}
 		vlan, err := np.FindVLANByMAC(mac)

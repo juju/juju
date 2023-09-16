@@ -353,7 +353,7 @@ func (dev *LinkLayerDevice) childCount() (int, error) {
 
 func (dev *LinkLayerDevice) errNoOperationsIfMissing() error {
 	_, err := dev.st.LinkLayerDevice(dev.DocID())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return jujutxn.ErrNoOperations
 	}
 	return errors.Trace(err)

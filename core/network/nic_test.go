@@ -73,17 +73,17 @@ func (s *nicSuite) TestAdditionalFields(c *gc.C) {
 
 func (*nicSuite) TestInterfaceInfoValidate(c *gc.C) {
 	dev := network.InterfaceInfo{InterfaceName: ""}
-	c.Check(dev.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(dev.Validate(), jc.ErrorIs, errors.NotValid)
 
 	dev = network.InterfaceInfo{MACAddress: "do you even MAC bro?"}
-	c.Check(dev.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(dev.Validate(), jc.ErrorIs, errors.NotValid)
 
 	dev = network.InterfaceInfo{
 		InterfaceName: "eth0",
 		MACAddress:    network.GenerateVirtualMACAddress(),
 		InterfaceType: "invalid",
 	}
-	c.Check(dev.Validate(), jc.Satisfies, errors.IsNotValid)
+	c.Check(dev.Validate(), jc.ErrorIs, errors.NotValid)
 
 	dev = network.InterfaceInfo{
 		InterfaceName: "not#valid",

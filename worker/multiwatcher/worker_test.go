@@ -39,28 +39,28 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 func (s *WorkerSuite) TestConfigMissingClock(c *gc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing Clock not valid")
 }
 
 func (s *WorkerSuite) TestConfigMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing Logger not valid")
 }
 
 func (s *WorkerSuite) TestConfigMissingBacking(c *gc.C) {
 	s.config.Backing = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing Backing not valid")
 }
 
 func (s *WorkerSuite) TestConfigMissingRegisterer(c *gc.C) {
 	s.config.PrometheusRegisterer = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing PrometheusRegisterer not valid")
 }
 

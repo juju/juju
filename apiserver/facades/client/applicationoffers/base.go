@@ -81,7 +81,7 @@ func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, string, bo
 func (api *BaseAPI) userDisplayName(backend Backend, userTag names.UserTag) (string, error) {
 	var displayName string
 	user, err := backend.User(userTag)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return "", errors.Trace(err)
 	} else if err == nil {
 		displayName = user.DisplayName()
@@ -200,7 +200,7 @@ func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, ap
 			Since:  relStatus.Since,
 		}
 		relIngress, err := backend.IngressNetworks(oc.RelationKey())
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		if err == nil {
@@ -235,7 +235,7 @@ func (api *BaseAPI) getOfferAdminDetails(user names.UserTag, backend Backend, ap
 // so long as it is greater than the requested perm.
 func (api *BaseAPI) checkOfferAccess(user names.UserTag, backend Backend, offerUUID string) (permission.Access, error) {
 	access, err := backend.GetOfferAccess(offerUUID, user)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return permission.NoAccess, errors.Trace(err)
 	}
 	if !access.EqualOrGreaterOfferAccessThan(permission.ReadAccess) {
@@ -513,7 +513,7 @@ func (api *BaseAPI) spacesAndBindingParams(
 
 	// Get provider space info based on space ids.
 	remoteSpaces, err := api.collectRemoteSpaces(ctx, backend, spaceNames.SortedValues())
-	if errors.IsNotSupported(err) {
+	if errors.Is(err, errors.NotSupported) {
 		// Provider doesn't support ProviderSpaceInfo; continue
 		// without any space information, we shouldn't short-circuit
 		// cross-model connections.
@@ -574,7 +574,7 @@ func (api *BaseAPI) collectRemoteSpaces(ctx context.Context, backend Backend, sp
 			space = &dbSpaceInfo
 		}
 		providerSpace, err := netEnv.ProviderSpaceInfo(backend.GetModelCallContext(), space)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		if providerSpace == nil {

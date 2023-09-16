@@ -56,7 +56,7 @@ func charmStorageParams(
 	}
 
 	providerType, attrs, err := poolStorageProvider(poolManager, registry, maybePoolName)
-	if err != nil && (!errors.IsNotFound(err) || poolName != "") {
+	if err != nil && (!errors.Is(err, errors.NotFound) || poolName != "") {
 		return nil, errors.Trace(err)
 	}
 	if err == nil {
@@ -73,7 +73,7 @@ func charmStorageParams(
 
 func poolStorageProvider(poolManager poolmanager.PoolManager, registry storage.ProviderRegistry, poolName string) (storage.ProviderType, map[string]interface{}, error) {
 	pool, err := poolManager.Get(poolName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// If there's no pool called poolName, maybe a provider type
 		// has been specified directly.
 		providerType := storage.ProviderType(poolName)

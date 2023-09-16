@@ -663,7 +663,7 @@ func (suite *maasEnvironSuite) TestAcquireNodeInterfaces(c *gc.C) {
 		_, err = env.acquireNode(suite.callCtx, "", "", "", cons, positiveSpaceIDs, negativeSpaceIDs, nil)
 		if test.expectedError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectedError)
-			c.Check(err, jc.Satisfies, errors.IsNotValid)
+			c.Check(err, jc.ErrorIs, errors.NotValid)
 			continue
 		}
 		c.Check(err, jc.ErrorIsNil)
@@ -810,7 +810,7 @@ func (suite *maasEnvironSuite) TestSubnetsInstIdNotFound(c *gc.C) {
 	suite.injectController(&fakeController{})
 	env := suite.makeEnviron(c, nil)
 	_, err := env.Subnets(suite.callCtx, "foo", nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (suite *maasEnvironSuite) TestSubnetsInstId(c *gc.C) {
@@ -2471,7 +2471,7 @@ func (suite *maasEnvironSuite) TestStartInstanceEndToEnd(c *gc.C) {
 	suite.PatchValue(&envtools.DefaultBaseURL, "")
 	instance, _, _, err = jujutesting.StartInstance(env, suite.callCtx, suite.controllerUUID, "2")
 	c.Check(instance, gc.IsNil)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (suite *maasEnvironSuite) TestControllerInstances(c *gc.C) {

@@ -61,49 +61,49 @@ func (s *UnitAgentSuite) SetUpTest(c *gc.C) {
 func (s *UnitAgentSuite) TestConfigMissingName(c *gc.C) {
 	s.config.Name = ""
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Name not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingDataDir(c *gc.C) {
 	s.config.DataDir = ""
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing DataDir not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingClock(c *gc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Clock not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Logger not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingSetupLogging(c *gc.C) {
 	s.config.SetupLogging = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing SetupLogging not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingUnitEngineConfig(c *gc.C) {
 	s.config.UnitEngineConfig = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing UnitEngineConfig not valid")
 }
 
 func (s *UnitAgentSuite) TestConfigMissingUnitManifolds(c *gc.C) {
 	s.config.UnitManifolds = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing UnitManifolds not valid")
 }
 

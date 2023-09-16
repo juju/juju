@@ -122,7 +122,7 @@ func (s *resolveSuite) TestResolveNotBundle(c *gc.C) {
 		return s.downloadClient, nil
 	})
 	_, _, err = charmAdapter.ResolveBundleURL(curl, origin)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *resolveSuite) TestCharmHubGetBundle(c *gc.C) {

@@ -28,27 +28,27 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 
 	cfg = s.getConfig()
 	cfg.Logger = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.DBDeleter = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.DBGetter = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewServiceFactoryGetter = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewControllerServiceFactory = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
 	cfg.NewModelServiceFactory = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *workerSuite) getConfig() Config {

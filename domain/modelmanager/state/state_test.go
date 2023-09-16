@@ -54,7 +54,7 @@ func (s *stateSuite) TestStateDeleteWithNoMatchingUUID(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	err := st.Delete(context.TODO(), mustUUID(c))
 	c.Assert(err, gc.ErrorMatches, domain.ErrNoRecord.Error()+".*")
-	c.Assert(errors.Is(errors.Cause(err), domain.ErrNoRecord), jc.IsTrue)
+	c.Assert(errors.Cause(err), jc.ErrorIs, domain.ErrNoRecord)
 }
 
 func (s *stateSuite) TestStateDelete(c *gc.C) {

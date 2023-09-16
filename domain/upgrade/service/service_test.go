@@ -53,15 +53,15 @@ func (s *serviceSuite) TestCreateUpgradeAlreadyExists(c *gc.C) {
 	s.state.EXPECT().CreateUpgrade(gomock.Any(), version.MustParse("3.0.0"), version.MustParse("3.0.1")).Return("", ucErr)
 
 	_, err := s.srv.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
-	c.Assert(errors.IsAlreadyExists(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *serviceSuite) TestCreateUpgradeInvalidVersions(c *gc.C) {
 	_, err := s.srv.CreateUpgrade(context.Background(), version.MustParse("3.0.1"), version.MustParse("3.0.0"))
-	c.Assert(errors.IsNotValid(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 
 	_, err = s.srv.CreateUpgrade(context.Background(), version.MustParse("3.0.1"), version.MustParse("3.0.1"))
-	c.Assert(errors.IsNotValid(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *serviceSuite) TestSetControllerReady(c *gc.C) {
@@ -81,7 +81,7 @@ func (s *serviceSuite) TestSetControllerReadyForiegnKey(c *gc.C) {
 
 	err := s.srv.SetControllerReady(context.Background(), testUUID1, testUUID2)
 	c.Log(err)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *serviceSuite) TestStartUpgrade(c *gc.C) {
@@ -99,7 +99,7 @@ func (s *serviceSuite) TestStartUpgradeBeforeCreated(c *gc.C) {
 	s.state.EXPECT().StartUpgrade(gomock.Any(), testUUID1).Return(sql.ErrNoRows)
 
 	err := s.srv.StartUpgrade(context.Background(), testUUID1)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *serviceSuite) TestActiveUpgrade(c *gc.C) {
@@ -118,5 +118,5 @@ func (s *serviceSuite) TestActiveUpgradeNoUpgrade(c *gc.C) {
 	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return("", errors.Trace(sql.ErrNoRows))
 
 	_, err := s.srv.ActiveUpgrade(context.Background())
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

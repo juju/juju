@@ -53,28 +53,28 @@ func (s *ManifoldSuite) TestValidate(c *gc.C) {
 func (s *ManifoldSuite) TestValidateMissingClock(c *gc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err.Error(), gc.Equals, "nil Clock not valid")
 }
 
 func (s *ManifoldSuite) TestValidateMissingAPICallerName(c *gc.C) {
 	s.config.APICallerName = ""
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err.Error(), gc.Equals, "missing APICallerName not valid")
 }
 
 func (s *ManifoldSuite) TestValidateMissingNewFacade(c *gc.C) {
 	s.config.NewFacade = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err.Error(), gc.Equals, "nil NewFacade not valid")
 }
 
 func (s *ManifoldSuite) TestValidateMissingNewWorker(c *gc.C) {
 	s.config.NewWorker = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err.Error(), gc.Equals, "nil NewWorker not valid")
 }
 

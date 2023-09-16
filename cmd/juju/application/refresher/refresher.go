@@ -356,7 +356,7 @@ func (r *charmHubRefresher) Allowed(cfg RefresherConfig) (bool, error) {
 		return true, nil
 	}
 
-	if err := r.charmAdder.CheckCharmPlacement(cfg.ApplicationName, curl); err != nil && !errors.IsNotSupported(err) {
+	if err := r.charmAdder.CheckCharmPlacement(cfg.ApplicationName, curl); err != nil && !errors.Is(err, errors.NotSupported) {
 		// If force is used then ignore the error, the user seems to know
 		// what they're doing.
 		if !cfg.Force {

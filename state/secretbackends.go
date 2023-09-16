@@ -119,7 +119,7 @@ func (s *secretBackendsStorage) CreateSecretBackend(p CreateSecretBackendParams)
 		// The tiny window for multiple callers to create dupe backends will
 		// go away once we transition to a SQL backend.
 		if _, err := s.GetSecretBackend(p.Name); err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return nil, errors.Annotatef(err, "checking for existing secret backend")
 			}
 		} else {
@@ -214,7 +214,7 @@ func (s *secretBackendsStorage) UpdateSecretBackend(p UpdateSecretBackendParams)
 			// The tiny window for multiple callers to create dupe backends will
 			// go away once we transition to a SQL backend.
 			if existing, err := s.GetSecretBackend(doc.Name); err != nil {
-				if !errors.IsNotFound(err) {
+				if !errors.Is(err, errors.NotFound) {
 					return nil, errors.Annotatef(err, "checking for existing secret backend")
 				}
 			} else if existing.ID != p.ID {
@@ -306,7 +306,7 @@ func (s *secretBackendsStorage) DeleteSecretBackend(name string, force bool) err
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		b, err := s.GetSecretBackend(name)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				return nil, jujutxn.ErrNoOperations
 			}
 			return nil, errors.Trace(err)
@@ -387,7 +387,7 @@ func (st *State) decSecretBackendRefCountOp(backendID string) ([]txn.Op, error) 
 	defer ccloser()
 
 	op, err := nsRefcounts.AliveDecRefOp(refCountCollection, secretBackendRefCountKey(backendID))
-	if errors.Is(err, errors.NotFound) || errors.Cause(err) == errRefcountAlreadyZero {
+	if errors.Is(err, errors.NotFound) || errors.Is(err, errRefcountAlreadyZero) {
 		return nil, nil
 	}
 	return []txn.Op{op}, errors.Trace(err)

@@ -371,7 +371,7 @@ func BackendSummaryInfo(
 		if err != nil {
 			// When we get not found, the backend has been deleted,even though it contained secrets.
 			// We skip over such cases.
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				results = append(results, params.SecretBackendResult{
 					ID:    id,
 					Error: apiservererrors.ServerError(err)})

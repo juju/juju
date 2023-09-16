@@ -129,7 +129,7 @@ func (p *provisioner) getStartTask(harvestMode config.HarvestMode, workerCount i
 		return nil, err
 	}
 	retryWatcher, err := p.getRetryWatcher()
-	if err != nil && !errors.IsNotImplemented(err) {
+	if err != nil && !errors.Is(err, errors.NotImplemented) {
 		return nil, err
 	}
 	hostTag := p.agentConfig.Tag()

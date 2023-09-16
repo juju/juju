@@ -139,7 +139,7 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 
 func (s *DeploySuite) TestNoCharmOrBundle(c *gc.C) {
 	err := s.runDeploy(c, c.MkDir())
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `charm or bundle at .*`)
 }
 
@@ -171,7 +171,7 @@ func (s *DeploySuite) TestInvalidFileFormat(c *gc.C) {
 
 func (s *DeploySuite) TestPathWithNoCharmOrBundle(c *gc.C) {
 	err := s.runDeploy(c, c.MkDir())
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `charm or bundle at .*`)
 }
 

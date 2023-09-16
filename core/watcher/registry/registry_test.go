@@ -111,7 +111,7 @@ func (s *registrySuite) TestRegisterNamedRepeatedError(c *gc.C) {
 
 	err = reg.RegisterNamed("foo", w)
 	c.Assert(err, gc.ErrorMatches, `worker "foo" already exists`)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 
 	workertest.CheckKill(c, reg)
 }
@@ -129,7 +129,7 @@ func (s *registrySuite) TestRegisterNamedIntegerName(c *gc.C) {
 
 	err := reg.RegisterNamed("0", w)
 	c.Assert(err, gc.ErrorMatches, `namespace "0" not valid`)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 
 	workertest.CheckKill(c, reg)
 }

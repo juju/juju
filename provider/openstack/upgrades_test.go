@@ -49,7 +49,7 @@ func (s *precheckUpgradesSuite) TestPrecheckUpgradeOperationsFail(c *gc.C) {
 	c.Assert(op.Steps, gc.HasLen, 1)
 
 	err := op.Steps[0].Run()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *precheckUpgradesSuite) newEnvironForPrecheckUpgradeTest() *Environ {

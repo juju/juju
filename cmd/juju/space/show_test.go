@@ -85,7 +85,7 @@ func (s *ShowSuite) TestRunWhenShowSpacesNotSupported(c *gc.C) {
 
 	_, err := s.runCommand(c, api, spaceName)
 
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *ShowSuite) TestRunWhenShowSpacesAPIFails(c *gc.C) {

@@ -32,7 +32,7 @@ func AuthoritySNITLSGetter(authority pki.Authority, logger Logger) func(*tls.Cli
 			leaf, err := authority.LeafForGroup(pki.ControllerIPLeafGroup)
 			if err == nil {
 				cert = leaf.TLSCertificate()
-			} else if !errors.IsNotFound(err) {
+			} else if !errors.Is(err, errors.NotFound) {
 				return nil, errors.Annotate(err, "fetching ip address certificate")
 			}
 		} else {

@@ -217,7 +217,7 @@ func (ro ResourceOpener) getResource(resName string, done func()) (_ resources.R
 	// (anastasiamac 2017-05-25) This might not work all the time
 	// as the error types may be lost after call to some clients, for example http.
 	// But for these cases, the next block will bubble an un-annotated error up.
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		msg := "while getting resource from charmhub"
 		return resources.Resource{}, nil, errors.Annotate(err, msg)
 	}

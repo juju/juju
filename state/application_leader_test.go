@@ -121,7 +121,7 @@ func (s *ApplicationLeaderSuite) TestReadRemoved(c *gc.C) {
 
 	actual, err := s.application.LeaderSettings()
 	c.Check(err, gc.ErrorMatches, `application "mysql" not found`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(actual, gc.IsNil)
 }
 
@@ -132,7 +132,7 @@ func (s *ApplicationLeaderSuite) TestWriteRemoved(c *gc.C) {
 		"should": "fail",
 	})
 	c.Check(err, gc.ErrorMatches, `application "mysql" not found`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *ApplicationLeaderSuite) TestWatchInitialEvent(c *gc.C) {

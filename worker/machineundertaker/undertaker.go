@@ -123,7 +123,7 @@ func (u *Undertaker) MaybeReleaseAddresses(machine names.MachineTag) error {
 	// Some providers say they support networking but don't
 	// actually support container addressing; don't freak out
 	// about those.
-	if errors.IsNotSupported(err) {
+	if errors.Is(err, errors.NotSupported) {
 		u.Logger.Debugf("%s has addresses but provider doesn't support releasing them", machine)
 	} else if err != nil {
 		return errors.Trace(err)

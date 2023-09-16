@@ -351,7 +351,7 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 		}
 
 		if t.targetTester == nil {
-			c.Check(errors.Is(restored, t.err), jc.IsTrue)
+			c.Check(restored, jc.ErrorIs, t.err)
 			c.Check(restored.Error(), gc.Equals, t.err.Error())
 		} else {
 			c.Check(t.targetTester(restored), jc.IsTrue)

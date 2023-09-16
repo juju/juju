@@ -109,7 +109,7 @@ func NewStorageProvisionerAPIv4(
 				return authorizer.AuthController()
 			}
 			f, err := sb.Filesystem(tag)
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				return authorizer.AuthController()
 			} else if err != nil {
 				return false
@@ -121,7 +121,7 @@ func NewStorageProvisionerAPIv4(
 				// machines that the volume is attached to, then
 				// it may access the filesystem too.
 				volumeAttachments, err := sb.VolumeAttachments(volumeTag)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !errors.Is(err, errors.NotFound) {
 					return false
 				}
 				for _, a := range volumeAttachments {
@@ -129,7 +129,7 @@ func NewStorageProvisionerAPIv4(
 						return true
 					}
 				}
-			} else if !errors.IsNotFound(err) && err != state.ErrNoBackingVolume {
+			} else if !errors.Is(err, errors.NotFound) && err != state.ErrNoBackingVolume {
 				return false
 			}
 			return authorizer.AuthController()
@@ -458,7 +458,7 @@ func (s *StorageProvisionerAPIv4) RemoveVolumeAttachmentPlan(ctx context.Context
 	one := func(arg params.MachineStorageId) error {
 		volumeAttachmentPlan, err := s.oneVolumeAttachmentPlan(arg, canAccess)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				return apiservererrors.ErrPerm
 			}
 			return apiservererrors.ServerError(err)
@@ -545,7 +545,7 @@ func (s *StorageProvisionerAPIv4) Volumes(ctx context.Context, args params.Entit
 			return params.Volume{}, apiservererrors.ErrPerm
 		}
 		volume, err := s.sb.Volume(tag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return params.Volume{}, apiservererrors.ErrPerm
 		} else if err != nil {
 			return params.Volume{}, err
@@ -580,7 +580,7 @@ func (s *StorageProvisionerAPIv4) Filesystems(ctx context.Context, args params.E
 			return params.Filesystem{}, apiservererrors.ErrPerm
 		}
 		filesystem, err := s.sb.Filesystem(tag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return params.Filesystem{}, apiservererrors.ErrPerm
 		} else if err != nil {
 			return params.Filesystem{}, err
@@ -743,7 +743,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 			return params.VolumeParams{}, apiservererrors.ErrPerm
 		}
 		volume, err := s.sb.Volume(tag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return params.VolumeParams{}, apiservererrors.ErrPerm
 		} else if err != nil {
 			return params.VolumeParams{}, err
@@ -784,7 +784,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 			var instanceId instance.Id
 			if machineTag, ok := volumeAttachment.Host().(names.MachineTag); ok {
 				instanceId, err = s.st.MachineInstanceId(machineTag)
-				if errors.IsNotProvisioned(err) {
+				if errors.Is(err, errors.NotProvisioned) {
 					// Leave the attachment until later.
 					instanceId = ""
 				} else if err != nil {
@@ -831,7 +831,7 @@ func (s *StorageProvisionerAPIv4) RemoveVolumeParams(ctx context.Context, args p
 			return params.RemoveVolumeParams{}, apiservererrors.ErrPerm
 		}
 		volume, err := s.sb.Volume(tag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return params.RemoveVolumeParams{}, apiservererrors.ErrPerm
 		} else if err != nil {
 			return params.RemoveVolumeParams{}, err
@@ -895,7 +895,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 			return params.FilesystemParams{}, apiservererrors.ErrPerm
 		}
 		filesystem, err := s.sb.Filesystem(tag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return params.FilesystemParams{}, apiservererrors.ErrPerm
 		} else if err != nil {
 			return params.FilesystemParams{}, err
@@ -945,7 +945,7 @@ func (s *StorageProvisionerAPIv4) RemoveFilesystemParams(ctx context.Context, ar
 			return params.RemoveFilesystemParams{}, apiservererrors.ErrPerm
 		}
 		filesystem, err := s.sb.Filesystem(tag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return params.RemoveFilesystemParams{}, apiservererrors.ErrPerm
 		} else if err != nil {
 			return params.RemoveFilesystemParams{}, err
@@ -1008,7 +1008,7 @@ func (s *StorageProvisionerAPIv4) VolumeAttachmentParams(
 		var instanceId instance.Id
 		if machineTag, ok := volumeAttachment.Host().(names.MachineTag); ok {
 			instanceId, err = s.st.MachineInstanceId(machineTag)
-			if errors.IsNotProvisioned(err) {
+			if errors.Is(err, errors.NotProvisioned) {
 				// The worker must watch for machine provisioning events.
 				instanceId = ""
 			} else if err != nil {
@@ -1093,7 +1093,7 @@ func (s *StorageProvisionerAPIv4) FilesystemAttachmentParams(
 		var instanceId instance.Id
 		if machineTag, ok := filesystemAttachment.Host().(names.MachineTag); ok {
 			instanceId, err = s.st.MachineInstanceId(machineTag)
-			if errors.IsNotProvisioned(err) {
+			if errors.Is(err, errors.NotProvisioned) {
 				// The worker must watch for machine provisioning events.
 				instanceId = ""
 			} else if err != nil {
@@ -1200,7 +1200,7 @@ func (s *StorageProvisionerAPIv4) oneVolumeAttachment(
 		return nil, apiservererrors.ErrPerm
 	}
 	volumeAttachment, err := s.sb.VolumeAttachment(hostTag, volumeTag)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, err
@@ -1228,7 +1228,7 @@ func (s *StorageProvisionerAPIv4) oneVolumeBlockDevice(
 		return state.BlockDeviceInfo{}, err
 	}
 	planCanAccess, err := s.getMachineAuthFunc()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return state.BlockDeviceInfo{}, err
 	}
 	var blockDeviceInfo state.BlockDeviceInfo
@@ -1238,7 +1238,7 @@ func (s *StorageProvisionerAPIv4) oneVolumeBlockDevice(
 	if err != nil {
 		// Volume attachment plans are optional. We should not err out
 		// if one is missing, and simply return an empty state.BlockDeviceInfo{}
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return state.BlockDeviceInfo{}, err
 		}
 		blockDeviceInfo = state.BlockDeviceInfo{}
@@ -1248,7 +1248,7 @@ func (s *StorageProvisionerAPIv4) oneVolumeBlockDevice(
 		if err != nil {
 			// Volume attachment plans are optional. We should not err out
 			// if one is missing, and simply return an empty state.BlockDeviceInfo{}
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return state.BlockDeviceInfo{}, err
 			}
 			blockDeviceInfo = state.BlockDeviceInfo{}
@@ -1292,7 +1292,7 @@ func (s *StorageProvisionerAPIv4) oneFilesystemAttachment(
 		return nil, apiservererrors.ErrPerm
 	}
 	filesystemAttachment, err := s.sb.FilesystemAttachment(hostTag, filesystemTag)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, apiservererrors.ErrPerm
 	} else if err != nil {
 		return nil, err
@@ -1317,7 +1317,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeInfo(args params.Volumes) (params.Err
 			return apiservererrors.ErrPerm
 		}
 		err = s.sb.SetVolumeInfo(volumeTag, volumeInfo)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return apiservererrors.ErrPerm
 		}
 		return errors.Trace(err)
@@ -1346,7 +1346,7 @@ func (s *StorageProvisionerAPIv4) SetFilesystemInfo(ctx context.Context, args pa
 			return apiservererrors.ErrPerm
 		}
 		err = s.sb.SetFilesystemInfo(filesystemTag, filesystemInfo)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return apiservererrors.ErrPerm
 		}
 		return errors.Trace(err)
@@ -1438,7 +1438,7 @@ func (s *StorageProvisionerAPIv4) SetVolumeAttachmentInfo(
 			return apiservererrors.ErrPerm
 		}
 		err = s.sb.SetVolumeAttachmentInfo(machineTag, volumeTag, volumeAttachmentInfo)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return apiservererrors.ErrPerm
 		}
 		return errors.Trace(err)
@@ -1472,7 +1472,7 @@ func (s *StorageProvisionerAPIv4) SetFilesystemAttachmentInfo(
 			return apiservererrors.ErrPerm
 		}
 		err = s.sb.SetFilesystemAttachmentInfo(machineTag, filesystemTag, filesystemAttachmentInfo)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return apiservererrors.ErrPerm
 		}
 		return errors.Trace(err)

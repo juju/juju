@@ -655,7 +655,7 @@ func (st *State) AddBranch(branchName, userName string) error {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if _, err := st.Branch(branchName); err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return nil, errors.Annotatef(err, "checking for existing branch")
 			}
 		} else {

@@ -908,7 +908,7 @@ func (p *resourcePersistence) setResource(
 
 func (p *resourcePersistence) getStored(res resources.Resource) (storedResource, error) {
 	doc, err := p.getOne(res.ID)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		err = errors.NotFoundf("resource %q", res.Name)
 	}
 	if err != nil {
@@ -927,7 +927,7 @@ func (p *resourcePersistence) getStored(res resources.Resource) (storedResource,
 func (p *resourcePersistence) storeResourceInfo(res resources.Resource) error {
 	rLogger.Tracef("set resource %q for %q", res.Name, res.ApplicationID)
 	stored, err := p.getStored(res)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		stored = storedResource{Resource: res}
 	} else if err != nil {
 		return errors.Trace(err)
@@ -1098,7 +1098,7 @@ func (p *resourcePersistence) resolvePendingResourceOps(resID, pendingID string)
 	}
 
 	oldDoc, err := p.getOnePending(resID, pendingID)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, errors.NotFoundf("pending resource %q (%s)", resID, pendingID)
 	}
 	if err != nil {
@@ -1110,7 +1110,7 @@ func (p *resourcePersistence) resolvePendingResourceOps(resID, pendingID string)
 	}
 
 	exists := true
-	if _, err := p.getOne(resID); errors.IsNotFound(err) {
+	if _, err := p.getOne(resID); errors.Is(err, errors.NotFound) {
 		exists = false
 	} else if err != nil {
 		return nil, errors.Trace(err)
@@ -1118,7 +1118,7 @@ func (p *resourcePersistence) resolvePendingResourceOps(resID, pendingID string)
 
 	csExists := true
 	csResID := resID + resourcesCharmstoreIDSuffix
-	if _, err := p.getOne(csResID); errors.IsNotFound(err) {
+	if _, err := p.getOne(csResID); errors.Is(err, errors.NotFound) {
 		csExists = false
 	} else if err != nil {
 		return nil, errors.Trace(err)

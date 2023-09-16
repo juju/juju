@@ -26,25 +26,25 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
 	cfg.AgentName = ""
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.ClockName = ""
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.ClockName = ""
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.Logger = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.PrometheusRegisterer = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.NewWorker = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg.NewStore = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {

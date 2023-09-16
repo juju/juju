@@ -153,7 +153,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 	// do nothing.
 	if _, err := st.Model(); err == nil {
 		return nil, errors.New("already initialized")
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 

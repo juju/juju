@@ -51,7 +51,7 @@ func (s *InteractorSuite) TestNotSupportedInteract(c *gc.C) {
 	v := authentication.NewNotSupportedInteractor()
 	c.Assert(v.Kind(), gc.Equals, "juju_userpass")
 	_, err := v.Interact(context.TODO(), nil, "", nil)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *InteractorSuite) TestLegacyInteract(c *gc.C) {

@@ -17,7 +17,7 @@ func TestProbeNotImplemented(t *testing.T) {
 		t.Errorf("expected probe.NotImplemented to return a false probe success")
 	}
 
-	if !errors.IsNotImplemented(err) {
+	if !errors.Is(err, errors.NotImplemented) {
 		t.Errorf("expected probe.NotImplemented to return an error that satisfies errors.IsNotImplemented")
 	}
 }

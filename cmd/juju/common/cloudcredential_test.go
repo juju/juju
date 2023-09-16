@@ -155,7 +155,7 @@ func (*cloudCredentialSuite) assertInvalidCredentialName(c *gc.C, in modelcmd.Ge
 		in,
 	)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, `credential name "new one" not valid`)
-	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotValid)
+	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *cloudCredentialSuite) TestGetOrDetectCredentialInvalidCredentialNameProvided(c *gc.C) {

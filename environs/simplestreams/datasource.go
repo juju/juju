@@ -177,7 +177,7 @@ func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL = utils.MakeFileURL(dataURL)
 	resp, err := h.httpClient.Get(context.TODO(), dataURL)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			// Callers of this mask the actual error.  Therefore warn here.
 			// This is called multiple times when a machine is created, we
 			// only need one success for images and one for tools.

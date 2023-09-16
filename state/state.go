@@ -1530,7 +1530,7 @@ func (st *State) processIAASModelApplicationArgs(args *AddApplicationArgs) error
 	volumeAttachments := make([]storage.VolumeAttachmentParams, 0, len(args.AttachStorage))
 	for _, storageTag := range args.AttachStorage {
 		v, err := sb.StorageInstanceVolume(storageTag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			return errors.Trace(err)
@@ -2070,11 +2070,11 @@ func applicationByName(st *State, name string) (ApplicationEntity, error) {
 	app, err := st.Application(name)
 	if err == nil {
 		return app, nil
-	} else if err != nil && !errors.IsNotFound(err) {
+	} else if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, err
 	}
 	remoteApp, remoteErr := st.RemoteApplication(name)
-	if errors.IsNotFound(remoteErr) {
+	if errors.Is(remoteErr, errors.NotFound) {
 		// We can't find either an application or a remote application
 		// by that name. Report the missing application, since that's
 		// probably what was intended (and still indicates the problem
@@ -2198,7 +2198,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				// If the remote application is known to be terminated, we don't
 				// allow a relation to it.
 				statusInfo, err := app.Status()
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !errors.Is(err, errors.NotFound) {
 					return nil, errors.Trace(err)
 				}
 				if err == nil && statusInfo.Status == status.Terminated {
@@ -2336,7 +2336,7 @@ func enforceMaxRelationLimit(app ApplicationEntity, ep Endpoint) error {
 
 func aliveApplication(st *State, name string) (ApplicationEntity, error) {
 	app, err := applicationByName(st, name)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, errors.Errorf("application %q does not exist", name)
 	} else if err != nil {
 		return nil, errors.Trace(err)

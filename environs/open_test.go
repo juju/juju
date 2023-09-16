@@ -176,7 +176,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	_, err = e.ControllerInstances(callCtx, controllerCfg.ControllerUUID())
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 	_, err = store.ControllerByName("controller-name")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (*OpenSuite) TestDestroyNotFound(c *gc.C) {

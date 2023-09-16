@@ -90,7 +90,7 @@ func (st *State) addUser(name, displayName, password, creator string, secretKey 
 	}
 
 	// There is an error different from not found
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 

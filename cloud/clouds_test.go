@@ -361,6 +361,6 @@ func (s *cloudSuite) TestRegionByNameNotFound(c *gc.C) {
 
 	r, err := cloud.RegionByName(regions, "star")
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`region "star" not found (expected one of ["earth" "jupiter" "mars"])`))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(r, gc.IsNil)
 }

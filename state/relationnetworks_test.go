@@ -119,7 +119,7 @@ func (s *relationNetworksSuite) TestNetworks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.CIDRS(), gc.DeepEquals, []string{"192.168.1.0/16"})
 	_, err = s.relationNetworks.Networks("mediawiki:db mysql:server")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *relationNetworksSuite) TestUpdateCIDRs(c *gc.C) {
@@ -135,7 +135,7 @@ func (s *relationIngressNetworksSuite) TestCrossContanination(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	egress := state.NewRelationEgressNetworks(s.State)
 	_, err = egress.Networks(s.relation.Tag().Id())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *relationEgressNetworksSuite) TestCrossContanination(c *gc.C) {
@@ -143,7 +143,7 @@ func (s *relationEgressNetworksSuite) TestCrossContanination(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	ingress := state.NewRelationIngressNetworks(s.State)
 	_, err = ingress.Networks(s.relation.Tag().Id())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 type relationRootNetworksSuite struct {

@@ -34,7 +34,7 @@ func (s *restrictModelSuite) TestAllowed(c *gc.C) {
 func (s *restrictModelSuite) TestBlocked(c *gc.C) {
 	caller, err := s.root.FindMethod("ModelManager", modelManagerFacadeVersion, "ListModels")
 	c.Assert(err, gc.ErrorMatches, `facade "ModelManager" not supported for model API connection`)
-	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	c.Assert(caller, gc.IsNil)
 }
 

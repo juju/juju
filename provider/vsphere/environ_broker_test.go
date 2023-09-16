@@ -339,7 +339,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c
 	startInstArgs.Tools[0].Version.Arch = "someArch"
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, gc.ErrorMatches, "no matching images found for given constraints: .*")
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 }
 
 func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
@@ -434,7 +434,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c 
 	s.client.SetErrors(nil, nil, nil, nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
-	c.Assert(errors.Is(err, environs.ErrAvailabilityZoneIndependent), jc.IsFalse)
+	c.Assert(err, gc.Not(jc.ErrorIs), environs.ErrAvailabilityZoneIndependent)
 
 	s.client.CheckCallNames(c, "Folders", "ComputeResources", "ResourcePools", "ResourcePools", "GetTargetDatastore", "Close")
 	getDatastoreCall := s.client.Calls()[4]

@@ -131,7 +131,7 @@ type backingModel modelDoc
 func (e *backingModel) isNotFoundAndModelDead(err error) bool {
 	// Return true if the error is not found and the model is dead.
 	// This will be the case if the model has been marked dead, pending cleanup.
-	return errors.IsNotFound(err) && e.Life == Dead
+	return errors.Is(err, errors.NotFound) && e.Life == Dead
 }
 
 func (e *backingModel) updated(ctx *allWatcherContext) error {
@@ -321,7 +321,7 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 		// We can handle an extra query here as long as it is only for controller
 		// machines. Could potentially optimize further if necessary for initial load.
 		node, err := ctx.state.ControllerNode(m.Id)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		wantsVote = err == nil && node.WantsVote()
@@ -418,7 +418,7 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 		// InstanceMutater needs the liveliness of the instanceData.CharmProfiles
 		// as this changes with charm-upgrades
 		info.CharmProfiles = instanceData.CharmProfiles
-	} else if !errors.IsNotFound(err) {
+	} else if !errors.Is(err, errors.NotFound) {
 		return err
 	}
 
@@ -1637,7 +1637,7 @@ func (b *allWatcherBacking) GetAll(store multiwatcher.Store) error {
 func (b *allWatcherBacking) loadAllWatcherEntitiesForModel(modelUUID string, store multiwatcher.Store) error {
 	st, err := b.stPool.Get(modelUUID)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// This can occur if the model has been destroyed since
 			// the moment when model uuid has been retrieved.
 			// If we cannot find the model in the above call,
@@ -1687,7 +1687,7 @@ func (b *allWatcherBacking) Changed(store multiwatcher.Store, change watcher.Cha
 	if err != nil {
 		// The state pool will return a not found error if the model is
 		// in the process of being removed.
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// The entity's model is gone so remove the entity from the store.
 			_ = doc.removed(ctx)
 			return nil
@@ -2122,7 +2122,7 @@ func (ctx *allWatcherContext) getUnitPortRangesByEndpoint(unit *Unit) (network.G
 	if unit.ShouldBeAssigned() {
 		machineID, err := unit.AssignedMachineId()
 		if err != nil {
-			if errors.IsNotAssigned(err) {
+			if errors.Is(err, errors.NotAssigned) {
 				// Not assigned, so there won't be any ports opened.
 				// Return an empty port map (see Bug #1425435).
 				return make(network.GroupedPortRanges), nil

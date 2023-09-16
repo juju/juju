@@ -622,7 +622,7 @@ func (p *peerGroupChanges) updateAddressesFromSpace() error {
 		m := p.info.controllers[id]
 		addr, err := m.SelectMongoAddressFromSpace(p.info.mongoPort, space)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				noAddresses = append(noAddresses, id)
 				msg := fmt.Sprintf("no addresses in configured juju-ha-space %q", space.Name)
 				if err := m.host.SetStatus(getStatusInfo(msg)); err != nil {

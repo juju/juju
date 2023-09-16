@@ -97,7 +97,7 @@ func (u *Unit) cloudContainer() (*cloudContainerDoc, error) {
 
 func (u *Unit) saveContainerOps(doc cloudContainerDoc) ([]txn.Op, error) {
 	existing, err := u.cloudContainer()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if err != nil {

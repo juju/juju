@@ -49,7 +49,7 @@ func (s *MachinePortsDocSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.machPortRanges.UniquePortRanges(), gc.HasLen, 0, gc.Commentf("expected no port ranges to be open for machine"))
 }
 
-func assertRefreshMachinePortsDoc(c *gc.C, p state.MachinePortRanges, errSatisfier func(error) bool) {
+func assertRefreshMachinePortsDoc(c *gc.C, p state.MachinePortRanges, errIs error) {
 	type refresher interface {
 		Refresh() error
 	}
@@ -58,8 +58,8 @@ func assertRefreshMachinePortsDoc(c *gc.C, p state.MachinePortRanges, errSatisfi
 	c.Assert(supports, jc.IsTrue, gc.Commentf("machine ports interface does not implement Refresh()"))
 
 	err := portRefresher.Refresh()
-	if errSatisfier != nil {
-		c.Assert(err, jc.Satisfies, errSatisfier)
+	if errIs != nil {
+		c.Assert(err, jc.ErrorIs, errIs)
 	} else {
 		c.Assert(err, jc.ErrorIsNil)
 	}
@@ -355,7 +355,7 @@ func (s *MachinePortsDocSuite) TestComposedOpenCloseOperation(c *gc.C) {
 	)
 
 	// The next refresh should fail with ErrNotFound as the document has been removed.
-	assertRefreshMachinePortsDoc(c, s.machPortRanges, errors.IsNotFound)
+	assertRefreshMachinePortsDoc(c, s.machPortRanges, errors.NotFound)
 }
 
 func (s *MachinePortsDocSuite) TestComposedOpenCloseOperationNoEffectiveOps(c *gc.C) {

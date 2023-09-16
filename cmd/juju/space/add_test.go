@@ -55,7 +55,7 @@ func (s *AddSuite) TestRunWhenSpacesNotSupported(c *gc.C) {
 		`cannot add space "foo": spaces not supported`,
 		"foo", "10.1.2.0/24",
 	)
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 
 	s.api.CheckCallNames(c, "AddSpace", "Close")
 	s.api.CheckCall(c, 0, "AddSpace", "foo", s.Strings("10.1.2.0/24"), true)

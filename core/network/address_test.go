@@ -902,7 +902,7 @@ func (s *AddressSuite) TestProviderAddressesToSpaceAddresses(c *gc.C) {
 	// Add an address in a space that the lookup will not resolve.
 	addrs = append(addrs, network.NewMachineAddress("4.5.6.7").AsProviderAddress(network.WithSpaceName("space-denied")))
 	_, err = addrs.ToSpaceAddresses(stubLookup{})
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
@@ -927,7 +927,7 @@ func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
 	addrs = append(addrs, network.NewSpaceAddress("4.5.6.7"))
 	addrs[3].SpaceID = "3"
 	_, err = addrs.ToProviderAddresses(stubLookup{})
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *AddressSuite) TestSpaceAddressesValues(c *gc.C) {
@@ -938,10 +938,10 @@ func (s *AddressSuite) TestSpaceAddressesValues(c *gc.C) {
 
 func (s *AddressSuite) TestAddressValueForCIDR(c *gc.C) {
 	_, err := network.NewMachineAddress("172.31.37.53").ValueWithMask()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = network.NewMachineAddress("", network.WithCIDR("172.31.37.0/20")).ValueWithMask()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	val, err := network.NewMachineAddress("172.31.37.53", network.WithCIDR("172.31.37.0/20")).ValueWithMask()
 	c.Assert(err, jc.ErrorIsNil)

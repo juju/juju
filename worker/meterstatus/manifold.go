@@ -136,7 +136,7 @@ func newStatusWorker(config ManifoldConfig, context dependency.Context) (worker.
 	// instance. If one is found, migrate it to the controller and remove
 	// it from disk; this doubles as an auto-magic migration step.
 	priorState, err := NewDiskBackedState(localStateFile).Read()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Annotate(err, "reading locally persisted worker state")
 	} else if err == nil {
 		config.Logger.Infof("detected locally persisted worker state; migrating to the controller")

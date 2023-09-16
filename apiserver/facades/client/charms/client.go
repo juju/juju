@@ -573,7 +573,7 @@ func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.
 	// Get the application. If it's not found, just return without an error as
 	// the charm can be placed in the application once it's created.
 	app, err := a.backendState.Application(arg.Application)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return params.ErrorResult{}, nil
 	} else if err != nil {
 		return params.ErrorResult{
@@ -587,7 +587,7 @@ func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.
 	}
 
 	constraints, err := app.Constraints()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return params.ErrorResult{
 			Error: apiservererrors.ServerError(err),
 		}, nil
@@ -612,7 +612,7 @@ func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.
 	arches := set.NewStrings()
 	for _, unit := range units {
 		machineID, err := unit.AssignedMachineId()
-		if errors.IsNotAssigned(err) {
+		if errors.Is(err, errors.NotAssigned) {
 			continue
 		} else if err != nil {
 			return params.ErrorResult{
@@ -621,7 +621,7 @@ func (a *API) checkCharmPlacement(arg params.ApplicationCharmPlacement) (params.
 		}
 
 		machine, err := a.backendState.Machine(machineID)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			return params.ErrorResult{
@@ -662,7 +662,7 @@ func (a *API) getMachineArch(machine charmsinterfaces.Machine) (arch.Arch, error
 	}
 
 	hardware, err := machine.HardwareCharacteristics()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return "", nil
 	} else if err != nil {
 		return "", errors.Trace(err)

@@ -55,7 +55,7 @@ func (s *stateSuite) TestDetach(c *gc.C) {
 
 func (s *stateSuite) TestDetachErr(c *gc.C) {
 	err := s.st.Detach(s.tag1.Id())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *stateSuite) TestEmpty(c *gc.C) {
@@ -136,7 +136,7 @@ func (s *stateOpsSuite) TestReadNotFound(c *gc.C) {
 	s.expectStateNotFound()
 	ops := storage.NewStateOps(s.mockStateOps)
 	obtainedSt, err := ops.Read()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(obtainedSt, gc.NotNil)
 }
 
@@ -160,5 +160,5 @@ func (s *stateOpsSuite) TestWriteNilState(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	ops := storage.NewStateOps(s.mockStateOps)
 	err := ops.Write(nil)
-	c.Assert(err, jc.Satisfies, errors.IsBadRequest)
+	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }

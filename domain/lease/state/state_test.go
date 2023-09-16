@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
@@ -111,7 +110,7 @@ func (s *stateSuite) TestClaimLeaseAlreadyHeld(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.store.ClaimLease(context.Background(), utils.MustNewUUID(), key, req)
-	c.Assert(errors.Is(err, corelease.ErrHeld), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, corelease.ErrHeld)
 }
 
 func (s *stateSuite) TestExtendLeaseSuccess(c *gc.C) {
@@ -161,7 +160,7 @@ func (s *stateSuite) TestExtendLeaseNotHeldInvalid(c *gc.C) {
 	}
 
 	err := s.store.ExtendLease(context.Background(), key, req)
-	c.Assert(errors.Is(err, corelease.ErrInvalid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, corelease.ErrInvalid)
 }
 
 func (s *stateSuite) TestRevokeLeaseSuccess(c *gc.C) {
@@ -191,7 +190,7 @@ func (s *stateSuite) TestRevokeLeaseNotHeldInvalid(c *gc.C) {
 	}
 
 	err := s.store.RevokeLease(context.Background(), key, "not-the-holder")
-	c.Assert(errors.Is(err, corelease.ErrInvalid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, corelease.ErrInvalid)
 }
 
 func (s *stateSuite) TestPinUnpinLeaseAndPinQueries(c *gc.C) {

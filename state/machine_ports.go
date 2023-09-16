@@ -116,7 +116,7 @@ func (p *machinePortRanges) Remove() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			err := doc.Refresh()
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, errors.Trace(err)

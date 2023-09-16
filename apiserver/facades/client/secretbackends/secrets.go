@@ -102,7 +102,7 @@ func (s *SecretBackendsAPI) createBackend(id string, arg params.SecretBackend) e
 		NextRotateTime:      nextRotateTime,
 		Config:              arg.Config,
 	})
-	if errors.IsAlreadyExists(err) {
+	if errors.Is(err, errors.AlreadyExists) {
 		return errors.AlreadyExistsf("secret backend with ID %q", id)
 	}
 	return errors.Trace(err)
@@ -184,7 +184,7 @@ func (s *SecretBackendsAPI) updateBackend(arg params.UpdateSecretBackendArg) err
 		NextRotateTime:      nextRotateTime,
 		Config:              cfg,
 	})
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return errors.NotFoundf("secret backend %q", arg.Name)
 	}
 	return err

@@ -61,28 +61,28 @@ func (s *ConnectedWorkerSuite) TestConfigValid(c *gc.C) {
 func (s *ConnectedWorkerSuite) TestConfigMissingRunner(c *gc.C) {
 	s.config.Runner = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Runner not valid")
 }
 
 func (s *ConnectedWorkerSuite) TestConfigMissingStateReadWriter(c *gc.C) {
 	s.config.StateReadWriter = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing StateReadWriter not valid")
 }
 
 func (s *ConnectedWorkerSuite) TestConfigMissingStatus(c *gc.C) {
 	s.config.Status = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Status not valid")
 }
 
 func (s *ConnectedWorkerSuite) TestConfigMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Logger not valid")
 }
 

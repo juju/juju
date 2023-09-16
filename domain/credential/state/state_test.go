@@ -268,7 +268,7 @@ func (s *credentialSuite) TestRemoveCredentials(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.CloudCredential(ctx, "bobcred1", "stratus", "bob")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *credentialSuite) TestAllCloudCredentialsNotFound(c *gc.C) {
@@ -337,7 +337,7 @@ func (s *credentialSuite) TestInvalidateCloudCredentialNotFound(c *gc.C) {
 
 	ctx := context.Background()
 	err := st.InvalidateCloudCredential(ctx, "foobar", "cirrus", "bob", "reason")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 type watcherFunc func(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error)
@@ -367,7 +367,7 @@ func (s *credentialSuite) TestWatchCredentialNotFound(c *gc.C) {
 
 	ctx := context.Background()
 	_, err := st.WatchCredential(ctx, s.watcherFunc(c, ""), "foobar", "cirrus", "bob")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *credentialSuite) TestWatchCredential(c *gc.C) {

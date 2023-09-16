@@ -231,7 +231,7 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 	// To have a non-allocating status, a unit needs to
 	// be assigned to a machine.
 	_, err := u.AssignedMachineId()
-	if errors.IsNotAssigned(err) {
+	if errors.Is(err, errors.NotAssigned) {
 		err = u.AssignToNewMachine()
 	}
 	c.Assert(err, jc.ErrorIsNil)

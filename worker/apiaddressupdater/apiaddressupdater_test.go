@@ -300,7 +300,7 @@ func validConfig() apiaddressupdater.Config {
 func checkNotValid(c *gc.C, config apiaddressupdater.Config, expect string) {
 	check := func(err error) {
 		c.Check(err, gc.ErrorMatches, expect)
-		c.Check(err, jc.Satisfies, errors.IsNotValid)
+		c.Check(err, jc.ErrorIs, errors.NotValid)
 	}
 
 	err := config.Validate()

@@ -297,7 +297,7 @@ func (s *ListSuite) TestRunWhenListSubnetFails(c *gc.C) {
 
 	// Ensure the error cause is preserved.
 	err := s.AssertRunFails(c, "cannot list subnets: foo not supported")
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 
 	s.api.CheckCallNames(c, "ListSubnets", "Close")
 	s.api.CheckCall(c, 0, "ListSubnets", nil, "")

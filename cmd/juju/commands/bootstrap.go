@@ -734,7 +734,7 @@ to create a new model to deploy %sworkloads.
 
 	credentials, regionName, err := c.credentialsAndRegionName(ctx, provider, cloud)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			err = errors.NewNotFound(nil,
 				fmt.Sprintf("%v\nSee `juju add-credential %s --help` for instructions", err, cloud.Name))
 		}
@@ -785,14 +785,14 @@ to create a new model to deploy %sworkloads.
 	var oldCurrentController string
 	store := c.ClientStore()
 	oldCurrentController, err = modelcmd.DetermineCurrentController(store)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		oldCurrentController = ""
 	} else if err != nil {
 		return errors.Annotate(err, "error reading current controller")
 	}
 
 	defer func() {
-		if resultErr == nil || errors.IsAlreadyExists(resultErr) {
+		if resultErr == nil || errors.Is(resultErr, errors.AlreadyExists) {
 			return
 		}
 		if oldCurrentController != "" {
@@ -1145,7 +1145,7 @@ func (c *bootstrapCommand) controllerDataRefresher(
 	var proxier proxy.Proxier
 	if conInfo, ok := environ.(environs.ConnectorInfo); ok {
 		proxier, err = conInfo.ConnectionProxyInfo()
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 	}
@@ -1214,7 +1214,7 @@ func (c *bootstrapCommand) cloud(ctx *cmd.Context) (jujucloud.Cloud, environs.En
 	var provider environs.EnvironProvider
 	var cloud jujucloud.Cloud
 	cloudptr, err := jujucloud.CloudByName(c.Cloud)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		cloud, provider, err = c.detectCloud(ctx, bootstrapFuncs)
 		if err != nil {
 			return fail(errors.Trace(err))
@@ -1275,7 +1275,7 @@ func (c *bootstrapCommand) detectCloud(
 			continue
 		}
 		cloud, err := cloudDetector.DetectCloud(c.Cloud)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			return fail(errors.Trace(err))
@@ -1285,7 +1285,7 @@ func (c *bootstrapCommand) detectCloud(
 
 	ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
 	provider, err := environs.Provider(c.Cloud)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return fail(errors.NewNotFound(nil,
 			fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-public-clouds")))
 	} else if err != nil {
@@ -1303,7 +1303,7 @@ func (c *bootstrapCommand) detectCloud(
 
 	var cloudEndpoint string
 	regions, err := regionDetector.DetectRegions()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// It's not an error to have no regions. If the
 		// provider does not support regions, then we
 		// reinterpret the supplied region name as the

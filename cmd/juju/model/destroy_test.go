@@ -119,7 +119,7 @@ func checkModelExistsInStore(c *gc.C, name string, store jujuclient.ClientStore)
 func checkModelRemovedFromStore(c *gc.C, name string, store jujuclient.ClientStore) {
 	controller, amodel := modelcmd.SplitModelName(name)
 	_, err := store.ModelByName(controller, amodel)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *DestroySuite) TestDestroyNoModelNameError(c *gc.C) {

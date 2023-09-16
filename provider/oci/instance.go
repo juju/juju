@@ -204,7 +204,7 @@ func (o *ociInstance) waitForPublicIP(ctx envcontext.ProviderCallContext) error 
 
 func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 	err := o.refresh()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	}
 
@@ -224,7 +224,7 @@ func (o *ociInstance) deleteInstance(ctx envcontext.ProviderCallContext) error {
 	iteration := 0
 	for {
 		if err := o.refresh(); err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				break
 			}
 			ocicommon.HandleCredentialError(err, ctx)

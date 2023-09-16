@@ -53,7 +53,7 @@ func (s *infoSuite) TestInitFailCS(c *gc.C) {
 		charmHubCommand: &charmHubCommand{},
 	}
 	err := command.Init([]string{"cs:test"})
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *infoSuite) TestRun(c *gc.C) {

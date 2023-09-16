@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -219,7 +218,7 @@ func (s *stateSuite) TestStartUpgradeIdempotent(c *gc.C) {
 func (s *stateSuite) TestStartUpgradeBeforeCreated(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	err := s.st.StartUpgrade(context.Background(), uuid)
-	c.Assert(errors.Is(err, sql.ErrNoRows), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
 func (s *stateSuite) TestSetControllerDone(c *gc.C) {
@@ -260,7 +259,7 @@ func (s *stateSuite) TestSetControllerDoneCompleteUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.st.ActiveUpgrade(context.Background())
-	c.Assert(errors.Is(err, sql.ErrNoRows), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 
 	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -280,7 +279,7 @@ func (s *stateSuite) TestSetControllerDoneCompleteUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.st.ActiveUpgrade(context.Background())
-	c.Assert(errors.Is(err, sql.ErrNoRows), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
 func (s *stateSuite) TestSetControllerDoneCompleteUpgradeEmptyCompletedAt(c *gc.C) {
@@ -311,12 +310,12 @@ WHERE  upgrade_info_uuid = ?
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.st.ActiveUpgrade(context.Background())
-	c.Assert(errors.Is(err, sql.ErrNoRows), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
 func (s *stateSuite) TestActiveUpgradesNoUpgrades(c *gc.C) {
 	_, err := s.st.ActiveUpgrade(context.Background())
-	c.Assert(errors.Is(err, sql.ErrNoRows), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
 func (s *stateSuite) TestActiveUpgradesSingular(c *gc.C) {

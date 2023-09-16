@@ -313,7 +313,7 @@ func (s *withoutControllerSuite) TestLifeAsController(c *gc.C) {
 	err = s.machines[1].Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machines[1].Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	result, err = s.provisioner.Life(context.Background(), params.Entities{
 		Entities: []params.Entity{

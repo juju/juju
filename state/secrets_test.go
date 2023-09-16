@@ -99,7 +99,7 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 
 	p.Label = nil
 	_, err = s.store.CreateSecret(uri, p)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *SecretsSuite) TestCreateUserSecret(c *gc.C) {
@@ -199,13 +199,13 @@ func (s *SecretsSuite) TestCreateDuplicateLabelApplicationOwned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	uri2 := secrets.NewURI()
 	_, err = s.store.CreateSecret(uri2, p)
-	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, state.LabelExists)
 
 	// Existing application owner label should not be used for owner label for its units.
 	uri3 := secrets.NewURI()
 	p.Owner = s.ownerUnit.Tag()
 	_, err = s.store.CreateSecret(uri3, p)
-	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, state.LabelExists)
 
 	// Existing application owner label should not be used for consumer label for its units.
 	cmd := &secrets.SecretConsumerMetadata{
@@ -213,7 +213,7 @@ func (s *SecretsSuite) TestCreateDuplicateLabelApplicationOwned(c *gc.C) {
 		CurrentRevision: md.LatestRevision,
 	}
 	err = s.State.SaveSecretConsumer(uri, s.ownerUnit.Tag(), cmd)
-	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, state.LabelExists)
 }
 
 func (s *SecretsSuite) TestCreateDuplicateLabelUnitOwned(c *gc.C) {
@@ -239,13 +239,13 @@ func (s *SecretsSuite) TestCreateDuplicateLabelUnitOwned(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	uri2 := secrets.NewURI()
 	_, err = s.store.CreateSecret(uri2, p)
-	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, state.LabelExists)
 
 	// Existing unit owner label should not be used for owner label for the application.
 	uri3 := secrets.NewURI()
 	p.Owner = s.owner.Tag()
 	_, err = s.store.CreateSecret(uri3, p)
-	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, state.LabelExists)
 
 	// Existing unit owner label should not be used for consumer label for the application.
 	cmd := &secrets.SecretConsumerMetadata{
@@ -253,7 +253,7 @@ func (s *SecretsSuite) TestCreateDuplicateLabelUnitOwned(c *gc.C) {
 		CurrentRevision: md.LatestRevision,
 	}
 	err = s.State.SaveSecretConsumer(uri, s.owner.Tag(), cmd)
-	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, state.LabelExists)
 }
 
 func (s *SecretsSuite) TestCreateDuplicateLabelUnitConsumed(c *gc.C) {
@@ -282,14 +282,14 @@ func (s *SecretsSuite) TestCreateDuplicateLabelUnitConsumed(c *gc.C) {
 	p.Owner = s.ownerUnit.Tag()
 	p.Label = ptr("foobar")
 	_, err = s.store.CreateSecret(uri2, p)
-	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, state.LabelExists)
 
 	// Existing unit consumer label should not be used for owner label for the application.
 	uri3 := secrets.NewURI()
 	p.Owner = s.owner.Tag()
 	p.Label = ptr("foobar")
 	_, err = s.store.CreateSecret(uri3, p)
-	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, state.LabelExists)
 
 	// Existing unit consumer label should not be used for consumer label for the application.
 	cmd = &secrets.SecretConsumerMetadata{
@@ -297,7 +297,7 @@ func (s *SecretsSuite) TestCreateDuplicateLabelUnitConsumed(c *gc.C) {
 		CurrentRevision: md.LatestRevision,
 	}
 	err = s.State.SaveSecretConsumer(uri, s.owner.Tag(), cmd)
-	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, state.LabelExists)
 }
 
 func (s *SecretsSuite) TestCreateDyingOwner(c *gc.C) {
@@ -320,7 +320,7 @@ func (s *SecretsSuite) TestCreateDyingOwner(c *gc.C) {
 func (s *SecretsSuite) TestGetValueNotFound(c *gc.C) {
 	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
 	_, _, err := s.store.GetSecretValue(uri, 666)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *SecretsSuite) TestGetValue(c *gc.C) {
@@ -738,7 +738,7 @@ func (s *SecretsSuite) TestUpdateDuplicateLabel(c *gc.C) {
 		LeaderToken: &fakeToken{},
 		Label:       ptr("label2"),
 	})
-	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, state.LabelExists)
 
 	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
@@ -890,7 +890,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentRemove(
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmd.LatestRevision, gc.Equals, 2)
 	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mysql/0"))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMetadata, expectedRevision int, update state.UpdateSecretParams) {
@@ -1098,9 +1098,9 @@ func (s *SecretsSuite) TestChangeSecretBackendInternalToExternal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.ReadBackendRefCount(s.Model.UUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = s.State.ReadBackendRefCount(s.State.ControllerUUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	backendRefCount, err := s.State.ReadBackendRefCount("new-backend-id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1123,9 +1123,9 @@ func (s *SecretsSuite) TestChangeSecretBackendInternalToExternal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.ReadBackendRefCount(s.Model.UUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = s.State.ReadBackendRefCount(s.State.ControllerUUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	backendRefCount, err = s.State.ReadBackendRefCount("new-backend-id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1168,9 +1168,9 @@ func (s *SecretsSuite) TestChangeSecretBackendExternalToInternal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.ReadBackendRefCount(s.Model.UUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = s.State.ReadBackendRefCount(s.State.ControllerUUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1193,9 +1193,9 @@ func (s *SecretsSuite) TestChangeSecretBackendExternalToInternal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.ReadBackendRefCount(s.Model.UUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = s.State.ReadBackendRefCount(s.State.ControllerUUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1340,7 +1340,7 @@ func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	md := &secrets.SecretConsumerMetadata{
 		Label:           "consumer-label",
 		CurrentRevision: 666,
@@ -1360,7 +1360,7 @@ func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 	c.Check(uri3, jc.DeepEquals, uri)
 
 	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mysql/0"))
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *SecretsSuite) TestGetSecretConsumerCrossModelURI(c *gc.C) {
@@ -1378,7 +1378,7 @@ func (s *SecretsSuite) TestGetSecretConsumerCrossModelURI(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	md := &secrets.SecretConsumerMetadata{
 		Label:           "consumer-label",
 		CurrentRevision: 666,
@@ -1517,7 +1517,7 @@ func (s *SecretsSuite) TestSecretGrantAccess(c *gc.C) {
 		Subject:     subject,
 		Role:        secrets.RoleView,
 	})
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	cp := state.CreateSecretParams{
 		Version: 1,
@@ -1608,7 +1608,7 @@ func (s *SecretsSuite) assertSecretGrantCrossModelOffer(c *gc.C, offer, unit boo
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(access, gc.Equals, secrets.RoleView)
 	} else {
-		c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+		c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	}
 }
 
@@ -1823,7 +1823,7 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 	c.Assert(backendRefCount, gc.Equals, 0)
 
 	_, _, err = s.store.GetSecretValue(uri1, 1)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	external, err = s.store.DeleteSecret(uri1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(external, gc.HasLen, 0)
@@ -1922,7 +1922,7 @@ func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(external, gc.HasLen, 0)
 	_, _, err = s.store.GetSecretValue(uri, 1)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	val, _, err := s.store.GetSecretValue(uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar2"})
@@ -1941,9 +1941,9 @@ func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
 		RevisionID: "rev-id",
 	}})
 	_, _, err = s.store.GetSecretValue(uri, 3)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	_, err = s.store.GetSecret(uri)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
 	c.Assert(err, jc.ErrorIsNil)

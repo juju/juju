@@ -338,7 +338,7 @@ type LeaveScopeOperation struct {
 func (op *LeaveScopeOperation) Build(attempt int) ([]txn.Op, error) {
 	rulogger.Tracef("%v attempt %d to leave scope", op.Description(), attempt+1)
 	if attempt > 0 {
-		if err := op.ru.relation.Refresh(); errors.IsNotFound(err) {
+		if err := op.ru.relation.Refresh(); errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
@@ -532,7 +532,7 @@ func (ru *RelationUnit) Valid() (bool, error) {
 	}
 	// If the other application is a principal, only allow it if it's in the relation.
 	_, err = ru.relation.Endpoint(principalAppName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	} else if err != nil {
 		return false, errors.Trace(err)

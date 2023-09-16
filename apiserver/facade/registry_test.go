@@ -63,7 +63,7 @@ func (s *RegistrySuite) TestListDetails(c *gc.C) {
 func (*RegistrySuite) TestGetFactoryUnknown(c *gc.C) {
 	registry := &facade.Registry{}
 	factory, err := registry.GetFactory("name", 0)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(err, gc.ErrorMatches, `name\(0\) not found`)
 	c.Check(factory, gc.IsNil)
 }
@@ -73,7 +73,7 @@ func (*RegistrySuite) TestGetFactoryUnknownVersion(c *gc.C) {
 	assertRegister(c, registry, "name", 0)
 
 	factory, err := registry.GetFactory("name", 1)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(err, gc.ErrorMatches, `name\(1\) not found`)
 	c.Check(factory, gc.IsNil)
 }
@@ -167,7 +167,7 @@ func (*RegistrySuite) TestDiscardRemovesEntry(c *gc.C) {
 
 	registry.Discard("name", 0)
 	factory, err := registry.GetFactory("name", 0)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(err, gc.ErrorMatches, `name\(0\) not found`)
 	c.Check(factory, gc.IsNil)
 	c.Check(registry.List(), jc.DeepEquals, []facade.Description{})

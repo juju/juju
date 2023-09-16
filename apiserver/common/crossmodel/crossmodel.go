@@ -37,7 +37,7 @@ func PublishRelationChange(auth authoriser, backend Backend, relationTag, applic
 	dyingOrDead := change.Life != "" && change.Life != life.Alive
 	// Ensure the relation exists.
 	rel, err := backend.KeyRelation(relationTag.Id())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		if dyingOrDead {
 			return nil
 		}
@@ -178,7 +178,7 @@ func handleSuspendedRelation(auth authoriser, backend Backend, change params.Rem
 		if err := rel.SetStatus(status.StatusInfo{
 			Status:  newStatus,
 			Message: message,
-		}); err != nil && !errors.IsNotValid(err) {
+		}); err != nil && !errors.Is(err, errors.NotValid) {
 			return errors.Trace(err)
 		}
 	}
@@ -277,7 +277,7 @@ func GetConsumingRelationTokens(backend Backend, tag names.RelationTag) (string,
 func getLocalApplicationName(backend Backend, relation Relation) (string, error) {
 	for _, ep := range relation.Endpoints() {
 		_, err := backend.Application(ep.ApplicationName)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// Not found, so it's the remote application. Try the next endpoint.
 			continue
 		} else if err != nil {
@@ -332,7 +332,7 @@ func ExpandChange(
 	}
 
 	relationTag, err := backend.GetRemoteEntity(relationToken)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// This can happen when the last unit leaves scope on a dying
 		// relation and the relation is removed. In that case there
 		// aren't any application- or unit-level settings to send; we
@@ -448,7 +448,7 @@ func PublishIngressNetworkChange(ctx context.Context, backend Backend, relationT
 
 	// Ensure the relation exists.
 	rel, err := backend.KeyRelation(relationTag.Id())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	}
 	if err != nil {
@@ -520,7 +520,7 @@ func GetRelationLifeSuspendedStatusChange(
 	st relationGetter, key string,
 ) (*params.RelationLifeSuspendedStatusChange, error) {
 	rel, err := st.KeyRelation(key)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// If the relation is not found we represent it as dead,
 		// but *only* if we are not currently migrating.
 		// If we are migrating, we do not want to inform remote watchers that
@@ -567,7 +567,7 @@ func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.
 	}
 
 	offer, err := st.ApplicationOfferForUUID(offerUUID)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		if migrating {
 			return nil, migration.ErrMigrating
 		}
@@ -583,7 +583,7 @@ func GetOfferStatusChange(st offerGetter, offerUUID, offerName string) (*params.
 	}
 
 	app, err := st.Application(offer.ApplicationName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		if migrating {
 			return nil, migration.ErrMigrating
 		}

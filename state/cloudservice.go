@@ -124,7 +124,7 @@ func (c *CloudService) Refresh() error {
 func buildCloudServiceOps(st *State, doc cloudServiceDoc) ([]txn.Op, error) {
 	svc := newCloudService(st, &doc)
 	existing, err := svc.cloudServiceDoc()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	if err != nil || existing == nil {

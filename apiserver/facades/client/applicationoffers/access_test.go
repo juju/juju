@@ -141,7 +141,7 @@ func (s *offerAccessSuite) TestRevokeReadRemovesPermission(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = st.GetOfferAccess(offer.Id()+"-uuid", user)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *offerAccessSuite) TestRevokeMissingUser(c *gc.C) {
@@ -154,7 +154,7 @@ func (s *offerAccessSuite) TestRevokeMissingUser(c *gc.C) {
 
 	offer := names.NewApplicationOfferTag("someoffer")
 	_, err = st.GetOfferAccess(offer.Id()+"-uuid", user)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *offerAccessSuite) TestGrantOnlyGreaterAccess(c *gc.C) {

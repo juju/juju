@@ -141,7 +141,7 @@ func (k *kubernetesClient) deleteNamespace() error {
 	// All model resources are provisioned in the namespace;
 	// deleting the namespace will also delete those resources.
 	ns, err := k.GetNamespace(k.namespace)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	}
 	if err != nil {

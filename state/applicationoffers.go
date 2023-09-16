@@ -160,7 +160,7 @@ func (s *applicationOffers) AllApplicationOffers() (offers []*crossmodel.Applica
 func (st *State) maybeConsumerProxyForOffer(offer *crossmodel.ApplicationOffer, rel *Relation) (*RemoteApplication, bool, error) {
 	// Is the relation for an offer connection
 	offConn, err := st.OfferConnectionForRelation(rel.String())
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, false, errors.Trace(err)
 	}
 	if err != nil || offConn.OfferUUID() != offer.OfferUUID {
@@ -180,7 +180,7 @@ func (st *State) maybeConsumerProxyForOffer(offer *crossmodel.ApplicationOffer, 
 	// We have a remote app proxy, is it related to the offer in question.
 	_, err = rel.Endpoint(offer.ApplicationName)
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return nil, false, errors.Trace(err)
 		}
 		return nil, false, nil
@@ -244,7 +244,7 @@ type RemoveOfferOperation struct {
 // Build is part of the ModelOperation interface.
 func (op *RemoveOfferOperation) Build(attempt int) (ops []txn.Op, err error) {
 	op.offer, err = op.offerStore.ApplicationOffer(op.offerName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil, jujutxn.ErrNoOperations
 	}
 	if err != nil {
@@ -409,7 +409,7 @@ func (op *RemoveOfferOperation) internalRemove(offer *crossmodel.ApplicationOffe
 			if !isCrossModel {
 				continue
 			}
-			if err := rel.Refresh(); errors.IsNotFound(err) {
+			if err := rel.Refresh(); errors.Is(err, errors.NotFound) {
 				continue
 			} else if err != nil {
 				return nil, err

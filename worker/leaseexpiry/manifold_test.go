@@ -38,23 +38,23 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 
 	cfg := validCfg
 	cfg.ClockName = ""
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.DBAccessorName = ""
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.Logger = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.NewWorker = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
 	cfg.NewStore = nil
-	c.Check(errors.Is(cfg.Validate(), errors.NotValid), jc.IsTrue)
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) TestStartSuccess(c *gc.C) {

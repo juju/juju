@@ -58,7 +58,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFail(c *gc.C) {
 		origin,
 		true,
 	)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(obtainedCurl, gc.IsNil)
 }
 
@@ -79,7 +79,7 @@ func (s *storeSuite) TestAddCharmFromURLFailAddCharmFailUnauthorized(c *gc.C) {
 		origin,
 		true,
 	)
-	c.Assert(err, jc.Satisfies, errors.IsForbidden)
+	c.Assert(err, jc.ErrorIs, errors.Forbidden)
 	c.Assert(obtainedCurl, gc.IsNil)
 }
 

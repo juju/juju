@@ -592,7 +592,7 @@ func (e *environ) StartInstance(
 	if err != nil {
 		// An IsNotValid error is returned if the zone is invalid;
 		// this is a zone-specific error.
-		zoneSpecific := errors.IsNotValid(err)
+		zoneSpecific := errors.Is(err, errors.NotValid)
 		if !zoneSpecific {
 			return nil, wrapError(err)
 		}
@@ -1241,7 +1241,7 @@ func (e *environ) groupByName(ctx context.ProviderCallContext, groupName string)
 // code for "group not found", indicating no matching instances (as they are
 // filtered by group).
 func isNotFoundError(err error) bool {
-	return err != nil && (errors.IsNotFound(err) || ec2ErrCode(err) == "InvalidGroup.NotFound")
+	return err != nil && (errors.Is(err, errors.NotFound) || ec2ErrCode(err) == "InvalidGroup.NotFound")
 }
 
 // Instances is part of the environs.Environ interface.
@@ -1889,7 +1889,7 @@ func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext
 	}
 
 	instanceProfiles, err := listInstanceProfilesForController(ctx, e.iamClient, controllerUUID)
-	if errors.IsUnauthorized(err) {
+	if errors.Is(err, errors.Unauthorized) {
 		logger.Warningf("unable to list Instance Profiles for deletion, Instance Profiles may have to be manually cleaned up for controller %q", controllerUUID)
 	} else if err != nil {
 		return errors.Annotatef(err, "listing instance profiles for controller uuid %q", controllerUUID)
@@ -1903,7 +1903,7 @@ func (e *environ) destroyControllerManagedModels(ctx context.ProviderCallContext
 	}
 
 	roles, err := listRolesForController(ctx, e.iamClient, controllerUUID)
-	if errors.IsUnauthorized(err) {
+	if errors.Is(err, errors.Unauthorized) {
 		logger.Warningf("unable to list Roles for deletion, Roles may have to be manually cleaned up for controller %q", controllerUUID)
 	} else if err != nil {
 		return errors.Annotatef(err, "listing roles for controller uuid %q", controllerUUID)

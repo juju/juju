@@ -201,7 +201,7 @@ func (w *controllerWatcher) Wait() error {
 func (w *controllerWatcher) loop() error {
 	// We get the API info from the local controller initially.
 	info, err := w.externalControllerInfo(w.tag.Id())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Annotate(err, "getting cached external controller info")

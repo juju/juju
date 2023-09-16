@@ -393,7 +393,7 @@ func filesystemParamsBySource(
 		// even tmpfs or rootfs which is ostensibly handled by a machine storage
 		// provisioner worker. There's no such provisoner for k8s but we still
 		// process the detach/destroy so the state model can be updated.
-		if errors.Cause(err) == errNonDynamic || errors.IsNotFound(err) {
+		if errors.Cause(err) == errNonDynamic || errors.Is(err, errors.NotFound) {
 			filesystemSource = nil
 		} else if err != nil {
 			return nil, nil, errors.Annotate(err, "getting filesystem source")
@@ -464,7 +464,7 @@ func filesystemAttachmentParamsBySource(
 		// even tmpfs or rootfs which is ostensibly handled by a machine storage
 		// provisioner worker. There's no such provisoner for k8s but we still
 		// process the detach/destroy so the state model can be updated.
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, nil, errors.Annotate(err, "getting filesystem source")
 		}
 		filesystemSources[sourceName] = filesystemSource

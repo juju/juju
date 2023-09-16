@@ -61,11 +61,11 @@ func (dr *dockerMetadataStorage) Save(resourceID string, drInfo resources.Docker
 
 	buildTxn := func(int) ([]txn.Op, error) {
 		existing, err := dr.get(resourceID)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Annotate(err, "failed to check for existing resource")
 
 		}
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return []txn.Op{{
 				C:      dockerResourcesC,
 				Id:     existing.Id,

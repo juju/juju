@@ -60,28 +60,28 @@ func (s *PresenceSuite) worker(c *gc.C) worker.Worker {
 func (s *PresenceSuite) TestWorkerConfigMissingOrigin(c *gc.C) {
 	s.config.Origin = ""
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing origin not valid")
 }
 
 func (s *PresenceSuite) TestWorkerConfigMissingHub(c *gc.C) {
 	s.config.Hub = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing hub not valid")
 }
 
 func (s *PresenceSuite) TestWorkerConfigMissingRecorder(c *gc.C) {
 	s.config.Recorder = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing recorder not valid")
 }
 
 func (s *PresenceSuite) TestWorkerConfigMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing logger not valid")
 }
 

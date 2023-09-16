@@ -155,7 +155,7 @@ func (s *credentialsSuite) TestDetectCredentialsWrongPassphrase(c *gc.C) {
 	}
 	s.writeOCIConfig(c, cfg)
 	_, err := s.provider.DetectCredentials("")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *credentialsSuite) TestDetectCredentialsMultiSection(c *gc.C) {

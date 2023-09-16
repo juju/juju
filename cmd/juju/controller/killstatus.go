@@ -112,7 +112,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (environmentS
 	var applications []base.Application
 	for _, model := range status {
 		if model.Error != nil {
-			if errors.IsNotFound(model.Error) {
+			if errors.Is(model.Error, errors.NotFound) {
 				// This most likely occurred because a model was
 				// destroyed half-way through the call.
 				// Since we filter out models with life.Dead below, it's safe

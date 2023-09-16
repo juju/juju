@@ -59,7 +59,7 @@ func (s *SSHHostKeysSuite) TestModelIsolation(c *gc.C) {
 
 func checkKeysNotFound(c *gc.C, st *state.State, tag names.MachineTag) {
 	_, err := st.GetSSHHostKeys(tag)
-	c.Check(errors.IsNotFound(err), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(err, gc.ErrorMatches, "keys not found")
 }
 

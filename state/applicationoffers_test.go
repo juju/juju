@@ -94,10 +94,10 @@ func (s *applicationOffersSuite) TestRemove(c *gc.C) {
 	err = sd.Remove(offer.OfferName, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = sd.ApplicationOffer(offer.OfferName)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = r.GetToken(names.NewApplicationTag(offer.OfferName))
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	userPerms, err := s.State.GetOfferUsers(offer.OfferUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -679,7 +679,7 @@ func (s *applicationOffersSuite) TestRemoveOffersSucceedsWithZeroConnections(c *
 	err := ao.Remove("hosted-mysql", false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = ao.ApplicationOffer("hosted-mysql")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	err = s.mysql.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -692,7 +692,7 @@ func (s *applicationOffersSuite) TestRemoveApplicationSucceedsWithZeroConnection
 	err := s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	assertNoOffersRef(c, s.State, "mysql")
 }
 
@@ -704,7 +704,7 @@ func (s *applicationOffersSuite) TestRemoveApplicationSucceedsWithZeroConnection
 	err := s.mysql.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.mysql.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	assertNoOffersRef(c, s.State, "mysql")
 }
 
@@ -767,7 +767,7 @@ func (s *applicationOffersSuite) TestRemoveOffersSucceedsWhenLocalRelationAdded(
 	err = ao.Remove(offer.OfferName, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = ao.ApplicationOffer("hosted-mysql")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *applicationOffersSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
@@ -829,7 +829,7 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	err = ao.Remove("hosted-mysql", true)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = ao.ApplicationOffer("hosted-mysql")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	conn, err := s.State.OfferConnections(offer.OfferUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(conn, gc.HasLen, 1)
@@ -839,7 +839,7 @@ func (s *applicationOffersSuite) TestRemoveOffersWithConnectionsForce(c *gc.C) {
 	s.assertInScope(c, wpru, false)
 	s.assertInScope(c, mysqlru, true)
 	err = rwordpress.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *applicationOffersSuite) TestRemoveOneOfferSameApplication(c *gc.C) {
@@ -861,7 +861,7 @@ func (s *applicationOffersSuite) TestRemoveOneOfferSameApplication(c *gc.C) {
 	err = ao.Remove(offer2.OfferName, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = ao.ApplicationOffer("mysql-admin")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// The other offer is unaffected.
 	appOffer, err := ao.ApplicationOffer("hosted-mysql")
@@ -899,7 +899,7 @@ func (s *applicationOffersSuite) TestRemovingApplicationFailsRace(c *gc.C) {
 	defer state.SetTestHooks(c, s.State, bumpTxnRevno, bumpTxnRevno, bumpTxnRevno).Check()
 
 	err = s.mysql.Destroy()
-	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	c.Assert(err, gc.ErrorMatches, "cannot destroy application.*")
 	s.mysql.Refresh()
 	assertOffersRef(c, s.State, "mysql", 1)
@@ -974,7 +974,7 @@ func (s *applicationOffersSuite) TestWatchOfferStatus(c *gc.C) {
 	err = ao.Remove(offer.OfferName, false)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = ao.ApplicationOffer("hosted-mysql")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()

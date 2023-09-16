@@ -53,7 +53,7 @@ func marshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, u
 		for _, t := range metadata {
 			id, err := t.productId()
 			if err != nil {
-				if errors.IsNotValid(err) {
+				if errors.Is(err, errors.NotValid) {
 					logger.Infof("ignoring tools metadata with unknown os type %q", t.Release)
 					continue
 				}
@@ -102,7 +102,7 @@ func MarshalToolsMetadataProductsJSON(
 		for _, t := range metadata {
 			id, err := t.productId()
 			if err != nil {
-				if errors.IsNotValid(err) {
+				if errors.Is(err, errors.NotValid) {
 					continue
 				}
 				return nil, err

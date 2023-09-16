@@ -356,7 +356,7 @@ func (s *MachinerSuite) TestSetDead(c *gc.C) {
 	s.accessor.machine.watcher.changes <- struct{}{}
 
 	err := stopWorker(mr)
-	c.Assert(err, jc.Satisfies, func(e any) bool { return errors.Is(e.(error), jworker.ErrTerminateAgent) })
+	c.Assert(err, jc.ErrorIs, jworker.ErrTerminateAgent)
 }
 
 func (s *MachinerSuite) TestSetMachineAddresses(c *gc.C) {

@@ -109,7 +109,7 @@ func (s *networkingSuite) TestAllocatePublicIPFail(c *gc.C) {
 	s.expectAllocateFloatingIPV2FailAll()
 
 	fip, err := s.runAllocatePublicIP()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(fip, gc.IsNil)
 }
 
@@ -164,7 +164,7 @@ func (s *networkingSuite) TestAllocatePublicIPFailNoNetworkInAZ(c *gc.C) {
 	s.expectListExternalNetworksV2NotInAZ() // getExternalNeutronNetworksByAZ()
 
 	fip, err := s.runAllocatePublicIP()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(fip, gc.IsNil)
 }
 

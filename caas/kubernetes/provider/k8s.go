@@ -368,7 +368,7 @@ Please bootstrap again and choose a different controller name.`, controllerName)
 	if err == nil {
 		return alreadyExistErr
 	}
-	if !errors.IsNotFound(err) {
+	if !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	// Good, no existing namespace has the same name.
@@ -379,7 +379,7 @@ Please bootstrap again and choose a different controller name.`, controllerName)
 	if err == nil {
 		return alreadyExistErr
 	}
-	if !errors.IsNotFound(err) {
+	if !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
 	// All good, no existing controller found on the cluster.
@@ -458,7 +458,7 @@ namespace %q already exists in the cluster,
 please choose a different initial model name then try again.`, initialModelName),
 				)
 			}
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return errors.Trace(err)
 			}
 			// hosted model is all good.
@@ -469,7 +469,7 @@ please choose a different initial model name then try again.`, initialModelName)
 			nsName := DecideControllerNamespace(controllerName)
 
 			_, err := broker.GetNamespace(nsName)
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				// all good.
 				// ensure controller specific annotations.
 				_ = broker.addAnnotations(utils.AnnotationControllerIsControllerKey(k.IsLegacyLabels()), "true")
@@ -724,7 +724,7 @@ func (k *kubernetesClient) ensureDeployment(spec *apps.Deployment) error {
 	}
 	deployments := k.client().AppsV1().Deployments(k.namespace)
 	_, err := k.createDeployment(spec)
-	if err == nil || !errors.IsAlreadyExists(err) {
+	if err == nil || !errors.Is(err, errors.AlreadyExists) {
 		return errors.Annotatef(err, "ensuring deployment %q", spec.GetName())
 	}
 	existing, err := k.getDeployment(spec.GetName())

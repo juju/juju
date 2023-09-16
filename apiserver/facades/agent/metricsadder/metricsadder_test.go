@@ -218,7 +218,7 @@ func (s *metricsAdderSuite) TestAddMetricsBatchDiffTag(c *gc.C) {
 		c.Assert(batches, gc.HasLen, 0)
 
 		_, err = st.MetricBatch(uuid)
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		c.Assert(err, jc.ErrorIs, errors.NotFound)
 	}
 }
 

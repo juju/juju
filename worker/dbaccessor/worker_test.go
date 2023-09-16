@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -102,7 +101,7 @@ func (s *workerSuite) TestStartupTimeoutSingleControllerReconfigure(c *gc.C) {
 	}
 
 	err := workertest.CheckKilled(c, w)
-	c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
 }
 
 func (s *workerSuite) TestStartupTimeoutMultipleControllerRetry(c *gc.C) {
@@ -401,7 +400,7 @@ func (s *workerSuite) TestWorkerStartupAsBootstrapNodeThenReconfigure(c *gc.C) {
 	defer func() {
 		close(dbDone)
 		err := workertest.CheckKilled(c, w)
-		c.Assert(errors.Is(err, dependency.ErrBounce), jc.IsTrue)
+		c.Assert(err, jc.ErrorIs, dependency.ErrBounce)
 	}()
 	dbw := w.(*dbWorker)
 

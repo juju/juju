@@ -753,7 +753,7 @@ func (s *controllerSuite) TestRevokeLoginRemovesControllerUser(c *gc.C) {
 	ctag := names.NewControllerTag(s.State.ControllerUUID())
 	_, err = s.State.UserAccess(user.UserTag(), ctag)
 
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *controllerSuite) TestRevokeControllerMissingUser(c *gc.C) {

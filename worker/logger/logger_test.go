@@ -56,7 +56,7 @@ func (s *LoggerSuite) TestMissingContext(c *gc.C) {
 	s.config.Context = nil
 	w, err := logger.NewLogger(s.config)
 	c.Assert(w, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing logging context not valid")
 }
 
@@ -64,7 +64,7 @@ func (s *LoggerSuite) TestMissingAPI(c *gc.C) {
 	s.config.API = nil
 	w, err := logger.NewLogger(s.config)
 	c.Assert(w, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing api not valid")
 }
 
@@ -72,7 +72,7 @@ func (s *LoggerSuite) TestMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	w, err := logger.NewLogger(s.config)
 	c.Assert(w, gc.IsNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing logger not valid")
 }
 

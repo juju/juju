@@ -145,7 +145,7 @@ func releaseContainerAddresses(
 	switch {
 	case err == nil:
 		log.Infof("released all addresses for container %q", containerTag.Id())
-	case errors.IsNotSupported(err):
+	case errors.Is(err, errors.NotSupported):
 		log.Warningf("not releasing all addresses for container %q: %v", containerTag.Id(), err)
 	default:
 		log.Warningf(

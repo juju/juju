@@ -37,7 +37,7 @@ func (s *BSONTotalSizeCheckerSuite) TestExceedMaxSize(c *gc.C) {
 	chk.Check("some string")
 
 	err := chk.Outcome()
-	c.Assert(err, jc.Satisfies, errors.IsQuotaLimitExceeded)
+	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded)
 	c.Assert(err, gc.ErrorMatches, "max allowed size.*", gc.Commentf("expected error about exceeding max size"))
 }
 

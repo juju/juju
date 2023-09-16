@@ -25,7 +25,7 @@ import (
 
 // ErrNoBackingVolume is returned by Filesystem.Volume() for filesystems
 // without a backing volume.
-var ErrNoBackingVolume = errors.New("filesystem has no backing volume")
+var ErrNoBackingVolume = errors.ConstError("filesystem has no backing volume")
 
 // Filesystem describes a filesystem in the model. Filesystems may be
 // backed by a volume, and managed by Juju; otherwise they are first-class
@@ -275,7 +275,7 @@ func (f *filesystem) SetStatus(fsStatus status.StatusInfo) error {
 			return errors.Trace(err)
 		}
 		_, err = f.Info()
-		if errors.IsNotProvisioned(err) {
+		if errors.Is(err, errors.NotProvisioned) {
 			break
 		}
 		return errors.Errorf("cannot set status %q", fsStatus.Status)
@@ -647,7 +647,7 @@ func (sb *storageBackend) RemoveFilesystemAttachment(host names.Tag, filesystem 
 	defer errors.DeferredAnnotatef(&err, "removing attachment of filesystem %s from %s", filesystem.Id(), names.ReadableString(host))
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		attachment, err := sb.FilesystemAttachment(host, filesystem)
-		if errors.IsNotFound(err) && attempt > 0 {
+		if errors.Is(err, errors.NotFound) && attempt > 0 {
 			// We only ignore IsNotFound on attempts after the
 			// first, since we expect the filesystem attachment to
 			// be there initially.
@@ -669,7 +669,7 @@ func (sb *storageBackend) RemoveFilesystemAttachment(host names.Tag, filesystem 
 		}
 		volumeAttachment, err := sb.filesystemVolumeAttachment(host, filesystem)
 		if err != nil {
-			if errors.Cause(err) != ErrNoBackingVolume && !errors.IsNotFound(err) {
+			if !errors.Is(err, ErrNoBackingVolume) && !errors.Is(err, errors.NotFound) {
 				return nil, errors.Trace(err)
 			}
 		} else {
@@ -752,7 +752,7 @@ func (sb *storageBackend) DestroyFilesystem(tag names.FilesystemTag, force bool)
 	defer errors.DeferredAnnotatef(&err, "destroying filesystem %s", tag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		filesystem, err := getFilesystemByTag(sb.mb, tag)
-		if errors.IsNotFound(err) && attempt > 0 {
+		if errors.Is(err, errors.NotFound) && attempt > 0 {
 			// On the first attempt, we expect it to exist.
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -866,7 +866,7 @@ func (sb *storageBackend) RemoveFilesystem(tag names.FilesystemTag) (err error) 
 	defer errors.DeferredAnnotatef(&err, "removing filesystem %s", tag.Id())
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		filesystem, err := getFilesystemByTag(sb.mb, tag)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -1250,7 +1250,7 @@ func (sb *storageBackend) SetFilesystemInfo(tag names.FilesystemTag, info Filesy
 		for _, a := range volumeAttachments {
 			if _, err := a.Info(); err == nil {
 				anyAttached = true
-			} else if !errors.IsNotProvisioned(err) {
+			} else if !errors.Is(err, errors.NotProvisioned) {
 				return err
 			}
 		}
@@ -1496,7 +1496,7 @@ func validateFilesystemMountPoints(m *Machine, newFilesystems []filesystemAttach
 				return errors.Trace(err)
 			}
 			storageTag, err := oldFilesystem.Storage()
-			if errors.IsNotAssigned(err) {
+			if errors.Is(err, errors.NotAssigned) {
 				storageTag = names.StorageTag{}
 			} else if err != nil {
 				return errors.Trace(err)

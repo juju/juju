@@ -189,7 +189,7 @@ func (c *addUnitCommand) Init(args []string) error {
 		return err
 	}
 	if err := c.validateArgsByModelType(); err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
 		c.unknownModel = true

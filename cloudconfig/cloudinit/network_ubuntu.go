@@ -153,7 +153,7 @@ func GenerateNetplan(interfaces corenetwork.InterfaceInfos, matchHWAddr bool) (s
 	for _, info := range interfaces {
 		var iface netplan.Ethernet
 		cidr, err := info.PrimaryAddress().ValueWithMask()
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return "", errors.Trace(err)
 		}
 		if cidr != "" {
@@ -262,7 +262,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces corenetwork.InterfaceInfos) (
 		}
 
 		cidr, err := info.PrimaryAddress().ValueWithMask()
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
 		if cidr != "" {

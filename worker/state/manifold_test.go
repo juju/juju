@@ -233,11 +233,11 @@ func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
 	c.Assert(model.Refresh(), jc.ErrorIsNil)
 	c.Assert(model.Life(), gc.Equals, state.Dying)
 	c.Assert(newSt.RemoveDyingModel(), jc.ErrorIsNil)
-	c.Assert(model.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(model.Refresh(), jc.ErrorIs, errors.NotFound)
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		st, err := pool.Get(newSt.ModelUUID())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			c.Assert(err, gc.ErrorMatches, "model .* has been removed")
 			return
 		}

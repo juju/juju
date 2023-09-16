@@ -195,7 +195,7 @@ func InitializeState(
 	// reconcilable with space IDs at that point.
 	ctx := context.CallContext(st)
 	if err = space.ReloadSpaces(ctx, space.NewState(st), env); err != nil {
-		if errors.IsNotSupported(err) {
+		if errors.Is(err, errors.NotSupported) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
 			return nil, errors.Trace(err)
@@ -389,7 +389,7 @@ func ensureInitialModel(
 	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
 	ctx := context.CallContext(initialModelState)
 	if err = space.ReloadSpaces(ctx, space.NewState(initialModelState), initialModelEnv); err != nil {
-		if errors.IsNotSupported(err) {
+		if errors.Is(err, errors.NotSupported) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
 			return errors.Annotate(err, "fetching initial model spaces")

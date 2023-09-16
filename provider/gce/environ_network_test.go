@@ -147,7 +147,7 @@ func (s *environNetSuite) TestRestrictingToSubnetsWithMissing(c *gc.C) {
 
 	subnets, err := s.NetEnv.Subnets(s.CallCtx, instance.UnknownId, []corenetwork.Id{"shellac", "brunettes"})
 	c.Assert(err, gc.ErrorMatches, `subnets \["brunettes"\] not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(subnets, gc.IsNil)
 }
 
@@ -189,7 +189,7 @@ func (s *environNetSuite) TestSpecificInstanceAndRestrictedSubnetsWithMissing(c 
 
 	subnets, err := s.NetEnv.Subnets(s.CallCtx, "moana", []corenetwork.Id{"go-team", "shellac"})
 	c.Assert(err, gc.ErrorMatches, `subnets \["shellac"\] not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(subnets, gc.IsNil)
 }
 

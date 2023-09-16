@@ -148,7 +148,7 @@ func (s *credentialSuite) TestUnsuportedCredentialMigration(c *gc.C) {
 		false)
 
 	_, err := k8scloud.MigrateLegacyCredential(&cred)
-	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *credentialSuite) TestCertificateAuthMigrationMissingToken(c *gc.C) {

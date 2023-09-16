@@ -1284,7 +1284,7 @@ func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {
 				OfferURLs: []string{"fred@external/prod.hosted-mysql"},
 			}},
 	)
-	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
 func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {

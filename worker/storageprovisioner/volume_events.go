@@ -111,7 +111,7 @@ func processAliveVolumePlans(ctx *context, volumePlans []params.VolumeAttachment
 	for idx, val := range volumeAttachmentPlans {
 		volPlan, err := plans.PlanByType(val.PlanInfo.DeviceType)
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return errors.Trace(err)
 			}
 			continue
@@ -141,7 +141,7 @@ func processDyingVolumePlans(ctx *context, volumePlans []params.VolumeAttachment
 	for _, val := range volumePlans {
 		volPlan, err := plans.PlanByType(val.Result.PlanInfo.DeviceType)
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return errors.Trace(err)
 			}
 			continue

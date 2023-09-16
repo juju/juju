@@ -100,7 +100,7 @@ func volumeStorageAttachmentInfo(
 ) (*storage.StorageAttachmentInfo, error) {
 	storageTag := storageInstance.StorageTag()
 	volume, err := st.StorageInstanceVolume(storageTag)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// If the unit of the storage attachment is not
 		// assigned to a machine, there will be no volume
 		// yet. Handle this gracefully by saying that the
@@ -125,13 +125,13 @@ func volumeStorageAttachmentInfo(
 	blockDeviceInfo := state.BlockDeviceInfo{}
 	volumeAttachmentPlan, err := st.VolumeAttachmentPlan(hostTag, volume.VolumeTag())
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Annotate(err, "getting attachment plans")
 		}
 	} else {
 		blockDeviceInfo, err = volumeAttachmentPlan.BlockDeviceInfo()
 		if err != nil {
-			if !errors.IsNotFound(err) {
+			if !errors.Is(err, errors.NotFound) {
 				return nil, errors.Annotate(err, "getting block device info")
 			}
 		}
@@ -179,7 +179,7 @@ func filesystemStorageAttachmentInfo(
 ) (*storage.StorageAttachmentInfo, error) {
 	storageTag := storageInstance.StorageTag()
 	filesystem, err := st.StorageInstanceFilesystem(storageTag)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// If the unit of the storage attachment is not
 		// assigned to a machine, there will be no filesystem
 		// yet. Handle this gracefully by saying that the
@@ -254,7 +254,7 @@ func MaybeAssignedStorageInstance(
 	tag, err := getTag()
 	if err == nil {
 		return getStorageInstance(tag)
-	} else if errors.IsNotAssigned(err) {
+	} else if errors.Is(err, errors.NotAssigned) {
 		return nil, nil
 	}
 	return nil, errors.Trace(err)
@@ -293,7 +293,7 @@ func UnitStorage(st StorageAccess, unit names.UnitTag) ([]state.StorageInstance,
 	instances := make([]state.StorageInstance, 0, len(attachments))
 	for _, attachment := range attachments {
 		instance, err := st.StorageInstance(attachment.StorageInstance())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -319,7 +319,7 @@ func ClassifyDetachedStorage(
 				return nil, nil, errors.NotImplementedf("FilesystemStorage instance")
 			}
 			f, err := stFile.StorageInstanceFilesystem(storage.StorageTag())
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				continue
 			} else if err != nil {
 				return nil, nil, err
@@ -330,7 +330,7 @@ func ClassifyDetachedStorage(
 				return nil, nil, errors.NotImplementedf("BlockStorage instance")
 			}
 			v, err := stVolume.StorageInstanceVolume(storage.StorageTag())
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				continue
 			} else if err != nil {
 				return nil, nil, err

@@ -41,7 +41,7 @@ func (s layeredStorage) Open(v string) (Metadata, io.ReadCloser, error) {
 	var err error
 	for _, s := range s {
 		m, rc, err = s.Open(v)
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			break
 		}
 	}
@@ -58,7 +58,7 @@ func (s layeredStorage) Metadata(v string) (Metadata, error) {
 	var err error
 	for _, s := range s {
 		m, err = s.Metadata(v)
-		if !errors.IsNotFound(err) {
+		if !errors.Is(err, errors.NotFound) {
 			break
 		}
 	}

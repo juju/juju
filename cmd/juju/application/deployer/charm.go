@@ -164,7 +164,7 @@ func (d *deployCharm) deploy(
 		return nil
 	}
 
-	if errors.IsAlreadyExists(err) {
+	if errors.Is(err, errors.AlreadyExists) {
 		// Would be nice to be able to access the app name here
 		return errors.Wrapf(err, errors.Errorf(`
 deploy application using an alias name:

@@ -74,7 +74,7 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = s.Controller.Import(out, ctrlCfg)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *MigrationImportSuite) importModel(
@@ -2197,7 +2197,7 @@ func (s *MigrationImportSuite) TestVolumes(c *gc.C) {
 	c.Check(attInfo, jc.DeepEquals, volAttachmentInfo)
 
 	_, err = newSb.VolumeAttachmentPlan(machineTag, volTag)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	volTag = names.NewVolumeTag("0/1")
 	volume, err = newSb.Volume(volTag)

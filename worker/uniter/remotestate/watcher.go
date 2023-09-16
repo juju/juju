@@ -364,7 +364,7 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) (err error) {
 		providerID := w.unit.ProviderID()
 		if providerID != "" {
 			running, err := w.containerRunningStatusFunc(providerID)
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil && !errors.Is(err, errors.NotFound) {
 				return errors.Trace(err)
 			}
 			if running != nil {
@@ -641,7 +641,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				}
 			}
 			runningStatus, err := w.containerRunningStatusFunc(w.current.ProviderID)
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil && !errors.Is(err, errors.NotFound) {
 				return errors.Annotatef(err, "getting container running status for %q", unitTag.String())
 			}
 			if runningStatus != nil {
@@ -846,7 +846,7 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 	defer w.mu.Unlock()
 
 	status, target, err := w.upgradeSeriesStatus()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// There is no remote state so no upgrade is started.
 		w.logger.Debugf("no upgrade series in progress, reinitializing local upgrade series state")
 		w.current.UpgradeMachineStatus = model.UpgradeSeriesNotStarted

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -95,7 +94,7 @@ func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError 
 			c.Check(w.Stop(), jc.ErrorIsNil)
 		} else {
 			err := w.Stop()
-			c.Check(errors.Is(err, watcherError), jc.IsTrue,
+			c.Check(err, jc.ErrorIs, watcherError,
 				gc.Commentf("%s should match error %s", err.Error(), watcherError.Error()))
 		}
 		session.Close()

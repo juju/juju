@@ -51,7 +51,7 @@ func (s *CleanupSuite) SetUpTest(c *gc.C) {
 func (s *CleanupSuite) TestCleanupDyingApplicationNoUnits(c *gc.C) {
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(mysql.Destroy(), jc.ErrorIsNil)
-	c.Assert(mysql.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(mysql.Refresh(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
@@ -82,9 +82,9 @@ func (s *CleanupSuite) TestCleanupDyingApplicationUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units[0].Life(), gc.Equals, state.Dying)
 	err = units[1].Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = units[2].Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Run a final cleanup to clear the cleanup scheduled for the unit that
 	// became dying.
@@ -110,7 +110,7 @@ func (s *CleanupSuite) TestCleanupDyingApplicationCharm(c *gc.C) {
 	// Run the cleanup, and check that the charm is removed.
 	s.assertCleanupRuns(c)
 	_, _, err = stor.Get(storagePath)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CleanupSuite) TestCleanupRemoteApplication(c *gc.C) {
@@ -126,7 +126,7 @@ func (s *CleanupSuite) TestCleanupRemoteApplication(c *gc.C) {
 	// Removed immediately since there are no relations yet.
 	s.assertDoesNotNeedCleanup(c)
 	_, err = s.State.RemoteApplication("remote-app")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CleanupSuite) TestCleanupRemoteApplicationWithRelations(c *gc.C) {
@@ -161,7 +161,7 @@ func (s *CleanupSuite) TestCleanupRemoteApplicationWithRelations(c *gc.C) {
 	// Run the cleanup, and check that the remote app is removed.
 	s.assertCleanupRuns(c)
 	_, err = s.State.RemoteApplication("mysql")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CleanupSuite) TestCleanupControllerModels(c *gc.C) {
@@ -251,8 +251,8 @@ func (s *CleanupSuite) testCleanupModelMachines(c *gc.C, force bool) {
 		assertNotJoined(c, pr.ru0)
 		// ...and the machine has been removed (since model destroy does a
 		// force-destroy on the machine).
-		c.Assert(modelMachine.Refresh(), jc.Satisfies, errors.IsNotFound)
-		c.Assert(container.Refresh(), jc.Satisfies, errors.IsNotFound)
+		c.Assert(modelMachine.Refresh(), jc.ErrorIs, errors.NotFound)
+		c.Assert(container.Refresh(), jc.ErrorIs, errors.NotFound)
 	} else {
 		// Without force, in this test, the machines are not marked Dead,
 		// as no call is made to EnsureDead here, but from the machiner.
@@ -301,7 +301,7 @@ func (s *CleanupSuite) TestCleanupModelApplications(c *gc.C) {
 	s.assertCleanupCount(c, 3)
 	for _, unit := range units {
 		err = unit.Refresh()
-		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		c.Assert(err, jc.ErrorIs, errors.NotFound)
 	}
 
 	// Now we should have all the cleanups done
@@ -390,7 +390,7 @@ func (s *CleanupSuite) TestCleanupModelOffers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allOffers, gc.HasLen, 0)
 	_, err = s.State.RemoteApplication("remote-wordpress")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
@@ -451,7 +451,7 @@ func (s *CleanupSuite) TestCleanupModelBranches(c *gc.C) {
 	s.assertCleanupCount(c, 0)
 
 	_, err = s.Model.Branch(newBranchName)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	branches, err = s.State.Branches()
 	c.Assert(err, jc.ErrorIsNil)
@@ -664,7 +664,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c 
 	// have been removed; the storage instance should be floating,
 	// and will be removed along with the machine.
 	_, err = s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	si, err := s.storageBackend.StorageInstance(storageTag)
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasOwner := si.Owner()
@@ -713,7 +713,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	// Clean up, and check that the container has been removed...
 	s.assertCleanupCountDirty(c, 2)
 	err = container.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// ...and so have all the units...
 	assertRemoved(c, prr.pu0)
@@ -757,7 +757,7 @@ func (s *CleanupSuite) TestForceDestroyMachineSchedulesRemove(c *gc.C) {
 	s.Clock.Advance(time.Minute)
 	s.assertCleanupCount(c, 1)
 	err = machine.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
@@ -792,8 +792,8 @@ func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
 	s.assertNeedsCleanup(c)
 	s.assertCleanupCount(c, 3)
 
-	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
-	c.Assert(app.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(unit.Refresh(), jc.ErrorIs, errors.NotFound)
+	c.Assert(app.Refresh(), jc.ErrorIs, errors.NotFound)
 
 	c.Assert(unitfoo.Refresh(), jc.ErrorIsNil)
 	c.Assert(appfoo.Refresh(), jc.ErrorIsNil)
@@ -831,7 +831,7 @@ func (s *CleanupSuite) TestForceDestroyMachineRemovesUpgradeSeriesLock(c *gc.C) 
 	s.Clock.Advance(time.Minute)
 	s.assertCleanupCount(c, 1)
 	err = machine.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CleanupSuite) TestDestroyMachineAssertsNoUpgradeSeriesLock(c *gc.C) {
@@ -1002,7 +1002,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 0)
 
 	// Application has been cleaned up, but now we cleanup the charm
-	c.Assert(dummy.Refresh(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(dummy.Refresh(), jc.ErrorIs, errors.NotFound)
 	s.assertCleanupRuns(c)
 
 	// check no cleanups
@@ -1072,7 +1072,7 @@ func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {
 	// After running the cleanup, the attachment should be removed
 	// (short-circuited, because volume was never attached).
 	_, err = s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
@@ -1111,7 +1111,7 @@ func (s *CleanupSuite) TestCleanupStorageInstances(c *gc.C) {
 	// After running the cleanup, the attachment should be removed
 	// (short-circuited, because volume was never attached).
 	_, err = s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// check no cleanups
 	s.assertDoesNotNeedCleanup(c)
@@ -1361,7 +1361,7 @@ func (s *CleanupSuite) TestCleanupResourceBlob(c *gc.C) {
 	s.assertCleanupRuns(c)
 
 	_, _, err = stateStorage.Get(path)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *CleanupSuite) TestCleanupResourceBlobHandlesMissing(c *gc.C) {
@@ -1611,7 +1611,7 @@ func (s *CleanupSuite) TestForceDestroyUnitRemovesStorageAttachments(c *gc.C) {
 	// After running the cleanup, the attachment should still be
 	// around because volume was attached.
 	_, err = s.storageBackend.StorageAttachment(storageTag, u.UnitTag())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// forceRemoveUnit
 	s.assertCleanupRuns(c)
@@ -1705,7 +1705,7 @@ func (s *CleanupSuite) TestForceDestroyRelationIncorrectUnitCount(c *gc.C) {
 	// dyingRelation schedules cleanupForceDestroyedRelation
 	s.assertCleanupRuns(c)
 	err = rel.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	s.assertCleanupCount(c, 0)
 }
@@ -1768,7 +1768,7 @@ func assertLifeIs(c *gc.C, thing lifeChecker, expected state.Life) {
 
 func assertUnitRemoved(c *gc.C, thing lifeChecker) {
 	err := thing.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func assertUnitInScope(c *gc.C, unit *state.Unit, rel *state.Relation, expected bool) {

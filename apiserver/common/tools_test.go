@@ -457,7 +457,7 @@ func (s *findToolsSuite) TestFindToolsNotFound(c *gc.C) {
 		nil, s.toolsStorageGetter, nil, s.newEnviron,
 	)
 	_, err := toolsFinder.FindAgents(context.Background(), common.FindAgentsParams{})
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *findToolsSuite) TestFindToolsExactInStorage(c *gc.C) {

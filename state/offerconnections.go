@@ -232,7 +232,7 @@ func (st *State) RemoteConnectionStatus(offerUUID string) (*RemoteConnectionStat
 			//
 			// Note: apiserver/facades/client/client/status.go#fetchOffers also
 			// performs the same check.
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				logger.Errorf("KeyRelation from offer connection (%s) not found, unable to locate relation key %q.", conn.String(), key)
 				continue
 			}

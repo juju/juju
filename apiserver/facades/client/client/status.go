@@ -871,7 +871,7 @@ func fetchAllApplicationsAndUnits(st Backend, model *state.Model, spaceInfos net
 
 	for baseURL := range latestCharms {
 		ch, err := st.LatestPlaceholderCharm(&baseURL)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		if err != nil {
@@ -932,7 +932,7 @@ func fetchOffers(st Backend, applications map[string]*state.Application) (map[st
 		}
 		offerInfo.charmURL = *curl
 		rc, err := st.RemoteConnectionStatus(offer.OfferUUID)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			offerInfo.err = err
 			continue
 		} else if err == nil {
@@ -969,7 +969,7 @@ func fetchRelations(st Backend) (map[string][]*state.Relation, map[int]*state.Re
 					isRemote = true
 					break
 				}
-			} else if !errors.IsNotFound(err) {
+			} else if !errors.Is(err, errors.NotFound) {
 				return nil, nil, err
 			}
 		}

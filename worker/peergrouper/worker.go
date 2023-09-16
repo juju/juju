@@ -464,7 +464,7 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 	for _, id := range controllerIds {
 		controllerNode, err := w.config.State.ControllerNode(id)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				// If the controller isn't found, it must have been
 				// removed and will soon enough be removed
 				// from the controller list. This will probably
@@ -476,7 +476,7 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 		}
 		controllerHost, err := w.config.State.ControllerHost(id)
 		if err != nil {
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				// If the controller isn't found, it must have been
 				// removed and will soon enough be removed
 				// from the controller list. This will probably
@@ -644,7 +644,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	// Figure out if we are running on the mongo primary.
 	controllerId := w.config.ControllerId()
 	isPrimary, err := info.isPrimary(controllerId)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Annotatef(err, "determining primary status of controller %q", controllerId)
 	}
 	logger.Debugf("controller node %q primary: %v", controllerId, isPrimary)

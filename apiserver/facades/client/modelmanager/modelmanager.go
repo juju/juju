@@ -215,7 +215,7 @@ func (m *ModelManagerAPI) newModelConfig(
 
 func (m *ModelManagerAPI) checkAddModelPermission(cloud string, userTag names.UserTag) (bool, error) {
 	perm, err := m.ctlrState.GetCloudAccess(cloud, userTag)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return false, errors.Trace(err)
 	}
 	if !perm.EqualOrGreaterCloudAccessThan(permission.AddModelAccess) {
@@ -278,7 +278,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 
 	cloud, err := m.cloudService.Get(ctx, cloudTag.Id())
 	if err != nil {
-		if errors.IsNotFound(err) && args.CloudTag != "" {
+		if errors.Is(err, errors.NotFound) && args.CloudTag != "" {
 			// A cloud was specified, and it was not found.
 			// Annotate the error with the supported clouds.
 			clouds, err := m.cloudService.ListAll(ctx)
@@ -405,7 +405,7 @@ func (m *ModelManagerAPI) newCAASModel(
 
 	defer func() {
 		// Retain the error stack but with a better message.
-		if errors.IsAlreadyExists(err) {
+		if errors.Is(err, errors.AlreadyExists) {
 			err = errors.Wrap(err, errors.NewAlreadyExists(nil,
 				`
 the model cannot be created because a namespace with the proposed
@@ -515,7 +515,7 @@ func (m *ModelManagerAPI) newModel(
 	defer st.Close()
 
 	if err = model.AutoConfigureContainerNetworking(env); err != nil {
-		if errors.IsNotSupported(err) {
+		if errors.Is(err, errors.NotSupported) {
 			logger.Debugf("Not performing container networking autoconfiguration on a non-networking environment")
 		} else {
 			return nil, errors.Annotate(err, "Failed to perform container networking autoconfiguration")
@@ -525,7 +525,7 @@ func (m *ModelManagerAPI) newModel(
 	if err = space.ReloadSpaces(m.callContext, spaceStateShim{
 		ModelManagerBackend: st,
 	}, env); err != nil {
-		if errors.IsNotSupported(err) {
+		if errors.Is(err, errors.NotSupported) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
 			return nil, errors.Annotate(err, "Failed to perform spaces discovery")
@@ -548,7 +548,7 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, sim
 
 	_, release, err := m.state.GetBackend(modelTag.Id())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(apiservererrors.ErrBadId)
 		}
 		return nil, errors.Trace(err)
@@ -594,7 +594,7 @@ func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{
 	st := m.state
 	if st.ModelTag() != modelTag {
 		newSt, release, err := m.state.GetBackend(modelTag.Id())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(apiservererrors.ErrBadId)
 		} else if err != nil {
 			return nil, errors.Trace(err)
@@ -924,7 +924,7 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 
 func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, withSecrets bool) (params.ModelInfo, error) {
 	st, release, err := m.state.GetBackend(tag.Id())
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
 	} else if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
@@ -932,7 +932,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 	defer release()
 
 	model, err := st.Model()
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
 	} else if err != nil {
 		return params.ModelInfo{}, errors.Trace(err)
@@ -972,7 +972,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		if thisErr == nil {
 			return false
 		}
-		return !ignoreNotFoundError || !errors.IsNotFound(thisErr)
+		return !ignoreNotFoundError || !errors.Is(thisErr, errors.NotFound)
 	}
 	cfg, err := model.Config()
 	if shouldErr(err) {
@@ -1055,7 +1055,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 	}
 
 	migration, err := st.LatestMigration()
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return params.ModelInfo{}, errors.Trace(err)
 	}
 	if err == nil {
@@ -1158,7 +1158,7 @@ func userAuthorizedToChangeAccess(st common.ModelManagerBackend, userIsAdmin boo
 	// permission to grant or revoke permissions on the model.
 	currentUser, err := st.UserAccess(userTag, st.ModelTag())
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// No, this user doesn't have permission.
 			return apiservererrors.ErrPerm
 		}
@@ -1191,9 +1191,9 @@ func changeModelAccess(accessor common.ModelManagerBackend, modelTag names.Model
 	switch action {
 	case params.GrantModelAccess:
 		_, err = model.AddUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: apiUser, Access: access})
-		if errors.IsAlreadyExists(err) {
+		if errors.Is(err, errors.AlreadyExists) {
 			modelUser, err := st.UserAccess(targetUserTag, modelTag)
-			if errors.IsNotFound(err) {
+			if errors.Is(err, errors.NotFound) {
 				// Conflicts with prior check, must be inconsistent state.
 				err = jujutxn.ErrExcessiveContention
 			}

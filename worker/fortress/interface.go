@@ -40,10 +40,10 @@ type Visit func() error
 type Abort <-chan struct{}
 
 // ErrAborted is used to confirm clean termination of a blocking operation.
-var ErrAborted = errors.New("fortress operation aborted")
+var ErrAborted = errors.ConstError("fortress operation aborted")
 
 // ErrShutdown is used to report that the fortress worker is shutting down.
-var ErrShutdown = errors.New("fortress worker shutting down")
+var ErrShutdown = errors.ConstError("fortress worker shutting down")
 
 // IsFortressError returns true if the error provided is fortress related.
 func IsFortressError(err error) bool {

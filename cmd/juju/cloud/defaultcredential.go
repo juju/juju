@@ -107,7 +107,7 @@ func (c *setDefaultCredentialCommand) Run(ctxt *cmd.Context) error {
 		return err
 	}
 	cred, err := c.store.CredentialForCloud(c.cloud)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		cred = &jujucloud.CloudCredential{}
 	} else if err != nil {
 		return err

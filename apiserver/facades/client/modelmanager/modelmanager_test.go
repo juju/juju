@@ -533,7 +533,7 @@ func (s *modelManagerSuite) TestCreateCAASModelNamespaceClash(c *gc.C) {
 	}
 	_, err := s.caasApi.CreateModel(stdcontext.Background(), args)
 	s.caasBroker.CheckCallNames(c, "Create")
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {
@@ -1382,7 +1382,7 @@ func (s *modelManagerStateSuite) TestRevokeReadRemovesModelUser(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = s.ControllerModel(c).State().UserAccess(user.UserTag, user.Object)
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *modelManagerStateSuite) TestRevokeModelMissingUser(c *gc.C) {
@@ -1401,7 +1401,7 @@ func (s *modelManagerStateSuite) TestRevokeModelMissingUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `could not revoke model access: model user "bob" does not exist`)
 
 	_, err = st.UserAccess(user, m.ModelTag())
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *modelManagerStateSuite) TestGrantOnlyGreaterAccess(c *gc.C) {

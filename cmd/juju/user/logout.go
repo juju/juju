@@ -91,7 +91,7 @@ func (c *logoutCommand) Run(ctx *cmd.Context) error {
 			continue
 		}
 		_, err := store.AccountDetails(name)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			continue
 		} else if err != nil {
 			return errors.Trace(err)
@@ -111,7 +111,7 @@ func (c *logoutCommand) Run(ctx *cmd.Context) error {
 
 func (c *logoutCommand) logout(store jujuclient.ClientStore, controllerName string) error {
 	accountDetails, err := store.AccountDetails(controllerName)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		// Not logged in; nothing else to do.
 		return nil
 	} else if err != nil {

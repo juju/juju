@@ -68,7 +68,7 @@ func (s *MachineManifoldSuite) TestMissingClock(c *gc.C) {
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Clock not valid")
 	c.Assert(s.newCalled, jc.IsFalse)
 }
@@ -79,7 +79,7 @@ func (s *MachineManifoldSuite) TestMissingLogger(c *gc.C) {
 		storageprovisioner.MachineManifold(s.config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
 		&fakeAPIConn{})
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(err.Error(), gc.Equals, "missing Logger not valid")
 	c.Assert(s.newCalled, jc.IsFalse)
 }

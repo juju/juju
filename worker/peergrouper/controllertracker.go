@@ -190,7 +190,7 @@ func (c *controllerTracker) hasHostChanged() (bool, error) {
 	defer c.mu.Unlock()
 
 	if err := c.host.Refresh(); err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// We want to be robust when the controller
 			// state is out of date with respect to the
 			// controller info, so if the controller
@@ -214,7 +214,7 @@ func (c *controllerTracker) hasNodeChanged() (bool, error) {
 	defer c.mu.Unlock()
 
 	if err := c.node.Refresh(); err != nil {
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// We want to be robust when the node
 			// state is out of date with respect to the
 			// controller info, so if the node

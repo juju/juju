@@ -38,7 +38,7 @@ const (
 
 // ErrNeverForwarded signals to the caller that the ID of a
 // previously forwarded log record could not be found.
-var ErrNeverForwarded = errors.Errorf("cannot find ID of the last forwarded record")
+var ErrNeverForwarded = errors.ConstError("cannot find ID of the last forwarded record")
 
 // MongoSessioner supports creating new mongo sessions.
 type MongoSessioner interface {

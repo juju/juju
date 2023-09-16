@@ -136,7 +136,7 @@ func isNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
-	return errors.IsNotFound(err) || params.IsCodeNotFound(err)
+	return errors.Is(err, errors.NotFound) || params.IsCodeNotFound(err)
 }
 
 func (w *remoteApplicationWorker) loop() (err error) {
@@ -664,7 +664,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 
 	if w.secretChangesWatcher == nil {
 		w.secretChangesWatcher, err = w.remoteModelFacade.WatchConsumedSecretsChanges(applicationToken, relationToken, w.offerMacaroon)
-		if err != nil && !errors.IsNotFound(err) {
+		if err != nil && !errors.Is(err, errors.NotFound) {
 			w.checkOfferPermissionDenied(err, "", "")
 			if !isNotFound(err) {
 				return errors.Annotate(err, "watching consumed secret changes")

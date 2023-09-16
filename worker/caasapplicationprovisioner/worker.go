@@ -181,16 +181,16 @@ func (p *provisioner) loop() error {
 			}
 			for _, appName := range apps {
 				_, err := p.facade.Life(appName)
-				if err != nil && !errors.IsNotFound(err) {
+				if err != nil && !errors.Is(err, errors.NotFound) {
 					return errors.Trace(err)
 				}
-				if errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					p.logger.Debugf("application %q not found, ignoring", appName)
 					continue
 				}
 
 				existingWorker, err := p.runner.Worker(appName, p.catacomb.Dying())
-				if errors.IsNotFound(err) {
+				if errors.Is(err, errors.NotFound) {
 					// Ignore.
 				} else if err == worker.ErrDead {
 					// Runner is dying so we need to stop processing.

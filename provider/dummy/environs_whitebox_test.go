@@ -25,7 +25,7 @@ func (s *environWhiteboxSuite) TestSupportsContainerAddresses(c *gc.C) {
 	// For now this is a static method so we can use a nil environ
 	var env *environ
 	supported, err := env.SupportsContainerAddresses(callCtx)
-	c.Check(err, jc.Satisfies, errors.IsNotSupported)
+	c.Check(err, jc.ErrorIs, errors.NotSupported)
 	c.Check(supported, jc.IsFalse)
 	c.Check(environs.SupportsContainerAddresses(callCtx, env), jc.IsFalse)
 }

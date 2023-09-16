@@ -57,7 +57,7 @@ func (m *Model) discoverFan(environ environs.BootstrapEnviron, modelConfig *conf
 		return false, nil
 	}
 	subnets, err := netEnviron.SuperSubnets(context.CallContext(m.st))
-	if errors.IsNotSupported(err) || (err == nil && len(subnets) == 0) {
+	if errors.Is(err, errors.NotSupported) || (err == nil && len(subnets) == 0) {
 		logger.Debugf("Not trying to autoconfigure FAN - SuperSubnets not supported or empty")
 		return false, nil
 	}

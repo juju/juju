@@ -58,7 +58,7 @@ func (step commonDeploymentUpgradeStep) Run(ctx context.ProviderCallContext) err
 		return errors.Trace(err)
 	}
 	allRules, err := existingSecurityRules(ctx, securityGroups, env.resourceGroup)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		allRules = nil
 	} else if err != nil {
 		return errors.Trace(err)

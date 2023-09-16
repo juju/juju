@@ -104,7 +104,7 @@ func (s *linkLayerDevicesInternalSuite) TestParseLinkLayerParentNameAsGlobalKey(
 		gotMachineID, gotParentName, gotError := parseLinkLayerDeviceParentNameAsGlobalKey(test.input)
 		if test.expectedError != "" {
 			c.Check(gotError, gc.ErrorMatches, test.expectedError)
-			c.Check(gotError, jc.Satisfies, errors.IsNotValid)
+			c.Check(gotError, jc.ErrorIs, errors.NotValid)
 		} else {
 			c.Check(gotError, jc.ErrorIsNil)
 		}

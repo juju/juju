@@ -519,7 +519,7 @@ func (c *addModelCommand) findUnspecifiedCredential(ctx *cmd.Context, cloudClien
 		// there is a local version that has an associated
 		// region.
 		credential, _, cloudRegion, err := c.findLocalCredential(ctx, p, credentialTag.Name())
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			// No local credential; use the region
 			// specified by the user, if any.
 			cloudRegion = p.cloudRegion
@@ -552,7 +552,7 @@ func (c *addModelCommand) findSpecifiedCredential(ctx *cmd.Context, cloudClient 
 	}
 	// Look for a local credential with the specified name
 	credential, credentialName, cloudRegion, err := c.findLocalCredential(ctx, p, c.CredentialName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return fail(errors.Trace(err))
 	}
 	if credential != nil {

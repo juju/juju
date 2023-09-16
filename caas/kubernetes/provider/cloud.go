@@ -213,7 +213,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 
 func checkDefaultStorageExist(broker ClusterMetadataStorageChecker) error {
 	storageClasses, err := broker.ListStorageClasses(k8slabels.NewSelector())
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotate(err, "cannot list storage classes")
 	}
 	for _, sc := range storageClasses {
@@ -226,7 +226,7 @@ func checkDefaultStorageExist(broker ClusterMetadataStorageChecker) error {
 
 func checkDNSAddonEnabled(broker ClusterMetadataStorageChecker) error {
 	pods, err := broker.ListPods("kube-system", k8sutils.LabelsToSelector(map[string]string{"k8s-app": "kube-dns"}))
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotate(err, "cannot list kube-dns pods")
 	}
 	if len(pods) > 0 {
@@ -237,7 +237,7 @@ func checkDNSAddonEnabled(broker ClusterMetadataStorageChecker) error {
 
 func ensureMicroK8sSuitable(broker ClusterMetadataStorageChecker) error {
 	err := checkDefaultStorageExist(broker)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return errors.New("required storage addon is not enabled")
 	}
 	if err != nil {
@@ -245,7 +245,7 @@ func ensureMicroK8sSuitable(broker ClusterMetadataStorageChecker) error {
 	}
 
 	err = checkDNSAddonEnabled(broker)
-	if errors.IsNotFound(err) {
+	if errors.Is(err, errors.NotFound) {
 		return errors.New("required dns addon is not enabled")
 	}
 	return errors.Trace(err)

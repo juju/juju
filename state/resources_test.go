@@ -174,7 +174,7 @@ func (s *ResourcesSuite) TestGetResource(c *gc.C) {
 
 	res := s.State.Resources()
 	_, err := res.GetResource("wordpress", "store-resource")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	data := "spamspamspam"
 	spam := newResource(c, "store-resource", data)
@@ -277,7 +277,7 @@ func (s *ResourcesSuite) TestUnitResource(c *gc.C) {
 	data := "spamspamspam"
 	spam := newResource(c, "store-resource", data)
 	_, err := res.SetUnitResource("wordpress/0", spam.Username, spam.Resource)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	file := bytes.NewBufferString(data)
 	_, err = res.SetResource("wordpress", spam.Username, spam.Resource, file, state.IncrementCharmModifiedVersion)
@@ -310,7 +310,7 @@ func (s *ResourcesSuite) TestOpenResource(c *gc.C) {
 	res := s.State.Resources()
 
 	_, _, err = res.OpenResource("starsay", "install-resource")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	spam := newResourceFromCharm(s.ch, "install-resource")
 	data := "spamspamspam"

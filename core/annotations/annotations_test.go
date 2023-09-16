@@ -137,12 +137,12 @@ func (s *annotationsSuite) TestExistAllExistAnyMergeToMap(c *gc.C) {
 }
 
 func (s *annotationsSuite) TestCheckKeysNonEmpty(c *gc.C) {
-	c.Assert(s.annotations.CheckKeysNonEmpty("key1"), jc.Satisfies, errors.IsNotFound)
+	c.Assert(s.annotations.CheckKeysNonEmpty("key1"), jc.ErrorIs, errors.NotFound)
 
 	s.annotations.Add("key1", "")
-	c.Assert(s.annotations.CheckKeysNonEmpty("key1"), jc.Satisfies, errors.IsNotValid)
+	c.Assert(s.annotations.CheckKeysNonEmpty("key1"), jc.ErrorIs, errors.NotValid)
 
 	s.annotations.Add("key2", "val2")
 	c.Assert(s.annotations.CheckKeysNonEmpty("key2"), jc.ErrorIsNil)
-	c.Assert(s.annotations.CheckKeysNonEmpty("key1", "key2"), jc.Satisfies, errors.IsNotValid)
+	c.Assert(s.annotations.CheckKeysNonEmpty("key1", "key2"), jc.ErrorIs, errors.NotValid)
 }

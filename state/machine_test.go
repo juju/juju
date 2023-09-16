@@ -67,7 +67,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.machine, err = s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.ControllerNode(s.machine.Id())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *MachineSuite) TestSetRebootFlagDeadMachine(c *gc.C) {
@@ -399,11 +399,11 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Destroy()
-	c.Assert(errors.Is(err, stateerrors.HasContainersError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.HasContainersError)
 	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
 
 	err = s.machine.EnsureDead()
-	c.Assert(errors.Is(err, stateerrors.HasContainersError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.HasContainersError)
 	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
 
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
@@ -429,11 +429,11 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.machine.Destroy()
-	c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.HasAssignedUnitsError)
 	c.Assert(err, gc.ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
 
 	err = s.machine.EnsureDead()
-	c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.HasAssignedUnitsError)
 	c.Assert(err, gc.ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
 
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
@@ -526,7 +526,7 @@ func (s *MachineSuite) TestDestroyCancel(c *gc.C) {
 		c.Assert(unit.AssignToMachine(s.machine), gc.IsNil)
 	}).Check()
 	err = s.machine.Destroy()
-	c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.HasAssignedUnitsError)
 }
 
 func (s *MachineSuite) TestDestroyContention(c *gc.C) {
@@ -580,7 +580,7 @@ func (s *MachineSuite) TestDestroyFailsWhenNewUnitAdded(c *gc.C) {
 	}).Check()
 
 	err = s.machine.Destroy()
-	c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.HasAssignedUnitsError)
 	life := s.machine.Life()
 	c.Assert(life, gc.Equals, state.Alive)
 }
@@ -620,7 +620,7 @@ func (s *MachineSuite) TestDestroyFailsWhenNewContainerAdded(c *gc.C) {
 	}).Check()
 
 	err = s.machine.Destroy()
-	c.Assert(errors.Is(err, stateerrors.HasAssignedUnitsError), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, stateerrors.HasAssignedUnitsError)
 	life := s.machine.Life()
 	c.Assert(life, gc.Equals, state.Alive)
 }
@@ -646,16 +646,16 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.machine.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = s.machine.HardwareCharacteristics()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = s.machine.Containers()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	_, err = s.State.GetSSHHostKeys(s.machine.MachineTag())
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	// Removing an already removed machine is OK.
 	err = s.machine.Remove()
@@ -734,7 +734,7 @@ func testSetMongoPassword(
 	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(modelTag, controllerTag, info)
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(errors.Cause(err), jc.ErrorIs, errors.Unauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "(machine|controller)-0": unauthorized mongo access: .*`)
 
 	// Check that we can log in with the correct password.
@@ -764,7 +764,7 @@ func testSetMongoPassword(
 	// Check that we cannot log in with the old password.
 	info.Password = "foo"
 	err = tryOpenState(modelTag, controllerTag, info)
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsUnauthorized)
+	c.Check(errors.Cause(err), jc.ErrorIs, errors.Unauthorized)
 	c.Check(err, gc.ErrorMatches, `cannot log in to admin database as "(machine|controller)-0": unauthorized mongo access: .*`)
 
 	// Check that we can log in with the correct password.
@@ -796,13 +796,13 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	c.Assert(iid, gc.Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *gc.C) {
 	iid, err := s.machine.InstanceId()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	c.Assert(string(iid), gc.Equals, "")
 }
 
@@ -818,7 +818,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	c.Assert(string(iid), gc.Equals, "")
 }
 
@@ -841,7 +841,7 @@ func (s *MachineSuite) TestMachineSetProvisionedStoresAndInstanceNamesReturnsDis
 
 func (s *MachineSuite) TestMachineInstanceNamesReturnsIsNotProvisionedWhenNotProvisioned(c *gc.C) {
 	iid, iname, err := s.machine.InstanceNames()
-	c.Assert(err, jc.Satisfies, errors.IsNotProvisioned)
+	c.Assert(err, jc.ErrorIs, errors.NotProvisioned)
 	c.Assert(string(iid), gc.Equals, "")
 	c.Assert(iname, gc.Equals, "")
 }
@@ -849,7 +849,7 @@ func (s *MachineSuite) TestMachineInstanceNamesReturnsIsNotProvisionedWhenNotPro
 func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *gc.C) {
 	// Before provisioning, there is no hardware characteristics.
 	_, err := s.machine.HardwareCharacteristics()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	arch := arch.DefaultArchitecture
 	mem := uint64(4096)
 	expected := &instance.HardwareCharacteristics{
@@ -1147,7 +1147,7 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	err = m0.Remove()
 	c.Assert(err, jc.ErrorIsNil)
 	err = m0.Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *gc.C) {
@@ -2933,7 +2933,7 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("watcher not closed")
 	}
-	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
+	c.Assert(w.Err(), jc.ErrorIs, errors.NotFound)
 }
 
 func (s *MachineSuite) TestGetManualMachineArches(c *gc.C) {

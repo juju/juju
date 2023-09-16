@@ -58,7 +58,7 @@ func (environProviderCredentials) DetectCredentials(cloudName string) (*cloud.Cl
 // FinalizeCredential is part of the environs.ProviderCredentials interface.
 func (environProviderCredentials) FinalizeCredential(_ environs.FinalizeCredentialContext, args environs.FinalizeCredentialParams) (*cloud.Credential, error) {
 	cred, err := k8scloud.MigrateLegacyCredential(&args.Credential)
-	if errors.IsNotSupported(err) {
+	if errors.Is(err, errors.NotSupported) {
 		return &args.Credential, nil
 	} else if err != nil {
 		return &cred, errors.Annotatef(err, "migrating credential %s", args.Credential.Label)

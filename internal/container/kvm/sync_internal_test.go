@@ -157,7 +157,7 @@ func (syncInternalSuite) TestFetcherNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = fetcher.Fetch()
-	c.Check(errors.IsNotFound(err), jc.IsTrue)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `got 404 fetching image "not-there" not found`)
 }
 

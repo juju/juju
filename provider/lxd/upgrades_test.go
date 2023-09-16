@@ -46,5 +46,5 @@ func (s *upgradesSuite) TestReadLegacyCloudCredentialsFileNotExist(c *gc.C) {
 		return nil, os.ErrNotExist
 	}
 	_, err := lxd.ReadLegacyCloudCredentials(readFile)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

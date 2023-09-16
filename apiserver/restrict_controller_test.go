@@ -39,7 +39,7 @@ func (s *restrictControllerSuite) TestAllowed(c *gc.C) {
 func (s *restrictControllerSuite) TestNotAllowed(c *gc.C) {
 	caller, err := s.root.FindMethod("Client", clientFacadeVersion, "FullStatus")
 	c.Assert(err, gc.ErrorMatches, `facade "Client" not supported for controller API connection`)
-	c.Assert(errors.IsNotSupported(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	c.Assert(caller, gc.IsNil)
 }
 

@@ -83,7 +83,7 @@ func (s *SpacesSuite) assertSpaceNotFoundForState(c *gc.C, name string, st *stat
 func (s *SpacesSuite) assertSpaceNotFoundError(c *gc.C, err error, name string) {
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("space %q not found", name))
 
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *SpacesSuite) assertSpaceMatchesArgs(c *gc.C, space *state.Space, args addSpaceArgs) {
@@ -348,7 +348,7 @@ func (s *SpacesSuite) TestAddTwoSpacesWithSameNamesAndEmptyProviderIdsFailsInSam
 func (s *SpacesSuite) assertSpaceAlreadyExistsErrorForArgs(c *gc.C, err error, args addSpaceArgs) {
 	expectedError := fmt.Sprintf("adding space %q: space %q already exists", args.Name, args.Name)
 	c.Assert(err, gc.ErrorMatches, expectedError)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
+	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
 }
 
 func (s *SpacesSuite) TestAddTwoSpacesWithSameNamesAndProviderIdsFailsInTheSameModel(c *gc.C) {

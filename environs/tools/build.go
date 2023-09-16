@@ -348,7 +348,7 @@ func bundleTools(
 		return version.Binary{}, version.Number{}, false, "", errors.Annotate(err, "couldn't find existing jujud")
 	}
 	_, official, err = jujudVersion(existingJujuLocation)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		return version.Binary{}, version.Number{}, official, "", errors.Trace(err)
 	}
 	if official && build {
@@ -413,10 +413,10 @@ func getVersionFromJujud(dir string) (version.Binary, error) {
 func JujudVersion(dir string) (version.Binary, bool, error) {
 	tvers, err := getVersionFromFile(dir)
 	official := err == nil
-	if err != nil && !errors.IsNotFound(err) && !isNoMatchingToolsChecksum(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) && !isNoMatchingToolsChecksum(err) {
 		return version.Binary{}, false, errors.Trace(err)
 	}
-	if errors.IsNotFound(err) || isNoMatchingToolsChecksum(err) {
+	if errors.Is(err, errors.NotFound) || isNoMatchingToolsChecksum(err) {
 		// No signature file found.
 		// Extract the version number that the jujud binary was built with.
 		// This is used to check compatibility with the version of the client

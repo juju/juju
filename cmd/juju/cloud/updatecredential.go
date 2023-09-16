@@ -280,7 +280,7 @@ func (c *updateCredentialCommand) updateLocalCredentials(ctx *cmd.Context, updat
 	erred := false
 	for cloudName, cloudCredentials := range update {
 		aCloud, err := common.CloudByName(cloudName)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			ctx.Infof("Cloud %q not found.", cloudName)
 			erred = true
 			continue
@@ -291,7 +291,7 @@ func (c *updateCredentialCommand) updateLocalCredentials(ctx *cmd.Context, updat
 			continue
 		}
 		storedCredentials, err := c.Store.CredentialForCloud(cloudName)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			ctx.Warningf("Could not find credentials for cloud %v on this client.", cloudName)
 			ctx.Infof("Use `juju add-credential` to add a credential to this client.")
 			erred = true

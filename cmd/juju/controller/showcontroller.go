@@ -122,7 +122,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 	controllerNames := c.controllerNames
 	if len(controllerNames) == 0 {
 		currentController, err := modelcmd.DetermineCurrentController(c.store)
-		if errors.IsNotFound(err) {
+		if errors.Is(err, errors.NotFound) {
 			return errors.New("there is no active controller")
 		} else if err != nil {
 			return errors.Trace(err)
@@ -162,10 +162,10 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		}
 
 		ver, err := client.ControllerVersion()
-		if err != nil && !errors.IsNotSupported(err) {
+		if err != nil && !errors.Is(err, errors.NotSupported) {
 			details.Errors = append(details.Errors, err.Error())
 			agentGitCommit = "(error)"
-		} else if !errors.IsNotSupported(err) {
+		} else if !errors.Is(err, errors.NotSupported) {
 			one.AgentVersion = ver.Version
 			agentGitCommit = ver.GitCommit
 		}
@@ -193,7 +193,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			}
 			// Fetch mongoVersion if the apiserver supports it
 			mongoVersion, err = client.MongoVersion()
-			if err != nil && !errors.IsNotSupported(err) {
+			if err != nil && !errors.Is(err, errors.NotSupported) {
 				details.Errors = append(details.Errors, err.Error())
 				mongoVersion = "(error)"
 			}
@@ -201,7 +201,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 
 		// Fetch identityURL if the apiserver supports it
 		identityURL, err := client.IdentityProviderURL()
-		if err != nil && !errors.IsNotSupported(err) {
+		if err != nil && !errors.Is(err, errors.NotSupported) {
 			details.Errors = append(details.Errors, err.Error())
 			identityURL = "(error)"
 		}
@@ -223,7 +223,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		machineCount := 0
 		for _, r := range modelStatusResults {
 			if r.Error != nil {
-				if !errors.IsNotFound(r.Error) {
+				if !errors.Is(r.Error, errors.NotFound) {
 					details.Errors = append(details.Errors, r.Error.Error())
 				}
 				continue
@@ -447,7 +447,7 @@ func (c *showControllerCommand) convertControllerForShow(
 
 func (c *showControllerCommand) convertAccountsForShow(controllerName string, controller *ShowControllerDetails, access string) {
 	storeDetails, err := c.store.AccountDetails(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		controller.Errors = append(controller.Errors, err.Error())
 	}
 	if storeDetails == nil {
@@ -480,7 +480,7 @@ func (c *showControllerCommand) convertModelsForShow(
 		}
 		result := modelStatus[i]
 		if result.Error != nil {
-			if !errors.IsNotFound(result.Error) {
+			if !errors.Is(result.Error, errors.NotFound) {
 				controller.Errors = append(controller.Errors, errors.Annotatef(result.Error, "model uuid %v", m.UUID).Error())
 			}
 		} else {
@@ -504,7 +504,7 @@ func (c *showControllerCommand) convertModelsForShow(
 	}
 	var err error
 	controller.CurrentModel, err = c.store.CurrentModel(controllerName)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !errors.Is(err, errors.NotFound) {
 		controller.Errors = append(controller.Errors, err.Error())
 	}
 }

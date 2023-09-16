@@ -59,35 +59,35 @@ func (s *ManifoldSuite) TestConfigValidation(c *gc.C) {
 func (s *ManifoldSuite) TestConfigValidationMissingStateName(c *gc.C) {
 	s.config.StateName = ""
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "empty StateName not valid")
 }
 
 func (s *ManifoldSuite) TestConfigValidationMissingPrometheusRegisterer(c *gc.C) {
 	s.config.PrometheusRegisterer = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing PrometheusRegisterer not valid")
 }
 
 func (s *ManifoldSuite) TestConfigValidationMissingClock(c *gc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing Clock not valid")
 }
 
 func (s *ManifoldSuite) TestConfigValidationMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing Logger not valid")
 }
 
 func (s *ManifoldSuite) TestConfigValidationMissingNewWorker(c *gc.C) {
 	s.config.NewWorker = nil
 	err := s.config.Validate()
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "missing NewWorker func not valid")
 }
 
@@ -96,7 +96,7 @@ func (s *ManifoldSuite) TestManifoldCallsValidate(c *gc.C) {
 	s.config.Logger = nil
 	w, err := s.manifold().Start(context)
 	c.Check(w, gc.IsNil)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, `missing Logger not valid`)
 }
 

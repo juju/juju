@@ -123,7 +123,7 @@ func (s *baseSuite) TestGetManifestsSchemaVersion2NotFound(c *gc.C) {
 		`application/vnd.docker.distribution.manifest.v2+prettyjws`,
 		http.StatusNotFound,
 		func(_ *internal.ManifestsResult, err error) {
-			c.Assert(err, jc.Satisfies, errors.IsNotFound)
+			c.Assert(err, jc.ErrorIs, errors.NotFound)
 			c.Assert(err, gc.ErrorMatches, `Get "https://example.com/v2/jujuqa/jujud-operator/manifests/2.9.10": non-successful response status=404 not found`)
 		},
 	)

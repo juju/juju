@@ -127,7 +127,7 @@ func (s *manifoldSuite) TestMissingLogger(c *gc.C) {
 func (s *manifoldSuite) checkConfigInvalid(c *gc.C, config caasfirewaller.ManifoldConfig, expect string) {
 	err := config.Validate()
 	c.Check(err, gc.ErrorMatches, expect)
-	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
 
 var expectedInputs = []string{"api-caller", "broker"}

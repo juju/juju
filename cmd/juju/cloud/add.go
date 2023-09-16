@@ -506,7 +506,7 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) (*jujucloud.Cloud, e
 
 	filename, alt, err := addCertificate(b)
 	switch {
-	case errors.IsNotFound(err):
+	case errors.Is(err, errors.NotFound):
 	case err != nil:
 		return nil, errors.Annotate(err, "CA Certificate")
 	default:
@@ -753,7 +753,7 @@ func (p *CloudFileReader) ReadCloudFromFile(cloudFile string, ctxt *cmd.Context)
 		}
 	}
 	if err := p.verifyName(p.CloudName); err != nil {
-		if !errors.IsAlreadyExists(err) {
+		if !errors.Is(err, errors.AlreadyExists) {
 			return nil, errors.Trace(err)
 		}
 		p.alreadyExists = true
