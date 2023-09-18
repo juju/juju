@@ -92,7 +92,7 @@ jobs:
 
       - name: Setup k8s
         if: env.RUN_TEST == 'RUN' && matrix.model_type == 'microk8s'
-        uses: balchua/microk8s-actions@bd37d99d167cfd7499a33c97eaaa04688a1a25b6
+        uses: balchua/microk8s-actions@65ff1f88f8ecd153879a9b6955659f3144b27714
         with:
           channel: "1.28-strict/stable"
           addons: '["dns", "hostpath-storage"]'
