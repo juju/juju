@@ -23,7 +23,6 @@ var (
 	timeType = reflect.TypeOf(time.Time{})
 	ipType   = reflect.TypeOf(net.IP{})
 	urlType  = reflect.TypeOf(url.URL{})
-	objType  = reflect.TypeOf(rpcreflect.ObjType{})
 )
 
 type Type struct {

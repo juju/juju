@@ -10,20 +10,17 @@ type GrandfatherType struct {
 }
 
 type SomeBaseType struct {
-	SomeBaseProperty int `json:"some_base_property"`
-	//nolint:unused
-	somePrivateBaseProperty string          `json:"i_am_private"`
+	SomeBaseProperty        int             `json:"some_base_property"`
+	somePrivateBaseProperty string          `json:"i_am_private"` //nolint:govet
 	SomeIgnoredBaseProperty string          `json:"-"`
 	Grandfather             GrandfatherType `json:"grand"`
 
-	SomeUntaggedBaseProperty bool
-	//nolint:unused
+	SomeUntaggedBaseProperty           bool
 	someUnexportedUntaggedBaseProperty bool
 }
 
 type nonExported struct {
-	PublicNonExported int
-	//nolint:unused
+	PublicNonExported  int
 	privateNonExported int
 }
 
@@ -39,6 +36,19 @@ type TestUser struct {
 
 	TestFlag       bool
 	IgnoredCounter int `json:"-"`
+}
+
+// TestUnusedWorkaround bypasses unused variable error from the linter.
+func TestUnusedWorkaround(t *testing.T) {
+	base := SomeBaseType{
+		somePrivateBaseProperty:            "foo",
+		someUnexportedUntaggedBaseProperty: true,
+	}
+	nonExported := nonExported{
+		privateNonExported: 1,
+	}
+	_ = base
+	_ = nonExported
 }
 
 // TestSchemaGeneration checks if schema generated correctly:

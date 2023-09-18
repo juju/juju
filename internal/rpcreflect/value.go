@@ -33,11 +33,6 @@ func (e *CallNotImplementedError) Error() string {
 
 // methodCaller knows how to call a particular RPC method.
 type methodCaller struct {
-	// paramsType holds the required type of the parameter to the object method.
-	paramsType reflect.Type
-	// resultType holds the result type of the result of caling the object method.
-	resultType reflect.Type
-
 	rootValue  reflect.Value
 	rootMethod RootMethod
 	objMethod  ObjMethod
