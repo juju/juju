@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        microk8s: [1.21/stable]
+        microk8s: [1.28/stable]
 
     steps:
     - name: Checking out repo
@@ -37,11 +37,19 @@ jobs:
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+    - name: Setup Docker Mirror
+      shell: bash
+      run: |
+        (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json '.registry-mirrors += ["http://10.0.1.123:80"]' | sudo tee /etc/docker/daemon.json
+        sudo systemctl restart docker
+        docker system info
+
     - uses: balchua/microk8s-actions@1e8e626239c2befe7cd5d258c96ae152a7259c74
       with:
         channel: '${{ matrix.microk8s }}'
         # enable now to give microk8s more time to settle down.
         addons: '["dns", "storage", "dashboard", "ingress", "metallb:10.64.140.43-10.64.140.49"]'
+        launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
 
     - name: Install Dependencies
       run: |
