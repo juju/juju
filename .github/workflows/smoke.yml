@@ -33,12 +33,20 @@ jobs:
       if: matrix.cloud == 'localhost'
       uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
 
+    - name: Setup Docker Mirror
+      shell: bash
+      run: |
+        (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json '.registry-mirrors += ["http://10.0.1.123:80"]' | sudo tee /etc/docker/daemon.json
+        sudo systemctl restart docker
+        docker system info
+
     - name: Setup MicroK8s
       if: matrix.cloud == 'microk8s'
       uses: balchua/microk8s-actions@bd37d99d167cfd7499a33c97eaaa04688a1a25b6
       with:
-        channel: "1.25-strict/stable"
+        channel: "1.28-strict/stable"
         addons: '["dns", "hostpath-storage", "rbac"]'
+        launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
 
     - name: Set up Go
       uses: actions/setup-go@v4
