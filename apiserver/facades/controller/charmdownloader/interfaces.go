@@ -19,7 +19,7 @@ type StateBackend interface {
 	WatchApplicationsWithPendingCharms() state.StringsWatcher
 	ControllerConfig() (controller.Config, error)
 	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
-	PrepareCharmUpload(curl *charm.URL) (services.UploadedCharm, error)
+	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	ModelUUID() string
 	Application(string) (Application, error)
 }
@@ -40,7 +40,7 @@ type Application interface {
 
 // Charm provides an API for querying charm details.
 type Charm interface {
-	URL() *charm.URL
+	URL() string
 }
 
 // Downloader defines an API for downloading and storing charms.

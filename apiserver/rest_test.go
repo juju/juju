@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/juju/charm/v11"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -120,8 +119,7 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	})
 	apitesting.AssertResponse(c, resp, http.StatusOK, "application/json")
 
-	curl, err := charm.ParseURL(fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()))
-	c.Assert(err, jc.ErrorIsNil)
+	curl := fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision())
 	mysqlCh, err := s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{

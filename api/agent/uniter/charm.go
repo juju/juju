@@ -6,7 +6,6 @@ package uniter
 import (
 	"fmt"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/rpc/params"
@@ -18,16 +17,11 @@ import (
 // Charm represents the state of a charm in the model.
 type Charm struct {
 	st   *State
-	curl *charm.URL
-}
-
-// String returns the charm URL as a string.
-func (c *Charm) String() string {
-	return c.curl.String()
+	curl string
 }
 
 // URL returns the URL that identifies the charm.
-func (c *Charm) URL() *charm.URL {
+func (c *Charm) URL() string {
 	return c.curl
 }
 
@@ -44,7 +38,7 @@ func (c *Charm) URL() *charm.URL {
 func (c *Charm) ArchiveSha256() (string, error) {
 	var results params.StringResults
 	args := params.CharmURLs{
-		URLs: []params.CharmURL{{URL: c.curl.String()}},
+		URLs: []params.CharmURL{{URL: c.curl}},
 	}
 	err := c.st.facade.FacadeCall("CharmArchiveSha256", args, &results)
 	if err != nil {
@@ -65,7 +59,7 @@ func (c *Charm) ArchiveSha256() (string, error) {
 func (c *Charm) LXDProfileRequired() (bool, error) {
 	var results params.BoolResults
 	args := params.CharmURLs{
-		URLs: []params.CharmURL{{URL: c.curl.String()}},
+		URLs: []params.CharmURL{{URL: c.curl}},
 	}
 	err := c.st.facade.FacadeCall("LXDProfileRequired", args, &results)
 	if err != nil {

@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -114,7 +113,7 @@ type mockState struct {
 	charm                       *mockCharm
 }
 
-func (st *mockState) Charm(*charm.URL) (remotestate.Charm, error) {
+func (st *mockState) Charm(string) (remotestate.Charm, error) {
 	if st.charm != nil {
 		return st.charm, nil
 	}

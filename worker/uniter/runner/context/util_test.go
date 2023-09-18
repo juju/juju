@@ -103,9 +103,9 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	// The API is used instead of direct state access, because the API call
 	// handles synchronisation with the cache where the data must reside for
 	// config watching and retrieval to work.
-	err = s.apiUnit.SetCharmURL(sch.String())
+	err = s.apiUnit.SetCharmURL(sch.URL())
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.meteredAPIUnit.SetCharmURL(s.meteredCharm.String())
+	err = s.meteredAPIUnit.SetCharmURL(s.meteredCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.relCh = s.AddTestingCharm(c, "mysql")

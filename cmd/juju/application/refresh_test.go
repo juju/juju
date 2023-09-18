@@ -560,7 +560,7 @@ func (s *RefreshSuccessStateSuite) SetUpSuite(c *gc.C) {
 
 }
 
-func (s *RefreshSuccessStateSuite) assertUpgraded(c *gc.C, riak *state.Application, revision int, forced bool) *charm.URL {
+func (s *RefreshSuccessStateSuite) assertUpgraded(c *gc.C, riak *state.Application, revision int, forced bool) string {
 	err := riak.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err := riak.Charm()
@@ -592,7 +592,7 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.path = testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	err := runDeploy(c, s.path, "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:bionic/riak-7")
+	curl := "local:bionic/riak-7"
 	s.riak, _ = s.RepoSuite.AssertApplication(c, "riak", curl, 1, 1)
 
 	_, forced, err := s.riak.Charm()
@@ -854,7 +854,7 @@ func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	}
 
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
-		URL:      ch.String(),
+		URL:      ch.URL(),
 		Meta:     ch.Meta(),
 		Revision: ch.Revision(),
 	}
@@ -1161,7 +1161,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPath(c *gc.C) {
 	_, err = s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := s.assertUpgraded(c, s.riak, 42, false)
-	c.Assert(curl.String(), gc.Equals, "local:bionic/riak-42")
+	c.Assert(curl, gc.Equals, "local:bionic/riak-42")
 	s.assertLocalRevision(c, 42, myriakPath)
 }
 
@@ -1182,7 +1182,7 @@ func (s *RefreshSuccessStateSuite) TestSwitchToLocal(c *gc.C) {
 	_, err = s.runRefresh(c, s.cmd, "riak", "--switch", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := s.assertUpgraded(c, s.riak, 42, false)
-	c.Assert(curl.String(), gc.Equals, "local:bionic/riak-42")
+	c.Assert(curl, gc.Equals, "local:bionic/riak-42")
 	s.assertLocalRevision(c, 42, myriakPath)
 }
 
@@ -1201,7 +1201,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 	_, err := s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
 	curl := s.assertUpgraded(c, s.riak, 8, false)
-	c.Assert(curl.String(), gc.Equals, "local:bionic/riak-8")
+	c.Assert(curl, gc.Equals, "local:bionic/riak-8")
 }
 
 func (s *RefreshSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C) {

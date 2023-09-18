@@ -328,7 +328,7 @@ func (a *mockApplication) CharmModifiedVersion() int {
 
 func (a *mockApplication) CharmURL() (curl *string, force bool) {
 	a.MethodCall(a, "CharmURL")
-	cURL := a.charm.URL().String()
+	cURL := a.charm.URL()
 	return &cURL, false
 }
 
@@ -374,7 +374,7 @@ func (a *mockApplication) ProvisioningState() *state.ApplicationProvisioningStat
 type mockCharm struct {
 	meta     *charm.Meta
 	manifest *charm.Manifest
-	url      *charm.URL
+	url      string
 }
 
 func (ch *mockCharm) Meta() *charm.Meta {
@@ -385,7 +385,7 @@ func (ch *mockCharm) Manifest() *charm.Manifest {
 	return ch.manifest
 }
 
-func (ch *mockCharm) URL() *charm.URL {
+func (ch *mockCharm) URL() string {
 	return ch.url
 }
 

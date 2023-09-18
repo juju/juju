@@ -4,7 +4,6 @@
 package uniter_test
 
 import (
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -269,10 +268,10 @@ func (s *newLxdProfileSuite) expectOneLXDProfileName() {
 }
 
 func (s *newLxdProfileSuite) expectOneLXDProfileRequired() {
-	s.backend.EXPECT().Charm(charm.MustParseURL("ch:mysql-1")).Return(s.charm, nil)
+	s.backend.EXPECT().Charm("ch:mysql-1").Return(s.charm, nil)
 	s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{Config: map[string]string{"one": "two"}})
 
-	s.backend.EXPECT().Charm(charm.MustParseURL("ch:testme-3")).Return(nil, errors.NotFoundf("ch:testme-3"))
+	s.backend.EXPECT().Charm("ch:testme-3").Return(nil, errors.NotFoundf("ch:testme-3"))
 }
 
 func (s *newLxdProfileSuite) expectModel() {

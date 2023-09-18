@@ -672,11 +672,7 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				var curl *charm.URL
-				curl, err = charm.ParseURL(entity.CharmURL)
-				if err == nil {
-					err = unit.SetCharmURL(curl)
-				}
+				err = unit.SetCharmURL(entity.CharmURL)
 				// TODO(cache) - we'd wait for the model cache to receive the change.
 				// But we're not using the model cache at the moment.
 			}
@@ -826,18 +822,12 @@ func (u *UniterAPI) CharmArchiveSha256(args params.CharmURLs) (params.StringResu
 		Results: make([]params.StringResult, len(args.URLs)),
 	}
 	for i, arg := range args.URLs {
-		curl, err := charm.ParseURL(arg.URL)
-		if err != nil {
+		sch, err := u.st.Charm(arg.URL)
+		if errors.IsNotFound(err) {
 			err = apiservererrors.ErrPerm
-		} else {
-			var sch *state.Charm
-			sch, err = u.st.Charm(curl)
-			if errors.IsNotFound(err) {
-				err = apiservererrors.ErrPerm
-			}
-			if err == nil {
-				result.Results[i].Result = sch.BundleSha256()
-			}
+		}
+		if err == nil {
+			result.Results[i].Result = sch.BundleSha256()
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}

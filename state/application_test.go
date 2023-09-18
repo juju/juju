@@ -87,7 +87,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, s.charm.URL())
 	c.Assert(force, jc.IsFalse)
 	url, force := s.mysql.CharmURL()
-	c.Assert(*url, gc.DeepEquals, s.charm.String())
+	c.Assert(*url, gc.DeepEquals, s.charm.URL())
 	c.Assert(force, jc.IsFalse)
 
 	// Add a compatible charm and force it.
@@ -104,7 +104,7 @@ func (s *ApplicationSuite) TestSetCharm(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
 	url, force = s.mysql.CharmURL()
-	c.Assert(*url, gc.DeepEquals, sch.String())
+	c.Assert(*url, gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
 }
 
@@ -193,7 +193,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
 	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 
 	url, force := app.CharmURL()
-	c.Assert(*url, gc.DeepEquals, charm.String())
+	c.Assert(*url, gc.DeepEquals, charm.URL())
 	c.Assert(force, jc.IsFalse)
 
 	sch := s.AddMetaCharm(c, "lxd-profile", lxdProfileMetaBase, 2)
@@ -209,7 +209,7 @@ func (s *ApplicationSuite) TestLXDProfileSetCharm(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
 	url, force = app.CharmURL()
-	c.Assert(*url, gc.DeepEquals, sch.String())
+	c.Assert(*url, gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
 	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 }
@@ -227,7 +227,7 @@ func (s *ApplicationSuite) TestLXDProfileFailSetCharm(c *gc.C) {
 	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 
 	url, force := app.CharmURL()
-	c.Assert(*url, gc.DeepEquals, charm.String())
+	c.Assert(*url, gc.DeepEquals, charm.URL())
 	c.Assert(force, jc.IsFalse)
 
 	sch := s.AddMetaCharm(c, "lxd-profile-fail", lxdProfileMetaBase, 2)
@@ -253,7 +253,7 @@ func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
 	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 
 	url, force := app.CharmURL()
-	c.Assert(*url, gc.DeepEquals, charm.String())
+	c.Assert(*url, gc.DeepEquals, charm.URL())
 	c.Assert(force, jc.IsFalse)
 
 	sch := s.AddMetaCharm(c, "lxd-profile-fail", lxdProfileMetaBase, 2)
@@ -270,7 +270,7 @@ func (s *ApplicationSuite) TestLXDProfileFailWithForceSetCharm(c *gc.C) {
 	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
 	url, force = app.CharmURL()
-	c.Assert(*url, gc.DeepEquals, sch.String())
+	c.Assert(*url, gc.DeepEquals, sch.URL())
 	c.Assert(force, jc.IsTrue)
 	c.Assert(charm.LXDProfile(), gc.DeepEquals, ch.LXDProfile())
 }
@@ -709,7 +709,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err = app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.String(), gc.Equals, "ch:multi-series2-8")
+	c.Assert(ch.URL(), gc.Equals, "ch:multi-series2-8")
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
@@ -1999,13 +1999,13 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 }
 
 func assertNoSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm) {
-	cURL := sch.String()
+	cURL := sch.URL()
 	_, err := state.ApplicationSettingsRefCount(st, appName, &cURL)
 	c.Assert(errors.Cause(err), jc.Satisfies, errors.IsNotFound)
 }
 
 func assertSettingsRef(c *gc.C, st *state.State, appName string, sch *state.Charm, refcount int) {
-	cURL := sch.String()
+	cURL := sch.URL()
 	rc, err := state.ApplicationSettingsRefCount(st, appName, &cURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc, gc.Equals, refcount)
@@ -2066,9 +2066,7 @@ func (s *ApplicationSuite) TestSettingsRefCountWorks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	charmURL = u.CharmURL()
 	c.Assert(charmURL, gc.NotNil)
-	curl, err := charm.ParseURL(*charmURL)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(curl, gc.DeepEquals, oldCh.URL())
+	c.Assert(*charmURL, gc.Equals, oldCh.URL())
 	assertSettingsRef(c, s.State, appName, oldCh, 2)
 	assertNoSettingsRef(c, s.State, appName, newCh)
 
@@ -5655,11 +5653,9 @@ func (s *ApplicationSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmI
 		Version:     "dummy-146-g725cfd3-dirty",
 	}
 	if curlOverride != "" {
-		info.ID = charm.MustParseURL(curlOverride)
+		info.ID = curlOverride
 	} else {
-		info.ID = charm.MustParseURL(
-			fmt.Sprintf("local:quantal/%s-%d", info.Charm.Meta().Name, info.Charm.Revision()),
-		)
+		info.ID = fmt.Sprintf("local:quantal/%s-%d", info.Charm.Meta().Name, info.Charm.Revision())
 	}
 	info.Charm.Meta().Series = []string{"quantal"}
 	return info

@@ -1017,11 +1017,7 @@ func (a *Application) Charm() (*Charm, bool, error) {
 	if a.doc.CharmURL == nil {
 		return nil, false, errors.NotFoundf("charm for application %q", a.doc.Name)
 	}
-	curl, err := charm.ParseURL(*a.doc.CharmURL)
-	if err != nil {
-		return nil, false, err
-	}
-	ch, err := a.st.Charm(curl)
+	ch, err := a.st.Charm(*a.doc.CharmURL)
 	if err != nil {
 		return nil, false, err
 	}
@@ -1289,7 +1285,7 @@ func (a *Application) changeCharmOps(
 		return nil, errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 
-	cURL := ch.URL().String()
+	cURL := ch.URL()
 	// Create or replace application settings.
 	var settingsOp txn.Op
 	newSettingsKey := applicationCharmConfigKey(a.doc.Name, &cURL)
@@ -1525,7 +1521,7 @@ func (a *Application) newCharmStorageOps(
 	if err := validateStorageConstraints(sb, newStorageConstraints, ch.Meta()); err != nil {
 		return fail(errors.Annotate(err, "validating storage constraints"))
 	}
-	cURL := ch.URL().String()
+	cURL := ch.URL()
 	newStorageConstraintsKey := applicationStorageConstraintsKey(a.doc.Name, &cURL)
 	if _, err := readStorageConstraints(sb.mb, newStorageConstraintsKey); errors.IsNotFound(err) {
 		storageConstraintsOp = createStorageConstraintsOp(
@@ -1651,16 +1647,12 @@ type SetCharmConfig struct {
 // SetCharm changes the charm for the application.
 func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	defer errors.DeferredAnnotatef(
-		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm,
+		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm.URL(),
 	)
 	if cfg.Charm.Meta().Subordinate != a.doc.Subordinate {
 		return errors.Errorf("cannot change an application's subordinacy")
 	}
-	curl, err := charm.ParseURL(*a.doc.CharmURL)
-	if err != nil {
-		return errors.Annotate(err, "parsing charm url")
-	}
-	currentCharm, err := a.st.Charm(curl)
+	currentCharm, err := a.st.Charm(*a.doc.CharmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1735,7 +1727,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			}),
 		}}
 
-		if *a.doc.CharmURL == cfg.Charm.URL().String() {
+		if *a.doc.CharmURL == cfg.Charm.URL() {
 			updates := bson.D{
 				{"forcecharm", cfg.ForceUnits},
 			}
@@ -1949,7 +1941,7 @@ func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
 	return nil
 }
 
-func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, ForceBase bool) error {
+func checkSeriesForSetCharm(currentPlatform *Platform, ch *Charm, ForceBase bool) error {
 	// For old style charms written for only one series, we still retain
 	// this check. Newer charms written for multi-series have a URL
 	// with series = "".
@@ -1957,14 +1949,18 @@ func checkSeriesForSetCharm(currentPlatform *Platform, charm *Charm, ForceBase b
 	if err != nil {
 		return errors.Trace(err)
 	}
-	charmSeries, err := corecharm.ComputedSeries(charm)
+	charmSeries, err := corecharm.ComputedSeries(ch)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if charm.URL().Series != "" {
+	curl, err := charm.ParseURL(ch.URL())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if curl.Series != "" {
 		// Allow series change when switching to charmhub charms.
 		// Account for legacy charms with "kubernetes" series in the URL.
-		if charm.URL().Schema != "ch" && charm.URL().Series != corebase.Kubernetes.String() && charm.URL().Series != curSeries {
+		if curl.Schema != "ch" && curl.Series != corebase.Kubernetes.String() && curl.Series != curSeries {
 			return errors.Errorf("cannot change an application's series")
 		}
 	} else if !ForceBase {
@@ -3240,11 +3236,7 @@ func charmSettingsWithDefaults(st *State, cURL *string, appName, branchName stri
 		return nil, errors.Trace(err)
 	}
 
-	charmURL, err := charm.ParseURL(*cURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ch, err := st.Charm(charmURL)
+	ch, err := st.Charm(*cURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

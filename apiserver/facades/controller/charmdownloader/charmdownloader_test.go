@@ -87,7 +87,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeploy(c *gc.C) {
 	}
 
 	pendingCharm := mocks.NewMockCharm(ctrl)
-	pendingCharm.EXPECT().URL().Return(charmURL)
+	pendingCharm.EXPECT().URL().Return(charmURL.String())
 
 	app := mocks.NewMockApplication(ctrl)
 	app.EXPECT().CharmPendingToBeDownloaded().Return(true)
@@ -127,7 +127,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeployMultiAppOneCha
 	}
 
 	pendingCharm := mocks.NewMockCharm(ctrl)
-	pendingCharm.EXPECT().URL().Return(charmURL).AnyTimes()
+	pendingCharm.EXPECT().URL().Return(charmURL.String()).AnyTimes()
 
 	appOne := mocks.NewMockApplication(ctrl)
 	appOne.EXPECT().CharmPendingToBeDownloaded().Return(true)
@@ -178,7 +178,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsRefresh(c *gc.C) {
 	}
 
 	pendingCharm := mocks.NewMockCharm(ctrl)
-	pendingCharm.EXPECT().URL().Return(charmURL)
+	pendingCharm.EXPECT().URL().Return(charmURL.String())
 
 	app := mocks.NewMockApplication(ctrl)
 	app.EXPECT().CharmPendingToBeDownloaded().Return(true)
@@ -217,7 +217,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 	}
 
 	pendingCharm := mocks.NewMockCharm(ctrl)
-	pendingCharm.EXPECT().URL().Return(charmURL)
+	pendingCharm.EXPECT().URL().Return(charmURL.String())
 
 	app := mocks.NewMockApplication(ctrl)
 	app.EXPECT().CharmPendingToBeDownloaded().Return(true)

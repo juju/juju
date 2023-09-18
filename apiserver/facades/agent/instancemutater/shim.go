@@ -4,7 +4,6 @@
 package instancemutater
 
 import (
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/lxdprofile"
@@ -45,7 +44,7 @@ func (s *instanceMutaterStateShim) Unit(unitName string) (Unit, error) {
 	}, nil
 }
 
-func (s *instanceMutaterStateShim) Charm(curl *charm.URL) (Charm, error) {
+func (s *instanceMutaterStateShim) Charm(curl string) (Charm, error) {
 	ch, err := s.State.Charm(curl)
 	if err != nil {
 		return nil, errors.Trace(err)

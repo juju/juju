@@ -6,7 +6,6 @@ package instancemutater
 import (
 	"sync"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -251,16 +250,12 @@ func (w *machineLXDProfileWatcher) init() error {
 		}
 
 		cURL := app.CharmURL()
-		chURL, err := charm.ParseURL(*cURL)
-		if err != nil {
-			return err
-		}
 		info := appInfo{
 			charmURL: *cURL,
 			units:    set.NewStrings(unitName),
 		}
 
-		ch, err := w.backend.Charm(chURL)
+		ch, err := w.backend.Charm(*cURL)
 		if err != nil {
 			return err
 		}
@@ -307,11 +302,7 @@ func (w *machineLXDProfileWatcher) applicationCharmURLChange(appName string) err
 		if info.charmURL == *cURL {
 			return nil
 		}
-		chURL, err := charm.ParseURL(*cURL)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		ch, err := w.backend.Charm(chURL)
+		ch, err := w.backend.Charm(*cURL)
 		if errors.IsNotFound(err) {
 			logger.Debugf("not watching %s with removed charm %s on machine-%s", appName, *cURL, w.machine.Id())
 			return nil
@@ -369,11 +360,7 @@ func (w *machineLXDProfileWatcher) charmChange(chURL string) error {
 			continue
 		}
 
-		curl, err := charm.ParseURL(chURL)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		ch, err := w.backend.Charm(curl)
+		ch, err := w.backend.Charm(chURL)
 		if errors.IsNotFound(err) {
 			logger.Debugf("charm %s removed for %s on machine-%s", chURL, appName, w.machine.Id())
 			continue
@@ -445,8 +432,8 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 
 	_, ok := w.applications[appName]
 	if !ok {
-		curlStr := unit.CharmURL()
-		if curlStr == nil {
+		curl := unit.CharmURL()
+		if curl == nil {
 			// this happens for new units to existing machines.
 			app, err := unit.Application()
 			if errors.IsNotFound(err) {
@@ -455,22 +442,18 @@ func (w *machineLXDProfileWatcher) add(unit Unit) (bool, error) {
 			} else if err != nil {
 				return false, errors.Annotatef(err, "failed to get application %s for machine-%s", appName, w.machine.Id())
 			}
-			curlStr = app.CharmURL()
+			curl = app.CharmURL()
 		}
 
-		curl, err := charm.ParseURL(*curlStr)
-		if err != nil {
-			return false, errors.Annotatef(err, "application charm url")
-		}
-		ch, err := w.backend.Charm(curl)
+		ch, err := w.backend.Charm(*curl)
 		if errors.IsNotFound(err) {
-			logger.Debugf("charm %s removed for %s on machine-%s", *curlStr, unitName, w.machine.Id())
+			logger.Debugf("charm %s removed for %s on machine-%s", *curl, unitName, w.machine.Id())
 			return false, nil
 		} else if err != nil {
-			return false, errors.Annotatef(err, "failed to get charm %q for %s on machine-%s", *curlStr, appName, w.machine.Id())
+			return false, errors.Annotatef(err, "failed to get charm %q for %s on machine-%s", *curl, appName, w.machine.Id())
 		}
 		info := appInfo{
-			charmURL: *curlStr,
+			charmURL: *curl,
 			units:    set.NewStrings(unitName),
 		}
 

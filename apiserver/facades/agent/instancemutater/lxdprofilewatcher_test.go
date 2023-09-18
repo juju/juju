@@ -4,7 +4,6 @@
 package instancemutater_test
 
 import (
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
@@ -233,7 +232,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateNoProfil
 	s.unit.EXPECT().ApplicationName().AnyTimes().Return("foo")
 	s.unit.EXPECT().Name().AnyTimes().Return("foo/0")
 
-	curl := charm.MustParseURL("ch:name-me")
+	curl := "ch:name-me"
 	s.state.EXPECT().Charm(curl).Return(s.charm, nil)
 	s.machine0.EXPECT().Units().Return(nil, nil)
 	s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{})
@@ -324,7 +323,7 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherAppChangeCharmURLNo
 	s.state.EXPECT().Application("foo").Return(s.app, nil)
 	curl := "ch:name-me-3"
 	s.app.EXPECT().CharmURL().Return(&curl)
-	s.state.EXPECT().Charm(charm.MustParseURL(curl)).Return(nil, errors.NotFoundf(""))
+	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf(""))
 
 	s.appChanges <- []string{"foo"}
 	s.wc0.AssertNoChange()
@@ -355,9 +354,8 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherUnitChangeCharmURLN
 	s.machine0.EXPECT().Units().Return(nil, nil)
 
 	s.setupPrincipalUnit()
-	curlStr := "ch:name-me"
-	s.unit.EXPECT().CharmURL().Return(&curlStr)
-	curl := charm.MustParseURL(curlStr)
+	curl := "ch:name-me"
+	s.unit.EXPECT().CharmURL().Return(&curl)
 	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf(""))
 
 	defer workertest.CleanKill(c, s.assertStartLxdProfileWatcher(c))
@@ -389,8 +387,7 @@ func (s *lxdProfileWatcherSuite) updateCharmForMachineLXDProfileWatcher(rev stri
 	}
 	s.state.EXPECT().Application("foo").Return(s.app, nil)
 	s.app.EXPECT().CharmURL().Return(&curl)
-	chURL := charm.MustParseURL(curl)
-	s.state.EXPECT().Charm(chURL).Return(s.charm, nil)
+	s.state.EXPECT().Charm(curl).Return(s.charm, nil)
 	s.charmChanges <- []string{curl}
 	s.appChanges <- []string{"foo"}
 }
@@ -440,15 +437,14 @@ func (s *lxdProfileWatcherSuite) setupScenario(startEmpty, withProfile bool) {
 	s.unit.EXPECT().ApplicationName().AnyTimes().Return("foo")
 	s.unit.EXPECT().Name().AnyTimes().Return("foo/0")
 
-	curlStr := "ch:name-me"
-	curl := charm.MustParseURL(curlStr)
+	curl := "ch:name-me"
 	s.state.EXPECT().Charm(curl).Return(s.charm, nil)
 	if startEmpty {
 		s.machine0.EXPECT().Units().Return(nil, nil)
 	} else {
 		s.machine0.EXPECT().Units().Return([]instancemutater.Unit{s.unit}, nil)
 		s.unit.EXPECT().Application().Return(s.app, nil)
-		s.app.EXPECT().CharmURL().Return(&curlStr)
+		s.app.EXPECT().CharmURL().Return(&curl)
 	}
 
 	if withProfile {

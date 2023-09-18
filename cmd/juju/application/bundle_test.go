@@ -212,7 +212,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalPath(c *gc.C) {
 	err = s.runDeploy(c, path)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:xenial/dummy-1")
-	ch, err := s.State.Charm(charm.MustParseURL("local:xenial/dummy-1"))
+	ch, err := s.State.Charm("local:xenial/dummy-1")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"dummy": {
@@ -241,7 +241,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalResources(c *gc.C) {
 	err := s.runDeploy(c, dir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:bionic/dummy-resource-0")
-	ch, err := s.State.Charm(charm.MustParseURL("local:bionic/dummy-resource-0"))
+	ch, err := s.State.Charm("local:bionic/dummy-resource-0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"dummy-resource": {
@@ -396,7 +396,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalDeploymentLXDProfile(
     `, lxdProfilePath))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:bionic/lxd-profile-0")
-	lxdProfile, err := s.State.Charm(charm.MustParseURL("local:bionic/lxd-profile-0"))
+	lxdProfile, err := s.State.Charm("local:bionic/lxd-profile-0")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"lxd-profile": {
@@ -519,7 +519,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleLocalAndCharmStoreCharms(c
    `, mysqlPath))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertCharmsUploaded(c, "local:xenial/mysql-1", "ch:xenial/wordpress-42")
-	mysqlch, err := s.State.Charm(charm.MustParseURL("local:xenial/mysql-1"))
+	mysqlch, err := s.State.Charm("local:xenial/mysql-1")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
 		"mysql": {

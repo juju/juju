@@ -12,7 +12,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -64,14 +63,14 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 
-	err = s.unit.SetCharmURL(charm.MustParseURL(*sURL))
+	err = s.unit.SetCharmURL(*sURL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.unit2, err = s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.unit2.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 
-	err = s.unit2.SetCharmURL(charm.MustParseURL(*sURL))
+	err = s.unit2.SetCharmURL(*sURL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmlessUnit, err = s.application.AddUnit(state.AddUnitParams{})
@@ -82,7 +81,7 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.actionlessUnit.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
 
-	err = s.actionlessUnit.SetCharmURL(charm.MustParseURL(*actionlessSURL))
+	err = s.actionlessUnit.SetCharmURL(*actionlessSURL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.model, err = s.State.Model()
@@ -164,11 +163,9 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 
 		if t.expectedErr == "" {
 			c.Assert(err, jc.ErrorIsNil)
-			curlStr := t.whichUnit.CharmURL()
-			c.Assert(curlStr, gc.NotNil)
-			curl, err := charm.ParseURL(*curlStr)
-			c.Assert(err, jc.ErrorIsNil)
-			ch, _ := s.State.Charm(curl)
+			curl := t.whichUnit.CharmURL()
+			c.Assert(curl, gc.NotNil)
+			ch, _ := s.State.Charm(*curl)
 			schema := ch.Actions()
 			c.Logf("Schema for unit %q:\n%#v", t.whichUnit.Name(), schema)
 
@@ -567,7 +564,7 @@ func makeUnits(c *gc.C, s *ActionSuite, units map[string]*state.Unit, schemas ma
 		u, err := app.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(u.Base(), jc.DeepEquals, state.Base{OS: "ubuntu", Channel: "12.10/stable"})
-		err = u.SetCharmURL(charm.MustParseURL(*sURL))
+		err = u.SetCharmURL(*sURL)
 		c.Assert(err, jc.ErrorIsNil)
 
 		units[name] = u

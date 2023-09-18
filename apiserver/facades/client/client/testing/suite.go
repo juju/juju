@@ -11,7 +11,6 @@ package testing
 import (
 	"fmt"
 
-	"github.com/juju/charm/v11"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -58,7 +57,7 @@ func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob)
 func (s *CharmSuite) AddCharmhubCharmWithRevision(c *gc.C, charmName string, rev int) *state.Charm {
 	ch := testcharms.Hub.CharmDir(charmName)
 	name := ch.Meta().Name
-	curl := charm.MustParseURL(fmt.Sprintf("ch:amd64/jammy/%s-%d", name, rev))
+	curl := fmt.Sprintf("ch:amd64/jammy/%s-%d", name, rev)
 	info := state.CharmInfo{
 		Charm:       ch,
 		ID:          curl,
@@ -116,7 +115,7 @@ func (s *CharmSuite) SetUnitRevision(c *gc.C, unitName string, rev int) {
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := u.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL(fmt.Sprintf("ch:amd64/jammy/%s-%d", svc.Name(), rev))
+	curl := fmt.Sprintf("ch:amd64/jammy/%s-%d", svc.Name(), rev)
 	err = u.SetCharmURL(curl)
 	c.Assert(err, jc.ErrorIsNil)
 }

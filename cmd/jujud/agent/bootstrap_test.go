@@ -294,7 +294,7 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 			defer closer()
 			_, err = st.AddCharm(state.CharmInfo{
 				Charm:       controllerCharm,
-				ID:          charmURL,
+				ID:          charmURL.String(),
 				StoragePath: "foo", // required to flag the charm as uploaded
 				SHA256:      "bar", // required to flag the charm as uploaded
 			})

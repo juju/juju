@@ -683,7 +683,7 @@ func PutCharm(st *state.State, curl *charm.URL, ch *charm.CharmDir) (*state.Char
 	if curl.Revision == -1 {
 		curl.Revision = ch.Revision()
 	}
-	if sch, err := st.Charm(curl); err == nil {
+	if sch, err := st.Charm(curl.String()); err == nil {
 		return sch, nil
 	}
 	return AddCharm(st, curl, ch, false)
@@ -740,7 +740,7 @@ func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm, force bool) (*st
 	}
 	info := state.CharmInfo{
 		Charm:       ch,
-		ID:          curl,
+		ID:          curl.String(),
 		StoragePath: storagePath,
 		SHA256:      digest,
 	}
@@ -840,7 +840,8 @@ func (s *JujuConnSuite) AddTestingCharmForSeries(c *gc.C, name, series string) *
 }
 
 func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
-	appSeries := ch.URL().Series
+	curl := charm.MustParseURL(ch.URL())
+	appSeries := curl.Series
 	if appSeries == "kubernetes" {
 		appSeries = corebase.LegacyKubernetesSeries()
 	}
@@ -871,7 +872,8 @@ func (s *JujuConnSuite) AddTestingApplicationWithOrigin(c *gc.C, name string, ch
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *state.Charm, arch string) *state.Application {
-	base, err := corebase.GetBaseFromSeries(ch.URL().Series)
+	curl := charm.MustParseURL(ch.URL())
+	base, err := corebase.GetBaseFromSeries(curl.Series)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
@@ -890,7 +892,8 @@ func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, ch *state.Charm, storage map[string]state.StorageConstraints) *state.Application {
-	base, err := corebase.GetBaseFromSeries(ch.URL().Series)
+	curl := charm.MustParseURL(ch.URL())
+	base, err := corebase.GetBaseFromSeries(curl.Series)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
@@ -908,7 +911,8 @@ func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, c
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
-	base, err := corebase.GetBaseFromSeries(ch.URL().Series)
+	curl := charm.MustParseURL(ch.URL())
+	base, err := corebase.GetBaseFromSeries(curl.Series)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,

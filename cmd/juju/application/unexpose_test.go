@@ -6,7 +6,6 @@ package application
 import (
 	"runtime"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -53,7 +52,7 @@ func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
 	err := runDeploy(c, ch, "some-application-name", "--series", "jammy")
 
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:jammy/multi-series-1")
+	curl := "local:jammy/multi-series-1"
 	s.AssertApplication(c, "some-application-name", curl, 1, 0)
 
 	err = runExpose(c, "some-application-name")
@@ -76,7 +75,7 @@ func (s *UnexposeSuite) TestBlockUnexpose(c *gc.C) {
 	err := runDeploy(c, ch, "some-application-name", "--series", "jammy")
 
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL("local:jammy/multi-series-1")
+	curl := "local:jammy/multi-series-1"
 	s.AssertApplication(c, "some-application-name", curl, 1, 0)
 
 	// Block operation

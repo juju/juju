@@ -278,7 +278,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 
 	switch charm.Schema(schema) {
 	case charm.Local:
-		curl, err = st.PrepareLocalCharmUpload(curl)
+		curl, err = st.PrepareLocalCharmUpload(curl.String())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -295,7 +295,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 				return nil, errors.NewBadRequest(errors.NewNotValid(err, "revision"), "")
 			}
 		}
-		if _, err := st.PrepareCharmUpload(curl); err != nil {
+		if _, err := st.PrepareCharmUpload(curl.String()); err != nil {
 			return nil, errors.Trace(err)
 		}
 
@@ -453,7 +453,7 @@ func RepackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl 
 		},
 	})
 
-	return charmStorage.Store(curl, downloader.DownloadedCharm{
+	return charmStorage.Store(curl.String(), downloader.DownloadedCharm{
 		Charm:        archive,
 		CharmData:    &repackagedArchive,
 		CharmVersion: version,
@@ -472,7 +472,7 @@ func (s storageStateShim) UpdateUploadedCharm(info state.CharmInfo) (services.Up
 	return ch, err
 }
 
-func (s storageStateShim) PrepareCharmUpload(curl *charm.URL) (services.UploadedCharm, error) {
+func (s storageStateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
 	ch, err := s.State.PrepareCharmUpload(curl)
 	return ch, err
 }
@@ -493,13 +493,9 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 	query := r.URL.Query()
 
 	// Retrieve and validate query parameters.
-	curlString := query.Get("url")
-	if curlString == "" {
+	curl := query.Get("url")
+	if curl == "" {
 		return errRet(errors.Errorf("expected url=CharmURL query argument"))
-	}
-	curl, err := charm.ParseURL(curlString)
-	if err != nil {
-		return errRet(errors.Trace(err))
 	}
 	fileArg = query.Get("file")
 	if fileArg != "" {
@@ -518,7 +514,7 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 	// Check if the charm is still pending to be downloaded and return back
 	// a suitable error.
 	if !ch.IsUploaded() {
-		return errRet(errors.NewNotYetAvailable(nil, curl.String()))
+		return errRet(errors.NewNotYetAvailable(nil, curl))
 	}
 
 	archivePath, err = common.ReadCharmFromStorage(store, h.dataDir, ch.StoragePath())

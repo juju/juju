@@ -54,7 +54,7 @@ type Application interface {
 // Charm provides the subset of charm state required by the
 // CAAS operator facade.
 type Charm interface {
-	String() string
+	URL() string
 	BundleSha256() string
 	Meta() *charm.Meta
 }

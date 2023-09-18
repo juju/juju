@@ -8,7 +8,6 @@ import (
 	io "io"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v11"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
@@ -53,7 +52,7 @@ func (mr *MockStateBackendMockRecorder) ModelUUID() *gomock.Call {
 }
 
 // PrepareCharmUpload mocks base method.
-func (m *MockStateBackend) PrepareCharmUpload(arg0 *charm.URL) (services.UploadedCharm, error) {
+func (m *MockStateBackend) PrepareCharmUpload(arg0 string) (services.UploadedCharm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
 	ret0, _ := ret[0].(services.UploadedCharm)

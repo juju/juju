@@ -527,7 +527,7 @@ func deployApplication(
 	}
 
 	// Try to find the charm URL in state first.
-	ch, err := backend.Charm(curl)
+	ch, err := backend.Charm(args.CharmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -573,7 +573,7 @@ func deployApplication(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	origin, err := convertCharmOrigin(args.CharmOrigin, curl)
+	origin, err := convertCharmOrigin(args.CharmOrigin)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -601,7 +601,7 @@ func deployApplication(
 // from the provided data. It is used in both deploying and refreshing
 // charms, including from old clients which aren't charm origin aware.
 // MaybeSeries is a fallback if the origin is not provided.
-func convertCharmOrigin(origin *params.CharmOrigin, curl *charm.URL) (corecharm.Origin, error) {
+func convertCharmOrigin(origin *params.CharmOrigin) (corecharm.Origin, error) {
 	if origin == nil {
 		return corecharm.Origin{}, errors.NotValidf("nil charm origin")
 	}
@@ -1018,11 +1018,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	params setCharmParams,
 	url string,
 ) error {
-	curl, err := charm.ParseURL(url)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	newCharm, err := api.backend.Charm(curl)
+	newCharm, err := api.backend.Charm(url)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1031,7 +1027,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		logger.Debugf("Unable to locate current charm: %v", err)
 	}
-	newOrigin, err := convertCharmOrigin(params.CharmOrigin, curl)
+	newOrigin, err := convertCharmOrigin(params.CharmOrigin)
 	if err != nil {
 		return errors.Trace(err)
 	}

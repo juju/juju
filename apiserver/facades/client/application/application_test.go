@@ -93,16 +93,16 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 	return api
 }
 
-func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (*charm.URL, charm.Charm, constraints.Value) {
+func (s *applicationSuite) setupApplicationDeploy(c *gc.C, args string) (string, charm.Charm, constraints.Value) {
 	curl, ch := s.addCharmToState(c, "ch:jammy/dummy-42", "dummy")
 	cons := constraints.MustParse(args)
 	return curl, ch, cons
 }
 
-func (s *applicationSuite) assertApplicationDeployPrincipal(c *gc.C, curl *charm.URL, ch charm.Charm, mem4g constraints.Value) {
+func (s *applicationSuite) assertApplicationDeployPrincipal(c *gc.C, curl string, ch charm.Charm, mem4g constraints.Value) {
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
+			CharmURL:        curl,
 			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application",
 			NumUnits:        3,
@@ -114,10 +114,10 @@ func (s *applicationSuite) assertApplicationDeployPrincipal(c *gc.C, curl *charm
 	apiservertesting.AssertPrincipalApplicationDeployed(c, s.State, "application", curl, false, ch, mem4g)
 }
 
-func (s *applicationSuite) assertApplicationDeployPrincipalBlocked(c *gc.C, msg string, curl *charm.URL, mem4g constraints.Value) {
+func (s *applicationSuite) assertApplicationDeployPrincipalBlocked(c *gc.C, msg string, curl string, mem4g constraints.Value) {
 	_, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
+			CharmURL:        curl,
 			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application",
 			NumUnits:        3,
@@ -148,7 +148,7 @@ func (s *applicationSuite) TestApplicationDeploySubordinate(c *gc.C) {
 	curl, ch := s.addCharmToState(c, "ch:utopic/logging-47", "logging")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
+			CharmURL:        curl,
 			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 		}}})
@@ -182,7 +182,7 @@ func (s *applicationSuite) TestApplicationDeployConfig(c *gc.C) {
 	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
+			CharmURL:        curl,
 			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
@@ -207,7 +207,7 @@ func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 	curl, _ := s.addCharmToState(c, "ch:jammy/dummy-0", "dummy")
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
+			CharmURL:        curl,
 			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
@@ -236,7 +236,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
+			CharmURL:        curl,
 			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
@@ -284,7 +284,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
+			CharmURL:        curl,
 			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
@@ -338,7 +338,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 
 	results, err := s.applicationAPI.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			CharmURL:        curl.String(),
+			CharmURL:        curl,
 			CharmOrigin:     createCharmOriginFromURL(curl),
 			ApplicationName: "application-name",
 			NumUnits:        1,
@@ -1619,7 +1619,7 @@ func (s *applicationSuite) TestRemoteRelationApplicationNotFound(c *gc.C) {
 // addCharmToState emulates the side-effects of an AddCharm call so that the
 // deploy tests in the suite can still work even though the AddCharmX calls
 // have been updated to return NotSupported errors for Juju 3.
-func (s *applicationSuite) addCharmToState(c *gc.C, charmURL string, name string) (*charm.URL, charm.Charm) {
+func (s *applicationSuite) addCharmToState(c *gc.C, charmURL string, name string) (string, charm.Charm) {
 	curl := charm.MustParseURL(charmURL)
 
 	if curl.Revision < 0 {
@@ -1634,7 +1634,7 @@ func (s *applicationSuite) addCharmToState(c *gc.C, charmURL string, name string
 		s.lastKnownRev[base] = curl.Revision
 	}
 
-	_, err := s.State.PrepareCharmUpload(curl)
+	_, err := s.State.PrepareCharmUpload(charmURL)
 	c.Assert(err, jc.ErrorIsNil)
 
 	ch, err := charm.ReadCharmArchive(
@@ -1643,14 +1643,14 @@ func (s *applicationSuite) addCharmToState(c *gc.C, charmURL string, name string
 
 	_, err = s.State.UpdateUploadedCharm(state.CharmInfo{
 		Charm:       ch,
-		ID:          curl,
+		ID:          charmURL,
 		StoragePath: fmt.Sprintf("charms/%s", name),
 		SHA256:      "1234",
 		Version:     ch.Version(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	return curl, ch
+	return charmURL, ch
 }
 
 func (s *applicationSuite) TestValidateSecretConfig(c *gc.C) {

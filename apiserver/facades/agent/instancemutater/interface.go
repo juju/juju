@@ -6,8 +6,6 @@ package instancemutater
 import (
 	"time"
 
-	"github.com/juju/charm/v11"
-
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
@@ -20,7 +18,7 @@ type InstanceMutaterState interface {
 
 	ModelName() (string, error)
 	Application(appName string) (Application, error)
-	Charm(curl *charm.URL) (Charm, error)
+	Charm(curl string) (Charm, error)
 	Machine(id string) (Machine, error)
 	Unit(unitName string) (Unit, error)
 	ControllerTimestamp() (*time.Time, error)

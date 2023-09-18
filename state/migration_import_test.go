@@ -539,7 +539,7 @@ func (s *MigrationImportSuite) setupSourceApplications(
 		CharmOrigin: &state.CharmOrigin{
 			Source:   "charm-hub",
 			Type:     "charm",
-			Revision: &testCharm.URL().Revision,
+			Revision: &charm.MustParseURL(testCharm.URL()).Revision,
 			Channel: &state.Channel{
 				Risk: "edge",
 			},
@@ -663,7 +663,7 @@ func (s *MigrationImportSuite) TestApplications(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      testCharm.String(),
+		URL:      testCharm.URL(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, true)
@@ -725,7 +725,7 @@ func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	f := factory.NewFactory(newSt, s.StatePool)
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
-		URL:      testCharm.String(),
+		URL:      testCharm.URL(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, false)
@@ -769,7 +769,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		Series:   "kubernetes",
-		URL:      charm.String(),
+		URL:      charm.URL(),
 		Revision: strconv.Itoa(charm.Revision()),
 	})
 	s.assertImportedApplication(c, application, pwd, cons, exported, newModel, newSt, true)
@@ -844,7 +844,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		Series:   "kubernetes",
-		URL:      testCharm.String(),
+		URL:      testCharm.URL(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	newApp, err := newSt.Application(application.Name())
@@ -2988,14 +2988,14 @@ func (s *MigrationImportSuite) TestApplicationAddLatestCharmChannelTrack(c *gc.C
 	origin := &state.CharmOrigin{
 		Source:   "charm-hub",
 		Type:     "charm",
-		Revision: &testCharm.URL().Revision,
+		Revision: &charm.MustParseURL(testCharm.URL()).Revision,
 		Channel: &state.Channel{
 			Risk: "edge",
 		},
 		ID:   "charm-hub-id",
 		Hash: "charmhub-hash",
 		Platform: &state.Platform{
-			Architecture: testCharm.URL().Architecture,
+			Architecture: charm.MustParseURL(testCharm.URL()).Architecture,
 			OS:           "ubuntu",
 			Channel:      "12.10/stable",
 		},
@@ -3029,14 +3029,14 @@ func (s *MigrationImportSuite) TestApplicationFillInCharmOriginID(c *gc.C) {
 	origin := &state.CharmOrigin{
 		Source:   "charm-hub",
 		Type:     "charm",
-		Revision: &testCharm.URL().Revision,
+		Revision: &charm.MustParseURL(testCharm.URL()).Revision,
 		Channel: &state.Channel{
 			Risk: "edge",
 		},
 		ID:   "charm-hub-id",
 		Hash: "charmhub-hash",
 		Platform: &state.Platform{
-			Architecture: testCharm.URL().Architecture,
+			Architecture: charm.MustParseURL(testCharm.URL()).Architecture,
 			OS:           "ubuntu",
 			Channel:      "12.10/stable",
 		},
@@ -3316,7 +3316,7 @@ func (s *MigrationImportSuite) TestApplicationWithProvisioningState(c *gc.C) {
 	f.MakeCharm(c, &factory.CharmParams{
 		Name:     "starsay", // it has resources
 		Series:   "kubernetes",
-		URL:      testCharm.String(),
+		URL:      testCharm.URL(),
 		Revision: strconv.Itoa(testCharm.Revision()),
 	})
 	importedApplication, err := newSt.Application(application.Name())

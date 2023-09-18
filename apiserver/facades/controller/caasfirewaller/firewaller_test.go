@@ -200,7 +200,7 @@ func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 					Deployment: &charm.Deployment{},
 				},
 				manifest: &charm.Manifest{},
-				url:      &charm.URL{Schema: "ch", Name: "gitlab", Revision: -1},
+				url:      "ch:gitlab",
 			},
 		},
 		applicationsWatcher: statetesting.NewMockStringsWatcher(s.applicationsChanges),
