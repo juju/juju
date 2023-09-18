@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/rpcreflect"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
+	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"

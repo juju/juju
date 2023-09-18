@@ -7,13 +7,13 @@ import (
 	"reflect"
 
 	jsonschema "github.com/juju/jsonschema-gen"
-	"github.com/juju/rpcreflect"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/internal/rpcreflect"
 )
 
 type GenSuite struct {

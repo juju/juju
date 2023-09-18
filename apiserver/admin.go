@@ -12,7 +12,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-	"github.com/juju/rpcreflect"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/pinger"
+	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"

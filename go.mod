@@ -74,7 +74,6 @@ require (
 	github.com/juju/retry v1.0.0
 	github.com/juju/rfc/v2 v2.0.0
 	github.com/juju/romulus v1.0.0
-	github.com/juju/rpcreflect v1.2.0
 	github.com/juju/schema v1.0.1
 	github.com/juju/terms-client/v2 v2.0.0
 	github.com/juju/testing v1.1.0
@@ -221,6 +220,7 @@ require (
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
 	github.com/juju/lru v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
+	github.com/juju/rpcreflect v1.2.0 // indirect
 	github.com/juju/usso v1.0.1 // indirect
 	github.com/juju/version v0.0.0-20210303051006-2015802527a8 // indirect
 	github.com/julienschmidt/httprouter v1.3.0 // indirect
