@@ -19,13 +19,9 @@ type CallNotImplementedError struct {
 func (e *CallNotImplementedError) Error() string {
 	if e.Method == "" {
 		if e.Version != 0 {
-			return fmt.Sprintf("unknown version (%d) of interface %q", e.Version, e.RootMethod)
+			return fmt.Sprintf("unknown version %d for facade type %q", e.Version, e.RootMethod)
 		}
-		return fmt.Sprintf("unknown object type %q", e.RootMethod)
+		return fmt.Sprintf("unknown facade type %q", e.RootMethod)
 	}
-	methodVersion := e.RootMethod
-	if e.Version != 0 {
-		methodVersion = fmt.Sprintf("%s(%d)", e.RootMethod, e.Version)
-	}
-	return fmt.Sprintf("no such request - method %s.%s is not implemented", methodVersion, e.Method)
+	return fmt.Sprintf("unknown method %q at version %d for facade type %q", e.Method, e.Version, e.RootMethod)
 }
