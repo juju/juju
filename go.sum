@@ -540,8 +540,8 @@ github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 h1:huRsqE0iXm
 github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33/go.mod h1:UxUZdlQkjnbl3YoCZT1y5uxmvG2KMwqgffBFccD7qHI=
 github.com/juju/gojsonschema v1.0.0 h1:v0hVxinRWko/SwRYCZ99fBH20Q1JtDqKtplcovXewt0=
 github.com/juju/gojsonschema v1.0.0/go.mod h1:w3BDUH3gGgrcrAyvEbBy3lNb1vmdqG31UMn3njL8oGc=
-github.com/juju/gomaasapi/v2 v2.0.2 h1:0u3G5iK3+1+cLZjvG90NR6FID4PAMRi/Mk2JrICF3pU=
-github.com/juju/gomaasapi/v2 v2.0.2/go.mod h1:ZsohFbU4xShV1aSQYQ21hR1lKj7naNGY0SPuyelcUmk=
+github.com/juju/gomaasapi/v2 v2.1.0 h1:K9M4OjDVSS7UWjHGvYvdpXJWQE72uyDo4do1czDjlIA=
+github.com/juju/gomaasapi/v2 v2.1.0/go.mod h1:ZsohFbU4xShV1aSQYQ21hR1lKj7naNGY0SPuyelcUmk=
 github.com/juju/gosigma v1.0.0 h1:zZSeVNMHWtwQLewEzz+9TDh+1n+l4Z3Gsz6Wb9qEtko=
 github.com/juju/gosigma v1.0.0/go.mod h1:OPBu48GcIJ30kNTA1cm+VbZb6GkQ6vthnr5v6NJ49eM=
 github.com/juju/http/v2 v2.0.0 h1:xexT4KO4jY0UEkhLZPwQGaEGCfgWWjw3jBPrLRumhKI=
