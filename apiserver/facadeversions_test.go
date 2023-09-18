@@ -39,10 +39,15 @@ func (s *facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	// First check that both sides know about all the same versions
 	c.Check(serverFacadeNames.Difference(clientFacadeNames).SortedValues(), gc.HasLen, 0)
 	c.Check(clientFacadeNames.Difference(serverFacadeNames).SortedValues(), gc.HasLen, 0)
-	// Next check that the best versions match
+
+	// Next check that the latest version of each facade is the same
+	// on both sides.
 	apiFacadeVersions := make(map[string]int)
 	for name, versions := range api.FacadeVersions {
-		apiFacadeVersions[name] = versions[len(versions)-1]
+		// Sort the versions so that we can easily pick the latest, without
+		// a requirement that the versions are listed in order.
+		sorted := set.NewInts(versions...).SortedValues()
+		apiFacadeVersions[name] = sorted[len(sorted)-1]
 	}
 	c.Check(apiFacadeVersions, jc.DeepEquals, serverFacadeBestVersions)
 }
