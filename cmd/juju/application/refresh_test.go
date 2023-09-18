@@ -66,6 +66,9 @@ type BaseRefreshSuite struct {
 	resourceLister       mockResourceLister
 	spacesClient         mockSpacesClient
 	downloadBundleClient mockDownloadBundleClient
+
+	testPlatform corecharm.Platform
+	testBase     corebase.Base
 }
 
 func (s *BaseRefreshSuite) runRefresh(c *gc.C, args ...string) (*cmd.Context, error) {
@@ -92,6 +95,9 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 	// Create persistent cookies in a temporary location.
 	cookieFile := filepath.Join(c.MkDir(), "cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookieFile)
+
+	s.testPlatform = corecharm.MustParsePlatform("amd64/ubuntu/22.04")
+	s.testBase = corebase.MakeDefaultBase("ubuntu", "22.04")
 
 	s.deployResources = func(
 		applicationID string,
@@ -145,9 +151,11 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 			"": network.AlphaSpaceName,
 		},
 		charmOrigin: commoncharm.Origin{
-			ID:     "testing",
-			Source: schemaToOriginScource(currentCharmURL.Schema),
-			Risk:   "stable",
+			ID:           "testing",
+			Source:       schemaToOriginScource(currentCharmURL.Schema),
+			Risk:         "stable",
+			Architecture: arch.DefaultArchitecture,
+			Base:         s.testBase,
 		},
 	}
 	s.modelConfigGetter = newMockModelConfigGetter()
@@ -244,9 +252,11 @@ func (s *RefreshSuite) TestStorageConstraints(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				ID:     "testing",
-				Source: "charm-hub",
-				Risk:   "stable",
+				ID:           "testing",
+				Source:       "charm-hub",
+				Risk:         "stable",
+				Architecture: arch.DefaultArchitecture,
+				Base:         s.testBase,
 			},
 		},
 		StorageConstraints: map[string]storage.Constraints{
@@ -272,9 +282,11 @@ func (s *RefreshSuite) TestConfigSettings(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				ID:     "testing",
-				Source: "charm-hub",
-				Risk:   "stable",
+				ID:           "testing",
+				Source:       "charm-hub",
+				Risk:         "stable",
+				Architecture: arch.DefaultArchitecture,
+				Base:         s.testBase,
 			},
 		},
 		ConfigSettingsYAML: "foo:{}",
@@ -293,9 +305,11 @@ func (s *RefreshSuite) TestConfigSettingsWithTrust(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				ID:     "testing",
-				Source: "charm-hub",
-				Risk:   "stable",
+				ID:           "testing",
+				Source:       "charm-hub",
+				Risk:         "stable",
+				Architecture: arch.DefaultArchitecture,
+				Base:         s.testBase,
 			},
 		},
 		ConfigSettings:   map[string]string{"trust": "true", "foo": "bar"},
@@ -313,9 +327,11 @@ func (s *RefreshSuite) TestConfigSettingsWithTrustFalse(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				ID:     "testing",
-				Source: "charm-hub",
-				Risk:   "stable",
+				ID:           "testing",
+				Source:       "charm-hub",
+				Risk:         "stable",
+				Architecture: arch.DefaultArchitecture,
+				Base:         s.testBase,
 			},
 		},
 		ConfigSettings:   map[string]string{"trust": "false", "foo": "bar"},
@@ -338,9 +354,11 @@ func (s *RefreshSuite) TestConfigSettingsWithKeyValuesAndFile(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				ID:     "testing",
-				Source: "charm-hub",
-				Risk:   "stable",
+				ID:           "testing",
+				Source:       "charm-hub",
+				Risk:         "stable",
+				Architecture: arch.DefaultArchitecture,
+				Base:         s.testBase,
 			},
 		},
 		ConfigSettingsYAML: "foo:{}",
@@ -384,9 +402,11 @@ func (s *RefreshSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				ID:     "testing",
-				Source: "charm-hub",
-				Risk:   "stable",
+				ID:           "testing",
+				Source:       "charm-hub",
+				Risk:         "stable",
+				Architecture: arch.DefaultArchitecture,
+				Base:         s.testBase,
 			},
 		},
 		ConfigSettings:   map[string]string{},
@@ -480,7 +500,8 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 	})
 	origin.ID = "testing"
 	origin.Revision = (*int)(nil)
-	origin.Architecture = ""
+	origin.Architecture = arch.DefaultArchitecture
+	origin.Base = s.testBase
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -488,9 +509,11 @@ func (s *RefreshSuite) TestUpgradeWithChannel(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				ID:     "testing",
-				Source: "charm-hub",
-				Risk:   "beta",
+				ID:           "testing",
+				Source:       "charm-hub",
+				Risk:         "beta",
+				Architecture: arch.DefaultArchitecture,
+				Base:         s.testBase,
 			},
 		},
 		ConfigSettings:   map[string]string{},
@@ -513,9 +536,11 @@ func (s *RefreshSuite) TestUpgradeWithChannelNoNewCharmURL(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				ID:     "testing",
-				Source: "charm-hub",
-				Risk:   "beta",
+				ID:           "testing",
+				Source:       "charm-hub",
+				Risk:         "beta",
+				Architecture: arch.DefaultArchitecture,
+				Base:         s.testBase,
 			},
 		},
 		ConfigSettings:   map[string]string{},
@@ -529,10 +554,9 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAdder.CheckCallNames(c, "AddCharm")
-	origin, _ := apputils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Beta}, corecharm.Platform{})
+	origin, _ := apputils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Beta}, s.testPlatform)
 	origin.ID = "testing"
 	origin.Revision = (*int)(nil)
-	origin.Architecture = ""
 	s.charmAdder.CheckCall(c, 0, "AddCharm", s.resolvedCharmURL, origin, false)
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
@@ -540,9 +564,11 @@ func (s *RefreshSuite) TestRefreshShouldRespectDeployedChannelByDefault(c *gc.C)
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				ID:     "testing",
-				Source: "charm-hub",
-				Risk:   "beta",
+				ID:           "testing",
+				Source:       "charm-hub",
+				Risk:         "beta",
+				Architecture: arch.DefaultArchitecture,
+				Base:         s.testBase,
 			},
 		},
 		ConfigSettings:   map[string]string{},
@@ -566,7 +592,7 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 	s.charmClient.CheckCallNames(c, "CharmInfo", "CharmInfo")
 	s.charmClient.CheckCall(c, 0, "CharmInfo", s.resolvedCharmURL.String())
 	s.charmAdder.CheckCallNames(c, "CheckCharmPlacement", "AddCharm")
-	origin, _ := apputils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Stable}, corecharm.Platform{})
+	origin, _ := apputils.DeduceOrigin(s.resolvedCharmURL, charm.Channel{Risk: charm.Stable}, s.testPlatform)
 
 	parsedSwitchUrl, err := charm.ParseURL("ch:trusty/anotherriak")
 	c.Assert(err, jc.ErrorIsNil)
@@ -582,6 +608,7 @@ func (s *RefreshSuite) TestSwitch(c *gc.C) {
 				Source:       "charm-hub",
 				Architecture: arch.DefaultArchitecture,
 				Risk:         "stable",
+				Base:         s.testBase,
 			},
 		},
 		ConfigSettings:   map[string]string{},
@@ -693,12 +720,13 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "multi-series",
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("local:trusty/multi-series-1"),
+			URL: charm.MustParseURL("local:jammy/multi-series-1"),
 			Origin: commoncharm.Origin{
-				ID:     "testing",
-				Base:   s.charmAPIClient.charmOrigin.Base,
-				Source: "local",
-				Risk:   "stable",
+				ID:           "testing",
+				Base:         s.charmAPIClient.charmOrigin.Base,
+				Source:       "local",
+				Risk:         "stable",
+				Architecture: arch.DefaultArchitecture,
 			},
 		},
 		ForceBase:        true,
@@ -825,10 +853,11 @@ devices: {}
 		CharmID: application.CharmID{
 			URL: charm.MustParseURL("local:jammy/lxd-profile-alt-0"),
 			Origin: commoncharm.Origin{
-				ID:     "testing",
-				Base:   s.charmAPIClient.charmOrigin.Base,
-				Source: "local",
-				Risk:   "stable",
+				ID:           "testing",
+				Base:         s.charmAPIClient.charmOrigin.Base,
+				Source:       "local",
+				Risk:         "stable",
+				Architecture: arch.DefaultArchitecture,
 			},
 		},
 		ConfigSettings:   map[string]string{},
@@ -894,9 +923,11 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *gc.C) {
 		CharmID: application.CharmID{
 			URL: s.resolvedCharmURL,
 			Origin: commoncharm.Origin{
-				ID:     "testing",
-				Source: "charm-hub",
-				Risk:   "stable",
+				ID:           "testing",
+				Source:       "charm-hub",
+				Risk:         "stable",
+				Architecture: arch.DefaultArchitecture,
+				Base:         s.testBase,
 			},
 		},
 		ConfigSettings:   map[string]string{},
@@ -954,9 +985,11 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevision(c *gc.C) {
 	s.CheckCall(c, 9, "DeployResources", "foo", resources.CharmID{
 		URL: s.resolvedCharmURL,
 		Origin: commoncharm.Origin{
-			ID:     "testing",
-			Source: "charm-hub",
-			Risk:   "stable"}},
+			ID:           "testing",
+			Source:       "charm-hub",
+			Risk:         "stable",
+			Architecture: arch.DefaultArchitecture,
+			Base:         s.testBase}},
 		map[string]string(nil),
 		map[string]charmresource.Meta{"bar": {Name: "bar", Type: charmresource.TypeFile}},
 	)
@@ -995,9 +1028,11 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceRevisionSupplied(c *gc.C) {
 	s.CheckCall(c, 9, "DeployResources", "foo", resources.CharmID{
 		URL: s.resolvedCharmURL,
 		Origin: commoncharm.Origin{
-			ID:     "testing",
-			Source: "charm-hub",
-			Risk:   "stable"}},
+			ID:           "testing",
+			Source:       "charm-hub",
+			Risk:         "stable",
+			Architecture: arch.DefaultArchitecture,
+			Base:         s.testBase}},
 		map[string]string{"bar": "3"},
 		map[string]charmresource.Meta{"bar": {Name: "bar", Type: charmresource.TypeFile}},
 	)

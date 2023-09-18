@@ -176,7 +176,7 @@ func attachVolumes(ctx *context, ops map[params.MachineStorageId]*attachVolumeOp
 				// set the status to "error" for permanent errors.
 				entityStatus.Status = status.Attaching.String()
 				entityStatus.Info = result.Error.Error()
-				ctx.config.Logger.Debugf(
+				ctx.config.Logger.Warningf(
 					"failed to attach %s to %s: %v",
 					names.ReadableString(p.Volume),
 					names.ReadableString(p.Machine),

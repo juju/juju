@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/database/app"
 	"github.com/juju/juju/database/client"
 )
@@ -26,7 +27,7 @@ type bootstrapSuite struct {
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
-	opt := &testOptFactory{c: c}
+	mgr := &testNodeManager{c: c}
 
 	// check tests the variadic operation functionality
 	// and ensures that bootstrap applied the DDL.
@@ -56,25 +57,28 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 		})
 	}
 
-	err := BootstrapDqlite(context.TODO(), opt, stubLogger{}, check)
+	err := BootstrapDqlite(context.Background(), mgr, stubLogger{}, true, check)
 	c.Assert(err, jc.ErrorIsNil)
-
 }
 
-type testOptFactory struct {
+type testNodeManager struct {
 	c       *gc.C
 	dataDir string
 	port    int
 }
 
-func (f *testOptFactory) EnsureDataDir() (string, error) {
+func (f *testNodeManager) EnsureDataDir() (string, error) {
 	if f.dataDir == "" {
 		f.dataDir = f.c.MkDir()
 	}
 	return f.dataDir, nil
 }
 
-func (f *testOptFactory) WithLoopbackAddressOption() app.Option {
+func (f *testNodeManager) WithPreferredCloudLocalAddressOption(network.ConfigSource) (app.Option, error) {
+	return f.WithLoopbackAddressOption(), nil
+}
+
+func (f *testNodeManager) WithLoopbackAddressOption() app.Option {
 	if f.port == 0 {
 		l, err := net.Listen("tcp", ":0")
 		f.c.Assert(err, jc.ErrorIsNil)
@@ -84,12 +88,16 @@ func (f *testOptFactory) WithLoopbackAddressOption() app.Option {
 	return app.WithAddress(fmt.Sprintf("127.0.0.1:%d", f.port))
 }
 
-func (f *testOptFactory) WithLogFuncOption() app.Option {
+func (f *testNodeManager) WithLogFuncOption() app.Option {
 	return app.WithLogFunc(func(_ client.LogLevel, msg string, args ...interface{}) {
 		f.c.Logf(msg, args...)
 	})
 }
 
-func (f *testOptFactory) WithTracingOption() app.Option {
+func (f *testNodeManager) WithTracingOption() app.Option {
 	return app.WithTracing(client.LogNone)
+}
+
+func (f *testNodeManager) WithTLSOption() (app.Option, error) {
+	return nil, nil
 }

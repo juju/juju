@@ -125,10 +125,12 @@ func InitializeState(
 	if cloudCredTag.Id() != "" {
 		opts = append(opts, credbootstrap.InsertInitialControllerCredentials(cloudCredTag.Name(), cloudCredTag.Cloud().Id(), cloudCredTag.Owner().Id(), cloudCred))
 	}
+
 	if err := database.BootstrapDqlite(
 		stdcontext.TODO(),
 		database.NewNodeManager(c, logger, coredatabase.NoopSlowQueryLogger{}),
 		logger,
+		false,
 		opts...,
 	); err != nil {
 		return nil, errors.Trace(err)

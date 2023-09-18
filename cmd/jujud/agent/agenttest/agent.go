@@ -231,7 +231,11 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	s.primeAPIHostPorts(c)
 
 	err = database.BootstrapDqlite(
-		context.TODO(), database.NewNodeManager(conf, logger, coredatabase.NoopSlowQueryLogger{}), logger)
+		context.Background(),
+		database.NewNodeManager(conf, logger, coredatabase.NoopSlowQueryLogger{}),
+		logger,
+		true,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return conf, agentTools

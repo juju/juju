@@ -43,9 +43,9 @@ type NodeManager interface {
 	// Dqlite node in the past.
 	IsExistingNode() (bool, error)
 
-	// IsBootstrappedNode returns true if this machine or container was where
-	// we first bootstrapped Dqlite, and it hasn't been reconfigured since.
-	IsBootstrappedNode(context.Context) (bool, error)
+	// IsLoopbackBound returns true if we are a cluster of one,
+	// and bound to the loopback IP address.
+	IsLoopbackBound(context.Context) (bool, error)
 
 	// EnsureDataDir ensures that a directory for Dqlite data exists at
 	// a path determined by the agent config, then returns that path.
@@ -249,7 +249,7 @@ func (w *dbWorker) loop() (err error) {
 	// we go ahead and make the attempt.
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		bs, _ := w.cfg.NodeManager.IsBootstrappedNode(ctx)
+		bs, _ := w.cfg.NodeManager.IsLoopbackBound(ctx)
 		w.shutdownDqlite(context.Background(), !bs)
 		cancel()
 	}()
@@ -511,7 +511,7 @@ func (w *dbWorker) startExistingDqliteNode() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	asBootstrapped, err := mgr.IsBootstrappedNode(ctx)
+	asBootstrapped, err := mgr.IsLoopbackBound(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -725,7 +725,7 @@ func (w *dbWorker) processAPIServerChange(apiDetails apiserver.Details) error {
 	defer cancel()
 
 	if extant {
-		asBootstrapped, err := mgr.IsBootstrappedNode(ctx)
+		asBootstrapped, err := mgr.IsLoopbackBound(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -808,7 +808,7 @@ func (w *dbWorker) rebindAddress(ctx context.Context, addr string) error {
 	}
 
 	// This should be implied by an earlier check of
-	// NodeManager.IsBootstrappedNode, but we want to guard very
+	// NodeManager.IsLoopbackBound, but we want to guard very
 	// conservatively against breaking established clusters.
 	if len(servers) != 1 {
 		w.cfg.Logger.Debugf("not a singular server; skipping address rebind")

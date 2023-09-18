@@ -49,7 +49,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelNotFound(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil).Times(1)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -85,7 +85,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModel(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -137,7 +137,7 @@ func (s *namespaceSuite) TestEnsureNamespaceForModelWithCache(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -198,7 +198,7 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -250,7 +250,7 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
@@ -305,7 +305,7 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	// If this is an existing node, we do not
 	// invoke the address or cluster options.
 	mgrExp.IsExistingNode().Return(true, nil)
-	mgrExp.IsBootstrappedNode(gomock.Any()).Return(true, nil).Times(2)
+	mgrExp.IsLoopbackBound(gomock.Any()).Return(true, nil).Times(2)
 	mgrExp.WithLogFuncOption().Return(nil)
 	mgrExp.WithTracingOption().Return(nil)
 
