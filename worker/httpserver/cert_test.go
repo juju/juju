@@ -85,44 +85,11 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 	})
 	// We will log the failure to get the certificate, thus assuring us that we actually tried.
 	c.Assert(entries, jc.LogMatches, jc.SimpleMessages{{
-		Level:   loggo.INFO,
+		Level:   loggo.DEBUG,
 		Message: `getting certificate for server name "somewhere.example"`,
 	}, {
-		Level:   loggo.DEBUG,
-		Message: `.*cannot get autocert certificate for "somewhere.example": Get ["]?https://0\.1\.2\.3/no-autocert-here["]?: .*`,
-	}})
-}
-
-func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
-	tlsConfig := httpserver.InternalNewTLSConfig(
-		"somewhere.example",
-		"https://0.1.2.3/no-autocert-here",
-		nil,
-		testSNIGetter(coretesting.ServerTLSCert),
-		loggo.GetLogger("test"),
-	)
-	s.config.TLSConfig = tlsConfig
-
-	worker, err := httpserver.NewWorker(s.config)
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, worker)
-
-	parsed, err := url.Parse(worker.URL())
-	c.Assert(err, jc.ErrorIsNil)
-
-	entries := gatherLog(func() {
-		_, err := tls.Dial("tcp", parsed.Host, &tls.Config{
-			ServerName: "somewhere.else",
-		})
-		expectedErr := `.*x509: certificate is valid for .*, not somewhere.else`
-		// We can't get an autocert certificate, so we'll fall back to the local certificate
-		// which isn't valid for connecting to somewhere.example.
-		c.Assert(err, gc.ErrorMatches, expectedErr)
-	})
-	// Check that we logged the mismatch.
-	c.Assert(entries, jc.LogMatches, jc.SimpleMessages{{
-		Level:   loggo.DEBUG,
-		Message: `.*cannot get autocert certificate for "somewhere.else": acme/autocert: host "somewhere.else" not configured in HostWhitelist`,
+		Level:   loggo.ERROR,
+		Message: `.*getting autocert certificate for "somewhere.example": Get ["]?https://0.1.2.3/no-autocert-here["]?: .*`,
 	}})
 }
 

@@ -5,6 +5,7 @@ package tls
 
 import (
 	"crypto/tls"
+	"fmt"
 
 	"github.com/juju/errors"
 
@@ -20,8 +21,6 @@ type Logger interface {
 // supplied  authority that best matches the client hellow message.
 func AuthoritySNITLSGetter(authority pki.Authority, logger Logger) func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		logger.Debugf("received tls client hello for server name %s", hello.ServerName)
-
 		var cert *tls.Certificate
 
 		// NOTE: This was added in response to bug lp:1921557. If we get an
@@ -33,7 +32,7 @@ func AuthoritySNITLSGetter(authority pki.Authority, logger Logger) func(*tls.Cli
 			if err == nil {
 				cert = leaf.TLSCertificate()
 			} else if !errors.Is(err, errors.NotFound) {
-				return nil, errors.Annotate(err, "fetching ip address certificate")
+				return nil, fmt.Errorf("getting ip address based certificate: %w", err)
 			}
 		} else {
 			authority.LeafRange(func(leaf pki.Leaf) bool {
@@ -46,10 +45,10 @@ func AuthoritySNITLSGetter(authority pki.Authority, logger Logger) func(*tls.Cli
 		}
 
 		if cert == nil {
-			logger.Debugf("no matching certificate found for tls client hello %s, using default certificate", hello.ServerName)
+			logger.Debugf("no matching certificate found for server name %s, using default certificate", hello.ServerName)
 			leaf, err := authority.LeafForGroup(pki.DefaultLeafGroup)
 			if err != nil {
-				return nil, errors.New("tls: no certificates configured")
+				return nil, fmt.Errorf("getting default certificate: %w", err)
 			}
 			cert = leaf.TLSCertificate()
 		}
