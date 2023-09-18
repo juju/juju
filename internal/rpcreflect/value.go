@@ -5,30 +5,20 @@ package rpcreflect
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 )
 
-// CallNotImplementedError is the error returned when an attempt to call to
-// an unknown API method is made.
-type CallNotImplementedError struct {
-	RootMethod string
-	Version    int
-	Method     string
-}
+// MethodCaller represents a method that can be called on a facade object.
+type MethodCaller interface {
+	// ParamsType holds the required type of the parameter to the object method.
+	ParamsType() reflect.Type
 
-func (e *CallNotImplementedError) Error() string {
-	if e.Method == "" {
-		if e.Version != 0 {
-			return fmt.Sprintf("unknown version (%d) of interface %q", e.Version, e.RootMethod)
-		}
-		return fmt.Sprintf("unknown object type %q", e.RootMethod)
-	}
-	methodVersion := e.RootMethod
-	if e.Version != 0 {
-		methodVersion = fmt.Sprintf("%s(%d)", e.RootMethod, e.Version)
-	}
-	return fmt.Sprintf("no such request - method %s.%s is not implemented", methodVersion, e.Method)
+	// ResultType holds the result type of the result of calling the object method.
+	ResultType() reflect.Type
+
+	// Call is actually placing a call to instantiate an given instance and
+	// call the method on that instance.
+	Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error)
 }
 
 // methodCaller knows how to call a particular RPC method.
@@ -38,7 +28,7 @@ type methodCaller struct {
 	objMethod  ObjMethod
 }
 
-// methodCaller holds the value of the root of an RPC server that
+// Value holds the value of the root of an RPC server that
 // can call methods directly on a Go value.
 type Value struct {
 	rootValue reflect.Value
@@ -113,6 +103,8 @@ func (v Value) Kill() {
 	}
 }
 
+// Call implements MethodCaller.Call, which calls the method on the
+// root value and then calls the method on the object value.
 func (caller methodCaller) Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -124,22 +116,12 @@ func (caller methodCaller) Call(ctx context.Context, objId string, arg reflect.V
 	return caller.objMethod.Call(ctx, obj, arg)
 }
 
+// ParamsType implements MethodCaller.ParamsType.
 func (caller methodCaller) ParamsType() reflect.Type {
 	return caller.objMethod.Params
 }
 
+// ResultType implements MethodCaller.ResultType.
 func (caller methodCaller) ResultType() reflect.Type {
 	return caller.objMethod.Result
-}
-
-type MethodCaller interface {
-	// ParamsType holds the required type of the parameter to the object method.
-	ParamsType() reflect.Type
-
-	// ResultType holds the result type of the result of calling the object method.
-	ResultType() reflect.Type
-
-	// Call is actually placing a call to instantiate an given instance and
-	// call the method on that instance.
-	Call(ctx context.Context, objId string, arg reflect.Value) (reflect.Value, error)
 }

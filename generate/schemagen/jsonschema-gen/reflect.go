@@ -19,12 +19,14 @@ import (
 	"github.com/juju/juju/internal/rpcreflect"
 )
 
+// Cache the following types to special case them for speed.
 var (
 	timeType = reflect.TypeOf(time.Time{})
 	ipType   = reflect.TypeOf(net.IP{})
 	urlType  = reflect.TypeOf(url.URL{})
 )
 
+// Type represents a JSON Schema type.
 type Type struct {
 	Type                 string           `json:"type,omitempty"`
 	Format               string           `json:"format,omitempty"`
@@ -43,6 +45,7 @@ type Type struct {
 	Description          string           `json:"description,omitempty"`
 }
 
+// Schema represents a JSON Schema.
 type Schema struct {
 	*Type
 	Definitions Definitions `json:"definitions,omitempty"`
@@ -53,6 +56,7 @@ func Reflect(v interface{}) *Schema {
 	return ReflectFromType(reflect.TypeOf(v))
 }
 
+// ReflectFromType a Schema from a reflect.Type.
 func ReflectFromType(t reflect.Type) *Schema {
 	definitions := Definitions{}
 	s := &Schema{
@@ -96,6 +100,7 @@ func ReflectFromObjType(objtype *rpcreflect.ObjType) *Schema {
 	return s
 }
 
+// Definitions is a map of type names to types.
 type Definitions map[string]*Type
 
 func reflectTypeToSchema(definitions Definitions, t reflect.Type) *Type {
