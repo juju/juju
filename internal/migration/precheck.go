@@ -101,16 +101,6 @@ func TargetPrecheck(ctx context.Context, backend PrecheckBackend, pool Pool, mod
 			modelInfo.ControllerAgentVersion, controllerVersion)
 	}
 
-	// The MigrateToAllowed check is the same as validating if a model can be migrated
-	// to a controller running a newer Juju version.
-	allowed, minVer, err := upgradevalidation.MigrateToAllowed(modelInfo.AgentVersion, controllerVersion)
-	if err != nil {
-		return errors.Maskf(err, "unknown target controller version %v", controllerVersion)
-	}
-	if !allowed {
-		return errors.Errorf("model must be upgraded to at least version %s before being migrated to a controller with version %s", minVer, controllerVersion)
-	}
-
 	controllerCtx := newPrecheckTarget(backend, presence, nil)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Trace(err)

@@ -29,13 +29,6 @@ var MinClientVersions = map[int]version.Number{
 // must be running before migrating to the target controller.
 var MinMajorMigrateVersions = MinAgentVersions
 
-// MigrateToAllowed checks if the model can be migrated to the target controller.
-func MigrateToAllowed(modelVersion, targetControllerVersion version.Number) (bool, version.Number, error) {
-	return versionCheck(
-		modelVersion, targetControllerVersion, MinMajorMigrateVersions, "migrate",
-	)
-}
-
 // UpgradeControllerAllowed returns true if a controller upgrade is allowed
 // when it hosts a model with the specified version.
 func UpgradeControllerAllowed(modelVersion, targetControllerVersion version.Number) (bool, version.Number, error) {
