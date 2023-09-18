@@ -83,9 +83,9 @@ func (s *rootfsSuite) TestScope(c *gc.C) {
 	c.Assert(p.Scope(), gc.Equals, storage.ScopeMachine)
 }
 
-func (s *rootfsSuite) rootfsFilesystemSource(c *gc.C) storage.FilesystemSource {
+func (s *rootfsSuite) rootfsFilesystemSource(c *gc.C, fakeMountInfo ...string) storage.FilesystemSource {
 	s.commands = &mockRunCommand{c: c}
-	source, d := provider.RootfsFilesystemSource(s.fakeEtcDir, s.storageDir, s.commands.run)
+	source, d := provider.RootfsFilesystemSource(s.fakeEtcDir, s.storageDir, s.commands.run, fakeMountInfo...)
 	s.mockDirFuncs = d
 	return source
 }
@@ -185,10 +185,7 @@ func (s *rootfsSuite) TestAttachFilesystemsNoPathSpecified(c *gc.C) {
 func (s *rootfsSuite) TestAttachFilesystemsBind(c *gc.C) {
 	source := s.rootfsFilesystemSource(c)
 
-	cmd := s.commands.expect("df", "--output=source", "/srv")
-	cmd.respond("headers\n/src/of/root", nil)
-
-	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
+	cmd := s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
 	cmd.respond("", nil)
 
 	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
@@ -208,11 +205,52 @@ func (s *rootfsSuite) TestAttachFilesystemsBind(c *gc.C) {
 }
 
 func (s *rootfsSuite) TestAttachFilesystemsBound(c *gc.C) {
-	source := s.rootfsFilesystemSource(c)
-
 	// already bind-mounted storage-dir/6 to the target
-	cmd := s.commands.expect("df", "--output=source", "/srv")
-	cmd.respond("headers\n"+filepath.Join(s.storageDir, "6"), nil)
+	mountInfo := mountInfoLine(666, 0, filepath.Join(s.storageDir, "6"), "/srv", "/dev/sda1")
+	source := s.rootfsFilesystemSource(c, mountInfo)
+
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
+		FilesystemAttachment: &storage.FilesystemAttachment{
+			Filesystem: names.NewFilesystemTag("6"),
+			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
+				Path: "/srv",
+			},
+		},
+	}})
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBoundViaParent(c *gc.C) {
+	mountInfo1 := mountInfoLine(666, 667, filepath.Join("/some/parent/path", s.storageDir, "6"), "/srv", "/dev/sda1")
+	mountInfo2 := mountInfoLine(667, 668, "/some/parent/path", "/", "/dev/sda1")
+	source := s.rootfsFilesystemSource(c, mountInfo1, mountInfo2)
+
+	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
+		Filesystem:   names.NewFilesystemTag("6"),
+		FilesystemId: "6",
+		Path:         "/srv",
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, []storage.AttachFilesystemsResult{{
+		FilesystemAttachment: &storage.FilesystemAttachment{
+			Filesystem: names.NewFilesystemTag("6"),
+			FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
+				Path: "/srv",
+			},
+		},
+	}})
+}
+
+func (s *rootfsSuite) TestAttachFilesystemsBoundViaMultipleParents(c *gc.C) {
+	mountInfo1 := mountInfoLine(666, 667, filepath.Join("/some/parent/path", s.storageDir, "6"), "/srv", "/dev/sda1")
+	mountInfo2 := mountInfoLine(667, 668, "/some/parent/path", "/another/parent/path", "/dev/sda1")
+	mountInfo3 := mountInfoLine(668, 669, "/another/parent/path", "/", "/dev/sda1")
+	source := s.rootfsFilesystemSource(c, mountInfo1, mountInfo2, mountInfo3)
 
 	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
@@ -231,19 +269,12 @@ func (s *rootfsSuite) TestAttachFilesystemsBound(c *gc.C) {
 }
 
 func (s *rootfsSuite) TestAttachFilesystemsBindFailsDifferentFS(c *gc.C) {
-	source := s.rootfsFilesystemSource(c)
+	mountInfo1 := mountInfoLine(666, 0, "/somewhere", filepath.Join(s.storageDir, "6"), "/dev")
+	mountInfo2 := mountInfoLine(667, 0, "/src/of/root", "/srv", "/proc")
+	source := s.rootfsFilesystemSource(c, mountInfo1, mountInfo2)
 
-	cmd := s.commands.expect("df", "--output=source", "/srv")
-	cmd.respond("headers\n/src/of/root", nil)
-
-	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
+	cmd := s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
 	cmd.respond("", errors.New("mount --bind fails"))
-
-	cmd = s.commands.expect("df", "--output=target", filepath.Join(s.storageDir, "6"))
-	cmd.respond("headers\n/dev", nil)
-
-	cmd = s.commands.expect("df", "--output=target", "/srv")
-	cmd.respond("headers\n/proc", nil)
 
 	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
@@ -255,19 +286,12 @@ func (s *rootfsSuite) TestAttachFilesystemsBindFailsDifferentFS(c *gc.C) {
 }
 
 func (s *rootfsSuite) TestAttachFilesystemsBindSameFSEmptyDir(c *gc.C) {
-	source := s.rootfsFilesystemSource(c)
+	mountInfo1 := mountInfoLine(666, 0, "/somewhere", filepath.Join(s.storageDir, "6"), "/dev")
+	mountInfo2 := mountInfoLine(667, 0, "/src/of/root", "/srv", "/dev")
+	source := s.rootfsFilesystemSource(c, mountInfo1, mountInfo2)
 
-	cmd := s.commands.expect("df", "--output=source", "/srv")
-	cmd.respond("headers\n/src/of/root", nil)
-
-	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
+	cmd := s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv")
 	cmd.respond("", errors.New("mount --bind fails"))
-
-	cmd = s.commands.expect("df", "--output=target", filepath.Join(s.storageDir, "6"))
-	cmd.respond("headers\n/dev", nil)
-
-	cmd = s.commands.expect("df", "--output=target", "/srv")
-	cmd.respond("headers\n/dev", nil)
 
 	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
@@ -286,19 +310,12 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSEmptyDir(c *gc.C) {
 }
 
 func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirUnclaimed(c *gc.C) {
-	source := s.rootfsFilesystemSource(c)
+	mountInfo1 := mountInfoLine(666, 0, "/somewhere", filepath.Join(s.storageDir, "6"), "/dev")
+	mountInfo2 := mountInfoLine(667, 0, "/src/of/root", "/srv/666", "/dev")
+	source := s.rootfsFilesystemSource(c, mountInfo1, mountInfo2)
 
-	cmd := s.commands.expect("df", "--output=source", "/srv/666")
-	cmd.respond("headers\n/src/of/root", nil)
-
-	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv/666")
+	cmd := s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv/666")
 	cmd.respond("", errors.New("mount --bind fails"))
-
-	cmd = s.commands.expect("df", "--output=target", filepath.Join(s.storageDir, "6"))
-	cmd.respond("headers\n/dev", nil)
-
-	cmd = s.commands.expect("df", "--output=target", "/srv/666")
-	cmd.respond("headers\n/dev", nil)
 
 	results, err := source.AttachFilesystems(s.callCtx, []storage.FilesystemAttachmentParams{{
 		Filesystem:   names.NewFilesystemTag("6"),
@@ -310,19 +327,12 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirUnclaimed(c *gc.
 }
 
 func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirClaimed(c *gc.C) {
-	source := s.rootfsFilesystemSource(c)
+	mountInfo1 := mountInfoLine(666, 0, "/somewhere", filepath.Join(s.storageDir, "6"), "/dev")
+	mountInfo2 := mountInfoLine(667, 0, "/src/of/root", "/srv/666", "/dev")
+	source := s.rootfsFilesystemSource(c, mountInfo1, mountInfo2)
 
-	cmd := s.commands.expect("df", "--output=source", "/srv/666")
-	cmd.respond("headers\n/src/of/root", nil)
-
-	cmd = s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv/666")
+	cmd := s.commands.expect("mount", "--bind", filepath.Join(s.storageDir, "6"), "/srv/666")
 	cmd.respond("", errors.New("mount --bind fails"))
-
-	cmd = s.commands.expect("df", "--output=target", filepath.Join(s.storageDir, "6"))
-	cmd.respond("headers\n/dev", nil)
-
-	cmd = s.commands.expect("df", "--output=target", "/srv/666")
-	cmd.respond("headers\n/dev", nil)
 
 	s.mockDirFuncs.Dirs.Add(filepath.Join(s.storageDir, "6", "juju-target-claimed"))
 
@@ -343,7 +353,8 @@ func (s *rootfsSuite) TestAttachFilesystemsBindSameFSNonEmptyDirClaimed(c *gc.C)
 }
 
 func (s *rootfsSuite) TestDetachFilesystems(c *gc.C) {
-	source := s.rootfsFilesystemSource(c)
+	mountInfo := mountInfoLine(666, 0, "/src/of/root", testMountPoint, "/dev/sda1")
+	source := s.rootfsFilesystemSource(c, mountInfo)
 	testDetachFilesystems(c, s.commands, source, s.callCtx, true, s.fakeEtcDir, "")
 }
 

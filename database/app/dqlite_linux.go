@@ -7,8 +7,6 @@ package app
 
 import (
 	"crypto/tls"
-	"net"
-
 	"github.com/canonical/go-dqlite/app"
 	"github.com/canonical/go-dqlite/client"
 )
@@ -40,14 +38,6 @@ func WithAddress(address string) Option {
 // already part of the cluster.
 func WithCluster(cluster []string) Option {
 	return app.WithCluster(cluster)
-}
-
-// WithExternalConn enables passing an external dial function that will be used
-// whenever dqlite needs to make an outside connection.
-//
-// Also takes a net.Conn channel that should be received when the external connection has been accepted.
-func WithExternalConn(dialFunc client.DialFunc, acceptCh chan net.Conn) Option {
-	return app.WithExternalConn(dialFunc, acceptCh)
 }
 
 // WithTLS enables TLS encryption of network traffic.
