@@ -13,10 +13,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/jsonschema-gen"
 	"golang.org/x/tools/go/packages"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/generate/schemagen/jsonschema-gen"
 	"github.com/juju/juju/internal/rpcreflect"
 )
 

@@ -829,8 +829,6 @@ github.com/juju/idmclient/v2 v2.0.0 h1:PsGa092JGy6iFNHZCcao+bigVsTyz1C+tHNRdYmKv
 github.com/juju/idmclient/v2 v2.0.0/go.mod h1:EOiFbPmnkqKvCUS/DHpDRWhL7eKF0AJaTvMjIYlIUak=
 github.com/juju/jsonschema v1.0.0 h1:2ScR9hhVdHxft+Te3fnclVx61MmlikHNEOirTGi+hV4=
 github.com/juju/jsonschema v1.0.0/go.mod h1:SlFW+jFtpWX0P4Tb+zTTPR4ufttLrnJIdQPePxVEfkM=
-github.com/juju/jsonschema-gen v1.0.0 h1:u1Tq/fIWA7R7joNM8YNYxg/2RLdOP9/jgKSBibEfYXQ=
-github.com/juju/jsonschema-gen v1.0.0/go.mod h1:DPYruztGGtnf5neurmVhVAbRnk3nIrIh7ANyS15rBZs=
 github.com/juju/loggo v0.0.0-20170605014607-8232ab8918d9/go.mod h1:vgyd7OREkbtVEN/8IXZe5Ooef3LQePvuBm9UWj6ZL8U=
 github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e/go.mod h1:vgyd7OREkbtVEN/8IXZe5Ooef3LQePvuBm9UWj6ZL8U=
 github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4/go.mod h1:NIXFioti1SmKAlKNuUwbMenNdef59IF52+ZzuOmHYkg=
@@ -882,8 +880,6 @@ github.com/juju/rfc/v2 v2.0.0 h1:oj3UYJFp+zNNwbhVv4EV1fCvIV+hSTB03l/2/5hmFpI=
 github.com/juju/rfc/v2 v2.0.0/go.mod h1:fhE7z2y6DFUvYdWy93m40oA3lJIs+P3WrK6barpChj0=
 github.com/juju/romulus v1.0.0 h1:THzHnztB7JgFTkr4bmvcpTa2fK6YQTJyKpQwsNoPKRA=
 github.com/juju/romulus v1.0.0/go.mod h1:NTUb3tUldFPZLWbieglCiV4SpccHuiFUNRY+bsIkohA=
-github.com/juju/rpcreflect v1.2.0 h1:eokqqHg13bji8S3IRTuN7f5rfUkn+KnLiItoNfcSLoY=
-github.com/juju/rpcreflect v1.2.0/go.mod h1:yWSyMkWOwQGqUVxvboHn1c3CuCQrQ5LgV//8c/K1DqE=
 github.com/juju/schema v1.0.0/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0abI=
 github.com/juju/schema v1.0.1 h1:GBEiwxZQeoQuXI6gOTG58W/ZpdongMwl9pfZq1KcNgM=
 github.com/juju/schema v1.0.1/go.mod h1:Y+ThzXpUJ0E7NYYocAbuvJ7vTivXfrof/IfRPq/0abI=
