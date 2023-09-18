@@ -4,8 +4,7 @@
 package apiserver
 
 import (
-	"github.com/juju/rpcreflect"
-
+	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 )
 
