@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -427,7 +428,7 @@ func (r *Relation) destroyOps(ignoreApplication string, op *ForcedOperation) (op
 		// Since we are force destroying, life assert should be current relation's life.
 		lifeAssert = bson.D{{"life", r.doc.Life}}
 		deadline := r.st.stateClock.Now().Add(op.MaxWait)
-		ops = append(ops, newCleanupAtOp(deadline, cleanupForceDestroyedRelation, relationKey(r.Endpoints())))
+		ops = append(ops, newCleanupAtOp(deadline, cleanupForceDestroyedRelation, strconv.Itoa(r.Id())))
 	}
 
 	ops = append(ops, txn.Op{
