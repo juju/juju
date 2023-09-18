@@ -55,7 +55,10 @@ func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 	}
 
 	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: model, CloudService: ctx.ServiceFactory().Cloud(), CredentialService: ctx.ServiceFactory().Credential()}
+		Model:             model,
+		CloudService:      ctx.ServiceFactory().Cloud(),
+		CredentialService: ctx.ServiceFactory().Credential(),
+	}
 	newEnviron := common.EnvironFuncForModel(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential(), configGetter)
 
 	ctrlModel, err := ctlrSt.Model()
