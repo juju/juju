@@ -337,14 +337,116 @@ clouds:
     description: Oracle Cloud Infrastructure
     auth-types: [ httpsig ]
     regions:
-      us-phoenix-1:
-        endpoint: https://iaas.us-phoenix-1.oraclecloud.com
-      us-ashburn-1:
-        endpoint: https://iaas.us-ashburn-1.oraclecloud.com
+      af-johannesburg-1:
+        endpoint: https://iaas.af-johannesburg-1.oraclecloud.com
+      ap-chiyoda-1:
+        endpoint: https://iaas.ap-chiyoda-1.oraclecloud.com
+      ap-chuncheon-1:
+        endpoint: https://iaas.ap-chuncheon-1.oraclecloud.com
+      ap-dcc-canberra-1:
+        endpoint: https://iaas.ap-dcc-canberra-1.oraclecloud.com
+      ap-hyderabad-1:
+        endpoint: https://iaas.ap-hyderabad-1.oraclecloud.com
+      ap-ibaraki-1:
+        endpoint: https://iaas.ap-ibaraki-1.oraclecloud.com
+      ap-melbourne-1:
+        endpoint: https://iaas.ap-melbourne-1.oraclecloud.com
+      ap-mumbai-1:
+        endpoint: https://iaas.ap-mumbai-1.oraclecloud.com
+      ap-osaka-1:
+        endpoint: https://iaas.ap-osaka-1.oraclecloud.com
+      ap-seoul-1:
+        endpoint: https://iaas.ap-seoul-1.oraclecloud.com
+      ap-singapore-1:
+        endpoint: https://iaas.ap-singapore-1.oraclecloud.com
+      ap-sydney-1:
+        endpoint: https://iaas.ap-sydney-1.oraclecloud.com
+      ap-tokyo-1:
+        endpoint: https://iaas.ap-tokyo-1.oraclecloud.com
+      ca-montreal-1:
+        endpoint: https://iaas.ca-montreal-1.oraclecloud.com
+      ca-toronto-1:
+        endpoint: https://iaas.ca-toronto-1.oraclecloud.com
+      eu-amsterdam-1:
+        endpoint: https://iaas.eu-amsterdam-1.oraclecloud.com
+      eu-dcc-dublin-1:
+        endpoint: https://iaas.eu-dcc-dublin-1.oraclecloud.com
+      eu-dcc-dublin-2:
+        endpoint: https://iaas.eu-dcc-dublin-2.oraclecloud.com
+      eu-dcc-milan-1:
+        endpoint: https://iaas.eu-dcc-milan-1.oraclecloud.com
+      eu-dcc-milan-2:
+        endpoint: https://iaas.eu-dcc-milan-2.oraclecloud.com
+      eu-dcc-rating-1:
+        endpoint: https://iaas.eu-dcc-rating-1.oraclecloud.com
+      eu-dcc-rating-2:
+        endpoint: https://iaas.eu-dcc-rating-2.oraclecloud.com
       eu-frankfurt-1:
         endpoint: https://iaas.eu-frankfurt-1.oraclecloud.com
+      eu-frankfurt-2:
+        endpoint: https://iaas.eu-frankfurt-2.oraclecloud.com
+      eu-jovanovac-1:
+        endpoint: https://iaas.eu-jovanovac-1.oraclecloud.com
+      eu-madrid-1:
+        endpoint: https://iaas.eu-madrid-1.oraclecloud.com
+      eu-madrid-2:
+        endpoint: https://iaas.eu-madrid-2.oraclecloud.com
+      eu-marseille-1:
+        endpoint: https://iaas.eu-marseille-1.oraclecloud.com
+      eu-milan-1:
+        endpoint: https://iaas.eu-milan-1.oraclecloud.com
+      eu-paris-1:
+        endpoint: https://iaas.eu-paris-1.oraclecloud.com
+      eu-stockholm-1:
+        endpoint: https://iaas.eu-stockholm-1.oraclecloud.com
+      eu-zurich-1:
+        endpoint: https://iaas.eu-zurich-1.oraclecloud.com
+      il-jerusalem-1:
+        endpoint: https://iaas.il-jerusalem-1.oraclecloud.com
+      me-abudhabi-1:
+        endpoint: https://iaas.me-abudhabi-1.oraclecloud.com
+      me-dcc-muscat-1:
+        endpoint: https://iaas.me-dcc-muscat-1.oraclecloud.com
+      me-dubai-1:
+        endpoint: https://iaas.me-dubai-1.oraclecloud.com
+      me-jeddah-1:
+        endpoint: https://iaas.me-jeddah-1.oraclecloud.com
+      mx-monterrey-1:
+        endpoint: https://iaas.mx-monterrey-1.oraclecloud.com
+      mx-queretaro-1:
+        endpoint: https://iaas.mx-queretaro-1.oraclecloud.com
+      sa-santiago-1:
+        endpoint: https://iaas.sa-santiago-1.oraclecloud.com
+      sa-saopaulo-1:
+        endpoint: https://iaas.sa-saopaulo-1.oraclecloud.com
+      sa-vinhedo-1:
+        endpoint: https://iaas.sa-vinhedo-1.oraclecloud.com
+      uk-cardiff-1:
+        endpoint: https://iaas.uk-cardiff-1.oraclecloud.com
+      uk-gov-cardiff-1:
+        endpoint: https://iaas.uk-gov-cardiff-1.oraclecloud.com
+      uk-gov-london-1:
+        endpoint: https://iaas.uk-gov-london-1.oraclecloud.com
       uk-london-1:
         endpoint: https://iaas.uk-london-1.oraclecloud.com
+      us-ashburn-1:
+        endpoint: https://iaas.us-ashburn-1.oraclecloud.com
+      us-chicago-1:
+        endpoint: https://iaas.us-chicago-1.oraclecloud.com
+      us-gov-ashburn-1:
+        endpoint: https://iaas.us-gov-ashburn-1.oraclecloud.com
+      us-gov-chicago-1:
+        endpoint: https://iaas.us-gov-chicago-1.oraclecloud.com
+      us-gov-phoenix-1:
+        endpoint: https://iaas.us-gov-phoenix-1.oraclecloud.com
+      us-langley-1:
+        endpoint: https://iaas.us-langley-1.oraclecloud.com
+      us-luke-1:
+        endpoint: https://iaas.us-luke-1.oraclecloud.com
+      us-phoenix-1:
+        endpoint: https://iaas.us-phoenix-1.oraclecloud.com
+      us-sanjose-1:
+        endpoint: https://iaas.us-sanjose-1.oraclecloud.com
   equinix:
     type: equinix
     description: Equinix Metal
