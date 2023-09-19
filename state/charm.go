@@ -230,7 +230,7 @@ type CharmInfo struct {
 // charm data. If curl is nil, an error will be returned.
 func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 	if info.ID == "" {
-		return nil, errors.New("*charm.URL was empty")
+		return nil, errors.New("charm ID was empty")
 	}
 
 	pendingUpload := info.SHA256 == "" || info.StoragePath == ""
@@ -627,8 +627,8 @@ func (c *Charm) globalKey() string {
 	return charmGlobalKey(c.doc.URL)
 }
 
-// URL returns the URL that identifies the charm.
-// Parse the charm's URL on demand, if required.
+// URL returns a string which identifies the charm
+// The string will parse into a charm.URL if required
 func (c *Charm) URL() string {
 	if c.doc.URL == nil {
 		return ""
@@ -734,7 +734,7 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			if curl.Schema == "local" {
+			if charm.Local.Matches(curl.Schema) {
 				allocatedCurl, err := st.PrepareLocalCharmUpload(curl.String())
 				if err != nil {
 					return nil, errors.Trace(err)
@@ -779,7 +779,7 @@ func (st *State) Charm(curl string) (*Charm, error) {
 	if err != nil {
 		return nil, err
 	}
-	ch, err := st.findCharm(curl, parsedURL.Schema)
+	ch, err := st.findCharm(parsedURL)
 	if err != nil {
 		return nil, err
 	}
@@ -797,14 +797,14 @@ func (st *State) Charm(curl string) (*Charm, error) {
 // refreshing a charm can happen before a charm is actually downloaded. Therefore
 // it must be able to find placeholders and update them to allow for a download
 // to happen as part of refresh.
-func (st *State) findCharm(curl string, schema string) (*Charm, error) {
+func (st *State) findCharm(curl *charm.URL) (*Charm, error) {
 	var cdoc charmDoc
 
 	charms, closer := st.db().GetCollection(charmsC)
 	defer closer()
 
 	what := bson.D{
-		{"_id", curl},
+		{"_id", curl.String()},
 	}
 	what = append(what, nsLife.notDead()...)
 	err := charms.Find(what).One(&cdoc)
@@ -815,7 +815,7 @@ func (st *State) findCharm(curl string, schema string) (*Charm, error) {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
 
-	if cdoc.PendingUpload && !charm.CharmHub.Matches(schema) {
+	if cdoc.PendingUpload && !charm.CharmHub.Matches(curl.Schema) {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
 	return newCharm(st, &cdoc), nil
@@ -1113,7 +1113,7 @@ func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Check if the charm doc already exists.
-		ch, err := st.findCharm(info.ID, curl.Schema)
+		ch, err := st.findCharm(curl)
 		if errors.Is(err, errors.NotFound) {
 			return insertCharmOps(st, info)
 		} else if err != nil {

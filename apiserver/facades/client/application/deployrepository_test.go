@@ -72,7 +72,7 @@ func (s *validatorSuite) TestValidateSuccess(c *gc.C) {
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
 		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
-		charmURL:        resultURL.String(),
+		charmURL:        resultURL,
 		numUnits:        1,
 		origin:          resolvedOrigin,
 	})
@@ -126,7 +126,7 @@ func (s *validatorSuite) testValidateIAASAttachStorage(c *gc.C, argStorage []str
 		c.Assert(dt, gc.DeepEquals, deployTemplate{
 			applicationName: "test-charm",
 			charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
-			charmURL:        resultURL.String(),
+			charmURL:        resultURL,
 			numUnits:        1,
 			origin:          resolvedOrigin,
 			attachStorage:   expectedStorageTags,
@@ -183,7 +183,7 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
 		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
-		charmURL:        resultURL.String(),
+		charmURL:        resultURL,
 		numUnits:        1,
 		origin:          resolvedOrigin,
 		placement:       arg.Placement,
@@ -229,7 +229,7 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 	c.Assert(dt, gc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
 		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
-		charmURL:        resultURL.String(),
+		charmURL:        resultURL,
 		endpoints:       endpointMap,
 		numUnits:        1,
 		origin:          resolvedOrigin,
@@ -480,7 +480,7 @@ func (s *validatorSuite) TestGetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
 	c.Assert(obtainedCharm, gc.DeepEquals, corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata))
-	c.Assert(obtainedURL, gc.Equals, resultURL.String())
+	c.Assert(obtainedURL, gc.DeepEquals, resultURL)
 }
 
 func (s *validatorSuite) TestGetCharmAlreadyDeployed(c *gc.C) {
@@ -517,7 +517,7 @@ func (s *validatorSuite) TestGetCharmAlreadyDeployed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
 	c.Assert(obtainedCharm, gc.NotNil)
-	c.Assert(obtainedURL, gc.Equals, resultURL.String())
+	c.Assert(obtainedURL, gc.DeepEquals, resultURL)
 }
 
 func (s *validatorSuite) TestGetCharmFindsBundle(c *gc.C) {
@@ -911,7 +911,7 @@ func (s *validatorSuite) TestResolveResourcesSuccess(c *gc.C) {
 	deployResArg := map[string]string{"foo-file": "bar", "foo-file2": "3"}
 
 	s.repo.EXPECT().ResolveResources(resolveResourcesArgsMatcher{c: c, expected: &resArgs}, corecharm.CharmID{URL: curl, Origin: origin}).Return(resResult, nil)
-	resources, pendingResourceUploads, resolveResErr := s.getValidator().resolveResources(curl.String(), origin, deployResArg, resMeta)
+	resources, pendingResourceUploads, resolveResErr := s.getValidator().resolveResources(curl, origin, deployResArg, resMeta)
 	pendUp := &params.PendingResourceUpload{
 		Name:     "foo-resource",
 		Type:     "file",
@@ -958,7 +958,7 @@ func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
 	c.Assert(obtainedDT, gc.DeepEquals, deployTemplate{
 		applicationName: "test-charm",
 		charm:           corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata),
-		charmURL:        resultURL.String(),
+		charmURL:        resultURL,
 		numUnits:        1,
 		origin:          resolvedOrigin,
 	})
@@ -1050,7 +1050,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	template := deployTemplate{
 		applicationName: "metadata-name",
 		charm:           corecharm.NewCharmInfoAdapter(corecharm.EssentialMetadata{}),
-		charmURL:        "ch:amd64/jammy/testme-5",
+		charmURL:        charm.MustParseURL("ch:amd64/jammy/testme-5"),
 		endpoints:       map[string]string{"to": "from"},
 		numUnits:        1,
 		origin: corecharm.Origin{
@@ -1170,7 +1170,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 	template := deployTemplate{
 		applicationName: "metadata-name",
 		charm:           corecharm.NewCharmInfoAdapter(corecharm.EssentialMetadata{}),
-		charmURL:        "ch:amd64/jammy/testme-5",
+		charmURL:        charm.MustParseURL("ch:amd64/jammy/testme-5"),
 		endpoints:       map[string]string{"to": "from"},
 		numUnits:        1,
 		origin: corecharm.Origin{
@@ -1261,7 +1261,7 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 	template := deployTemplate{
 		applicationName: "metadata-name",
 		charm:           corecharm.NewCharmInfoAdapter(corecharm.EssentialMetadata{}),
-		charmURL:        "ch:amd64/jammy/testme-5",
+		charmURL:        charm.MustParseURL("ch:amd64/jammy/testme-5"),
 		endpoints:       map[string]string{"to": "from"},
 		numUnits:        1,
 		origin: corecharm.Origin{
