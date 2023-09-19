@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package proxy_test
+package config_test
 
 import (
 	"net/http"
@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	proxyconfig "github.com/juju/juju/utils/proxy"
+	proxyconfig "github.com/juju/juju/internal/proxy/config"
 )
 
 type Suite struct{}

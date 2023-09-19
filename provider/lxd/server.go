@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/container/lxd"
-	"github.com/juju/juju/utils/proxy"
+	proxy "github.com/juju/juju/internal/proxy/config"
 )
 
 // Server defines an interface of all localized methods that the environment

@@ -48,10 +48,10 @@ import (
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/juju/waitfor"
 	"github.com/juju/juju/internal/feature"
+	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
 )
 
