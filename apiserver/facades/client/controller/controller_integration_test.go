@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package featuretests
+package controller_test
 
 import (
 	gc "gopkg.in/check.v1"
@@ -16,12 +16,14 @@ import (
 // library. It is expected that JIMM will call these methods using
 // the Go API.
 
-type ControllerSuite struct {
+type ControllerIntegrationSuite struct {
 	testing.ApiServerSuite
 	client *controller.Client
 }
 
-func (s *ControllerSuite) SetUpTest(c *gc.C) {
+var _ = gc.Suite(&ControllerIntegrationSuite{})
+
+func (s *ControllerIntegrationSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	api := s.OpenControllerAPI(c)
@@ -29,7 +31,7 @@ func (s *ControllerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { s.client.Close() })
 }
 
-func (s *ControllerSuite) TestWatchModelSummaries(c *gc.C) {
+func (s *ControllerIntegrationSuite) TestWatchModelSummaries(c *gc.C) {
 
 	// TODO(dqlite) - implement me
 	watcher, err := s.client.WatchModelSummaries()
@@ -56,7 +58,7 @@ func (s *ControllerSuite) TestWatchModelSummaries(c *gc.C) {
 	//})
 }
 
-func (s *ControllerSuite) TestWatchAllModelSummaries(c *gc.C) {
+func (s *ControllerIntegrationSuite) TestWatchAllModelSummaries(c *gc.C) {
 
 	// TODO(dqlite) - implement me
 	watcher, err := s.client.WatchAllModelSummaries()
