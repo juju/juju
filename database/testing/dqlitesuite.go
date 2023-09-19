@@ -62,7 +62,7 @@ func (s *DqliteSuite) SetUpTest(c *gc.C) {
 
 	port := FindTCPPort(c)
 
-	url := fmt.Sprintf("%s:%d", "127.0.0.1", port)
+	url := fmt.Sprintf("%s:%d", "[::1]", port)
 	c.Logf("Opening dqlite db with: %v", url)
 
 	// Depending on the verbosity of the test suite, we want to
@@ -175,7 +175,7 @@ func (s *DqliteSuite) TxnRunnerFactory() func() (coredatabase.TxnRunner, error) 
 // to minimise the change of another process using it in the interim.
 // The chances of this should be negligible during testing.
 func FindTCPPort(c *gc.C) int {
-	l, err := net.Listen("tcp", ":0")
+	l, err := net.Listen("tcp", "[::1]:0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(l.Close(), jc.ErrorIsNil)
 	return l.Addr().(*net.TCPAddr).Port
