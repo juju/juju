@@ -131,8 +131,6 @@ type Charm interface {
 	Metrics() *charm.Metrics
 	Actions() *charm.Actions
 	Revision() int
-	URL() *charm.URL
-	String() string
 	IsUploaded() bool
 }
 

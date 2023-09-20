@@ -1054,34 +1054,6 @@ func (mr *MockCharmMockRecorder) Meta() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Meta", reflect.TypeOf((*MockCharm)(nil).Meta))
 }
 
-// String mocks base method.
-func (m *MockCharm) String() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "String")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// String indicates an expected call of String.
-func (mr *MockCharmMockRecorder) String() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockCharm)(nil).String))
-}
-
-// URL mocks base method.
-func (m *MockCharm) URL() *charm.URL {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "URL")
-	ret0, _ := ret[0].(*charm.URL)
-	return ret0
-}
-
-// URL indicates an expected call of URL.
-func (mr *MockCharmMockRecorder) URL() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "URL", reflect.TypeOf((*MockCharm)(nil).URL))
-}
-
 // MockCharmhubClient is a mock of CharmhubClient interface.
 type MockCharmhubClient struct {
 	ctrl     *gomock.Controller

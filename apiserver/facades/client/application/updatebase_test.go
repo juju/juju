@@ -135,16 +135,16 @@ func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeries(c *gc.
 	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{
 		Series: []string{"xenial", "bionic"},
+		Name:   "my-charm",
 	}).MinTimes(2)
 	ch.EXPECT().Manifest().Return(nil).AnyTimes()
-	ch.EXPECT().String().Return("ch:foo-1")
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
 
 	validator := stateSeriesValidator{}
 	err := validator.ValidateApplication(application, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `base "ubuntu@20.04" not supported by charm "ch:foo-1", supported bases are: ubuntu@16.04, ubuntu@18.04`)
+	c.Assert(err, gc.ErrorMatches, `base "ubuntu@20.04" not supported by charm "my-charm", supported bases are: ubuntu@16.04, ubuntu@18.04`)
 }
 
 func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeriesWithForce(c *gc.C) {

@@ -469,7 +469,7 @@ func (s stateSeriesValidator) verifySupportedBase(application Application, base 
 	}
 	_, baseSupportedErr := corecharm.BaseForCharm(base, supportedBases)
 	if baseSupportedErr != nil && !force {
-		return apiservererrors.NewErrIncompatibleBase(supportedBases, base, ch.String())
+		return apiservererrors.NewErrIncompatibleBase(supportedBases, base, ch.Meta().Name)
 	}
 	return nil
 }

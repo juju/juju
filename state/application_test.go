@@ -1807,7 +1807,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 	// Trusty is listed in only version 1 of the charm.
 	err := app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
 	c.Assert(err, gc.ErrorMatches,
-		"updating application series: base \"ubuntu@22.04\" not supported by charm \"ch:multi-series-2\", "+
+		"updating application series: base \"ubuntu@22.04\" not supported by charm \"multi-series\", "+
 			"supported bases are: ubuntu@20.04, ubuntu@18.04")
 }
 
@@ -5460,7 +5460,7 @@ func (s *ApplicationSuite) TestCharmLegacyOnlySupportsOneSeries(c *gc.C) {
 	err := app.VerifySupportedBase(state.UbuntuBase("12.10"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	err = app.VerifySupportedBase(state.UbuntuBase("16.04"), false)
-	c.Assert(err, gc.ErrorMatches, "base \"ubuntu@16.04\" not supported by charm \"local:precise/precise-mysql-1\", supported bases are: ubuntu@12.10")
+	c.Assert(err, gc.ErrorMatches, "base \"ubuntu@16.04\" not supported by charm \"mysql\", supported bases are: ubuntu@12.10")
 }
 
 func (s *ApplicationSuite) TestCharmLegacyNoOSInvalid(c *gc.C) {

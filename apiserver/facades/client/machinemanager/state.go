@@ -106,10 +106,8 @@ type Application interface {
 }
 
 type Charm interface {
-	URL() *charm.URL
 	Meta() *charm.Meta
 	Manifest() *charm.Manifest
-	String() string
 }
 
 type stateShim struct {
