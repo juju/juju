@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package featuretests
+package meterstatus_test
 
 import (
 	"time"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type meterStatusIntegrationSuite struct {
+type MeterStatusIntegrationSuite struct {
 	jujutesting.ApiServerSuite
 
 	status meterstatus.MeterStatusClient
@@ -24,7 +24,9 @@ type meterStatusIntegrationSuite struct {
 	unit   *state.Unit
 }
 
-func (s *meterStatusIntegrationSuite) SetUpTest(c *gc.C) {
+var _ = gc.Suite(&MeterStatusIntegrationSuite{})
+
+func (s *MeterStatusIntegrationSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -44,7 +46,7 @@ func (s *meterStatusIntegrationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *meterStatusIntegrationSuite) TestMeterStatus(c *gc.C) {
+func (s *MeterStatusIntegrationSuite) TestMeterStatus(c *gc.C) {
 	code, info, err := s.status.MeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(code, gc.Equals, "AMBER")
@@ -59,7 +61,7 @@ func (s *meterStatusIntegrationSuite) TestMeterStatus(c *gc.C) {
 	c.Assert(info, gc.Equals, "some status")
 }
 
-func (s *meterStatusIntegrationSuite) TestWatchMeterStatus(c *gc.C) {
+func (s *MeterStatusIntegrationSuite) TestWatchMeterStatus(c *gc.C) {
 	w, err := s.status.WatchMeterStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)

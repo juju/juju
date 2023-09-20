@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package featuretests
+package apiserver_test
 
 import (
 	"encoding/json"
@@ -71,13 +71,15 @@ func assertResponse(c *gc.C, resp *http.Response, expStatus int) params.ToolsRes
 	return toolsResponse
 }
 
-type toolsWithMacaroonsSuite struct {
+type toolsWithMacaroonsIntegrationSuite struct {
 	toolsCommonSuite
 	jujutesting.MacaroonSuite
 	userTag names.Tag
 }
 
-func (s *toolsWithMacaroonsSuite) SetUpTest(c *gc.C) {
+var _ = gc.Suite(&toolsWithMacaroonsIntegrationSuite{})
+
+func (s *toolsWithMacaroonsIntegrationSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
 	s.userTag = names.NewUserTag("bob@authhttpsuite")
 	s.AddModelUser(c, s.userTag.Id())
@@ -88,7 +90,7 @@ func (s *toolsWithMacaroonsSuite) SetUpTest(c *gc.C) {
 	s.modelUUID = s.ControllerModelUUID()
 }
 
-func (s *toolsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredError(c *gc.C) {
+func (s *toolsWithMacaroonsIntegrationSuite) TestWithNoBasicAuthReturnsDischargeRequiredError(c *gc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method: "POST",
 		URL:    s.toolsURI(""),
@@ -102,7 +104,7 @@ func (s *toolsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredErr
 	c.Assert(charmResponse.Error.Info["bakery-macaroon"], gc.NotNil)
 }
 
-func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
+func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
 	checkCount := 0
 	s.DischargerLogin = func() string {
 		checkCount++
@@ -117,7 +119,7 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
 	c.Assert(checkCount, gc.Equals, 1)
 }
 
-func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
+func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *gc.C) {
 	// Create a new local user that we can log in as
 	// using macaroon authentication.
 	const password = "hunter2"
@@ -164,7 +166,7 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
 
 // doer returns a Do function that can make a bakery request
 // appropriate for a charms endpoint.
-func (s *toolsWithMacaroonsSuite) doer() func(*http.Request) (*http.Response, error) {
+func (s *toolsWithMacaroonsIntegrationSuite) doer() func(*http.Request) (*http.Response, error) {
 	return bakeryDo(nil, bakeryGetError)
 }
 

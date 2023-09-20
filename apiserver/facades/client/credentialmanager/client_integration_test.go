@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package featuretests
+package credentialmanager_test
 
 import (
 	ctx "context"
@@ -18,24 +18,26 @@ import (
 // If/when we have commands that would expose this,
 // we should drop this suite and write a new command-based one.
 
-type CredentialManagerSuite struct {
+type CredentialManagerIntegrationSuite struct {
 	testing.ApiServerSuite
 	client *credentialmanager.Client
 }
 
-func (s *CredentialManagerSuite) SetUpTest(c *gc.C) {
+var _ = gc.Suite(&CredentialManagerIntegrationSuite{})
+
+func (s *CredentialManagerIntegrationSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	userConn := s.OpenControllerModelAPI(c)
 	s.client = credentialmanager.NewClient(userConn)
 }
 
-func (s *CredentialManagerSuite) TearDownTest(c *gc.C) {
+func (s *CredentialManagerIntegrationSuite) TearDownTest(c *gc.C) {
 	s.client.Close()
 	s.ApiServerSuite.TearDownTest(c)
 }
 
-func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
+func (s *CredentialManagerIntegrationSuite) TestInvalidateModelCredential(c *gc.C) {
 	model := s.ControllerModel(c)
 	tag, set := model.CloudCredentialTag()
 	c.Assert(set, jc.IsTrue)

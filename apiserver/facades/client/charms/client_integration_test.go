@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package featuretests
+package charms_test
 
 import (
 	"fmt"
@@ -18,16 +18,16 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-var _ = gc.Suite(&clientMacaroonSuite{})
-
-// clientMacaroonSuite tests that Client endpoints that are
+// clientMacaroonIntegrationSuite tests that Client endpoints that are
 // independent of the RPC-based API work with
 // macaroon authentication.
-type clientMacaroonSuite struct {
+type clientMacaroonIntegrationSuite struct {
 	jujutesting.MacaroonSuite
 }
 
-func (s *clientMacaroonSuite) createTestClient(c *gc.C) *charms.Client {
+var _ = gc.Suite(&clientMacaroonIntegrationSuite{})
+
+func (s *clientMacaroonIntegrationSuite) createTestClient(c *gc.C) *charms.Client {
 	username := "testuser@somewhere"
 	s.AddModelUser(c, username)
 	s.AddControllerUser(c, username, permission.LoginAccess)
@@ -43,7 +43,7 @@ func (s *clientMacaroonSuite) createTestClient(c *gc.C) *charms.Client {
 	return charmClient
 }
 
-func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
+func (s *clientMacaroonIntegrationSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
 	charmClient := s.createTestClient(c)
 	s.DischargerLogin = func() string { return "" }
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
@@ -55,7 +55,7 @@ func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
 	c.Assert(savedURL, gc.IsNil)
 }
 
-func (s *clientMacaroonSuite) TestAddLocalCharmSuccess(c *gc.C) {
+func (s *clientMacaroonIntegrationSuite) TestAddLocalCharmSuccess(c *gc.C) {
 	charmClient := charms.NewClient(s.OpenControllerModelAPI(c))
 	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(

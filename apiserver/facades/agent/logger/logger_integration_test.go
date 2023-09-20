@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package featuretests
+package logger_test
 
 import (
 	jc "github.com/juju/testing/checkers"
@@ -13,11 +13,13 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type apiLoggerSuite struct {
+type LoggerIntegrationSuite struct {
 	jujutesting.ApiServerSuite
 }
 
-func (s *apiLoggerSuite) TestLoggingConfig(c *gc.C) {
+var _ = gc.Suite(&LoggerIntegrationSuite{})
+
+func (s *LoggerIntegrationSuite) TestLoggingConfig(c *gc.C) {
 	root, machine := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	logging := logger.NewClient(root)
 
@@ -26,7 +28,7 @@ func (s *apiLoggerSuite) TestLoggingConfig(c *gc.C) {
 	c.Assert(obtained, gc.Equals, "<root>=INFO")
 }
 
-func (s *apiLoggerSuite) TestWatchLoggingConfig(c *gc.C) {
+func (s *LoggerIntegrationSuite) TestWatchLoggingConfig(c *gc.C) {
 	root, machine := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	logging := logger.NewClient(root)
 
