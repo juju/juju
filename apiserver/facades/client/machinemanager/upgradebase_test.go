@@ -436,16 +436,15 @@ func (s StateValidatorSuite) TestValidateApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s StateValidatorSuite) TestValidateApplicationsWithFallbackSeries(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplicationsWithNoBases(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	url := charm.MustParseURL("ch:amd64/focal/foo-1")
-
 	ch := mocks.NewMockCharm(ctrl)
-	ch.EXPECT().Meta().Return(&charm.Meta{}).MinTimes(2)
+	ch.EXPECT().Meta().Return(&charm.Meta{
+		Name: "my-charm",
+	}).MinTimes(2)
 	ch.EXPECT().Manifest().Return(nil).AnyTimes()
-	ch.EXPECT().URL().Return(url)
 
 	application := mocks.NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
@@ -454,7 +453,7 @@ func (s StateValidatorSuite) TestValidateApplicationsWithFallbackSeries(c *gc.C)
 
 	validator := machinemanager.NewTestStateSeriesValidator()
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `charm "my-charm" does not support any bases. Not valid`)
 }
 
 func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc.C) {
@@ -462,9 +461,11 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc
 	defer ctrl.Finish()
 
 	ch := mocks.NewMockCharm(ctrl)
-	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"xenial", "bionic"}}).MinTimes(2)
+	ch.EXPECT().Meta().Return(&charm.Meta{
+		Name:   "my-charm",
+		Series: []string{"xenial", "bionic"},
+	}).MinTimes(2)
 	ch.EXPECT().Manifest().Return(nil).AnyTimes()
-	ch.EXPECT().String().Return("ch:foo-1")
 
 	application := mocks.NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
@@ -473,7 +474,7 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc
 
 	validator := machinemanager.NewTestStateSeriesValidator()
 	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
-	c.Assert(err, gc.ErrorMatches, `series "focal" not supported by charm "ch:foo-1", supported series are: xenial, bionic`)
+	c.Assert(err, gc.ErrorMatches, `base "ubuntu@20.04" not supported by charm "my-charm", supported bases are: ubuntu@16.04, ubuntu@18.04`)
 }
 
 func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeriesWithForce(c *gc.C) {

@@ -10,7 +10,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/apiserver/facades/client/machinemanager Leadership
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/upgradeseries_mock.go github.com/juju/juju/apiserver/facades/client/machinemanager Authorizer,UpgradeSeries,UpgradeSeriesState,UpgradeBaseValidator
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/upgradebase_mock.go github.com/juju/juju/apiserver/facades/client/machinemanager Authorizer,UpgradeSeries,UpgradeSeriesState,UpgradeBaseValidator
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/instance_config_mock.go github.com/juju/juju/apiserver/facades/client/machinemanager ControllerBackend,InstanceConfigBackend
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/types_mock.go github.com/juju/juju/apiserver/facades/client/machinemanager Backend,StorageInterface,Pool,Model,Machine,Application,Unit,Charm,CharmhubClient
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state StorageAttachment,StorageInstance,Block
