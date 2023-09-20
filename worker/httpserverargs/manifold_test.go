@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/httpserverargs"
-	"github.com/juju/juju/worker/servicefactory"
 )
 
 type ManifoldSuite struct {

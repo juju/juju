@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"
 )
 

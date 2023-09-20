@@ -50,10 +50,10 @@ import (
 	"github.com/juju/juju/core/resources"
 	controllermsg "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/resource"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/servicefactory"
 	"github.com/juju/juju/worker/syslogger"
 )
 

@@ -58,6 +58,7 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/pubsub/centralhub"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -66,7 +67,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/lease"
 	wmultiwatcher "github.com/juju/juju/worker/multiwatcher"
-	"github.com/juju/juju/worker/servicefactory"
 )
 
 const AdminSecret = "dummy-secret"

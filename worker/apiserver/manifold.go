@@ -25,10 +25,10 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
-	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/syslogger"
 )

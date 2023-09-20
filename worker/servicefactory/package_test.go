@@ -12,7 +12,8 @@ import (
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package servicefactory -destination servicefactory_mock_test.go github.com/juju/juju/worker/servicefactory ControllerServiceFactory,ModelServiceFactory,ServiceFactory,ServiceFactoryGetter,Logger
+//go:generate go run go.uber.org/mock/mockgen -package servicefactory -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ControllerServiceFactory,ModelServiceFactory,ServiceFactory,ServiceFactoryGetter
+//go:generate go run go.uber.org/mock/mockgen -package servicefactory -destination servicefactory_logger_mock_test.go github.com/juju/juju/worker/servicefactory Logger
 //go:generate go run go.uber.org/mock/mockgen -package servicefactory -destination database_mock_test.go github.com/juju/juju/core/database DBDeleter
 //go:generate go run go.uber.org/mock/mockgen -package servicefactory -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
 

@@ -72,6 +72,7 @@ import (
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/service"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage/looputil"
 	"github.com/juju/juju/internal/wrench"
 	jujunames "github.com/juju/juju/juju/names"
@@ -89,7 +90,6 @@ import (
 	"github.com/juju/juju/worker/migrationmaster"
 	"github.com/juju/juju/worker/modelworkermanager"
 	psworker "github.com/juju/juju/worker/pubsub"
-	"github.com/juju/juju/worker/servicefactory"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 

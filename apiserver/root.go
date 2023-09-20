@@ -29,11 +29,11 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/internal/rpcreflect"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/servicefactory"
 )
 
 type objectKey struct {

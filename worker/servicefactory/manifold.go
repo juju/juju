@@ -10,7 +10,8 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/domain/servicefactory"
+	domainsf "github.com/juju/juju/domain/servicefactory"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -36,11 +37,11 @@ type ManifoldConfig struct {
 
 // ServiceFactoryGetterFn is a function that returns a service factory getter.
 type ServiceFactoryGetterFn func(
-	ControllerServiceFactory,
+	servicefactory.ControllerServiceFactory,
 	changestream.WatchableDBGetter,
 	Logger,
 	ModelServiceFactoryFn,
-) ServiceFactoryGetter
+) servicefactory.ServiceFactoryGetter
 
 // ControllerServiceFactoryFn is a function that returns a controller service
 // factory.
@@ -48,14 +49,14 @@ type ControllerServiceFactoryFn func(
 	changestream.WatchableDBGetter,
 	coredatabase.DBDeleter,
 	Logger,
-) ControllerServiceFactory
+) servicefactory.ControllerServiceFactory
 
 // ModelServiceFactoryFn is a function that returns a model service factory.
 type ModelServiceFactoryFn func(
 	changestream.WatchableDBGetter,
 	string,
 	Logger,
-) ModelServiceFactory
+) servicefactory.ModelServiceFactory
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
@@ -133,11 +134,11 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 	}
 
 	switch out := out.(type) {
-	case *ControllerServiceFactory:
-		var target ControllerServiceFactory = w.ControllerFactory()
+	case *servicefactory.ControllerServiceFactory:
+		var target servicefactory.ControllerServiceFactory = w.ControllerFactory()
 		*out = target
-	case *ServiceFactoryGetter:
-		var target ServiceFactoryGetter = w.FactoryGetter()
+	case *servicefactory.ServiceFactoryGetter:
+		var target servicefactory.ServiceFactoryGetter = w.FactoryGetter()
 		*out = target
 	default:
 		return errors.Errorf("unsupported output type %T", out)
@@ -150,8 +151,8 @@ func NewControllerServiceFactory(
 	dbGetter changestream.WatchableDBGetter,
 	dbDeleter coredatabase.DBDeleter,
 	logger Logger,
-) ControllerServiceFactory {
-	return servicefactory.NewControllerFactory(
+) servicefactory.ControllerServiceFactory {
+	return domainsf.NewControllerFactory(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		dbDeleter,
 		serviceFactoryLogger{
@@ -161,8 +162,8 @@ func NewControllerServiceFactory(
 }
 
 // NewModelServiceFactory returns a new model service factory.
-func NewModelServiceFactory(dbGetter changestream.WatchableDBGetter, modelUUID string, logger Logger) ModelServiceFactory {
-	return servicefactory.NewModelFactory(
+func NewModelServiceFactory(dbGetter changestream.WatchableDBGetter, modelUUID string, logger Logger) servicefactory.ModelServiceFactory {
+	return domainsf.NewModelFactory(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID),
 		serviceFactoryLogger{
 			Logger: logger,
@@ -172,11 +173,11 @@ func NewModelServiceFactory(dbGetter changestream.WatchableDBGetter, modelUUID s
 
 // NewServiceFactoryGetter returns a new service factory getter.
 func NewServiceFactoryGetter(
-	ctrlFactory ControllerServiceFactory,
+	ctrlFactory servicefactory.ControllerServiceFactory,
 	dbGetter changestream.WatchableDBGetter,
 	logger Logger,
 	newModelServiceFactory ModelServiceFactoryFn,
-) ServiceFactoryGetter {
+) servicefactory.ServiceFactoryGetter {
 	return &serviceFactoryGetter{
 		ctrlFactory:            ctrlFactory,
 		dbGetter:               dbGetter,

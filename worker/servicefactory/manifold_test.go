@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/internal/servicefactory"
 )
 
 type manifoldSuite struct {
@@ -92,7 +93,7 @@ func (s *manifoldSuite) TestOutputControllerServiceFactory(c *gc.C) {
 
 	manifold := ManifoldConfig{}
 
-	var factory ControllerServiceFactory
+	var factory servicefactory.ControllerServiceFactory
 	err = manifold.output(w, &factory)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -111,7 +112,7 @@ func (s *manifoldSuite) TestOutputServiceFactoryGetter(c *gc.C) {
 
 	manifold := ManifoldConfig{}
 
-	var factory ServiceFactoryGetter
+	var factory servicefactory.ServiceFactoryGetter
 	err = manifold.output(w, &factory)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -162,13 +163,13 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewServiceFactoryGetter: func(ControllerServiceFactory, changestream.WatchableDBGetter, Logger, ModelServiceFactoryFn) ServiceFactoryGetter {
+		NewServiceFactoryGetter: func(servicefactory.ControllerServiceFactory, changestream.WatchableDBGetter, Logger, ModelServiceFactoryFn) servicefactory.ServiceFactoryGetter {
 			return nil
 		},
-		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, Logger) ControllerServiceFactory {
+		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, Logger) servicefactory.ControllerServiceFactory {
 			return nil
 		},
-		NewModelServiceFactory: func(changestream.WatchableDBGetter, string, Logger) ModelServiceFactory {
+		NewModelServiceFactory: func(changestream.WatchableDBGetter, string, Logger) servicefactory.ModelServiceFactory {
 			return nil
 		},
 	}

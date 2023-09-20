@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/servicefactory"
 )
 
 // Context implements facade.Context in the simplest possible way.
