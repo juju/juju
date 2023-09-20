@@ -2198,7 +2198,7 @@ func (a *Application) VerifySupportedBase(b Base, force bool) error {
 	}
 	_, baseSupportedErr := corecharm.BaseForCharm(base, supportedBases)
 	if baseSupportedErr != nil && !force {
-		return stateerrors.NewErrIncompatibleBase(supportedBases, base, ch.String())
+		return stateerrors.NewErrIncompatibleBase(supportedBases, base, ch.Meta().Name)
 	}
 	return nil
 }
