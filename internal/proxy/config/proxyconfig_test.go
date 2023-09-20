@@ -93,7 +93,7 @@ func (s *Suite) TestInstallError(c *gc.C) {
 
 	pc := proxyconfig.ProxyConfig{}
 	err := pc.InstallInDefaultTransport()
-	c.Assert(err, gc.ErrorMatches, `http.DefaultTransport was \*proxy_test\.fakeRoundTripper instead of \*http\.Transport`)
+	c.Assert(err, gc.ErrorMatches, `http.DefaultTransport was .*\.fakeRoundTripper instead of \*http\.Transport`)
 }
 
 func (s *Suite) TestInstall(c *gc.C) {
