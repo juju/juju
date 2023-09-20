@@ -423,22 +423,12 @@ clouds:
         endpoint: https://iaas.sa-vinhedo-1.oraclecloud.com
       uk-cardiff-1:
         endpoint: https://iaas.uk-cardiff-1.oraclecloud.com
-      uk-gov-cardiff-1:
-        endpoint: https://iaas.uk-gov-cardiff-1.oraclecloud.com
-      uk-gov-london-1:
-        endpoint: https://iaas.uk-gov-london-1.oraclecloud.com
       uk-london-1:
         endpoint: https://iaas.uk-london-1.oraclecloud.com
       us-ashburn-1:
         endpoint: https://iaas.us-ashburn-1.oraclecloud.com
       us-chicago-1:
         endpoint: https://iaas.us-chicago-1.oraclecloud.com
-      us-gov-ashburn-1:
-        endpoint: https://iaas.us-gov-ashburn-1.oraclecloud.com
-      us-gov-chicago-1:
-        endpoint: https://iaas.us-gov-chicago-1.oraclecloud.com
-      us-gov-phoenix-1:
-        endpoint: https://iaas.us-gov-phoenix-1.oraclecloud.com
       us-langley-1:
         endpoint: https://iaas.us-langley-1.oraclecloud.com
       us-luke-1:
