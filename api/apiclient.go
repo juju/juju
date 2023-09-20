@@ -38,10 +38,10 @@ import (
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/network"
 	jujuproxy "github.com/juju/juju/internal/proxy"
+	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
 )
 

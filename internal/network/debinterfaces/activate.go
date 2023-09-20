@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/utils/scriptrunner"
+	"github.com/juju/juju/internal/scriptrunner"
 )
 
 var logger = loggo.GetLogger("juju.network.debinterfaces")

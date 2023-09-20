@@ -39,11 +39,11 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"
 	jtesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/proxy"
 	jujuversion "github.com/juju/juju/version"
 )
 

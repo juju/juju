@@ -14,8 +14,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/scriptrunner"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/scriptrunner"
 )
 
 func Test(t *stdtesting.T) {

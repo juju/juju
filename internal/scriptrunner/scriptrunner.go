@@ -11,12 +11,16 @@ import (
 	"github.com/juju/utils/v3/exec"
 )
 
+// ScriptResult holds the result of running a script.
 type ScriptResult struct {
 	Stdout []byte
 	Stderr []byte
 	Code   int
 }
 
+// RunCommand runs the given command with the given environment and
+// returns the result. If timeout is non-zero, the command will be
+// killed after that duration.
 func RunCommand(command string, environ []string, clock clock.Clock, timeout time.Duration) (*ScriptResult, error) {
 	cmd := exec.RunParams{
 		Commands:    command,
