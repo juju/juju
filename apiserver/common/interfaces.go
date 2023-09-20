@@ -134,14 +134,11 @@ func AuthFuncForMachineAgent(authorizer Authorizer) GetAuthFunc {
 // ControllerConfigState defines the methods needed by
 // ControllerConfigAPI
 type ControllerConfigState interface {
-	ControllerConfig() (controller.Config, error)
-
 	ModelExists(string) (bool, error)
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	CompletedMigrationForModel(string) (state.ModelMigration, error)
 }
 
 type controllerInfoState interface {
-	ControllerConfig() (controller.Config, error)
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 }

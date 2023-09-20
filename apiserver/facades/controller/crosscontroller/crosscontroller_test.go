@@ -43,7 +43,7 @@ func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
 	}
 	api, err := crosscontroller.NewCrossControllerAPI(
 		s.resources,
-		func() ([]string, string, error) { return s.localControllerInfo() },
+		func(context.Context) ([]string, string, error) { return s.localControllerInfo() },
 		func() (string, error) { return s.publicDnsAddress, nil },
 		func() state.NotifyWatcher { return s.watchLocalControllerInfo() },
 	)
@@ -57,7 +57,7 @@ func (s *CrossControllerSuite) TestControllerInfo(c *gc.C) {
 	results, err := s.api.ControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
-		[]params.ControllerAPIInfoResult{{
+		Results: []params.ControllerAPIInfoResult{{
 			Addresses: []string{"addr1", "addr2"},
 			CACert:    "ca-cert",
 		}},
@@ -69,7 +69,7 @@ func (s *CrossControllerSuite) TestControllerInfoWithDNSAddress(c *gc.C) {
 	results, err := s.api.ControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
-		[]params.ControllerAPIInfoResult{{
+		Results: []params.ControllerAPIInfoResult{{
 			Addresses: []string{"publicDNSaddr", "addr1", "addr2"},
 			CACert:    "ca-cert",
 		}},
@@ -83,7 +83,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *gc.C) {
 	results, err := s.api.ControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
-		[]params.ControllerAPIInfoResult{{
+		Results: []params.ControllerAPIInfoResult{{
 			Error: &params.Error{Message: "nope"},
 		}},
 	})
@@ -94,7 +94,7 @@ func (s *CrossControllerSuite) TestWatchControllerInfo(c *gc.C) {
 	results, err := s.api.WatchControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
-		[]params.NotifyWatchResult{{
+		Results: []params.NotifyWatchResult{{
 			NotifyWatcherId: "1",
 		}},
 	})
@@ -108,7 +108,7 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *gc.C) {
 	results, err := s.api.WatchControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
-		[]params.NotifyWatchResult{{
+		Results: []params.NotifyWatchResult{{
 			Error: &params.Error{Message: "nope"},
 		}},
 	})

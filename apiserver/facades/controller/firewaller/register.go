@@ -28,17 +28,19 @@ func newFirewallerAPIV7(ctx facade.Context) (*FirewallerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	serviceFactory := ctx.ServiceFactory()
 	cloudSpecAPI := cloudspec.NewCloudSpecV2(
 		ctx.Resources(),
-		cloudspec.MakeCloudSpecGetterForModel(st, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential()),
+		cloudspec.MakeCloudSpecGetterForModel(st, serviceFactory.Cloud(), serviceFactory.Credential()),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, ctx.ServiceFactory().Credential()),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, serviceFactory.Credential()),
 		common.AuthFuncForTag(m.ModelTag()),
 	)
 	controllerConfigAPI := common.NewControllerConfigAPI(
 		st,
-		ctx.ServiceFactory().ExternalController(),
+		serviceFactory.ControllerConfig(),
+		serviceFactory.ExternalController(),
 	)
 
 	stShim := stateShim{st: st, State: firewall.StateShim(st, m)}

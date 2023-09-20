@@ -513,6 +513,6 @@ func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authenticati
 	return s, nil
 }
 
-func getFakeControllerInfo() ([]string, string, error) {
+func getFakeControllerInfo(ctx stdcontext.Context) ([]string, string, error) {
 	return []string{"192.168.1.1:17070"}, testing.CACert, nil
 }
