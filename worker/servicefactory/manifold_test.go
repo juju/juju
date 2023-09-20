@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/servicefactory"
 )
 
@@ -142,7 +143,11 @@ func (s *manifoldSuite) TestNewControllerServiceFactory(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestNewModelServiceFactory(c *gc.C) {
-	factory := NewModelServiceFactory(s.dbGetter, "model", s.logger)
+	factory := NewModelServiceFactory(
+		"model",
+		s.dbGetter,
+		s.logger,
+	)
 	c.Assert(factory, gc.NotNil)
 }
 
@@ -169,7 +174,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, Logger) servicefactory.ControllerServiceFactory {
 			return nil
 		},
-		NewModelServiceFactory: func(changestream.WatchableDBGetter, string, Logger) servicefactory.ModelServiceFactory {
+		NewModelServiceFactory: func(model.UUID, changestream.WatchableDBGetter, Logger) servicefactory.ModelServiceFactory {
 			return nil
 		},
 	}

@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/modelmanager/service"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/modelmanager/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -84,6 +84,6 @@ func (s *stateSuite) TestStateDeleteCalledTwice(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, domain.ErrNoRecord.Error()+".*")
 }
 
-func mustUUID(c *gc.C) service.UUID {
-	return service.UUID(utils.MustNewUUID().String())
+func mustUUID(c *gc.C) model.UUID {
+	return model.UUID(utils.MustNewUUID().String())
 }

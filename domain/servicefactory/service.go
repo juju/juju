@@ -17,12 +17,17 @@ type ServiceFactory struct {
 // NewServiceFactory returns a new service factory which can be used to
 // get new services from.
 func NewServiceFactory(
-	controllerDB, modelDB changestream.WatchableDBFactory,
+	controllerDB changestream.WatchableDBFactory,
+	modelDB changestream.WatchableModelDBFactory,
 	deleterDB database.DBDeleter,
 	logger Logger,
 ) *ServiceFactory {
+	controllerFactory := NewControllerFactory(controllerDB, deleterDB, logger)
 	return &ServiceFactory{
-		ControllerFactory: NewControllerFactory(controllerDB, deleterDB, logger),
-		ModelFactory:      NewModelFactory(modelDB, logger),
+		ControllerFactory: controllerFactory,
+		ModelFactory: NewModelFactory(
+			modelDB,
+			logger,
+		),
 	}
 }

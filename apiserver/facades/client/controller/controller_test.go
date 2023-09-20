@@ -35,15 +35,12 @@ import (
 	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
-	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	databasetesting "github.com/juju/juju/internal/database/testing"
 	pscontroller "github.com/juju/juju/internal/pubsub/controller"
-	"github.com/juju/juju/internal/servicefactory"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -55,14 +52,13 @@ import (
 
 type controllerSuite struct {
 	statetesting.StateSuite
-	domaintesting.ControllerConfigSuite
+	servicefactorytesting.ServiceFactorySuite
 
-	controllerConfig corecontroller.Config
+	controllerConfigAttrs map[string]any
 
 	controller      *controller.ControllerAPI
 	resources       *common.Resources
 	watcherRegistry facade.WatcherRegistry
-	serviceFactory  servicefactory.ServiceFactory
 	authorizer      apiservertesting.FakeAuthorizer
 	hub             *pubsub.StructuredHub
 	context         facadetest.Context
@@ -72,22 +68,27 @@ var _ = gc.Suite(&controllerSuite{})
 
 func (s *controllerSuite) SetUpSuite(c *gc.C) {
 	s.StateSuite.SetUpSuite(c)
-	s.ControllerConfigSuite.SetUpSuite(c)
-
-	s.controllerConfig = testing.FakeControllerConfig()
+	s.ServiceFactorySuite.SetUpSuite(c)
 }
 
 func (s *controllerSuite) SetUpTest(c *gc.C) {
+	if s.controllerConfigAttrs == nil {
+		s.controllerConfigAttrs = map[string]any{}
+	}
 	// Initial config needs to be set before the StateSuite SetUpTest.
 	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
 		"name": "controller",
 	})
+	controllerCfg := testing.FakeControllerConfig()
+	for key, value := range s.controllerConfigAttrs {
+		controllerCfg[key] = value
+	}
 
-	s.StateSuite.ControllerConfig = s.controllerConfig
-	s.ControllerConfigSuite.ControllerConfig = s.controllerConfig
+	s.ServiceFactorySuite.SetUpTest(c)
+	domaintesting.SeedControllerConfig(c, controllerCfg, s)
 
+	s.StateSuite.ControllerConfig = controllerCfg
 	s.StateSuite.SetUpTest(c)
-	s.ControllerConfigSuite.SetUpTest(c)
 
 	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,11 +115,6 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	s.serviceFactory = domainservicefactory.NewServiceFactory(
-		databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
-		nil, nil,
-		servicefactorytesting.NewCheckLogger(c),
-	)
 
 	err = jujujujutesting.InsertDummyCloudType(context.Background(), s.ControllerSuite.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
@@ -132,13 +128,18 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Auth_:                s.authorizer,
 		Hub_:                 s.hub,
 		MultiwatcherFactory_: multiWatcherWorker,
-		ServiceFactory_:      s.serviceFactory,
+		ServiceFactory_:      s.ControllerServiceFactory(c),
 	}
 	controller, err := controller.LatestAPI(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 
 	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
+}
+
+func (s *controllerSuite) TearDownTest(c *gc.C) {
+	s.StateSuite.TearDownTest(c)
+	s.ServiceFactorySuite.TearDownTest(c)
 }
 
 func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
@@ -149,7 +150,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		State_:          s.State,
 		Resources_:      s.resources,
 		Auth_:           anAuthoriser,
-		ServiceFactory_: s.serviceFactory,
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -332,7 +333,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 			StatePool_:      s.StatePool,
 			Resources_:      common.NewResources(),
 			Auth_:           authorizer,
-			ServiceFactory_: s.serviceFactory,
+			ServiceFactory_: s.ControllerServiceFactory(c),
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -362,7 +363,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 			State_:          st,
 			Resources_:      common.NewResources(),
 			Auth_:           authorizer,
-			ServiceFactory_: s.serviceFactory,
+			ServiceFactory_: s.ControllerServiceFactory(c),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ControllerConfig(context.Background())
@@ -406,7 +407,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 		State_:           s.State,
 		Resources_:       s.resources,
 		WatcherRegistry_: s.watcherRegistry,
-		ServiceFactory_:  s.serviceFactory,
+		ServiceFactory_:  s.ControllerServiceFactory(c),
 		Auth_:            s.authorizer,
 		ID_:              watcherId.AllWatcherId,
 		Dispose_:         func() { disposed = true },
@@ -913,7 +914,7 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 		State_:          s.State,
 		Resources_:      s.resources,
 		Auth_:           anAuthoriser,
-		ServiceFactory_: s.serviceFactory,
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.ModifyControllerAccessRequest{
@@ -999,7 +1000,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 		State_:          s.State,
 		Resources_:      s.resources,
 		Auth_:           anAuthoriser,
-		ServiceFactory_: s.serviceFactory,
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1048,8 +1049,8 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	// Preserve default controller config as we will be mutating it just
 	// for this test
 	defer func(orig map[string]interface{}) {
-		s.controllerConfig = orig
-	}(s.controllerConfig)
+		s.controllerConfigAttrs = orig
+	}(s.controllerConfigAttrs)
 
 	// Our default test configuration does not specify an IdentityURL
 	urlRes, err := s.controller.IdentityProviderURL(stdcontext.Background())
@@ -1061,8 +1062,9 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	s.TearDownTest(c)
 
 	expURL := "https://api.jujucharms.com/identity"
-	s.StateSuite.ControllerConfig[corecontroller.IdentityURL] = expURL
-	s.ControllerConfigSuite.ControllerConfig[corecontroller.IdentityURL] = expURL
+	s.controllerConfigAttrs = map[string]any{
+		corecontroller.IdentityURL: expURL,
+	}
 
 	s.SetUpTest(c)
 
@@ -1123,7 +1125,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 		State_:          s.State,
 		Resources_:      s.resources,
 		Auth_:           anAuthoriser,
-		ServiceFactory_: s.serviceFactory,
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

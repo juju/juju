@@ -10,6 +10,8 @@ import (
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
+	"github.com/juju/juju/domain/model"
+	modelservice "github.com/juju/juju/domain/model/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 )
 
@@ -20,6 +22,8 @@ type ControllerServiceFactory interface {
 	ControllerConfig() *controllerconfigservice.Service
 	// ControllerNode returns the controller node service.
 	ControllerNode() *controllernodeservice.Service
+	// Model returns the model service.
+	Model() *modelservice.Service
 	// ModelManager returns the model manager service.
 	ModelManager() *modelmanagerservice.Service
 	// ExternalController returns the external controller service.
@@ -35,7 +39,8 @@ type ControllerServiceFactory interface {
 // ModelServiceFactory provides access to the services required by the
 // apiserver for a given model.
 type ModelServiceFactory interface {
-	Name() string
+	// ModelUUID returns the model UUID for the current model.
+	ModelUUID() model.UUID
 }
 
 // ServiceFactory provides access to the services required by the apiserver.
@@ -49,4 +54,13 @@ type ServiceFactory interface {
 type ServiceFactoryGetter interface {
 	// FactoryForModel returns a ServiceFactory for the given model.
 	FactoryForModel(modelUUID string) ServiceFactory
+}
+
+// ServiceFactoryGetterFunc is a convenience type for translating a getter
+// function into the ServiceFactoryGetter interface.
+type ServiceFactoryGetterFunc func(string) ServiceFactory
+
+// FactoryForModel implements the ServiceFactoryGetter interface.
+func (s ServiceFactoryGetterFunc) FactoryForModel(modelUUID string) ServiceFactory {
+	return s(modelUUID)
 }

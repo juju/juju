@@ -17,6 +17,11 @@ type ControllerSuite struct {
 	testing.DqliteSuite
 }
 
+// ControllerTxnRunner returns a txn runner attached to the controller database.
+func (s *ControllerSuite) ControllerTxnRunner() coredatabase.TxnRunner {
+	return s.TxnRunner()
+}
+
 // SetUpTest is responsible for setting up a testing database suite initialised
 // with the controller schema.
 func (s *ControllerSuite) SetUpTest(c *gc.C) {

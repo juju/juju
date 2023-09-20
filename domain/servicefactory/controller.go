@@ -23,6 +23,8 @@ import (
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	externalcontrollerstate "github.com/juju/juju/domain/externalcontroller/state"
+	modelservice "github.com/juju/juju/domain/model/service"
+	modelstate "github.com/juju/juju/domain/model/state"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
 	"github.com/juju/juju/environs/config"
@@ -72,6 +74,13 @@ func (s *ControllerFactory) ControllerConfig() *controllerconfigservice.Service 
 func (s *ControllerFactory) ControllerNode() *controllernodeservice.Service {
 	return controllernodeservice.NewService(
 		controllernodestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+	)
+}
+
+// Model returns the model service for the model UUID.
+func (s *ControllerFactory) Model() *modelservice.Service {
+	return modelservice.NewService(
+		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 

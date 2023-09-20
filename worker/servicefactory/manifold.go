@@ -10,7 +10,8 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
-	domainsf "github.com/juju/juju/domain/servicefactory"
+	"github.com/juju/juju/domain/model"
+	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/worker/common"
 )
@@ -53,8 +54,8 @@ type ControllerServiceFactoryFn func(
 
 // ModelServiceFactoryFn is a function that returns a model service factory.
 type ModelServiceFactoryFn func(
+	model.UUID,
 	changestream.WatchableDBGetter,
-	string,
 	Logger,
 ) servicefactory.ModelServiceFactory
 
@@ -152,8 +153,8 @@ func NewControllerServiceFactory(
 	dbDeleter coredatabase.DBDeleter,
 	logger Logger,
 ) servicefactory.ControllerServiceFactory {
-	return domainsf.NewControllerFactory(
-		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
+	return domainservicefactory.NewControllerFactory(
+		changestream.NewWatchableDBFactoryForNamespace(coredatabase.ControllerNS, dbGetter.GetWatchableDB),
 		dbDeleter,
 		serviceFactoryLogger{
 			Logger: logger,
@@ -162,9 +163,13 @@ func NewControllerServiceFactory(
 }
 
 // NewModelServiceFactory returns a new model service factory.
-func NewModelServiceFactory(dbGetter changestream.WatchableDBGetter, modelUUID string, logger Logger) servicefactory.ModelServiceFactory {
-	return domainsf.NewModelFactory(
-		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID),
+func NewModelServiceFactory(
+	modelUUID model.UUID,
+	dbGetter changestream.WatchableDBGetter,
+	logger Logger,
+) servicefactory.ModelServiceFactory {
+	return domainservicefactory.NewModelFactory(
+		changestream.NewWatchableModelDBFactory(modelUUID, dbGetter.GetWatchableDB),
 		serviceFactoryLogger{
 			Logger: logger,
 		},

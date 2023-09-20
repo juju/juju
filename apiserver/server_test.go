@@ -262,7 +262,7 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (*state.User, names.Co
 func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	st := s.ControllerModel(c).State()
 	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, serviceFactory.ControllerConfig(), u)
@@ -276,7 +276,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
 	user := u.UserTag()
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	st := s.ControllerModel(c).State()
 	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, serviceFactory.ControllerConfig(), u)
@@ -302,7 +302,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLoginToken(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	delegator := &jwt.PermissionDelegator{Token: token}
 	st := s.ControllerModel(c).State()
@@ -326,7 +326,7 @@ func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	delegator := &jwt.PermissionDelegator{token}
 	st := s.ControllerModel(c).State()
@@ -360,7 +360,7 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 	otherState := f.MakeModel(c, nil)
 	defer otherState.Close()
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	handler, _ := apiserver.TestingAPIHandler(c, s.StatePool(), otherState, serviceFactory.ControllerConfig())
 	defer handler.Kill()
@@ -412,7 +412,7 @@ func assertStateBecomesClosed(c *gc.C, st *state.State) {
 }
 
 func (s *serverSuite) checkAPIHandlerTeardown(c *gc.C, st *state.State) {
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	handler, resources := apiserver.TestingAPIHandler(c, s.StatePool(), st, serviceFactory.ControllerConfig())
 	resource := new(fakeResource)

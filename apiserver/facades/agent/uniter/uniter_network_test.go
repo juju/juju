@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/cloud"
-	controller "github.com/juju/juju/controller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/feature"
@@ -45,7 +45,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.ApiServerSuite.SeedCAASCloud(c)
 
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.ControllerServiceFactory(c)
 	cloudService := serviceFactory.Cloud()
 	err := cloudService.Save(context.Background(), testing.DefaultCloud)
 	c.Assert(err, jc.ErrorIsNil)

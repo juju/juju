@@ -10,12 +10,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
 	"github.com/mattn/go-sqlite3"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain"
+	modeltesting "github.com/juju/juju/domain/model/testing"
 )
 
 type serviceSuite struct {
@@ -30,8 +30,7 @@ var _ = gc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestServiceCreate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := mustUUID(c)
-
+	uuid := modeltesting.GenModelUUID(c)
 	s.state.EXPECT().Create(gomock.Any(), uuid).Return(nil)
 
 	svc := NewService(s.state, s.dbDeleter)
@@ -42,7 +41,7 @@ func (s *serviceSuite) TestServiceCreate(c *gc.C) {
 func (s *serviceSuite) TestServiceCreateError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := mustUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
 
 	s.state.EXPECT().Create(gomock.Any(), uuid).Return(fmt.Errorf("boom"))
 
@@ -54,7 +53,7 @@ func (s *serviceSuite) TestServiceCreateError(c *gc.C) {
 func (s *serviceSuite) TestServiceCreateDuplicateError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := mustUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
 
 	s.state.EXPECT().Create(gomock.Any(), uuid).Return(sqlite3.Error{
 		ExtendedCode: sqlite3.ErrConstraintUnique,
@@ -77,7 +76,7 @@ func (s *serviceSuite) TestServiceCreateInvalidUUID(c *gc.C) {
 func (s *serviceSuite) TestServiceDelete(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := mustUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
 
 	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(nil)
 	s.dbDeleter.EXPECT().DeleteDB(uuid.String()).Return(nil)
@@ -90,7 +89,7 @@ func (s *serviceSuite) TestServiceDelete(c *gc.C) {
 func (s *serviceSuite) TestServiceDeleteStateError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := mustUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
 
 	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(fmt.Errorf("boom"))
 
@@ -102,7 +101,7 @@ func (s *serviceSuite) TestServiceDeleteStateError(c *gc.C) {
 func (s *serviceSuite) TestServiceDeleteNoRecordsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := mustUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
 
 	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(domain.ErrNoRecord)
 
@@ -114,7 +113,7 @@ func (s *serviceSuite) TestServiceDeleteNoRecordsError(c *gc.C) {
 func (s *serviceSuite) TestServiceDeleteStateSqliteError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := mustUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
 
 	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(sqlite3.Error{
 		Code:         sqlite3.ErrPerm,
@@ -129,7 +128,7 @@ func (s *serviceSuite) TestServiceDeleteStateSqliteError(c *gc.C) {
 func (s *serviceSuite) TestServiceDeleteManagerError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := mustUUID(c)
+	uuid := modeltesting.GenModelUUID(c)
 
 	s.state.EXPECT().Delete(gomock.Any(), uuid).Return(nil)
 	s.dbDeleter.EXPECT().DeleteDB(uuid.String()).Return(fmt.Errorf("boom"))
@@ -154,8 +153,4 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.dbDeleter = NewMockDBDeleter(ctrl)
 
 	return ctrl
-}
-
-func mustUUID(c *gc.C) UUID {
-	return UUID(utils.MustNewUUID().String())
 }

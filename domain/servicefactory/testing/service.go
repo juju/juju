@@ -10,6 +10,8 @@ import (
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
+	"github.com/juju/juju/domain/model"
+	modelservice "github.com/juju/juju/domain/model/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 )
 
@@ -37,9 +39,19 @@ func (s *TestingServiceFactory) ControllerNode() *controllernodeservice.Service 
 	return nil
 }
 
+// Model returns the model service.
+func (s *TestingServiceFactory) Model() *modelservice.Service {
+	return nil
+}
+
 // ModelManager returns the model manager service.
 func (s *TestingServiceFactory) ModelManager() *modelmanagerservice.Service {
 	return nil
+}
+
+// ModelUUID is the current UUID for the model.
+func (s *TestingServiceFactory) ModelUUID() model.UUID {
+	return model.UUID("")
 }
 
 // ExternalController returns the external controller service.

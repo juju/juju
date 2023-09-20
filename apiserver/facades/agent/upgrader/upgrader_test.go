@@ -79,7 +79,7 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	s.upgrader, err = upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, s.authorizer,
@@ -137,7 +137,7 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	upgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
@@ -181,7 +181,7 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	upgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
@@ -220,7 +220,7 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	upgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,
@@ -258,7 +258,7 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
@@ -290,7 +290,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
@@ -367,7 +367,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
@@ -429,7 +429,7 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	anUpgrader, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, anAuthorizer,
@@ -508,7 +508,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 	systemState, err := s.StatePool().SystemState()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	upgraderAPI, err := upgrader.NewUpgraderAPI(
 		s.controllerConfigGetter, systemState, s.hosted, s.resources, authorizer,

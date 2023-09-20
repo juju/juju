@@ -88,7 +88,7 @@ func (f *FakeEnsureMongo) CurrentConfig(*mgo.Session) (*replicaset.Config, error
 	}, nil
 }
 
-func (f *FakeEnsureMongo) EnsureMongo(ctx context.Context, args mongo.EnsureServerParams) error {
+func (f *FakeEnsureMongo) EnsureMongo(_ context.Context, args mongo.EnsureServerParams) error {
 	f.EnsureCount++
 	f.DataDir, f.OplogSize = args.DataDir, args.OplogSize
 	f.Info = controller.StateServingInfo{
@@ -121,7 +121,7 @@ type AgentSuite struct {
 func (s *AgentSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	var err error
 	s.Environ, err = stateenvirons.GetNewEnvironFunc(environs.New)(
@@ -220,7 +220,7 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 	cfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	apiPort, ok := cfg[controller.APIPort].(int)

@@ -105,7 +105,15 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		return nil, errors.Trace(err)
 	}
 
-	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(modelUUID)
+	// TODO (tlm) We need to better fix up model not found here. When a model
+	// has been migrated it's valid for the model to not exist any more and we
+	// allow this code to run so that we can get a redirect out of the login
+	// process. The better way to handle this is just redirect and don't allow
+	// standing up api's on models that don't exist.
+	var serviceFactory servicefactory.ServiceFactory
+	if m != nil {
+		serviceFactory = srv.shared.serviceFactoryGetter.FactoryForModel(m.UUID())
+	}
 
 	r := &apiHandler{
 		state:           st,

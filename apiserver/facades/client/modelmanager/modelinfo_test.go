@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
-	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -376,8 +376,8 @@ func (s *modelInfoSuite) TestModelInfoErrorModelConfig(c *gc.C) {
 
 func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
 	s.st.model.SetErrors(
-		nil,                               //Config
-		nil,                               //Status
+		nil,                               // Config
+		nil,                               // Status
 		errors.Errorf("no users for you"), // Users
 	)
 	s.testModelInfoError(c, coretesting.ModelTag.String(), `no users for you`)
@@ -566,16 +566,16 @@ func (s *modelInfoSuite) setModelConfigError() {
 
 func (s *modelInfoSuite) setModelStatusError() {
 	s.st.model.SetErrors(
-		nil,                        //Config
-		errors.NotFoundf("status"), //Status
+		nil,                        // Config
+		errors.NotFoundf("status"), // Status
 	)
 }
 
 func (s *modelInfoSuite) setModelUsersError() {
 	s.st.model.SetErrors(
-		nil,                       //Config
-		nil,                       //Status
-		errors.NotFoundf("users"), //Users
+		nil,                       // Config
+		nil,                       // Status
+		errors.NotFoundf("users"), // Users
 	)
 }
 
@@ -1312,11 +1312,11 @@ func (m *mockMigration) EndTime() time.Time {
 
 type mockModelManagerService struct{}
 
-func (mockModelManagerService) Create(ctx stdcontext.Context, uuid modelmanagerservice.UUID) error {
+func (mockModelManagerService) Create(_ stdcontext.Context, _ model.UUID) error {
 	return nil
 }
 
-func (mockModelManagerService) Delete(ctx stdcontext.Context, uuid modelmanagerservice.UUID) error {
+func (mockModelManagerService) Delete(_ stdcontext.Context, _ model.UUID) error {
 	return nil
 }
 

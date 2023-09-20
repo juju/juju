@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package service
+package model
 
 import (
 	"github.com/juju/errors"
@@ -22,6 +22,7 @@ func (u UUID) Validate() error {
 	return nil
 }
 
+// String implements the stringer interface for UUID.
 func (u UUID) String() string {
 	return string(u)
 }

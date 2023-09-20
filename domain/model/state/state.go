@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/modelmanager/service"
 	jujudb "github.com/juju/juju/internal/database"
 )
 
@@ -38,7 +38,7 @@ func NewState(
 // returned.
 func (s *State) SetCloudCredential(
 	ctx context.Context,
-	modelUUID service.UUID,
+	uuid model.UUID,
 	id credential.ID,
 ) error {
 	db, err := s.DB()
@@ -81,15 +81,15 @@ WHERE model_uuid = excluded.model_uuid
 			)
 		}
 
-		_, err = tx.ExecContext(ctx, stmt, modelUUID, cloudUUID, cloudCredUUID)
+		_, err = tx.ExecContext(ctx, stmt, uuid, cloudUUID, cloudCredUUID)
 		if jujudb.IsErrConstraintForeignKey(err) {
 			return fmt.Errorf(
 				"%w %q when setting cloud credential %q%w",
-				modelerrors.NotFound, modelUUID, id, errors.Hide(err))
+				modelerrors.NotFound, uuid, id, errors.Hide(err))
 		} else if err != nil {
 			return fmt.Errorf(
 				"setting cloud credential %q for model %q: %w",
-				id, modelUUID, err)
+				id, uuid, err)
 		}
 		return nil
 	})

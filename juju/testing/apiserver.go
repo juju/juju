@@ -51,14 +51,12 @@ import (
 	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	credentialstate "github.com/juju/juju/domain/credential/state"
-	domainservicefactory "github.com/juju/juju/domain/servicefactory"
+	"github.com/juju/juju/domain/model"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
-	domaintesting "github.com/juju/juju/domain/testing"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/pubsub/centralhub"
-	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -93,24 +91,19 @@ var (
 		"username": "dummy",
 		"password": "secret",
 	})
-
-	// DefaultModelUUID is the default model uuid.
-	// TODO (stickupkid): Update this to a default model uuid once we get a
-	// real model database.
-	DefaultModelUUID = ""
 )
 
 // ApiServerSuite is a text fixture which spins up an apiserver on top of a controller model.
 type ApiServerSuite struct {
-	domaintesting.ControllerConfigSuite
+	// domaintesting.ControllerConfigSuite
+	servicefactorytesting.ServiceFactorySuite
 
 	// MgoSuite is needed until we finally can
 	// represent the model fully in dqlite.
 	mgotesting.MgoSuite
 
-	apiInfo             api.Info
-	controller          *state.Controller
-	controllerModelUUID string
+	apiInfo    api.Info
+	controller *state.Controller
 
 	// apiConns are opened api.Connections to close on teardown
 	apiConns []api.Connection
@@ -130,10 +123,9 @@ type ApiServerSuite struct {
 	ControllerModelConfigAttrs map[string]interface{}
 
 	// These are exposed for the tests to use.
-	Server               *apiserver.Server
-	LeaseManager         *lease.Manager
-	Clock                testclock.AdvanceableClock
-	ServiceFactoryGetter *stubServiceFactoryGetter
+	Server       *apiserver.Server
+	LeaseManager *lease.Manager
+	Clock        testclock.AdvanceableClock
 
 	// These attributes are set before SetUpTest to indicate we want to
 	// set up the api server with real components instead of stubs.
@@ -251,6 +243,8 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		modelAttrs[k] = v
 	}
 	controllerModelCfg := coretesting.CustomModelConfig(c, modelAttrs)
+	s.ServiceFactorySuite.ControllerModelUUID = model.UUID(controllerModelCfg.UUID())
+	s.ServiceFactorySuite.SetUpTest(c)
 
 	modelType := state.ModelTypeIAAS
 	if s.WithControllerModelType == state.ModelTypeCAAS {
@@ -258,7 +252,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	}
 
 	// modelUUID param is not used so can pass in anything.
-	serviceFactory := s.ServiceFactory(DefaultModelUUID)
+	serviceFactory := s.ControllerServiceFactory(c)
 	ctrl, err := state.Initialize(state.InitializeParams{
 		Clock: clock.WallClock,
 		// TODO (stickupkid): Remove controller config from the state
@@ -296,8 +290,6 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 	err = st.SetAPIHostPorts(controllerCfg, sHsPs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.controllerModelUUID = st.ControllerModelUUID()
-
 	// Allow "dummy" cloud.
 	err = InsertDummyCloudType(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
@@ -310,7 +302,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	cfg := DefaultServerConfig(c, s.Clock)
 	cfg.Mux = s.mux
 	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
-	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter
+	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c)
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
 
@@ -340,7 +332,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	}
 
 	// Set up auth handler.
-	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, s.ServiceFactory(DefaultModelUUID).ControllerConfig(), cfg.Clock)
+	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, s.ControllerServiceFactory(c).ControllerConfig(), cfg.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)
@@ -356,13 +348,6 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 
 func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
-	s.ControllerSuite.SetUpTest(c)
-
-	s.ServiceFactoryGetter = &stubServiceFactoryGetter{
-		ctrlDB:    stubWatchableDB{TxnRunner: s.TxnRunner()},
-		dbDeleter: stubDBDeleter{DB: s.DB()},
-		logger:    servicefactorytesting.NewCheckLogger(c),
-	}
 
 	if s.Clock == nil {
 		s.Clock = testclock.NewClock(time.Now())
@@ -394,13 +379,8 @@ func (s *ApiServerSuite) TearDownTest(c *gc.C) {
 	if s.httpServer != nil {
 		s.httpServer.Close()
 	}
-	s.ControllerSuite.TearDownTest(c)
+	s.ServiceFactorySuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-}
-
-// ServiceFactory returns a service factory for the model.
-func (s *ApiServerSuite) ServiceFactory(modelUUID string) servicefactory.ServiceFactory {
-	return s.ServiceFactoryGetter.FactoryForModel(modelUUID)
 }
 
 // SeedControllerCloud is responsible for applying the controller cloud to
@@ -446,7 +426,7 @@ func (s *ApiServerSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce strin
 // ControllerModelApiInfo returns the api address and ca cert needed to
 // connect to an api server's controller model endpoint. User and password are empty.
 func (s *ApiServerSuite) ControllerModelApiInfo() *api.Info {
-	return s.ModelApiInfo(s.controllerModelUUID)
+	return s.ModelApiInfo(s.ServiceFactorySuite.ControllerModelUUID.String())
 }
 
 // ModelApiInfo returns the api address and ca cert needed to
@@ -475,7 +455,7 @@ func (s *ApiServerSuite) OpenModelAPIAs(c *gc.C, modelUUID string, tag names.Tag
 
 // OpenControllerModelAPI opens the controller model api connection for the admin user.
 func (s *ApiServerSuite) OpenControllerModelAPI(c *gc.C) api.Connection {
-	return s.openAPIAs(c, AdminUser, AdminSecret, "", s.controllerModelUUID)
+	return s.openAPIAs(c, AdminUser, AdminSecret, "", s.ServiceFactorySuite.ControllerModelUUID.String())
 }
 
 // OpenModelAPI opens a model api connection for the admin user.
@@ -511,7 +491,7 @@ func (s *ApiServerSuite) StatePool() *state.StatePool {
 
 // NewFactory returns a factory for the given model.
 func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory, func() bool) {
-	if modelUUID == s.controllerModelUUID {
+	if modelUUID == s.ServiceFactorySuite.ControllerModelUUID.String() {
 		st, err := s.controller.SystemState()
 		c.Assert(err, jc.ErrorIsNil)
 		return factory.NewFactory(st, s.controller.StatePool()), func() bool { return true }
@@ -523,7 +503,7 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 
 // ControllerModelUUID returns the controller model uuid.
 func (s *ApiServerSuite) ControllerModelUUID() string {
-	return s.controllerModelUUID
+	return s.ServiceFactorySuite.ControllerModelUUID.String()
 }
 
 // ControllerModel returns the controller model.
@@ -625,7 +605,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		SysLogger:                  noopSysLogger{},
 		CharmhubHTTPClient:         &http.Client{},
 		DBGetter:                   stubDBGetter{},
-		ServiceFactoryGetter:       &stubServiceFactoryGetter{},
+		ServiceFactoryGetter:       nil,
 		StatePool:                  &state.StatePool{},
 		Mux:                        &apiserverhttp.Mux{},
 		LocalMacaroonAuthenticator: &mockAuthenticator{},
@@ -642,29 +622,6 @@ func (s stubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
 	return s.db, nil
-}
-
-type stubServiceFactoryGetter struct {
-	ctrlDB    changestream.WatchableDB
-	dbDeleter coredatabase.DBDeleter
-	logger    domainservicefactory.Logger
-}
-
-func (s *stubServiceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
-	return domainservicefactory.NewServiceFactory(
-		databasetesting.ConstFactory(s.ctrlDB),
-		nil, // TODO (stickupkid): Wire up modelDB when ready,
-		s.dbDeleter,
-		s.logger,
-	)
-}
-
-type stubDBDeleter struct {
-	DB *sql.DB
-}
-
-func (s stubDBDeleter) DeleteDB(namespace string) error {
-	return nil
 }
 
 type stubWatchableDB struct {

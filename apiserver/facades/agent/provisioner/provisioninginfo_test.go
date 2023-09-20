@@ -687,7 +687,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)

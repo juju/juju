@@ -5,26 +5,28 @@ package servicefactory
 
 import (
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/domain/model"
 )
 
 // ModelFactory provides access to the services required by the apiserver.
 type ModelFactory struct {
-	modelDB changestream.WatchableDBFactory
 	logger  Logger
+	modelDB changestream.WatchableModelDBFactory
 }
 
 // NewModelFactory returns a new registry which uses the provided modelDB
 // function to obtain a model database.
 func NewModelFactory(
-	modelDB changestream.WatchableDBFactory,
+	modelDB changestream.WatchableModelDBFactory,
 	logger Logger,
 ) *ModelFactory {
 	return &ModelFactory{
-		modelDB: modelDB,
 		logger:  logger,
+		modelDB: modelDB,
 	}
 }
 
-func (f *ModelFactory) Name() string {
-	return "ModelFactory"
+// ModelUUID is the current UUID for the model.
+func (f *ModelFactory) ModelUUID() model.UUID {
+	return f.modelDB.ModelUUID
 }

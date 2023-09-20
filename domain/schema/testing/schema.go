@@ -23,6 +23,5 @@ func (s *SchemaApplier) Apply(c *gc.C, ctx context.Context, runner database.TxnR
 	})
 	changeSet, err := s.schema.Ensure(ctx, runner)
 	c.Assert(err, gc.IsNil)
-	c.Check(changeSet.Current, gc.Equals, 0)
-	c.Check(changeSet.Post > 0, gc.Equals, true)
+	c.Check(changeSet.Post, gc.Equals, s.schema.Len())
 }
