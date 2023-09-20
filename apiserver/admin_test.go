@@ -267,10 +267,9 @@ func (s *loginSuite) loginHostPorts(
 func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *state.Space) {
 	st := s.ControllerModel(c).State()
 
-	cfg, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	cfg := coretesting.FakeControllerConfig()
 
-	err = st.SetAPIHostPorts(cfg, nil)
+	err := st.SetAPIHostPorts(cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Initially just the address we connect with is returned by the helper
@@ -334,15 +333,14 @@ func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
 	}
 
+	cfg := coretesting.FakeControllerConfig()
 	st := s.ControllerModel(c).State()
-	cfg, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
 
 	newAPIHostPorts := []network.SpaceHostPorts{
 		network.SpaceAddressesWithPort(server1Addresses, 123),
 		network.SpaceAddressesWithPort(server2Addresses, 456),
 	}
-	err = st.SetAPIHostPorts(cfg, newAPIHostPorts)
+	err := st.SetAPIHostPorts(cfg, newAPIHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []network.MachineHostPorts{

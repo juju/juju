@@ -53,8 +53,17 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		return
 	}
 	defer st.Release()
+
+	// TODO (stickupkid): Remove this nonsense, we should be able to get the
+	// service factory from the handler.
 	serviceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(st.ModelUUID())
-	userTag, response, err := h.processPost(req, st.State, serviceFactory.Cloud(), serviceFactory.Credential())
+	userTag, response, err := h.processPost(
+		req,
+		st.State,
+		serviceFactory.ControllerConfig(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
+	)
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
@@ -104,7 +113,10 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 // own nonces, because reusing a nonce means that the key-stream can
 // be revealed.
 func (h *registerUserHandler) processPost(
-	req *http.Request, st *state.State, cloudService common.CloudService, credentialService common.CredentialService,
+	req *http.Request,
+	st *state.State,
+	controllerConfigService ControllerConfigService,
+	cloudService common.CloudService, credentialService common.CredentialService,
 ) (
 	names.UserTag, *params.SecretKeyLoginResponse, error,
 ) {
@@ -164,7 +176,7 @@ func (h *registerUserHandler) processPost(
 
 	// Respond with the CA-cert and password, encrypted again with the
 	// secret key.
-	responsePayload, err := h.getSecretKeyLoginResponsePayload(ctx, st, cloudService, credentialService)
+	responsePayload, err := h.getSecretKeyLoginResponsePayload(ctx, st, controllerConfigService, cloudService, credentialService)
 	if err != nil {
 		return failure(errors.Trace(err))
 	}
@@ -203,13 +215,14 @@ var GetConnectorInfoer = getConnectorInfoer
 func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	ctx context.Context,
 	st *state.State,
+	controllerConfigService ControllerConfigService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 ) (*params.SecretKeyLoginResponsePayload, error) {
 	if !st.IsController() {
 		return nil, errors.New("state is not for a controller")
 	}
-	controllerConfig, err := st.ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

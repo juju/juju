@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
@@ -63,7 +65,7 @@ func (s *WorkerStateSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *WorkerStateSuite) TestStart(c *gc.C) {
-	w, err := apiserver.NewWorker(s.config)
+	w, err := apiserver.NewWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 

@@ -1015,7 +1015,6 @@ type migrationBackend interface {
 // migrationBackend defines controller State functionality required by the
 // migration watchers.
 type controllerBackend interface {
-	ControllerConfig() (controller.Config, error)
 	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 }
 
@@ -1041,18 +1040,20 @@ func newMigrationStatusWatcher(context facade.Context) (facade.Facade, error) {
 		return nil, errors.Trace(err)
 	}
 	return &srvMigrationStatusWatcher{
-		watcherCommon: newWatcherCommon(context),
-		watcher:       watcher,
-		st:            getMigrationBackend(st),
-		ctrlSt:        controllerBackend,
+		watcherCommon:           newWatcherCommon(context),
+		watcher:                 watcher,
+		st:                      getMigrationBackend(st),
+		ctrlSt:                  controllerBackend,
+		controllerConfigService: context.ServiceFactory().ControllerConfig(),
 	}, nil
 }
 
 type srvMigrationStatusWatcher struct {
 	watcherCommon
-	watcher corewatcher.NotifyWatcher
-	st      migrationBackend
-	ctrlSt  controllerBackend
+	watcher                 corewatcher.NotifyWatcher
+	st                      migrationBackend
+	ctrlSt                  controllerBackend
+	controllerConfigService ControllerConfigService
 }
 
 // Next returns when the status for a model migration for the
@@ -1078,7 +1079,7 @@ func (w *srvMigrationStatusWatcher) Next(ctx context.Context) (params.MigrationS
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving migration phase")
 	}
 
-	cfg, err := w.ctrlSt.ControllerConfig()
+	cfg, err := w.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving controller config")
 	}
@@ -1087,7 +1088,7 @@ func (w *srvMigrationStatusWatcher) Next(ctx context.Context) (params.MigrationS
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving source addresses")
 	}
 
-	sourceCACert, err := getControllerCACert(w.ctrlSt)
+	sourceCACert, err := getControllerCACert(cfg)
 	if err != nil {
 		return params.MigrationStatus{}, errors.Annotate(err, "retrieving source CA cert")
 	}
@@ -1124,13 +1125,8 @@ func (w *srvMigrationStatusWatcher) getLocalHostPorts(cfg controller.Config) ([]
 
 // This is a shim to avoid the need to use a working State into the
 // unit tests. It is tested as part of the client side API tests.
-var getControllerCACert = func(st controllerBackend) (string, error) {
-	cfg, err := st.ControllerConfig()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	cacert, ok := cfg.CACert()
+var getControllerCACert = func(controllerConfig controller.Config) (string, error) {
+	cacert, ok := controllerConfig.CACert()
 	if !ok {
 		return "", errors.New("missing CA cert for controller model")
 	}

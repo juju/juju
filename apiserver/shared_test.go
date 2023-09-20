@@ -52,8 +52,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 
 	s.hub = pubsub.NewStructuredHub(nil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := testing.FakeControllerConfig()
 
 	s.config = sharedServerConfig{
 		statePool:            s.StatePool,

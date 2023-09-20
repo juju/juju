@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type allWatcherSuite struct {
@@ -126,11 +125,11 @@ func (s *allWatcherSuite) TestTranslateModelEmpty(c *gc.C) {
 }
 
 func (s *allWatcherSuite) TestTranslateModelAgentVersion(c *gc.C) {
-	current := coretesting.CurrentVersion()
+	current := testing.CurrentVersion()
 	configAttrs := map[string]any{
 		"name":                 "some-name",
 		"type":                 "some-type",
-		"uuid":                 coretesting.ModelTag.Id(),
+		"uuid":                 testing.ModelTag.Id(),
 		config.AgentVersionKey: current.Number.String(),
 	}
 

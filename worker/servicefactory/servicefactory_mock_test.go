@@ -359,6 +359,20 @@ func (m *MockServiceFactoryGetter) EXPECT() *MockServiceFactoryGetterMockRecorde
 	return m.recorder
 }
 
+// ControllerFactory mocks base method.
+func (m *MockServiceFactoryGetter) ControllerFactory() servicefactory.ControllerServiceFactory {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerFactory")
+	ret0, _ := ret[0].(servicefactory.ControllerServiceFactory)
+	return ret0
+}
+
+// ControllerFactory indicates an expected call of ControllerFactory.
+func (mr *MockServiceFactoryGetterMockRecorder) ControllerFactory() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerFactory", reflect.TypeOf((*MockServiceFactoryGetter)(nil).ControllerFactory))
+}
+
 // FactoryForModel mocks base method.
 func (m *MockServiceFactoryGetter) FactoryForModel(arg0 string) servicefactory.ServiceFactory {
 	m.ctrl.T.Helper()

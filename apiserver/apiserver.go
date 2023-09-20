@@ -275,7 +275,7 @@ func (c ServerConfig) pingClock() clock.Clock {
 }
 
 // NewServer serves API requests using the given configuration.
-func NewServer(cfg ServerConfig) (*Server, error) {
+func NewServer(ctx context.Context, cfg ServerConfig) (*Server, error) {
 	if cfg.LogSinkConfig == nil {
 		logSinkConfig := DefaultLogSinkConfig()
 		cfg.LogSinkConfig = &logSinkConfig
@@ -288,21 +288,22 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	// server needs to run before mongo upgrades have happened and
 	// any state manipulation may be relying on features of the
 	// database added by upgrades. Here be dragons.
-	return newServer(cfg)
+	return newServer(ctx, cfg)
 }
 
 const readyTimeout = time.Second * 30
 
-func newServer(cfg ServerConfig) (_ *Server, err error) {
-	systemState, err := cfg.StatePool.SystemState()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	controllerConfig, err := systemState.ControllerConfig()
+func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
+	controllerConfigService := cfg.ServiceFactoryGetter.ControllerFactory().ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
 
+	systemState, err := cfg.StatePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	model, err := systemState.Model()
 	if err != nil {
 		return nil, errors.Trace(err)

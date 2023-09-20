@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"math"
 	"time"
 
@@ -223,7 +224,7 @@ func (s *auditConfigSuite) TestNewServerValidatesConfig(c *gc.C) {
 	cfg.GetAuditConfig = nil
 	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c)
 
-	srv, err := apiserver.NewServer(cfg)
+	srv, err := apiserver.NewServer(context.Background(), cfg)
 	c.Assert(err, gc.ErrorMatches, "missing GetAuditConfig not valid")
 	c.Assert(srv, gc.IsNil)
 }
