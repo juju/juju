@@ -178,13 +178,10 @@ func generateFeaturesElement(p domainParams) *Features {
 // generateCPU infor generates any model/fallback related settings. These are
 // typically to allow for better compatibility across versions of libvirt/qemu AFAIU.
 func generateCPU(p domainParams) *CPU {
-	if p.Arch() == arch.ARM64 {
-		return &CPU{
-			Mode:  "host-passthrough",
-			Check: "none",
-		}
+	return &CPU{
+		Mode:  "host-passthrough",
+		Check: "none",
 	}
-	return nil
 }
 
 // deviceID generates a device id from and int. The limit of 26 is arbitrary,
