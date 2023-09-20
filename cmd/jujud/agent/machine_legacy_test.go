@@ -77,6 +77,12 @@ var _ = gc.Suite(&MachineLegacySuite{})
 func (s *MachineLegacySuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
 		controller.AuditingEnabled: true,
+		// We need to clear the JujuDBSnapChannel config value as the agent
+		// hasn't been correctly primed with the right value. Changing the
+		// value in the tests also breaks other suites that expect it to be
+		// empty.
+		// This test suite is truly horrid!
+		controller.JujuDBSnapChannel: "",
 	}
 	s.ControllerModelConfigAttrs = map[string]interface{}{
 		"agent-version": coretesting.CurrentVersion().Number.String(),
