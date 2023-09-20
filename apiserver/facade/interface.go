@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/servicefactory"
 )
 
 // Facade could be anything; it will be interpreted by the apiserver

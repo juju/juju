@@ -11,7 +11,8 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/domain/servicefactory"
+	domainservicefactory "github.com/juju/juju/domain/servicefactory"
+	"github.com/juju/juju/internal/servicefactory"
 )
 
 // Config is the configuration required for service factory worker.
@@ -76,18 +77,18 @@ func NewWorker(config Config) (worker.Worker, error) {
 type serviceFactoryWorker struct {
 	tomb tomb.Tomb
 
-	ctrlFactory   ControllerServiceFactory
-	factoryGetter ServiceFactoryGetter
+	ctrlFactory   servicefactory.ControllerServiceFactory
+	factoryGetter servicefactory.ServiceFactoryGetter
 }
 
 // ControllerFactory returns the controller service factory.
-func (w *serviceFactoryWorker) ControllerFactory() ControllerServiceFactory {
+func (w *serviceFactoryWorker) ControllerFactory() servicefactory.ControllerServiceFactory {
 	// TODO (stickupkid): Add metrics to here to see how often this is called.
 	return w.ctrlFactory
 }
 
 // FactoryGetter returns the service factory getter.
-func (w *serviceFactoryWorker) FactoryGetter() ServiceFactoryGetter {
+func (w *serviceFactoryWorker) FactoryGetter() servicefactory.ServiceFactoryGetter {
 	// TODO (stickupkid): Add metrics to here to see how often this is called.
 	return w.factoryGetter
 }
@@ -123,12 +124,12 @@ type serviceFactoryLogger struct {
 	Logger
 }
 
-func (c serviceFactoryLogger) Child(name string) servicefactory.Logger {
+func (c serviceFactoryLogger) Child(name string) domainservicefactory.Logger {
 	return c
 }
 
 type serviceFactoryGetter struct {
-	ctrlFactory            ControllerServiceFactory
+	ctrlFactory            servicefactory.ControllerServiceFactory
 	dbGetter               changestream.WatchableDBGetter
 	logger                 Logger
 	newModelServiceFactory ModelServiceFactoryFn
@@ -136,7 +137,7 @@ type serviceFactoryGetter struct {
 
 // FactoryForModel returns a service factory for the given model uuid.
 // This will late bind the model service factory to the actual service factory.
-func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) ServiceFactory {
+func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
 	return &serviceFactory{
 		ControllerServiceFactory: s.ctrlFactory,
 		ModelServiceFactory:      s.newModelServiceFactory(s.dbGetter, modelUUID, s.logger),
@@ -144,6 +145,6 @@ func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) ServiceFactory 
 }
 
 type serviceFactory struct {
-	ControllerServiceFactory
-	ModelServiceFactory
+	servicefactory.ControllerServiceFactory
+	servicefactory.ModelServiceFactory
 }

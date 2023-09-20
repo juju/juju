@@ -19,10 +19,10 @@ import (
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/certupdater"
-	"github.com/juju/juju/worker/servicefactory"
 )
 
 type ManifoldSuite struct {

@@ -30,12 +30,12 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
-	"github.com/juju/juju/worker/servicefactory"
 	"github.com/juju/juju/worker/syslogger"
 )
 

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/internal/servicefactory"
 )
 
 type workerSuite struct {
@@ -56,13 +57,13 @@ func (s *workerSuite) getConfig() Config {
 		DBGetter:  s.dbGetter,
 		DBDeleter: s.dbDeleter,
 		Logger:    s.logger,
-		NewServiceFactoryGetter: func(ControllerServiceFactory, changestream.WatchableDBGetter, Logger, ModelServiceFactoryFn) ServiceFactoryGetter {
+		NewServiceFactoryGetter: func(servicefactory.ControllerServiceFactory, changestream.WatchableDBGetter, Logger, ModelServiceFactoryFn) servicefactory.ServiceFactoryGetter {
 			return s.serviceFactoryGetter
 		},
-		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, Logger) ControllerServiceFactory {
+		NewControllerServiceFactory: func(changestream.WatchableDBGetter, coredatabase.DBDeleter, Logger) servicefactory.ControllerServiceFactory {
 			return s.controllerServiceFactory
 		},
-		NewModelServiceFactory: func(changestream.WatchableDBGetter, string, Logger) ModelServiceFactory {
+		NewModelServiceFactory: func(changestream.WatchableDBGetter, string, Logger) servicefactory.ModelServiceFactory {
 			return s.modelServiceFactory
 		},
 	}

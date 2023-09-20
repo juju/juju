@@ -32,6 +32,7 @@ import (
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
@@ -84,7 +85,7 @@ import (
 	"github.com/juju/juju/worker/querylogger"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/secretbackendrotate"
-	"github.com/juju/juju/worker/servicefactory"
+	workersf "github.com/juju/juju/worker/servicefactory"
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
@@ -640,14 +641,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            peergrouper.New,
 		})),
 
-		serviceFactoryName: servicefactory.Manifold(servicefactory.ManifoldConfig{
+		serviceFactoryName: workersf.Manifold(workersf.ManifoldConfig{
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
-			Logger:                      servicefactory.NewLogger("juju.worker.servicefactory"),
-			NewWorker:                   servicefactory.NewWorker,
-			NewServiceFactoryGetter:     servicefactory.NewServiceFactoryGetter,
-			NewControllerServiceFactory: servicefactory.NewControllerServiceFactory,
-			NewModelServiceFactory:      servicefactory.NewModelServiceFactory,
+			Logger:                      workersf.NewLogger("juju.worker.servicefactory"),
+			NewWorker:                   workersf.NewWorker,
+			NewServiceFactoryGetter:     workersf.NewServiceFactoryGetter,
+			NewControllerServiceFactory: workersf.NewControllerServiceFactory,
+			NewModelServiceFactory:      workersf.NewModelServiceFactory,
 		}),
 
 		dbAccessorName: ifController(dbaccessor.Manifold(dbaccessor.ManifoldConfig{

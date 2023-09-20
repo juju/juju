@@ -14,8 +14,8 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	coreagent "github.com/juju/juju/agent"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/worker/servicefactory"
 )
 
 var logger = loggo.GetLogger("juju.worker.state")

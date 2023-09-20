@@ -36,13 +36,14 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
 	databasetesting "github.com/juju/juju/database/testing"
-	"github.com/juju/juju/domain/servicefactory"
+	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	domaintesting "github.com/juju/juju/domain/testing"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	pscontroller "github.com/juju/juju/internal/pubsub/controller"
+	"github.com/juju/juju/internal/servicefactory"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -50,7 +51,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/multiwatcher"
-	workerservicefactory "github.com/juju/juju/worker/servicefactory"
 )
 
 type controllerSuite struct {
@@ -62,7 +62,7 @@ type controllerSuite struct {
 	controller      *controller.ControllerAPI
 	resources       *common.Resources
 	watcherRegistry facade.WatcherRegistry
-	serviceFactory  workerservicefactory.ServiceFactory
+	serviceFactory  servicefactory.ServiceFactory
 	authorizer      apiservertesting.FakeAuthorizer
 	hub             *pubsub.StructuredHub
 	context         facadetest.Context
@@ -114,7 +114,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	s.serviceFactory = servicefactory.NewServiceFactory(
+	s.serviceFactory = domainservicefactory.NewServiceFactory(
 		databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
 		nil, nil,
 		servicefactorytesting.NewCheckLogger(c),

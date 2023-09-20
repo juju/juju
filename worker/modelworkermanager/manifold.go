@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/internal/pki"
+	"github.com/juju/juju/internal/servicefactory"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/syslogger"
 )

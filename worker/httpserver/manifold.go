@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/pki"
 	pkitls "github.com/juju/juju/internal/pki/tls"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/servicefactory"
 	workerstate "github.com/juju/juju/worker/state"
 )
 
