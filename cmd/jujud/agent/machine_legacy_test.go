@@ -15,14 +15,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/utils/v3/exec"
 	"github.com/juju/utils/v3/symlink"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
-	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -36,20 +37,27 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/model"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/charmrevision"
+	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/migrationmaster"
 )
 
@@ -631,6 +639,122 @@ func (s *MachineLegacySuite) TestModelWorkersRespectSingularResponsibilityFlag(c
 	})
 }
 
+func (s *MachineLegacySuite) TestManageModelRunsInstancePoller(c *gc.C) {
+	jujutesting.PatchExecutableAsEchoArgs(c, s, "ovs-vsctl", 0)
+	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
+	s.AgentSuite.PatchValue(&instancepoller.ShortPollCap, 500*time.Millisecond)
+
+	stream := s.Environ.Config().AgentStream()
+	usefulVersion := version.Binary{
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: "ubuntu",
+	}
+	envtesting.AssertUploadFakeToolsVersions(c, s.agentStorage, stream, stream, usefulVersion)
+
+	m, _, _ := s.primeAgent(c, state.JobManageModel)
+	ctrl, a := s.newAgent(c, m)
+	defer ctrl.Finish()
+
+	s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
+		Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
+	}).AnyTimes().Return(&exec.ExecResponse{Code: 0}, nil)
+
+	defer func() { _ = a.Stop() }()
+	go func() {
+		c.Check(a.Run(cmdtesting.Context(c)), jc.ErrorIsNil)
+	}()
+
+	// Wait for the workers to start. This ensures that the central
+	// hub referred to in startAddressPublisher has been assigned,
+	// and we will not fail race tests with concurrent access.
+	select {
+	case <-a.WorkersStarted():
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for agent workers to start")
+	}
+
+	startAddressPublisher(s, c, a)
+
+	// Add one unit to an application;
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+	arch := arch.HostArch()
+	app := f.MakeApplication(c, &factory.ApplicationParams{
+		Name:  "test-application",
+		Charm: f.MakeCharm(c, &factory.CharmParams{Name: "dummy"}),
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-hub",
+			Platform: &state.Platform{
+				Architecture: arch,
+				OS:           "ubuntu",
+				Channel:      "22.04",
+			}},
+		Constraints: constraints.MustParse("arch=" + arch),
+	})
+	unit, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.ControllerModel(c).State().AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+
+	m, instId := s.waitProvisioned(c, unit)
+	insts, err := s.Environ.Instances(context.NewEmptyCloudCallContext(), []instance.Id{instId})
+	c.Assert(err, jc.ErrorIsNil)
+
+	dummy.SetInstanceStatus(insts[0], "running")
+
+	strategy := &utils.AttemptStrategy{
+		Total: 60 * time.Second,
+		Delay: coretesting.ShortWait,
+	}
+	for attempt := strategy.Start(); attempt.Next(); {
+		if !attempt.HasNext() {
+			c.Logf("final machine addresses: %#v", m.Addresses())
+			c.Fatalf("timed out waiting for machine to get address")
+		}
+		err := m.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		instStatus, err := m.InstanceStatus()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
+
+		// The dummy provider always returns 3 devices with one address each.
+		// We don't care what they are, just that the instance-poller retrieved
+		// them and set them against the machine in state.
+		if len(m.Addresses()) == 3 && instStatus.Message == "running" {
+			break
+		}
+		c.Logf("waiting for machine %q address to be updated", m.Id())
+	}
+}
+
+func (s *MachineLegacySuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machine, instance.Id) {
+	c.Logf("waiting for unit %q to be provisioned", unit)
+	machineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := s.ControllerModel(c).State().Machine(machineId)
+	c.Assert(err, jc.ErrorIsNil)
+	w := m.Watch()
+	defer worker.Stop(w)
+	timeout := time.After(longerWait)
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("timed out waiting for provisioning")
+		case _, ok := <-w.Changes():
+			c.Assert(ok, jc.IsTrue)
+			err := m.Refresh()
+			c.Assert(err, jc.ErrorIsNil)
+			if instId, err := m.InstanceId(); err == nil {
+				c.Logf("unit provisioned with instance %s", instId)
+				return m, instId
+			} else {
+				c.Check(err, jc.ErrorIs, errors.NotProvisioned)
+			}
+		}
+	}
+}
+
 func (s *MachineLegacySuite) assertJob(
 	c *gc.C,
 	job state.MachineJob,
@@ -747,7 +871,7 @@ func (s *MachineLegacySuite) waitStopped(c *gc.C, job state.MachineJob, a *Machi
 
 func (s *MachineLegacySuite) claimSingularLease(c *gc.C) {
 	modelUUID := s.ControllerModelUUID()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx stdcontext.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(stdcontext.Background(), func(ctx stdcontext.Context, tx *sql.Tx) error {
 		q := `
 INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 VALUES (?, 0, ?, ?, 'machine-999-lxd-99', datetime('now'), datetime('now', '+100 seconds'))`[1:]
