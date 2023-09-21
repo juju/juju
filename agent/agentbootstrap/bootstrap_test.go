@@ -186,6 +186,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	ctlr, err := agentbootstrap.InitializeState(
+		stdcontext.Background(),
 		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 		jujujujutesting.InsertDummyCloudType,
 	)
@@ -379,7 +380,10 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	args := agentbootstrap.InitializeStateParams{}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	_, err = agentbootstrap.InitializeState(&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), nil)
+	_, err = agentbootstrap.InitializeState(
+		stdcontext.Background(),
+		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), nil,
+	)
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -442,6 +446,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 	adminUser := names.NewLocalUserTag("agent-admin")
 	st, err := agentbootstrap.InitializeState(
+		stdcontext.Background(),
 		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 		jujujujutesting.InsertDummyCloudType,
 	)
@@ -449,6 +454,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	_ = st.Close()
 
 	st, err = agentbootstrap.InitializeState(
+		stdcontext.Background(),
 		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
 	)
 	if err == nil {

@@ -29,7 +29,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/database"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
-	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
+	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	credbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -87,6 +87,7 @@ type bootstrapController interface {
 // InitializeState returns the newly initialized state and bootstrap machine.
 // If it fails, the state may well be irredeemably compromised.
 func InitializeState(
+	ctx stdcontext.Context,
 	env environs.BootstrapEnviron,
 	adminUser names.UserTag,
 	c agent.ConfigSetter,
@@ -119,22 +120,24 @@ func InitializeState(
 	ctrlCloud := args.ControllerCloud
 	ctrlCloud.IsControllerCloud = true
 	opts := append(setupDBOpts,
-		ccbootstrap.InsertInitialControllerConfig(args.ControllerConfig),
+		controllerconfigbootstrap.InsertInitialControllerConfig(args.ControllerConfig),
 		cloudbootstrap.InsertInitialControllerCloud(ctrlCloud),
 	)
 	if cloudCredTag.Id() != "" {
 		opts = append(opts, credbootstrap.InsertInitialControllerCredentials(cloudCredTag.Name(), cloudCredTag.Cloud().Id(), cloudCredTag.Owner().Id(), cloudCred))
 	}
 
-	if err := database.BootstrapDqlite(
-		stdcontext.TODO(),
+	runner, err := database.BootstrapDqlite(
+		ctx,
 		database.NewNodeManager(c, logger, coredatabase.NoopSlowQueryLogger{}),
 		logger,
 		false,
 		opts...,
-	); err != nil {
+	)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	defer runner.Close()
 
 	session, err := initMongo(info.Info, dialOpts, info.Password)
 	if err != nil {
@@ -195,8 +198,8 @@ func InitializeState(
 	// We need to do this before setting the API host-ports,
 	// because any space names in the bootstrap machine addresses must be
 	// reconcilable with space IDs at that point.
-	ctx := context.CallContext(st)
-	if err = space.ReloadSpaces(ctx, space.NewState(st), env); err != nil {
+	callContext := context.CallContext(st)
+	if err = space.ReloadSpaces(callContext, space.NewState(st), env); err != nil {
 		if errors.Is(err, errors.NotSupported) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
@@ -212,7 +215,8 @@ func InitializeState(
 
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
-	if err = initAPIHostPorts(st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
+	controllerConfigService := newControllerConfigService(runner)
+	if err = initAPIHostPorts(ctx, controllerConfigService, st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, err
 	}
 	if err := st.SetStateServingInfo(servingInfo); err != nil {
@@ -540,8 +544,8 @@ func initControllerCloudService(
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(st *state.State, pAddrs corenetwork.ProviderAddresses, apiPort int) error {
-	controllerConfig, err := st.ControllerConfig()
+func initAPIHostPorts(ctx stdcontext.Context, controllerConfigService ControllerConfigService, st *state.State, pAddrs corenetwork.ProviderAddresses, apiPort int) error {
+	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

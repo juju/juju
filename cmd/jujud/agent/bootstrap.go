@@ -379,6 +379,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 
 		adminTag := names.NewLocalUserTag(adminUserName)
 		controller, stateErr = agentInitializeState(
+			ctx,
 			env,
 			adminTag,
 			agentConfig,

@@ -57,8 +57,9 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 		})
 	}
 
-	err := BootstrapDqlite(context.Background(), mgr, stubLogger{}, true, check)
+	runner, err := BootstrapDqlite(context.Background(), mgr, stubLogger{}, true, check)
 	c.Assert(err, jc.ErrorIsNil)
+	defer runner.Close()
 }
 
 type testNodeManager struct {

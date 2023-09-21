@@ -45,25 +45,15 @@ type bootstrapNodeManager interface {
 	WithTracingOption() app.Option
 }
 
-// txnRunner is the simplest implementation of TxnRunner, wrapping a
-// sql.DB reference. It is recruited to run the bootstrap DB migration,
-// where we do not yet have access to a transaction runner sourced from
-// dbaccessor worker.
-type txnRunner struct {
-	db *sql.DB
-}
-
-func (r *txnRunner) Txn(ctx context.Context, f func(context.Context, *sqlair.TX) error) error {
-	return errors.Trace(Txn(ctx, sqlair.NewDB(r.db), f))
-}
-
-func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx) error) error {
-	return errors.Trace(StdTxn(ctx, r.db, f))
-}
-
 // BootstrapOpt is a function run when bootstrapping a database,
 // used to insert initial data into the model.
 type BootstrapOpt func(context.Context, coredatabase.TxnRunner) error
+
+// CloseableTxnRunner is a coredatabase.TxnRunner that can be closed.
+type CloseableTxnRunner interface {
+	coredatabase.TxnRunner
+	Close()
+}
 
 // BootstrapDqlite opens a new database for the controller, and runs the
 // DDL to create its schema.
@@ -82,10 +72,10 @@ func BootstrapDqlite(
 	logger Logger,
 	preferLoopback bool,
 	ops ...BootstrapOpt,
-) error {
+) (CloseableTxnRunner, error) {
 	dir, err := mgr.EnsureDataDir()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	options := []app.Option{mgr.WithLogFuncOption()}
@@ -94,12 +84,12 @@ func BootstrapDqlite(
 	} else {
 		addrOpt, err := mgr.WithPreferredCloudLocalAddressOption(network.DefaultConfigSource())
 		if err != nil {
-			return errors.Annotate(err, "generating bind address option")
+			return nil, errors.Annotate(err, "generating bind address option")
 		}
 
 		tlsOpt, err := mgr.WithTLSOption()
 		if err != nil {
-			return errors.Annotate(err, "generating TLS option")
+			return nil, errors.Annotate(err, "generating TLS option")
 		}
 
 		options = append(options, addrOpt, tlsOpt)
@@ -107,44 +97,68 @@ func BootstrapDqlite(
 
 	dqlite, err := app.New(dir, options...)
 	if err != nil {
-		return errors.Annotate(err, "creating Dqlite app")
+		return nil, errors.Annotate(err, "creating Dqlite app")
 	}
-	defer func() {
-		if err := dqlite.Close(); err != nil {
-			logger.Errorf("closing Dqlite: %v", err)
-		}
-	}()
 
 	if err := dqlite.Ready(ctx); err != nil {
-		return errors.Annotatef(err, "waiting for Dqlite readiness")
+		return nil, errors.Annotatef(err, "waiting for Dqlite readiness")
 	}
 
 	db, err := dqlite.Open(ctx, coredatabase.ControllerNS)
 	if err != nil {
-		return errors.Annotatef(err, "opening controller database")
+		return nil, errors.Annotatef(err, "opening controller database")
 	}
 
 	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
-		return errors.Annotate(err, "setting foreign keys pragma")
+		return nil, errors.Annotate(err, "setting foreign keys pragma")
 	}
 
-	defer func() {
-		if err := db.Close(); err != nil {
-			logger.Errorf("closing controller database: %v", err)
-		}
-	}()
-
-	runner := &txnRunner{db: db}
+	runner := &txnRunner{
+		db:     db,
+		app:    dqlite,
+		logger: logger,
+	}
 
 	if err := NewDBMigration(runner, logger, schema.ControllerDDL(dqlite.ID())).Apply(ctx); err != nil {
-		return errors.Annotate(err, "creating controller database schema")
+		return nil, errors.Annotate(err, "creating controller database schema")
 	}
 
 	for i, op := range ops {
 		if err := op(ctx, runner); err != nil {
-			return errors.Annotatef(err, "running bootstrap operation at index %d", i)
+			return nil, errors.Annotatef(err, "running bootstrap operation at index %d", i)
 		}
 	}
 
-	return nil
+	return runner, nil
+}
+
+// txnRunner is the simplest implementation of TxnRunner, wrapping a
+// sql.DB reference. It is recruited to run the bootstrap DB migration,
+// where we do not yet have access to a transaction runner sourced from
+// dbaccessor worker.
+type txnRunner struct {
+	db     *sql.DB
+	app    *app.App
+	logger Logger
+}
+
+func (r *txnRunner) Txn(ctx context.Context, f func(context.Context, *sqlair.TX) error) error {
+	return errors.Trace(Retry(ctx, func() error {
+		return Txn(ctx, sqlair.NewDB(r.db), f)
+	}))
+}
+
+func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx) error) error {
+	return errors.Trace(Retry(ctx, func() error {
+		return StdTxn(ctx, r.db, f)
+	}))
+}
+
+func (r *txnRunner) Close() {
+	if err := r.app.Close(); err != nil {
+		r.logger.Errorf("failed to close Dqlite app: %v", err)
+	}
+	if err := r.db.Close(); err != nil {
+		r.logger.Errorf("failed to close controller database: %v", err)
+	}
 }

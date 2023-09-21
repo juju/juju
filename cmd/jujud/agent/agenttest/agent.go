@@ -230,13 +230,14 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 	conf := s.WriteStateAgentConfig(c, tag, password, vers, s.ControllerModel(c).ModelTag(), apiPort)
 	s.primeAPIHostPorts(c)
 
-	err = database.BootstrapDqlite(
+	runner, err := database.BootstrapDqlite(
 		context.Background(),
 		database.NewNodeManager(conf, logger, coredatabase.NoopSlowQueryLogger{}),
 		logger,
 		true,
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	defer runner.Close()
 
 	return conf, agentTools
 }
