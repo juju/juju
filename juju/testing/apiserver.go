@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
+	"github.com/juju/juju/core/trace"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
@@ -64,6 +65,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/lease"
 	wmultiwatcher "github.com/juju/juju/worker/multiwatcher"
+	workertrace "github.com/juju/juju/worker/trace"
 )
 
 const AdminSecret = "dummy-secret"
@@ -604,6 +606,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		CharmhubHTTPClient:         &http.Client{},
 		DBGetter:                   stubDBGetter{},
 		ServiceFactoryGetter:       nil,
+		TracerGetter:               &stubTracerGetter{},
 		StatePool:                  &state.StatePool{},
 		Mux:                        &apiserverhttp.Mux{},
 		LocalMacaroonAuthenticator: &mockAuthenticator{},
@@ -620,6 +623,12 @@ func (s stubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
 	return s.db, nil
+}
+
+type stubTracerGetter struct{}
+
+func (s *stubTracerGetter) GetTracer(namespace workertrace.TracerNamespace) (trace.Tracer, error) {
+	return trace.NoopTracer{}, nil
 }
 
 type stubWatchableDB struct {

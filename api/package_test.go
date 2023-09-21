@@ -44,6 +44,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/resources",
 		"core/secrets",
 		"core/status",
+		"core/trace",
 		"core/watcher",
 		"environs/context",
 		"internal/feature",
