@@ -858,7 +858,6 @@ func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 			`series:`,
 			`    - trusty`,
 			`    - wily`,
-			`    - bionic`,
 		},
 		"\n",
 	)
