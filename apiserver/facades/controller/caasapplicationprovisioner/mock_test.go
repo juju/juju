@@ -38,12 +38,13 @@ type mockState struct {
 	testing.Stub
 
 	common.APIAddressAccessor
-	model                   *mockModel
-	applicationWatcher      *mockStringsWatcher
-	app                     *mockApplication
-	resource                *mockResources
-	operatorRepo            string
-	controllerConfigWatcher *statetesting.MockNotifyWatcher
+	model                        *mockModel
+	applicationWatcher           *mockStringsWatcher
+	app                          *mockApplication
+	resource                     *mockResources
+	operatorRepo                 string
+	controllerConfigWatcher      *statetesting.MockNotifyWatcher
+	apiHostPortsForAgentsWatcher *statetesting.MockNotifyWatcher
 }
 
 func newMockState() *mockState {
@@ -119,6 +120,11 @@ func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Val
 func (st *mockState) Resources() caasapplicationprovisioner.Resources {
 	st.MethodCall(st, "Resources")
 	return st.resource
+}
+
+func (st *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
+	st.MethodCall(st, "WatchAPIHostPortsForAgents")
+	return st.apiHostPortsForAgentsWatcher
 }
 
 type mockResources struct {
