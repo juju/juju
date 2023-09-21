@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/common"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/testing"
@@ -141,7 +142,7 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *gc.C) {
 		User: names.NewUserTag("wallyworld"),
 	}
 	perm, err := authInfo.Delegator.SubjectPermissions(badUser, modelTag)
-	c.Assert(errors.Is(err, errors.NotValid), jc.IsTrue)
+	c.Assert(errors.Is(err, apiservererrors.ErrPerm), jc.IsTrue)
 	c.Assert(perm, gc.Equals, permission.NoAccess)
 
 	badUser = jwt.TokenEntity{
