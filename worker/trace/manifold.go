@@ -50,11 +50,11 @@ type TracerGetter interface {
 
 // Logger represents the logging methods called.
 type Logger interface {
-	Errorf(message string, args ...interface{})
-	Warningf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Debugf(message string, args ...interface{})
-	Tracef(message string, args ...interface{})
+	Errorf(message string, args ...any)
+	Warningf(message string, args ...any)
+	Infof(message string, args ...any)
+	Debugf(message string, args ...any)
+	Tracef(message string, args ...any)
 
 	IsTraceEnabled() bool
 	IsLevelEnabled(loggo.Level) bool
@@ -131,15 +131,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func tracerOutput(in worker.Worker, out interface{}) error {
-	w, ok := in.(*tracerWorker)
-	if !ok {
-		return errors.Errorf("expected input of type traceW, got %T", in)
+func tracerOutput(in worker.Worker, out any) error {
+	if w, ok := in.(*noopWorker); ok {
+		return tracerSetOutput(w, out)
 	}
+	if w, ok := in.(*tracerWorker); ok {
+		return tracerSetOutput(w, out)
+	}
+	return errors.Errorf("expected input of type TracerGetter, got %T", in)
+}
 
+func tracerSetOutput(in TracerGetter, out any) error {
 	switch out := out.(type) {
 	case *TracerGetter:
-		var target TracerGetter = w
+		var target TracerGetter = in
 		*out = target
 	default:
 		return errors.Errorf("expected output of Tracer, got %T", out)

@@ -300,7 +300,7 @@ func NewNoopWorker() *noopWorker {
 
 // GetTracer returns a tracer for the namespace.
 // The noopWorker will return a stub tracer in this case.
-func (w *noopWorker) GetTracer(namespace string) (coretrace.Tracer, error) {
+func (w *noopWorker) GetTracer(namespace TracerNamespace) (coretrace.Tracer, error) {
 	return w.tracer, nil
 }
 
