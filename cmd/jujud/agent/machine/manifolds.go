@@ -95,6 +95,7 @@ import (
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/trace"
+	"github.com/juju/juju/worker/upgradedatabase"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -125,6 +126,11 @@ type ManifoldsConfig struct {
 	// PreviousAgentVersion passes through the version the machine
 	// agent was running before the current restart.
 	PreviousAgentVersion version.Number
+
+	// UpgradeDBLock is passed to the upgrade database gate to
+	// coordinate workers that shouldn't do anything until the
+	// upgrade-database worker is done.
+	UpgradeDBLock gate.Lock
 
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that shouldn't do anything until the
@@ -424,6 +430,24 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Filter:               connectFilter,
 			Logger:               loggo.GetLogger("juju.worker.apicaller"),
 		}),
+
+		// The upgrade database gate is used to coordinate workers that should
+		// not do anything until the upgrade-database worker has finished
+		// running any required database upgrade steps.
+		upgradeDatabaseGateName: ifController(gate.ManifoldEx(config.UpgradeDBLock)),
+		upgradeDatabaseFlagName: ifController(gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  upgradeDatabaseGateName,
+			NewWorker: gate.NewFlagWorker,
+		})),
+
+		// The upgrade-database worker runs soon after the machine agent starts
+		// and runs any steps required to upgrade to the database to the
+		// current version. Once upgrade steps have run, the upgrade-database
+		// gate is unlocked and the worker exits.
+		upgradeDatabaseName: ifController(upgradedatabase.Manifold(upgradedatabase.ManifoldConfig{
+			UpgradeDBGateName: upgradeDatabaseGateName,
+			Logger:            loggo.GetLogger("juju.worker.upgradedatabase"),
+		})),
 
 		// The upgrade steps gate is used to coordinate workers which
 		// shouldn't do anything until the upgrade-steps worker has
@@ -1043,6 +1067,10 @@ const (
 	presenceName           = "presence"
 	pubSubName             = "pubsub-forwarder"
 	clockName              = "clock"
+
+	upgradeDatabaseName     = "upgrade-database-runner"
+	upgradeDatabaseGateName = "upgrade-database-gate"
+	upgradeDatabaseFlagName = "upgrade-database-flag"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"
