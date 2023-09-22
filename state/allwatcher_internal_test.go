@@ -2485,12 +2485,12 @@ func testChangeCharms(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, [
 				about: "charm is added if it's in backing but not in Store",
 				change: watcher.Change{
 					C:  "charms",
-					Id: st.docID(ch.String()),
+					Id: st.docID(ch.URL()),
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.CharmInfo{
 						ModelUUID:     st.ModelUUID(),
-						CharmURL:      ch.String(),
+						CharmURL:      ch.URL(),
 						Life:          life.Alive,
 						DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
 					}}}
@@ -3539,9 +3539,8 @@ func testChangeApplicationOffers(c *gc.C, runChangeTests func(*gc.C, []changeTes
 			applicationOfferInfo, owner := addOffer(c, st)
 			app, err := st.Application("mysql")
 			c.Assert(err, jc.ErrorIsNil)
-			curlStr, _ := app.CharmURL()
-			curl := charm.MustParseURL(*curlStr)
-			ch, err := st.Charm(curl)
+			curl, _ := app.CharmURL()
+			ch, err := st.Charm(*curl)
 			c.Assert(err, jc.ErrorIsNil)
 			AddTestingApplication(c, st, "another-mysql", ch)
 			offers := NewApplicationOffers(st)

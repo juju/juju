@@ -6,7 +6,6 @@ package testing
 import (
 	"sort"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
@@ -25,12 +24,12 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 }
 
-func (s *RepoSuite) AssertApplication(c *gc.C, name string, expectCurl *charm.URL, unitCount, relCount int) (*state.Application, []*state.Relation) {
+func (s *RepoSuite) AssertApplication(c *gc.C, name string, expectCurl string, unitCount, relCount int) (*state.Application, []*state.Relation) {
 	app, err := s.State.Application(name)
 	c.Assert(err, jc.ErrorIsNil)
 	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.URL(), gc.DeepEquals, expectCurl)
+	c.Assert(ch.URL(), gc.Equals, expectCurl)
 	s.AssertCharmUploaded(c, expectCurl)
 
 	units, err := app.AllUnits()
@@ -44,7 +43,7 @@ func (s *RepoSuite) AssertApplication(c *gc.C, name string, expectCurl *charm.UR
 	return app, rels
 }
 
-func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
+func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl string) {
 	ch, err := s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -347,7 +347,7 @@ func (s createCharm) step(c *gc.C, ctx *testContext) {
 
 type addCharm struct {
 	dir  *corecharm.CharmDir
-	curl *corecharm.URL
+	curl string
 }
 
 func (s addCharm) step(c *gc.C, ctx *testContext) {
@@ -730,7 +730,7 @@ func (s startupError) step(c *gc.C, ctx *testContext) {
 type verifyDeployed struct{}
 
 func (s verifyDeployed) step(c *gc.C, ctx *testContext) {
-	c.Assert(ctx.deployer.staged, jc.DeepEquals, curl(0).String())
+	c.Assert(ctx.deployer.staged, jc.DeepEquals, curl(0))
 	c.Assert(ctx.deployer.deployed, jc.IsTrue)
 }
 
@@ -822,17 +822,13 @@ func (s waitUnitAgent) step(c *gc.C, ctx *testContext) {
 				c.Logf("want resolved mode %q, got %q; still waiting", s.resolved, resolved)
 				continue
 			}
-			urlStr := ctx.unit.CharmURL()
-			if urlStr == nil {
+			url := ctx.unit.CharmURL()
+			if url == nil {
 				c.Logf("want unit charm %q, got nil; still waiting", curl(s.charm))
 				continue
 			}
-			url, err := corecharm.ParseURL(*urlStr)
-			if err != nil {
-				c.Fatalf("cannot refresh unit: %v", err)
-			}
-			if *url != *curl(s.charm) {
-				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), url.String())
+			if *url != curl(s.charm) {
+				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), url)
 				continue
 			}
 			statusInfo, err := s.statusGetter(ctx)()
@@ -1057,11 +1053,9 @@ func (s verifyCharm) step(c *gc.C, ctx *testContext) {
 	err = ctx.unit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	urlStr := ctx.unit.CharmURL()
-	c.Assert(urlStr, gc.NotNil)
-	url, err := corecharm.ParseURL(*urlStr)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.DeepEquals, curl(checkRevision))
+	url := ctx.unit.CharmURL()
+	c.Assert(url, gc.NotNil)
+	c.Assert(*url, gc.Equals, curl(checkRevision))
 }
 
 type pushResource struct{}
@@ -1385,8 +1379,8 @@ var subordinateDying = custom{func(c *gc.C, ctx *testContext) {
 	c.Assert(ctx.subordinate.Destroy(), gc.IsNil)
 }}
 
-func curl(revision int) *corecharm.URL {
-	return corecharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision)
+func curl(revision int) string {
+	return corecharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision).String()
 }
 
 type hookLock struct {

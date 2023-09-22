@@ -328,7 +328,7 @@ func (s *DeploySuite) TestCharmDir(c *gc.C) {
 
 	err := s.runDeployForState(c, charmDir.Path, "--base", "ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "multi-series", curl, 1, 0)
+	s.AssertApplication(c, "multi-series", curl.String(), 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPathRelativeDir(c *gc.C) {
@@ -354,7 +354,7 @@ func (s *DeploySuite) TestDeployFromPathOldCharm(c *gc.C) {
 
 	err := s.runDeployForState(c, charmDir.Path, "--base", "ubuntu@20.04", "--force")
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "dummy", curl, 1, 0)
+	s.AssertApplication(c, "dummy", curl.String(), 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
@@ -381,7 +381,7 @@ func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeriesUseDefaultSeries(c 
 
 	err = s.runDeployForState(c, charmDir.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "dummy", curl, 1, 0)
+	s.AssertApplication(c, "dummy", curl.String(), 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
@@ -398,7 +398,7 @@ func (s *DeploySuite) TestDeployFromPathDefaultSeries(c *gc.C) {
 
 	err = s.runDeployForState(c, charmDir.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "multi-series", curl, 1, 0)
+	s.AssertApplication(c, "multi-series", curl.String(), 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
@@ -409,7 +409,7 @@ func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 
 	err := s.runDeployForState(c, charmDir.Path, "--base", "ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "multi-series", curl, 1, 0)
+	s.AssertApplication(c, "multi-series", curl.String(), 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveOverlap(c *gc.C) {
@@ -449,7 +449,7 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
 
 	err := s.runDeployForState(c, charmDir.Path, "--base", "ubuntu@12.10", "--force")
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "multi-series", curl, 1, 0)
+	s.AssertApplication(c, "multi-series", curl.String(), 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedLXDProfileForce(c *gc.C) {
@@ -465,7 +465,7 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedLXDProfileForce(c *gc.C) {
 
 	err := s.runDeployForState(c, charmDir.Path, "--base", "ubuntu@12.10", "--force")
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "lxd-profile-fail", curl, 1, 0)
+	s.AssertApplication(c, "lxd-profile-fail", curl.String(), 1, 0)
 }
 
 func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
@@ -486,8 +486,8 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 	err = s.runDeployForState(c, charmDir.Path, "--base", "ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
 	upgradedRev := dummyCharm.Revision() + 1
-	curl = dummyCharm.URL().WithRevision(upgradedRev)
-	s.AssertApplication(c, "dummy", curl, 1, 0)
+	curl = charm.MustParseURL(dummyCharm.URL()).WithRevision(upgradedRev)
+	s.AssertApplication(c, "dummy", curl.String(), 1, 0)
 	// Check the charm dir was left untouched.
 	ch, err = charm.ReadCharmDir(charmDir.Path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -503,7 +503,7 @@ func (s *DeploySuite) TestCharmBundle(c *gc.C) {
 	err := s.runDeployForState(c, charmDir.Path, "some-application-name", "--base", "ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:jammy/multi-series-1")
-	s.AssertApplication(c, "some-application-name", curl, 1, 0)
+	s.AssertApplication(c, "some-application-name", curl.String(), 1, 0)
 }
 
 func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
@@ -514,7 +514,7 @@ func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
 
 	err := s.runDeployForState(c, charmDir.Path, "--base", "ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "logging", curl, 0, 0)
+	s.AssertApplication(c, "logging", curl.String(), 0, 0)
 }
 
 func (s *DeploySuite) combinedSettings(ch charm.Charm, inSettings charm.Settings) charm.Settings {
@@ -637,7 +637,7 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	err := s.runDeployForState(c, charmDir.Path, "--constraints", "mem=2G cores=2", "--base", "ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:jammy/multi-series-1")
-	app, _ := s.AssertApplication(c, "multi-series", curl, 1, 0)
+	app, _ := s.AssertApplication(c, "multi-series", curl.String(), 1, 0)
 	cons, err := app.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cores=2 arch=amd64"))
@@ -674,7 +674,7 @@ func (s *DeploySuite) TestLXDProfileLocalCharm(c *gc.C) {
 
 	err := s.runDeployForState(c, charmDir.Path)
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "lxd-profile", curl, 1, 0)
+	s.AssertApplication(c, "lxd-profile", curl.String(), 1, 0)
 }
 
 func (s *DeploySuite) TestLXDProfileLocalCharmFails(c *gc.C) {
@@ -707,7 +707,7 @@ func (s *DeploySuite) TestStorage(c *gc.C) {
 
 	err := s.runDeployForState(c, charmDir.Path, "--storage", "data=machinescoped,1G", "--base", "ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
-	app, _ := s.AssertApplication(c, "storage-block", curl, 1, 0)
+	app, _ := s.AssertApplication(c, "storage-block", curl.String(), 1, 0)
 
 	cons, err := app.StorageConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1250,7 +1250,7 @@ func (s *DeploySuite) TestNumUnits(c *gc.C) {
 
 	err := s.runDeployForState(c, charmDir.Path, "-n", "13", "--base", "ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "multi-series", curl, 13, 0)
+	s.AssertApplication(c, "multi-series", curl.String(), 13, 0)
 }
 
 func (s *DeploySuite) TestNumUnitsSubordinate(c *gc.C) {
@@ -1389,7 +1389,7 @@ func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
 
 	err := s.runDeployForState(c, charmDir.Path, "--base", "ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "terms1", curl, 1, 0)
+	s.AssertApplication(c, "terms1", curl.String(), 1, 0)
 }
 
 func (s *DeploySuite) TestDeployFlags(c *gc.C) {
@@ -1438,7 +1438,7 @@ func (s *DeploySuite) TestDeployLocalWithSeriesAndForce(c *gc.C) {
 
 	err := s.runDeployForState(c, charmDir.Path, "--base", "ubuntu@12.10", "--force")
 	c.Assert(err, jc.ErrorIsNil)
-	s.AssertApplication(c, "terms1", curl, 1, 0)
+	s.AssertApplication(c, "terms1", curl.String(), 1, 0)
 }
 
 // TODO (stickupkid): Remove this test once we remove series in 3.2. This is only
@@ -1692,7 +1692,7 @@ func (s *FakeStoreStateSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
 	c.Assert(err, jc.ErrorIsNil)
 	uploaded := make([]string, len(allCharms))
 	for i, ch := range allCharms {
-		uploaded[i] = ch.URL().String()
+		uploaded[i] = ch.URL()
 	}
 	c.Assert(uploaded, jc.SameContents, ids)
 }

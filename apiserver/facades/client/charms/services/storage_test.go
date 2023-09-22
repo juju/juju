@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -38,7 +37,7 @@ type storageTestSuite struct {
 func (s *storageTestSuite) TestPrepareToStoreNotYetUploadedCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl := charm.MustParseURL("ch:ubuntu-lite")
+	curl := "ch:ubuntu-lite"
 
 	s.stateBackend.EXPECT().PrepareCharmUpload(curl).Return(s.uploadedCharm, nil)
 	s.uploadedCharm.EXPECT().IsUploaded().Return(false)
@@ -50,22 +49,22 @@ func (s *storageTestSuite) TestPrepareToStoreNotYetUploadedCharm(c *gc.C) {
 func (s *storageTestSuite) TestPrepareToStoreAlreadyUploadedCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl := charm.MustParseURL("ch:ubuntu-lite")
+	curl := "ch:ubuntu-lite"
 
 	s.stateBackend.EXPECT().PrepareCharmUpload(curl).Return(s.uploadedCharm, nil)
 	s.uploadedCharm.EXPECT().IsUploaded().Return(true)
 
 	err := s.storage.PrepareToStoreCharm(curl)
 
-	expErr := downloader.NewCharmAlreadyStoredError(curl.String())
+	expErr := downloader.NewCharmAlreadyStoredError(curl)
 	c.Assert(err, gc.Equals, expErr)
 }
 
 func (s *storageTestSuite) TestStoreBlobFails(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl := charm.MustParseURL("ch:ubuntu-lite")
-	expStoreCharmPath := fmt.Sprintf("charms/%s-%s", curl.String(), s.uuid)
+	curl := "ch:ubuntu-lite"
+	expStoreCharmPath := fmt.Sprintf("charms/%s-%s", curl, s.uuid)
 	dlCharm := downloader.DownloadedCharm{
 		CharmData: strings.NewReader("the-blob"),
 		Size:      7337,
@@ -81,8 +80,8 @@ func (s *storageTestSuite) TestStoreBlobFails(c *gc.C) {
 func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	curl := charm.MustParseURL("ch:ubuntu-lite")
-	expStoreCharmPath := fmt.Sprintf("charms/%s-%s", curl.String(), s.uuid)
+	curl := "ch:ubuntu-lite"
+	expStoreCharmPath := fmt.Sprintf("charms/%s-%s", curl, s.uuid)
 	dlCharm := downloader.DownloadedCharm{
 		CharmData:    strings.NewReader("the-blob"),
 		Size:         7337,

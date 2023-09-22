@@ -4222,7 +4222,7 @@ type addCharmHubCharm struct {
 func (ac addCharmHubCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 	ch := testcharms.Hub.CharmDir(ac.name)
 	name := ch.Meta().Name
-	curl := charm.MustParseURL(fmt.Sprintf("%s:%s-%d", scheme, name, rev))
+	curl := fmt.Sprintf("%s:%s-%d", scheme, name, rev)
 	info := state.CharmInfo{
 		Charm:       ch,
 		ID:          curl,
@@ -4256,7 +4256,7 @@ type addLocalCharm struct {
 func (ac addLocalCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
-	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
+	curl := fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev)
 	info := state.CharmInfo{
 		Charm:       ch,
 		ID:          curl,
@@ -4294,7 +4294,7 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
 
-	series := ch.URL().Series
+	series := charm.MustParseURL(ch.URL()).Series
 	if series == "" {
 		series = "quantal"
 	}
@@ -4409,7 +4409,7 @@ type setApplicationCharm struct {
 }
 
 func (ssc setApplicationCharm) step(c *gc.C, ctx *context) {
-	ch, err := ctx.st.Charm(charm.MustParseURL(ssc.charm))
+	ch, err := ctx.st.Charm(ssc.charm)
 	c.Assert(err, jc.ErrorIsNil)
 	s, err := ctx.st.Application(ssc.name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4560,7 +4560,7 @@ type setUnitCharmURL struct {
 func (uc setUnitCharmURL) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(uc.unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL(uc.charm)
+	curl := uc.charm
 	err = u.SetCharmURL(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	// lp:1558657

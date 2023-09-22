@@ -86,7 +86,7 @@ func (mr *MockStateBackendMockRecorder) ModelUUID() *gomock.Call {
 }
 
 // PrepareCharmUpload mocks base method.
-func (m *MockStateBackend) PrepareCharmUpload(arg0 *charm.URL) (services.UploadedCharm, error) {
+func (m *MockStateBackend) PrepareCharmUpload(arg0 string) (services.UploadedCharm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
 	ret0, _ := ret[0].(services.UploadedCharm)
@@ -286,10 +286,10 @@ func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 }
 
 // URL mocks base method.
-func (m *MockCharm) URL() *charm.URL {
+func (m *MockCharm) URL() string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "URL")
-	ret0, _ := ret[0].(*charm.URL)
+	ret0, _ := ret[0].(string)
 	return ret0
 }
 

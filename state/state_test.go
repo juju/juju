@@ -2301,13 +2301,13 @@ func (s *StateSuite) TestAddApplicationIncompatibleOSWithSeriesInURL(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddApplicationCompatibleOSWithSeriesInURL(c *gc.C) {
-	charm := s.AddTestingCharm(c, "dummy")
+	ch := s.AddTestingCharm(c, "dummy")
 	// A charm with a series in its URL is implicitly supported by that
 	// series only.
-	base, err := corebase.GetBaseFromSeries(charm.URL().Series)
+	base, err := corebase.GetBaseFromSeries(charm.MustParseURL(ch.URL()).Series)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name: "wordpress", Charm: charm,
+		Name: "wordpress", Charm: ch,
 		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{
 			OS:      base.OS,
 			Channel: base.Channel.String(),

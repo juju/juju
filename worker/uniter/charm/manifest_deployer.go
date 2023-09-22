@@ -71,7 +71,7 @@ func (d *manifestDeployer) Stage(info BundleInfo, abort <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	url := info.String()
+	url := info.URL()
 	if err := d.storeManifest(url, manifest); err != nil {
 		return err
 	}
@@ -267,8 +267,8 @@ func (rbr RetryingBundleReader) Read(bi BundleInfo, abort <-chan struct{}) (Bund
 		// If the charm is still not available something went wrong.
 		// Report a NotFound error instead
 		if errors.Is(fetchErr, errors.NotYetAvailable) {
-			rbr.Logger.Errorf("exceeded max retry attempts while waiting for blob data for %q to become available", bi.String())
-			fetchErr = fmt.Errorf("blob data for %q %w", bi.String(), errors.NotFound)
+			rbr.Logger.Errorf("exceeded max retry attempts while waiting for blob data for %q to become available", bi.URL())
+			fetchErr = fmt.Errorf("blob data for %q %w", bi.URL(), errors.NotFound)
 		}
 		return nil, errors.Trace(fetchErr)
 	}

@@ -44,7 +44,7 @@ func newMockState() *mockState {
 			name: "gitlab",
 			life: state.Alive,
 			charm: mockCharm{
-				url:    charm.MustParseURL("ch:gitlab-1"),
+				url:    "ch:gitlab-1",
 				sha256: "fake-sha256",
 			},
 			unitsChanges: unitsChanges,
@@ -231,16 +231,12 @@ func (u *mockUnit) EnsureDead() error {
 }
 
 type mockCharm struct {
-	url    *charm.URL
+	url    string
 	sha256 string
 }
 
-func (ch *mockCharm) URL() *charm.URL {
+func (ch *mockCharm) URL() string {
 	return ch.url
-}
-
-func (ch *mockCharm) String() string {
-	return ch.url.String()
 }
 
 func (ch *mockCharm) BundleSha256() string {

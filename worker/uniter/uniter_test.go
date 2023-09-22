@@ -1350,7 +1350,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	curl, err := corecharm.ParseURL("ch:quantal/logging")
 	c.Assert(err, jc.ErrorIsNil)
 	curl = curl.WithRevision(dir.Revision())
-	step(c, ctx, addCharm{dir, curl})
+	step(c, ctx, addCharm{dir, curl.String()})
 	ctx.application = s.AddTestingApplication(c, "u", ctx.sch)
 
 	// Create the principal application and add a relation.

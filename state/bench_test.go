@@ -6,7 +6,6 @@ package state_test
 import (
 	"time"
 
-	"github.com/juju/charm/v11"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
@@ -84,7 +83,7 @@ func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	applicationCharmURL, _ := app.CharmURL()
-	err = unit.SetCharmURL(charm.MustParseURL(*applicationCharmURL))
+	err = unit.SetCharmURL(*applicationCharmURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
@@ -118,7 +117,7 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	applicationCharmURL, _ := app.CharmURL()
-	err = unit.SetCharmURL(charm.MustParseURL(*applicationCharmURL))
+	err = unit.SetCharmURL(*applicationCharmURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {

@@ -7,8 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v11"
-	charm0 "github.com/juju/juju/core/charm"
+	charm "github.com/juju/juju/core/charm"
 	downloader "github.com/juju/juju/core/charm/downloader"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -37,7 +36,7 @@ func (m *MockRepositoryGetter) EXPECT() *MockRepositoryGetterMockRecorder {
 }
 
 // GetCharmRepository mocks base method.
-func (m *MockRepositoryGetter) GetCharmRepository(arg0 charm0.Source) (downloader.CharmRepository, error) {
+func (m *MockRepositoryGetter) GetCharmRepository(arg0 charm.Source) (downloader.CharmRepository, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCharmRepository", arg0)
 	ret0, _ := ret[0].(downloader.CharmRepository)
@@ -75,7 +74,7 @@ func (m *MockStorage) EXPECT() *MockStorageMockRecorder {
 }
 
 // PrepareToStoreCharm mocks base method.
-func (m *MockStorage) PrepareToStoreCharm(arg0 *charm.URL) error {
+func (m *MockStorage) PrepareToStoreCharm(arg0 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareToStoreCharm", arg0)
 	ret0, _ := ret[0].(error)
@@ -89,7 +88,7 @@ func (mr *MockStorageMockRecorder) PrepareToStoreCharm(arg0 interface{}) *gomock
 }
 
 // Store mocks base method.
-func (m *MockStorage) Store(arg0 *charm.URL, arg1 downloader.DownloadedCharm) error {
+func (m *MockStorage) Store(arg0 string, arg1 downloader.DownloadedCharm) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Store", arg0, arg1)
 	ret0, _ := ret[0].(error)

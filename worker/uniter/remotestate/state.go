@@ -6,7 +6,6 @@ package remotestate
 import (
 	"time"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/agent/uniter"
@@ -23,7 +22,7 @@ type Waiter interface {
 type UpdateStatusTimerFunc func(time.Duration) Waiter
 
 type State interface {
-	Charm(*charm.URL) (Charm, error)
+	Charm(string) (Charm, error)
 	Relation(names.RelationTag) (Relation, error)
 	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
 	StorageAttachmentLife([]params.StorageAttachmentId) ([]params.LifeResult, error)
@@ -118,7 +117,7 @@ func (st apiState) Unit(tag names.UnitTag) (Unit, error) {
 	return apiUnit{u}, err
 }
 
-func (st apiState) Charm(charmURL *charm.URL) (Charm, error) {
+func (st apiState) Charm(charmURL string) (Charm, error) {
 	return st.State.Charm(charmURL)
 }
 

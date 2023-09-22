@@ -4,7 +4,6 @@
 package uniter_test
 
 import (
-	"github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -26,8 +25,8 @@ func (s *charmSuite) TestCharmWithNilFails(c *gc.C) {
 		return nil
 	})
 	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	_, err := client.Charm(nil)
-	c.Assert(err, gc.ErrorMatches, "charm url cannot be nil")
+	_, err := client.Charm("")
+	c.Assert(err, gc.ErrorMatches, "charm url cannot be empty")
 }
 
 func (s *charmSuite) TestCharm(c *gc.C) {
@@ -35,21 +34,20 @@ func (s *charmSuite) TestCharm(c *gc.C) {
 		return nil
 	})
 	client := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	curl := charm.MustParseURL("ch:mysql")
+	curl := "ch:mysql"
 	ch, err := client.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.URL(), jc.DeepEquals, curl)
-	c.Assert(ch.String(), gc.Equals, curl.String())
 }
 
 func (s *charmSuite) TestArchiveSha256(c *gc.C) {
-	curl := charm.MustParseURL("ch:mysql")
+	curl := "ch:mysql"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "CharmArchiveSha256")
 		c.Assert(arg, jc.DeepEquals, params.CharmURLs{
-			URLs: []params.CharmURL{{URL: curl.String()}},
+			URLs: []params.CharmURL{{URL: curl}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
@@ -68,13 +66,13 @@ func (s *charmSuite) TestArchiveSha256(c *gc.C) {
 }
 
 func (s *charmSuite) TestLXDProfileRequired(c *gc.C) {
-	curl := charm.MustParseURL("ch:mysql")
+	curl := "ch:mysql"
 	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Assert(objType, gc.Equals, "Uniter")
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "LXDProfileRequired")
 		c.Assert(arg, jc.DeepEquals, params.CharmURLs{
-			URLs: []params.CharmURL{{URL: curl.String()}},
+			URLs: []params.CharmURL{{URL: curl}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.BoolResults{})
 		*(result.(*params.BoolResults)) = params.BoolResults{

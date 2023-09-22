@@ -4,7 +4,6 @@
 package caasoperator
 
 import (
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/status"
@@ -20,16 +19,12 @@ type Downloader interface {
 }
 
 type charmInfo struct {
-	curl   *charm.URL
+	curl   string
 	sha256 string
 }
 
-func (c *charmInfo) URL() *charm.URL {
+func (c *charmInfo) URL() string {
 	return c.curl
-}
-
-func (c *charmInfo) String() string {
-	return c.curl.String()
 }
 
 func (c *charmInfo) ArchiveSha256() (string, error) {
@@ -57,7 +52,7 @@ func (op *caasOperator) ensureCharm(localState *LocalState) error {
 		return errors.Trace(err)
 	}
 
-	info := &charmInfo{curl: curl, sha256: dbCharmInfo.SHA256}
+	info := &charmInfo{curl: curl.String(), sha256: dbCharmInfo.SHA256}
 	if err := op.deployer.Stage(info, op.catacomb.Dying()); err != nil {
 		return errors.Trace(err)
 	}

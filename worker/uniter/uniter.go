@@ -620,13 +620,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 }
 
 func (u *Uniter) verifyCharmProfile(url string) error {
-	curl, err := corecharm.ParseURL(url)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	// NOTE: this is very similar code to verifyCharmProfile.NextOp,
 	// if you make changes here, check to see if they are needed there.
-	ch, err := u.st.Charm(curl)
+	ch, err := u.st.Charm(url)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -636,7 +632,7 @@ func (u *Uniter) verifyCharmProfile(url string) error {
 	}
 	if !required {
 		// If no lxd profile is required for this charm, move on.
-		u.logger.Debugf("no lxd profile required for %s", curl)
+		u.logger.Debugf("no lxd profile required for %s", url)
 		return nil
 	}
 	profile, err := u.unit.LXDProfileName()
@@ -652,6 +648,10 @@ func (u *Uniter) verifyCharmProfile(url string) error {
 	}
 	// double check profile revision matches charm revision.
 	rev, err := lxdprofile.ProfileRevision(profile)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	curl, err := corecharm.ParseURL(url)
 	if err != nil {
 		return errors.Trace(err)
 	}

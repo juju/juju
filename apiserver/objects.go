@@ -72,7 +72,7 @@ func (h *objectsCharmHandler) ServeGet(w http.ResponseWriter, r *http.Request) e
 		return errors.Annotate(err, "cannot get charm from state")
 	}
 
-	query.Add("url", ch.URL().String())
+	query.Add("url", ch.URL())
 	query.Add("file", "*")
 	r.URL.RawQuery = query.Encode()
 

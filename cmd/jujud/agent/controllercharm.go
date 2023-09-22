@@ -217,7 +217,7 @@ type stateShim struct {
 	*state.State
 }
 
-func (st *stateShim) PrepareCharmUpload(curl *charm.URL) (services.UploadedCharm, error) {
+func (st *stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
 	return st.State.PrepareCharmUpload(curl)
 }
 
@@ -276,7 +276,7 @@ func addLocalControllerCharm(st *state.State, base corebase.Base, charmFileName 
 		Revision: archive.Revision(),
 		Series:   series,
 	}
-	curl, err = st.PrepareLocalCharmUpload(curl)
+	curl, err = st.PrepareLocalCharmUpload(curl.String())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -298,7 +298,7 @@ func addControllerApplication(
 	cons constraints.Value,
 	address string,
 ) (*state.Unit, error) {
-	ch, err := st.Charm(curl)
+	ch, err := st.Charm(curl.String())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

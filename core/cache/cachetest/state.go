@@ -67,7 +67,7 @@ func CharmChange(modelUUID string, ch *state.Charm) cache.CharmChange {
 
 	return cache.CharmChange{
 		ModelUUID:     modelUUID,
-		CharmURL:      ch.URL().String(),
+		CharmURL:      ch.URL(),
 		CharmVersion:  ch.Version(),
 		LXDProfile:    cProf,
 		DefaultConfig: ch.Config().DefaultSettings(),

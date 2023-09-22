@@ -52,7 +52,7 @@ func (m *mockState) GetExportConfig() state.ExportConfig {
 	}
 }
 
-func (m *mockState) Charm(url *charm.URL) (charm.Charm, error) {
+func (m *mockState) Charm(url string) (charm.Charm, error) {
 	return m.charm, nil
 }
 

@@ -45,8 +45,8 @@ type RepositoryGetter interface {
 
 // Storage provides an API for storing downloaded charms.
 type Storage interface {
-	PrepareToStoreCharm(*charm.URL) error
-	Store(*charm.URL, DownloadedCharm) error
+	PrepareToStoreCharm(string) error
+	Store(string, DownloadedCharm) error
 }
 
 // DownloadedCharm encapsulates the details of a downloaded charm.
@@ -116,13 +116,13 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 		err           error
 		channelOrigin = requestedOrigin
 	)
-	channelOrigin.Platform, err = d.normalizePlatform(charmURL, requestedOrigin.Platform)
+	channelOrigin.Platform, err = d.normalizePlatform(charmURL.String(), requestedOrigin.Platform)
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
 
 	// Notify the storage layer that we are preparing to upload a charm.
-	if err := d.storage.PrepareToStoreCharm(charmURL); err != nil {
+	if err := d.storage.PrepareToStoreCharm(charmURL.String()); err != nil {
 		// The charm blob is already uploaded this is a no-op. However,
 		// as the original origin might be different that the one
 		// requested by the caller, make sure to resolve it again.
@@ -213,13 +213,13 @@ func (d *Downloader) storeCharm(charmURL *charm.URL, dc DownloadedCharm, archive
 	defer func() { _ = charmArchive.Close() }()
 
 	dc.CharmData = charmArchive
-	if err := d.storage.Store(charmURL, dc); err != nil {
+	if err := d.storage.Store(charmURL.String(), dc); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (d *Downloader) normalizePlatform(charmURL *charm.URL, platform corecharm.Platform) (corecharm.Platform, error) {
+func (d *Downloader) normalizePlatform(charmURL string, platform corecharm.Platform) (corecharm.Platform, error) {
 	arc := platform.Architecture
 	if platform.Architecture == "" || platform.Architecture == "all" {
 		d.logger.Warningf("received charm Architecture: %q, changing to %q, for charm %q", platform.Architecture, arch.DefaultArchitecture, charmURL)
