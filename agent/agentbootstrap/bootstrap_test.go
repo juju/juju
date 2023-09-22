@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/database"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -35,6 +36,7 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
+	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -184,14 +186,15 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	ctlr, err := agentbootstrap.InitializeState(
-		&fakeEnviron{},
-		adminUser,
-		cfg,
-		args,
-		mongotest.DialOpts(),
-		state.NewPolicyFunc(nil),
-	)
+	ctlr, err := agentbootstrap.InitializeAgent(stdcontext.Background(), agentbootstrap.AgentInitializerConfig{
+		AgentConfig:           cfg,
+		BootstrapEnviron:      &fakeEnviron{},
+		AdminUser:             adminUser,
+		InitializeStateParams: args,
+		MongoDialOpts:         mongotest.DialOpts(),
+		StateNewPolicy:        state.NewPolicyFunc(nil),
+		BootrapDqlite:         bootstrapDqliteWithDummyCloudType,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = ctlr.Close() }()
 
@@ -382,7 +385,17 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	args := agentbootstrap.InitializeStateParams{}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	_, err = agentbootstrap.InitializeState(&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), nil)
+
+	_, err = agentbootstrap.InitializeAgent(stdcontext.Background(), agentbootstrap.AgentInitializerConfig{
+		AgentConfig:           cfg,
+		BootstrapEnviron:      &fakeEnviron{},
+		AdminUser:             adminUser,
+		InitializeStateParams: args,
+		MongoDialOpts:         mongotest.DialOpts(),
+		StateNewPolicy:        nil,
+		BootrapDqlite:         bootstrapDqliteWithDummyCloudType,
+	})
+
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -444,15 +457,27 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	st, err := agentbootstrap.InitializeState(
-		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
-	)
+	st, err := agentbootstrap.InitializeAgent(stdcontext.Background(), agentbootstrap.AgentInitializerConfig{
+		AgentConfig:           cfg,
+		BootstrapEnviron:      &fakeEnviron{},
+		AdminUser:             adminUser,
+		InitializeStateParams: args,
+		MongoDialOpts:         mongotest.DialOpts(),
+		StateNewPolicy:        state.NewPolicyFunc(nil),
+		BootrapDqlite:         bootstrapDqliteWithDummyCloudType,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	_ = st.Close()
 
-	st, err = agentbootstrap.InitializeState(
-		&fakeEnviron{}, adminUser, cfg, args, mongotest.DialOpts(), state.NewPolicyFunc(nil),
-	)
+	st, err = agentbootstrap.InitializeAgent(stdcontext.Background(), agentbootstrap.AgentInitializerConfig{
+		AgentConfig:           cfg,
+		BootstrapEnviron:      &fakeEnviron{},
+		AdminUser:             adminUser,
+		InitializeStateParams: args,
+		MongoDialOpts:         mongotest.DialOpts(),
+		StateNewPolicy:        state.NewPolicyFunc(nil),
+		BootrapDqlite:         database.BootstrapDqlite,
+	})
 	if err == nil {
 		_ = st.Close()
 	}
@@ -543,4 +568,13 @@ func (e *fakeEnviron) Provider() environs.EnvironProvider {
 	e.MethodCall(e, "Provider")
 	e.PopNoErr()
 	return e.provider
+}
+
+func bootstrapDqliteWithDummyCloudType(ctx stdcontext.Context, mgr database.BootstrapNodeManager, logger database.Logger, preferLoopback bool, ops ...database.BootstrapOpt) error {
+	// The dummy cloud type needs to be inserted before the other operations.
+	ops = append([]database.BootstrapOpt{
+		jujujujutesting.InsertDummyCloudType,
+	}, ops...)
+
+	return database.BootstrapDqlite(ctx, mgr, logger, preferLoopback, ops...)
 }

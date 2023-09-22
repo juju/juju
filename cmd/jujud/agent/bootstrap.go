@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/database"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -56,13 +57,16 @@ import (
 )
 
 var (
-	initiateMongoServer  = peergrouper.InitiateMongoServer
-	agentInitializeState = agentbootstrap.InitializeState
-	sshGenerateKey       = ssh.GenerateKey
-	minSocketTimeout     = 1 * time.Minute
+	initiateMongoServer = peergrouper.InitiateMongoServer
+	sshGenerateKey      = ssh.GenerateKey
+	minSocketTimeout    = 1 * time.Minute
 )
 
 const adminUserName = "admin"
+
+// InitializeAgentFunc is a function that initializes an agent. This can
+// be defined as a variable so that it can be overridden in tests.
+type InitializeAgentFunc func(stdcontext.Context, agentbootstrap.AgentInitializerConfig) (*state.Controller, error)
 
 // BootstrapCommand represents a jujud bootstrap command.
 type BootstrapCommand struct {
@@ -70,12 +74,14 @@ type BootstrapCommand struct {
 	agentconf.AgentConf
 	BootstrapParamsFile string
 	Timeout             time.Duration
+	InitializeAgent     InitializeAgentFunc
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
 func NewBootstrapCommand() *BootstrapCommand {
 	return &BootstrapCommand{
-		AgentConf: agentconf.NewAgentConf(""),
+		AgentConf:       agentconf.NewAgentConf(""),
+		InitializeAgent: agentbootstrap.InitializeAgent,
 	}
 }
 
@@ -376,22 +382,27 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		dialOpts.Direct = true
 
 		adminTag := names.NewLocalUserTag(adminUserName)
-		controller, stateErr = agentInitializeState(
-			env,
-			adminTag,
-			agentConfig,
-			agentbootstrap.InitializeStateParams{
-				StateInitializationParams: args,
-				BootstrapMachineAddresses: addrs,
-				BootstrapMachineJobs:      agentConfig.Jobs(),
-				SharedSecret:              info.SharedSecret,
-				Provider:                  environs.Provider,
-				StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
+		controller, stateErr = c.InitializeAgent(
+			ctx,
+			agentbootstrap.AgentInitializerConfig{
+				AgentConfig:      agentConfig,
+				BootstrapEnviron: env,
+				AdminUser:        adminTag,
+				InitializeStateParams: agentbootstrap.InitializeStateParams{
+					StateInitializationParams: args,
+					BootstrapMachineAddresses: addrs,
+					BootstrapMachineJobs:      agentConfig.Jobs(),
+					SharedSecret:              info.SharedSecret,
+					Provider:                  environs.Provider,
+					StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
+				},
+				MongoDialOpts: dialOpts,
+				StateNewPolicy: stateenvirons.GetNewPolicyFunc(
+					cloudGetter{cloud: &args.ControllerCloud},
+					credentialGetter{cred: args.ControllerCloudCredential},
+				),
+				BootrapDqlite: database.BootstrapDqlite,
 			},
-			dialOpts,
-			stateenvirons.GetNewPolicyFunc(
-				cloudGetter{cloud: &args.ControllerCloud},
-				credentialGetter{cred: args.ControllerCloudCredential}),
 		)
 		return stateErr
 	})

@@ -87,6 +87,8 @@ type BootstrapSuite struct {
 	initialModelUUID string
 
 	toolsStorage storage.Storage
+
+	initializeAgentFunc InitializeAgentFunc
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -117,9 +119,6 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 		return "private-key", "public-key", nil
 	})
 	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
-	s.PatchValue(&extraBootstrapOpts, []database.BootstrapOpt{
-		jujutesting.InsertDummyCloudType,
-	})
 
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
@@ -146,6 +145,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	pathToArchive := testcharms.Repo.CharmArchivePath(controllerCharmPath, "juju-controller")
 	err = os.Rename(pathToArchive, filepath.Join(controllerCharmPath, "controller.charm"))
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.initializeAgentFunc = func(ctx stdcontext.Context, cfg agentbootstrap.AgentInitializerConfig) (*state.Controller, error) {
+		cfg.BootrapDqlite = bootstrapDqliteWithDummyCloudType
+		return agentbootstrap.InitializeAgent(ctx, cfg)
+	}
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -189,11 +193,11 @@ func (s *BootstrapSuite) TestLocalControllerCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("bootstrap-test")
 
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.DEBUG,
-		`Successfully deployed local Juju controller charm`,
+		Level:   loggo.DEBUG,
+		Message: `Successfully deployed local Juju controller charm`,
 	}})
 	s.assertControllerApplication(c)
 }
@@ -223,11 +227,11 @@ func (s *BootstrapSuite) TestControllerCharmConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("bootstrap-test")
 
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.DEBUG,
-		`Successfully deployed local Juju controller charm`,
+		Level:   loggo.DEBUG,
+		Message: `Successfully deployed local Juju controller charm`,
 	}})
 	s.assertControllerApplication(c)
 	st, closer := s.getSystemState(c)
@@ -310,11 +314,11 @@ func (s *BootstrapSuite) TestStoreControllerCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("bootstrap-test")
 
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.DEBUG,
-		`Successfully deployed store Juju controller charm`,
+		Level:   loggo.DEBUG,
+		Message: `Successfully deployed store Juju controller charm`,
 	}})
 	s.assertControllerApplication(c)
 }
@@ -386,6 +390,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, 
 		args = []string{s.bootstrapParamsFile}
 	}
 	cmd = NewBootstrapCommand()
+	cmd.InitializeAgent = s.initializeAgentFunc
 	err = cmdtesting.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
 	return machineConf, cmd, err
 }
@@ -393,7 +398,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, 
 func (s *BootstrapSuite) TestInitializeModel(c *gc.C) {
 	machConf, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(s.fakeEnsureMongo.DataDir, gc.Equals, s.dataDir)
@@ -455,7 +460,7 @@ func (s *BootstrapSuite) TestInitializeModelInvalidOplogSize(c *gc.C) {
 	s.mongoOplogSize = "NaN"
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, gc.ErrorMatches, `failed to start mongo: invalid oplog size: "NaN"`)
 }
 
@@ -470,7 +475,7 @@ func (s *BootstrapSuite) TestInitializeModelToolsNotFound(c *gc.C) {
 
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	st, closer := s.getSystemState(c)
@@ -493,7 +498,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	st, closer := s.getSystemState(c)
@@ -522,7 +527,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	}
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	st, closer := s.getSystemState(c)
@@ -536,7 +541,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	machineConf, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check we can log in to mongo as admin.
@@ -621,54 +626,36 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	initializeState := func(
-		_ environs.BootstrapEnviron,
-		_ names.UserTag,
-		_ agent.ConfigSetter,
-		args agentbootstrap.InitializeStateParams,
-		dialOpts mongo.DialOpts,
-		_ state.NewPolicyFunc,
-		_ ...database.BootstrapOpt,
-	) (_ *state.Controller, resultErr error) {
+	s.initializeAgentFunc = func(ctx stdcontext.Context, cfg agentbootstrap.AgentInitializerConfig) (*state.Controller, error) {
 		called++
-		c.Assert(dialOpts.Direct, jc.IsTrue)
-		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
-		c.Assert(dialOpts.SocketTimeout, gc.Equals, 123*time.Second)
-		c.Assert(args.InitialModelConfig, jc.DeepEquals, map[string]interface{}{
+		c.Assert(cfg.MongoDialOpts.Direct, jc.IsTrue)
+		c.Assert(cfg.MongoDialOpts.Timeout, gc.Equals, 30*time.Second)
+		c.Assert(cfg.MongoDialOpts.SocketTimeout, gc.Equals, 123*time.Second)
+		c.Assert(cfg.InitializeStateParams.InitialModelConfig, jc.DeepEquals, map[string]interface{}{
 			"name": "my-model",
 			"uuid": s.initialModelUUID,
 		})
 		return nil, errors.New("failed to initialize state")
 	}
-	s.PatchValue(&agentInitializeState, initializeState)
+
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "123s", s.bootstrapParamsFile)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
 	c.Assert(called, gc.Equals, 1)
 }
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	initializeState := func(
-		_ environs.BootstrapEnviron,
-		_ names.UserTag,
-		_ agent.ConfigSetter,
-		_ agentbootstrap.InitializeStateParams,
-		dialOpts mongo.DialOpts,
-		_ state.NewPolicyFunc,
-		_ ...database.BootstrapOpt,
-	) (_ *state.Controller, resultErr error) {
+	s.initializeAgentFunc = func(ctx stdcontext.Context, cfg agentbootstrap.AgentInitializerConfig) (*state.Controller, error) {
 		called++
-		c.Assert(dialOpts.Direct, jc.IsTrue)
-		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
+		c.Assert(cfg.MongoDialOpts.Direct, jc.IsTrue)
+		c.Assert(cfg.MongoDialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
 		return nil, errors.New("failed to initialize state")
 	}
-
-	s.PatchValue(&agentInitializeState, initializeState)
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "13s", s.bootstrapParamsFile)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
 	c.Assert(called, gc.Equals, 1)
 }
@@ -683,7 +670,7 @@ func (s *BootstrapSuite) TestBootstrapWithInvalidCredentialLogs(c *gc.C) {
 	s.PatchValue(&environsNewIAAS, newEnviron)
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
@@ -700,7 +687,7 @@ func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	data, err := os.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
@@ -728,7 +715,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C) {
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 
 	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We don't write metadata at bootstrap anymore.
@@ -788,7 +775,7 @@ func (s *BootstrapSuite) TestStructuredImageMetadataStored(c *gc.C) {
 	s.writeBootstrapParamsFile(c)
 	_, cmd, err := s.initBootstrapCommand(c, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(nil)
+	err = cmd.Run(cmdtesting.Context(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// This metadata should have also been written to state...
@@ -890,4 +877,13 @@ func (m *mockDummyEnviron) Instances(ctx envcontext.ProviderCallContext, ids []i
 	// ensure that callback is used...
 	ctx.InvalidateCredential("considered invalid for the sake of testing")
 	return m.Environ.Instances(ctx, ids)
+}
+
+func bootstrapDqliteWithDummyCloudType(ctx stdcontext.Context, mgr database.BootstrapNodeManager, logger database.Logger, preferLoopback bool, ops ...database.BootstrapOpt) error {
+	// The dummy cloud type needs to be inserted before the other operations.
+	ops = append([]database.BootstrapOpt{
+		jujutesting.InsertDummyCloudType,
+	}, ops...)
+
+	return database.BootstrapDqlite(ctx, mgr, logger, preferLoopback, ops...)
 }
