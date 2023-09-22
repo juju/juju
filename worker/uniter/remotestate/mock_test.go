@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -114,7 +113,7 @@ type mockUniterClient struct {
 	charm                       *mockCharm
 }
 
-func (m *mockUniterClient) Charm(*charm.URL) (api.Charm, error) {
+func (m *mockUniterClient) Charm(string) (api.Charm, error) {
 	if m.charm != nil {
 		return m.charm, nil
 	}

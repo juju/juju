@@ -4,7 +4,6 @@
 package applicationoffers
 
 import (
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -56,7 +55,7 @@ func (pool statePoolShim) GetModel(modelUUID string) (Model, func(), error) {
 // Backend provides selected methods off the state.State struct.
 type Backend interface {
 	commoncrossmodel.Backend
-	Charm(*charm.URL) (commoncrossmodel.Charm, error)
+	Charm(string) (commoncrossmodel.Charm, error)
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
 	OfferConnections(string) ([]OfferConnection, error)
@@ -127,7 +126,7 @@ type stateCharmShim struct {
 	*state.Charm
 }
 
-func (s stateShim) Charm(curl *charm.URL) (commoncrossmodel.Charm, error) {
+func (s stateShim) Charm(curl string) (commoncrossmodel.Charm, error) {
 	ch, err := s.st.Charm(curl)
 	if err != nil {
 		return nil, err

@@ -140,13 +140,16 @@ func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsLi
 	checkName := !charmNames.IsEmpty()
 	charmURLs := []string{}
 	for _, aCharm := range charms {
-		charmURL := aCharm.URL()
 		if checkName {
+			charmURL, err := charm.ParseURL(aCharm.URL())
+			if err != nil {
+				return params.CharmsListResult{}, errors.Trace(err)
+			}
 			if !charmNames.Contains(charmURL.Name) {
 				continue
 			}
 		}
-		charmURLs = append(charmURLs, charmURL.String())
+		charmURLs = append(charmURLs, aCharm.URL())
 	}
 	return params.CharmsListResult{CharmURLs: charmURLs}, nil
 }
@@ -314,7 +317,7 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 	// We need to use GetDownloadURL instead of ResolveWithPreferredChannel
 	// to ensure that the resolved origin has the ID/Hash fields correctly
 	// populated.
-	if _, err := a.backendState.Charm(charmURL); err == nil {
+	if _, err := a.backendState.Charm(args.URL); err == nil {
 		_, resolvedOrigin, err := repo.GetDownloadURL(charmURL, requestedOrigin)
 		return resolvedOrigin, errors.Trace(err)
 	}
@@ -333,7 +336,7 @@ func (a *API) queueAsyncCharmDownload(args params.AddCharmWithAuth) (corecharm.O
 
 	_, err = a.backendState.AddCharmMetadata(state.CharmInfo{
 		Charm: corecharm.NewCharmInfoAdapter(metaRes),
-		ID:    charmURL,
+		ID:    args.URL,
 	})
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
@@ -520,11 +523,7 @@ func (a *API) IsMetered(ctx context.Context, args params.CharmURL) (params.IsMet
 		return params.IsMeteredResult{}, errors.Trace(err)
 	}
 
-	curl, err := charm.ParseURL(args.URL)
-	if err != nil {
-		return params.IsMeteredResult{Metered: false}, errors.Trace(err)
-	}
-	aCharm, err := a.backendState.Charm(curl)
+	aCharm, err := a.backendState.Charm(args.URL)
 	if err != nil {
 		return params.IsMeteredResult{Metered: false}, errors.Trace(err)
 	}

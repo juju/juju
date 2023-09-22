@@ -30,7 +30,7 @@ func (s stateShim) UpdateUploadedCharm(charmInfo state.CharmInfo) (services.Uplo
 	return stateCharmShim{Charm: ch}, nil
 }
 
-func (s stateShim) PrepareCharmUpload(curl *charm.URL) (services.UploadedCharm, error) {
+func (s stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
 	ch, err := s.State.PrepareCharmUpload(curl)
 	if err != nil {
 		return nil, errors.Trace(err)

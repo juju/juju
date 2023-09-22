@@ -8,7 +8,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v11"
 	uniter "github.com/juju/juju/apiserver/facades/agent/uniter"
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
@@ -42,7 +41,7 @@ func (m *MockLXDProfileBackendV2) EXPECT() *MockLXDProfileBackendV2MockRecorder 
 }
 
 // Charm mocks base method.
-func (m *MockLXDProfileBackendV2) Charm(arg0 *charm.URL) (uniter.LXDProfileCharmV2, error) {
+func (m *MockLXDProfileBackendV2) Charm(arg0 string) (uniter.LXDProfileCharmV2, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Charm", arg0)
 	ret0, _ := ret[0].(uniter.LXDProfileCharmV2)

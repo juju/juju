@@ -903,12 +903,7 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 		}
 		return model.Operation(tag.Id())
 	case names.CharmTag:
-		if url, err := charm.ParseURL(id); err != nil {
-			logger.Warningf("Parsing charm URL %q failed: %v", id, err)
-			return nil, errors.NotFoundf("could not find charm %q in state", id)
-		} else {
-			return st.Charm(url)
-		}
+		return st.Charm(id)
 	case names.VolumeTag:
 		sb, err := NewStorageBackend(st)
 		if err != nil {
@@ -1295,7 +1290,7 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	// The doc defaults to CharmModifiedVersion = 0, which is correct, since it
 	// has, by definition, at its initial state.
-	cURL := args.Charm.String()
+	cURL := args.Charm.URL()
 	appDoc := &applicationDoc{
 		DocID:         applicationID,
 		Name:          args.Name,
@@ -1462,9 +1457,13 @@ func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Ba
 	if err != nil {
 		return Base{}, errors.Trace(err)
 	}
+	curl, err := charm.ParseURL(args.Charm.URL())
+	if err != nil {
+		return Base{}, errors.Trace(err)
+	}
 
 	var supportedSeries []string
-	if cSeries := args.Charm.URL().Series; cSeries != "" {
+	if cSeries := curl.Series; cSeries != "" {
 		supportedSeries = []string{cSeries}
 	} else {
 		var err error
@@ -2245,7 +2244,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				ops = append(ops, txn.Op{
 					C:      applicationsC,
 					Id:     st.docID(ep.ApplicationName),
-					Assert: bson.D{{"life", Alive}, {"charmurl", ch.String()}},
+					Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
 					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 				})
 			}

@@ -23,7 +23,7 @@ type mockDeployer struct {
 }
 
 func (m *mockDeployer) Stage(info charm.BundleInfo, abort <-chan struct{}) error {
-	m.staged = info.String()
+	m.staged = info.URL()
 	var err error
 	m.bundle, err = m.bundles.Read(info, abort)
 	return err

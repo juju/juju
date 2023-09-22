@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -304,16 +303,16 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeCharmNil(c *gc.C) {
-	charm := s.Factory.MakeCharm(c, nil)
-	c.Assert(charm, gc.NotNil)
+	ch := s.Factory.MakeCharm(c, nil)
+	c.Assert(ch, gc.NotNil)
 
-	saved, err := s.State.Charm(charm.URL())
+	saved, err := s.State.Charm(ch.URL())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(saved.URL(), gc.DeepEquals, charm.URL())
-	c.Assert(saved.Meta(), gc.DeepEquals, charm.Meta())
-	c.Assert(saved.StoragePath(), gc.Equals, charm.StoragePath())
-	c.Assert(saved.BundleSha256(), gc.Equals, charm.BundleSha256())
+	c.Assert(saved.URL(), gc.DeepEquals, ch.URL())
+	c.Assert(saved.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(saved.StoragePath(), gc.Equals, ch.StoragePath())
+	c.Assert(saved.BundleSha256(), gc.Equals, ch.BundleSha256())
 }
 
 func (s *factorySuite) TestMakeCharm(c *gc.C) {
@@ -327,7 +326,7 @@ func (s *factorySuite) TestMakeCharm(c *gc.C) {
 	})
 	c.Assert(ch, gc.NotNil)
 
-	c.Assert(ch.URL(), gc.DeepEquals, charm.MustParseURL(url))
+	c.Assert(ch.URL(), gc.DeepEquals, url)
 
 	saved, err := s.State.Charm(ch.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -360,7 +359,7 @@ func (s *factorySuite) TestMakeApplication(c *gc.C) {
 
 	c.Assert(application.Name(), gc.Equals, "wordpress")
 	curl, _ := application.CharmURL()
-	c.Assert(*curl, gc.Equals, charm.String())
+	c.Assert(*curl, gc.Equals, charm.URL())
 
 	saved, err := s.State.Application(application.Name())
 	c.Assert(err, jc.ErrorIsNil)

@@ -96,20 +96,16 @@ func labelsKey(m map[string]string) string {
 
 // validate checks that the MetricBatch contains valid metrics.
 func (m *MetricBatch) validate() error {
-	charmURL, err := charm.ParseURL(m.doc.CharmURL)
+	ch, err := m.st.Charm(m.doc.CharmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	chrm, err := m.st.Charm(charmURL)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	chrmMetrics := chrm.Metrics()
-	if chrmMetrics == nil {
+	chMetrics := ch.Metrics()
+	if chMetrics == nil {
 		return errors.Errorf("charm doesn't implement metrics")
 	}
 	for _, m := range m.doc.Metrics {
-		if err := chrmMetrics.ValidateMetric(m.Key, m.Value); err != nil {
+		if err := chMetrics.ValidateMetric(m.Key, m.Value); err != nil {
 			return errors.Trace(err)
 		}
 	}

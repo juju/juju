@@ -13,7 +13,7 @@ func (dc DownloadedCharm) Verify(downloadOrigin corecharm.Origin, force bool) er
 	return dc.verify(downloadOrigin, force)
 }
 
-func (d *Downloader) NormalizePlatform(charmURL *charm.URL, platform corecharm.Platform) (corecharm.Platform, error) {
+func (d *Downloader) NormalizePlatform(charmURL string, platform corecharm.Platform) (corecharm.Platform, error) {
 	return d.normalizePlatform(charmURL, platform)
 }
 

@@ -32,7 +32,7 @@ type application struct {
 	mu sync.Mutex
 	*uniterapi.MockApplication
 
-	charmURL             *corecharm.URL
+	charmURL             string
 	charmForced          bool
 	charmModifiedVersion int
 	config               map[string]any
@@ -54,7 +54,7 @@ func (ctx *testContext) makeApplication(appTag names.ApplicationTag) *applicatio
 	app.EXPECT().CharmURL().DoAndReturn(func() (string, bool, error) {
 		app.mu.Lock()
 		defer app.mu.Unlock()
-		return app.charmURL.String(), app.charmForced, nil
+		return app.charmURL, app.charmForced, nil
 	}).AnyTimes()
 	app.EXPECT().CharmModifiedVersion().DoAndReturn(func() (int, error) {
 		app.mu.Lock()
@@ -71,7 +71,7 @@ func (app *application) configHash(newCfg map[string]any) string {
 	if newCfg != nil {
 		app.config = newCfg
 	}
-	return fmt.Sprintf("%s:%d:%s", app.charmURL.String(), app.charmModifiedVersion, app.config)
+	return fmt.Sprintf("%s:%d:%s", app.charmURL, app.charmModifiedVersion, app.config)
 }
 
 type unit struct {
@@ -96,7 +96,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 	u := &unit{
 		MockUnit: uniterapi.NewMockUnit(ctx.ctrl),
 		life:     l,
-		charmURL: curl(0).String(),
+		charmURL: curl(0),
 	}
 
 	appName, _ := names.UnitApplication(unitTag.Id())

@@ -368,7 +368,7 @@ func (s createCharm) step(c *gc.C, ctx *testContext) {
 
 type addCharm struct {
 	dir  *corecharm.CharmDir
-	curl *corecharm.URL
+	curl string
 }
 
 func (s addCharm) step(c *gc.C, ctx *testContext) {
@@ -382,7 +382,7 @@ func (s addCharm) step(c *gc.C, ctx *testContext) {
 	storagePath := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
 	ctx.charms[storagePath] = body
 	ctx.charm = uniterapi.NewMockCharm(ctx.ctrl)
-	ctx.charm.EXPECT().String().Return(s.curl.String()).AnyTimes()
+	ctx.charm.EXPECT().URL().Return(s.curl).AnyTimes()
 	ctx.charm.EXPECT().ArchiveSha256().Return(hash, nil).AnyTimes()
 	ctx.api.EXPECT().Charm(s.curl).Return(ctx.charm, nil).AnyTimes()
 	ctx.charm.EXPECT().LXDProfileRequired().Return(s.dir.LXDProfile() != nil, nil).AnyTimes()
@@ -884,7 +884,7 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 
 	// Set up the initial install op.
 	data, err := yaml.Marshal(operation.State{
-		CharmURL: ctx.charm.String(),
+		CharmURL: ctx.charm.URL(),
 		Kind:     "install",
 		Step:     "pending",
 	})
@@ -893,7 +893,7 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 	ctx.unit.EXPECT().SetState(unitStateMatcher{c: c, expected: st}).Return(nil).MaxTimes(1)
 
 	data, err = yaml.Marshal(operation.State{
-		CharmURL: ctx.charm.String(),
+		CharmURL: ctx.charm.URL(),
 		Kind:     "install",
 		Step:     "done",
 	})
@@ -959,10 +959,11 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 		OpenBlob: func(req downloader.Request) (io.ReadCloser, error) {
 			ctx.app.mu.Lock()
 			defer ctx.app.mu.Unlock()
-			storagePath := fmt.Sprintf("/charms/%s/%d", ctx.app.charmURL.Name, ctx.app.charmURL.Revision)
+			curl := corecharm.MustParseURL(ctx.app.charmURL)
+			storagePath := fmt.Sprintf("/charms/%s/%d", curl.Name, curl.Revision)
 			blob, ok := ctx.servedCharms[storagePath]
 			if !ok {
-				return nil, errors.NotFoundf(ctx.app.charmURL.Name)
+				return nil, errors.NotFoundf(ctx.app.charmURL)
 			}
 			return io.NopCloser(bytes.NewReader(blob)), nil
 		},
@@ -1159,7 +1160,7 @@ func (s startupError) step(c *gc.C, ctx *testContext) {
 type verifyDeployed struct{}
 
 func (s verifyDeployed) step(c *gc.C, ctx *testContext) {
-	c.Assert(ctx.deployer.staged, jc.DeepEquals, curl(0).String())
+	c.Assert(ctx.deployer.staged, jc.DeepEquals, curl(0))
 	c.Assert(ctx.deployer.deployed, jc.IsTrue)
 }
 
@@ -1268,12 +1269,8 @@ func (s waitUnitAgent) step(c *gc.C, ctx *testContext) {
 				c.Logf("want unit charm %q, got nil; still waiting", curl(s.charm))
 				continue
 			}
-			url, err := corecharm.ParseURL(*urlStr)
-			if err != nil {
-				c.Fatalf("cannot refresh unit: %v", err)
-			}
-			if *url != *curl(s.charm) {
-				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), url.String())
+			if *urlStr != curl(s.charm) {
+				c.Logf("want unit charm %q, got %q; still waiting", curl(s.charm), urlStr)
 				continue
 			}
 			statusInfo, err := s.statusGetter(ctx)()
@@ -1499,10 +1496,7 @@ func (s verifyCharm) step(c *gc.C, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	defer ctx.unit.mu.Unlock()
 	urlStr := ctx.unit.charmURL
-	c.Assert(urlStr, gc.Not(gc.Equals), "")
-	url, err := corecharm.ParseURL(urlStr)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.DeepEquals, curl(checkRevision))
+	c.Assert(urlStr, gc.Equals, curl(checkRevision))
 }
 
 type pushResource struct{}
@@ -1883,8 +1877,8 @@ var subordinateDying = custom{func(c *gc.C, ctx *testContext) {
 	ctx.sendStrings(c, ctx.relCh, "subord relation dying change", ctx.subordRelation.Tag().Id())
 }}
 
-func curl(revision int) *corecharm.URL {
-	return corecharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision)
+func curl(revision int) string {
+	return corecharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision).String()
 }
 
 type hookLock struct {

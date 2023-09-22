@@ -185,13 +185,7 @@ func (a applicationShim) Charm() (Charm, bool, error) {
 	if err != nil {
 		return nil, false, errors.Trace(err)
 	}
-	return charmShim{
-		Charm: ch,
-	}, force, nil
-}
-
-type charmShim struct {
-	*state.Charm
+	return ch, force, nil
 }
 
 type machineShim struct {

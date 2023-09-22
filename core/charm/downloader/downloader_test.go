@@ -146,7 +146,7 @@ func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 	requestedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/edge")}
 	knownOrigin := corecharm.Origin{Source: corecharm.CharmHub, ID: "knowncharmhubid", Hash: "knowncharmhash", Channel: mustParseChannel(c, "20.04/candidate")}
 
-	s.storage.EXPECT().PrepareToStoreCharm(curl).Return(
+	s.storage.EXPECT().PrepareToStoreCharm(curl.String()).Return(
 		downloader.NewCharmAlreadyStoredError(curl.String()),
 	)
 	s.repoGetter.EXPECT().GetCharmRepository(corecharm.CharmHub).Return(repoAdapter{s.repo}, nil)
@@ -165,7 +165,7 @@ func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
 	curl := charm.MustParseURL("ch:redis-0")
 	requestedOrigin := corecharm.Origin{Source: corecharm.CharmHub, Channel: mustParseChannel(c, "20.04/edge")}
 
-	s.storage.EXPECT().PrepareToStoreCharm(curl).Return(
+	s.storage.EXPECT().PrepareToStoreCharm(curl.String()).Return(
 		errors.New("something went wrong"),
 	)
 
@@ -176,7 +176,7 @@ func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
 }
 
 func (s downloaderSuite) TestNormalizePlatform(c *gc.C) {
-	curl := charm.MustParseURL("ch:ubuntu-lite")
+	curl := "ch:ubuntu-lite"
 	requestedPlatform := corecharm.Platform{
 		Channel: "20.04",
 		OS:      "Ubuntu",
@@ -212,9 +212,10 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 		},
 	}
 
-	s.storage.EXPECT().PrepareToStoreCharm(curl).Return(nil)
-	s.storage.EXPECT().Store(curl, gomock.AssignableToTypeOf(downloader.DownloadedCharm{})).DoAndReturn(
-		func(_ *charm.URL, dc downloader.DownloadedCharm) error {
+	c.Log(curl.String())
+	s.storage.EXPECT().PrepareToStoreCharm(curl.String()).Return(nil)
+	s.storage.EXPECT().Store(curl.String(), gomock.AssignableToTypeOf(downloader.DownloadedCharm{})).DoAndReturn(
+		func(_ string, dc downloader.DownloadedCharm) error {
 			c.Assert(dc.Size, gc.Equals, int64(10))
 
 			contents, err := io.ReadAll(dc.CharmData)

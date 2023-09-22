@@ -678,9 +678,9 @@ func (checker *ModelChecker) readModelCharms() {
 	charms, err := checker.model.State().AllCharms()
 	checkErr(err, "AllCharms")
 	for _, charm := range charms {
-		charmURL := charm.URL().String()
+		charmURL := charm.URL()
 		bucketPath := path.Join("buckets", modelUUID, charm.StoragePath())
-		res := checker.lookupResource(bucketPath, charm.String())
+		res := checker.lookupResource(bucketPath, charmURL)
 		if res.ID == "" {
 			continue
 		}

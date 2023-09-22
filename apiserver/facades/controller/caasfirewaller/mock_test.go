@@ -50,7 +50,7 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	return &st.application, nil
 }
 
-func (st *mockState) Charm(curl *charm.URL) (*state.Charm, error) {
+func (st *mockState) Charm(curl string) (*state.Charm, error) {
 	st.MethodCall(st, "Charm", curl)
 	if err := st.NextErr(); err != nil {
 		return nil, err
@@ -112,7 +112,7 @@ type mockCharm struct {
 	charmscommon.Charm // Override only the methods the tests use
 	meta               *charm.Meta
 	manifest           *charm.Manifest
-	url                *charm.URL
+	url                string
 }
 
 func (s *mockCharm) Meta() *charm.Meta {
@@ -125,7 +125,7 @@ func (s *mockCharm) Manifest() *charm.Manifest {
 	return s.manifest
 }
 
-func (s *mockCharm) URL() *charm.URL {
+func (s *mockCharm) URL() string {
 	s.MethodCall(s, "URL")
 	return s.url
 }
@@ -138,7 +138,7 @@ func (s *mockCommonStateShim) Model() (charmscommon.Model, error) {
 	return s.mockState.Model()
 }
 
-func (s *mockCommonStateShim) Charm(curl *charm.URL) (charmscommon.Charm, error) {
+func (s *mockCommonStateShim) Charm(curl string) (charmscommon.Charm, error) {
 	return s.mockState.Charm(curl)
 }
 

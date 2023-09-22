@@ -1507,9 +1507,9 @@ func (u *Unit) CharmURL() *string {
 
 // SetCharmURL marks the unit as currently using the supplied charm URL.
 // An error will be returned if the unit is dead, or the charm URL not known.
-func (u *Unit) SetCharmURL(curl *charm.URL) error {
-	if curl == nil {
-		return errors.Errorf("cannot set nil charm url")
+func (u *Unit) SetCharmURL(curl string) error {
+	if curl == "" {
+		return errors.Errorf("cannot set empty charm url")
 	}
 
 	db, dbCloser := u.st.newDB()
@@ -1532,34 +1532,33 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 				return nil, stateerrors.ErrDead
 			}
 		}
-		sel := bson.D{{"_id", u.doc.DocID}, {"charmurl", curl.String()}}
+		sel := bson.D{{"_id", u.doc.DocID}, {"charmurl", curl}}
 		if count, err := units.Find(sel).Count(); err != nil {
 			return nil, errors.Trace(err)
 		} else if count == 1 {
 			// Already set
 			return nil, jujutxn.ErrNoOperations
 		}
-		if count, err := charms.FindId(curl.String()).Count(); err != nil {
+		if count, err := charms.FindId(curl).Count(); err != nil {
 			return nil, errors.Trace(err)
 		} else if count < 1 {
 			return nil, errors.Errorf("unknown charm url %q", curl)
 		}
 
 		// Add a reference to the application settings for the new charm.
-		cURL := curl.String()
-		incOps, err := appCharmIncRefOps(u.st, u.doc.Application, &cURL, false)
+		incOps, err := appCharmIncRefOps(u.st, u.doc.Application, &curl, false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
 		// Set the new charm URL.
-		differentCharm := bson.D{{"charmurl", bson.D{{"$ne", curl.String()}}}}
+		differentCharm := bson.D{{"charmurl", bson.D{{"$ne", curl}}}}
 		ops := append(incOps,
 			txn.Op{
 				C:      unitsC,
 				Id:     u.doc.DocID,
 				Assert: append(notDeadDoc, differentCharm...),
-				Update: bson.D{{"$set", bson.D{{"charmurl", curl.String()}}}},
+				Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
 			})
 
 		unitCURL := u.doc.CharmURL
@@ -1581,8 +1580,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	}
 	err := u.st.db().Run(buildTxn)
 	if err == nil {
-		curlStr := curl.String()
-		u.doc.CharmURL = &curlStr
+		u.doc.CharmURL = &curl
 	}
 	return err
 }
@@ -1590,23 +1588,19 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 // charm returns the charm for the unit, or the application if the unit's charm
 // has not been set yet.
 func (u *Unit) charm() (*Charm, error) {
-	cURLStr := u.CharmURL()
-	if cURLStr == nil {
+	cURL := u.CharmURL()
+	if cURL == nil {
 		app, err := u.Application()
 		if err != nil {
 			return nil, err
 		}
-		cURLStr, _ = app.CharmURL()
+		cURL, _ = app.CharmURL()
 	}
 
-	if cURLStr == nil {
+	if cURL == nil {
 		return nil, errors.Errorf("missing charm URL for %q", u.Name())
 	}
-	cURL, err := charm.ParseURL(*cURLStr)
-	if err != nil {
-		return nil, errors.NotValidf("charm url %q", *cURLStr)
-	}
-	ch, err := u.st.Charm(cURL)
+	ch, err := u.st.Charm(*cURL)
 	return ch, errors.Annotatef(err, "getting charm for %s", u)
 }
 
@@ -1624,7 +1618,7 @@ func (u *Unit) assertCharmOps(ch *Charm) []txn.Op {
 		ops = append(ops, txn.Op{
 			C:      applicationsC,
 			Id:     appName,
-			Assert: bson.D{{"charmurl", ch.String()}},
+			Assert: bson.D{{"charmurl", ch.URL()}},
 		})
 	}
 	return ops
@@ -2836,7 +2830,7 @@ func (u *Unit) ActionSpecs() (ActionSpecsByName, error) {
 	}
 	chActions := ch.Actions()
 	if chActions == nil || len(chActions.ActionSpecs) == 0 {
-		return none, errors.Errorf("no actions defined on charm %q", ch.String())
+		return none, errors.Errorf("no actions defined on charm %q", ch.URL())
 	}
 	return chActions.ActionSpecs, nil
 }

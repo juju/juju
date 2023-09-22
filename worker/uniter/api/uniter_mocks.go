@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 	time "time"
 
-	charm "github.com/juju/charm/v11"
 	uniter "github.com/juju/juju/api/agent/uniter"
 	application "github.com/juju/juju/core/application"
 	model "github.com/juju/juju/core/model"
@@ -133,7 +132,7 @@ func (mr *MockUniterClientMockRecorder) Application(tag interface{}) *gomock.Cal
 }
 
 // Charm mocks base method.
-func (m *MockUniterClient) Charm(curl *charm.URL) (Charm, error) {
+func (m *MockUniterClient) Charm(curl string) (Charm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Charm", curl)
 	ret0, _ := ret[0].(Charm)

@@ -134,7 +134,7 @@ type RelationUnit interface {
 
 // Charm defines the methods on uniter.api.Charm.
 type Charm interface {
-	String() string
+	URL() string
 	LXDProfileRequired() (bool, error)
 	ArchiveSha256() (string, error)
 }

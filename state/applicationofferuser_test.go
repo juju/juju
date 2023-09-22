@@ -4,7 +4,6 @@
 package state_test
 
 import (
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -142,7 +141,7 @@ func (s *ApplicationOfferUserSuite) TestUpdateOfferAccessSetsRelationSuspendedRa
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		// Add another relation to the offered app.
-		curl := charm.MustParseURL("local:quantal/quantal-wordpress-3")
+		curl := "local:quantal/quantal-wordpress-3"
 		wpch, err := s.State.Charm(curl)
 		c.Assert(err, jc.ErrorIsNil)
 		wordpress2 := s.AddTestingApplication(c, "wordpress2", wpch)

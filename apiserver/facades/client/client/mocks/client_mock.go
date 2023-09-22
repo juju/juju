@@ -336,7 +336,7 @@ func (mr *MockBackendMockRecorder) Application(arg0 interface{}) *gomock.Call {
 }
 
 // Charm mocks base method.
-func (m *MockBackend) Charm(arg0 *charm.URL) (*state.Charm, error) {
+func (m *MockBackend) Charm(arg0 string) (*state.Charm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Charm", arg0)
 	ret0, _ := ret[0].(*state.Charm)

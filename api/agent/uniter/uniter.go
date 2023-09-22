@@ -6,7 +6,6 @@ package uniter
 import (
 	"fmt"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -246,9 +245,9 @@ func (client *Client) ProviderType() (string, error) {
 }
 
 // Charm returns the charm with the given URL.
-func (client *Client) Charm(curl *charm.URL) (*Charm, error) {
-	if curl == nil {
-		return nil, fmt.Errorf("charm url cannot be nil")
+func (client *Client) Charm(curl string) (*Charm, error) {
+	if curl == "" {
+		return nil, fmt.Errorf("charm url cannot be empty")
 	}
 	return &Charm{
 		client: client,

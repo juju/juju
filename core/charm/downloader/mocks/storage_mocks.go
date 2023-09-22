@@ -7,7 +7,6 @@ package mocks
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v11"
 	downloader "github.com/juju/juju/core/charm/downloader"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -36,7 +35,7 @@ func (m *MockStorage) EXPECT() *MockStorageMockRecorder {
 }
 
 // PrepareToStoreCharm mocks base method.
-func (m *MockStorage) PrepareToStoreCharm(arg0 *charm.URL) error {
+func (m *MockStorage) PrepareToStoreCharm(arg0 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareToStoreCharm", arg0)
 	ret0, _ := ret[0].(error)
@@ -50,7 +49,7 @@ func (mr *MockStorageMockRecorder) PrepareToStoreCharm(arg0 interface{}) *gomock
 }
 
 // Store mocks base method.
-func (m *MockStorage) Store(arg0 *charm.URL, arg1 downloader.DownloadedCharm) error {
+func (m *MockStorage) Store(arg0 string, arg1 downloader.DownloadedCharm) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Store", arg0, arg1)
 	ret0, _ := ret[0].(error)

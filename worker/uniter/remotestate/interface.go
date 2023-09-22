@@ -6,7 +6,6 @@ package remotestate
 import (
 	"time"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 
@@ -35,7 +34,7 @@ type Waiter interface {
 type UpdateStatusTimerFunc func(duration time.Duration) Waiter
 
 type UniterClient interface {
-	Charm(url *charm.URL) (api.Charm, error)
+	Charm(url string) (api.Charm, error)
 	Relation(tag names.RelationTag) (api.Relation, error)
 	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
 	StorageAttachmentLife([]params.StorageAttachmentId) ([]params.LifeResult, error)

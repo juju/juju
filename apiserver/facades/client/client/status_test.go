@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -1000,7 +999,7 @@ func (s *statusUpgradeUnitSuite) AddMachine(c *gc.C, machineId string, job state
 func (s *statusUpgradeUnitSuite) AddCharmhubCharmWithRevision(c *gc.C, charmName string, rev int) *state.Charm {
 	ch := testcharms.Hub.CharmDir(charmName)
 	name := ch.Meta().Name
-	curl := charm.MustParseURL(fmt.Sprintf("ch:amd64/jammy/%s-%d", name, rev))
+	curl := fmt.Sprintf("ch:amd64/jammy/%s-%d", name, rev)
 	info := state.CharmInfo{
 		Charm:       ch,
 		ID:          curl,
@@ -1058,7 +1057,7 @@ func (s *statusUpgradeUnitSuite) SetUnitRevision(c *gc.C, unitName string, rev i
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := u.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	curl := charm.MustParseURL(fmt.Sprintf("ch:amd64/jammy/%s-%d", svc.Name(), rev))
+	curl := fmt.Sprintf("ch:amd64/jammy/%s-%d", svc.Name(), rev)
 	err = u.SetCharmURL(curl)
 	c.Assert(err, jc.ErrorIsNil)
 }

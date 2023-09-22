@@ -6,7 +6,6 @@ package uniter
 import (
 	"context"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -23,7 +22,7 @@ import (
 )
 
 type LXDProfileBackendV2 interface {
-	Charm(*charm.URL) (LXDProfileCharmV2, error)
+	Charm(string) (LXDProfileCharmV2, error)
 	Machine(string) (LXDProfileMachineV2, error)
 	Unit(string) (LXDProfileUnitV2, error)
 	Model() (LXDProfileModelV2, error)
@@ -100,7 +99,7 @@ func (s LXDProfileStateV2) Unit(id string) (LXDProfileUnitV2, error) {
 	return s.st.Unit(id)
 }
 
-func (s LXDProfileStateV2) Charm(curl *charm.URL) (LXDProfileCharmV2, error) {
+func (s LXDProfileStateV2) Charm(curl string) (LXDProfileCharmV2, error) {
 	c, err := s.st.Charm(curl)
 	return &lxdProfileCharmV2{c}, err
 }
@@ -330,13 +329,7 @@ func (u *LXDProfileAPIv2) LXDProfileRequired(args params.CharmURLs) (params.Bool
 		Results: make([]params.BoolResult, len(args.URLs)),
 	}
 	for i, arg := range args.URLs {
-		curl, err := charm.ParseURL(arg.URL)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-
-		required, err := u.getOneLXDProfileRequired(curl)
+		required, err := u.getOneLXDProfileRequired(arg.URL)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -347,7 +340,7 @@ func (u *LXDProfileAPIv2) LXDProfileRequired(args params.CharmURLs) (params.Bool
 	return result, nil
 }
 
-func (u *LXDProfileAPIv2) getOneLXDProfileRequired(curl *charm.URL) (bool, error) {
+func (u *LXDProfileAPIv2) getOneLXDProfileRequired(curl string) (bool, error) {
 	ch, err := u.backend.Charm(curl)
 	if err != nil {
 		return false, err

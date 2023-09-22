@@ -4,7 +4,6 @@
 package api
 
 import (
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -18,7 +17,7 @@ type UniterClientShim struct {
 	*uniter.Client
 }
 
-func (s UniterClientShim) Charm(curl *charm.URL) (Charm, error) {
+func (s UniterClientShim) Charm(curl string) (Charm, error) {
 	return s.Client.Charm(curl)
 }
 

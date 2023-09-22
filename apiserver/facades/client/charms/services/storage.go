@@ -6,7 +6,6 @@ package services
 import (
 	"fmt"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3"
@@ -49,21 +48,21 @@ func NewCharmStorage(cfg CharmStorageConfig) *CharmStorage {
 // PrepareToStoreCharm ensures that the store is ready to process the specified
 // charm URL. If the blob for the charm is already stored, the method returns
 // an error to indicate this.
-func (s *CharmStorage) PrepareToStoreCharm(charmURL *charm.URL) error {
+func (s *CharmStorage) PrepareToStoreCharm(charmURL string) error {
 	ch, err := s.stateBackend.PrepareCharmUpload(charmURL)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if ch.IsUploaded() {
-		return charmdownloader.NewCharmAlreadyStoredError(charmURL.String())
+		return charmdownloader.NewCharmAlreadyStoredError(charmURL)
 	}
 
 	return nil
 }
 
 // CharmStorage attempts to store the contents of a downloaded charm.
-func (s *CharmStorage) Store(charmURL *charm.URL, downloadedCharm charmdownloader.DownloadedCharm) error {
+func (s *CharmStorage) Store(charmURL string, downloadedCharm charmdownloader.DownloadedCharm) error {
 	s.logger.Tracef("store %q", charmURL)
 	storage := s.storageFactory(s.stateBackend.ModelUUID())
 	storagePath, err := s.charmArchiveStoragePath(charmURL)
@@ -108,10 +107,10 @@ func (s *CharmStorage) Store(charmURL *charm.URL, downloadedCharm charmdownloade
 // charmArchiveStoragePath returns a string that is suitable as a
 // storage path, using a random UUID to avoid colliding with concurrent
 // uploads.
-func (s *CharmStorage) charmArchiveStoragePath(charmURL *charm.URL) (string, error) {
+func (s *CharmStorage) charmArchiveStoragePath(charmURL string) (string, error) {
 	uuid, err := s.uuidGenerator()
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("charms/%s-%s", charmURL.String(), uuid), nil
+	return fmt.Sprintf("charms/%s-%s", charmURL, uuid), nil
 }

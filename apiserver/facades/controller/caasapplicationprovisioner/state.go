@@ -77,7 +77,7 @@ type Application interface {
 
 type Charm interface {
 	Meta() *charm.Meta
-	URL() *charm.URL
+	URL() string
 }
 
 type Unit interface {

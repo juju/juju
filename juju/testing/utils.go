@@ -28,16 +28,16 @@ func PutCharm(st *state.State, curl *charm.URL, ch *charm.CharmDir) (*state.Char
 	if curl.Revision == -1 {
 		curl.Revision = ch.Revision()
 	}
-	if sch, err := st.Charm(curl); err == nil {
+	if sch, err := st.Charm(curl.String()); err == nil {
 		return sch, nil
 	}
-	return AddCharm(st, curl, ch, false)
+	return AddCharm(st, curl.String(), ch, false)
 }
 
 // AddCharm adds the charm to state and storage.
-func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm, force bool) (*state.Charm, error) {
+func AddCharm(st *state.State, curl string, ch charm.Charm, force bool) (*state.Charm, error) {
 	var f *os.File
-	name := charm.Quote(curl.String())
+	name := charm.Quote(curl)
 	switch ch := ch.(type) {
 	case *charm.CharmDir:
 		var err error
@@ -79,7 +79,7 @@ func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm, force bool) (*st
 	}
 
 	stor := statestorage.NewStorage(st.ModelUUID(), st.MongoSession())
-	storagePath := fmt.Sprintf("/charms/%s-%s", curl.String(), digest)
+	storagePath := fmt.Sprintf("/charms/%s-%s", curl, digest)
 	if err := stor.Put(storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}

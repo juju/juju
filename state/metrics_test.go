@@ -36,7 +36,7 @@ func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
 	now := state.NowToTheSecond(s.State)
 	_, err := s.State.AddMetrics(state.BatchParam{
 		UUID:     utils.MustNewUUID().String(),
-		CharmURL: s.meteredCharm.String(),
+		CharmURL: s.meteredCharm.URL(),
 		Created:  now,
 		Metrics:  []state.Metric{},
 		Unit:     s.unit.UnitTag(),
@@ -67,7 +67,7 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  m,
 			Unit:     s.unit.UnitTag(),
 		},
@@ -123,7 +123,7 @@ func (s *MetricSuite) TestAddMetricOrderedLabels(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  m,
 			Unit:     s.unit.UnitTag(),
 		},
@@ -208,7 +208,7 @@ func (s *MetricSuite) TestAddMetricNonExistentUnit(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     unitTag,
 		},
@@ -224,7 +224,7 @@ func (s *MetricSuite) TestAddMetricDeadUnit(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -239,7 +239,7 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -263,7 +263,7 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -275,7 +275,7 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -288,7 +288,7 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -320,7 +320,7 @@ func (s *MetricSuite) TestCleanupMetricsIgnoreNotSent(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  oldTime,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -333,7 +333,7 @@ func (s *MetricSuite) TestCleanupMetricsIgnoreNotSent(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -357,7 +357,7 @@ func (s *MetricSuite) TestAllMetricBatches(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -406,7 +406,7 @@ func (s *MetricSuite) TestMetricCredentials(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -576,7 +576,7 @@ func (s *MetricSuite) TestAddMetricDuplicateUUID(c *gc.C) {
 		state.BatchParam{
 			UUID:     mUUID,
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{{Key: "pings", Value: "5", Time: now}},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -587,7 +587,7 @@ func (s *MetricSuite) TestAddMetricDuplicateUUID(c *gc.C) {
 		state.BatchParam{
 			UUID:     mUUID,
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{{Key: "pings", Value: "10", Time: now}},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -626,7 +626,7 @@ func (s *MetricSuite) TestAddBuiltInMetric(c *gc.C) {
 			state.BatchParam{
 				UUID:     utils.MustNewUUID().String(),
 				Created:  now,
-				CharmURL: s.meteredCharm.String(),
+				CharmURL: s.meteredCharm.URL(),
 				Metrics:  []state.Metric{m},
 				Unit:     s.unit.UnitTag(),
 			},
@@ -668,7 +668,7 @@ func (s *MetricSuite) TestUnitMetricBatchesMatchesAllCharms(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -681,7 +681,7 @@ func (s *MetricSuite) TestUnitMetricBatchesMatchesAllCharms(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: localMeteredCharm.String(),
+			CharmURL: localMeteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     unit.UnitTag(),
 		},
@@ -730,7 +730,7 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatches(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -742,7 +742,7 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatches(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m2},
 			Unit:     newUnit.UnitTag(),
 		},
@@ -776,7 +776,7 @@ func (s *MetricLocalCharmSuite) TestApplicationMetricBatches(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -788,7 +788,7 @@ func (s *MetricLocalCharmSuite) TestApplicationMetricBatches(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m2},
 			Unit:     newUnit.UnitTag(),
 		},
@@ -821,7 +821,7 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -833,7 +833,7 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now.Add(time.Second),
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m2},
 			Unit:     newUnit.UnitTag(),
 		},
@@ -851,7 +851,7 @@ func (s *MetricLocalCharmSuite) TestModelMetricBatches(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: meteredCharm.String(),
+			CharmURL: meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     unit.UnitTag(),
 		},
@@ -910,7 +910,7 @@ func (s *MetricLocalCharmSuite) TestMetricsSorted(c *gc.C) {
 			state.BatchParam{
 				UUID:     utils.MustNewUUID().String(),
 				Created:  t,
-				CharmURL: s.meteredCharm.String(),
+				CharmURL: s.meteredCharm.URL(),
 				Metrics:  []state.Metric{{Key: "pings", Value: "5", Time: t}},
 				Unit:     s.unit.UnitTag(),
 			},
@@ -921,7 +921,7 @@ func (s *MetricLocalCharmSuite) TestMetricsSorted(c *gc.C) {
 			state.BatchParam{
 				UUID:     utils.MustNewUUID().String(),
 				Created:  t,
-				CharmURL: s.meteredCharm.String(),
+				CharmURL: s.meteredCharm.URL(),
 				Metrics:  []state.Metric{{Key: "pings", Value: "10", Time: t}},
 				Unit:     newUnit.UnitTag(),
 			},
@@ -971,7 +971,7 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatchesReturnsAllCharms(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.unit.UnitTag(),
 		},
@@ -984,7 +984,7 @@ func (s *MetricLocalCharmSuite) TestUnitMetricBatchesReturnsAllCharms(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: csMeteredCharm.String(),
+			CharmURL: csMeteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     unit.UnitTag(),
 		},
@@ -1006,7 +1006,7 @@ func (s *MetricLocalCharmSuite) TestUnique(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  t0,
-			CharmURL: s.meteredCharm.String(),
+			CharmURL: s.meteredCharm.URL(),
 			Metrics: []state.Metric{{
 				Key:   "pings",
 				Value: "1",
@@ -1087,7 +1087,7 @@ func (s *CrossModelMetricSuite) TestMetricsAcrossmodels(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.models[0].meteredCharm.String(),
+			CharmURL: s.models[0].meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.models[0].unit.UnitTag(),
 		},
@@ -1098,7 +1098,7 @@ func (s *CrossModelMetricSuite) TestMetricsAcrossmodels(c *gc.C) {
 		state.BatchParam{
 			UUID:     utils.MustNewUUID().String(),
 			Created:  now,
-			CharmURL: s.models[1].meteredCharm.String(),
+			CharmURL: s.models[1].meteredCharm.URL(),
 			Metrics:  []state.Metric{m},
 			Unit:     s.models[1].unit.UnitTag(),
 		},

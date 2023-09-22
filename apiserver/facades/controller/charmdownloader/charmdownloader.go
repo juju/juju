@@ -7,6 +7,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/juju/charm/v11"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/http/v2"
@@ -119,18 +120,21 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 		return nil // nothing to do
 	}
 
-	pendingCharm, force, err := app.Charm()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	pendingCharmURL := pendingCharm.URL()
-
 	resolvedOrigin := app.CharmOrigin()
 	if resolvedOrigin == nil {
 		return errors.NotFoundf("download charm for application %q; resolved origin", appTag.Name)
 	}
 
 	downloader, err := a.getDownloader()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	pendingCharm, force, err := app.Charm()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	pendingCharmURL, err := charm.ParseURL(pendingCharm.URL())
 	if err != nil {
 		return errors.Trace(err)
 	}

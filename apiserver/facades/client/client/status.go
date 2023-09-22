@@ -1276,7 +1276,7 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
 	}
 	var processedStatus = params.ApplicationStatus{
-		Charm:        applicationCharm.String(),
+		Charm:        applicationCharm.URL(),
 		CharmVersion: applicationCharm.Version(),
 		CharmProfile: charmProfileName,
 		CharmChannel: channel,
@@ -1289,9 +1289,13 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 		Life:             processLife(application),
 	}
 
-	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*applicationCharm.URL().WithRevision(-1)]; ok && latestCharm != nil {
-		if latestCharm.Revision() > applicationCharm.URL().Revision {
-			processedStatus.CanUpgradeTo = latestCharm.String()
+	curl, err := charm.ParseURL(applicationCharm.URL())
+	if err != nil {
+		return params.ApplicationStatus{Err: apiservererrors.ServerError(err)}
+	}
+	if latestCharm, ok := context.allAppsUnitsCharmBindings.latestCharms[*curl.WithRevision(-1)]; ok && latestCharm != nil {
+		if latestCharm.Revision() > curl.Revision {
+			processedStatus.CanUpgradeTo = latestCharm.URL()
 		}
 	}
 
@@ -1302,7 +1306,7 @@ func (context *statusContext) processApplication(ctx context.Context, applicatio
 	}
 	units := context.allAppsUnitsCharmBindings.units[application.Name()]
 	if application.IsPrincipal() {
-		processedStatus.Units = context.processUnits(ctx, units, applicationCharm.String())
+		processedStatus.Units = context.processUnits(ctx, units, applicationCharm.URL())
 	}
 
 	applicationStatus := status.StatusInfo{Status: status.Unknown}
@@ -1563,7 +1567,7 @@ func (context *statusContext) processUnit(ctx context.Context, unit *state.Unit,
 				subUnitApp, err := subUnit.Application()
 				if err == nil {
 					if subUnitAppCh, _, err := subUnitApp.Charm(); err == nil {
-						subUnitAppCharm = subUnitAppCh.String()
+						subUnitAppCharm = subUnitAppCh.URL()
 					} else {
 						logger.Debugf("error fetching subordinate application charm for %q: %q", subUnit.ApplicationName(), err.Error())
 					}

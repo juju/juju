@@ -700,11 +700,11 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	curl := s.wordpressUnit.CharmURL()
 	c.Assert(curl, gc.NotNil)
-	c.Assert(*curl, gc.Equals, s.wpCharm.URL().String())
+	c.Assert(*curl, gc.Equals, s.wpCharm.URL())
 
 	// Make sure wordpress application's charm is what we expect.
 	curlStr, force := s.wordpress.CharmURL()
-	c.Assert(*curlStr, gc.Equals, s.wpCharm.String())
+	c.Assert(*curlStr, gc.Equals, s.wpCharm.URL())
 	c.Assert(force, jc.IsFalse)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -724,10 +724,10 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
 		Results: []params.StringBoolResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Result: s.wpCharm.String(), Ok: true},
+			{Result: s.wpCharm.URL(), Ok: true},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Result: s.wpCharm.String(), Ok: force},
+			{Result: s.wpCharm.URL(), Ok: force},
 			{Error: apiservertesting.ErrUnauthorized},
 			// see above
 			// {Error: apiservertesting.ErrUnauthorized},
@@ -741,7 +741,7 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 
 	args := params.EntitiesCharmURL{Entities: []params.EntityCharmURL{
 		{Tag: "unit-mysql-0", CharmURL: "ch:amd64/quantal/application-42"},
-		{Tag: "unit-wordpress-0", CharmURL: s.wpCharm.String()},
+		{Tag: "unit-wordpress-0", CharmURL: s.wpCharm.URL()},
 		{Tag: "unit-foo-42", CharmURL: "ch:amd64/quantal/foo-321"},
 	}}
 	result, err := s.uniter.SetCharmURL(context.Background(), args)
@@ -760,7 +760,7 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 
 	charmURL = s.wordpressUnit.CharmURL()
 	c.Assert(charmURL, gc.NotNil)
-	c.Assert(*charmURL, gc.Equals, s.wpCharm.String())
+	c.Assert(*charmURL, gc.Equals, s.wpCharm.URL())
 }
 
 func (s *uniterSuite) TestWorkloadVersion(c *gc.C) {
@@ -1126,7 +1126,7 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 		Entities: []params.EntityCharmURL{
 			{
 				Tag:      s.wordpressUnit.Tag().String(),
-				CharmURL: s.wpCharm.String(),
+				CharmURL: s.wpCharm.URL(),
 			},
 		},
 	})
@@ -1420,8 +1420,8 @@ func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {
 
 	args := params.CharmURLs{URLs: []params.CharmURL{
 		{URL: "something-invalid"},
-		{URL: s.wpCharm.String()},
-		{URL: dummyCharm.String()},
+		{URL: s.wpCharm.URL()},
+		{URL: dummyCharm.URL()},
 	}}
 	result, err := s.uniter.CharmArchiveSha256(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
