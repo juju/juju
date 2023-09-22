@@ -56,9 +56,7 @@ func (c Config) Validate() error {
 
 // NewUpgradeDatabaseWorker returns a new Worker.
 func NewUpgradeDatabaseWorker(config Config) (*Worker, error) {
-	var err error
-
-	if err = config.Validate(); err != nil {
+	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 

@@ -13,12 +13,10 @@ import (
 
 // Logger defines the logging methods used by the worker.
 type Logger interface {
-	Criticalf(string, ...interface{})
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
+	Errorf(string, ...any)
+	Warningf(string, ...any)
+	Infof(string, ...any)
+	Debugf(string, ...any)
 }
 
 // ManifoldConfig defines the configuration on which this manifold depends.

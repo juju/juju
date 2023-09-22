@@ -23,13 +23,15 @@ type baseSuite struct {
 // ignoreLogging turns the suite's mock logger into a sink, with no validation.
 // Logs are still emitted via the test logger.
 func (s *baseSuite) ignoreLogging(c *gc.C) {
-	debugIt := func(message string, args ...interface{}) { logIt(c, loggo.DEBUG, message, args) }
-	infoIt := func(message string, args ...interface{}) { logIt(c, loggo.INFO, message, args) }
-	errorIt := func(message string, args ...interface{}) { logIt(c, loggo.ERROR, message, args) }
+	debugIt := func(message string, args ...any) { logIt(c, loggo.DEBUG, message, args) }
+	infoIt := func(message string, args ...any) { logIt(c, loggo.INFO, message, args) }
+	warningIt := func(message string, args ...any) { logIt(c, loggo.WARNING, message, args) }
+	errorIt := func(message string, args ...any) { logIt(c, loggo.ERROR, message, args) }
 
 	e := s.logger.EXPECT()
 	e.Debugf(gomock.Any(), gomock.Any()).AnyTimes().Do(debugIt)
 	e.Infof(gomock.Any(), gomock.Any()).AnyTimes().Do(infoIt)
+	e.Warningf(gomock.Any(), gomock.Any()).AnyTimes().Do(warningIt)
 	e.Errorf(gomock.Any(), gomock.Any()).AnyTimes().Do(errorIt)
 }
 
