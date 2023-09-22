@@ -1164,17 +1164,8 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 	if args.CharmOrigin == nil {
 		return nil, errors.Errorf("charm origin is nil")
 	}
-	if args.CharmOrigin.Platform == nil {
-		return nil, errors.Errorf("charm origin platform is nil")
-	}
-
-	// If either the charm origin ID or Hash is set before a charm is
-	// downloaded, charm download will fail for charms with a forced series.
-	// The logic (refreshConfig) in sending the correct request to charmhub
-	// will break.
-	if (args.CharmOrigin.ID != "" && args.CharmOrigin.Hash == "") ||
-		(args.CharmOrigin.ID == "" && args.CharmOrigin.Hash != "") {
-		return nil, errors.BadRequestf("programming error, AddApplication, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
+	if err := args.CharmOrigin.validate(); err != nil {
+		return nil, errors.Annotatef(err, "charm origin validation")
 	}
 
 	model, err := st.Model()

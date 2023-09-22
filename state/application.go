@@ -1648,14 +1648,17 @@ type SetCharmConfig struct {
 	RequireNoUnits bool
 }
 
-// SetCharm changes the charm for the application.
-func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
-	defer errors.DeferredAnnotatef(
-		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm,
-	)
+func (a *Application) validateSetCharmConfig(cfg SetCharmConfig) error {
 	if cfg.Charm.Meta().Subordinate != a.doc.Subordinate {
 		return errors.Errorf("cannot change an application's subordinacy")
 	}
+	origin := cfg.CharmOrigin
+	if origin == nil {
+		return errors.NotValidf("nil charm origin")
+	} else if err := cfg.CharmOrigin.validate(); err != nil {
+		return errors.Annotatef(err, "Charm origin validation failed")
+	}
+
 	curl, err := charm.ParseURL(*a.doc.CharmURL)
 	if err != nil {
 		return errors.Annotate(err, "parsing charm url")
@@ -1684,11 +1687,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		}
 	}
 
-	updatedSettings, err := cfg.Charm.Config().ValidateSettings(cfg.ConfigSettings)
-	if err != nil {
-		return errors.Annotate(err, "validating config settings")
-	}
-
 	// we don't need to check that this is a charm.LXDProfiler, as we can
 	// state that the function exists.
 	if profile := cfg.Charm.LXDProfile(); profile != nil {
@@ -1700,6 +1698,25 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		if err := profile.ValidateConfigDevices(); err != nil && !cfg.Force {
 			return errors.Annotate(err, "validating lxd profile")
 		}
+	}
+	return nil
+}
+
+// SetCharm changes the charm for the application.
+func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
+	defer errors.DeferredAnnotatef(
+		&err, "cannot upgrade application %q to charm %q", a, cfg.Charm,
+	)
+
+	// Validate the input. ValidateSettings validates and transforms
+	// leaving it here.
+	if err := a.validateSetCharmConfig(cfg); err != nil {
+		return errors.Trace(err)
+	}
+
+	updatedSettings, err := cfg.Charm.Config().ValidateSettings(cfg.ConfigSettings)
+	if err != nil {
+		return errors.Annotate(err, "validating config settings")
 	}
 
 	var newCharmModifiedVersion int
@@ -1738,14 +1755,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		if *a.doc.CharmURL == cfg.Charm.URL().String() {
 			updates := bson.D{
 				{"forcecharm", cfg.ForceUnits},
-			}
-			// Local charms will not have a channel in their charm origin
-			// TODO: (hml) 2023-02-03
-			// With juju 3.0, SetCharm should always have a CharmOrigin.
-			// Compatibility with the Update application facade method
-			// is no longer necessary.
-			if cfg.CharmOrigin != nil && cfg.CharmOrigin.Channel != nil {
-				updates = append(updates, bson.DocElem{"charm-origin.channel", cfg.CharmOrigin.Channel})
 			}
 			// Charm URL already set; just update the force flag and channel.
 			ops = append(ops, txn.Op{
@@ -1794,59 +1803,15 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			newCharmModifiedVersion++
 		}
 
-		// TODO: (hml) 2023-02-03
-		// With juju 3.0, SetCharm should always have a CharmOrigin.
-		// Compatibility with the Update application facade method
-		// is no longer necessary. Modify checks appropriately.
-		if cfg.CharmOrigin != nil {
-			origin := a.doc.CharmOrigin
-			// If either the charm origin ID or Hash is set before a charm is
-			// downloaded, charm download will fail for charms with a forced series.
-			// The logic (refreshConfig) in sending the correct request to charmhub
-			// will break.
-			if (origin.ID != "" && origin.Hash == "") || (origin.ID == "" && origin.Hash != "") {
-				return nil, errors.BadRequestf("programming error, SetCharm, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
-			}
-			if cfg.CharmOrigin.ID != "" {
-				origin.ID = cfg.CharmOrigin.ID
-			}
-			if cfg.CharmOrigin.Hash != "" {
-				origin.Hash = cfg.CharmOrigin.Hash
-			}
-			if cfg.CharmOrigin.Type != "" {
-				origin.Type = cfg.CharmOrigin.Type
-			}
-			if cfg.CharmOrigin.Source != "" {
-				origin.Source = cfg.CharmOrigin.Source
-			}
-			if cfg.CharmOrigin.Revision != nil {
-				origin.Revision = cfg.CharmOrigin.Revision
-			}
-			if cfg.CharmOrigin.Channel != nil {
-				origin.Channel = cfg.CharmOrigin.Channel
-			}
-			if cfg.CharmOrigin.Platform != nil {
-				if cfg.CharmOrigin.Platform.Channel != "" {
-					origin.Platform.OS = cfg.CharmOrigin.Platform.OS
-					origin.Platform.Channel = cfg.CharmOrigin.Platform.Channel
-				}
-				if cfg.CharmOrigin.Platform.Architecture != "" {
-					origin.Platform.Architecture = cfg.CharmOrigin.Platform.Architecture
-				}
-			}
-			// Update in the application facade also calls
-			// SetCharm, though it has no current user in the
-			// application api client. Just in case: do not
-			// update the CharmOrigin if nil.
-			ops = append(ops, txn.Op{
-				C:      applicationsC,
-				Id:     a.doc.DocID,
-				Assert: txn.DocExists,
-				Update: bson.D{{"$set", bson.D{
-					{"charm-origin", origin},
-				}}},
-			})
-		}
+		// Update the charm origin
+		ops = append(ops, txn.Op{
+			C:      applicationsC,
+			Id:     a.doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{
+				{"charm-origin", *cfg.CharmOrigin},
+			}}},
+		})
 
 		if cfg.RequireNoUnits {
 			if a.UnitCount()+a.GetScale() > 0 {
