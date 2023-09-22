@@ -187,12 +187,13 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 			BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   registry,
+			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
+			Provider: func(t string) (environs.EnvironProvider, error) {
+				c.Assert(t, gc.Equals, "dummy")
+				return &envProvider, nil
+			},
+			Logger: testing.NewCheckLogger(c),
 		},
-		agentbootstrap.WithBootstrapDqlite(bootstrapDqliteWithDummyCloudType),
-		agentbootstrap.WithProvider(func(t string) (environs.EnvironProvider, error) {
-			c.Assert(t, gc.Equals, "dummy")
-			return &envProvider, nil
-		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -396,8 +397,9 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 			StateNewPolicy:            nil,
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
+			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
+			Logger:                    testing.NewCheckLogger(c),
 		},
-		agentbootstrap.WithBootstrapDqlite(bootstrapDqliteWithDummyCloudType),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = bootstrap.Initialize(stdcontext.Background())
@@ -466,11 +468,12 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
+			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
+			Provider: func(t string) (environs.EnvironProvider, error) {
+				return &fakeProvider{}, nil
+			},
+			Logger: testing.NewCheckLogger(c),
 		},
-		agentbootstrap.WithBootstrapDqlite(bootstrapDqliteWithDummyCloudType),
-		agentbootstrap.WithProvider(func(t string) (environs.EnvironProvider, error) {
-			return &fakeProvider{}, nil
-		}),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	st, err := bootstrap.Initialize(stdcontext.Background())
@@ -487,6 +490,8 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			StateNewPolicy:            state.NewPolicyFunc(nil),
 			SharedSecret:              "baz",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
+			BootstrapDqlite:           database.BootstrapDqlite,
+			Logger:                    testing.NewCheckLogger(c),
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

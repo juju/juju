@@ -73,44 +73,6 @@ type bootstrapController interface {
 	SetMongoPassword(password string) error
 }
 
-// Option is a function that modifies the AgentBootstrap.
-type Option func(*options)
-
-// WithBootstrapDqlite sets the dqlite initializer function.
-func WithBootstrapDqlite(f DqliteInitializerFunc) Option {
-	return func(o *options) {
-		o.bootstrapDqlite = f
-	}
-}
-
-// WithLogger sets the logger on the AgentBootstrap.
-func WithLogger(logger Logger) Option {
-	return func(o *options) {
-		o.logger = logger
-	}
-}
-
-// WithProvider sets the provider function on the AgentBootstrap.
-func WithProvider(f ProviderFunc) Option {
-	return func(o *options) {
-		o.provider = f
-	}
-}
-
-type options struct {
-	provider        ProviderFunc
-	bootstrapDqlite DqliteInitializerFunc
-	logger          Logger
-}
-
-func newOptions() *options {
-	return &options{
-		provider:        environs.Provider,
-		bootstrapDqlite: database.BootstrapDqlite,
-		logger:          loggo.GetLogger("juju.agent.bootstrap"),
-	}
-}
-
 // AgentBootstrap is used to initialize the state for a new controller.
 type AgentBootstrap struct {
 	bootstrapEnviron environs.BootstrapEnviron
@@ -153,6 +115,9 @@ type AgentBootstrapArgs struct {
 	StateInitializationParams instancecfg.StateInitializationParams
 	StateNewPolicy            state.NewPolicyFunc
 	StorageProviderRegistry   storage.ProviderRegistry
+	BootstrapDqlite           DqliteInitializerFunc
+	Provider                  ProviderFunc
+	Logger                    Logger
 }
 
 func (a *AgentBootstrapArgs) validate() error {
@@ -171,6 +136,12 @@ func (a *AgentBootstrapArgs) validate() error {
 	if a.StorageProviderRegistry == nil {
 		return errors.NotValidf("storage provider registry")
 	}
+	if a.BootstrapDqlite == nil {
+		return errors.NotValidf("bootstrap dqlite")
+	}
+	if a.Logger == nil {
+		return errors.NotValidf("logger")
+	}
 	return nil
 }
 
@@ -186,30 +157,24 @@ func (a *AgentBootstrapArgs) validate() error {
 // and its constraints will be also be used for the model-level
 // constraints. The connection to the controller will respect the
 // given timeout parameter.
-func NewAgentBootstrap(args AgentBootstrapArgs, opts ...Option) (*AgentBootstrap, error) {
+func NewAgentBootstrap(args AgentBootstrapArgs) (*AgentBootstrap, error) {
 	if err := args.validate(); err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	o := newOptions()
-	for _, opt := range opts {
-		opt(o)
 	}
 	return &AgentBootstrap{
 		adminUser:                 args.AdminUser,
 		agentConfig:               args.AgentConfig,
+		bootstrapDqlite:           args.BootstrapDqlite,
 		bootstrapEnviron:          args.BootstrapEnviron,
 		bootstrapMachineAddresses: args.BootstrapMachineAddresses,
 		bootstrapMachineJobs:      args.BootstrapMachineJobs,
+		logger:                    args.Logger,
 		mongoDialOpts:             args.MongoDialOpts,
+		provider:                  args.Provider,
 		sharedSecret:              args.SharedSecret,
 		stateInitializationParams: args.StateInitializationParams,
 		stateNewPolicy:            args.StateNewPolicy,
 		storageProviderRegistry:   args.StorageProviderRegistry,
-
-		bootstrapDqlite: o.bootstrapDqlite,
-		logger:          o.logger,
-		provider:        o.provider,
 	}, nil
 }
 

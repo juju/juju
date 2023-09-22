@@ -17,6 +17,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
@@ -62,7 +63,7 @@ var (
 	minSocketTimeout    = 1 * time.Minute
 )
 
-type BootstrapAgentFunc func(agentbootstrap.AgentBootstrapArgs, ...agentbootstrap.Option) (*agentbootstrap.AgentBootstrap, error)
+type BootstrapAgentFunc func(agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error)
 
 const adminUserName = "admin"
 
@@ -396,7 +397,10 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 				cloudGetter{cloud: &args.ControllerCloud},
 				credentialGetter{cred: args.ControllerCloudCredential},
 			),
-		}, agentbootstrap.WithBootstrapDqlite(c.DqliteInitializer))
+			BootstrapDqlite: c.DqliteInitializer,
+			Provider:        environs.Provider,
+			Logger:          loggo.GetLogger("juju.agent.bootstrap"),
+		})
 		if err != nil {
 			return errors.Trace(err)
 		}

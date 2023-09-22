@@ -627,7 +627,7 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	s.bootstrapAgentFunc = func(args agentbootstrap.AgentBootstrapArgs, opts ...agentbootstrap.Option) (*agentbootstrap.AgentBootstrap, error) {
+	s.bootstrapAgentFunc = func(args agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error) {
 		called++
 		c.Assert(args.MongoDialOpts.Direct, jc.IsTrue)
 		c.Assert(args.MongoDialOpts.Timeout, gc.Equals, 30*time.Second)
@@ -648,7 +648,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	s.bootstrapAgentFunc = func(args agentbootstrap.AgentBootstrapArgs, opts ...agentbootstrap.Option) (*agentbootstrap.AgentBootstrap, error) {
+	s.bootstrapAgentFunc = func(args agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error) {
 		called++
 		c.Assert(args.MongoDialOpts.Direct, jc.IsTrue)
 		c.Assert(args.MongoDialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
