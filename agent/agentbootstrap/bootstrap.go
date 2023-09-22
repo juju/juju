@@ -20,6 +20,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	coreagent "github.com/juju/juju/core/agent"
 	corebase "github.com/juju/juju/core/base"
@@ -73,7 +74,28 @@ type bootstrapController interface {
 	SetMongoPassword(password string) error
 }
 
-// InitializeState should be called with the bootstrap machine's agent
+// DqliteInitializerFunc is a function that initializes the dqlite database
+// for the controller.
+type DqliteInitializerFunc func(
+	ctx stdcontext.Context,
+	mgr database.BootstrapNodeManager,
+	logger database.Logger,
+	preferLoopback bool,
+	ops ...database.BootstrapOpt,
+) error
+
+// AgentInitializer is used to initialize the state database.
+type AgentInitializerConfig struct {
+	BootstrapEnviron      environs.BootstrapEnviron
+	AdminUser             names.UserTag
+	AgentConfig           agent.ConfigSetter
+	InitializeStateParams InitializeStateParams
+	MongoDialOpts         mongo.DialOpts
+	StateNewPolicy        state.NewPolicyFunc
+	BootrapDqlite         DqliteInitializerFunc
+}
+
+// InitializeAgent should be called with the bootstrap machine's agent
 // configuration. It uses that information to create the controller, dial the
 // controller, and initialize it. It also generates a new password for the
 // bootstrap machine and calls Write to save the configuration.
@@ -84,59 +106,49 @@ type bootstrapController interface {
 // constraints. The connection to the controller will respect the
 // given timeout parameter.
 //
-// InitializeState returns the newly initialized state and bootstrap machine.
+// InitializeAgent returns the newly initialized state and bootstrap machine.
 // If it fails, the state may well be irredeemably compromised.
-func InitializeState(
-	env environs.BootstrapEnviron,
-	adminUser names.UserTag,
-	c agent.ConfigSetter,
-	args InitializeStateParams,
-	dialOpts mongo.DialOpts,
-	newPolicy state.NewPolicyFunc,
-	setupDBOpts ...database.BootstrapOpt,
-) (_ *state.Controller, resultErr error) {
-	if c.Tag().Id() != agent.BootstrapControllerId || !coreagent.IsAllowedControllerTag(c.Tag().Kind()) {
+func InitializeAgent(ctx stdcontext.Context, cfg AgentInitializerConfig) (_ *state.Controller, resultErr error) {
+	agentConfig := cfg.AgentConfig
+	if agentConfig.Tag().Id() != agent.BootstrapControllerId || !coreagent.IsAllowedControllerTag(agentConfig.Tag().Kind()) {
 		return nil, errors.Errorf("InitializeState not called with bootstrap controller's configuration")
 	}
-	servingInfo, ok := c.StateServingInfo()
+	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return nil, errors.Errorf("state serving information not available")
 	}
 	// N.B. no users are set up when we're initializing the state,
 	// so don't use any tag or password when opening it.
-	info, ok := c.MongoInfo()
+	info, ok := agentConfig.MongoInfo()
 	if !ok {
 		return nil, errors.Errorf("state info not available")
 	}
 	info.Tag = nil
-	info.Password = c.OldPassword()
+	info.Password = agentConfig.OldPassword()
+
+	stateParams := cfg.InitializeStateParams
 
 	// Add the controller model cloud and credential to the database.
-	cloudCred, cloudCredTag, err := getCloudCredential(adminUser, args)
+	cloudCred, cloudCredTag, err := getCloudCredential(cfg.AdminUser, stateParams)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting cloud credentials from args")
 	}
-	ctrlCloud := args.ControllerCloud
+	ctrlCloud := cfg.InitializeStateParams.ControllerCloud
 	ctrlCloud.IsControllerCloud = true
-	opts := append(setupDBOpts,
-		ccbootstrap.InsertInitialControllerConfig(args.ControllerConfig),
-		cloudbootstrap.InsertInitialControllerCloud(ctrlCloud),
-	)
-	if cloudCredTag.Id() != "" {
-		opts = append(opts, credbootstrap.InsertInitialControllerCredentials(cloudCredTag.Name(), cloudCredTag.Cloud().Id(), cloudCredTag.Owner().Id(), cloudCred))
-	}
 
-	if err := database.BootstrapDqlite(
-		stdcontext.TODO(),
-		database.NewNodeManager(c, logger, coredatabase.NoopSlowQueryLogger{}),
+	if err := cfg.BootrapDqlite(
+		ctx,
+		database.NewNodeManager(cfg.AgentConfig, logger, coredatabase.NoopSlowQueryLogger{}),
 		logger,
 		false,
-		opts...,
+		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
+		cloudbootstrap.InsertInitialControllerCloud(ctrlCloud),
+		credbootstrap.InsertInitialControllerCredentials(cloudCredTag, cloudCred),
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	session, err := initMongo(info.Info, dialOpts, info.Password)
+	session, err := initMongo(info.Info, cfg.MongoDialOpts, info.Password)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to initialize mongo")
 	}
@@ -144,7 +156,7 @@ func InitializeState(
 
 	logger.Debugf("initializing address %v", info.Addrs)
 
-	isCAAS := cloud.CloudIsCAAS(args.ControllerCloud)
+	isCAAS := cloud.CloudIsCAAS(stateParams.ControllerCloud)
 	modelType := state.ModelTypeIAAS
 	if isCAAS {
 		modelType = state.ModelTypeCAAS
@@ -153,23 +165,23 @@ func InitializeState(
 		Clock: clock.WallClock,
 		ControllerModelArgs: state.ModelArgs{
 			Type:                    modelType,
-			Owner:                   adminUser,
-			Config:                  args.ControllerModelConfig,
-			Constraints:             args.ModelConstraints,
-			CloudName:               args.ControllerCloud.Name,
-			CloudRegion:             args.ControllerCloudRegion,
+			Owner:                   cfg.AdminUser,
+			Config:                  stateParams.ControllerModelConfig,
+			Constraints:             stateParams.ModelConstraints,
+			CloudName:               stateParams.ControllerCloud.Name,
+			CloudRegion:             stateParams.ControllerCloudRegion,
 			CloudCredential:         cloudCredTag,
-			StorageProviderRegistry: args.StorageProviderRegistry,
-			EnvironVersion:          args.ControllerModelEnvironVersion,
+			StorageProviderRegistry: stateParams.StorageProviderRegistry,
+			EnvironVersion:          stateParams.ControllerModelEnvironVersion,
 		},
-		StoragePools:              args.StoragePools,
-		CloudName:                 args.ControllerCloud.Name,
-		ControllerConfig:          args.ControllerConfig,
-		ControllerInheritedConfig: args.ControllerInheritedConfig,
-		RegionInheritedConfig:     args.RegionInheritedConfig,
+		StoragePools:              stateParams.StoragePools,
+		CloudName:                 stateParams.ControllerCloud.Name,
+		ControllerConfig:          stateParams.ControllerConfig,
+		ControllerInheritedConfig: stateParams.ControllerInheritedConfig,
+		RegionInheritedConfig:     stateParams.RegionInheritedConfig,
 		MongoSession:              session,
 		AdminPassword:             info.Password,
-		NewPolicy:                 newPolicy,
+		NewPolicy:                 cfg.StateNewPolicy,
 	})
 	if err != nil {
 		return nil, errors.Errorf("failed to initialize state: %v", err)
@@ -180,11 +192,11 @@ func InitializeState(
 			_ = ctrl.Close()
 		}
 	}()
-	servingInfo.SharedSecret = args.SharedSecret
-	c.SetStateServingInfo(servingInfo)
+	servingInfo.SharedSecret = stateParams.SharedSecret
+	cfg.AgentConfig.SetStateServingInfo(servingInfo)
 
 	// Filter out any LXC or LXD bridge addresses from the machine addresses.
-	args.BootstrapMachineAddresses = network.FilterBridgeAddresses(args.BootstrapMachineAddresses)
+	stateParams.BootstrapMachineAddresses = network.FilterBridgeAddresses(stateParams.BootstrapMachineAddresses)
 
 	st, err := ctrl.SystemState()
 	if err != nil {
@@ -195,8 +207,8 @@ func InitializeState(
 	// We need to do this before setting the API host-ports,
 	// because any space names in the bootstrap machine addresses must be
 	// reconcilable with space IDs at that point.
-	ctx := context.CallContext(st)
-	if err = space.ReloadSpaces(ctx, space.NewState(st), env); err != nil {
+	callContext := context.CallContext(st)
+	if err = space.ReloadSpaces(callContext, space.NewState(st), cfg.BootstrapEnviron); err != nil {
 		if errors.Is(err, errors.NotSupported) {
 			logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {
@@ -212,7 +224,12 @@ func InitializeState(
 
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
-	if err = initAPIHostPorts(st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
+	if err = initAPIHostPorts(
+		st,
+		stateParams.ControllerConfig,
+		stateParams.BootstrapMachineAddresses,
+		servingInfo.APIPort,
+	); err != nil {
 		return nil, err
 	}
 	if err := st.SetStateServingInfo(servingInfo); err != nil {
@@ -220,30 +237,30 @@ func InitializeState(
 	}
 
 	cloudSpec, err := environscloudspec.MakeCloudSpec(
-		args.ControllerCloud,
-		args.ControllerCloudRegion,
-		args.ControllerCloudCredential,
+		stateParams.ControllerCloud,
+		stateParams.ControllerCloudRegion,
+		stateParams.ControllerCloudCredential,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	cloudSpec.IsControllerCloud = true
 
-	provider, err := args.Provider(cloudSpec.Type)
+	provider, err := stateParams.Provider(cloudSpec.Type)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting environ provider")
 	}
 
 	var controllerNode bootstrapController
 	if isCAAS {
-		if controllerNode, err = initBootstrapNode(st, args); err != nil {
+		if controllerNode, err = initBootstrapNode(st, stateParams); err != nil {
 			return nil, errors.Annotate(err, "cannot initialize bootstrap controller")
 		}
-		if err := initControllerCloudService(cloudSpec, provider, st, args); err != nil {
+		if err := initControllerCloudService(cloudSpec, provider, st, stateParams); err != nil {
 			return nil, errors.Annotate(err, "cannot initialize cloud service")
 		}
 	} else {
-		if controllerNode, err = initBootstrapMachine(st, args); err != nil {
+		if controllerNode, err = initBootstrapMachine(st, stateParams); err != nil {
 			return nil, errors.Annotate(err, "cannot initialize bootstrap machine")
 		}
 	}
@@ -268,9 +285,9 @@ func InitializeState(
 	if err := controllerNode.SetMongoPassword(newPassword); err != nil {
 		return nil, err
 	}
-	c.SetPassword(newPassword)
+	cfg.AgentConfig.SetPassword(newPassword)
 
-	if err := ensureInitialModel(cloudSpec, provider, args, st, ctrl, adminUser, cloudCredTag); err != nil {
+	if err := ensureInitialModel(cloudSpec, provider, stateParams, st, ctrl, cfg.AdminUser, cloudCredTag); err != nil {
 		return nil, errors.Annotate(err, "ensuring initial model")
 	}
 	return ctrl, nil
@@ -540,11 +557,7 @@ func initControllerCloudService(
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(st *state.State, pAddrs corenetwork.ProviderAddresses, apiPort int) error {
-	controllerConfig, err := st.ControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
+func initAPIHostPorts(st *state.State, controllerConfig controller.Config, pAddrs corenetwork.ProviderAddresses, apiPort int) error {
 	addrs, err := pAddrs.ToSpaceAddresses(st)
 	if err != nil {
 		return errors.Trace(err)

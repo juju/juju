@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/domain/schema"
 )
 
-type bootstrapNodeManager interface {
+type BootstrapNodeManager interface {
 	// EnsureDataDir ensures that a directory for Dqlite data exists at
 	// a path determined by the agent config, then returns that path.
 	EnsureDataDir() (string, error)
@@ -78,7 +78,7 @@ type BootstrapOpt func(context.Context, coredatabase.TxnRunner) error
 // to the loopback binding.
 func BootstrapDqlite(
 	ctx context.Context,
-	mgr bootstrapNodeManager,
+	mgr BootstrapNodeManager,
 	logger Logger,
 	preferLoopback bool,
 	ops ...BootstrapOpt,
