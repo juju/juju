@@ -44,7 +44,7 @@ jobs:
         sudo systemctl restart docker
         docker system info
 
-    - uses: balchua/microk8s-actions@1e8e626239c2befe7cd5d258c96ae152a7259c74
+    - uses: balchua/microk8s-actions@e99a1ffcd3bb2682d941104cf6c1a215c657903f
       with:
         channel: '${{ matrix.microk8s }}'
         # enable now to give microk8s more time to settle down.
