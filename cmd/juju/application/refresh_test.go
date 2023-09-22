@@ -101,8 +101,10 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 	cookieFile := filepath.Join(c.MkDir(), "cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookieFile)
 
-	s.testPlatform = corecharm.MustParsePlatform("amd64/ubuntu/22.04")
-	s.testBase = corebase.MakeDefaultBase("ubuntu", "22.04")
+	var err error
+	s.testBase, err = corebase.GetBaseFromSeries(currentCharmURL.Series)
+	c.Assert(err, jc.ErrorIsNil)
+	s.testPlatform = corecharm.MustParsePlatform(fmt.Sprintf("%s/%s/%s", arch.DefaultArchitecture, s.testBase.OS, s.testBase.Channel))
 
 	s.deployResources = func(
 		applicationID string,
@@ -845,7 +847,6 @@ func (s *RefreshSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 			`series:`,
 			`    - trusty`,
 			`    - wily`,
-			`    - bionic`,
 		},
 		"\n",
 	)
