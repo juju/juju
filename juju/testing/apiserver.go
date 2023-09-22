@@ -65,7 +65,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/lease"
 	wmultiwatcher "github.com/juju/juju/worker/multiwatcher"
-	workertrace "github.com/juju/juju/worker/trace"
 )
 
 const AdminSecret = "dummy-secret"
@@ -627,7 +626,7 @@ func (s stubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB
 
 type stubTracerGetter struct{}
 
-func (s *stubTracerGetter) GetTracer(namespace workertrace.TracerNamespace) (trace.Tracer, error) {
+func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.TracerNamespace) (trace.Tracer, error) {
 	return trace.NoopTracer{}, nil
 }
 

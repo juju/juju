@@ -5,7 +5,6 @@ package trace
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -17,35 +16,10 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 )
 
-// TracerNamespace is a combination of the service name and the namespace, it
-// allows us to uniquely identify a tracer.
-type TracerNamespace struct {
-	ServiceName string
-	Namespace   string
-}
-
-// Namespace returns a new namespace.
-func Namespace(serviceName, namespace string) TracerNamespace {
-	return TracerNamespace{
-		ServiceName: serviceName,
-		Namespace:   namespace,
-	}
-}
-
-// ShortNamespace returns a short representation of the namespace.
-func (ns TracerNamespace) ShortNamespace() string {
-	return ns.Namespace[:6]
-}
-
-// String returns a short representation of the namespace.
-func (ns TracerNamespace) String() string {
-	return fmt.Sprintf("%s:%s", ns.ServiceName, ns.Namespace)
-}
-
 // TracerGetter is the interface that is used to get a tracer.
 type TracerGetter interface {
 	// GetTracer returns a tracer for the given namespace.
-	GetTracer(namespace TracerNamespace) (coretrace.Tracer, error)
+	GetTracer(context.Context, coretrace.TracerNamespace) (coretrace.Tracer, error)
 }
 
 // Logger represents the logging methods called.
@@ -61,7 +35,7 @@ type Logger interface {
 }
 
 // TracerWorkerFunc is the function signature for creating a new tracer worker.
-type TracerWorkerFunc func(ctx context.Context, namespace TracerNamespace, endpoint string, insecureSkipVerify bool, showStackTraces bool, logger Logger) (TrackedTracer, error)
+type TracerWorkerFunc func(ctx context.Context, namespace coretrace.TaggedTracerNamespace, endpoint string, insecureSkipVerify bool, showStackTraces bool, logger Logger) (TrackedTracer, error)
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
@@ -111,13 +85,17 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// a noop worker. If the open telemetry does change, then we will
 			// bounce the world and this will be re-evaluated.
 			if !currentConfig.OpenTelemetryEnabled() {
+				config.Logger.Infof("OpenTelemetry disabled, not starting trace worker")
 				return NewNoopWorker(), nil
 			}
+
+			config.Logger.Infof("OpenTelemetry enabled, starting trace worker using endpoint %q", currentConfig.OpenTelemetryEndpoint())
 
 			w, err := NewWorker(WorkerConfig{
 				Clock:              config.Clock,
 				Logger:             config.Logger,
 				NewTracerWorker:    config.NewTracerWorker,
+				Tag:                currentConfig.Tag(),
 				Endpoint:           currentConfig.OpenTelemetryEndpoint(),
 				InsecureSkipVerify: currentConfig.OpenTelemetryInsecure(),
 				StackTracesEnabled: currentConfig.OpenTelemetryStackTraces(),

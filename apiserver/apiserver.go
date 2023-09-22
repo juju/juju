@@ -1101,7 +1101,8 @@ func (srv *Server) serveConn(
 	}
 
 	tracer, err := srv.shared.tracerGetter.GetTracer(
-		trace.Namespace("apiserver", resolvedModelUUID),
+		ctx,
+		coretrace.Namespace("apiserver", resolvedModelUUID),
 	)
 	if err != nil {
 		logger.Infof("failed to get tracer for model %q: %v", resolvedModelUUID, err)

@@ -605,7 +605,11 @@ func (conn *Conn) runRequest(
 	defer cancel()
 
 	ctx, span := conn.root.StartTrace(ctx)
-	defer span.End()
+	defer span.End(
+		trace.StringAttr("request.type", req.hdr.Request.Type),
+		trace.IntAttr("request.version", req.hdr.Request.Version),
+		trace.StringAttr("request.action", req.hdr.Request.Action),
+	)
 
 	rv, err := req.Call(ctx, req.hdr.Request.Id, arg)
 	if err != nil {

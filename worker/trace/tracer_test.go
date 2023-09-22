@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -108,7 +109,7 @@ func (s *tracerSuite) TestTracerRecordError(c *gc.C) {
 }
 
 func (s *tracerSuite) newTracer(c *gc.C) TrackedTracer {
-	tracer, err := NewTracerWorker(context.Background(), Namespace("agent", "controller"), "http://meshuggah.com", false, false, s.logger)
+	tracer, err := NewTracerWorker(context.Background(), coretrace.Namespace("agent", "controller").WithTag(names.NewMachineTag("0")), "http://meshuggah.com", false, false, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	return tracer
 }

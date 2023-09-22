@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"go.opentelemetry.io/otel"
@@ -39,6 +40,8 @@ type WorkerConfig struct {
 	Logger          Logger
 	NewTracerWorker TracerWorkerFunc
 
+	Tag names.Tag
+
 	Endpoint           string
 	InsecureSkipVerify bool
 	StackTracesEnabled bool
@@ -55,6 +58,9 @@ func (c *WorkerConfig) Validate() error {
 	if c.NewTracerWorker == nil {
 		return errors.NotValidf("nil NewTracerWorker")
 	}
+	if c.Tag == nil {
+		return errors.NotValidf("nil Tag")
+	}
 	// If we are enabled, then we require an endpoint.
 	if c.Endpoint == "" {
 		return errors.NotValidf("empty Endpoint")
@@ -65,7 +71,7 @@ func (c *WorkerConfig) Validate() error {
 // traceRequest is used to pass requests for Tracer
 // instances into the worker loop.
 type traceRequest struct {
-	namespace TracerNamespace
+	namespace coretrace.TaggedTracerNamespace
 	done      chan error
 }
 
@@ -165,11 +171,12 @@ func (w *tracerWorker) Wait() error {
 }
 
 // GetTracer returns a tracer for the given namespace.
-func (w *tracerWorker) GetTracer(namespace TracerNamespace) (coretrace.Tracer, error) {
+func (w *tracerWorker) GetTracer(ctx context.Context, namespace coretrace.TracerNamespace) (coretrace.Tracer, error) {
+	ns := namespace.WithTag(w.cfg.Tag)
 	// First check if we've already got the tracer worker already running. If
 	// we have, then return out quickly. The tracerRunner is the cache, so there
 	// is no need to have a in-memory cache here.
-	if tracer, err := w.workerFromCache(namespace); err != nil {
+	if tracer, err := w.workerFromCache(ns); err != nil {
 		if errors.Is(err, w.catacomb.ErrDying()) {
 			return nil, coretrace.ErrTracerDying
 		}
@@ -182,13 +189,15 @@ func (w *tracerWorker) GetTracer(namespace TracerNamespace) (coretrace.Tracer, e
 	// Enqueue the request as it's either starting up and we need to wait longer
 	// or it's not running and we need to start it.
 	req := traceRequest{
-		namespace: namespace,
+		namespace: ns,
 		done:      make(chan error),
 	}
 	select {
 	case w.tracerRequests <- req:
 	case <-w.catacomb.Dying():
 		return nil, coretrace.ErrTracerDying
+	case <-ctx.Done():
+		return nil, errors.Trace(ctx.Err())
 	}
 
 	// Wait for the worker loop to indicate it's done.
@@ -201,11 +210,13 @@ func (w *tracerWorker) GetTracer(namespace TracerNamespace) (coretrace.Tracer, e
 		}
 	case <-w.catacomb.Dying():
 		return nil, coretrace.ErrTracerDying
+	case <-ctx.Done():
+		return nil, errors.Trace(ctx.Err())
 	}
 
 	// This will return a not found error if the request was not honoured.
 	// The error will be logged - we don't crash this worker for bad calls.
-	tracked, err := w.tracerRunner.Worker(namespace.String(), w.catacomb.Dying())
+	tracked, err := w.tracerRunner.Worker(ns.String(), w.catacomb.Dying())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -213,7 +224,7 @@ func (w *tracerWorker) GetTracer(namespace TracerNamespace) (coretrace.Tracer, e
 	return tracked.(coretrace.Tracer), nil
 }
 
-func (w *tracerWorker) workerFromCache(namespace TracerNamespace) (coretrace.Tracer, error) {
+func (w *tracerWorker) workerFromCache(namespace coretrace.TaggedTracerNamespace) (coretrace.Tracer, error) {
 	// If the worker already exists, return the existing worker early.
 	if tracer, err := w.tracerRunner.Worker(namespace.String(), w.catacomb.Dying()); err == nil {
 		return tracer.(coretrace.Tracer), nil
@@ -235,7 +246,7 @@ func (w *tracerWorker) workerFromCache(namespace TracerNamespace) (coretrace.Tra
 	return nil, nil
 }
 
-func (w *tracerWorker) initTracer(namespace TracerNamespace) error {
+func (w *tracerWorker) initTracer(namespace coretrace.TaggedTracerNamespace) error {
 	err := w.tracerRunner.StartWorker(namespace.String(), func() (worker.Worker, error) {
 		ctx, cancel := w.scopedContext()
 		defer cancel()
@@ -300,7 +311,7 @@ func NewNoopWorker() *noopWorker {
 
 // GetTracer returns a tracer for the namespace.
 // The noopWorker will return a stub tracer in this case.
-func (w *noopWorker) GetTracer(namespace TracerNamespace) (coretrace.Tracer, error) {
+func (w *noopWorker) GetTracer(context.Context, coretrace.TracerNamespace) (coretrace.Tracer, error) {
 	return w.tracer, nil
 }
 

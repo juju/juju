@@ -473,10 +473,6 @@ func restrictAPIRootDuringMaintenance(
 // StartTrace starts a trace based on the underlying given context, that
 // is in the context of the apiserver.
 func (r *apiRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
-	// TODO (stickupkid): If the context is already part of a trace, then
-	// we should not start a trace, but instead continue the trace.
-	// This will be useful for tracing workers that perform a request. For now
-	// we'll just trace a single request.
 	ctx = trace.WithTracer(ctx, r.tracer)
 	return trace.Start(ctx, trace.NameFromFunc())
 }
@@ -606,10 +602,6 @@ func newAdminRoot(h *apiHandler, adminAPIs map[int]any) *adminRoot {
 // StartTrace starts a trace based on the underlying given context, that
 // is in the context of the apiserver.
 func (r *adminRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
-	// TODO (stickupkid): If the context is already part of a trace, then
-	// we should not start a trace, but instead continue the trace.
-	// This will be useful for tracing workers that perform a request. For now
-	// we'll just trace a single request.
 	ctx = trace.WithTracer(ctx, r.tracer)
 	return trace.Start(ctx, trace.NameFromFunc())
 }

@@ -5,10 +5,13 @@ package trace
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/database"
+	"github.com/juju/names/v4"
 )
 
 const (
@@ -132,4 +135,59 @@ func Start(ctx context.Context, name Name, options ...Option) (context.Context, 
 	// available it will return a noop tracer.
 	tracer := TracerFromContext(ctx)
 	return tracer.Start(ctx, name.String(), options...)
+}
+
+// TracerNamespace is a combination of the worker name and the namespace, it
+// allows us to uniquely identify a tracer.
+// Note: the worker doesn't need to be 100% accurate, it is just used to
+// identify the tracer.
+type TracerNamespace struct {
+	Worker    string
+	Namespace string
+}
+
+// Namespace returns a new namespace.
+func Namespace(worker, namespace string) TracerNamespace {
+	return TracerNamespace{
+		Worker:    worker,
+		Namespace: namespace,
+	}
+}
+
+// ShortNamespace returns a short representation of the namespace.
+func (ns TracerNamespace) ShortNamespace() string {
+	// Don't shorten the controller namespace.
+	if ns.Namespace == database.ControllerNS {
+		return ns.Namespace
+	}
+	return ns.Namespace[:6]
+}
+
+// String returns a short representation of the namespace.
+func (ns TracerNamespace) String() string {
+	return fmt.Sprintf("%s:%s", ns.Worker, ns.Namespace)
+}
+
+// WithTag returns a new TaggedTracerNamespace.
+func (ns TracerNamespace) WithTag(tag names.Tag) TaggedTracerNamespace {
+	return TaggedTracerNamespace{
+		TracerNamespace: ns,
+		Tag:             tag,
+	}
+}
+
+// TaggedTracerNamespace is a TracerNamespace with a tag.
+type TaggedTracerNamespace struct {
+	TracerNamespace
+	Tag names.Tag
+}
+
+func (ns TaggedTracerNamespace) ServiceName() string {
+	// TODO (stickupkid): This won't always be jujud, work out the right
+	// agent binary.
+	return fmt.Sprintf("jujud-%s", ns.Tag.String())
+}
+
+func (ns TaggedTracerNamespace) String() string {
+	return fmt.Sprintf("%s:%s:%s", ns.Tag.String(), ns.Worker, ns.Namespace)
 }

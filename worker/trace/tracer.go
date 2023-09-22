@@ -25,7 +25,7 @@ import (
 type tracer struct {
 	tomb tomb.Tomb
 
-	namespace          TracerNamespace
+	namespace          coretrace.TaggedTracerNamespace
 	client             otlptrace.Client
 	clientProvider     *sdktrace.TracerProvider
 	clientTracer       trace.Tracer
@@ -36,7 +36,7 @@ type tracer struct {
 // NewTracerWorker returns a new tracer worker.
 func NewTracerWorker(
 	ctx context.Context,
-	namespace TracerNamespace,
+	namespace coretrace.TaggedTracerNamespace,
 	endpoint string,
 	insecureSkipVerify bool,
 	stackTracesEnabled bool,
@@ -92,6 +92,8 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 	attrs = append(attrs,
 		attribute.String("namespace", t.namespace.Namespace),
 		attribute.String("namespace.short", t.namespace.ShortNamespace()),
+		attribute.String("namespace.tag", t.namespace.Tag.String()),
+		attribute.String("namespace.worker", t.namespace.Worker),
 	)
 
 	ctx, span = t.clientTracer.Start(ctx, name, trace.WithAttributes(attrs...))
@@ -123,8 +125,12 @@ func (t *tracer) requiresStackTrace(spanStackTrace bool) bool {
 
 func (t *tracer) loop() error {
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 		defer cancel()
+
+		if err := t.clientProvider.ForceFlush(ctx); err != nil {
+			t.logger.Infof("failed to flush client: %v", err)
+		}
 
 		if err := t.client.Stop(ctx); err != nil {
 			t.logger.Infof("failed to stop client: %v", err)
@@ -147,7 +153,7 @@ func (w *tracer) scopedContext(ctx context.Context) (context.Context, context.Ca
 	return w.tomb.Context(ctx), cancel
 }
 
-func newClient(ctx context.Context, namespace TracerNamespace, endpoint string, insecureSkipVerify bool) (otlptrace.Client, *sdktrace.TracerProvider, trace.Tracer, error) {
+func newClient(ctx context.Context, namespace coretrace.TaggedTracerNamespace, endpoint string, insecureSkipVerify bool) (otlptrace.Client, *sdktrace.TracerProvider, trace.Tracer, error) {
 	options := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(endpoint),
 	}
@@ -163,7 +169,7 @@ func newClient(ctx context.Context, namespace TracerNamespace, endpoint string, 
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(newResource(namespace.ServiceName)),
+		sdktrace.WithResource(newResource(namespace.ServiceName())),
 	)
 
 	return client, tp, tp.Tracer(namespace.String()), nil
