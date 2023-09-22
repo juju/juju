@@ -10,8 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/core/database"
 )
 
 const (
@@ -76,6 +77,9 @@ type Tracer interface {
 	// of the user. Implementations of this API may leak memory or other
 	// resources if Spans are not ended.
 	Start(context.Context, string, ...Option) (context.Context, Span)
+
+	// Enabled returns if the tracer is enabled.
+	Enabled() bool
 }
 
 // Span is the individual component of a trace. It represents a single named
@@ -133,7 +137,7 @@ func NameFromFunc() Name {
 func Start(ctx context.Context, name Name, options ...Option) (context.Context, Span) {
 	// Tracer is always guaranteed to be returned here. If there is no tracer
 	// available it will return a noop tracer.
-	tracer := TracerFromContext(ctx)
+	tracer, _ := TracerFromContext(ctx)
 	return tracer.Start(ctx, name.String(), options...)
 }
 

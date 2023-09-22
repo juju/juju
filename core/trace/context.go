@@ -16,16 +16,16 @@ const (
 
 // TracerFromContext returns a tracer from the context. If no tracer is found,
 // an empty tracer is returned.
-func TracerFromContext(ctx context.Context) Tracer {
+func TracerFromContext(ctx context.Context) (Tracer, bool) {
 	value := ctx.Value(traceContextKey)
 	if value == nil {
-		return NoopTracer{}
+		return NoopTracer{}, false
 	}
 	tracer, ok := value.(Tracer)
 	if !ok {
-		return NoopTracer{}
+		return NoopTracer{}, false
 	}
-	return tracer
+	return tracer, tracer.Enabled()
 }
 
 // SpanFromContext returns a span from the context. If no span is found,
@@ -63,6 +63,10 @@ type NoopTracer struct{}
 
 func (NoopTracer) Start(ctx context.Context, name string, options ...Option) (context.Context, Span) {
 	return ctx, NoopSpan{}
+}
+
+func (NoopTracer) Enabled() bool {
+	return false
 }
 
 // NoopSpan is a span that does nothing.

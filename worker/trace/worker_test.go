@@ -170,7 +170,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		Clock:    s.clock,
 		Logger:   s.logger,
 		Endpoint: "https://meshuggah.com",
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, Logger) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, Logger, NewClientFunc) (TrackedTracer, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedTracer, nil
 		},
@@ -187,6 +187,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.trackedTracer = NewMockTrackedTracer(ctrl)
+	s.trackedTracer.EXPECT().Enabled().Return(true).AnyTimes()
 
 	return ctrl
 }

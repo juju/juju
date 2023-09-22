@@ -221,6 +221,8 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 		return errors.Trace(err)
 	}
 
+	// TODO (stickupkid): Pass in the dqlite tracing context here.
+
 	return fn(ctx)
 }
 

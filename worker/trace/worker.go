@@ -258,6 +258,7 @@ func (w *tracerWorker) initTracer(namespace coretrace.TaggedTracerNamespace) err
 			w.cfg.InsecureSkipVerify,
 			w.cfg.StackTracesEnabled,
 			w.cfg.Logger,
+			NewClient,
 		)
 	})
 	if errors.Is(err, errors.AlreadyExists) {
@@ -331,6 +332,10 @@ type noopTracer struct {
 
 func (t noopTracer) Start(ctx context.Context, name string, opts ...coretrace.Option) (context.Context, coretrace.Span) {
 	return ctx, t.span
+}
+
+func (t noopTracer) Enabled() bool {
+	return false
 }
 
 type noopSpan struct{}

@@ -12,6 +12,8 @@ import (
 	dependencytesting "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
+
+	coretrace "github.com/juju/juju/core/trace"
 )
 
 type manifoldSuite struct {
@@ -46,7 +48,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		AgentName: "agent",
 		Clock:     s.clock,
 		Logger:    s.logger,
-		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, Logger) (TrackedTracer, error) {
+		NewTracerWorker: func(context.Context, coretrace.TaggedTracerNamespace, string, bool, bool, Logger, NewClientFunc) (TrackedTracer, error) {
 			return nil, nil
 		},
 	}

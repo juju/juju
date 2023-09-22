@@ -17,8 +17,9 @@ type contextSuite struct {
 var _ = gc.Suite(&contextSuite{})
 
 func (contextSuite) TestTracerFromContextEmpty(c *gc.C) {
-	tracer := TracerFromContext(context.Background())
+	tracer, enabled := TracerFromContext(context.Background())
 	c.Assert(tracer, gc.NotNil)
+	c.Assert(enabled, gc.Equals, false)
 
 	ctx, span := tracer.Start(context.Background(), "test")
 	c.Assert(ctx, gc.NotNil)
@@ -28,8 +29,9 @@ func (contextSuite) TestTracerFromContextEmpty(c *gc.C) {
 }
 
 func (contextSuite) TestTracerFromContextTracer(c *gc.C) {
-	tracer := TracerFromContext(WithTracer(context.Background(), stubTracer{}))
+	tracer, enabled := TracerFromContext(WithTracer(context.Background(), stubTracer{}))
 	c.Assert(tracer, gc.NotNil)
+	c.Assert(enabled, gc.Equals, true)
 
 	ctx, span := tracer.Start(context.Background(), "test")
 	c.Assert(ctx, gc.NotNil)
@@ -44,6 +46,10 @@ type stubTracer struct{}
 
 func (stubTracer) Start(ctx context.Context, name string, options ...Option) (context.Context, Span) {
 	return ctx, stubSpan{}
+}
+
+func (stubTracer) Enabled() bool {
+	return true
 }
 
 type stubSpan struct{}

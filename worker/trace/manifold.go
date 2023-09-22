@@ -35,7 +35,7 @@ type Logger interface {
 }
 
 // TracerWorkerFunc is the function signature for creating a new tracer worker.
-type TracerWorkerFunc func(ctx context.Context, namespace coretrace.TaggedTracerNamespace, endpoint string, insecureSkipVerify bool, showStackTraces bool, logger Logger) (TrackedTracer, error)
+type TracerWorkerFunc func(ctx context.Context, namespace coretrace.TaggedTracerNamespace, endpoint string, insecureSkipVerify bool, showStackTraces bool, logger Logger, newClient NewClientFunc) (TrackedTracer, error)
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
