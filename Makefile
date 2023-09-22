@@ -631,6 +631,11 @@ microk8s-operator-update: host-install operator-image
 ## microk8s-operator-update: Push up the newly built operator image for use with microk8s
 	@${UPDATE_MICROK8S_OPERATOR}
 
+.PHONY: k3s-operator-update
+k3s-operator-update: host-install operator-image
+## k3s-operator-update: Push up the newly built operator image for use with k3s
+	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | k3s ctr images import -
+
 .PHONY: check-k8s-model
 check-k8s-model:
 ## check-k8s-model: Check if k8s model is present in show-model
