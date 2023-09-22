@@ -88,7 +88,8 @@ type BootstrapSuite struct {
 
 	toolsStorage storage.Storage
 
-	initializeAgentFunc InitializeAgentFunc
+	bootstrapAgentFunc    BootstrapAgentFunc
+	dqliteInitializerFunc agentbootstrap.DqliteInitializerFunc
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -146,10 +147,8 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	err = os.Rename(pathToArchive, filepath.Join(controllerCharmPath, "controller.charm"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.initializeAgentFunc = func(ctx stdcontext.Context, cfg agentbootstrap.AgentInitializerConfig) (*state.Controller, error) {
-		cfg.BootrapDqlite = bootstrapDqliteWithDummyCloudType
-		return agentbootstrap.InitializeAgent(ctx, cfg)
-	}
+	s.bootstrapAgentFunc = agentbootstrap.NewAgentBootstrap
+	s.dqliteInitializerFunc = bootstrapDqliteWithDummyCloudType
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
@@ -390,7 +389,9 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, 
 		args = []string{s.bootstrapParamsFile}
 	}
 	cmd = NewBootstrapCommand()
-	cmd.InitializeAgent = s.initializeAgentFunc
+	cmd.BootstrapAgent = s.bootstrapAgentFunc
+	cmd.DqliteInitializer = s.dqliteInitializerFunc
+
 	err = cmdtesting.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
 	return machineConf, cmd, err
 }
@@ -626,12 +627,12 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	s.initializeAgentFunc = func(ctx stdcontext.Context, cfg agentbootstrap.AgentInitializerConfig) (*state.Controller, error) {
+	s.bootstrapAgentFunc = func(args agentbootstrap.AgentBootstrapArgs, opts ...agentbootstrap.Option) (*agentbootstrap.AgentBootstrap, error) {
 		called++
-		c.Assert(cfg.MongoDialOpts.Direct, jc.IsTrue)
-		c.Assert(cfg.MongoDialOpts.Timeout, gc.Equals, 30*time.Second)
-		c.Assert(cfg.MongoDialOpts.SocketTimeout, gc.Equals, 123*time.Second)
-		c.Assert(cfg.InitializeStateParams.InitialModelConfig, jc.DeepEquals, map[string]interface{}{
+		c.Assert(args.MongoDialOpts.Direct, jc.IsTrue)
+		c.Assert(args.MongoDialOpts.Timeout, gc.Equals, 30*time.Second)
+		c.Assert(args.MongoDialOpts.SocketTimeout, gc.Equals, 123*time.Second)
+		c.Assert(args.StateInitializationParams.InitialModelConfig, jc.DeepEquals, map[string]interface{}{
 			"name": "my-model",
 			"uuid": s.initialModelUUID,
 		})
@@ -647,10 +648,10 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	s.initializeAgentFunc = func(ctx stdcontext.Context, cfg agentbootstrap.AgentInitializerConfig) (*state.Controller, error) {
+	s.bootstrapAgentFunc = func(args agentbootstrap.AgentBootstrapArgs, opts ...agentbootstrap.Option) (*agentbootstrap.AgentBootstrap, error) {
 		called++
-		c.Assert(cfg.MongoDialOpts.Direct, jc.IsTrue)
-		c.Assert(cfg.MongoDialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
+		c.Assert(args.MongoDialOpts.Direct, jc.IsTrue)
+		c.Assert(args.MongoDialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
 		return nil, errors.New("failed to initialize state")
 	}
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--timeout", "13s", s.bootstrapParamsFile)
