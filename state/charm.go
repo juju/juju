@@ -96,6 +96,23 @@ type Platform struct {
 	Channel      string `bson:"channel"`
 }
 
+func (p Platform) validate() error {
+	notValid := set.NewStrings()
+	if p.Architecture == "" {
+		notValid.Add("empty Architecture")
+	}
+	if p.OS == "" {
+		notValid.Add("empty OS")
+	}
+	if p.Channel == "" {
+		notValid.Add("empty Channel")
+	}
+	if notValid.IsEmpty() {
+		return nil
+	}
+	return errors.NewNotValid(nil, strings.Join(notValid.Values(), ", "))
+}
+
 // CharmOrigin holds the original source of a charm. Information about where the
 // charm was installed from (charm-hub, charm-store, local) and any additional
 // information we can utilise when making modelling decisions for upgrading or
@@ -109,6 +126,53 @@ type CharmOrigin struct {
 	Revision *int      `bson:"revision,omitempty"`
 	Channel  *Channel  `bson:"channel,omitempty"`
 	Platform *Platform `bson:"platform"`
+}
+
+func (o CharmOrigin) IsLocal() bool {
+	return corecharm.Local.Matches(o.Source)
+}
+
+func (o CharmOrigin) validate() error {
+	notValid := set.NewStrings()
+	// Local charms must not have a channel, ID, nor hash.
+	if corecharm.Local.Matches(o.Source) {
+		if o.Channel != nil {
+			notValid.Add("Channel exists for local charm")
+		}
+		if o.ID != "" {
+			notValid.Add("ID exists for local charm")
+		}
+		if o.Hash != "" {
+			notValid.Add("Hash exists for local charm")
+		}
+	} else {
+		if o.Revision == nil {
+			notValid.Add("nil Revision")
+		}
+		if o.Channel == nil {
+			// Charms not local must have a channel.
+			notValid.Add("nil Channel")
+		}
+		// If either the charm origin ID or Hash is set before a charm is
+		// downloaded, charm download will fail for charms with a forced series.
+		// The logic (refreshConfig) in sending the correct request to charmhub
+		// will break.
+		if (o.ID != "" && o.Hash == "") || (o.ID == "" && o.Hash != "") {
+			notValid.Add("ID nor Hash can be set before a charm is downloaded")
+		}
+	}
+	if o.Platform == nil {
+		notValid.Add("nil Platform")
+	} else if err := o.Platform.validate(); err != nil {
+		notValid.Add(fmt.Sprintf("Platform (%s)", err.Error()))
+	}
+	if !corecharm.Local.Matches(o.Source) && !corecharm.CharmHub.Matches(o.Source) {
+		notValid.Add(fmt.Sprintf("Source %q", o.Source))
+	}
+	if notValid.IsEmpty() {
+		return nil
+	}
+	return errors.NotValidf(strings.Join(notValid.Values(), ", "))
 }
 
 // AsCoreCharmOrigin converts a state Origin type into a core/charm.Origin.
