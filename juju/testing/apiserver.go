@@ -598,8 +598,8 @@ func SeedCloudCredentials(c *gc.C, runner coredatabase.TxnRunner) {
 	err := cloudbootstrap.InsertInitialControllerCloud(DefaultCloud)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = credentialbootstrap.InsertInitialControllerCredentials(
-		DefaultCredentialTag.Name(), DefaultCloud.Name, AdminUser.Id(), defaultCredential)(context.Background(), runner)
+	tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", DefaultCloud.Name, AdminUser.Name(), DefaultCredentialTag.Name()))
+	err = credentialbootstrap.InsertInitialControllerCredentials(tag, defaultCredential)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

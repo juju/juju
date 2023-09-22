@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/database"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -59,7 +58,6 @@ import (
 var (
 	initiateMongoServer  = peergrouper.InitiateMongoServer
 	agentInitializeState = agentbootstrap.InitializeState
-	extraBootstrapOpts   []database.BootstrapOpt
 	sshGenerateKey       = ssh.GenerateKey
 	minSocketTimeout     = 1 * time.Minute
 )
@@ -394,7 +392,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 			stateenvirons.GetNewPolicyFunc(
 				cloudGetter{cloud: &args.ControllerCloud},
 				credentialGetter{cred: args.ControllerCloudCredential}),
-			extraBootstrapOpts...,
 		)
 		return stateErr
 	})

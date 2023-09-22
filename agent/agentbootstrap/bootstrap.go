@@ -20,6 +20,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	coreagent "github.com/juju/juju/core/agent"
 	corebase "github.com/juju/juju/core/base"
@@ -93,7 +94,6 @@ func InitializeState(
 	args InitializeStateParams,
 	dialOpts mongo.DialOpts,
 	newPolicy state.NewPolicyFunc,
-	setupDBOpts ...database.BootstrapOpt,
 ) (_ *state.Controller, resultErr error) {
 	if c.Tag().Id() != agent.BootstrapControllerId || !coreagent.IsAllowedControllerTag(c.Tag().Kind()) {
 		return nil, errors.Errorf("InitializeState not called with bootstrap controller's configuration")
@@ -118,20 +118,15 @@ func InitializeState(
 	}
 	ctrlCloud := args.ControllerCloud
 	ctrlCloud.IsControllerCloud = true
-	opts := append(setupDBOpts,
-		ccbootstrap.InsertInitialControllerConfig(args.ControllerConfig),
-		cloudbootstrap.InsertInitialControllerCloud(ctrlCloud),
-	)
-	if cloudCredTag.Id() != "" {
-		opts = append(opts, credbootstrap.InsertInitialControllerCredentials(cloudCredTag.Name(), cloudCredTag.Cloud().Id(), cloudCredTag.Owner().Id(), cloudCred))
-	}
 
 	if err := database.BootstrapDqlite(
 		stdcontext.TODO(),
 		database.NewNodeManager(c, logger, coredatabase.NoopSlowQueryLogger{}),
 		logger,
 		false,
-		opts...,
+		ccbootstrap.InsertInitialControllerConfig(args.ControllerConfig),
+		cloudbootstrap.InsertInitialControllerCloud(ctrlCloud),
+		credbootstrap.InsertInitialControllerCredentials(cloudCredTag, cloudCred),
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -212,7 +207,12 @@ func InitializeState(
 
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
-	if err = initAPIHostPorts(st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
+	if err = initAPIHostPorts(
+		st,
+		args.ControllerConfig,
+		args.BootstrapMachineAddresses,
+		servingInfo.APIPort,
+	); err != nil {
 		return nil, err
 	}
 	if err := st.SetStateServingInfo(servingInfo); err != nil {
@@ -540,11 +540,7 @@ func initControllerCloudService(
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(st *state.State, pAddrs corenetwork.ProviderAddresses, apiPort int) error {
-	controllerConfig, err := st.ControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
+func initAPIHostPorts(st *state.State, controllerConfig controller.Config, pAddrs corenetwork.ProviderAddresses, apiPort int) error {
 	addrs, err := pAddrs.ToSpaceAddresses(st)
 	if err != nil {
 		return errors.Trace(err)

@@ -6,6 +6,7 @@ package bootstrap
 import (
 	"context"
 
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -26,7 +27,10 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 	err := cloudbootstrap.InsertInitialControllerCloud(cld)(ctx, s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"foo": "bar"}, false)
-	err = InsertInitialControllerCredentials("foo", "cirrus", "fred", cred)(ctx, s.TxnRunner())
+
+	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
+
+	err = InsertInitialControllerCredentials(tag, cred)(ctx, s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	var owner, cloudName string

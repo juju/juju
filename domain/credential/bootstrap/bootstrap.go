@@ -8,6 +8,7 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/cloud"
@@ -17,13 +18,22 @@ import (
 
 // InsertInitialControllerCredentials inserts the initial
 // controller credential into the database.
-func InsertInitialControllerCredentials(name, cloudName, owner string, credential cloud.Credential) func(context.Context, database.TxnRunner) error {
+func InsertInitialControllerCredentials(cloudCredTag names.CloudCredentialTag, credential cloud.Credential) func(context.Context, database.TxnRunner) error {
 	return func(ctx context.Context, db database.TxnRunner) error {
+		if cloudCredTag.Id() == "" {
+			return nil
+		}
+
+		var (
+			name      = cloudCredTag.Name()
+			cloudName = cloudCredTag.Cloud().Id()
+			owner     = cloudCredTag.Owner().Id()
+		)
+		credentialUUID, err := utils.NewUUID()
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			credentialUUID, err := utils.NewUUID()
-			if err != nil {
-				return errors.Trace(err)
-			}
 			if err := state.CreateCredential(ctx, tx, credentialUUID.String(), name, cloudName, owner, credential); err != nil {
 				return errors.Annotate(err, "creating bootstrap credential")
 			}
