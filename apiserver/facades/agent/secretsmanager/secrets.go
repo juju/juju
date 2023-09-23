@@ -702,29 +702,6 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
 	// arg.Label could be the consumer label for consumers or the owner label for owners.
 	possibleUpdateLabel := arg.Label != "" && uri != nil
 
-	// For local secrets, check those which may be owned by the caller.
-	if uri == nil || uri.IsLocal(s.modelUUID) {
-		// Owner units should always have the URI because we resolved the label to URI on uniter side already.
-		md, err := s.getAppOwnedOrUnitOwnedSecretMetadata(uri, arg.Label, true, possibleUpdateLabel)
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return nil, nil, false, errors.Trace(err)
-		}
-		if md != nil {
-			// 1. secrets can be accessed by the owner;
-			// 2. application owned secrets can be accessed by all the units of the application using owner label or URI.
-			val, valueRef, err := s.secretsState.GetSecretValue(md.URI, md.LatestRevision)
-			if err != nil {
-				return nil, nil, false, errors.Trace(err)
-			}
-			content := &secrets.ContentParams{SecretValue: val, ValueRef: valueRef}
-			if err != nil || content.ValueRef == nil {
-				return content, nil, false, errors.Trace(err)
-			}
-			backend, draining, err := s.getBackend(content.ValueRef.BackendID)
-			return content, backend, draining, errors.Trace(err)
-		}
-	}
-
 	if uri == nil {
 		var err error
 		uri, err = s.secretsConsumer.GetURIByConsumerLabel(arg.Label, s.authTag)
