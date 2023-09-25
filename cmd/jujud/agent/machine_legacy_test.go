@@ -479,7 +479,7 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFile(c *gc.C) {
 		func() {
 			s.cmdRunner.EXPECT().RunCommands(exec.RunParams{
 				Commands: "[ ! -f /etc/update-manager/release-upgrades ] || sed -i '/Prompt=/ s/=.*/=never/' /etc/update-manager/release-upgrades",
-			}).Return(&exec.ExecResponse{Code: 0}, nil).MinTimes(1)
+			}).Return(&exec.ExecResponse{Code: 0}, nil).AnyTimes()
 		},
 		func(conf agent.Config, a *MachineAgent) {
 			apiInfo, ok := conf.APIInfo()
