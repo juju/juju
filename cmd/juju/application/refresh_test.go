@@ -149,6 +149,12 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 			Meta: &charm.Meta{},
 		},
 	}
+	risk := "stable"
+	if charm.Local.Matches(currentCharmURL.Schema) {
+		// A local charm must never have a track, risk,
+		// nor branch.
+		risk = ""
+	}
 	s.charmAPIClient = mockCharmRefreshClient{
 		charmURL: currentCharmURL,
 		bindings: map[string]string{
@@ -156,7 +162,7 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 		},
 		charmOrigin: commoncharm.Origin{
 			Source: schemaToOriginScource(currentCharmURL.Schema),
-			Risk:   "stable",
+			Risk:   risk,
 		},
 	}
 	s.modelConfigGetter = newMockModelConfigGetter()
