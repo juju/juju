@@ -24,10 +24,12 @@ func newMachinerAPI(ctx facade.Context) (*MachinerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	serviceFactory := ctx.ServiceFactory()
 	return NewMachinerAPIForState(
 		systemState,
 		ctx.State(),
-		ctx.ServiceFactory().Cloud(),
+		serviceFactory.ControllerConfig(),
+		serviceFactory.Cloud(),
 		ctx.Resources(),
 		ctx.Auth(),
 	)

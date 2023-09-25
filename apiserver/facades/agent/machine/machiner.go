@@ -13,10 +13,17 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
+
+// ControllerConfigService defines the methods on the controller config service
+// that are needed by the machiner API.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
@@ -27,15 +34,20 @@ type MachinerAPI struct {
 	*common.APIAddresser
 	*networkingcommon.NetworkConfigAPI
 
-	st           *state.State
-	auth         facade.Authorizer
-	getCanModify common.GetAuthFunc
-	getCanRead   common.GetAuthFunc
+	st                      *state.State
+	controllerConfigService ControllerConfigService
+	auth                    facade.Authorizer
+	getCanModify            common.GetAuthFunc
+	getCanRead              common.GetAuthFunc
 }
 
 // NewMachinerAPIForState creates a new instance of the Machiner API.
 func NewMachinerAPIForState(
-	ctrlSt, st *state.State, cloudService common.CloudService, resources facade.Resources, authorizer facade.Authorizer,
+	ctrlSt, st *state.State,
+	controllerConfigService ControllerConfigService,
+	cloudService common.CloudService,
+	resources facade.Resources,
+	authorizer facade.Authorizer,
 ) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -51,16 +63,17 @@ func NewMachinerAPIForState(
 	}
 
 	return &MachinerAPI{
-		LifeGetter:         common.NewLifeGetter(st, getCanAccess),
-		StatusSetter:       common.NewStatusSetter(st, getCanAccess),
-		DeadEnsurer:        common.NewDeadEnsurer(st, nil, getCanAccess),
-		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanAccess),
-		APIAddresser:       common.NewAPIAddresser(ctrlSt, resources),
-		NetworkConfigAPI:   netConfigAPI,
-		st:                 st,
-		auth:               authorizer,
-		getCanModify:       getCanAccess,
-		getCanRead:         getCanAccess,
+		LifeGetter:              common.NewLifeGetter(st, getCanAccess),
+		StatusSetter:            common.NewStatusSetter(st, getCanAccess),
+		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getCanAccess),
+		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, resources, getCanAccess),
+		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
+		NetworkConfigAPI:        netConfigAPI,
+		st:                      st,
+		controllerConfigService: controllerConfigService,
+		auth:                    authorizer,
+		getCanModify:            getCanAccess,
+		getCanRead:              getCanAccess,
 	}, nil
 }
 
@@ -87,7 +100,7 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 	if err != nil {
 		return results, err
 	}
-	controllerConfig, err := api.st.ControllerConfig()
+	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return results, err
 	}
@@ -185,7 +198,7 @@ func (api *MachinerAPI) RecordAgentStartInformation(ctx context.Context, args pa
 
 // APIHostPorts returns the API server addresses.
 func (api *MachinerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := api.st.ControllerConfig()
+	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -195,7 +208,7 @@ func (api *MachinerAPI) APIHostPorts(ctx context.Context) (result params.APIHost
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (api *MachinerAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := api.st.ControllerConfig()
+	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
