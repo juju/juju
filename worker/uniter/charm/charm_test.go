@@ -37,7 +37,7 @@ func (br *bundleReader) EnableWaitForAbort() (stopWaiting chan struct{}) {
 
 // Read implements the BundleReader interface.
 func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (charm.Bundle, error) {
-	bundle, ok := br.bundles[info.String()]
+	bundle, ok := br.bundles[info.URL()]
 	if !ok {
 		return nil, fmt.Errorf("no such charm!")
 	}
@@ -88,7 +88,7 @@ type bundleInfo struct {
 	url string
 }
 
-func (info *bundleInfo) String() string {
+func (info *bundleInfo) URL() string {
 	return info.url
 }
 

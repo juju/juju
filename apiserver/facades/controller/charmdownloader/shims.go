@@ -4,7 +4,6 @@
 package charmdownloader
 
 import (
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 
@@ -32,7 +31,7 @@ func (s stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedC
 	return s.st.UpdateUploadedCharm(info)
 }
 
-func (s stateShim) PrepareCharmUpload(curl *charm.URL) (services.UploadedCharm, error) {
+func (s stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
 	return s.st.PrepareCharmUpload(curl)
 }
 

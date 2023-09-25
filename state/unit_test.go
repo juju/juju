@@ -1291,7 +1291,7 @@ func (s *UnitSuite) TestSetCharmURLSuccess(c *gc.C) {
 
 	curl = s.unit.CharmURL()
 	c.Assert(curl, gc.NotNil)
-	c.Assert(*curl, gc.Equals, s.charm.URL().String())
+	c.Assert(*curl, gc.Equals, s.charm.URL())
 }
 
 func (s *UnitSuite) TestSetCharmURLFailures(c *gc.C) {
@@ -1299,10 +1299,10 @@ func (s *UnitSuite) TestSetCharmURLFailures(c *gc.C) {
 	curl := s.unit.CharmURL()
 	c.Assert(curl, gc.IsNil)
 
-	err := s.unit.SetCharmURL(nil)
-	c.Assert(err, gc.ErrorMatches, "cannot set nil charm url")
+	err := s.unit.SetCharmURL("")
+	c.Assert(err, gc.ErrorMatches, "cannot set empty charm url")
 
-	err = s.unit.SetCharmURL(charm.MustParseURL("ch:missing/one-1"))
+	err = s.unit.SetCharmURL("ch:missing/one-1")
 	c.Assert(err, gc.ErrorMatches, `unknown charm url "ch:missing/one-1"`)
 
 	err = s.unit.EnsureDead()
@@ -1331,7 +1331,7 @@ func (s *UnitSuite) TestSetCharmURLWithDyingUnit(c *gc.C) {
 
 	curl := s.unit.CharmURL()
 	c.Assert(curl, gc.NotNil)
-	c.Assert(*curl, gc.Equals, s.charm.URL().String())
+	c.Assert(*curl, gc.Equals, s.charm.URL())
 }
 
 func (s *UnitSuite) TestSetCharmURLRetriesWithDeadUnit(c *gc.C) {
@@ -1380,7 +1380,7 @@ func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
 				c.Assert(err, jc.ErrorIsNil)
 				currentURL := s.unit.CharmURL()
 				c.Assert(currentURL, gc.NotNil)
-				c.Assert(*currentURL, gc.Equals, s.charm.URL().String())
+				c.Assert(*currentURL, gc.Equals, s.charm.URL())
 			},
 		},
 	).Check()

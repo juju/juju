@@ -455,7 +455,7 @@ func (b *BundleAPI) bundleDataApplications(
 			// from the charm config metadata.
 			cfgInfo, ok := charmConfigCache[charmURL]
 			if !ok {
-				ch, err := backend.Charm(curl)
+				ch, err := backend.Charm(curl.String())
 				if err != nil {
 					return nil, nil, nil, errors.Trace(err)
 				}

@@ -4,7 +4,6 @@
 package interfaces
 
 import (
-	"github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
@@ -26,10 +25,10 @@ type BackendState interface {
 	AddCharmMetadata(state.CharmInfo) (*state.Charm, error)
 	AllCharms() ([]*state.Charm, error)
 	Application(string) (Application, error)
-	Charm(curl *charm.URL) (*state.Charm, error)
+	Charm(curl string) (*state.Charm, error)
 	ControllerTag() names.ControllerTag
 	UpdateUploadedCharm(info state.CharmInfo) (services.UploadedCharm, error)
-	PrepareCharmUpload(curl *charm.URL) (services.UploadedCharm, error)
+	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	Machine(string) (Machine, error)
 	state.MongoSessioner
 	ModelUUID() string

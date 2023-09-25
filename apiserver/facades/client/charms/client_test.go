@@ -66,7 +66,7 @@ func (s *charmsSuite) TestMeteredCharmInfo(c *gc.C) {
 	meteredCharm := f.MakeCharm(
 		c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/xenial/metered"})
 	info, err := s.api.CharmInfo(context.Background(), params.CharmURL{
-		URL: meteredCharm.String(),
+		URL: meteredCharm.URL(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := &params.CharmMetrics{
@@ -117,7 +117,7 @@ func (s *charmsSuite) TestIsMeteredFalse(c *gc.C) {
 	defer release()
 	charm := f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
 	metered, err := s.api.IsMetered(context.Background(), params.CharmURL{
-		URL: charm.String(),
+		URL: charm.URL(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metered.Metered, jc.IsFalse)
@@ -128,7 +128,7 @@ func (s *charmsSuite) TestIsMeteredTrue(c *gc.C) {
 	defer release()
 	meteredCharm := f.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "ch:amd64/quantal/metered"})
 	metered, err := s.api.IsMetered(context.Background(), params.CharmURL{
-		URL: meteredCharm.String(),
+		URL: meteredCharm.URL(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(metered.Metered, jc.IsTrue)
@@ -156,10 +156,8 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 	s.expectResolveWithPreferredChannel(3, nil)
 	api := s.api(c)
 
-	curl, err := charm.ParseURL("ch:testme")
-	c.Assert(err, jc.ErrorIsNil)
-	seriesCurl, err := charm.ParseURL("ch:amd64/focal/testme")
-	c.Assert(err, jc.ErrorIsNil)
+	curl := "ch:testme"
+	seriesCurl := "ch:amd64/focal/testme"
 
 	edgeOrigin := params.CharmOrigin{
 		Source:       corecharm.CharmHub.String(),
@@ -176,18 +174,18 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
-			{Reference: curl.String(), Origin: params.CharmOrigin{
+			{Reference: curl, Origin: params.CharmOrigin{
 				Source:       corecharm.CharmHub.String(),
 				Architecture: "amd64",
 			}},
-			{Reference: curl.String(), Origin: stableOrigin},
-			{Reference: seriesCurl.String(), Origin: edgeOrigin},
+			{Reference: curl, Origin: stableOrigin},
+			{Reference: seriesCurl, Origin: edgeOrigin},
 		},
 	}
 
 	expected := []params.ResolveCharmWithChannelResult{
 		{
-			URL:    curl.String(),
+			URL:    curl,
 			Origin: stableOrigin,
 			SupportedBases: []params.Base{
 				{Name: "ubuntu", Channel: "18.04"},
@@ -195,7 +193,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 				{Name: "ubuntu", Channel: "16.04"},
 			},
 		}, {
-			URL:    curl.String(),
+			URL:    curl,
 			Origin: stableOrigin,
 			SupportedBases: []params.Base{
 				{Name: "ubuntu", Channel: "18.04"},
@@ -204,7 +202,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 			},
 		},
 		{
-			URL:    seriesCurl.String(),
+			URL:    seriesCurl,
 			Origin: edgeOrigin,
 			SupportedBases: []params.Base{
 				{Name: "ubuntu", Channel: "18.04"},
@@ -240,8 +238,7 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 	s.expectResolveWithPreferredChannelNoSeries()
 	api := s.api(c)
 
-	seriesCurl, err := charm.ParseURL("ch:focal/testme")
-	c.Assert(err, jc.ErrorIsNil)
+	seriesCurl := "ch:focal/testme"
 
 	edgeOrigin := params.CharmOrigin{
 		Source:       corecharm.CharmHub.String(),
@@ -252,12 +249,12 @@ func (s *charmsMockSuite) TestResolveCharmNoDefinedSeries(c *gc.C) {
 
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
-			{Reference: seriesCurl.String(), Origin: edgeOrigin},
+			{Reference: seriesCurl, Origin: edgeOrigin},
 		},
 	}
 
 	expected := []params.ResolveCharmWithChannelResult{{
-		URL:            seriesCurl.String(),
+		URL:            seriesCurl,
 		Origin:         edgeOrigin,
 		SupportedBases: []params.Base{{Name: "ubuntu", Channel: "20.04/stable"}},
 	}}
@@ -276,10 +273,8 @@ func (s *charmsMockSuite) TestResolveCharmV6(c *gc.C) {
 		},
 	}
 
-	curl, err := charm.ParseURL("ch:testme")
-	c.Assert(err, jc.ErrorIsNil)
-	seriesCurl, err := charm.ParseURL("ch:amd64/focal/testme")
-	c.Assert(err, jc.ErrorIsNil)
+	curl := "ch:testme"
+	seriesCurl := "ch:amd64/focal/testme"
 
 	edgeOrigin := params.CharmOrigin{
 		Source:       corecharm.CharmHub.String(),
@@ -296,27 +291,27 @@ func (s *charmsMockSuite) TestResolveCharmV6(c *gc.C) {
 
 	args := params.ResolveCharmsWithChannel{
 		Resolve: []params.ResolveCharmWithChannel{
-			{Reference: curl.String(), Origin: params.CharmOrigin{
+			{Reference: curl, Origin: params.CharmOrigin{
 				Source:       corecharm.CharmHub.String(),
 				Architecture: "amd64",
 			}},
-			{Reference: curl.String(), Origin: stableOrigin},
-			{Reference: seriesCurl.String(), Origin: edgeOrigin},
+			{Reference: curl, Origin: stableOrigin},
+			{Reference: seriesCurl, Origin: edgeOrigin},
 		},
 	}
 
 	expected := []params.ResolveCharmWithChannelResultV6{
 		{
-			URL:             curl.String(),
+			URL:             curl,
 			Origin:          stableOrigin,
 			SupportedSeries: []string{"bionic", "focal", "xenial"},
 		}, {
-			URL:             curl.String(),
+			URL:             curl,
 			Origin:          stableOrigin,
 			SupportedSeries: []string{"bionic", "focal", "xenial"},
 		},
 		{
-			URL:             seriesCurl.String(),
+			URL:             seriesCurl,
 			Origin:          edgeOrigin,
 			SupportedSeries: []string{"bionic", "focal", "xenial"},
 		},
@@ -331,16 +326,15 @@ func (s *charmsMockSuite) TestAddCharmWithLocalSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	api := s.api(c)
 
-	curl, err := charm.ParseURL("local:testme")
-	c.Assert(err, jc.ErrorIsNil)
+	curl := "local:testme"
 	args := params.AddCharmWithOrigin{
-		URL: curl.String(),
+		URL: curl,
 		Origin: params.CharmOrigin{
 			Source: "local",
 		},
 		Force: false,
 	}
-	_, err = api.AddCharm(context.Background(), args)
+	_, err := api.AddCharm(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, `unknown schema for charm URL "local:testme"`)
 }
 
@@ -372,7 +366,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 		},
 	}
 
-	s.state.EXPECT().Charm(curl).Return(nil, errors.NotFoundf("%q", curl))
+	s.state.EXPECT().Charm(curl.String()).Return(nil, errors.NotFoundf("%q", curl))
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
 
 	expMeta := new(charm.Meta)
@@ -392,7 +386,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 
 	s.state.EXPECT().AddCharmMetadata(gomock.Any()).DoAndReturn(
 		func(ci state.CharmInfo) (*state.Charm, error) {
-			c.Assert(ci.ID, gc.DeepEquals, curl)
+			c.Assert(ci.ID, gc.DeepEquals, curl.String())
 			// Check that the essential metadata matches what
 			// the repository returned. We use pointer checks here.
 			c.Assert(ci.Charm.Meta(), gc.Equals, expMeta)
@@ -442,7 +436,7 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 		},
 	}
 
-	s.state.EXPECT().Charm(curl).Return(nil, nil) // a nil error indicates that the charm doc already exists
+	s.state.EXPECT().Charm(curl.String()).Return(nil, nil) // a nil error indicates that the charm doc already exists
 	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repository, nil)
 	s.repository.EXPECT().GetDownloadURL(curl, gomock.Any()).Return(resURL, resolvedOrigin, nil)
 
@@ -471,8 +465,7 @@ func (s *charmsMockSuite) TestQueueAsyncCharmDownloadResolvesAgainOriginForAlrea
 func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *gc.C) {
 	appName := "winnie"
 
-	curl, err := charm.ParseURL("ch:poo")
-	c.Assert(err, jc.ErrorIsNil)
+	curl := "ch:poo"
 
 	defer s.setupMocks(c).Finish()
 	s.expectSubordinateApplication(appName)
@@ -482,7 +475,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithSubordinate(c *gc.C) {
 	args := params.ApplicationCharmPlacements{
 		Placements: []params.ApplicationCharmPlacement{{
 			Application: appName,
-			CharmURL:    curl.String(),
+			CharmURL:    curl,
 		}},
 	}
 
@@ -495,8 +488,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *gc.C) {
 	arch := arch.DefaultArchitecture
 	appName := "winnie"
 
-	curl, err := charm.ParseURL("ch:poo")
-	c.Assert(err, jc.ErrorIsNil)
+	curl := "ch:poo"
 
 	defer s.setupMocks(c).Finish()
 	s.expectApplication(appName)
@@ -507,7 +499,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *gc.C) {
 	args := params.ApplicationCharmPlacements{
 		Placements: []params.ApplicationCharmPlacement{{
 			Application: appName,
-			CharmURL:    curl.String(),
+			CharmURL:    curl,
 		}},
 	}
 
@@ -519,8 +511,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithConstraintArch(c *gc.C) {
 func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArch(c *gc.C) {
 	appName := "winnie"
 
-	curl, err := charm.ParseURL("ch:poo")
-	c.Assert(err, jc.ErrorIsNil)
+	curl := "ch:poo"
 
 	defer s.setupMocks(c).Finish()
 	s.expectApplication(appName)
@@ -536,7 +527,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArch(c *gc.C) {
 	args := params.ApplicationCharmPlacements{
 		Placements: []params.ApplicationCharmPlacement{{
 			Application: appName,
-			CharmURL:    curl.String(),
+			CharmURL:    curl,
 		}},
 	}
 
@@ -549,8 +540,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchMachine(c *
 	arch := arch.DefaultArchitecture
 	appName := "winnie"
 
-	curl, err := charm.ParseURL("ch:poo")
-	c.Assert(err, jc.ErrorIsNil)
+	curl := "ch:poo"
 
 	defer s.setupMocks(c).Finish()
 	s.expectApplication(appName)
@@ -565,7 +555,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchMachine(c *
 	args := params.ApplicationCharmPlacements{
 		Placements: []params.ApplicationCharmPlacement{{
 			Application: appName,
-			CharmURL:    curl.String(),
+			CharmURL:    curl,
 		}},
 	}
 
@@ -577,8 +567,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchMachine(c *
 func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchAndHardwareArch(c *gc.C) {
 	appName := "winnie"
 
-	curl, err := charm.ParseURL("ch:poo")
-	c.Assert(err, jc.ErrorIsNil)
+	curl := "ch:poo"
 
 	defer s.setupMocks(c).Finish()
 	s.expectApplication(appName)
@@ -594,7 +583,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchAndHardware
 	args := params.ApplicationCharmPlacements{
 		Placements: []params.ApplicationCharmPlacement{{
 			Application: appName,
-			CharmURL:    curl.String(),
+			CharmURL:    curl,
 		}},
 	}
 
@@ -606,8 +595,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithNoConstraintArchAndHardware
 func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
 	appName := "winnie"
 
-	curl, err := charm.ParseURL("ch:poo")
-	c.Assert(err, jc.ErrorIsNil)
+	curl := "ch:poo"
 
 	defer s.setupMocks(c).Finish()
 	s.expectApplication(appName)
@@ -629,7 +617,7 @@ func (s *charmsMockSuite) TestCheckCharmPlacementWithHeterogeneous(c *gc.C) {
 	args := params.ApplicationCharmPlacements{
 		Placements: []params.ApplicationCharmPlacement{{
 			Application: appName,
-			CharmURL:    curl.String(),
+			CharmURL:    curl,
 		}},
 	}
 

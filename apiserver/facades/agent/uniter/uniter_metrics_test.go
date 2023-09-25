@@ -74,7 +74,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
 			Tag: s.meteredUnit.Tag().String(),
 			Batch: params.MetricBatch{
 				UUID:     uuid,
-				CharmURL: s.meteredCharm.String(),
+				CharmURL: s.meteredCharm.URL(),
 				Created:  time.Now(),
 				Metrics:  metrics,
 			}}}},
@@ -88,7 +88,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatch(c *gc.C) {
 	batch, err := s.ControllerModel(c).State().MetricBatch(uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batch.UUID(), gc.Equals, uuid)
-	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.String())
+	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.URL())
 	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
 	storedMetrics := batch.Metrics()
 	c.Assert(storedMetrics, gc.HasLen, 1)
@@ -105,7 +105,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 			Tag: s.meteredUnit.Tag().String(),
 			Batch: params.MetricBatch{
 				UUID:     uuid,
-				CharmURL: s.meteredCharm.String(),
+				CharmURL: s.meteredCharm.URL(),
 				Created:  time.Now(),
 				Metrics:  metrics,
 			}}}})
@@ -118,7 +118,7 @@ func (s *unitMetricBatchesSuite) TestAddMetricsBatchNoCharmURL(c *gc.C) {
 	batch, err := s.ControllerModel(c).State().MetricBatch(uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batch.UUID(), gc.Equals, uuid)
-	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.String())
+	c.Assert(batch.CharmURL(), gc.Equals, s.meteredCharm.URL())
 	c.Assert(batch.Unit(), gc.Equals, s.meteredUnit.Name())
 	storedMetrics := batch.Metrics()
 	c.Assert(storedMetrics, gc.HasLen, 1)

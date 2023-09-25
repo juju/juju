@@ -35,9 +35,9 @@ type fakeBundleInfo struct {
 	sha256 string
 }
 
-func (f fakeBundleInfo) String() string {
+func (f fakeBundleInfo) URL() string {
 	if f.curl == "" {
-		return f.BundleInfo.String()
+		return f.BundleInfo.URL()
 	}
 	return f.curl
 }

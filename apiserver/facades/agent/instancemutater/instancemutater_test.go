@@ -408,8 +408,8 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction() {
 	stateExp.Application("foo").Return(s.application, nil)
 	chURLStr := "ch:app-0"
 	appExp.CharmURL().Return(&chURLStr)
+	stateExp.Charm(chURLStr).Return(s.charm, nil)
 	chURL := charm.MustParseURL(chURLStr)
-	stateExp.Charm(chURL).Return(s.charm, nil)
 	charmExp.Revision().Return(chURL.Revision)
 	charmExp.LXDProfile().Return(lxdprofile.Profile{
 		Config: map[string]string{
@@ -434,8 +434,8 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithE
 	stateExp.Application("foo").Return(s.application, nil)
 	chURLStr := "ch:app-0"
 	appExp.CharmURL().Return(&chURLStr)
+	stateExp.Charm(chURLStr).Return(s.charm, nil)
 	chURL := charm.MustParseURL(chURLStr)
-	stateExp.Charm(chURL).Return(s.charm, nil)
 	charmExp.Revision().Return(chURL.Revision)
 	charmExp.LXDProfile().Return(lxdprofile.Profile{})
 }

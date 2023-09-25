@@ -103,7 +103,7 @@ type stepper interface {
 
 type charmInfo struct {
 	charm charm.Charm
-	url   *charm.URL
+	url   string
 }
 
 type context struct {
@@ -3636,7 +3636,7 @@ type addCharmHubCharm struct {
 func (ac addCharmHubCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 	ch := testcharms.Hub.CharmDir(ac.name)
 	name := ch.Meta().Name
-	curl := charm.MustParseURL(fmt.Sprintf("%s:%s-%d", scheme, name, rev))
+	curl := fmt.Sprintf("%s:%s-%d", scheme, name, rev)
 	ctx.charms[ac.name] = charmInfo{
 		charm: ch,
 		url:   curl,
@@ -3665,7 +3665,7 @@ type addLocalCharm struct {
 func (ac addLocalCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
-	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
+	curl := fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev)
 	ctx.charms[ac.name] = charmInfo{
 		charm: ch,
 		url:   curl,
@@ -3697,7 +3697,7 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	info, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
 
-	series := info.url.Series
+	series := charm.MustParseURL(info.url).Series
 	if series == "" {
 		series = "quantal"
 	}
@@ -3705,7 +3705,7 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	c.Assert(err, jc.ErrorIsNil)
 	now := time.Now()
 	app := params.ApplicationStatus{
-		Charm: info.url.String(),
+		Charm: info.url,
 		Base:  params.Base{Name: base.OS, Channel: base.Channel.String()},
 		Status: params.DetailedStatus{
 			Status: status.Unknown.String(),
@@ -3895,8 +3895,7 @@ type addCharmPlaceholder struct {
 func (ac addCharmPlaceholder) step(c *gc.C, ctx *context) {
 	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
-	curl := charm.MustParseURL(fmt.Sprintf("ch:quantal/%s", name))
-	curl.Revision = ac.rev
+	curl := fmt.Sprintf("ch:quantal/%s-%d", name, ac.rev)
 	ctx.charms[ac.name] = charmInfo{
 		charm: ch,
 		url:   curl,

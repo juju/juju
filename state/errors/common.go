@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
@@ -45,10 +44,10 @@ const (
 // the given charm is already uploaded and marked as not pending in
 // state.
 type errCharmAlreadyUploaded struct {
-	curl *charm.URL
+	curl string
 }
 
-func NewErrCharmAlreadyUploaded(curl *charm.URL) error {
+func NewErrCharmAlreadyUploaded(curl string) error {
 	return &errCharmAlreadyUploaded{curl: curl}
 }
 

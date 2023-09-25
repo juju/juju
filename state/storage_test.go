@@ -156,7 +156,7 @@ func (s *StorageStateSuiteBase) setupSingleStorageDetachable(c *gc.C, kind, pool
 	testStorage := map[string]state.StorageConstraints{
 		"data": makeStorageCons(pool, 1024, 1),
 	}
-	app := s.AddTestingApplicationWithStorage(c, ch.URL().Name, ch, testStorage)
+	app := s.AddTestingApplicationWithStorage(c, charm.MustParseURL(ch.URL()).Name, ch, testStorage)
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	storageTag := names.NewStorageTag("data/0")

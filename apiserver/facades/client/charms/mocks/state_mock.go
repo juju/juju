@@ -89,7 +89,7 @@ func (mr *MockBackendStateMockRecorder) Application(arg0 interface{}) *gomock.Ca
 }
 
 // Charm mocks base method.
-func (m *MockBackendState) Charm(arg0 *charm.URL) (*state.Charm, error) {
+func (m *MockBackendState) Charm(arg0 string) (*state.Charm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Charm", arg0)
 	ret0, _ := ret[0].(*state.Charm)
@@ -176,7 +176,7 @@ func (mr *MockBackendStateMockRecorder) MongoSession() *gomock.Call {
 }
 
 // PrepareCharmUpload mocks base method.
-func (m *MockBackendState) PrepareCharmUpload(arg0 *charm.URL) (services.UploadedCharm, error) {
+func (m *MockBackendState) PrepareCharmUpload(arg0 string) (services.UploadedCharm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
 	ret0, _ := ret[0].(services.UploadedCharm)

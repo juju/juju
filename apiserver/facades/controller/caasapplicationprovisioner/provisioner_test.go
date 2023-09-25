@@ -92,11 +92,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 		life: state.Alive,
 		charm: &mockCharm{
 			meta: &charm.Meta{},
-			url: &charm.URL{
-				Schema:   "ch",
-				Name:     "gitlab",
-				Revision: -1,
-			},
+			url:  "ch:gitlab",
 		},
 		charmModifiedVersion: 10,
 		scale:                3,
@@ -132,11 +128,7 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(
 		charmPending: true,
 		charm: &mockCharm{
 			meta: &charm.Meta{},
-			url: &charm.URL{
-				Schema:   "ch",
-				Name:     "gitlab",
-				Revision: -1,
-			},
+			url:  "ch:gitlab",
 		},
 	}
 	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
@@ -149,11 +141,7 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 		life: state.Alive,
 		charm: &mockCharm{
 			meta: &charm.Meta{},
-			url: &charm.URL{
-				Schema:   "ch",
-				Name:     "gitlab",
-				Revision: -1,
-			},
+			url:  "ch:gitlab",
 		},
 	}
 	result, err := s.api.SetOperatorStatus(context.Background(), params.SetStatus{
@@ -174,11 +162,7 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 		life: state.Alive,
 		charm: &mockCharm{
 			meta: &charm.Meta{},
-			url: &charm.URL{
-				Schema:   "ch",
-				Name:     "gitlab",
-				Revision: -1,
-			},
+			url:  "ch:gitlab",
 		},
 		units: []*mockUnit{
 			{
@@ -246,11 +230,7 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 					},
 				},
 			},
-			url: &charm.URL{
-				Schema:   "ch",
-				Name:     "gitlab",
-				Revision: -1,
-			},
+			url: "ch:gitlab",
 		},
 	}
 	s.st.resource = &mockResources{
@@ -305,11 +285,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 					},
 				},
 			},
-			url: &charm.URL{
-				Schema:   "ch",
-				Name:     "gitlab",
-				Revision: -1,
-			},
+			url: "ch:gitlab",
 		},
 		units: []*mockUnit{
 			{
@@ -496,11 +472,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 					},
 				},
 			},
-			url: &charm.URL{
-				Schema:   "ch",
-				Name:     "gitlab",
-				Revision: -1,
-			},
+			url: "ch:gitlab",
 		},
 		units: []*mockUnit{
 			{
@@ -585,11 +557,7 @@ func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *gc.C
 		life: state.Alive,
 		charm: &mockCharm{
 			meta: &charm.Meta{},
-			url: &charm.URL{
-				Schema:   "ch",
-				Name:     "gitlab",
-				Revision: -1,
-			},
+			url:  "ch:gitlab",
 		},
 	}
 
@@ -610,11 +578,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *gc.C) {
 		life: state.Alive,
 		charm: &mockCharm{
 			meta: &charm.Meta{},
-			url: &charm.URL{
-				Schema:   "ch",
-				Name:     "gitlab",
-				Revision: -1,
-			},
+			url:  "ch:gitlab",
 		},
 		unitsChanges: unitsChanges,
 		unitsWatcher: statetesting.NewMockStringsWatcher(unitsChanges),

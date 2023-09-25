@@ -19,7 +19,7 @@ import (
 
 type State interface {
 	Model() (Model, error)
-	Charm(curl *charm.URL) (Charm, error)
+	Charm(curl string) (Charm, error)
 	Application(appName string) (Application, error)
 }
 
@@ -28,7 +28,7 @@ type Application interface {
 }
 
 type Charm interface {
-	String() string
+	URL() string
 	Revision() int
 	Meta() *charm.Meta
 	Config() *charm.Config
@@ -75,11 +75,7 @@ func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (par
 		return params.Charm{}, errors.Trace(err)
 	}
 
-	curl, err := charm.ParseURL(args.URL)
-	if err != nil {
-		return params.Charm{}, errors.Trace(err)
-	}
-	aCharm, err := a.state.Charm(curl)
+	aCharm, err := a.state.Charm(args.URL)
 	if err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
@@ -125,7 +121,7 @@ func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args
 func convertCharm(ch Charm) params.Charm {
 	charm := params.Charm{
 		Revision: ch.Revision(),
-		URL:      ch.String(),
+		URL:      ch.URL(),
 		Config:   params.ToCharmOptionMap(ch.Config()),
 		Meta:     convertCharmMeta(ch.Meta()),
 		Actions:  convertCharmActions(ch.Actions()),
@@ -442,7 +438,7 @@ func (s *StateShim) Model() (Model, error) {
 	return s.State.Model()
 }
 
-func (s *StateShim) Charm(curl *charm.URL) (Charm, error) {
+func (s *StateShim) Charm(curl string) (Charm, error) {
 	return s.State.Charm(curl)
 }
 

@@ -96,8 +96,10 @@ func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm
 	cookieFile := filepath.Join(c.MkDir(), "cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookieFile)
 
-	s.testPlatform = corecharm.MustParsePlatform("amd64/ubuntu/22.04")
-	s.testBase = corebase.MakeDefaultBase("ubuntu", "22.04")
+	var err error
+	s.testBase, err = corebase.GetBaseFromSeries(currentCharmURL.Series)
+	c.Assert(err, jc.ErrorIsNil)
+	s.testPlatform = corecharm.MustParsePlatform(fmt.Sprintf("%s/%s/%s", arch.DefaultArchitecture, s.testBase.OS, s.testBase.Channel))
 
 	s.deployResources = func(
 		applicationID string,
@@ -705,7 +707,6 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 			`series:`,
 			`    - trusty`,
 			`    - wily`,
-			`    - bionic`,
 		},
 		"\n",
 	)
@@ -720,7 +721,7 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "multi-series",
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("local:jammy/multi-series-1"),
+			URL: charm.MustParseURL("local:bionic/multi-series-1"),
 			Origin: commoncharm.Origin{
 				ID:           "testing",
 				Base:         s.charmAPIClient.charmOrigin.Base,
@@ -851,7 +852,7 @@ devices: {}
 	s.charmAPIClient.CheckCall(c, 2, "SetCharm", model.GenerationMaster, application.SetCharmConfig{
 		ApplicationName: "lxd-profile-alt",
 		CharmID: application.CharmID{
-			URL: charm.MustParseURL("local:jammy/lxd-profile-alt-0"),
+			URL: charm.MustParseURL("local:bionic/lxd-profile-alt-0"),
 			Origin: commoncharm.Origin{
 				ID:           "testing",
 				Base:         s.charmAPIClient.charmOrigin.Base,

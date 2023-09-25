@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -822,12 +821,7 @@ func (st *State) cleanupUnitsForDyingApplication(applicationname string, cleanup
 // reasons, because it's triggered somewhat over-enthusiastically for
 // simplicity's sake.
 func (st *State) cleanupCharm(charmURL string) error {
-	curl, err := charm.ParseURL(charmURL)
-	if err != nil {
-		return errors.Annotatef(err, "invalid charm URL %v", charmURL)
-	}
-
-	ch, err := st.Charm(curl)
+	ch, err := st.Charm(charmURL)
 	if errors.Is(err, errors.NotFound) {
 		// Charm already removed.
 		logger.Tracef("cleanup charm(%s) no-op, charm already gone", charmURL)

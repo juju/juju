@@ -47,7 +47,7 @@ type Backend interface {
 	Annotations(state.GlobalEntity) (map[string]string, error)
 	APIHostPortsForClients(controller.Config) ([]network.SpaceHostPorts, error)
 	Application(string) (Application, error)
-	Charm(*charm.URL) (*state.Charm, error)
+	Charm(string) (*state.Charm, error)
 	ControllerConfig() (controller.Config, error)
 	ControllerNodes() ([]state.ControllerNode, error)
 	ControllerTag() names.ControllerTag

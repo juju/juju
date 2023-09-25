@@ -8,7 +8,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v11"
 	resource "github.com/juju/charm/v11/resource"
 	services "github.com/juju/juju/apiserver/facades/client/charms/services"
 	controller "github.com/juju/juju/controller"
@@ -159,7 +158,7 @@ func (mr *MockDeployFromRepositoryStateMockRecorder) AllSpaceInfos() *gomock.Cal
 }
 
 // Charm mocks base method.
-func (m *MockDeployFromRepositoryState) Charm(arg0 *charm.URL) (Charm, error) {
+func (m *MockDeployFromRepositoryState) Charm(arg0 string) (Charm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Charm", arg0)
 	ret0, _ := ret[0].(Charm)
@@ -248,7 +247,7 @@ func (mr *MockDeployFromRepositoryStateMockRecorder) ModelUUID() *gomock.Call {
 }
 
 // PrepareCharmUpload mocks base method.
-func (m *MockDeployFromRepositoryState) PrepareCharmUpload(arg0 *charm.URL) (services.UploadedCharm, error) {
+func (m *MockDeployFromRepositoryState) PrepareCharmUpload(arg0 string) (services.UploadedCharm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
 	ret0, _ := ret[0].(services.UploadedCharm)

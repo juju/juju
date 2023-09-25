@@ -37,8 +37,8 @@ type Bundle interface {
 // BundleInfo describes a Bundle.
 type BundleInfo interface {
 
-	// String return the charm URL as a string.
-	String() string
+	// URL return the charm URL as a string.
+	URL() string
 
 	// ArchiveSha256 returns the hex-encoded SHA-256 digest of the bundle data.
 	ArchiveSha256() (string, error)

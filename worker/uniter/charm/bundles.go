@@ -64,13 +64,13 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error
 // download will be stopped.
 func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struct{}) error {
 	// First download...
-	curl, err := url.Parse(info.String())
+	curl, err := url.Parse(info.URL())
 	if err != nil {
 		return errors.Annotate(err, "could not parse charm URL")
 	}
 	expectedSha256, err := info.ArchiveSha256()
 	if err != nil {
-		return errors.Annotatef(err, "failed to get archive sha256 for charm %q", info.String())
+		return errors.Annotatef(err, "failed to get archive sha256 for charm %q", info.URL())
 	}
 	req := downloader.Request{
 		ArchiveSha256: expectedSha256,
@@ -79,10 +79,10 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 		Verify:        downloader.NewSha256Verifier(expectedSha256),
 		Abort:         abort,
 	}
-	d.logger.Infof("downloading %s from API server", info.String())
+	d.logger.Infof("downloading %s from API server", info.URL())
 	filename, err := d.downloader.Download(req)
 	if err != nil {
-		return errors.Annotatef(err, "failed to download charm %q from API server", info.String())
+		return errors.Annotatef(err, "failed to download charm %q from API server", info.URL())
 	}
 	defer errors.DeferredAnnotatef(&err, "downloaded but failed to copy charm to %q from %q", target, filename)
 
@@ -99,7 +99,7 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 // bundlePath returns the path to the location where the verified charm
 // bundle identified by info will be, or has been, saved.
 func (d *BundlesDir) bundlePath(info BundleInfo) string {
-	return d.bundleURLPath(info.String())
+	return d.bundleURLPath(info.URL())
 }
 
 // bundleURLPath returns the path to the location where the verified charm

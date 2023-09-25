@@ -164,9 +164,7 @@ func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	// Add the dummy charm with revision 1.
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
-	)
+	curl := fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision())
 	info := state.CharmInfo{
 		Charm:       ch,
 		ID:          curl,
@@ -182,11 +180,11 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer f.Close()
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", f)
-	expectedURL := charm.MustParseURL("local:quantal/dummy-2")
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	expectedURL := "local:quantal/dummy-2"
+	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.ControllerModel(c).State().Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
+	c.Assert(sch.URL(), gc.Equals, expectedURL)
 	c.Assert(sch.Revision(), gc.Equals, 2)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 	// No more checks for the hash here, because it is
@@ -211,8 +209,8 @@ func (s *charmsSuite) TestUploadVersion(c *gc.C) {
 	defer f.Close()
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", f)
 
-	inputURL := charm.MustParseURL("local:quantal/dummy-1")
-	s.assertUploadResponse(c, resp, inputURL.String())
+	inputURL := "local:quantal/dummy-1"
+	s.assertUploadResponse(c, resp, inputURL)
 	sch, err := s.ControllerModel(c).State().Charm(inputURL)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -234,11 +232,11 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 
 	// Now try uploading it and ensure the revision persists.
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &buf)
-	expectedURL := charm.MustParseURL("local:quantal/dummy-123")
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	expectedURL := "local:quantal/dummy-123"
+	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.ControllerModel(c).State().Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
+	c.Assert(sch.URL(), gc.Equals, expectedURL)
 	c.Assert(sch.Revision(), gc.Equals, 123)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
@@ -255,8 +253,8 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 func (s *charmsSuite) TestUploadWithMultiSeriesCharm(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	resp := s.uploadRequest(c, s.charmsURL("").String(), "application/zip", &fileReader{path: ch.Path})
-	expectedURL := charm.MustParseURL("local:dummy-1")
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	expectedURL := "local:dummy-1"
+	s.assertUploadResponse(c, resp, expectedURL)
 }
 
 func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
@@ -266,8 +264,8 @@ func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	url := s.charmsURL("series=quantal")
 	url.Path = "/charms"
 	resp := s.uploadRequest(c, url.String(), "application/zip", &fileReader{path: ch.Path})
-	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	expectedURL := "local:quantal/dummy-1"
+	s.assertUploadResponse(c, resp, expectedURL)
 }
 
 func (s *charmsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
@@ -275,8 +273,8 @@ func (s *charmsSuite) TestUploadAllowsModelUUIDPath(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	url := s.charmsURL("series=quantal")
 	resp := s.uploadRequest(c, url.String(), "application/zip", &fileReader{path: ch.Path})
-	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	expectedURL := "local:quantal/dummy-1"
+	s.assertUploadResponse(c, resp, expectedURL)
 }
 
 func (s *charmsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
@@ -290,8 +288,8 @@ func (s *charmsSuite) TestUploadAllowsOtherModelUUIDPath(c *gc.C) {
 	url := s.charmsURL("series=quantal")
 	url.Path = fmt.Sprintf("/model/%s/charms", newSt.ModelUUID())
 	resp := s.uploadRequest(c, url.String(), "application/zip", &fileReader{path: ch.Path})
-	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	expectedURL := "local:quantal/dummy-1"
+	s.assertUploadResponse(c, resp, expectedURL)
 }
 
 func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
@@ -313,11 +311,11 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 
 	// Now try uploading it - should succeed and be repackaged.
 	resp := s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &buf)
-	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	expectedURL := "local:quantal/dummy-1"
+	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.ControllerModel(c).State().Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
+	c.Assert(sch.URL(), gc.Equals, expectedURL)
 	c.Assert(sch.Revision(), gc.Equals, 1)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 
@@ -347,9 +345,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 
 func (s *charmsSuite) TestNonLocalCharmUploadFailsIfNotMigrating(c *gc.C) {
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("ch:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
-	)
+	curl := fmt.Sprintf("ch:quantal/%s-%d", ch.Meta().Name, ch.Revision())
 	info := state.CharmInfo{
 		Charm:       ch,
 		ID:          curl,
@@ -371,8 +367,8 @@ func (s *charmsSuite) TestNonLocalCharmUpload(c *gc.C) {
 
 	resp := s.uploadRequest(c, s.charmsURI("?schema=ch&series=quantal"), "application/zip", &fileReader{path: ch.Path})
 
-	expectedURL := charm.MustParseURL("ch:quantal/dummy-1")
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	expectedURL := "ch:quantal/dummy-1"
+	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.ControllerModel(c).State().Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
@@ -385,7 +381,7 @@ func (s *charmsSuite) TestCharmHubCharmUpload(c *gc.C) {
 	// model migrations).
 	s.setModelImporting(c)
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
-	expectedURL := charm.MustParseURL("ch:s390x/bionic/dummy-15")
+	expectedURL := "ch:s390x/bionic/dummy-15"
 	info := state.CharmInfo{
 		Charm:       ch,
 		ID:          expectedURL,
@@ -397,7 +393,7 @@ func (s *charmsSuite) TestCharmHubCharmUpload(c *gc.C) {
 
 	resp := s.uploadRequest(c, s.charmsURI("?arch=s390x&revision=15&schema=ch&series=bionic"), "application/zip", &fileReader{path: ch.Path})
 
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.ControllerModel(c).State().Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
@@ -422,8 +418,8 @@ func (s *charmsSuite) TestCharmUploadWithUserOverride(c *gc.C) {
 
 	resp := s.uploadRequest(c, s.charmsURI("?schema=ch"), "application/zip", &fileReader{path: ch.Path})
 
-	expectedURL := charm.MustParseURL("ch:dummy-1")
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	expectedURL := "ch:dummy-1"
+	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.ControllerModel(c).State().Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
@@ -436,8 +432,8 @@ func (s *charmsSuite) TestNonLocalCharmUploadWithRevisionOverride(c *gc.C) {
 
 	resp := s.uploadRequest(c, s.charmsURI("?schema=ch&&revision=99"), "application/zip", &fileReader{path: ch.Path})
 
-	expectedURL := charm.MustParseURL("ch:dummy-99")
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	expectedURL := "ch:dummy-99"
+	s.assertUploadResponse(c, resp, expectedURL)
 	sch, err := s.ControllerModel(c).State().Charm(expectedURL)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
@@ -468,8 +464,8 @@ func (s *charmsSuite) TestMigrateCharm(c *gc.C) {
 			params.MigrationModelHTTPHeader: importedModel.UUID(),
 		},
 	})
-	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	expectedURL := "local:quantal/dummy-1"
+	s.assertUploadResponse(c, resp, expectedURL)
 
 	// The charm was added to the migrated model.
 	_, err = newSt.Charm(expectedURL)
@@ -499,8 +495,8 @@ func (s *charmsSuite) TestMigrateCharmName(c *gc.C) {
 			params.MigrationModelHTTPHeader: importedModel.UUID(),
 		},
 	})
-	expectedURL := charm.MustParseURL("local:quantal/meshuggah-1")
-	s.assertUploadResponse(c, resp, expectedURL.String())
+	expectedURL := "local:quantal/meshuggah-1"
+	s.assertUploadResponse(c, resp, expectedURL)
 
 	// The charm was added to the migrated model.
 	_, err = newSt.Charm(expectedURL)
@@ -585,7 +581,7 @@ func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 func (s *charmsSuite) TestGetReturnsNotYetAvailableForPendingCharms(c *gc.C) {
 	// Add a charm in pending mode.
 	chInfo := state.CharmInfo{
-		ID:          charm.MustParseURL("ch:focal/dummy-1"),
+		ID:          "ch:focal/dummy-1",
 		Charm:       testcharms.Repo.CharmArchive(c.MkDir(), "dummy"),
 		StoragePath: "", // indicates that we don't have the data in the blobstore yet.
 		SHA256:      "", // indicates that we don't have the data in the blobstore yet.
@@ -709,7 +705,7 @@ func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
 	newSt := f.MakeModel(c, nil)
 	defer newSt.Close()
 
-	curl := charm.MustParseURL("local:quantal/dummy-1")
+	curl := "local:quantal/dummy-1"
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	_, err := jujutesting.AddCharm(newSt, curl, ch, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -717,7 +713,7 @@ func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
 	// Controller machine should be able to download the charm from
 	// the hosted model. This is required for controller workers which
 	// are acting on behalf of a particular hosted model.
-	url := s.charmsURL("url=" + curl.String() + "&file=revision")
+	url := s.charmsURL("url=" + curl + "&file=revision")
 	url.Path = fmt.Sprintf("/model/%s/charms", newSt.ModelUUID())
 	params := apitesting.HTTPRequestParams{
 		Method:   "GET",
@@ -777,12 +773,12 @@ func (s *charmsSuite) TestGetAllowsOtherEnvironment(c *gc.C) {
 	newSt := f.MakeModel(c, nil)
 	defer newSt.Close()
 
-	curl := charm.MustParseURL("local:quantal/dummy-1")
+	curl := "local:quantal/dummy-1"
 	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	_, err := jujutesting.AddCharm(newSt, curl, ch, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	url := s.charmsURL("url=" + curl.String() + "&file=revision")
+	url := s.charmsURL("url=" + curl + "&file=revision")
 	url.Path = fmt.Sprintf("/model/%s/charms", newSt.ModelUUID())
 	resp := sendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: url.String()})
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")

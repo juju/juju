@@ -429,11 +429,10 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 
 	ch := testcharms.RepoForSeries(params.Series).CharmDir(params.Name)
 
-	curl := charm.MustParseURL(params.URL)
 	bundleSHA256 := uniqueString("bundlesha")
 	info := state.CharmInfo{
 		Charm:       ch,
-		ID:          curl,
+		ID:          params.URL,
 		StoragePath: "fake-storage-path",
 		SHA256:      bundleSHA256,
 	}
@@ -464,11 +463,10 @@ func (factory *Factory) MakeCharmV2(c *gc.C, params *CharmParams) *state.Charm {
 
 	ch := testcharms.Hub.CharmDir(params.Name)
 
-	curl := charm.MustParseURL(params.URL)
 	bundleSHA256 := uniqueString("bundlesha")
 	info := state.CharmInfo{
 		Charm:       ch,
-		ID:          curl,
+		ID:          params.URL,
 		StoragePath: "fake-storage-path",
 		SHA256:      bundleSHA256,
 	}
@@ -505,7 +503,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	if params.CharmOrigin == nil {
-		curl := params.Charm.URL()
+		curl := charm.MustParseURL(params.Charm.URL())
 		chSeries := curl.Series
 		base, err := corebase.GetBaseFromSeries(chSeries)
 		c.Assert(err, jc.ErrorIsNil)
@@ -522,7 +520,7 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 			Channel: channel,
 			Source:  source,
 			Platform: &state.Platform{
-				Architecture: params.Charm.URL().Architecture,
+				Architecture: curl.Architecture,
 				OS:           base.OS,
 				Channel:      base.Channel.String(),
 			}}
@@ -662,9 +660,8 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 	}
 
 	if params.SetCharmURL {
-		applicationCharmURLStr, _ := params.Application.CharmURL()
-		applicationCharmURL, _ := charm.ParseURL(*applicationCharmURLStr)
-		err = unit.SetCharmURL(applicationCharmURL)
+		applicationCharmURL, _ := params.Application.CharmURL()
+		err = unit.SetCharmURL(*applicationCharmURL)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	err = unit.SetPassword(params.Password)

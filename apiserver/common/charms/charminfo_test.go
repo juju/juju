@@ -33,7 +33,7 @@ func (s *charmInfoSuite) TestBasic(c *gc.C) {
 	st := mocks.NewMockState(ctrl)
 	st.EXPECT().Model().Return(nil, nil)
 	ch := mocks.NewMockCharm(ctrl)
-	st.EXPECT().Charm(&charm.URL{Schema: "ch", Name: "foo", Revision: 1}).Return(ch, nil)
+	st.EXPECT().Charm("foo-1").Return(ch, nil)
 
 	// The convertCharm logic is tested in the CharmInfo tests, so just test
 	// the minimal set of fields here.
@@ -44,7 +44,7 @@ func (s *charmInfoSuite) TestBasic(c *gc.C) {
 	ch.EXPECT().Metrics().Return(&charm.Metrics{})
 	ch.EXPECT().Manifest().Return(&charm.Manifest{})
 	ch.EXPECT().LXDProfile().Return(&state.LXDProfile{})
-	ch.EXPECT().String().Return("ch:foo-1")
+	ch.EXPECT().URL().Return("ch:foo-1")
 
 	authorizer := facademocks.NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().AuthController().Return(true)

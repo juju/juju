@@ -234,7 +234,7 @@ func AddTestingCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
 func AddTestingCharmhubCharmForSeries(c *gc.C, st *State, series, name string) *Charm {
 	ch := getCharmRepo(series).CharmDir(name)
 	ident := fmt.Sprintf("amd64/%s/%s-%d", series, name, ch.Revision())
-	curl := charm.MustParseURL("ch:" + ident)
+	curl := "ch:" + ident
 	info := CharmInfo{
 		Charm:       ch,
 		ID:          curl,
@@ -249,7 +249,7 @@ func AddTestingCharmhubCharmForSeries(c *gc.C, st *State, series, name string) *
 func AddTestingCharmMultiSeries(c *gc.C, st *State, name string) *Charm {
 	ch := testcharms.Repo.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-	curl := charm.MustParseURL("ch:" + ident)
+	curl := "ch:" + ident
 	info := CharmInfo{
 		Charm:       ch,
 		ID:          curl,
@@ -291,11 +291,12 @@ func AddTestingApplicationWithNumUnits(c *gc.C, st *State, numUnits int, name st
 }
 
 func AddTestingApplicationWithStorage(c *gc.C, st *State, name string, ch *Charm, storage map[string]StorageConstraints) *Application {
-	series := ch.URL().Series
+	curl := charm.MustParseURL(ch.URL())
+	series := curl.Series
 	base, err := corebase.GetBaseFromSeries(series)
 	c.Assert(err, jc.ErrorIsNil)
 	var source string
-	switch ch.URL().Schema {
+	switch curl.Schema {
 	case "local":
 		source = "local"
 	case "ch":
@@ -351,16 +352,17 @@ type addTestingApplicationParams struct {
 func addTestingApplication(c *gc.C, params addTestingApplicationParams) *Application {
 	c.Assert(params.ch, gc.NotNil)
 	origin := params.origin
+	curl := charm.MustParseURL(params.ch.URL())
 	if origin == nil {
-		base, err := corebase.GetBaseFromSeries(params.ch.URL().Series)
+		base, err := corebase.GetBaseFromSeries(curl.Series)
 		c.Assert(err, jc.ErrorIsNil)
 		var channel *Channel
 		// local charms cannot have a channel
-		if charm.CharmHub.Matches(params.ch.URL().Schema) {
+		if charm.CharmHub.Matches(curl.Schema) {
 			channel = &Channel{Risk: "stable"}
 		}
 		var source string
-		switch params.ch.URL().Schema {
+		switch curl.Schema {
 		case "local":
 			source = "local"
 		case "ch":
@@ -434,12 +436,11 @@ func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, 
 
 func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
-	url := "local:" + series + "/" + ident
+	curl := "local:" + series + "/" + ident
 	if series == "" {
 		ident = fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-		url = "local:" + ident
+		curl = "local:" + ident
 	}
-	curl := charm.MustParseURL(url)
 	info := CharmInfo{
 		Charm:       ch,
 		ID:          curl,

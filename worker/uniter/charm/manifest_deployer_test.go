@@ -264,7 +264,7 @@ type RetryingBundleReaderSuite struct {
 func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.bundleInfo.EXPECT().String().Return("ch:focal/dummy-1").AnyTimes()
+	s.bundleInfo.EXPECT().URL().Return("ch:focal/dummy-1").AnyTimes()
 	s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")).AnyTimes()
 
 	go func() {
@@ -283,7 +283,7 @@ func (s *RetryingBundleReaderSuite) TestReadBundleMaxAttemptsExceeded(c *gc.C) {
 func (s *RetryingBundleReaderSuite) TestReadBundleEventuallySucceeds(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.bundleInfo.EXPECT().String().Return("ch:focal/dummy-1").AnyTimes()
+	s.bundleInfo.EXPECT().URL().Return("ch:focal/dummy-1").AnyTimes()
 	gomock.InOrder(
 		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(nil, errors.NotYetAvailablef("still in the oven")),
 		s.bundleReader.EXPECT().Read(gomock.Any(), gomock.Any()).Return(s.bundle, nil),

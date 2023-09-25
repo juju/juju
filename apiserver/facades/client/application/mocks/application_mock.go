@@ -223,7 +223,7 @@ func (mr *MockBackendMockRecorder) Branch(arg0 interface{}) *gomock.Call {
 }
 
 // Charm mocks base method.
-func (m *MockBackend) Charm(arg0 *charm.URL) (application.Charm, error) {
+func (m *MockBackend) Charm(arg0 string) (application.Charm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Charm", arg0)
 	ret0, _ := ret[0].(application.Charm)
@@ -394,7 +394,7 @@ func (mr *MockBackendMockRecorder) OfferConnectionForRelation(arg0 interface{}) 
 }
 
 // PrepareCharmUpload mocks base method.
-func (m *MockBackend) PrepareCharmUpload(arg0 *charm.URL) (services.UploadedCharm, error) {
+func (m *MockBackend) PrepareCharmUpload(arg0 string) (services.UploadedCharm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareCharmUpload", arg0)
 	ret0, _ := ret[0].(services.UploadedCharm)

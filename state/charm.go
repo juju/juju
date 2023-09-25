@@ -220,7 +220,7 @@ func (profile *LXDProfile) ValidateConfigDevices() error {
 // CharmInfo contains all the data necessary to store a charm's metadata.
 type CharmInfo struct {
 	Charm       charm.Charm
-	ID          *charm.URL
+	ID          string
 	StoragePath string
 	SHA256      string
 	Version     string
@@ -229,13 +229,13 @@ type CharmInfo struct {
 // insertCharmOps returns the txn operations necessary to insert the supplied
 // charm data. If curl is nil, an error will be returned.
 func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
-	if info.ID == nil {
-		return nil, errors.New("*charm.URL was nil")
+	if info.ID == "" {
+		return nil, errors.New("charm ID was empty")
 	}
 
 	pendingUpload := info.SHA256 == "" || info.StoragePath == ""
 
-	infoIDStr := info.ID.String()
+	infoIDStr := info.ID
 	doc := charmDoc{
 		DocID:         infoIDStr,
 		URL:           &infoIDStr,
@@ -333,7 +333,7 @@ func updateCharmOps(mb modelBackend, info CharmInfo, assert bson.D) ([]txn.Op, e
 	charms, closer := mb.db().GetCollection(charmsC)
 	defer closer()
 
-	charmKey := info.ID.String()
+	charmKey := info.ID
 	op, err := nsLife.aliveOp(charms, charmKey)
 	if err != nil {
 		return nil, errors.Annotate(err, "charm")
@@ -544,7 +544,7 @@ func unescapeLXDProfile(profile *LXDProfile) *LXDProfile {
 // Tag returns a tag identifying the charm.
 // Implementing state.GlobalEntity interface.
 func (c *Charm) Tag() names.Tag {
-	return names.NewCharmTag(c.String())
+	return names.NewCharmTag(c.URL())
 }
 
 // Life returns the charm's life state.
@@ -568,7 +568,7 @@ func (c *Charm) Refresh() error {
 // the charm is not referenced by any application.
 func (c *Charm) Destroy() error {
 	buildTxn := func(_ int) ([]txn.Op, error) {
-		ops, err := charmDestroyOps(c.st, c.String())
+		ops, err := charmDestroyOps(c.st, c.URL())
 		if IsNotAlive(err) {
 			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
@@ -627,22 +627,13 @@ func (c *Charm) globalKey() string {
 	return charmGlobalKey(c.doc.URL)
 }
 
-// String returns a string representation of the charm's URL.
-func (c *Charm) String() string {
+// URL returns a string which identifies the charm
+// The string will parse into a charm.URL if required
+func (c *Charm) URL() string {
 	if c.doc.URL == nil {
 		return ""
 	}
 	return *c.doc.URL
-}
-
-// URL returns the URL that identifies the charm.
-// Only use when you require the URL, otherwise use String().
-// Parse the charm's URL on demand, if required.
-func (c *Charm) URL() *charm.URL {
-	if c.charmURL == nil {
-		c.charmURL = charm.MustParseURL(c.String())
-	}
-	return c.charmURL
 }
 
 // Revision returns the monotonically increasing charm
@@ -650,7 +641,7 @@ func (c *Charm) URL() *charm.URL {
 // Parse the charm's URL on demand, if required.
 func (c *Charm) Revision() int {
 	if c.charmURL == nil {
-		c.charmURL = charm.MustParseURL(c.String())
+		c.charmURL = charm.MustParseURL(c.URL())
 	}
 	return c.charmURL.Revision
 }
@@ -732,19 +723,23 @@ func (st *State) AddCharm(info CharmInfo) (stch *Charm, err error) {
 		return nil, errors.Trace(err)
 	}
 
-	query := charms.FindId(info.ID.String()).Select(bson.M{
+	query := charms.FindId(info.ID).Select(bson.M{
 		"placeholder":   1,
 		"pendingupload": 1,
 	})
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		var doc charmDoc
 		if err := query.One(&doc); err == mgo.ErrNotFound {
-			if info.ID.Schema == "local" {
-				curl, err := st.PrepareLocalCharmUpload(info.ID)
+			curl, err := charm.ParseURL(info.ID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if charm.Local.Matches(curl.Schema) {
+				allocatedCurl, err := st.PrepareLocalCharmUpload(curl.String())
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				info.ID = curl
+				info.ID = allocatedCurl.String()
 				return updateCharmOps(st, info, stillPending)
 			}
 			return insertCharmOps(st, info)
@@ -779,13 +774,17 @@ func (st *State) AllCharms() ([]*Charm, error) {
 
 // Charm returns the charm with the given URL. Charms pending to be uploaded
 // are returned for Charmhub charms. Charm placeholders are never returned.
-func (st *State) Charm(curl *charm.URL) (*Charm, error) {
-	ch, err := st.findCharm(curl)
+func (st *State) Charm(curl string) (*Charm, error) {
+	parsedURL, err := charm.ParseURL(curl)
 	if err != nil {
 		return nil, err
 	}
-	if (!ch.IsUploaded() && !charm.CharmHub.Matches(curl.Schema)) || ch.IsPlaceholder() {
-		return nil, errors.NotFoundf("charm %q", curl.String())
+	ch, err := st.findCharm(parsedURL)
+	if err != nil {
+		return nil, err
+	}
+	if (!ch.IsUploaded() && !charm.CharmHub.Matches(parsedURL.Schema)) || ch.IsPlaceholder() {
+		return nil, errors.NotFoundf("charm %q", curl)
 	}
 	return ch, nil
 }
@@ -817,7 +816,7 @@ func (st *State) findCharm(curl *charm.URL) (*Charm, error) {
 	}
 
 	if cdoc.PendingUpload && !charm.CharmHub.Matches(curl.Schema) {
-		return nil, errors.NotFoundf("charm %q", curl.String())
+		return nil, errors.NotFoundf("charm %q", curl)
 	}
 	return newCharm(st, &cdoc), nil
 }
@@ -902,8 +901,12 @@ func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
 // in state for the charm.
 //
 // The url's schema must be "local" and it must include a revision.
-func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenURL *charm.URL, err error) {
+func (st *State) PrepareLocalCharmUpload(url string) (chosenURL *charm.URL, err error) {
 	// Perform a few sanity checks first.
+	curl, err := charm.ParseURL(url)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if curl.Schema != "local" {
 		return nil, errors.Errorf("expected charm URL with local schema, got %q", curl)
 	}
@@ -955,12 +958,16 @@ func isValidPlaceholderCharmURL(curl *charm.URL) bool {
 //
 // TODO(achilleas): This call will be removed once the server-side bundle
 // deployment work lands.
-func (st *State) PrepareCharmUpload(curl *charm.URL) (*Charm, error) {
+func (st *State) PrepareCharmUpload(curl string) (*Charm, error) {
 	// Perform a few sanity checks first.
-	if !isValidPlaceholderCharmURL(curl) {
+	parsedURL, err := charm.ParseURL(curl)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !isValidPlaceholderCharmURL(parsedURL) {
 		return nil, errors.Errorf("expected charm URL with a valid schema, got %q", curl)
 	}
-	if curl.Revision < 0 {
+	if parsedURL.Revision < 0 {
 		return nil, errors.Errorf("expected charm URL with revision, got %q", curl)
 	}
 
@@ -969,17 +976,15 @@ func (st *State) PrepareCharmUpload(curl *charm.URL) (*Charm, error) {
 
 	var (
 		uploadedCharm charmDoc
-		err           error
 	)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find an uploaded or pending charm with the given exact curl.
-		curlStr := curl.String()
-		err := charms.FindId(curlStr).One(&uploadedCharm)
+		err := charms.FindId(curl).One(&uploadedCharm)
 		switch {
 		case err == mgo.ErrNotFound:
 			uploadedCharm = charmDoc{
-				DocID:         st.docID(curlStr),
-				URL:           &curlStr,
+				DocID:         st.docID(curl),
+				URL:           &curl,
 				PendingUpload: true,
 			}
 			return insertAnyCharmOps(st, &uploadedCharm)
@@ -1059,7 +1064,7 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 	defer closer()
 
 	doc := &charmDoc{}
-	err := charms.FindId(info.ID.String()).One(&doc)
+	err := charms.FindId(info.ID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", info.ID)
 	}
@@ -1095,16 +1100,20 @@ func (st *State) UpdateUploadedCharm(info CharmInfo) (*Charm, error) {
 // a revision that isn't a negative value. Otherwise, an error will be returned.
 func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 	// Perform a few sanity checks first.
-	if !isValidPlaceholderCharmURL(info.ID) {
+	curl, err := charm.ParseURL(info.ID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if !isValidPlaceholderCharmURL(curl) {
 		return nil, errors.Errorf("expected charm URL with a valid schema, got %q", info.ID)
 	}
-	if info.ID.Revision < 0 {
+	if curl.Revision < 0 {
 		return nil, errors.Errorf("expected charm URL with revision, got %q", info.ID)
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Check if the charm doc already exists.
-		ch, err := st.findCharm(info.ID)
+		ch, err := st.findCharm(curl)
 		if errors.Is(err, errors.NotFound) {
 			return insertCharmOps(st, info)
 		} else if err != nil {

@@ -88,18 +88,18 @@ func (mr *MockBundleInfoMockRecorder) ArchiveSha256() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ArchiveSha256", reflect.TypeOf((*MockBundleInfo)(nil).ArchiveSha256))
 }
 
-// String mocks base method.
-func (m *MockBundleInfo) String() string {
+// URL mocks base method.
+func (m *MockBundleInfo) URL() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "String")
+	ret := m.ctrl.Call(m, "URL")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// String indicates an expected call of String.
-func (mr *MockBundleInfoMockRecorder) String() *gomock.Call {
+// URL indicates an expected call of URL.
+func (mr *MockBundleInfoMockRecorder) URL() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockBundleInfo)(nil).String))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "URL", reflect.TypeOf((*MockBundleInfo)(nil).URL))
 }
 
 // MockBundle is a mock of Bundle interface.

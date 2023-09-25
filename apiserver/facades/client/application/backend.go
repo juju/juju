@@ -44,7 +44,7 @@ type Backend interface {
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
 	AddRelation(...state.Endpoint) (Relation, error)
-	Charm(*charm.URL) (Charm, error)
+	Charm(string) (Charm, error)
 	Relation(int) (Relation, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	InferActiveRelation(...string) (Relation, error)
@@ -342,7 +342,7 @@ func (s stateShim) UpdateUploadedCharm(info state.CharmInfo) (services.UploadedC
 	return stateCharmShim{Charm: c}, nil
 }
 
-func (s stateShim) PrepareCharmUpload(curl *charm.URL) (services.UploadedCharm, error) {
+func (s stateShim) PrepareCharmUpload(curl string) (services.UploadedCharm, error) {
 	c, err := s.State.PrepareCharmUpload(curl)
 	if err != nil {
 		return nil, err
@@ -390,7 +390,7 @@ func (s stateShim) SaveEgressNetworks(relationKey string, cidrs []string) (state
 	return api.Save(relationKey, false, cidrs)
 }
 
-func (s stateShim) Charm(curl *charm.URL) (Charm, error) {
+func (s stateShim) Charm(curl string) (Charm, error) {
 	ch, err := s.State.Charm(curl)
 	if err != nil {
 		return nil, err

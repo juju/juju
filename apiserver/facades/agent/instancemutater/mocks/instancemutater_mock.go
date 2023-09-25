@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 	time "time"
 
-	charm "github.com/juju/charm/v11"
 	instancemutater "github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
@@ -96,7 +95,7 @@ func (mr *MockInstanceMutaterStateMockRecorder) Application(arg0 interface{}) *g
 }
 
 // Charm mocks base method.
-func (m *MockInstanceMutaterState) Charm(arg0 *charm.URL) (instancemutater.Charm, error) {
+func (m *MockInstanceMutaterState) Charm(arg0 string) (instancemutater.Charm, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Charm", arg0)
 	ret0, _ := ret[0].(instancemutater.Charm)

@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/agent/uniter"
@@ -22,7 +21,7 @@ import (
 // UniterClient provides methods used by the uniter api facade client.
 type UniterClient interface {
 	StorageAccessor
-	Charm(curl *charm.URL) (Charm, error)
+	Charm(curl string) (Charm, error)
 	Unit(tag names.UnitTag) (Unit, error)
 	Action(tag names.ActionTag) (*uniter.Action, error)
 	Application(tag names.ApplicationTag) (Application, error)

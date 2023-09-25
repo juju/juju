@@ -1224,16 +1224,16 @@ func (mr *MockCharmMockRecorder) LXDProfileRequired() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfileRequired", reflect.TypeOf((*MockCharm)(nil).LXDProfileRequired))
 }
 
-// String mocks base method.
-func (m *MockCharm) String() string {
+// URL mocks base method.
+func (m *MockCharm) URL() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "String")
+	ret := m.ctrl.Call(m, "URL")
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// String indicates an expected call of String.
-func (mr *MockCharmMockRecorder) String() *gomock.Call {
+// URL indicates an expected call of URL.
+func (mr *MockCharmMockRecorder) URL() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockCharm)(nil).String))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "URL", reflect.TypeOf((*MockCharm)(nil).URL))
 }

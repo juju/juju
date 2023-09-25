@@ -480,7 +480,7 @@ func (s *validatorSuite) TestGetCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
 	c.Assert(obtainedCharm, gc.DeepEquals, corecharm.NewCharmInfoAdapter(resolvedData.EssentialMetadata))
-	c.Assert(obtainedURL.String(), gc.Equals, resultURL.String())
+	c.Assert(obtainedURL, gc.DeepEquals, resultURL)
 }
 
 func (s *validatorSuite) TestGetCharmAlreadyDeployed(c *gc.C) {
@@ -517,7 +517,7 @@ func (s *validatorSuite) TestGetCharmAlreadyDeployed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin, gc.DeepEquals, resolvedOrigin)
 	c.Assert(obtainedCharm, gc.NotNil)
-	c.Assert(obtainedURL.String(), gc.Equals, resultURL.String())
+	c.Assert(obtainedURL, gc.DeepEquals, resultURL)
 }
 
 func (s *validatorSuite) TestGetCharmFindsBundle(c *gc.C) {
@@ -1063,7 +1063,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	s.validator.EXPECT().ValidateArg(arg).Return(template, nil)
 	info := state.CharmInfo{
 		Charm: template.charm,
-		ID:    charm.MustParseURL("ch:amd64/jammy/testme-5"),
+		ID:    "ch:amd64/jammy/testme-5",
 	}
 
 	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
@@ -1186,7 +1186,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 	s.validator.EXPECT().ValidateArg(arg).Return(template, nil)
 	info := state.CharmInfo{
 		Charm: template.charm,
-		ID:    charm.MustParseURL("ch:amd64/jammy/testme-5"),
+		ID:    "ch:amd64/jammy/testme-5",
 	}
 
 	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)
@@ -1277,7 +1277,7 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 	s.validator.EXPECT().ValidateArg(arg).Return(template, nil)
 	info := state.CharmInfo{
 		Charm: template.charm,
-		ID:    charm.MustParseURL("ch:amd64/jammy/testme-5"),
+		ID:    "ch:amd64/jammy/testme-5",
 	}
 
 	s.state.EXPECT().AddCharmMetadata(info).Return(s.charm, nil)

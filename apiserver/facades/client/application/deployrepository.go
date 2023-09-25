@@ -57,7 +57,7 @@ type DeployFromRepositoryState interface {
 	AddPendingResource(string, resource.Resource) (string, error)
 	RemovePendingResources(applicationID string, pendingIDs map[string]string) error
 	AddCharmMetadata(info state.CharmInfo) (Charm, error)
-	Charm(*charm.URL) (Charm, error)
+	Charm(string) (Charm, error)
 	ControllerConfig() (controller.Config, error)
 	Machine(string) (Machine, error)
 	ModelConstraints() (constraints.Value, error)
@@ -115,7 +115,7 @@ func (api *DeployFromRepositoryAPI) DeployFromRepository(arg params.DeployFromRe
 	// has already been queue'd or downloaded.
 	ch, err := api.state.AddCharmMetadata(state.CharmInfo{
 		Charm: dt.charm,
-		ID:    dt.charmURL,
+		ID:    dt.charmURL.String(),
 	})
 	if err != nil {
 		return params.DeployFromRepositoryInfo{}, nil, []error{errors.Trace(err)}
@@ -832,7 +832,7 @@ func (v *deployFromRepositoryValidator) getCharm(arg params.DeployFromRepository
 	// still need to resolve and return back a suitable origin as charmhub
 	// may refer to the same blob using the same revision in different
 	// channels.
-	deployedCharm, err := v.state.Charm(resolvedData.URL)
+	deployedCharm, err := v.state.Charm(resolvedData.URL.String())
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, corecharm.Origin{}, nil, errors.Trace(err)
 	} else if err == nil {
