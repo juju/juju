@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -33,7 +32,6 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type objectKey struct {
@@ -387,7 +385,6 @@ func restrictAPIRoot(
 	apiRoot rpc.Root,
 	model *state.Model,
 	auth authResult,
-	clientVersion version.Number,
 ) (rpc.Root, error) {
 	if !auth.controllerMachineLogin {
 		// Controller agents are allowed to
@@ -399,11 +396,6 @@ func restrictAPIRoot(
 			return nil, errors.Trace(err)
 		}
 		apiRoot = restrictedRoot
-		// If the client version is different to the server version,
-		// add extra checks to ensure older incompatible clients cannot be used.
-		if clientVersion.Major != jujuversion.Current.Major {
-			apiRoot = restrictRoot(apiRoot, checkClientVersion(auth.userLogin, clientVersion))
-		}
 	}
 	if auth.controllerOnlyLogin {
 		apiRoot = restrictRoot(apiRoot, controllerFacadesOnly)

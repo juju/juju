@@ -1247,35 +1247,12 @@ func isX509Error(err error) bool {
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
 func (c *conn) APICall(facade string, vers int, id, method string, args, response interface{}) error {
-	err := c.client.Call(rpc.Request{
+	return c.client.Call(rpc.Request{
 		Type:    facade,
 		Version: vers,
 		Id:      id,
 		Action:  method,
 	}, args, response)
-	if err == nil {
-		return nil
-	}
-	code := params.ErrCode(err)
-	if code != params.CodeIncompatibleClient {
-		return errors.Trace(err)
-	}
-	// Default to major version 2 for older servers.
-	serverMajorVersion := 2
-	err = errors.Cause(err)
-	apiErr, ok := err.(*rpc.RequestError)
-	if ok {
-		if serverVersion, ok := apiErr.Info["server-version"]; ok {
-			serverVers, err := version.Parse(fmt.Sprintf("%v", serverVersion))
-			if err == nil {
-				serverMajorVersion = serverVers.Major
-			}
-		}
-	}
-	logger.Debugf("%v.%v API call not supported", facade, method)
-	return errors.NewNotSupported(nil, fmt.Sprintf(
-		"juju client with version %d.%d used with a controller having major version %d not supported\nre-install your juju client to match the version running on the controller",
-		jujuversion.Current.Major, jujuversion.Current.Minor, serverMajorVersion))
 }
 
 func (c *conn) Close() error {

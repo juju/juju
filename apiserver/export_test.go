@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/lestrrat-go/jwx/v2/jwt"
 	gc "gopkg.in/check.v1"
 
@@ -196,13 +195,6 @@ func TestingCAASModelOnlyRoot() rpc.Root {
 func TestingRestrictedRoot(check func(string, string) error) rpc.Root {
 	r := TestingAPIRoot(AllFacades())
 	return restrictRoot(r, check)
-}
-
-// TestingUpgradeOrMigrationOnlyRoot returns a restricted srvRoot
-// as if called from a newer client.
-func TestingUpgradeOrMigrationOnlyRoot(userLogin bool, clientVersion version.Number) rpc.Root {
-	r := TestingAPIRoot(AllFacades())
-	return restrictRoot(r, checkClientVersion(userLogin, clientVersion))
 }
 
 // PatchGetMigrationBackend overrides the getMigrationBackend function

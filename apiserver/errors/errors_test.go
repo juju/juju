@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	stateerrors "github.com/juju/juju/state/errors"
 	"github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type errorsSuite struct {
@@ -240,25 +239,6 @@ var errorTransformTests = []struct {
 	status:     http.StatusConflict,
 	helperFunc: params.IsCodeNotYetAvailable,
 }, {
-	err: &params.IncompatibleClientError{
-		ServerVersion: jujuversion.Current,
-	},
-	code:   params.CodeIncompatibleClient,
-	status: http.StatusInternalServerError,
-	helperFunc: func(err error) bool {
-		err1, ok := err.(*params.Error)
-		err2 := &params.IncompatibleClientError{
-			ServerVersion: jujuversion.Current,
-		}
-		if !ok || err1.Info == nil || !reflect.DeepEqual(err1.Info, err2.AsMap()) {
-			return false
-		}
-		return true
-	},
-	targetTester: func(e error) bool {
-		return errors.HasType[*params.IncompatibleClientError](e)
-	},
-}, {
 	err:    apiservererrors.NewNotLeaderError("1.1.1.1", "1"),
 	code:   params.CodeNotLeader,
 	status: http.StatusTemporaryRedirect,
@@ -334,8 +314,7 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			params.CodeMachineHasAttachedStorage,
 			params.CodeDischargeRequired,
 			params.CodeModelNotFound,
-			params.CodeRedirect,
-			params.CodeIncompatibleClient:
+			params.CodeRedirect:
 			continue
 		case params.CodeOperationBlocked:
 			// ServerError doesn't actually have a case for this code.
