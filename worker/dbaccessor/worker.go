@@ -16,10 +16,10 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/database/app"
-	"github.com/juju/juju/database/dqlite"
 	"github.com/juju/juju/domain/controllernode/service"
 	"github.com/juju/juju/domain/controllernode/state"
+	"github.com/juju/juju/internal/database/app"
+	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 )
 

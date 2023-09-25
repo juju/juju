@@ -16,8 +16,8 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/database/app"
-	"github.com/juju/juju/database/client"
+	"github.com/juju/juju/internal/database/app"
+	"github.com/juju/juju/internal/database/client"
 )
 
 type bootstrapSuite struct {

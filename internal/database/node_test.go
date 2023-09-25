@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/controller"
 	coredatabase "github.com/juju/juju/core/database"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/database/app"
-	"github.com/juju/juju/database/dqlite"
-	dqlitetesting "github.com/juju/juju/database/testing"
+	"github.com/juju/juju/internal/database/app"
+	"github.com/juju/juju/internal/database/dqlite"
+	dqlitetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/network"
 	jujutesting "github.com/juju/juju/testing"
 )

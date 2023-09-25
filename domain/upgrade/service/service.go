@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/database"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/internal/database"
 )
 
 // State describes retrieval and persistence

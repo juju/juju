@@ -9,7 +9,7 @@ import (
 
 	"github.com/mattn/go-sqlite3"
 
-	"github.com/juju/juju/database/driver"
+	"github.com/juju/juju/internal/database/driver"
 )
 
 // IsErrRetryable returns true if the given error might be

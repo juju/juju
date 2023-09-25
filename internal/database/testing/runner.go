@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/database/txn"
+	"github.com/juju/juju/internal/database/txn"
 )
 
 var defaultTransactionRunner = txn.NewRetryingTxnRunner()

@@ -15,8 +15,8 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/database"
-	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/worker/common"
 )
 

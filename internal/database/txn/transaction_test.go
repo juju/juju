@@ -16,8 +16,8 @@ import (
 	"golang.org/x/sync/semaphore"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/database/testing"
-	"github.com/juju/juju/database/txn"
+	"github.com/juju/juju/internal/database/testing"
+	"github.com/juju/juju/internal/database/txn"
 )
 
 type transactionRunnerSuite struct {

@@ -12,9 +12,9 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/database/app"
-	"github.com/juju/juju/database/pragma"
 	"github.com/juju/juju/domain/schema"
+	"github.com/juju/juju/internal/database/app"
+	"github.com/juju/juju/internal/database/pragma"
 )
 
 type BootstrapNodeManager interface {

@@ -23,7 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/database/txn"
+	"github.com/juju/juju/internal/database/txn"
 )
 
 type ModelProvider interface {

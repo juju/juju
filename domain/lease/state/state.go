@@ -15,9 +15,9 @@ import (
 
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/database"
-	"github.com/juju/juju/database/txn"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/database/txn"
 )
 
 // Logger is the interface used by the state to log messages.

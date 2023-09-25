@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
-	dbtesting "github.com/juju/juju/database/testing"
+	dbtesting "github.com/juju/juju/internal/database/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 

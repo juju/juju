@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/database/app"
-	"github.com/juju/juju/database/dqlite"
+	"github.com/juju/juju/internal/database/app"
+	"github.com/juju/juju/internal/database/dqlite"
 )
 
 // Client describes a client that speaks the Dqlite wire protocol,
