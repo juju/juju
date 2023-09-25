@@ -25,7 +25,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
-	dqlitetesting "github.com/juju/juju/database/testing"
+	dqlitetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/httpserver"

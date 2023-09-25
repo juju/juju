@@ -14,7 +14,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	gc "gopkg.in/check.v1"
 
-	databasetesting "github.com/juju/juju/database/testing"
+	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
 type schemaSuite struct {

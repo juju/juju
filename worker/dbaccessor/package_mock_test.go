@@ -10,8 +10,8 @@ import (
 	reflect "reflect"
 
 	sqlair "github.com/canonical/sqlair"
-	app "github.com/juju/juju/database/app"
-	dqlite "github.com/juju/juju/database/dqlite"
+	app "github.com/juju/juju/internal/database/app"
+	dqlite "github.com/juju/juju/internal/database/dqlite"
 	loggo "github.com/juju/loggo"
 	gomock "go.uber.org/mock/gomock"
 )

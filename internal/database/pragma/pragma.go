@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/database/txn"
+	"github.com/juju/juju/internal/database/txn"
 )
 
 // Pragma is the name of a pragma.

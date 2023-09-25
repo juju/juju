@@ -23,9 +23,9 @@ import (
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/database/app"
-	"github.com/juju/juju/database/client"
-	"github.com/juju/juju/database/dqlite"
+	"github.com/juju/juju/internal/database/app"
+	"github.com/juju/juju/internal/database/client"
+	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/network"
 )
 

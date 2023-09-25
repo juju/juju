@@ -14,8 +14,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/database/app"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/database/app"
 	jujujujutesting "github.com/juju/juju/testing"
 )
 

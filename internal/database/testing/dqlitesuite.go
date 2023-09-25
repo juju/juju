@@ -22,9 +22,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/database/app"
-	"github.com/juju/juju/database/client"
-	"github.com/juju/juju/database/pragma"
+	"github.com/juju/juju/internal/database/app"
+	"github.com/juju/juju/internal/database/client"
+	"github.com/juju/juju/internal/database/pragma"
 )
 
 // SchemaApplier is an interface that can be used to apply a schema to a

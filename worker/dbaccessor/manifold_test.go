@@ -10,7 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/database/app"
+	"github.com/juju/juju/internal/database/app"
 )
 
 type manifoldSuite struct {

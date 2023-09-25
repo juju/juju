@@ -11,11 +11,11 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
-	jujudb "github.com/juju/juju/database"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/credential"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/modelmanager/service"
+	jujudb "github.com/juju/juju/internal/database"
 )
 
 // State represents a type for interacting with the underlying model state.

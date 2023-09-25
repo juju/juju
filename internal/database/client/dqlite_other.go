@@ -9,7 +9,7 @@ import (
 	"context"
 	"net"
 
-	"github.com/juju/juju/database/dqlite"
+	"github.com/juju/juju/internal/database/dqlite"
 )
 
 type Client struct{}

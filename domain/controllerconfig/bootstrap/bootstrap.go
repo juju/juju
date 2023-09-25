@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
-	jujudatabase "github.com/juju/juju/database"
+	jujudatabase "github.com/juju/juju/internal/database"
 )
 
 // InsertInitialControllerConfig inserts the initial controller configuration

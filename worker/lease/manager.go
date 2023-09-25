@@ -21,7 +21,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/lease"
-	"github.com/juju/juju/database/txn"
+	"github.com/juju/juju/internal/database/txn"
 )
 
 const (

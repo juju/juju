@@ -9,7 +9,7 @@ import (
 
 	"github.com/canonical/sqlair"
 
-	"github.com/juju/juju/database/txn"
+	"github.com/juju/juju/internal/database/txn"
 )
 
 var (

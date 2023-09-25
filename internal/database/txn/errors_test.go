@@ -9,8 +9,8 @@ import (
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/database/driver"
-	"github.com/juju/juju/database/txn"
+	"github.com/juju/juju/internal/database/driver"
+	"github.com/juju/juju/internal/database/txn"
 )
 
 type isErrRetryableSuite struct {

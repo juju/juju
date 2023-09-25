@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/database/schema"
-	"github.com/juju/juju/database/testing"
+	"github.com/juju/juju/internal/database/testing"
 )
 
 type migrationSuite struct {

@@ -12,7 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	databasetesting "github.com/juju/juju/database/testing"
+	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
 type patchSuite struct {

@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	coreDB "github.com/juju/juju/core/database"
-	"github.com/juju/juju/database"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/internal/database"
 )
 
 type State struct {
