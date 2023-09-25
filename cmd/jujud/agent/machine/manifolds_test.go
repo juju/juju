@@ -120,6 +120,9 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"tools-version-checker",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
+			"upgrade-database-flag",
+			"upgrade-database-gate",
+			"upgrade-database-runner",
 			"upgrade-series",
 			"upgrade-steps-flag",
 			"upgrade-steps-gate",
@@ -180,6 +183,9 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"trace",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
+			"upgrade-database-flag",
+			"upgrade-database-gate",
+			"upgrade-database-runner",
 			"upgrade-steps-flag",
 			"upgrade-steps-gate",
 			"upgrade-steps-runner",
@@ -253,6 +259,9 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"migration-minion",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
+		"upgrade-database-runner",
 		"upgrade-series",
 		"upgrade-series-enabled",
 		"upgrade-steps-flag",
@@ -284,6 +293,9 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"audit-config-updater",
 		"is-primary-controller-flag",
 		"lease-manager",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
+		"upgrade-database-runner",
 		"db-accessor",
 		"query-logger",
 		"change-stream",
@@ -1003,6 +1015,26 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"upgrade-check-gate": {},
 
+	"upgrade-database-flag": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+		"upgrade-database-gate",
+	},
+
+	"upgrade-database-gate": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
+	"upgrade-database-runner": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+		"upgrade-database-gate",
+	},
+
 	"upgrade-series": {
 		"agent",
 		"api-caller",
@@ -1406,6 +1438,26 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"upgrade-check-flag": {"upgrade-check-gate"},
 
 	"upgrade-check-gate": {},
+
+	"upgrade-database-flag": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+		"upgrade-database-gate",
+	},
+
+	"upgrade-database-gate": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+	},
+
+	"upgrade-database-runner": {
+		"agent",
+		"is-controller-flag",
+		"state-config-watcher",
+		"upgrade-database-gate",
+	},
 
 	"upgrade-steps-flag": {"upgrade-steps-gate"},
 
