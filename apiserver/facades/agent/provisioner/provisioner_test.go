@@ -67,7 +67,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 
 func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	if s.ApiServerSuite.ControllerModelConfigAttrs == nil {
-		s.ApiServerSuite.ControllerModelConfigAttrs = make(map[string]interface{})
+		s.ApiServerSuite.ControllerModelConfigAttrs = make(map[string]any)
 	}
 	s.ApiServerSuite.ControllerModelConfigAttrs["image-stream"] = "daily"
 	s.ApiServerSuite.SetUpTest(c)
@@ -382,7 +382,7 @@ func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: s.machines[0].Tag().String(), Status: status.Error.String(), Info: "not really",
-				Data: map[string]interface{}{"foo": "bar"}},
+				Data: map[string]any{"foo": "bar"}},
 			{Tag: s.machines[1].Tag().String(), Status: status.Stopped.String(), Info: "foobar"},
 			{Tag: s.machines[2].Tag().String(), Status: status.Started.String(), Info: "again"},
 			{Tag: "machine-42", Status: status.Started.String(), Info: "blah"},
@@ -403,9 +403,9 @@ func (s *withoutControllerSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify the changes.
-	s.assertStatus(c, 0, status.Error, "not really", map[string]interface{}{"foo": "bar"})
-	s.assertStatus(c, 1, status.Stopped, "foobar", map[string]interface{}{})
-	s.assertStatus(c, 2, status.Started, "again", map[string]interface{}{})
+	s.assertStatus(c, 0, status.Error, "not really", map[string]any{"foo": "bar"})
+	s.assertStatus(c, 1, status.Stopped, "foobar", map[string]any{})
+	s.assertStatus(c, 2, status.Started, "again", map[string]any{})
 }
 
 func (s *withoutControllerSuite) TestSetInstanceStatus(c *gc.C) {
@@ -435,7 +435,7 @@ func (s *withoutControllerSuite) TestSetInstanceStatus(c *gc.C) {
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: s.machines[0].Tag().String(), Status: status.Provisioning.String(), Info: "not really",
-				Data: map[string]interface{}{"foo": "bar"}},
+				Data: map[string]any{"foo": "bar"}},
 			{Tag: s.machines[1].Tag().String(), Status: status.Running.String(), Info: "foobar"},
 			{Tag: s.machines[2].Tag().String(), Status: status.ProvisioningError.String(), Info: "again"},
 			{Tag: "machine-42", Status: status.Provisioning.String(), Info: "blah"},
@@ -456,11 +456,11 @@ func (s *withoutControllerSuite) TestSetInstanceStatus(c *gc.C) {
 	})
 
 	// Verify the changes.
-	s.assertInstanceStatus(c, 0, status.Provisioning, "not really", map[string]interface{}{"foo": "bar"})
-	s.assertInstanceStatus(c, 1, status.Running, "foobar", map[string]interface{}{})
-	s.assertInstanceStatus(c, 2, status.ProvisioningError, "again", map[string]interface{}{})
+	s.assertInstanceStatus(c, 0, status.Provisioning, "not really", map[string]any{"foo": "bar"})
+	s.assertInstanceStatus(c, 1, status.Running, "foobar", map[string]any{})
+	s.assertInstanceStatus(c, 2, status.ProvisioningError, "again", map[string]any{})
 	// ProvisioningError also has a special case which is to set the machine to Error
-	s.assertStatus(c, 2, status.Error, "again", map[string]interface{}{})
+	s.assertStatus(c, 2, status.Error, "again", map[string]any{})
 }
 
 func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
@@ -490,7 +490,7 @@ func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: s.machines[0].Tag().String(), Status: status.Pending.String(), Info: "not really",
-				Data: map[string]interface{}{"foo": "bar"}},
+				Data: map[string]any{"foo": "bar"}},
 			{Tag: s.machines[1].Tag().String(), Status: status.Applied.String(), Info: "foobar"},
 			{Tag: s.machines[2].Tag().String(), Status: status.Error.String(), Info: "again"},
 			{Tag: "machine-42", Status: status.Pending.String(), Info: "blah"},
@@ -511,9 +511,9 @@ func (s *withoutControllerSuite) TestSetModificationStatus(c *gc.C) {
 	})
 
 	// Verify the changes.
-	s.assertModificationStatus(c, 0, status.Pending, "not really", map[string]interface{}{"foo": "bar"})
-	s.assertModificationStatus(c, 1, status.Applied, "foobar", map[string]interface{}{})
-	s.assertModificationStatus(c, 2, status.Error, "again", map[string]interface{}{})
+	s.assertModificationStatus(c, 0, status.Pending, "not really", map[string]any{"foo": "bar"})
+	s.assertModificationStatus(c, 1, status.Applied, "foobar", map[string]any{})
+	s.assertModificationStatus(c, 2, status.Error, "again", map[string]any{})
 }
 
 func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
@@ -528,7 +528,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
 		Message: "transient error",
-		Data:    map[string]interface{}{"transient": true, "foo": "bar"},
+		Data:    map[string]any{"transient": true, "foo": "bar"},
 		Since:   &now,
 	}
 	err = s.machines[1].SetInstanceStatus(sInfo)
@@ -536,7 +536,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
 		Message: "error",
-		Data:    map[string]interface{}{"transient": false},
+		Data:    map[string]any{"transient": false},
 		Since:   &now,
 	}
 	err = s.machines[2].SetInstanceStatus(sInfo)
@@ -552,7 +552,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	sInfo = status.StatusInfo{
 		Status:  status.Error,
 		Message: "transient error",
-		Data:    map[string]interface{}{"transient": true, "foo": "bar"},
+		Data:    map[string]any{"transient": true, "foo": "bar"},
 		Since:   &now,
 	}
 	err = s.machines[4].SetInstanceStatus(sInfo)
@@ -566,7 +566,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Id: "1", Life: "alive", Status: "provisioning error", Info: "transient error",
-				Data: map[string]interface{}{"transient": true, "foo": "bar"}},
+				Data: map[string]any{"transient": true, "foo": "bar"}},
 		},
 	})
 }
@@ -596,7 +596,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
 		Message: "transient error",
-		Data:    map[string]interface{}{"transient": true, "foo": "bar"},
+		Data:    map[string]any{"transient": true, "foo": "bar"},
 		Since:   &now,
 	}
 	err = s.machines[1].SetInstanceStatus(sInfo)
@@ -604,7 +604,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
 		Message: "error",
-		Data:    map[string]interface{}{"transient": false},
+		Data:    map[string]any{"transient": false},
 		Since:   &now,
 	}
 	err = s.machines[2].SetInstanceStatus(sInfo)
@@ -623,7 +623,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 		Results: []params.StatusResult{{
 			Id: "1", Life: "alive", Status: "provisioning error",
 			Info: "transient error",
-			Data: map[string]interface{}{"transient": true, "foo": "bar"},
+			Data: map[string]any{"transient": true, "foo": "bar"},
 		},
 		},
 	})
@@ -670,7 +670,7 @@ func (s *withoutControllerSuite) assertLife(c *gc.C, index int, expectLife state
 }
 
 func (s *withoutControllerSuite) assertStatus(c *gc.C, index int, expectStatus status.Status, expectInfo string,
-	expectData map[string]interface{}) {
+	expectData map[string]any) {
 
 	statusInfo, err := s.machines[index].Status()
 	c.Assert(err, jc.ErrorIsNil)
@@ -680,7 +680,7 @@ func (s *withoutControllerSuite) assertStatus(c *gc.C, index int, expectStatus s
 }
 
 func (s *withoutControllerSuite) assertInstanceStatus(c *gc.C, index int, expectStatus status.Status, expectInfo string,
-	expectData map[string]interface{}) {
+	expectData map[string]any) {
 
 	statusInfo, err := s.machines[index].InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -690,7 +690,7 @@ func (s *withoutControllerSuite) assertInstanceStatus(c *gc.C, index int, expect
 }
 
 func (s *withoutControllerSuite) assertModificationStatus(c *gc.C, index int, expectStatus status.Status, expectInfo string,
-	expectData map[string]interface{}) {
+	expectData map[string]any) {
 
 	statusInfo, err := s.machines[index].ModificationStatus()
 	c.Assert(err, jc.ErrorIsNil)
@@ -809,7 +809,7 @@ func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 	sInfo = status.StatusInfo{
 		Status:  status.Error,
 		Message: "not really",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	}
 	err = s.machines[2].SetStatus(sInfo)
@@ -836,9 +836,9 @@ func (s *withoutControllerSuite) TestStatus(c *gc.C) {
 	}
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Status: status.Started.String(), Info: "blah", Data: map[string]interface{}{}},
-			{Status: status.Stopped.String(), Info: "foo", Data: map[string]interface{}{}},
-			{Status: status.Error.String(), Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
+			{Status: status.Started.String(), Info: "blah", Data: map[string]any{}},
+			{Status: status.Stopped.String(), Info: "foo", Data: map[string]any{}},
+			{Status: status.Error.String(), Info: "not really", Data: map[string]any{"foo": "bar"}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -865,7 +865,7 @@ func (s *withoutControllerSuite) TestInstanceStatus(c *gc.C) {
 	sInfo = status.StatusInfo{
 		Status:  status.ProvisioningError,
 		Message: "not really",
-		Data:    map[string]interface{}{"foo": "bar"},
+		Data:    map[string]any{"foo": "bar"},
 		Since:   &now,
 	}
 	err = s.machines[2].SetInstanceStatus(sInfo)
@@ -892,9 +892,9 @@ func (s *withoutControllerSuite) TestInstanceStatus(c *gc.C) {
 	}
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Status: status.Provisioning.String(), Info: "blah", Data: map[string]interface{}{}},
-			{Status: status.Running.String(), Info: "foo", Data: map[string]interface{}{}},
-			{Status: status.ProvisioningError.String(), Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
+			{Status: status.Provisioning.String(), Info: "blah", Data: map[string]any{}},
+			{Status: status.Running.String(), Info: "foo", Data: map[string]any{}},
+			{Status: status.ProvisioningError.String(), Info: "not really", Data: map[string]any{"foo": "bar"}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1279,9 +1279,9 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	})
-	_, err := pm.Create("static-pool", "static", map[string]interface{}{"foo": "bar"})
+	_, err := pm.Create("static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.ControllerModel(c).UpdateModelConfig(map[string]interface{}{
+	err = s.ControllerModel(c).UpdateModelConfig(map[string]any{
 		"storage-default-block-source": "static-pool",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1550,7 +1550,7 @@ func (s *withoutControllerSuite) TestMarkMachinesForRemoval(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
-	attrs := map[string]interface{}{
+	attrs := map[string]any{
 		"juju-http-proxy":              "http://proxy.example.com:9000",
 		"apt-https-proxy":              "https://proxy.example.com:9000",
 		"allow-lxd-loop-mounts":        true,
@@ -1593,16 +1593,16 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.SnapProxy, gc.DeepEquals, expectedSnapProxy)
 	c.Check(results.SnapStoreAssertions, gc.Equals, "BLOB")
 	c.Check(results.SnapStoreProxyID, gc.Equals, "b4dc0ffee")
-	c.Check(results.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
-		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
-		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
-		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+	c.Check(results.CloudInitUserData, gc.DeepEquals, map[string]any{
+		"packages":        []any{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []any{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []any{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 		"package_upgrade": false})
 	c.Check(results.ContainerInheritProperties, gc.DeepEquals, "ca-certs,apt-primary")
 }
 
 func (s *withoutControllerSuite) TestContainerConfigLegacy(c *gc.C) {
-	attrs := map[string]interface{}{
+	attrs := map[string]any{
 		"http-proxy":                   "http://proxy.example.com:9000",
 		"apt-https-proxy":              "https://proxy.example.com:9000",
 		"allow-lxd-loop-mounts":        true,
@@ -1635,10 +1635,10 @@ func (s *withoutControllerSuite) TestContainerConfigLegacy(c *gc.C) {
 	c.Check(results.JujuProxy.HasProxySet(), jc.IsFalse)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedAPTProxy)
 	c.Check(results.AptMirror, gc.DeepEquals, "http://example.mirror.com")
-	c.Check(results.CloudInitUserData, gc.DeepEquals, map[string]interface{}{
-		"packages":        []interface{}{"python-keystoneclient", "python-glanceclient"},
-		"preruncmd":       []interface{}{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
-		"postruncmd":      []interface{}{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
+	c.Check(results.CloudInitUserData, gc.DeepEquals, map[string]any{
+		"packages":        []any{"python-keystoneclient", "python-glanceclient"},
+		"preruncmd":       []any{"mkdir /tmp/preruncmd", "mkdir /tmp/preruncmd2"},
+		"postruncmd":      []any{"mkdir /tmp/postruncmd", "mkdir /tmp/postruncmd2"},
 		"package_upgrade": false})
 	c.Check(results.ContainerInheritProperties, gc.DeepEquals, "ca-certs,apt-primary")
 }
@@ -1806,9 +1806,10 @@ func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
 		network.NewSpaceHostPorts(1234, "0.1.2.3"),
 	}
 	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.SetAPIHostPorts(controllerConfig, hostPorts)
+
+	controllerCfg := coretesting.FakeControllerConfig()
+
+	err := st.SetAPIHostPorts(controllerCfg, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.provisioner.APIAddresses(context.Background())
@@ -1819,7 +1820,7 @@ func (s *withControllerSuite) TestAPIAddresses(c *gc.C) {
 }
 
 func (s *withControllerSuite) TestCACert(c *gc.C) {
-	result, err := s.provisioner.CACert()
+	result, err := s.provisioner.CACert(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.BytesResult{
 		Result: []byte(coretesting.CACert),
@@ -1833,7 +1834,7 @@ type withImageMetadataSuite struct {
 var _ = gc.Suite(&withImageMetadataSuite{})
 
 func (s *withImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.ControllerModelConfigAttrs = map[string]interface{}{
+	s.ControllerModelConfigAttrs = map[string]any{
 		config.ContainerImageStreamKey:      "daily",
 		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
 	}

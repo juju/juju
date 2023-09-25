@@ -149,7 +149,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		return result, errors.Annotate(err, "cannot get available image metadata")
 	}
 
-	if result.ControllerConfig, err = api.st.ControllerConfig(); err != nil {
+	if result.ControllerConfig, err = api.controllerConfigService.ControllerConfig(ctx); err != nil {
 		return result, errors.Annotate(err, "cannot get controller configuration")
 	}
 
@@ -191,7 +191,10 @@ func (api *ProvisionerAPI) machineVolumeParams(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	controllerCfg, err := api.st.ControllerConfig()
+
+	// TODO (stickupkid): This call for the controller UUID could just be
+	// cached in the provisioner API constructor.
+	controllerCfg, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -286,7 +289,9 @@ func (api *ProvisionerAPI) machineTags(ctx context.Context, m *state.Machine, is
 		return nil, errors.Trace(err)
 	}
 
-	controllerCfg, err := api.st.ControllerConfig()
+	// TODO (stickupkid): This call for the controller UUID could just be
+	// cached in the provisioner API constructor.
+	controllerCfg, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

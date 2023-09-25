@@ -18,6 +18,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
@@ -37,6 +38,12 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// ControllerConfigService is the interface that the provisioner facade
+// uses to get the controller config.
+type ControllerConfigService interface {
+	ControllerConfig(stdcontext.Context) (controller.Config, error)
+}
+
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.ControllerConfigAPI
@@ -55,6 +62,7 @@ type ProvisionerAPI struct {
 
 	st                      *state.State
 	m                       *state.Model
+	controllerConfigService ControllerConfigService
 	resources               facade.Resources
 	authorizer              facade.Authorizer
 	storageProviderRegistry storage.ProviderRegistry
@@ -65,6 +73,10 @@ type ProvisionerAPI struct {
 	providerCallContext     context.ProviderCallContext
 	toolsFinder             common.ToolsFinder
 	logger                  loggo.Logger
+
+	// Hold on to the controller UUID, as we'll reuse it for a lot of
+	// calls.
+	controllerUUID string
 
 	// Used for MaybeWriteLXDProfile()
 	mu sync.Mutex
@@ -115,13 +127,17 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	serviceFactory := ctx.ServiceFactory()
 	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: model, CloudService: ctx.ServiceFactory().Cloud(), CredentialService: ctx.ServiceFactory().Credential()}
+		Model:             model,
+		CloudService:      serviceFactory.Cloud(),
+		CredentialService: serviceFactory.Credential(),
+	}
 	isCaasModel := model.Type() == state.ModelTypeCAAS
 
 	var env storage.ProviderRegistry
 	if isCaasModel {
-		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
+		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, serviceFactory.Cloud(), serviceFactory.Credential())
 	} else {
 		env, err = environs.GetEnviron(stdcontext.Background(), configGetter, environs.New)
 	}
@@ -131,13 +147,10 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
 	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(
-		stdcontext.Background(), st, ctx.ServiceFactory().Cloud(), getCanModify)
+		stdcontext.Background(), st, serviceFactory.Cloud(), getCanModify)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}
-
-	serviceFactory := ctx.ServiceFactory()
-
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -163,6 +176,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		NetworkConfigAPI:        netConfigAPI,
 		st:                      st,
 		m:                       model,
+		controllerConfigService: serviceFactory.ControllerConfig(),
 		resources:               resources,
 		authorizer:              authorizer,
 		configGetter:            configGetter,
@@ -1306,8 +1320,8 @@ func (api *ProvisionerAPI) SetHostMachineNetworkConfig(ctx stdcontext.Context, a
 }
 
 // CACert returns the certificate used to validate the state connection.
-func (api *ProvisionerAPI) CACert() (params.BytesResult, error) {
-	cfg, err := api.st.ControllerConfig()
+func (api *ProvisionerAPI) CACert(ctx stdcontext.Context) (params.BytesResult, error) {
+	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return params.BytesResult{}, errors.Trace(err)
 	}
@@ -1348,7 +1362,7 @@ func (api *ProvisionerAPI) ModelUUID(ctx stdcontext.Context) params.StringResult
 
 // APIHostPorts returns the API server addresses.
 func (api *ProvisionerAPI) APIHostPorts(ctx stdcontext.Context) (result params.APIHostPortsResult, err error) {
-	controllerConfig, err := api.st.ControllerConfig()
+	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -1358,7 +1372,7 @@ func (api *ProvisionerAPI) APIHostPorts(ctx stdcontext.Context) (result params.A
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (api *ProvisionerAPI) APIAddresses(ctx stdcontext.Context) (result params.StringsResult, err error) {
-	controllerConfig, err := api.st.ControllerConfig()
+	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
