@@ -32,7 +32,7 @@ type BaseAPI struct {
 	ControllerModel      Backend
 	StatePool            StatePool
 	getEnviron           environFromModelFunc
-	getControllerInfo    func() (apiAddrs []string, caCert string, _ error)
+	getControllerInfo    func(context.Context) (apiAddrs []string, caCert string, _ error)
 	ctx                  context.Context
 	logger               loggo.Logger
 }

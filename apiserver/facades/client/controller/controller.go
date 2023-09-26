@@ -53,16 +53,16 @@ type ControllerAPI struct {
 	*common.ModelStatusAPI
 	cloudspec.CloudSpecer
 
-	state             Backend
-	statePool         *state.StatePool
-	authorizer        facade.Authorizer
-	apiUser           names.UserTag
-	resources         facade.Resources
-	presence          facade.Presence
-	hub               facade.Hub
-	cloudService      common.CloudService
-	credentialService common.CredentialService
-	ctrlConfigService ControllerConfigService
+	state                   Backend
+	statePool               *state.StatePool
+	authorizer              facade.Authorizer
+	apiUser                 names.UserTag
+	resources               facade.Resources
+	presence                facade.Presence
+	hub                     facade.Hub
+	cloudService            common.CloudService
+	credentialService       common.CredentialService
+	controllerConfigService ControllerConfigService
 
 	multiwatcherFactory multiwatcher.Factory
 	logger              loggo.Logger
@@ -83,8 +83,8 @@ func NewControllerAPI(
 	hub facade.Hub,
 	factory multiwatcher.Factory,
 	logger loggo.Logger,
-	ctrlConfigService ControllerConfigService,
-	externalCtrlService common.ExternalControllerService,
+	controllerConfigService ControllerConfigService,
+	externalControllerService common.ExternalControllerService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 ) (*ControllerAPI, error) {
@@ -103,7 +103,8 @@ func NewControllerAPI(
 	return &ControllerAPI{
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			externalCtrlService,
+			controllerConfigService,
+			externalControllerService,
 		),
 		ModelStatusAPI: common.NewModelStatusAPI(
 			common.NewModelManagerBackend(model, pool),
@@ -118,17 +119,17 @@ func NewControllerAPI(
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		state:               stateShim{st},
-		statePool:           pool,
-		authorizer:          authorizer,
-		apiUser:             apiUser,
-		resources:           resources,
-		presence:            presence,
-		hub:                 hub,
-		multiwatcherFactory: factory,
-		logger:              logger,
-		ctrlConfigService:   ctrlConfigService,
-		credentialService:   credentialService,
+		state:                   stateShim{st},
+		statePool:               pool,
+		authorizer:              authorizer,
+		apiUser:                 apiUser,
+		resources:               resources,
+		presence:                presence,
+		hub:                     hub,
+		multiwatcherFactory:     factory,
+		logger:                  logger,
+		controllerConfigService: controllerConfigService,
+		credentialService:       credentialService,
 	}, nil
 }
 
@@ -254,7 +255,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 		return nil, errors.Trace(err)
 	}
 	modelName := model.Name()
-	ctrCfg, err := c.ctrlConfigService.ControllerConfig(context.Background())
+	ctrCfg, err := c.controllerConfigService.ControllerConfig(context.Background())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -680,7 +681,7 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		ctx,
 		hostedState.State, systemState,
 		&targetInfo, c.presence,
-		c.ctrlConfigService,
+		c.controllerConfigService,
 		c.cloudService,
 		c.credentialService,
 	); err != nil {
@@ -749,13 +750,13 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 		return errors.Trace(err)
 	}
 	// Write Controller Config to DQLite.
-	if err := c.ctrlConfigService.UpdateControllerConfig(context.Background(), args.Config, nil); err != nil {
+	if err := c.controllerConfigService.UpdateControllerConfig(context.Background(), args.Config, nil); err != nil {
 		return errors.Trace(err)
 	}
 	// TODO(thumper): add a version to controller config to allow for
 	// simultaneous updates and races in publishing, potentially across
 	// HA servers.
-	cfg, err := c.ctrlConfigService.ControllerConfig(context.Background())
+	cfg, err := c.controllerConfigService.ControllerConfig(context.Background())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -775,7 +776,7 @@ var runMigrationPrechecks = func(
 	st, ctlrSt *state.State,
 	targetInfo *coremigration.TargetInfo,
 	presence facade.Presence,
-	ctrlConfigService ControllerConfigService,
+	controllerConfigService ControllerConfigService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 ) error {
@@ -798,7 +799,7 @@ var runMigrationPrechecks = func(
 	}
 
 	// Check target controller.
-	modelInfo, srcUserList, err := makeModelInfo(ctx, st, ctlrSt, ctrlConfigService)
+	modelInfo, srcUserList, err := makeModelInfo(ctx, st, ctlrSt, controllerConfigService)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -897,7 +898,7 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, ctrlConfigService ControllerConfigService) (coremigration.ModelInfo, userList, error) {
+func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, controllerConfigService ControllerConfigService) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
 	var ul userList
 
@@ -933,7 +934,7 @@ func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, ctrlConfigServi
 	}
 	controllerVersion, _ := controllerConfig.AgentVersion()
 
-	coreConf, err := ctrlConfigService.ControllerConfig(context.Background())
+	coreConf, err := controllerConfigService.ControllerConfig(context.Background())
 	if err != nil {
 		return empty, userList{}, errors.Trace(err)
 	}

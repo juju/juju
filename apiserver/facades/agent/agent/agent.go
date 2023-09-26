@@ -50,7 +50,7 @@ func NewAgentAPI(
 	resources facade.Resources,
 	st *state.State,
 	controllerConfigService ControllerConfigService,
-	externalController common.ExternalControllerService,
+	externalControllerService common.ExternalControllerService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 ) (*AgentAPI, error) {
@@ -68,7 +68,8 @@ func NewAgentAPI(
 		ModelWatcher:      common.NewModelWatcher(model, resources, auth),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
-			externalController,
+			controllerConfigService,
+			externalControllerService,
 		),
 		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,

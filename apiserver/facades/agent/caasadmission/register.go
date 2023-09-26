@@ -24,10 +24,13 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 		return nil, errors.ErrPerm
 	}
 
+	serviceFactory := ctx.ServiceFactory()
+
 	return &Facade{
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			ctx.State(),
-			ctx.ServiceFactory().ExternalController(),
+			serviceFactory.ControllerConfig(),
+			serviceFactory.ExternalController(),
 		),
 	}, nil
 }

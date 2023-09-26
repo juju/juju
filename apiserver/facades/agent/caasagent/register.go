@@ -34,12 +34,15 @@ func newStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	serviceFactory := ctx.ServiceFactory()
+
 	cloudSpecAPI := cloudspec.NewCloudSpecV2(
 		resources,
-		cloudspec.MakeCloudSpecGetterForModel(ctx.State(), ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential()),
+		cloudspec.MakeCloudSpecGetterForModel(ctx.State(), serviceFactory.Cloud(), serviceFactory.Credential()),
 		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(ctx.State()),
-		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State(), ctx.ServiceFactory().Credential()),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State(), serviceFactory.Credential()),
 		common.AuthFuncForTag(model.ModelTag()),
 	)
 	return &FacadeV2{
@@ -47,7 +50,8 @@ func newStateFacadeV2(ctx facade.Context) (*FacadeV2, error) {
 		ModelWatcher: common.NewModelWatcher(model, resources, authorizer),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			ctx.State(),
-			ctx.ServiceFactory().ExternalController(),
+			serviceFactory.ControllerConfig(),
+			serviceFactory.ExternalController(),
 		),
 	}, nil
 }

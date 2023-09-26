@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/testing"
+	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -53,6 +54,8 @@ func (s *WorkerSuite) TestLog(c *gc.C) {
 		},
 	})
 	c.Assert(err, gc.IsNil)
+	defer workertest.CheckKill(c, w)
+
 	wrk := w.(syslogger.SysLogger)
 	err = wrk.Log([]corelogger.LogRecord{{
 		Time:      now,
@@ -82,8 +85,7 @@ func (s *WorkerSuite) TestClosingLogBeforeWriting(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	w.Kill()
-	c.Assert(w.Wait(), gc.IsNil)
+	workertest.CleanKill(c, w)
 
 	wrk := w.(syslogger.SysLogger)
 	err = wrk.Log([]corelogger.LogRecord{{
@@ -101,8 +103,11 @@ func (s *WorkerSuite) TestClosingLogWhilstWriting(c *gc.C) {
 	defer ctrl.Finish()
 
 	mockWriter := syslogger.NewMockWriteCloser(ctrl)
-	mockWriter.EXPECT().Write(gomock.Any()).MinTimes(1)
-	mockWriter.EXPECT().Close().Times(7)
+	// There is no guarantee that the writer will write before it is closed.
+	// Therefore, we cannot expect the writer to be called a specific number
+	// of times.
+	mockWriter.EXPECT().Write(gomock.Any()).AnyTimes()
+	mockWriter.EXPECT().Close().AnyTimes()
 
 	now := time.Now()
 	w, err := syslogger.NewWorker(syslogger.WorkerConfig{
@@ -111,10 +116,13 @@ func (s *WorkerSuite) TestClosingLogWhilstWriting(c *gc.C) {
 		},
 	})
 	c.Assert(err, gc.IsNil)
+	defer workertest.DirtyKill(c, w)
 
+	// Done is a sync point to ensure that the test does not exit before the
+	// goroutine has finished.
 	done := make(chan struct{})
 	go func() {
-		c.Assert(w.Wait(), gc.IsNil)
+		w.Wait()
 		close(done)
 	}()
 	go func() {
