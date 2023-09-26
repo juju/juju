@@ -124,7 +124,7 @@ func (s *controllerInfoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoLocalModel(c *gc.C) {
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 	controllerConfig := common.NewControllerConfigAPI(s.localState, serviceFactory.ControllerConfig(), serviceFactory.ExternalController())
 
 	results, err := controllerConfig.ControllerAPIInfoForModels(context.Background(), params.Entities{
@@ -148,7 +148,7 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 		CACert:        testing.CACert,
 		ModelUUIDs:    []string{modelUUID},
 	}
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 	serviceFactory.ExternalController().UpdateExternalController(context.Background(), info)
 
 	controllerConfig := common.NewControllerConfigAPI(s.localState, serviceFactory.ControllerConfig(), serviceFactory.ExternalController())
@@ -162,7 +162,7 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 }
 
 func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 	controllerConfig := common.NewControllerConfigAPI(s.localState, serviceFactory.ControllerConfig(), serviceFactory.ExternalController())
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())

@@ -95,7 +95,6 @@ var (
 
 // ApiServerSuite is a text fixture which spins up an apiserver on top of a controller model.
 type ApiServerSuite struct {
-	// domaintesting.ControllerConfigSuite
 	servicefactorytesting.ServiceFactorySuite
 
 	// MgoSuite is needed until we finally can
