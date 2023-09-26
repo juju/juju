@@ -44,25 +44,25 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.upgradeUUID = uuid
 }
 
-func (s *stateSuite) getUpgrade(c *gc.C, st *State, upgradeUUID string) (info, []infoControllerNode) {
+func (s *stateSuite) getUpgrade(c *gc.C, st *State, upgradeUUID string) (Info, []InfoControllerNode) {
 	db, err := s.st.DB()
 	c.Assert(err, jc.ErrorIsNil)
 
 	infoQ := `
-SELECT * AS &info.* FROM upgrade_info
+SELECT * AS &Info.* FROM upgrade_info
 WHERE uuid = $M.info_uuid`
-	infoS, err := sqlair.Prepare(infoQ, info{}, sqlair.M{})
+	infoS, err := sqlair.Prepare(infoQ, Info{}, sqlair.M{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	nodeInfosQ := `
-SELECT * AS &infoControllerNode.* FROM upgrade_info_controller_node
+SELECT * AS &InfoControllerNode.* FROM upgrade_info_controller_node
 WHERE upgrade_info_uuid = $M.info_uuid`
-	nodeInfosS, err := sqlair.Prepare(nodeInfosQ, infoControllerNode{}, sqlair.M{})
+	nodeInfosS, err := sqlair.Prepare(nodeInfosQ, InfoControllerNode{}, sqlair.M{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
-		info      info
-		nodeInfos []infoControllerNode
+		info      Info
+		nodeInfos []InfoControllerNode
 	)
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, infoS, sqlair.M{"info_uuid": upgradeUUID}).Get(&info)
@@ -80,7 +80,7 @@ func (s *stateSuite) TestCreateUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	upgradeInfo, nodeInfos := s.getUpgrade(c, s.st, uuid)
-	c.Check(upgradeInfo, gc.Equals, info{
+	c.Check(upgradeInfo, gc.Equals, Info{
 		UUID:            uuid,
 		PreviousVersion: "3.0.0",
 		TargetVersion:   "3.0.1",
@@ -105,7 +105,7 @@ func (s *stateSuite) TestSetControllerReady(c *gc.C) {
 
 	_, nodeInfos := s.getUpgrade(c, s.st, uuid)
 	c.Check(nodeInfos, gc.HasLen, 1)
-	c.Check(nodeInfos[0], gc.Equals, infoControllerNode{
+	c.Check(nodeInfos[0], gc.Equals, InfoControllerNode{
 		ControllerNodeID: "0",
 	})
 }
@@ -239,8 +239,8 @@ func (s *stateSuite) TestSetControllerDone(c *gc.C) {
 	_, nodeInfos := s.getUpgrade(c, s.st, uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(nodeInfos, gc.HasLen, 2)
-	c.Check(nodeInfos[0], gc.Equals, infoControllerNode{ControllerNodeID: "0"})
-	c.Check(nodeInfos[1], gc.Equals, infoControllerNode{ControllerNodeID: "1", NodeUpgradeCompletedAt: nodeInfos[1].NodeUpgradeCompletedAt})
+	c.Check(nodeInfos[0], gc.Equals, InfoControllerNode{ControllerNodeID: "0"})
+	c.Check(nodeInfos[1], gc.Equals, InfoControllerNode{ControllerNodeID: "1", NodeUpgradeCompletedAt: nodeInfos[1].NodeUpgradeCompletedAt})
 	c.Check(nodeInfos[1].NodeUpgradeCompletedAt.Valid, jc.IsTrue)
 }
 
