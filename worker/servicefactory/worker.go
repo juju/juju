@@ -104,31 +104,20 @@ func (w *serviceFactoryWorker) Wait() error {
 	return w.tomb.Wait()
 }
 
-// loggoLogger is a loggo.Logger for the service factory.
-type loggoLogger struct {
-	loggo.Logger
+// serviceFactory is a service factory that combines the controller and model
+// service factories as a composed union type.
+// The service factory is a composition of the controller and model service
+// factories. In most circumstances, the controller service and model services
+// are required at the same time, so this is a convenient way to get both
+// services at the same time.
+type serviceFactory struct {
+	servicefactory.ControllerServiceFactory
+	servicefactory.ModelServiceFactory
 }
 
-// NewLogger returns a new logger for the service factory.
-func NewLogger(ns string) Logger {
-	return loggoLogger{
-		Logger: loggo.GetLogger(ns),
-	}
-}
-
-func (c loggoLogger) Child(name string) Logger {
-	return c
-}
-
-// serviceFactoryLogger is a Logger for the service factory.
-type serviceFactoryLogger struct {
-	Logger
-}
-
-func (c serviceFactoryLogger) Child(name string) domainservicefactory.Logger {
-	return c
-}
-
+// serviceFactoryGetter is a service factory getter that returns a service
+// factory for the given model uuid. This is late binding, so the model
+// service factory is created on demand.
 type serviceFactoryGetter struct {
 	ctrlFactory            servicefactory.ControllerServiceFactory
 	dbGetter               changestream.WatchableDBGetter
@@ -147,7 +136,36 @@ func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.
 	}
 }
 
-type serviceFactory struct {
-	servicefactory.ControllerServiceFactory
-	servicefactory.ModelServiceFactory
+// The following loggers are required because the Logger interfaces in the other
+// locations have a Child method that returns the same Logger type. As this
+// a self referential type, we need to wrap it in a new type to satisfy the
+// interface. The solution to this is to return a concrete type, but that is
+// not idea either, as it means we can't push the testing logger into the
+// tests.
+
+// loggoLogger is a loggo.Logger for the service factory.
+type loggoLogger struct {
+	loggo.Logger
+}
+
+// NewLogger returns a new logger for the service factory.
+func NewLogger(ns string) Logger {
+	return loggoLogger{
+		Logger: loggo.GetLogger(ns),
+	}
+}
+
+// Child returns a child logger that satisfies the Logger interface.
+func (c loggoLogger) Child(name string) Logger {
+	return c
+}
+
+// serviceFactoryLogger is a Logger for the service factory.
+type serviceFactoryLogger struct {
+	Logger
+}
+
+// Child returns a child logger that satisfies the domainservicefactory.Logger.
+func (c serviceFactoryLogger) Child(name string) domainservicefactory.Logger {
+	return c
 }

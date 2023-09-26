@@ -10,7 +10,6 @@ import (
 	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
-	"github.com/juju/juju/domain/model"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 )
@@ -49,11 +48,6 @@ func (s *TestingServiceFactory) ModelManager() *modelmanagerservice.Service {
 	return nil
 }
 
-// ModelUUID is the current UUID for the model.
-func (s *TestingServiceFactory) ModelUUID() model.UUID {
-	return model.UUID("")
-}
-
 // ExternalController returns the external controller service.
 func (s *TestingServiceFactory) ExternalController() *externalcontrollerservice.Service {
 	return nil
@@ -69,6 +63,7 @@ func (s *TestingServiceFactory) Cloud() *cloudservice.Service {
 	return nil
 }
 
-func (s *TestingServiceFactory) Name() string {
-	return "TestingServiceFactory"
-}
+// TODO we need a method here because if we don't have a type here, then
+// anything satisfies the ModelFactory. Once we have model methods here, we
+// can remove this method.
+func (s *TestingServiceFactory) TODO() {}

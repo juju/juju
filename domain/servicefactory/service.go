@@ -18,7 +18,7 @@ type ServiceFactory struct {
 // get new services from.
 func NewServiceFactory(
 	controllerDB changestream.WatchableDBFactory,
-	modelDB changestream.WatchableModelDBFactory,
+	modelDB changestream.WatchableDBFactory,
 	deleterDB database.DBDeleter,
 	logger Logger,
 ) *ServiceFactory {
