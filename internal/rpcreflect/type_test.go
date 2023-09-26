@@ -116,12 +116,12 @@ func (*reflectSuite) TestFindMethod(c *gc.C) {
 	v := rpcreflect.ValueOf(reflect.ValueOf(root))
 
 	m, err := v.FindMethod("foo", 0, "bar")
-	c.Assert(err, gc.ErrorMatches, `unknown object type "foo"`)
+	c.Assert(err, gc.ErrorMatches, `unknown facade type "foo"`)
 	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
 	c.Assert(m, gc.IsNil)
 
 	m, err = v.FindMethod("SimpleMethods", 0, "bar")
-	c.Assert(err, gc.ErrorMatches, "no such request - method SimpleMethods.bar is not implemented")
+	c.Assert(err, gc.ErrorMatches, `unknown method "bar" at version 0 for facade type "SimpleMethods"`)
 	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
 	c.Assert(m, gc.IsNil)
 

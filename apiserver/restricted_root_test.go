@@ -50,12 +50,12 @@ func (r *restrictedRootSuite) TestMethodNonExistentVersion(c *gc.C) {
 
 func (r *restrictedRootSuite) TestNonExistentFacade(c *gc.C) {
 	caller, err := r.root.FindMethod("SomeFacade", 0, "Method")
-	c.Assert(err, gc.ErrorMatches, `unknown object type "SomeFacade"`)
+	c.Assert(err, gc.ErrorMatches, `unknown facade type "SomeFacade"`)
 	c.Assert(caller, gc.IsNil)
 }
 
 func (r *restrictedRootSuite) TestNonExistentMethod(c *gc.C) {
 	caller, err := r.root.FindMethod("Client", 6, "Bar")
-	c.Assert(err, gc.ErrorMatches, `no such request.+`)
+	c.Assert(err, gc.ErrorMatches, `unknown method "Bar" at version 6 for facade type "Client"`)
 	c.Assert(caller, gc.IsNil)
 }
