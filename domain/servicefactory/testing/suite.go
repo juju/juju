@@ -35,6 +35,15 @@ type ServiceFactorySuite struct {
 	DefaultModelUUID model.UUID
 }
 
+// ServiceFactoryGetterFunc is a convenience type for translating a getter
+// function into the ServiceFactoryGetter interface.
+type ServiceFactoryGetterFunc func(string) servicefactory.ServiceFactory
+
+// FactoryForModel implements the ServiceFactoryGetter interface.
+func (s ServiceFactoryGetterFunc) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+	return s(modelUUID)
+}
+
 type stubDBDeleter struct {
 	DB *sql.DB
 }
@@ -66,7 +75,7 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 
 // ServiceFactoryGetter provides an implementation of the ServiceFactoryGetter
 // interface to use in tests.
-func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) servicefactory.ServiceFactoryGetterFunc {
+func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) ServiceFactoryGetterFunc {
 	return func(modelUUID string) servicefactory.ServiceFactory {
 		return domainservicefactory.NewServiceFactory(
 			databasetesting.ConstFactory(s.TxnRunner()),
