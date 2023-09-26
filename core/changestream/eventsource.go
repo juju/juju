@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
-	"github.com/juju/juju/domain/model"
 )
 
 // EventSource describes the ability to subscribe
@@ -48,33 +47,11 @@ func NewTxnRunnerFactory(f WatchableDBFactory) database.TxnRunnerFactory {
 // an error.
 type WatchableDBFactory = func() (WatchableDB, error)
 
-// WatchableModelDBFactory provides an interface for getting a
-// database.TxnRunner or error that is scoped to a specific model.
-type WatchableModelDBFactory struct {
-	WatchableDBFactory
-	ModelUUID model.UUID
-}
-
 // NewWatchableDBFactoryForNamespace returns a WatchableDBFactory
 // for the input namespaced factory function and namespace.
-func NewWatchableDBFactoryForNamespace[T WatchableDB](
-	ns string,
-	f func(string) (T, error),
-) WatchableDBFactory {
+func NewWatchableDBFactoryForNamespace[T WatchableDB](f func(string) (T, error), ns string) WatchableDBFactory {
 	return func() (WatchableDB, error) {
 		r, err := f(ns)
 		return r, errors.Trace(err)
-	}
-}
-
-// NewWatchableModelDBFactory returns a WatchableModelDBFactory for model that
-// is used as the namespace for the factory.
-func NewWatchableModelDBFactory[T WatchableDB](
-	modelUUID model.UUID,
-	f func(string) (T, error),
-) WatchableModelDBFactory {
-	return WatchableModelDBFactory{
-		WatchableDBFactory: NewWatchableDBFactoryForNamespace(modelUUID.String(), f),
-		ModelUUID:          modelUUID,
 	}
 }

@@ -154,7 +154,7 @@ func NewControllerServiceFactory(
 	logger Logger,
 ) servicefactory.ControllerServiceFactory {
 	return domainservicefactory.NewControllerFactory(
-		changestream.NewWatchableDBFactoryForNamespace(coredatabase.ControllerNS, dbGetter.GetWatchableDB),
+		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		dbDeleter,
 		serviceFactoryLogger{
 			Logger: logger,
@@ -169,7 +169,7 @@ func NewModelServiceFactory(
 	logger Logger,
 ) servicefactory.ModelServiceFactory {
 	return domainservicefactory.NewModelFactory(
-		changestream.NewWatchableModelDBFactory(modelUUID, dbGetter.GetWatchableDB),
+		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, string(modelUUID)),
 		serviceFactoryLogger{
 			Logger: logger,
 		},

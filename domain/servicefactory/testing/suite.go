@@ -66,11 +66,11 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 
 // ServiceFactoryGetter provides an implementation of the ServiceFactoryGetter
 // interface to use in tests.
-func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) servicefactory.ServiceFactoryGetterFunc {
+func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) ServiceFactoryGetterFunc {
 	return func(modelUUID string) servicefactory.ServiceFactory {
 		return domainservicefactory.NewServiceFactory(
 			databasetesting.ConstFactory(s.TxnRunner()),
-			databasetesting.ConstModelFactory(model.UUID(modelUUID), s.ModelTxnRunner(c, modelUUID)),
+			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID)),
 			stubDBDeleter{DB: s.DB()},
 			NewCheckLogger(c),
 		)
@@ -88,4 +88,13 @@ func (s *ServiceFactorySuite) SetUpTest(c *gc.C) {
 		s.DefaultModelUUID = modeltesting.GenModelUUID(c)
 	}
 	s.SeedModelDatabases(c)
+}
+
+// ServiceFactoryGetterFunc is a convenience type for translating a getter
+// function into the ServiceFactoryGetter interface.
+type ServiceFactoryGetterFunc func(string) servicefactory.ServiceFactory
+
+// FactoryForModel implements the ServiceFactoryGetter interface.
+func (s ServiceFactoryGetterFunc) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+	return s(modelUUID)
 }

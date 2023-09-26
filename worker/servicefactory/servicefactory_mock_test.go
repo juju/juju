@@ -13,7 +13,6 @@ import (
 	service2 "github.com/juju/juju/domain/controllernode/service"
 	service3 "github.com/juju/juju/domain/credential/service"
 	service4 "github.com/juju/juju/domain/externalcontroller/service"
-	model "github.com/juju/juju/domain/model"
 	service5 "github.com/juju/juju/domain/model/service"
 	service6 "github.com/juju/juju/domain/modelmanager/service"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
@@ -178,18 +177,16 @@ func (m *MockModelServiceFactory) EXPECT() *MockModelServiceFactoryMockRecorder 
 	return m.recorder
 }
 
-// ModelUUID mocks base method.
-func (m *MockModelServiceFactory) ModelUUID() model.UUID {
+// TODO mocks base method.
+func (m *MockModelServiceFactory) TODO() {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelUUID")
-	ret0, _ := ret[0].(model.UUID)
-	return ret0
+	m.ctrl.Call(m, "TODO")
 }
 
-// ModelUUID indicates an expected call of ModelUUID.
-func (mr *MockModelServiceFactoryMockRecorder) ModelUUID() *gomock.Call {
+// TODO indicates an expected call of TODO.
+func (mr *MockModelServiceFactoryMockRecorder) TODO() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockModelServiceFactory)(nil).ModelUUID))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TODO", reflect.TypeOf((*MockModelServiceFactory)(nil).TODO))
 }
 
 // MockServiceFactory is a mock of ServiceFactory interface.
@@ -327,18 +324,16 @@ func (mr *MockServiceFactoryMockRecorder) ModelManager() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelManager", reflect.TypeOf((*MockServiceFactory)(nil).ModelManager))
 }
 
-// ModelUUID mocks base method.
-func (m *MockServiceFactory) ModelUUID() model.UUID {
+// TODO mocks base method.
+func (m *MockServiceFactory) TODO() {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelUUID")
-	ret0, _ := ret[0].(model.UUID)
-	return ret0
+	m.ctrl.Call(m, "TODO")
 }
 
-// ModelUUID indicates an expected call of ModelUUID.
-func (mr *MockServiceFactoryMockRecorder) ModelUUID() *gomock.Call {
+// TODO indicates an expected call of TODO.
+func (mr *MockServiceFactoryMockRecorder) TODO() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockServiceFactory)(nil).ModelUUID))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TODO", reflect.TypeOf((*MockServiceFactory)(nil).TODO))
 }
 
 // MockServiceFactoryGetter is a mock of ServiceFactoryGetter interface.
