@@ -124,7 +124,7 @@ func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
 	caller, err := root.FindMethod("unknown-testing-facade", 0, "Method")
 	c.Check(caller, gc.IsNil)
 	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Check(err, gc.ErrorMatches, `unknown object type "unknown-testing-facade"`)
+	c.Check(err, gc.ErrorMatches, `unknown facade type "unknown-testing-facade"`)
 }
 
 func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
@@ -137,7 +137,7 @@ func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
 	caller, err := srvRoot.FindMethod("my-testing-facade", 1, "Exposed")
 	c.Check(caller, gc.IsNil)
 	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Check(err, gc.ErrorMatches, `unknown version \(1\) of interface "my-testing-facade"`)
+	c.Check(err, gc.ErrorMatches, `unknown version 1 for facade type "my-testing-facade"`)
 }
 
 func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
@@ -343,12 +343,12 @@ func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
 	caller, err = srvRoot.FindMethod("my-interface-facade", 1, "AMethod")
 	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
 	c.Check(err, gc.ErrorMatches,
-		`no such request - method my-interface-facade\(1\)\.AMethod is not implemented`)
+		`unknown method "AMethod" at version 1 for facade type "my-interface-facade"`)
 	c.Check(caller, gc.IsNil)
 	caller, err = srvRoot.FindMethod("my-interface-facade", 1, "ZMethod")
 	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
 	c.Check(err, gc.ErrorMatches,
-		`no such request - method my-interface-facade\(1\)\.ZMethod is not implemented`)
+		`unknown method "ZMethod" at version 1 for facade type "my-interface-facade"`)
 	c.Check(caller, gc.IsNil)
 }
 
