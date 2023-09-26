@@ -30,12 +30,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain/servicefactory"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs/config"
 	environtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/container"
-	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/internal/storage/provider"
@@ -102,17 +99,12 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 
 	// Create a provisioner API for the machine.
 	provisionerAPI, err := provisioner.NewProvisionerAPIV11(facadetest.Context{
-		Auth_:      s.authorizer,
-		State_:     st,
-		StatePool_: s.StatePool(),
-		Resources_: s.resources,
-		ServiceFactory_: servicefactory.NewServiceFactory(
-			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
-			nil, nil,
-			servicefactorytesting.NewCheckLogger(c),
-		),
-	},
-	)
+		Auth_:           s.authorizer,
+		State_:          st,
+		StatePool_:      s.StatePool(),
+		Resources_:      s.resources,
+		ServiceFactory_: s.ControllerServiceFactory(c),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.provisioner = provisionerAPI
 }
@@ -139,7 +131,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -151,7 +143,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, gc.NotNil)
 	c.Assert(aProvisioner, gc.IsNil)
@@ -229,7 +221,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 		State_:          st,
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -589,7 +581,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -792,7 +784,7 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertModelConfig(c, aProvisioner)
@@ -1094,7 +1086,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -1220,7 +1212,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -1459,7 +1451,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1513,7 +1505,7 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1688,7 +1680,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()),
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)

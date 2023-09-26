@@ -14,19 +14,17 @@ import (
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
+	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/modelmanager/service"
+	modeltesting "github.com/juju/juju/domain/model/testing"
 	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
 type modelSuite struct {
 	schematesting.ControllerSuite
+	uuid model.UUID
 }
-
-const (
-	modelUUID = service.UUID("12345")
-)
 
 var _ = gc.Suite(&modelSuite{})
 
@@ -61,8 +59,10 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	m.uuid = modeltesting.GenModelUUID(c)
+
 	mmSt := modelmanagerstate.NewState(m.TxnRunnerFactory())
-	err = mmSt.Create(context.Background(), modelUUID)
+	err = mmSt.Create(context.Background(), m.uuid)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -70,7 +70,7 @@ func (m *modelSuite) TestModelSetCredential(c *gc.C) {
 	st := NewState(m.TxnRunnerFactory())
 	err := st.SetCloudCredential(
 		context.Background(),
-		modelUUID,
+		m.uuid,
 		credential.ID{
 			Cloud: "testmctestface",
 			Owner: "bob",
@@ -84,7 +84,7 @@ func (m *modelSuite) TestModelSetNonExistentCredential(c *gc.C) {
 	st := NewState(m.TxnRunnerFactory())
 	err := st.SetCloudCredential(
 		context.Background(),
-		modelUUID,
+		m.uuid,
 		credential.ID{
 			Cloud: "testmctestface",
 			Owner: "bob",

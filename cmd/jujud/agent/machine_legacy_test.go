@@ -253,7 +253,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *g
 	uuid := st.ModelUUID()
 
 	// invalidate cloud credential for this model
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 	err := serviceFactory.Credential().InvalidateCredential(stdcontext.Background(), testing.DefaultCredentialTag, "coz i can")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -284,7 +284,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 
 	ctx := stdcontext.Background()
 	credentialTag := names.NewCloudCredentialTag("dummy/admin/another")
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 	err := serviceFactory.Credential().UpdateCloudCredential(ctx, credentialTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
 	c.Assert(err, jc.ErrorIsNil)
 

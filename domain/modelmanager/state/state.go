@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/modelmanager/service"
+	"github.com/juju/juju/domain/model"
 )
 
 // State represents a type for interacting with the underlying state.
@@ -30,31 +30,37 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // Create takes a model UUID and creates a new model.
 // Note: no validation is performed on the UUID, as that is performed at the
 // service layer.
-func (s *State) Create(ctx context.Context, uuid service.UUID) error {
+func (s *State) Create(ctx context.Context, uuid model.UUID) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "INSERT INTO model_list (uuid) VALUES (?);"
-		result, err := tx.ExecContext(ctx, stmt, uuid)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if num, err := result.RowsAffected(); err != nil {
-			return errors.Trace(err)
-		} else if num != 1 {
-			return errors.Errorf("expected 1 row to be inserted, got %d", num)
-		}
-		return nil
+		return Create(ctx, uuid, tx)
 	})
+}
+
+// Create takes a model UUID and an established transaction onto the database
+// and creates the model.
+func Create(ctx context.Context, uuid model.UUID, tx *sql.Tx) error {
+	stmt := "INSERT INTO model_list (uuid) VALUES (?);"
+	result, err := tx.ExecContext(ctx, stmt, uuid)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if num, err := result.RowsAffected(); err != nil {
+		return errors.Trace(err)
+	} else if num != 1 {
+		return errors.Errorf("expected 1 row to be inserted, got %d", num)
+	}
+	return nil
 }
 
 // Delete takes a model UUID and deletes a new model.
 // Note: no validation is performed on the UUID, as that is performed at the
 // service layer.
-func (s *State) Delete(ctx context.Context, uuid service.UUID) error {
+func (s *State) Delete(ctx context.Context, uuid model.UUID) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)

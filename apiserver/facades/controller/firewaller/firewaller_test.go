@@ -49,7 +49,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.subnet = subnet
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		s.resources,

@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
-	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -50,8 +50,8 @@ type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (caas.B
 // ModelManagerService defines a interface for interacting with the underlying
 // state.
 type ModelManagerService interface {
-	Create(context.Context, modelmanagerservice.UUID) error
-	Delete(context.Context, modelmanagerservice.UUID) error
+	Create(context.Context, model.UUID) error
+	Delete(context.Context, model.UUID) error
 }
 
 type ModelExporter interface {
@@ -347,9 +347,9 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Trace(err)
 	}
 
-	var model common.Model
+	var createdModel common.Model
 	if jujucloud.CloudIsCAAS(*cloud) {
-		model, err = m.newCAASModel(
+		createdModel, err = m.newCAASModel(
 			ctx,
 			cloudSpec,
 			args,
@@ -360,7 +360,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 			ownerTag,
 		)
 	} else {
-		model, err = m.newModel(
+		createdModel, err = m.newModel(
 			ctx,
 			cloudSpec,
 			args,
@@ -377,11 +377,11 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 
 	// Ensure that we place the model in the known model list table on the
 	// controller.
-	if err := m.modelManagerService.Create(ctx, modelmanagerservice.UUID(model.UUID())); err != nil {
+	if err := m.modelManagerService.Create(ctx, model.UUID(createdModel.UUID())); err != nil {
 		return result, errors.Trace(err)
 	}
 
-	return m.getModelInfo(ctx, model.ModelTag(), false)
+	return m.getModelInfo(ctx, createdModel.ModelTag(), false)
 }
 
 func (m *ModelManagerAPI) newCAASModel(
@@ -840,12 +840,12 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		}
 		defer releaseSt()
 
-		model, err := st.Model()
+		stModel, err := st.Model()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if !m.isAdmin {
-			if err := m.authorizer.HasPermission(permission.AdminAccess, model.ModelTag()); err != nil {
+			if err := m.authorizer.HasPermission(permission.AdminAccess, stModel.ModelTag()); err != nil {
 				return err
 			}
 		}
@@ -860,7 +860,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		// cause too much fallout. If we're unable to delete the model from the
 		// database, then we won't be able to create a new model with the same
 		// model uuid as there is a UNIQUE constraint on the model uuid column.
-		err = m.modelManagerService.Delete(ctx, modelmanagerservice.UUID(model.UUID()))
+		err = m.modelManagerService.Delete(ctx, model.UUID(stModel.UUID()))
 		if err != nil && errors.Is(err, errors.NotFound) {
 			return nil
 		}

@@ -10,12 +10,13 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/model"
 )
 
 // State defines a interface for interacting with the underlying state.
 type State interface {
-	Create(context.Context, UUID) error
-	Delete(context.Context, UUID) error
+	Create(context.Context, model.UUID) error
+	Delete(context.Context, model.UUID) error
 }
 
 // Service defines a service for interacting with the underlying state.
@@ -33,7 +34,7 @@ func NewService(st State, dbDeleter database.DBDeleter) *Service {
 }
 
 // Create takes a model UUID and creates a new model.
-func (s *Service) Create(ctx context.Context, uuid UUID) error {
+func (s *Service) Create(ctx context.Context, uuid model.UUID) error {
 	if err := uuid.Validate(); err != nil {
 		return errors.Annotatef(err, "validating model uuid %q", uuid)
 	}
@@ -43,7 +44,7 @@ func (s *Service) Create(ctx context.Context, uuid UUID) error {
 }
 
 // Delete takes a model UUID and deletes the model if it exists.
-func (s *Service) Delete(ctx context.Context, uuid UUID) error {
+func (s *Service) Delete(ctx context.Context, uuid model.UUID) error {
 	if err := uuid.Validate(); err != nil {
 		return errors.Annotatef(err, "validating model uuid %q", uuid)
 	}

@@ -21,7 +21,6 @@ import (
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/internal/storage/poolmanager"
-	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -54,7 +53,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	serviceFactory := s.ServiceFactory(jujujujutesting.DefaultModelUUID)
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, serviceFactory.Cloud(), serviceFactory.Credential())
 	c.Assert(err, jc.ErrorIsNil)

@@ -42,7 +42,7 @@ func (s *CredentialManagerIntegrationSuite) TestInvalidateModelCredential(c *gc.
 	tag, set := model.CloudCredentialTag()
 	c.Assert(set, jc.IsTrue)
 
-	credService := s.ServiceFactoryGetter.FactoryForModel(s.ControllerModelUUID()).Credential()
+	credService := s.ControllerServiceFactory(c).Credential()
 	credential, err := credService.CloudCredential(ctx.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credential.Invalid, jc.IsFalse)

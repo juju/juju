@@ -18,9 +18,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/domain/servicefactory"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
-	databasetesting "github.com/juju/juju/internal/database/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -54,13 +51,9 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	var err error
 	s.haServer, err = highavailability.NewHighAvailabilityAPI(facadetest.Context{
-		State_: st,
-		Auth_:  s.authorizer,
-		ServiceFactory_: servicefactory.NewServiceFactory(
-			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
-			nil, nil,
-			servicefactorytesting.NewCheckLogger(c),
-		),
+		State_:          st,
+		Auth_:           s.authorizer,
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -531,13 +524,9 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 	defer st2.Close()
 
 	haServer, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
-		State_: st2,
-		Auth_:  s.authorizer,
-		ServiceFactory_: servicefactory.NewServiceFactory(
-			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
-			nil, nil,
-			servicefactorytesting.NewCheckLogger(c),
-		),
+		State_:          st2,
+		Auth_:           s.authorizer,
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -597,13 +586,9 @@ func (s *clientSuite) TestHighAvailabilityCAASFails(c *gc.C) {
 	defer st.Close()
 
 	_, err := highavailability.NewHighAvailabilityAPI(facadetest.Context{
-		State_: st,
-		Auth_:  s.authorizer,
-		ServiceFactory_: servicefactory.NewServiceFactory(
-			databasetesting.ConstFactory(s.ControllerSuite.TxnRunner()),
-			nil, nil,
-			servicefactorytesting.NewCheckLogger(c),
-		),
+		State_:          st,
+		Auth_:           s.authorizer,
+		ServiceFactory_: s.ControllerServiceFactory(c),
 	})
 	c.Assert(err, gc.ErrorMatches, "high availability on kubernetes controllers not supported")
 }

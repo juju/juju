@@ -56,7 +56,7 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "juju-controller"})
 	_, err := application.DeployApplication(
@@ -75,7 +75,7 @@ func (s *DeployLocalSuite) TestDeployControllerNotAllowed(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	app, err := application.DeployApplication(
 		context.Background(),
@@ -98,7 +98,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	var f fakeDeployer
 	_, err := application.DeployApplication(
@@ -122,7 +122,7 @@ func (s *DeployLocalSuite) TestDeployChannel(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 
@@ -184,7 +184,7 @@ func (s *DeployLocalSuite) assertBindings(c *gc.C, app application.Application, 
 }
 
 func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	wordpressCharm := s.addWordpressCharm(c)
 	st := s.ControllerModel(c).State()
@@ -231,7 +231,7 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 	st := s.ControllerModel(c).State()
@@ -281,7 +281,7 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 }
 
 func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	wordpressCharm := s.addWordpressCharm(c)
 	st := s.ControllerModel(c).State()
@@ -304,7 +304,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
 				"":   publicSpace.Id(),
-				"db": "42", //unknown space id
+				"db": "42", // unknown space id
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
@@ -317,7 +317,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	var f fakeDeployer
 	_, err := application.DeployApplication(
@@ -344,7 +344,7 @@ func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	app, err := application.DeployApplication(
 		context.Background(),
@@ -370,7 +370,7 @@ func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploySettingsError(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	st := s.ControllerModel(c).State()
 	_, err := application.DeployApplication(
@@ -404,7 +404,7 @@ func sampleApplicationConfigSchema() environschema.Fields {
 }
 
 func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	cfg, err := coreconfig.NewConfig(map[string]interface{}{
 		"outlook":     "good",
@@ -433,7 +433,7 @@ func (s *DeployLocalSuite) TestDeployWithApplicationConfig(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	st := s.ControllerModel(c).State()
 	err := st.SetModelConstraints(constraints.MustParse("mem=2G"))
@@ -458,7 +458,7 @@ func (s *DeployLocalSuite) TestDeployConstraints(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
@@ -485,7 +485,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
@@ -515,7 +515,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
@@ -544,7 +544,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")
@@ -579,7 +579,7 @@ func (s *DeployLocalSuite) TestDeploy(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
 	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
@@ -609,7 +609,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirements(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	curl := charm.MustParseURL("local:focal/juju-qa-test-assumes-v2")
 	ch := testcharms.Hub.CharmDir("juju-qa-test-assumes-v2")
@@ -640,7 +640,7 @@ func (s *DeployLocalSuite) TestDeployWithUnmetCharmRequirementsAndForce(c *gc.C)
 }
 
 func (s *DeployLocalSuite) TestDeployWithFewerPlacement(c *gc.C) {
-	serviceFactory := s.ServiceFactory(testing.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	var f fakeDeployer
 	applicationCons := constraints.MustParse("cores=2")

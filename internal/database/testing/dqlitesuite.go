@@ -148,16 +148,26 @@ func (s *DqliteSuite) OpenDB(c *gc.C) (coredatabase.TxnRunner, *sql.DB) {
 	// Increment the id and use it as the database name, this prevents
 	// tests from interfering with each other.
 	uniqueID := atomic.AddInt64(&s.uniqueID, 1)
+	return s.OpenDBForNamespace(c, strconv.FormatInt(uniqueID, 10))
+}
 
-	var err error
-	s.db, err = s.dqlite.Open(context.Background(), strconv.FormatInt(uniqueID, 10))
+// OpenDBForNamespace returns a new sql.DB reference for the domain.
+func (s *DqliteSuite) OpenDBForNamespace(c *gc.C, domain string) (coredatabase.TxnRunner, *sql.DB) {
+	// There are places in the Juju code where an empty model uuid is valid and
+	// takes on a double meaning to signify something else. It's possible that
+	// in test scenarios as we move to DQlite that these empty model uuid's can
+	// flow down here. In that case the error message is very cryptic. So we
+	// check for empty string here to go bang in a more understandable way.
+	c.Assert(domain, gc.Not(gc.Equals), "", gc.Commentf("cannot open a database for a empty domain"))
+
+	db, err := s.dqlite.Open(context.Background(), domain)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = pragma.SetPragma(context.Background(), s.db, pragma.ForeignKeysPragma, true)
+	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	trackedDB := &txnRunner{
-		db: sqlair.NewDB(s.db),
+		db: sqlair.NewDB(db),
 	}
 
 	return trackedDB, trackedDB.db.PlainDB()

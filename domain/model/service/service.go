@@ -11,34 +11,33 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/modelmanager/service"
 )
 
 // State is the model state required by this service.
 type State interface {
 	// SetCloudCredential sets the cloud credential for the given mode.
-	SetCloudCredential(context.Context, service.UUID, credential.ID) error
+	SetCloudCredential(context.Context, model.UUID, credential.ID) error
 }
 
 // Service defines a service for interacting with the underlying state based
 // information of a model.
 type Service struct {
-	uuid service.UUID
-	st   State
+	st State
 }
 
 // NewService returns a new Service for interacting with a models state.
-func NewService(modelUUID service.UUID, st State) *Service {
+func NewService(st State) *Service {
 	return &Service{
-		uuid: modelUUID,
-		st:   st,
+		st: st,
 	}
 }
 
 // SetCloudCredential takes a cloud credential tag to set for this model.
 func (s *Service) SetCloudCredential(
 	ctx context.Context,
+	modelUUID model.UUID,
 	cred names.CloudCredentialTag,
 ) error {
 	id := credential.ID{
@@ -46,7 +45,7 @@ func (s *Service) SetCloudCredential(
 		Owner: cred.Owner().Id(),
 		Name:  cred.Name(),
 	}
-	err := s.st.SetCloudCredential(ctx, s.uuid, id)
+	err := s.st.SetCloudCredential(ctx, modelUUID, id)
 	if errors.Is(err, errors.NotFound) {
 		return fmt.Errorf("cloud credential %q %w", cred.String(), errors.NotFound)
 	} else if errors.Is(err, modelerrors.NotFound) {

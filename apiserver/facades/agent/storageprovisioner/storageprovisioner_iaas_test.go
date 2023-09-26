@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
-	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -48,7 +47,7 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	serviceFactory := s.ServiceFactory(jujujujutesting.DefaultModelUUID)
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), serviceFactory.Cloud(), serviceFactory.Credential())
 	c.Assert(err, jc.ErrorIsNil)

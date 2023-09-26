@@ -14,8 +14,9 @@ import (
 	. "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/modelmanager/service"
+	modeltesting "github.com/juju/juju/domain/model/testing"
 )
 
 type dummyState struct {
@@ -26,14 +27,11 @@ type dummyState struct {
 type serviceSuite struct {
 	testing.IsolationSuite
 
-	state *dummyState
+	modelUUID model.UUID
+	state     *dummyState
 }
 
 var _ = Suite(&serviceSuite{})
-
-var (
-	modelUUID = service.UUID("123")
-)
 
 func (d *dummyState) addCredential(cred credential.ID) {
 	d.credentials[cred.String()] = cred
@@ -41,7 +39,7 @@ func (d *dummyState) addCredential(cred credential.ID) {
 
 func (d *dummyState) SetCloudCredential(
 	_ context.Context,
-	uuid service.UUID,
+	uuid model.UUID,
 	id credential.ID,
 ) error {
 	cred, exists := d.credentials[id.String()]
@@ -58,10 +56,11 @@ func (d *dummyState) SetCloudCredential(
 }
 
 func (s *serviceSuite) SetUpTest(c *C) {
+	s.modelUUID = modeltesting.GenModelUUID(c)
 	s.state = &dummyState{
 		credentials: map[string]credential.ID{},
 		modelCredentials: map[string]credential.ID{
-			modelUUID.String(): {},
+			s.modelUUID.String(): {},
 		},
 	}
 }
@@ -78,11 +77,11 @@ func (s *serviceSuite) TestSetModelCredential(c *C) {
 	tag, err := names.ParseCloudCredentialTag("cloudcred-testcloud_wallyworld_ipv6world")
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc := NewService(modelUUID, s.state)
-	err = svc.SetCloudCredential(context.Background(), tag)
+	svc := NewService(s.state)
+	err = svc.SetCloudCredential(context.Background(), s.modelUUID, tag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	foundCred, exists := s.state.modelCredentials[modelUUID.String()]
+	foundCred, exists := s.state.modelCredentials[s.modelUUID.String()]
 	c.Assert(exists, jc.IsTrue)
 	c.Assert(foundCred, jc.DeepEquals, cred)
 }
@@ -99,8 +98,8 @@ func (s *serviceSuite) TestSetModelCredentialModelNotFound(c *C) {
 	tag, err := names.ParseCloudCredentialTag("cloudcred-testcloud_wallyworld_ipv6world")
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc := NewService("noexist", s.state)
-	err = svc.SetCloudCredential(context.Background(), tag)
+	svc := NewService(s.state)
+	err = svc.SetCloudCredential(context.Background(), "noexist", tag)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -108,7 +107,7 @@ func (s *serviceSuite) TestSetModelCredentialNotFound(c *C) {
 	tag, err := names.ParseCloudCredentialTag("cloudcred-testcloud_wallyworld_ipv6world")
 	c.Assert(err, jc.ErrorIsNil)
 
-	svc := NewService(modelUUID, s.state)
-	err = svc.SetCloudCredential(context.Background(), tag)
+	svc := NewService(s.state)
+	err = svc.SetCloudCredential(context.Background(), s.modelUUID, tag)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }

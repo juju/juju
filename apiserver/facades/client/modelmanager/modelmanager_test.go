@@ -900,7 +900,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	st := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
 	ctlrSt := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), ctlrSt)
 	model, err := st.Model()
@@ -928,7 +928,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUserTag("external@remote")
 	st := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
@@ -949,7 +949,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
 	st := common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool())
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	endPoint, err := modelmanager.NewModelManagerAPI(
 		st,
@@ -1159,7 +1159,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	backend := common.NewModelManagerBackend(model, s.StatePool())
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
@@ -1214,7 +1214,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	s.authoriser.Tag = jujutesting.AdminUser
 	backend := common.NewModelManagerBackend(model, s.StatePool())
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
 		backend,
@@ -1256,7 +1256,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	backend := common.NewModelManagerBackend(model, s.StatePool())
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
@@ -1731,7 +1731,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(s.ControllerModelUUID())
+	serviceFactory := s.ControllerServiceFactory(c)
 
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = user

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/database/txn"
 )
 
@@ -67,6 +68,15 @@ func ConstFactory(runner coredatabase.TxnRunner) func() (changestream.WatchableD
 		return constWatchableDB{
 			TxnRunner: runner,
 		}, nil
+	}
+}
+
+// ConstModelFactory returns a changestream.WatchableModelDBFactory from just a
+// model.UUID and a database.TxnRunner.
+func ConstModelFactory(modelUUID model.UUID, runner coredatabase.TxnRunner) changestream.WatchableModelDBFactory {
+	return changestream.WatchableModelDBFactory{
+		WatchableDBFactory: ConstFactory(runner),
+		ModelUUID:          modelUUID,
 	}
 }
 

@@ -74,7 +74,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(st)
 
-	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	env, err := stateenvirons.GetNewEnvironFunc(
 		environs.New)(s.ControllerModel(c), serviceFactory.Cloud(), serviceFactory.Credential())

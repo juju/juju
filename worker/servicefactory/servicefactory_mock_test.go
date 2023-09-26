@@ -13,7 +13,9 @@ import (
 	service2 "github.com/juju/juju/domain/controllernode/service"
 	service3 "github.com/juju/juju/domain/credential/service"
 	service4 "github.com/juju/juju/domain/externalcontroller/service"
-	service5 "github.com/juju/juju/domain/modelmanager/service"
+	model "github.com/juju/juju/domain/model"
+	service5 "github.com/juju/juju/domain/model/service"
+	service6 "github.com/juju/juju/domain/modelmanager/service"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -125,11 +127,25 @@ func (mr *MockControllerServiceFactoryMockRecorder) ExternalController() *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExternalController", reflect.TypeOf((*MockControllerServiceFactory)(nil).ExternalController))
 }
 
+// Model mocks base method.
+func (m *MockControllerServiceFactory) Model() *service5.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Model")
+	ret0, _ := ret[0].(*service5.Service)
+	return ret0
+}
+
+// Model indicates an expected call of Model.
+func (mr *MockControllerServiceFactoryMockRecorder) Model() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockControllerServiceFactory)(nil).Model))
+}
+
 // ModelManager mocks base method.
-func (m *MockControllerServiceFactory) ModelManager() *service5.Service {
+func (m *MockControllerServiceFactory) ModelManager() *service6.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelManager")
-	ret0, _ := ret[0].(*service5.Service)
+	ret0, _ := ret[0].(*service6.Service)
 	return ret0
 }
 
@@ -162,18 +178,18 @@ func (m *MockModelServiceFactory) EXPECT() *MockModelServiceFactoryMockRecorder 
 	return m.recorder
 }
 
-// Name mocks base method.
-func (m *MockModelServiceFactory) Name() string {
+// ModelUUID mocks base method.
+func (m *MockModelServiceFactory) ModelUUID() model.UUID {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Name")
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "ModelUUID")
+	ret0, _ := ret[0].(model.UUID)
 	return ret0
 }
 
-// Name indicates an expected call of Name.
-func (mr *MockModelServiceFactoryMockRecorder) Name() *gomock.Call {
+// ModelUUID indicates an expected call of ModelUUID.
+func (mr *MockModelServiceFactoryMockRecorder) ModelUUID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockModelServiceFactory)(nil).Name))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockModelServiceFactory)(nil).ModelUUID))
 }
 
 // MockServiceFactory is a mock of ServiceFactory interface.
@@ -283,11 +299,25 @@ func (mr *MockServiceFactoryMockRecorder) ExternalController() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExternalController", reflect.TypeOf((*MockServiceFactory)(nil).ExternalController))
 }
 
+// Model mocks base method.
+func (m *MockServiceFactory) Model() *service5.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Model")
+	ret0, _ := ret[0].(*service5.Service)
+	return ret0
+}
+
+// Model indicates an expected call of Model.
+func (mr *MockServiceFactoryMockRecorder) Model() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockServiceFactory)(nil).Model))
+}
+
 // ModelManager mocks base method.
-func (m *MockServiceFactory) ModelManager() *service5.Service {
+func (m *MockServiceFactory) ModelManager() *service6.Service {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelManager")
-	ret0, _ := ret[0].(*service5.Service)
+	ret0, _ := ret[0].(*service6.Service)
 	return ret0
 }
 
@@ -297,18 +327,18 @@ func (mr *MockServiceFactoryMockRecorder) ModelManager() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelManager", reflect.TypeOf((*MockServiceFactory)(nil).ModelManager))
 }
 
-// Name mocks base method.
-func (m *MockServiceFactory) Name() string {
+// ModelUUID mocks base method.
+func (m *MockServiceFactory) ModelUUID() model.UUID {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Name")
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "ModelUUID")
+	ret0, _ := ret[0].(model.UUID)
 	return ret0
 }
 
-// Name indicates an expected call of Name.
-func (mr *MockServiceFactoryMockRecorder) Name() *gomock.Call {
+// ModelUUID indicates an expected call of ModelUUID.
+func (mr *MockServiceFactoryMockRecorder) ModelUUID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockServiceFactory)(nil).Name))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockServiceFactory)(nil).ModelUUID))
 }
 
 // MockServiceFactoryGetter is a mock of ServiceFactoryGetter interface.

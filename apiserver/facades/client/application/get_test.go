@@ -50,7 +50,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	api, err := application.NewAPIBase(
 		application.GetState(st),
@@ -181,7 +181,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 	mod, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	serviceFactory := s.ServiceFactory(jujutesting.DefaultModelUUID)
+	serviceFactory := s.DefaultModelServiceFactory(c)
 
 	api, err := application.NewAPIBase(
 		application.GetState(st),
