@@ -306,13 +306,13 @@ func (st State) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID string) e
 		return errors.Trace(err)
 	}
 
-	getUpgradeDBCompletedQuery := "SELECT db_completed_ad AS &Info.* FROM upgrade_info WHERE uuid = $M.info_uuid"
+	getUpgradeDBCompletedQuery := "SELECT db_completed_at AS &Info.* FROM upgrade_info WHERE uuid = $M.info_uuid"
 	getUpgradeDBCompletedStmt, err := sqlair.Prepare(getUpgradeDBCompletedQuery, Info{}, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing %q", getUpgradeDBCompletedQuery)
 	}
 
-	completeDBUpgradeQuery := "UPDATE upgrade_info SET db_completed_ad = DATETIME('now') WHERE uuid = $M.info_uuid"
+	completeDBUpgradeQuery := "UPDATE upgrade_info SET db_completed_at = DATETIME('now') WHERE uuid = $M.info_uuid"
 	completedDBUpgradeStmt, err := sqlair.Prepare(completeDBUpgradeQuery, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing %q", completeDBUpgradeQuery)
