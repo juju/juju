@@ -237,11 +237,12 @@ func (a *API) watchProvisioningInfo(appName names.ApplicationTag) (params.Notify
 		return result, errors.Trace(err)
 	}
 
-	modelConfigWatcher := model.WatchForModelConfigChanges()
 	appWatcher := app.Watch()
 	controllerConfigWatcher := a.ctrlSt.WatchControllerConfig()
+	controllerAPIHostPortsWatcher := a.ctrlSt.WatchAPIHostPortsForAgents()
+	modelConfigWatcher := model.WatchForModelConfigChanges()
 
-	multiWatcher := common.NewMultiNotifyWatcher(appWatcher, controllerConfigWatcher, modelConfigWatcher)
+	multiWatcher := common.NewMultiNotifyWatcher(appWatcher, controllerConfigWatcher, controllerAPIHostPortsWatcher, modelConfigWatcher)
 
 	if _, ok := <-multiWatcher.Changes(); ok {
 		result.NotifyWatcherId = a.resources.Register(multiWatcher)
