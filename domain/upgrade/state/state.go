@@ -306,30 +306,25 @@ func (st State) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID string) e
 		return errors.Trace(err)
 	}
 
-	getUpgradeDBCompletedQuery := "SELECT db_completed_at AS &Info.* FROM upgrade_info WHERE uuid = $M.info_uuid"
-	getUpgradeDBCompletedStmt, err := sqlair.Prepare(getUpgradeDBCompletedQuery, Info{}, sqlair.M{})
-	if err != nil {
-		return errors.Annotatef(err, "preparing %q", getUpgradeDBCompletedQuery)
-	}
-
-	completeDBUpgradeQuery := "UPDATE upgrade_info SET db_completed_at = DATETIME('now') WHERE uuid = $M.info_uuid"
+	completeDBUpgradeQuery := `
+UPDATE upgrade_info 
+SET db_completed_at = DATETIME('now') 
+WHERE uuid = $M.info_uuid
+AND db_completed_at IS NULL;`
 	completedDBUpgradeStmt, err := sqlair.Prepare(completeDBUpgradeQuery, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing %q", completeDBUpgradeQuery)
 	}
 
 	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var node Info
-		err := tx.Query(ctx, getUpgradeDBCompletedStmt, sqlair.M{"info_uuid": upgradeUUID}).Get(&node)
-		if err != nil {
+		var outcome sqlair.Outcome
+		if err = tx.Query(ctx, completedDBUpgradeStmt, sqlair.M{"info_uuid": upgradeUUID}).Get(&outcome); err != nil {
 			return errors.Trace(err)
 		}
-		if node.DBCompletedAt.Valid {
-			return nil
-		}
-		err = tx.Query(ctx, completedDBUpgradeStmt, sqlair.M{"info_uuid": upgradeUUID}).Run()
-		if err != nil {
+		if num, err := outcome.Result().RowsAffected(); err != nil {
 			return errors.Trace(err)
+		} else if num == 0 {
+			return errors.Errorf("There is no upgrade record with a pending DB upgrade ID: %s", upgradeUUID)
 		}
 		return nil
 	}))

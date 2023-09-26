@@ -436,8 +436,8 @@ CREATE TABLE upgrade_info (
     target_version   TEXT NOT NULL,
     created_at       TIMESTAMP NOT NULL,
     started_at       TIMESTAMP,
-    completed_at     TIMESTAMP,
-    db_completed_at  TIMESTAMP
+    db_completed_at  TIMESTAMP,
+    completed_at     TIMESTAMP
 );
 
 -- A unique constraint over a contant index ensures only 1 entry matching the condition can exist
