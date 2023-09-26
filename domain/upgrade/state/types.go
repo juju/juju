@@ -21,7 +21,7 @@ type Info struct {
 	// CompletedAt holds the time the upgrade was completed
 	CompletedAt sql.NullString `db:"completed_at"`
 	// DBCompletedAt holds the time the upgrade was completed in the DB
-	DBCompletedAd sql.NullString `db:"db_completed_at"`
+	DBCompletedAt sql.NullString `db:"db_completed_at"`
 }
 
 type InfoControllerNode struct {

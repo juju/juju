@@ -25,6 +25,7 @@ type State interface {
 	StartUpgrade(context.Context, string) error
 	SetControllerDone(context.Context, string, string) error
 	ActiveUpgrade(context.Context) (string, error)
+	SetDBUpgradeCompleted(context.Context, string) error
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -59,7 +60,7 @@ func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVers
 }
 
 // SetControllerReady marks the supplied controllerID as being ready
-// to start it's upgrade. All provisioned controllers need to be ready
+// to start its upgrade. All provisioned controllers need to be ready
 // before an upgrade can start
 func (s *Service) SetControllerReady(ctx context.Context, upgradeUUID, controllerID string) error {
 	err := s.st.SetControllerReady(ctx, upgradeUUID, controllerID)
@@ -83,6 +84,15 @@ func (s *Service) StartUpgrade(ctx context.Context, upgradeUUID string) error {
 // last provisioned controller, the upgrade will be archived.
 func (s *Service) SetControllerDone(ctx context.Context, upgradeUUID, controllerID string) error {
 	return domain.CoerceError(s.st.SetControllerDone(ctx, upgradeUUID, controllerID))
+}
+
+// SetDBUpgradeCompleted marks the upgrade as completed in the database
+func (s *Service) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID string) error {
+	err := s.st.SetDBUpgradeCompleted(ctx, upgradeUUID)
+	if database.IsErrNotFound(err) {
+		return errors.NotFoundf("upgrade %q", upgradeUUID)
+	}
+	return domain.CoerceError(err)
 }
 
 // ActiveUpgrade returns the uuid of the current active upgrade.

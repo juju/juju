@@ -110,6 +110,20 @@ func (mr *MockStateMockRecorder) SetControllerReady(arg0, arg1, arg2 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetControllerReady", reflect.TypeOf((*MockState)(nil).SetControllerReady), arg0, arg1, arg2)
 }
 
+// SetDBUpgradeCompleted mocks base method.
+func (m *MockState) SetDBUpgradeCompleted(arg0 context.Context, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetDBUpgradeCompleted", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetDBUpgradeCompleted indicates an expected call of SetDBUpgradeCompleted.
+func (mr *MockStateMockRecorder) SetDBUpgradeCompleted(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDBUpgradeCompleted", reflect.TypeOf((*MockState)(nil).SetDBUpgradeCompleted), arg0, arg1)
+}
+
 // StartUpgrade mocks base method.
 func (m *MockState) StartUpgrade(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
