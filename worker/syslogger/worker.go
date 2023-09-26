@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
-	"github.com/juju/worker/v3/catacomb"
+	"gopkg.in/tomb.v2"
 
 	corelogger "github.com/juju/juju/core/logger"
 )
@@ -21,7 +21,7 @@ import (
 type NewLogger func(Priority, string) (io.WriteCloser, error)
 
 // WorkerConfig encapsulates the configuration options for the
-// dbaccessor worker.
+// syslogger worker.
 type WorkerConfig struct {
 	NewLogger NewLogger
 }
@@ -57,8 +57,8 @@ type SysLogger interface {
 }
 
 type syslogWorker struct {
-	cfg      WorkerConfig
-	catacomb catacomb.Catacomb
+	tomb tomb.Tomb
+	cfg  WorkerConfig
 
 	writers map[loggo.Level]io.WriteCloser
 }
@@ -95,35 +95,31 @@ func NewWorker(cfg WorkerConfig) (worker.Worker, error) {
 		writers: writers,
 	}
 
-	if err = catacomb.Invoke(catacomb.Plan{
-		Site: &w.catacomb,
-		Work: func() error {
-			<-w.catacomb.Dying()
-			w.close()
-			return nil
-		},
-	}); err != nil {
-		return nil, errors.Trace(err)
-	}
+	w.tomb.Go(func() error {
+		defer w.close()
+
+		<-w.tomb.Dying()
+		return tomb.ErrDying
+	})
 
 	return w, nil
 }
 
 // Kill is part of the worker.Worker interface.
 func (w *syslogWorker) Kill() {
-	w.catacomb.Kill(nil)
+	w.tomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
 func (w *syslogWorker) Wait() error {
-	return w.catacomb.Wait()
+	return w.tomb.Wait()
 }
 
 func (w *syslogWorker) Log(logs []corelogger.LogRecord) error {
 	// Prevent logging out if the worker has already been killed.
 	select {
-	case <-w.catacomb.Dead():
-		return w.catacomb.Err()
+	case <-w.tomb.Dying():
+		return w.tomb.Err()
 	default:
 	}
 
