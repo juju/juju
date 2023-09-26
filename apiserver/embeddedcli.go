@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/jujuclient"
@@ -161,7 +162,7 @@ func (h *embeddedCLIHandler) runEmbeddedCommands(
 	// TODO (stickupkid): This is actually terrible. We should refactor
 	// this out, so we can just pass an interface the handler, that hides
 	// all of this nonsense.
-	controllerServiceFactory := h.ctxt.srv.shared.serviceFactoryGetter.ControllerFactory()
+	controllerServiceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(database.ControllerNS)
 	controllerConfigService := controllerServiceFactory.ControllerConfig()
 
 	// Make a pipe to stream the stdout/stderr of the commands.

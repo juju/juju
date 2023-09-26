@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -219,6 +220,10 @@ func (s *loginSuite) setupManagementSpace(c *gc.C) *state.Space {
 
 	err = s.ControllerModel(c).State().UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.ControllerServiceFactory(c).ControllerConfig().UpdateControllerConfig(context.Background(), map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	return mgmtSpace
 }
 
@@ -267,9 +272,10 @@ func (s *loginSuite) loginHostPorts(
 func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *state.Space) {
 	st := s.ControllerModel(c).State()
 
-	cfg := coretesting.FakeControllerConfig()
+	cfg, err := s.ControllerServiceFactory(c).ControllerConfig().ControllerConfig(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
 
-	err := st.SetAPIHostPorts(cfg, nil)
+	err = st.SetAPIHostPorts(cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Initially just the address we connect with is returned by the helper
