@@ -148,53 +148,56 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	}
 	registry := provider.CommonStorageProviders()
 	var envProvider fakeProvider
-	args := agentbootstrap.InitializeStateParams{
-		StateInitializationParams: instancecfg.StateInitializationParams{
-			BootstrapMachineConstraints:             expectBootstrapConstraints,
-			BootstrapMachineInstanceId:              "i-bootstrap",
-			BootstrapMachineDisplayName:             "test-display-name",
-			BootstrapMachineHardwareCharacteristics: &expectHW,
-			ControllerCloud: cloud.Cloud{
-				Name:         "dummy",
-				Type:         "dummy",
-				AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
-				Regions:      []cloud.Region{{Name: "dummy-region"}},
-				RegionConfig: regionConfig,
-			},
-			ControllerCloudRegion:         "dummy-region",
-			ControllerConfig:              controllerCfg,
-			ControllerModelConfig:         modelCfg,
-			ControllerModelEnvironVersion: 666,
-			ModelConstraints:              expectModelConstraints,
-			ControllerInheritedConfig:     controllerInheritedConfig,
-			InitialModelConfig:            InitialModelConfigAttrs,
-			StoragePools: map[string]storage.Attrs{
-				"spool": {
-					"type": "loop",
-					"foo":  "bar",
-				},
+	stateInitParams := instancecfg.StateInitializationParams{
+		BootstrapMachineConstraints:             expectBootstrapConstraints,
+		BootstrapMachineInstanceId:              "i-bootstrap",
+		BootstrapMachineDisplayName:             "test-display-name",
+		BootstrapMachineHardwareCharacteristics: &expectHW,
+		ControllerCloud: cloud.Cloud{
+			Name:         "dummy",
+			Type:         "dummy",
+			AuthTypes:    []cloud.AuthType{cloud.EmptyAuthType},
+			Regions:      []cloud.Region{{Name: "dummy-region"}},
+			RegionConfig: regionConfig,
+		},
+		ControllerCloudRegion:         "dummy-region",
+		ControllerConfig:              controllerCfg,
+		ControllerModelConfig:         modelCfg,
+		ControllerModelEnvironVersion: 666,
+		ModelConstraints:              expectModelConstraints,
+		ControllerInheritedConfig:     controllerInheritedConfig,
+		InitialModelConfig:            InitialModelConfigAttrs,
+		StoragePools: map[string]storage.Attrs{
+			"spool": {
+				"type": "loop",
+				"foo":  "bar",
 			},
 		},
-		BootstrapMachineAddresses: initialAddrs,
-		BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
-		SharedSecret:              "abc123",
-		Provider: func(t string) (environs.EnvironProvider, error) {
-			c.Assert(t, gc.Equals, "dummy")
-			return &envProvider, nil
-		},
-		StorageProviderRegistry: registry,
 	}
-
 	adminUser := names.NewLocalUserTag("agent-admin")
-	ctlr, err := agentbootstrap.InitializeAgent(stdcontext.Background(), agentbootstrap.AgentInitializerConfig{
-		AgentConfig:           cfg,
-		BootstrapEnviron:      &fakeEnviron{},
-		AdminUser:             adminUser,
-		InitializeStateParams: args,
-		MongoDialOpts:         mongotest.DialOpts(),
-		StateNewPolicy:        state.NewPolicyFunc(nil),
-		BootrapDqlite:         bootstrapDqliteWithDummyCloudType,
-	})
+	bootstrap, err := agentbootstrap.NewAgentBootstrap(
+		agentbootstrap.AgentBootstrapArgs{
+			AgentConfig:               cfg,
+			BootstrapEnviron:          &fakeEnviron{},
+			AdminUser:                 adminUser,
+			StateInitializationParams: stateInitParams,
+			MongoDialOpts:             mongotest.DialOpts(),
+			StateNewPolicy:            state.NewPolicyFunc(nil),
+			BootstrapMachineAddresses: initialAddrs,
+			BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
+			SharedSecret:              "abc123",
+			StorageProviderRegistry:   registry,
+			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
+			Provider: func(t string) (environs.EnvironProvider, error) {
+				c.Assert(t, gc.Equals, "dummy")
+				return &envProvider, nil
+			},
+			Logger: testing.NewCheckLogger(c),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctlr, err := bootstrap.Initialize(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = ctlr.Close() }()
 
@@ -382,19 +385,24 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, jc.IsFalse)
 
-	args := agentbootstrap.InitializeStateParams{}
-
 	adminUser := names.NewLocalUserTag("agent-admin")
 
-	_, err = agentbootstrap.InitializeAgent(stdcontext.Background(), agentbootstrap.AgentInitializerConfig{
-		AgentConfig:           cfg,
-		BootstrapEnviron:      &fakeEnviron{},
-		AdminUser:             adminUser,
-		InitializeStateParams: args,
-		MongoDialOpts:         mongotest.DialOpts(),
-		StateNewPolicy:        nil,
-		BootrapDqlite:         bootstrapDqliteWithDummyCloudType,
-	})
+	bootstrap, err := agentbootstrap.NewAgentBootstrap(
+		agentbootstrap.AgentBootstrapArgs{
+			AgentConfig:               cfg,
+			BootstrapEnviron:          &fakeEnviron{},
+			AdminUser:                 adminUser,
+			StateInitializationParams: instancecfg.StateInitializationParams{},
+			MongoDialOpts:             mongotest.DialOpts(),
+			StateNewPolicy:            nil,
+			SharedSecret:              "abc123",
+			StorageProviderRegistry:   provider.CommonStorageProviders(),
+			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
+			Logger:                    testing.NewCheckLogger(c),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = bootstrap.Initialize(stdcontext.Background())
 
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
@@ -435,49 +443,59 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		"uuid": utils.MustNewUUID().String(),
 	}
 
-	args := agentbootstrap.InitializeStateParams{
-		StateInitializationParams: instancecfg.StateInitializationParams{
-			BootstrapMachineInstanceId:  "i-bootstrap",
-			BootstrapMachineDisplayName: "test-display-name",
-			ControllerCloud: cloud.Cloud{
-				Name:      "dummy",
-				Type:      "dummy",
-				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-			},
-			ControllerConfig:      testing.FakeControllerConfig(),
-			ControllerModelConfig: modelCfg,
-			InitialModelConfig:    InitialModelConfigAttrs,
+	args := instancecfg.StateInitializationParams{
+		BootstrapMachineInstanceId:  "i-bootstrap",
+		BootstrapMachineDisplayName: "test-display-name",
+		ControllerCloud: cloud.Cloud{
+			Name:      "dummy",
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
 		},
-		BootstrapMachineJobs: []model.MachineJob{model.JobManageModel},
-		SharedSecret:         "abc123",
-		Provider: func(t string) (environs.EnvironProvider, error) {
-			return &fakeProvider{}, nil
-		},
-		StorageProviderRegistry: provider.CommonStorageProviders(),
+		ControllerConfig:      testing.FakeControllerConfig(),
+		ControllerModelConfig: modelCfg,
+		InitialModelConfig:    InitialModelConfigAttrs,
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")
-	st, err := agentbootstrap.InitializeAgent(stdcontext.Background(), agentbootstrap.AgentInitializerConfig{
-		AgentConfig:           cfg,
-		BootstrapEnviron:      &fakeEnviron{},
-		AdminUser:             adminUser,
-		InitializeStateParams: args,
-		MongoDialOpts:         mongotest.DialOpts(),
-		StateNewPolicy:        state.NewPolicyFunc(nil),
-		BootrapDqlite:         bootstrapDqliteWithDummyCloudType,
-	})
+	bootstrap, err := agentbootstrap.NewAgentBootstrap(
+		agentbootstrap.AgentBootstrapArgs{
+			AgentConfig:               cfg,
+			BootstrapEnviron:          &fakeEnviron{},
+			AdminUser:                 adminUser,
+			StateInitializationParams: args,
+			MongoDialOpts:             mongotest.DialOpts(),
+			StateNewPolicy:            state.NewPolicyFunc(nil),
+			BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
+			SharedSecret:              "abc123",
+			StorageProviderRegistry:   provider.CommonStorageProviders(),
+			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
+			Provider: func(t string) (environs.EnvironProvider, error) {
+				return &fakeProvider{}, nil
+			},
+			Logger: testing.NewCheckLogger(c),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	st, err := bootstrap.Initialize(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	_ = st.Close()
 
-	st, err = agentbootstrap.InitializeAgent(stdcontext.Background(), agentbootstrap.AgentInitializerConfig{
-		AgentConfig:           cfg,
-		BootstrapEnviron:      &fakeEnviron{},
-		AdminUser:             adminUser,
-		InitializeStateParams: args,
-		MongoDialOpts:         mongotest.DialOpts(),
-		StateNewPolicy:        state.NewPolicyFunc(nil),
-		BootrapDqlite:         database.BootstrapDqlite,
-	})
+	bootstrap, err = agentbootstrap.NewAgentBootstrap(
+		agentbootstrap.AgentBootstrapArgs{
+			AgentConfig:               cfg,
+			BootstrapEnviron:          &fakeEnviron{},
+			AdminUser:                 adminUser,
+			StateInitializationParams: args,
+			MongoDialOpts:             mongotest.DialOpts(),
+			StateNewPolicy:            state.NewPolicyFunc(nil),
+			SharedSecret:              "baz",
+			StorageProviderRegistry:   provider.CommonStorageProviders(),
+			BootstrapDqlite:           database.BootstrapDqlite,
+			Logger:                    testing.NewCheckLogger(c),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	st, err = bootstrap.Initialize(stdcontext.Background())
 	if err == nil {
 		_ = st.Close()
 	}

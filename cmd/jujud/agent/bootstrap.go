@@ -17,6 +17,7 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
@@ -62,11 +63,9 @@ var (
 	minSocketTimeout    = 1 * time.Minute
 )
 
-const adminUserName = "admin"
+type BootstrapAgentFunc func(agentbootstrap.AgentBootstrapArgs) (*agentbootstrap.AgentBootstrap, error)
 
-// InitializeAgentFunc is a function that initializes an agent. This can
-// be defined as a variable so that it can be overridden in tests.
-type InitializeAgentFunc func(stdcontext.Context, agentbootstrap.AgentInitializerConfig) (*state.Controller, error)
+const adminUserName = "admin"
 
 // BootstrapCommand represents a jujud bootstrap command.
 type BootstrapCommand struct {
@@ -74,14 +73,17 @@ type BootstrapCommand struct {
 	agentconf.AgentConf
 	BootstrapParamsFile string
 	Timeout             time.Duration
-	InitializeAgent     InitializeAgentFunc
+	BootstrapAgent      BootstrapAgentFunc
+	DqliteInitializer   agentbootstrap.DqliteInitializerFunc
 }
 
 // NewBootstrapCommand returns a new BootstrapCommand that has been initialized.
 func NewBootstrapCommand() *BootstrapCommand {
 	return &BootstrapCommand{
-		AgentConf:       agentconf.NewAgentConf(""),
-		InitializeAgent: agentbootstrap.InitializeAgent,
+		AgentConf: agentconf.NewAgentConf(""),
+
+		BootstrapAgent:    agentbootstrap.NewAgentBootstrap,
+		DqliteInitializer: database.BootstrapDqlite,
 	}
 }
 
@@ -367,7 +369,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var controller *state.Controller
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
-		var stateErr error
 		dialOpts := mongo.DefaultDialOpts()
 
 		// Set a longer socket timeout than usual, as the machine
@@ -382,29 +383,29 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		dialOpts.Direct = true
 
 		adminTag := names.NewLocalUserTag(adminUserName)
-		controller, stateErr = c.InitializeAgent(
-			ctx,
-			agentbootstrap.AgentInitializerConfig{
-				AgentConfig:      agentConfig,
-				BootstrapEnviron: env,
-				AdminUser:        adminTag,
-				InitializeStateParams: agentbootstrap.InitializeStateParams{
-					StateInitializationParams: args,
-					BootstrapMachineAddresses: addrs,
-					BootstrapMachineJobs:      agentConfig.Jobs(),
-					SharedSecret:              info.SharedSecret,
-					Provider:                  environs.Provider,
-					StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
-				},
-				MongoDialOpts: dialOpts,
-				StateNewPolicy: stateenvirons.GetNewPolicyFunc(
-					cloudGetter{cloud: &args.ControllerCloud},
-					credentialGetter{cred: args.ControllerCloudCredential},
-				),
-				BootrapDqlite: database.BootstrapDqlite,
-			},
-		)
-		return stateErr
+		bootstrap, err := c.BootstrapAgent(agentbootstrap.AgentBootstrapArgs{
+			AgentConfig:               agentConfig,
+			BootstrapEnviron:          env,
+			AdminUser:                 adminTag,
+			StateInitializationParams: args,
+			BootstrapMachineAddresses: addrs,
+			BootstrapMachineJobs:      agentConfig.Jobs(),
+			SharedSecret:              info.SharedSecret,
+			StorageProviderRegistry:   stateenvirons.NewStorageProviderRegistry(env),
+			MongoDialOpts:             dialOpts,
+			StateNewPolicy: stateenvirons.GetNewPolicyFunc(
+				cloudGetter{cloud: &args.ControllerCloud},
+				credentialGetter{cred: args.ControllerCloudCredential},
+			),
+			BootstrapDqlite: c.DqliteInitializer,
+			Provider:        environs.Provider,
+			Logger:          loggo.GetLogger("juju.agent.bootstrap"),
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		controller, err = bootstrap.Initialize(ctx)
+		return err
 	})
 	if err != nil {
 		return errors.Trace(err)
