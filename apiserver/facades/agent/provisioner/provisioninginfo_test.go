@@ -59,7 +59,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
+	serviceFactory := s.ControllerServiceFactory(c)
+	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.ProvisioningInfoResults{
@@ -182,7 +183,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
-	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
+	serviceFactory := s.ControllerServiceFactory(c)
+	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := &params.ProvisioningInfo{
@@ -265,7 +267,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
+	serviceFactory := s.ControllerServiceFactory(c)
+	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := params.ProvisioningInfoResults{
@@ -497,7 +500,8 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
+	serviceFactory := s.ControllerServiceFactory(c)
+	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	mod, err := st.Model()
@@ -546,8 +550,10 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
+	serviceFactory := s.ControllerServiceFactory(c)
+	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
@@ -678,6 +684,8 @@ package_upgrade: false
 `[1:]
 
 func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
+	serviceFactory := s.ControllerServiceFactory(c)
+
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
 	anAuthorizer.Controller = false
@@ -687,7 +695,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 		State_:          s.ControllerModel(c).State(),
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
-		ServiceFactory_: s.ControllerServiceFactory(c),
+		ServiceFactory_: serviceFactory,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -703,8 +711,10 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	// Only machine 0 and containers therein can be accessed.
 	results, err := aProvisioner.ProvisioningInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-	controllerCfg, err := s.ControllerModel(c).State().ControllerConfig()
+
+	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
