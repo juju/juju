@@ -56,12 +56,3 @@ type ServiceFactoryGetter interface {
 	// FactoryForModel returns a ServiceFactory for the given model.
 	FactoryForModel(modelUUID string) ServiceFactory
 }
-
-// ServiceFactoryGetterFunc is a convenience type for translating a getter
-// function into the ServiceFactoryGetter interface.
-type ServiceFactoryGetterFunc func(string) ServiceFactory
-
-// FactoryForModel implements the ServiceFactoryGetter interface.
-func (s ServiceFactoryGetterFunc) FactoryForModel(modelUUID string) ServiceFactory {
-	return s(modelUUID)
-}

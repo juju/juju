@@ -23,13 +23,14 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher/registry"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type watcherSuite struct {
-	testing.BaseSuite
+	jujutesting.ApiServerSuite
+
 	resources       *common.Resources
 	watcherRegistry facade.WatcherRegistry
 	authorizer      apiservertesting.FakeAuthorizer
@@ -38,7 +39,7 @@ type watcherSuite struct {
 var _ = gc.Suite(&watcherSuite{})
 
 func (s *watcherSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.ApiServerSuite.SetUpTest(c)
 
 	var err error
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
@@ -60,16 +61,17 @@ func (s *watcherSuite) getFacade(
 	dispose func(),
 ) interface{} {
 	factory := getFacadeFactory(c, name, version)
-	facade, err := factory(s.facadeContext(id, dispose))
+	facade, err := factory(s.facadeContext(c, id, dispose))
 	c.Assert(err, jc.ErrorIsNil)
 	return facade
 }
 
-func (s *watcherSuite) facadeContext(id string, dispose func()) facadetest.Context {
+func (s *watcherSuite) facadeContext(c *gc.C, id string, dispose func()) facadetest.Context {
 	return facadetest.Context{
 		Resources_:       s.resources,
 		WatcherRegistry_: s.watcherRegistry,
 		Auth_:            s.authorizer,
+		ServiceFactory_:  s.ControllerServiceFactory(c),
 		ID_:              id,
 		Dispose_:         dispose,
 	}
