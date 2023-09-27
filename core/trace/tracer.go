@@ -189,7 +189,7 @@ type TaggedTracerNamespace struct {
 func (ns TaggedTracerNamespace) ServiceName() string {
 	// TODO (stickupkid): This won't always be jujud, work out the right
 	// agent binary.
-	return fmt.Sprintf("jujud-%s", ns.Tag.String())
+	return fmt.Sprintf("jujud-%s", ns.ShortNamespace())
 }
 
 func (ns TaggedTracerNamespace) String() string {
