@@ -11,6 +11,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination package_mock_test.go github.com/juju/juju/worker/upgradedatabase Logger
 //go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination lock_mock_test.go github.com/juju/juju/worker/gate Lock
+//go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

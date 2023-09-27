@@ -5,6 +5,7 @@ package upgradedatabase
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/version/v2"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
@@ -31,13 +32,20 @@ type Worker struct {
 	tomb            tomb.Tomb
 	upgradeComplete gate.Lock
 
+	agent  agent.Agent
 	logger Logger
+
+	fromVersion version.Number
+	toVersion   version.Number
 }
 
 type Config struct {
 	// UpgradeComplete is a lock used to synchronise workers that must start
 	// after database upgrades are verified as completed.
 	UpgradeComplete gate.Lock
+
+	// agent is the running machine agent.
+	Agent agent.Agent
 
 	// Logger is the logger for this worker.
 	Logger Logger
@@ -47,6 +55,9 @@ type Config struct {
 func (c Config) Validate() error {
 	if c.UpgradeComplete == nil {
 		return errors.NotValidf("nil UpgradeComplete lock")
+	}
+	if c.Agent == nil {
+		return errors.NotValidf("nil Agent")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -77,6 +88,15 @@ func (w *Worker) upgradeDone() bool {
 		return true
 	}
 
+	// If we are already on the current version, there is nothing to do.
+	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
+	w.toVersion = jujuversion.Current
+	if w.fromVersion == w.toVersion {
+		w.logger.Infof("database upgrade for %v already completed", w.toVersion)
+		w.upgradeComplete.Unlock()
+		return true
+	}
+
 	return false
 }
 
@@ -104,6 +124,9 @@ func (w *Worker) loop() error {
 	if w.upgradeDone() {
 		return nil
 	}
+
+	// TODO(anvial): try to CreateUpgrade, the controller who gets the upgrade ID will rubUpgrade, all other controllers
+	// should get the error and only watchUpgrade
 
 	err := w.runUpgrade()
 	if err != nil {

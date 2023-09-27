@@ -34,6 +34,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() upgradedatabase.ManifoldConfig {
 	return upgradedatabase.ManifoldConfig{
+		AgentName:         "agent-name",
 		UpgradeDBGateName: "upgrade-database-lock",
 		Logger:            s.logger,
 	}
