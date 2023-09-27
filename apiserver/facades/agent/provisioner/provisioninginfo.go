@@ -192,12 +192,6 @@ func (api *ProvisionerAPI) machineVolumeParams(
 		return nil, nil, errors.Trace(err)
 	}
 
-	// TODO (stickupkid): This call for the controller UUID could just be
-	// cached in the provisioner API constructor.
-	controllerCfg, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
 	allVolumeParams := make([]params.VolumeParams, 0, len(volumeAttachments))
 	var allVolumeAttachmentParams []params.VolumeAttachmentParams
 	for _, volumeAttachment := range volumeAttachments {
@@ -213,7 +207,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 			return nil, nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
 		}
 		volumeParams, err := storagecommon.VolumeParams(
-			volume, storageInstance, modelConfig.UUID(), controllerCfg.ControllerUUID(),
+			volume, storageInstance, modelConfig.UUID(), api.controllerUUID,
 			modelConfig, api.storagePoolManager, api.storageProviderRegistry,
 		)
 		if err != nil {
@@ -289,14 +283,7 @@ func (api *ProvisionerAPI) machineTags(ctx context.Context, m *state.Machine, is
 		return nil, errors.Trace(err)
 	}
 
-	// TODO (stickupkid): This call for the controller UUID could just be
-	// cached in the provisioner API constructor.
-	controllerCfg, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	machineTags := instancecfg.InstanceTags(cfg.UUID(), controllerCfg.ControllerUUID(), cfg, isController)
+	machineTags := instancecfg.InstanceTags(cfg.UUID(), api.controllerUUID, cfg, isController)
 	if len(unitNames) > 0 {
 		machineTags[tags.JujuUnitsDeployed] = strings.Join(unitNames, " ")
 	}

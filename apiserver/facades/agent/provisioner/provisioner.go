@@ -128,6 +128,14 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	serviceFactory := ctx.ServiceFactory()
+
+	// Get the controller config early, so we can use it to cache the
+	// controller UUID.
+	controllerCfg, err := serviceFactory.ControllerConfig().ControllerConfig(stdcontext.TODO())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	configGetter := stateenvirons.EnvironConfigGetter{
 		Model:             model,
 		CloudService:      serviceFactory.Cloud(),
@@ -185,6 +193,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		getAuthFunc:             getAuthFunc,
 		getCanModify:            getCanModify,
 		providerCallContext:     callCtx,
+		controllerUUID:          controllerCfg.ControllerUUID(),
 		logger:                  ctx.Logger().Child("provisioner"),
 	}
 	if isCaasModel {
