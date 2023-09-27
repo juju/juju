@@ -5,9 +5,8 @@ package state
 
 import "database/sql"
 
-// These structs represent the upgrade entity schema in the database.
-
-type Info struct {
+// info holds the information about database upgrade
+type info struct {
 	// UUID holds the upgrader's ID
 	UUID string `db:"uuid"`
 	// PreviousVersion holds the previous version
@@ -24,7 +23,8 @@ type Info struct {
 	DBCompletedAt sql.NullString `db:"db_completed_at"`
 }
 
-type InfoControllerNode struct {
+// infoControllerNode holds the information about completeness of database upgrade process for a particular controller node
+type infoControllerNode struct {
 	// ControllerNodeID holds the controller node ID
 	ControllerNodeID string `db:"controller_node_id"`
 	// NodeUpgradeStartedAt holds the time the upgrade was started on the node

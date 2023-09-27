@@ -89,9 +89,6 @@ func (s *Service) SetControllerDone(ctx context.Context, upgradeUUID, controller
 // SetDBUpgradeCompleted marks the upgrade as completed in the database
 func (s *Service) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID string) error {
 	err := s.st.SetDBUpgradeCompleted(ctx, upgradeUUID)
-	if database.IsErrNotFound(err) {
-		return errors.NotFoundf("upgrade %q", upgradeUUID)
-	}
 	return domain.CoerceError(err)
 }
 

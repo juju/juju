@@ -71,12 +71,12 @@ func (st *State) SetControllerReady(ctx context.Context, upgradeUUID, controller
 	}
 
 	lookForReadyNodeQuery := `
-SELECT  (controller_node_id) AS &InfoControllerNode.*
+SELECT  (controller_node_id) AS &infoControllerNode.*
 FROM    upgrade_info_controller_node
 WHERE   upgrade_info_uuid = $M.info_uuid
 AND     controller_node_id = $M.controller_id;
 `
-	lookForReadyNodeStmt, err := sqlair.Prepare(lookForReadyNodeQuery, InfoControllerNode{}, sqlair.M{})
+	lookForReadyNodeStmt, err := sqlair.Prepare(lookForReadyNodeQuery, infoControllerNode{}, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing %q", lookForReadyNodeQuery)
 	}
@@ -93,7 +93,7 @@ VALUES ($M.uuid, $M.controller_id, $M.info_uuid);
 		err := tx.Query(ctx, lookForReadyNodeStmt, sqlair.M{
 			"info_uuid":     upgradeUUID,
 			"controller_id": controllerID,
-		}).Get(&InfoControllerNode{})
+		}).Get(&infoControllerNode{})
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Trace(err)
 		}
@@ -159,8 +159,8 @@ func (st *State) StartUpgrade(ctx context.Context, upgradeUUID string) error {
 		return errors.Trace(err)
 	}
 
-	getUpgradeStartedQuery := "SELECT started_at AS &Info.* FROM upgrade_info WHERE uuid = $M.info_uuid"
-	getUpgradeStartedStmt, err := sqlair.Prepare(getUpgradeStartedQuery, Info{}, sqlair.M{})
+	getUpgradeStartedQuery := "SELECT started_at AS &info.* FROM upgrade_info WHERE uuid = $M.info_uuid"
+	getUpgradeStartedStmt, err := sqlair.Prepare(getUpgradeStartedQuery, info{}, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing %q", getUpgradeStartedQuery)
 	}
@@ -172,7 +172,7 @@ func (st *State) StartUpgrade(ctx context.Context, upgradeUUID string) error {
 	}
 
 	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var node Info
+		var node info
 		err := tx.Query(ctx, getUpgradeStartedStmt, sqlair.M{"info_uuid": upgradeUUID}).Get(&node)
 		if err != nil {
 			return errors.Trace(err)
@@ -203,11 +203,11 @@ func (st *State) SetControllerDone(ctx context.Context, upgradeUUID, controllerI
 	}
 
 	lookForDoneNodesQuery := `
-SELECT (controller_node_id, node_upgrade_completed_at) AS &InfoControllerNode.*
+SELECT (controller_node_id, node_upgrade_completed_at) AS &infoControllerNode.*
 FROM   upgrade_info_controller_node
 WHERE  upgrade_info_uuid = $M.info_uuid
 AND    controller_node_id = $M.controller_id;`
-	lookForDoneNodesStmt, err := sqlair.Prepare(lookForDoneNodesQuery, InfoControllerNode{}, sqlair.M{})
+	lookForDoneNodesStmt, err := sqlair.Prepare(lookForDoneNodesQuery, infoControllerNode{}, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing select done query")
 	}
@@ -245,7 +245,7 @@ AND (
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var node InfoControllerNode
+		var node infoControllerNode
 		err := tx.Query(ctx, lookForDoneNodesStmt, sqlair.M{
 			"info_uuid":     upgradeUUID,
 			"controller_id": controllerID,
@@ -324,7 +324,7 @@ AND db_completed_at IS NULL;`
 		if num, err := outcome.Result().RowsAffected(); err != nil {
 			return errors.Trace(err)
 		} else if num == 0 {
-			return errors.Errorf("There is no upgrade record with a pending DB upgrade ID: %s", upgradeUUID)
+			return errors.NotFoundf("current upgrade with ID %q and pending database update", upgradeUUID)
 		}
 		return nil
 	}))
