@@ -839,6 +839,9 @@ func (c *Client) buildConfigSpec(
 			Reservation: &cpuPower,
 		}
 	}
+	if args.Constraints.HasNestedVirtualization() {
+		spec.NestedHVEnabled = types.NewBool(args.Constraints.CpuPower)
+	}
 
 	spec.Flags = &types.VirtualMachineFlagInfo{
 		DiskUuidEnabled: types.NewBool(args.EnableDiskUUID),

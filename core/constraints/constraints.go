@@ -23,20 +23,21 @@ const (
 	Arch      = "arch"
 	Container = "container"
 	// cpuCores is an alias for Cores.
-	cpuCores         = "cpu-cores"
-	Cores            = "cores"
-	CpuPower         = "cpu-power"
-	Mem              = "mem"
-	RootDisk         = "root-disk"
-	RootDiskSource   = "root-disk-source"
-	Tags             = "tags"
-	InstanceRole     = "instance-role"
-	InstanceType     = "instance-type"
-	Spaces           = "spaces"
-	VirtType         = "virt-type"
-	Zones            = "zones"
-	AllocatePublicIP = "allocate-public-ip"
-	ImageID          = "image-id"
+	cpuCores             = "cpu-cores"
+	Cores                = "cores"
+	CpuPower             = "cpu-power"
+	NestedVirtualization = "nested-virtualization"
+	Mem                  = "mem"
+	RootDisk             = "root-disk"
+	RootDiskSource       = "root-disk-source"
+	Tags                 = "tags"
+	InstanceRole         = "instance-role"
+	InstanceType         = "instance-type"
+	Spaces               = "spaces"
+	VirtType             = "virt-type"
+	Zones                = "zones"
+	AllocatePublicIP     = "allocate-public-ip"
+	ImageID              = "image-id"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -60,6 +61,12 @@ type Value struct {
 	// amount of CPU power available, where 100 CpuPower is considered to be
 	// equivalent to 1 Amazon ECU (or, roughly, a single 2007-era Xeon).
 	CpuPower *uint64 `json:"cpu-power,omitempty" yaml:"cpu-power,omitempty"`
+
+	// NestedVirtualization, if true, signals that machines should be
+	// created with hardware supported nested-virtualization.
+	// The default behaviour if the value is nil or false is to not enable
+	// Hardware Nested virtualization (software-emulation is still allowed)
+	NestedVirtualization *bool `json:"nested-virtualization,omitempty" yaml:"nested-virtualization,omitempty"`
 
 	// Mem, if not nil, indicates that a machine must have at least that many
 	// megabytes of RAM.
@@ -151,6 +158,12 @@ func (v *Value) HasMem() bool {
 // of CPU power.
 func (v *Value) HasCpuPower() bool {
 	return v.CpuPower != nil && *v.CpuPower > 0
+}
+
+// HasNestedVirtualization returns true if the constraints.Value specifies
+// some value for enablement.
+func (v *Value) HasNestedVirtualization() bool {
+	return v.NestedVirtualization != nil
 }
 
 // HasCpuCores returns true if the constraints.Value specifies a minimum number
@@ -258,6 +271,9 @@ func (v Value) String() string {
 	if v.CpuPower != nil {
 		strs = append(strs, "cpu-power="+uintStr(*v.CpuPower))
 	}
+	if v.NestedVirtualization != nil {
+		strs = append(strs, "nested-virtualization="+boolStr(*v.NestedVirtualization))
+	}
 	if v.InstanceRole != nil {
 		strs = append(strs, "instance-role="+(*v.InstanceRole))
 	}
@@ -324,6 +340,9 @@ func (v Value) GoString() string {
 	}
 	if v.CpuPower != nil {
 		values = append(values, fmt.Sprintf("CpuPower: %v", *v.CpuPower))
+	}
+	if v.NestedVirtualization != nil {
+		values = append(values, fmt.Sprintf("NestedVirtualization: %v", *v.NestedVirtualization))
 	}
 	if v.Mem != nil {
 		values = append(values, fmt.Sprintf("Mem: %v", *v.Mem))
@@ -517,6 +536,8 @@ func (v *Value) setRaw(name, str string) error {
 		err = v.setCpuCores(str)
 	case CpuPower:
 		err = v.setCpuPower(str)
+	case NestedVirtualization:
+		err = v.setNestedVirtualization(str)
 	case Mem:
 		err = v.setMem(str)
 	case RootDisk:
@@ -586,6 +607,8 @@ func (v *Value) UnmarshalYAML(unmarshal func(interface{}) error) error {
 			v.CpuCores, err = parseUint64(vstr)
 		case CpuPower:
 			v.CpuPower, err = parseUint64(vstr)
+		case NestedVirtualization:
+			v.NestedVirtualization, err = parseBool(vstr)
 		case Mem:
 			v.Mem, err = parseUint64(vstr)
 		case RootDisk:
@@ -668,6 +691,14 @@ func (v *Value) setCpuPower(str string) (err error) {
 		return errors.Errorf("already set")
 	}
 	v.CpuPower, err = parseUint64(str)
+	return
+}
+
+func (v *Value) setNestedVirtualization(str string) (err error) {
+	if v.NestedVirtualization != nil {
+		return errors.Errorf("already set")
+	}
+	v.NestedVirtualization, err = parseBool(str)
 	return
 }
 
