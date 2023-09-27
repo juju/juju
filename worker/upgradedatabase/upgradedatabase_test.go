@@ -4,7 +4,6 @@
 package upgradedatabase_test
 
 import (
-	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgradedatabase"
 )
 

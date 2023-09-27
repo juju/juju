@@ -445,6 +445,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// current version. Once upgrade steps have run, the upgrade-database
 		// gate is unlocked and the worker exits.
 		upgradeDatabaseName: ifController(upgradedatabase.Manifold(upgradedatabase.ManifoldConfig{
+			AgentName:         agentName,
 			UpgradeDBGateName: upgradeDatabaseGateName,
 			Logger:            loggo.GetLogger("juju.worker.upgradedatabase"),
 		})),

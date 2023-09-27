@@ -44,7 +44,7 @@ type Config struct {
 	// after database upgrades are verified as completed.
 	UpgradeComplete gate.Lock
 
-	// agent is the running machine agent.
+	// Agent is the running machine agent.
 	Agent agent.Agent
 
 	// Logger is the logger for this worker.
@@ -73,11 +73,34 @@ func NewUpgradeDatabaseWorker(config Config) (*Worker, error) {
 
 	w := &Worker{
 		upgradeComplete: config.UpgradeComplete,
+		agent:           config.Agent,
 		logger:          config.Logger,
 	}
 
 	w.tomb.Go(w.loop)
 	return w, nil
+}
+
+// loop implements Worker main loop.
+func (w *Worker) loop() error {
+	if w.upgradeDone() {
+		return nil
+	}
+
+	// TODO(anvial): try to CreateUpgrade, the controller who gets the upgrade ID will rubUpgrade, all other controllers
+	// should get the error and only watchUpgrade
+
+	err := w.runUpgrade()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		}
+	}
 }
 
 // upgradeDone returns true if this worker
@@ -118,25 +141,4 @@ func (w *Worker) Kill() {
 // Wait implements worker.Worker.Wait.
 func (w *Worker) Wait() error {
 	return w.tomb.Wait()
-}
-
-func (w *Worker) loop() error {
-	if w.upgradeDone() {
-		return nil
-	}
-
-	// TODO(anvial): try to CreateUpgrade, the controller who gets the upgrade ID will rubUpgrade, all other controllers
-	// should get the error and only watchUpgrade
-
-	err := w.runUpgrade()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		}
-	}
 }
