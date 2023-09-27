@@ -4,6 +4,8 @@
 package multiwatcher
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/multiwatcher"
@@ -62,7 +64,7 @@ func (w *Watcher) Kill() {
 // return the deltas that represent the model's complete state at that
 // moment, even when the model is empty. In that empty model case an
 // empty set of deltas is returned.
-func (w *Watcher) Next() ([]multiwatcher.Delta, error) {
+func (w *Watcher) Next(ctx context.Context) ([]multiwatcher.Delta, error) {
 	// In order to be able to apply the filter, yet not signal the caller when
 	// all deltas were filtered out, we need an outer loop.
 	var changes []multiwatcher.Delta
