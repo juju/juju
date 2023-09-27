@@ -15,6 +15,12 @@ import (
 	"github.com/juju/juju/rpc"
 )
 
+var (
+	// ErrVersion0NotSupported reports that version 0 of messaging is not
+	// supported. Instead version 1 or higher should be used.
+	ErrVersion0NotSupported = errors.ConstError("version 0 not supported")
+)
+
 var logger = loggo.GetLogger("juju.rpc.jsoncodec")
 
 // JSONConn sends and receives messages to an underlying connection
@@ -48,17 +54,6 @@ func New(conn JSONConn) *Codec {
 // inMsg holds an incoming message.  We don't know the type of the
 // parameters or response yet, so we delay parsing by storing them
 // in a RawMessage.
-type inMsgV0 struct {
-	RequestId uint64
-	Type      string
-	Version   int
-	Id        string
-	Request   string
-	Params    json.RawMessage
-	Error     string
-	ErrorCode string
-	Response  json.RawMessage
-}
 
 type inMsgV1 struct {
 	RequestId uint64                 `json:"request-id"`
@@ -71,19 +66,6 @@ type inMsgV1 struct {
 	ErrorCode string                 `json:"error-code"`
 	ErrorInfo map[string]interface{} `json:"error-info"`
 	Response  json.RawMessage        `json:"response"`
-}
-
-// outMsg holds an outgoing message.
-type outMsgV0 struct {
-	RequestId uint64
-	Type      string      `json:",omitempty"`
-	Version   int         `json:",omitempty"`
-	Id        string      `json:",omitempty"`
-	Request   string      `json:",omitempty"`
-	Params    interface{} `json:",omitempty"`
-	Error     string      `json:",omitempty"`
-	ErrorCode string      `json:",omitempty"`
-	Response  interface{} `json:",omitempty"`
 }
 
 type outMsgV1 struct {
@@ -114,15 +96,11 @@ func (c *Codec) isClosing() bool {
 
 func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	var m json.RawMessage
-	var version int
-	err := c.conn.Receive(&m)
-	if err == nil {
-		logger.Tracef("<- %s", m)
-		c.msg, version, err = c.readMessage(m)
-	} else {
-		logger.Tracef("<- error: %v (closing %v)", err, c.isClosing())
-	}
-	if err != nil {
+	if err := c.conn.Receive(&m); err != nil {
+		if logger.IsTraceEnabled() {
+			logger.Tracef("<- error: %v (closing %v)", err, c.isClosing())
+		}
+
 		// If we've closed the connection, we may get a spurious error,
 		// so ignore it.
 		if c.isClosing() || err == io.EOF {
@@ -130,6 +108,16 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 		}
 		return errors.Annotate(err, "error receiving message")
 	}
+
+	if logger.IsTraceEnabled() {
+		logger.Tracef("<- %s", m)
+	}
+	var err error
+	c.msg, err = c.readMessage(m)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	hdr.RequestId = c.msg.RequestId
 	hdr.Request = rpc.Request{
 		Type:    c.msg.Type,
@@ -140,41 +128,19 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	hdr.Error = c.msg.Error
 	hdr.ErrorCode = c.msg.ErrorCode
 	hdr.ErrorInfo = c.msg.ErrorInfo
-	hdr.Version = version
+	hdr.Version = 1
 	return nil
 }
 
-func (c *Codec) readMessage(m json.RawMessage) (inMsgV1, int, error) {
+func (c *Codec) readMessage(m json.RawMessage) (inMsgV1, error) {
 	var msg inMsgV1
 	if err := json.Unmarshal(m, &msg); err != nil {
-		return msg, -1, errors.Trace(err)
+		return msg, errors.Trace(err)
 	}
-	// In order to support both new style tags (lowercase) and the old style tags (camelcase)
-	// we look at the request id. The request id is always greater than one. If the value is
-	// zero, it means that there wasn't a match for the "request-id" tag. This most likely
-	// means that it was "RequestId" which was from the old style.
 	if msg.RequestId == 0 {
-		return c.readV0Message(m)
+		return msg, ErrVersion0NotSupported
 	}
-	return msg, 1, nil
-}
-
-func (c *Codec) readV0Message(m json.RawMessage) (inMsgV1, int, error) {
-	var msg inMsgV0
-	if err := json.Unmarshal(m, &msg); err != nil {
-		return inMsgV1{}, -1, errors.Trace(err)
-	}
-	return inMsgV1{
-		RequestId: msg.RequestId,
-		Type:      msg.Type,
-		Version:   msg.Version,
-		Id:        msg.Id,
-		Request:   msg.Request,
-		Params:    msg.Params,
-		Error:     msg.Error,
-		ErrorCode: msg.ErrorCode,
-		Response:  msg.Response,
-	}, 0, nil
+	return msg, nil
 }
 
 func (c *Codec) ReadBody(body interface{}, isRequest bool) error {
@@ -231,32 +197,12 @@ func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 func response(hdr *rpc.Header, body interface{}) (interface{}, error) {
 	switch hdr.Version {
 	case 0:
-		return newOutMsgV0(hdr, body), nil
+		return nil, ErrVersion0NotSupported
 	case 1:
 		return newOutMsgV1(hdr, body), nil
 	default:
 		return nil, errors.Errorf("unsupported version %d", hdr.Version)
 	}
-}
-
-// newOutMsgV0 fills out a outMsgV0 with information from the given
-// header and body.
-func newOutMsgV0(hdr *rpc.Header, body interface{}) outMsgV0 {
-	result := outMsgV0{
-		RequestId: hdr.RequestId,
-		Type:      hdr.Request.Type,
-		Version:   hdr.Request.Version,
-		Id:        hdr.Request.Id,
-		Request:   hdr.Request.Action,
-		Error:     hdr.Error,
-		ErrorCode: hdr.ErrorCode,
-	}
-	if hdr.IsRequest() {
-		result.Params = body
-	} else {
-		result.Response = body
-	}
-	return result
 }
 
 // newOutMsgV1 fills out a outMsgV1 with information from the given header and
