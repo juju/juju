@@ -147,7 +147,7 @@ func (m jujuMain) Run(args []string) int {
 	if err = juju.InitJujuXDGDataHome(); err != nil {
 		cmd.WriteError(ctx.Stderr, err)
 		if errors.Is(err, errors.NotFound) {
-			ctx.Warningf("Installing Juju in a strictly confined Snap. To ensure correct operation, create the .local/share directory manually.")
+			ctx.Warningf("Installing Juju in a strictly confined Snap. To ensure correct operation, create the ~/.local/share/juju directory manually.")
 		}
 		return 2
 	}
