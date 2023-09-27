@@ -203,7 +203,7 @@ func (c *Client) WatchAll(ctx stdcontext.Context) (params.AllWatcherId, error) {
 	modelUUID := c.api.stateAccessor.ModelUUID()
 	w := c.api.multiwatcherFactory.WatchModel(modelUUID)
 	if !isAdmin {
-		w = &stripApplicationOffers{w}
+		w = &stripApplicationOffers{Watcher: w}
 	}
 	return params.AllWatcherId{
 		AllWatcherId: c.api.resources.Register(w),
@@ -214,12 +214,12 @@ type stripApplicationOffers struct {
 	multiwatcher.Watcher
 }
 
-func (s *stripApplicationOffers) Next() ([]multiwatcher.Delta, error) {
+func (s *stripApplicationOffers) Next(ctx stdcontext.Context) ([]multiwatcher.Delta, error) {
 	var result []multiwatcher.Delta
 	// We don't want to return a list on nothing. Next normally blocks until there
 	// is something to return.
 	for len(result) == 0 {
-		deltas, err := s.Watcher.Next()
+		deltas, err := s.Watcher.Next(ctx)
 		if err != nil {
 			return nil, err
 		}

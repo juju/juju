@@ -4,6 +4,8 @@
 package apiserver_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -86,7 +88,7 @@ func (s *watcherSuite) TestVolumeAttachmentsWatcher(c *gc.C) {
 
 	ch <- []string{"0:1", "1:2"}
 	facade := s.getFacade(c, "VolumeAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
-	result, err := facade.Next()
+	result, err := facade.Next(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResult{
@@ -104,7 +106,7 @@ func (s *watcherSuite) TestFilesystemAttachmentsWatcher(c *gc.C) {
 
 	ch <- []string{"0:1", "1:2"}
 	facade := s.getFacade(c, "FilesystemAttachmentsWatcher", 2, id, nopDispose).(machineStorageIdsWatcher)
-	result, err := facade.Next()
+	result, err := facade.Next(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(result, jc.DeepEquals, params.MachineStorageIdsWatchResult{
@@ -124,7 +126,7 @@ func (s *watcherSuite) TestMigrationStatusWatcher(c *gc.C) {
 
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
 	defer c.Check(facade.Stop(), jc.ErrorIsNil)
-	result, err := facade.Next()
+	result, err := facade.Next(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
 		MigrationId:    "id",
@@ -146,7 +148,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNoMigration(c *gc.C) {
 
 	facade := s.getFacade(c, "MigrationStatusWatcher", 1, id, nopDispose).(migrationStatusWatcher)
 	defer c.Check(facade.Stop(), jc.ErrorIsNil)
-	result, err := facade.Next()
+	result, err := facade.Next(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.MigrationStatus{
 		Phase: "NONE",
@@ -168,7 +170,7 @@ func (s *watcherSuite) TestMigrationStatusWatcherNotAgent(c *gc.C) {
 }
 
 type machineStorageIdsWatcher interface {
-	Next() (params.MachineStorageIdsWatchResult, error)
+	Next(context.Context) (params.MachineStorageIdsWatchResult, error)
 }
 
 type fakeStringsWatcher struct {
@@ -243,7 +245,7 @@ func (m *fakeModelMigration) TargetInfo() (*migration.TargetInfo, error) {
 }
 
 type migrationStatusWatcher interface {
-	Next() (params.MigrationStatus, error)
+	Next(context.Context) (params.MigrationStatus, error)
 	Stop() error
 }
 

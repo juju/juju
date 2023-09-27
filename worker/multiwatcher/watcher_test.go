@@ -4,6 +4,7 @@
 package multiwatcher_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -187,7 +188,7 @@ func (s *watcherSuite) TestWatcherErrorWhenWorkerStopped(c *gc.C) {
 
 	b.UpdateEntity(&multiwatcher.MachineInfo{ID: "1"})
 
-	d, err := w.Next()
+	d, err := w.Next(context.Background())
 	c.Assert(err, gc.ErrorMatches, "shared state watcher was stopped")
 	c.Assert(err, jc.Satisfies, multiwatcher.IsErrStopped)
 	c.Assert(d, gc.HasLen, 0)
@@ -198,7 +199,7 @@ func getNext(c *gc.C, w multiwatcher.Watcher, timeout time.Duration) ([]multiwat
 	var err error
 	ch := make(chan struct{}, 1)
 	go func() {
-		deltas, err = w.Next()
+		deltas, err = w.Next(context.Background())
 		ch <- struct{}{}
 	}()
 	select {
@@ -264,7 +265,7 @@ func watchWatcher(c *gc.C, w multiwatcher.Watcher) *watcher {
 
 func (w *watcher) loop() {
 	for true {
-		deltas, err := w.inner.Next()
+		deltas, err := w.inner.Next(context.Background())
 		if err != nil {
 			w.err <- err
 			return

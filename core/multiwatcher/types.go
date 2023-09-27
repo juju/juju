@@ -4,6 +4,7 @@
 package multiwatcher
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/worker/v3"
@@ -44,7 +45,7 @@ type Factory interface {
 // on one or more models.
 type Watcher interface {
 	worker.Worker
-	Next() ([]Delta, error)
+	Next(context.Context) ([]Delta, error)
 }
 
 // EntityInfo is implemented by all entity Info types.

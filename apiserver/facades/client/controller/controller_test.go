@@ -429,7 +429,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 			case <-done:
 				return
 			default:
-				result, err := watcherAPI.Next()
+				result, err := watcherAPI.Next(context.Background())
 				if err != nil {
 					c.Assert(err, jc.Satisfies, coremultiwatcher.IsErrStopped)
 					return
@@ -1092,7 +1092,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *gc.C) {
 
 	resultC := make(chan params.SummaryWatcherNextResults)
 	go func() {
-		result, err := watcherAPI.Next()
+		result, err := watcherAPI.Next(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 		resultC <- result
 	}()
@@ -1161,7 +1161,7 @@ func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
 
 	resultC := make(chan params.SummaryWatcherNextResults)
 	go func() {
-		result, err := watcherAPI.Next()
+		result, err := watcherAPI.Next(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 		resultC <- result
 	}()
