@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -138,7 +139,7 @@ func (*mockSysLogger) Log([]corelogger.LogRecord) error {
 	return nil
 }
 
-func (s *ManifoldSuite) newWorker(config apiserver.Config) (worker.Worker, error) {
+func (s *ManifoldSuite) newWorker(ctx context.Context, config apiserver.Config) (worker.Worker, error) {
 	s.stub.MethodCall(s, "NewWorker", config)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err

@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -87,7 +88,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *workerFixture) newServer(config coreapiserver.ServerConfig) (worker.Worker, error) {
+func (s *workerFixture) newServer(ctx context.Context, config coreapiserver.ServerConfig) (worker.Worker, error) {
 	s.stub.MethodCall(s, "NewServer", config)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
@@ -163,7 +164,7 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*apiserver.Config), expect string) {
 	config := s.config
 	f(&config)
-	w, err := apiserver.NewWorker(config)
+	w, err := apiserver.NewWorker(context.Background(), config)
 	if !c.Check(err, gc.NotNil) {
 		workertest.DirtyKill(c, w)
 		return
@@ -181,6 +182,6 @@ func (s *WorkerValidationSuite) TestValidateLogSinkConfig(c *gc.C) {
 
 func (s *WorkerValidationSuite) testValidateLogSinkConfig(c *gc.C, key, value, expect string) {
 	s.agentConfig.values = map[string]string{key: value}
-	_, err := apiserver.NewWorker(s.config)
+	_, err := apiserver.NewWorker(context.Background(), s.config)
 	c.Check(err, gc.ErrorMatches, "getting log sink config: "+expect)
 }

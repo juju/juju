@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -219,6 +220,10 @@ func (s *loginSuite) setupManagementSpace(c *gc.C) *state.Space {
 
 	err = s.ControllerModel(c).State().UpdateControllerConfig(map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.ControllerServiceFactory(c).ControllerConfig().UpdateControllerConfig(context.Background(), map[string]interface{}{corecontroller.JujuManagementSpace: "mgmt01"}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	return mgmtSpace
 }
 
@@ -267,7 +272,7 @@ func (s *loginSuite) loginHostPorts(
 func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *state.Space) {
 	st := s.ControllerModel(c).State()
 
-	cfg, err := st.ControllerConfig()
+	cfg, err := s.ControllerServiceFactory(c).ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.SetAPIHostPorts(cfg, nil)
@@ -334,15 +339,14 @@ func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
 	}
 
+	cfg := coretesting.FakeControllerConfig()
 	st := s.ControllerModel(c).State()
-	cfg, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
 
 	newAPIHostPorts := []network.SpaceHostPorts{
 		network.SpaceAddressesWithPort(server1Addresses, 123),
 		network.SpaceAddressesWithPort(server2Addresses, 456),
 	}
-	err = st.SetAPIHostPorts(cfg, newAPIHostPorts)
+	err := st.SetAPIHostPorts(cfg, newAPIHostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 
 	exp := []network.MachineHostPorts{

@@ -41,7 +41,6 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
-	coredatabase "github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
@@ -153,7 +152,7 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
 }
 
-func leaseManager(controllerUUID string, db coredatabase.DBGetter, clock clock.Clock) (*lease.Manager, error) {
+func leaseManager(controllerUUID string, db database.DBGetter, clock clock.Clock) (*lease.Manager, error) {
 	logger := loggo.GetLogger("juju.worker.lease.test")
 	return lease.NewManager(lease.ManagerConfig{
 		Secretary:            lease.SecretaryFinder(controllerUUID),
@@ -337,7 +336,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	err = authenticator.AddHandlers(s.mux)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.Server, err = apiserver.NewServer(cfg)
+	s.Server, err = apiserver.NewServer(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiInfo = api.Info{
 		Addrs:  []string{fmt.Sprintf("localhost:%d", s.httpServer.Listener.Addr().(*net.TCPAddr).Port)},
@@ -384,7 +383,7 @@ func (s *ApiServerSuite) TearDownTest(c *gc.C) {
 
 // SeedControllerCloud is responsible for applying the controller cloud to
 // the given database.
-func (s *ApiServerSuite) SeedControllerCloud(c *gc.C, runner coredatabase.TxnRunner) {
+func (s *ApiServerSuite) SeedControllerCloud(c *gc.C, runner database.TxnRunner) {
 	err := InsertDummyCloudType(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	err = cloudbootstrap.InsertInitialControllerCloud(DefaultCloud)(context.Background(), runner)
@@ -566,14 +565,14 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 
 // SeedDatabase the database with a supplied controller config, and dummy
 // cloud and dummy credentials.
-func SeedDatabase(c *gc.C, runner coredatabase.TxnRunner, controllerConfig controller.Config) {
+func SeedDatabase(c *gc.C, runner database.TxnRunner, controllerConfig controller.Config) {
 	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 
 	SeedCloudCredentials(c, runner)
 }
 
-func SeedCloudCredentials(c *gc.C, runner coredatabase.TxnRunner) {
+func SeedCloudCredentials(c *gc.C, runner database.TxnRunner) {
 	err := cloudbootstrap.InsertInitialControllerCloud(DefaultCloud)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -624,7 +623,7 @@ func (s stubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB
 }
 
 type stubWatchableDB struct {
-	coredatabase.TxnRunner
+	database.TxnRunner
 }
 
 func (stubWatchableDB) Subscribe(...changestream.SubscriptionOption) (changestream.Subscription, error) {

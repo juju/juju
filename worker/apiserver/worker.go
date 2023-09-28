@@ -60,7 +60,7 @@ type HTTPClient interface {
 
 // NewServerFunc is the type of function that will be used
 // by the worker to create a new API server.
-type NewServerFunc func(apiserver.ServerConfig) (worker.Worker, error)
+type NewServerFunc func(context.Context, apiserver.ServerConfig) (worker.Worker, error)
 
 // Validate validates the API server configuration.
 func (config Config) Validate() error {
@@ -119,7 +119,7 @@ func (config Config) Validate() error {
 }
 
 // NewWorker returns a new API server worker, with the given configuration.
-func NewWorker(config Config) (worker.Worker, error) {
+func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -181,7 +181,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		DBGetter:                      config.DBGetter,
 		ServiceFactoryGetter:          config.ServiceFactoryGetter,
 	}
-	return config.NewServer(serverConfig)
+	return config.NewServer(ctx, serverConfig)
 }
 
 // gatherJWTAuthenticator is responsible for building up the jwt authenticator
@@ -198,8 +198,8 @@ func gatherJWTAuthenticator(controllerConfig jujucontroller.Config) (jwt.Authent
 	return jwtAuthenticator, nil
 }
 
-func newServerShim(config apiserver.ServerConfig) (worker.Worker, error) {
-	return apiserver.NewServer(config)
+func newServerShim(ctx context.Context, config apiserver.ServerConfig) (worker.Worker, error) {
+	return apiserver.NewServer(ctx, config)
 }
 
 // NewMetricsCollector returns a new apiserver collector

@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	stdcontext "context"
 	"net/http"
 	"strings"
 
@@ -55,7 +56,7 @@ type ManifoldConfig struct {
 	Hub                               *pubsub.StructuredHub
 	Presence                          presence.Recorder
 
-	NewWorker           func(Config) (worker.Worker, error)
+	NewWorker           func(stdcontext.Context, Config) (worker.Worker, error)
 	NewMetricsCollector func() *apiserver.Collector
 }
 
@@ -234,7 +235,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
-	w, err := config.NewWorker(Config{
+	w, err := config.NewWorker(stdcontext.TODO(), Config{
 		AgentConfig:                       agent.CurrentConfig(),
 		Clock:                             clock,
 		Mux:                               mux,

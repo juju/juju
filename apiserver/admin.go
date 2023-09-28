@@ -102,6 +102,12 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 		return fail, errors.Trace(err)
 	}
 
+	controllerConfigService := a.root.ServiceFactory().ControllerConfig()
+	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return fail, errors.Trace(err)
+	}
+
 	// Fetch the API server addresses from state.
 	// If the login comes from a client, return all available addresses.
 	// Otherwise return the addresses suitable for agent use.
@@ -109,12 +115,6 @@ func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
-
-	controllerConfig, err := ctrlSt.ControllerConfig()
-	if err != nil {
-		return fail, errors.Trace(err)
-	}
-
 	getHostPorts := ctrlSt.APIHostPortsForAgents
 	if k, _ := names.TagKind(req.AuthTag); k == names.UserTagKind {
 		getHostPorts = ctrlSt.APIHostPortsForClients
