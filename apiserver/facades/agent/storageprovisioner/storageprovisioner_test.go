@@ -40,7 +40,15 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, common.NewResources(), authorizer, nil, nil, loggo.GetLogger("juju.apiserver.storageprovisioner"))
+	_, err = storageprovisioner.NewStorageProvisionerAPIv4(
+		backend,
+		storageBackend,
+		s.ControllerServiceFactory(c).ControllerConfig(),
+		common.NewResources(),
+		authorizer,
+		nil, nil,
+		loggo.GetLogger("juju.apiserver.storageprovisioner"),
+	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

@@ -67,7 +67,16 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
 	c.Assert(err, jc.ErrorIsNil)
 	s.storageBackend = storageBackend
-	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(backend, storageBackend, s.resources, s.authorizer, registry, pm, loggo.GetLogger("juju.apiserver.storageprovisioner"))
+	s.api, err = storageprovisioner.NewStorageProvisionerAPIv4(
+		backend,
+		storageBackend,
+		s.ControllerServiceFactory(c).ControllerConfig(),
+		s.resources,
+		s.authorizer,
+		registry,
+		pm,
+		loggo.GetLogger("juju.apiserver.storageprovisioner"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
