@@ -37,6 +37,7 @@ func (*suite) TestRead(c *gc.C) {
 		msg        string
 		expectHdr  rpc.Header
 		expectBody interface{}
+		expectErr  string
 	}{{
 		msg: `{"RequestId": 1, "Type": "foo", "Id": "id", "Request": "frob", "Params": {"X": "param"}}`,
 		expectHdr: rpc.Header{
@@ -47,7 +48,7 @@ func (*suite) TestRead(c *gc.C) {
 				Action: "frob",
 			},
 		},
-		expectBody: &value{X: "param"},
+		expectErr: `reading message: version 0 not supported`,
 	}, {
 		msg: `{"RequestId": 2, "Error": "an error", "ErrorCode": "a code"}`,
 		expectHdr: rpc.Header{
@@ -55,13 +56,13 @@ func (*suite) TestRead(c *gc.C) {
 			Error:     "an error",
 			ErrorCode: "a code",
 		},
-		expectBody: new(map[string]interface{}),
+		expectErr: `reading message: version 0 not supported`,
 	}, {
 		msg: `{"RequestId": 3, "Response": {"X": "result"}}`,
 		expectHdr: rpc.Header{
 			RequestId: 3,
 		},
-		expectBody: &value{X: "result"},
+		expectErr: `reading message: version 0 not supported`,
 	}, {
 		msg: `{"RequestId": 4, "Type": "foo", "Version": 2, "Id": "id", "Request": "frob", "Params": {"X": "param"}}`,
 		expectHdr: rpc.Header{
@@ -73,7 +74,7 @@ func (*suite) TestRead(c *gc.C) {
 				Action:  "frob",
 			},
 		},
-		expectBody: &value{X: "param"},
+		expectErr: `reading message: version 0 not supported`,
 	}, {
 		msg: `{"request-id": 1, "type": "foo", "id": "id", "request": "frob", "params": {"X": "param"}}`,
 		expectHdr: rpc.Header{
@@ -135,6 +136,10 @@ func (*suite) TestRead(c *gc.C) {
 		})
 		var hdr rpc.Header
 		err := codec.ReadHeader(&hdr)
+		if test.expectErr != "" {
+			c.Assert(err, gc.ErrorMatches, test.expectErr)
+			continue
+		}
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(hdr, gc.DeepEquals, test.expectHdr)
 
@@ -157,7 +162,7 @@ func (*suite) TestErrorAfterClose(c *gc.C) {
 	codec := jsoncodec.New(conn)
 	var hdr rpc.Header
 	err := codec.ReadHeader(&hdr)
-	c.Assert(err, gc.ErrorMatches, "error receiving message: some error")
+	c.Assert(err, gc.ErrorMatches, "receiving message: some error")
 
 	err = codec.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -173,6 +178,7 @@ func (*suite) TestWrite(c *gc.C) {
 		body      interface{}
 		isRequest bool
 		expect    string
+		expectErr string
 	}{{
 		hdr: &rpc.Header{
 			RequestId: 1,
@@ -182,15 +188,15 @@ func (*suite) TestWrite(c *gc.C) {
 				Action: "frob",
 			},
 		},
-		body:   &value{X: "param"},
-		expect: `{"RequestId": 1, "Type": "foo","Id":"id", "Request": "frob", "Params": {"X": "param"}}`,
+		body:      &value{X: "param"},
+		expectErr: `writing message: version 0 not supported`,
 	}, {
 		hdr: &rpc.Header{
 			RequestId: 2,
 			Error:     "an error",
 			ErrorCode: "a code",
 		},
-		expect: `{"RequestId": 2, "Error": "an error", "ErrorCode": "a code"}`,
+		expectErr: `writing message: version 0 not supported`,
 	}, {
 		hdr: &rpc.Header{
 			RequestId: 2,
@@ -200,13 +206,13 @@ func (*suite) TestWrite(c *gc.C) {
 				"ignored": "for version0",
 			},
 		},
-		expect: `{"RequestId": 2, "Error": "an error", "ErrorCode": "a code"}`,
+		expectErr: `writing message: version 0 not supported`,
 	}, {
 		hdr: &rpc.Header{
 			RequestId: 3,
 		},
-		body:   &value{X: "result"},
-		expect: `{"RequestId": 3, "Response": {"X": "result"}}`,
+		body:      &value{X: "result"},
+		expectErr: `writing message: version 0 not supported`,
 	}, {
 		hdr: &rpc.Header{
 			RequestId: 4,
@@ -217,8 +223,8 @@ func (*suite) TestWrite(c *gc.C) {
 				Action:  "frob",
 			},
 		},
-		body:   &value{X: "param"},
-		expect: `{"RequestId": 4, "Type": "foo", "Version": 2, "Request": "frob", "Params": {"X": "param"}}`,
+		body:      &value{X: "param"},
+		expectErr: `writing message: version 0 not supported`,
 	}, {
 		hdr: &rpc.Header{
 			RequestId: 1,
@@ -276,6 +282,10 @@ func (*suite) TestWrite(c *gc.C) {
 		var conn testConn
 		codec := jsoncodec.New(&conn)
 		err := codec.WriteMessage(test.hdr, test.body)
+		if test.expectErr != "" {
+			c.Assert(err, gc.ErrorMatches, test.expectErr)
+			continue
+		}
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(conn.writeMsgs, gc.HasLen, 1)
 
@@ -298,31 +308,31 @@ func (*suite) TestDumpRequest(c *gc.C) {
 			},
 		},
 		body:   struct{ Arg string }{Arg: "an arg"},
-		expect: `{"RequestId":1,"Type":"Foo","Id":"id","Request":"Something","Params":{"Arg":"an arg"}}`,
+		expect: `"version 0 not supported"`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 2,
 		},
 		body:   struct{ Ret string }{Ret: "return value"},
-		expect: `{"RequestId":2,"Response":{"Ret":"return value"}}`,
+		expect: `"version 0 not supported"`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 3,
 		},
-		expect: `{"RequestId":3}`,
+		expect: `"version 0 not supported"`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 4,
 			Error:     "an error",
 			ErrorCode: "an error code",
 		},
-		expect: `{"RequestId":4,"Error":"an error","ErrorCode":"an error code"}`,
+		expect: `"version 0 not supported"`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 5,
 		},
 		body:   make(chan int),
-		expect: `"marshal error: json: unsupported type: chan int"`,
+		expect: `"version 0 not supported"`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 1,
@@ -334,7 +344,7 @@ func (*suite) TestDumpRequest(c *gc.C) {
 			},
 		},
 		body:   struct{ Arg string }{Arg: "an arg"},
-		expect: `{"RequestId":1,"Type":"Foo","Version":2,"Id":"id","Request":"Something","Params":{"Arg":"an arg"}}`,
+		expect: `"version 0 not supported"`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 1,
