@@ -8,10 +8,10 @@ check_dependencies sha256sum
 
 sha() {
 	case ${BUILD_ARCH} in
-		amd64) echo "26e53cff25b2be965620c181e8e2ef6fbf74556762e7b5ce6ae71bf48e7712b7" ;;
-		arm64) echo "1f0d328f785f43dd6547ebcb44d13b634aa6327bb8de85cb7052baa710be1f64" ;;
-		s390x) echo "1d8c88e4c1919f648ee2fe857b139964000216c214226622d4b46ebe913bfc69" ;;
-		ppc64le) echo "a40b3ba7d158b79c3a4ba8e0826c8004e9ed48a7281e850ab5d1afd0ded854ad" ;;
+		amd64) echo "a83fae718d97824d2ba6b611de3d9514544661a35d0a3d3384929d2118dc18ae" ;;
+		arm64) echo "eb90c1a3dae19b4f159cff69c37856fc3219be5a2f7a560d8f85767bb9feac97" ;;
+		s390x) echo "5b98cf389edc7060a56c452f103361c4393816e2ff6b6ff1ec73afce2bcba8d4" ;;
+		ppc64le) echo "2da45f69eed2ac22255efda068e5f7679558f6a15db231d4372fa5e472ac3e91" ;;
 		*) { echo "Unsupported arch ${BUILD_ARCH}."; exit 1; } ;;
 	esac
 }
