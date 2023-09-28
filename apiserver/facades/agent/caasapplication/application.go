@@ -19,21 +19,29 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
+// ControllerState defines the API methods on the ControllerState facade.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// Facade defines the API methods on the CAASApplication facade.
 type Facade struct {
-	auth      facade.Authorizer
-	resources facade.Resources
-	ctrlSt    ControllerState
-	state     State
-	model     Model
-	clock     clock.Clock
-	broker    Broker
-	logger    loggo.Logger
+	auth                    facade.Authorizer
+	resources               facade.Resources
+	ctrlSt                  ControllerState
+	controllerConfigService ControllerConfigService
+	state                   State
+	model                   Model
+	clock                   clock.Clock
+	broker                  Broker
+	logger                  loggo.Logger
 }
 
 // NewFacade returns a new CAASOperator facade.
@@ -42,6 +50,7 @@ func NewFacade(
 	authorizer facade.Authorizer,
 	ctrlSt ControllerState,
 	st State,
+	controllerConfigService ControllerConfigService,
 	broker Broker,
 	clock clock.Clock,
 	logger loggo.Logger,
@@ -54,14 +63,15 @@ func NewFacade(
 		return nil, errors.Trace(err)
 	}
 	return &Facade{
-		auth:      authorizer,
-		resources: resources,
-		ctrlSt:    ctrlSt,
-		state:     st,
-		model:     model,
-		clock:     clock,
-		broker:    broker,
-		logger:    logger,
+		auth:                    authorizer,
+		resources:               resources,
+		ctrlSt:                  ctrlSt,
+		state:                   st,
+		controllerConfigService: controllerConfigService,
+		model:                   model,
+		clock:                   clock,
+		broker:                  broker,
+		logger:                  logger,
 	}, nil
 }
 
@@ -159,7 +169,7 @@ func (f *Facade) UnitIntroduction(ctx context.Context, args params.CAASUnitIntro
 		return errResp(err)
 	}
 
-	controllerConfig, err := f.ctrlSt.ControllerConfig()
+	controllerConfig, err := f.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return errResp(err)
 	}
