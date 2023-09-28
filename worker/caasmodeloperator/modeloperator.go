@@ -13,11 +13,13 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/watcher"
 )
 
 type ModelOperatorAPI interface {
 	SetPassword(password string) error
 	ModelOperatorProvisioningInfo() (caasmodeloperator.ModelOperatorProvisioningInfo, error)
+	WatchModelOperatorProvisioningInfo() (watcher.NotifyWatcher, error)
 }
 
 // ModelOperatorBroker describes the caas broker interface needed for installing
@@ -56,6 +58,29 @@ func (m *ModelOperatorManager) Wait() error {
 }
 
 func (m *ModelOperatorManager) loop() error {
+	watcher, err := m.api.WatchModelOperatorProvisioningInfo()
+	if err != nil {
+		return errors.Annotate(err, "cannot watch model operator provisioning info")
+	}
+	err = m.catacomb.Add(watcher)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for {
+		select {
+		case <-m.catacomb.Dying():
+			return m.catacomb.ErrDying()
+		case <-watcher.Changes():
+			err := m.update()
+			if err != nil {
+				return errors.Annotate(err, "failed to update model operator")
+			}
+		}
+	}
+}
+
+func (m *ModelOperatorManager) update() error {
 	m.logger.Debugf("gathering model operator provisioning information for model %s", m.modelUUID)
 	info, err := m.api.ModelOperatorProvisioningInfo()
 	if err != nil {
@@ -67,32 +92,43 @@ func (m *ModelOperatorManager) loop() error {
 		return errors.Trace(err)
 	}
 
-	var agentConfBuf []byte
-	if !exists {
-		password, err := utils.RandomPassword()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = m.api.SetPassword(password)
-		if err != nil {
-			return errors.Annotate(err, "failed to set model api passwords")
-		}
-
-		agentConf, err := m.updateAgentConf(info.APIAddresses, password, info.Version)
-		if err != nil {
-			return errors.Trace(err)
-		}
-
-		agentConfBuf, err = agentConf.Render()
-		if err != nil {
-			return errors.Trace(err)
-		}
-	} else {
+	setPassword := true
+	password, err := utils.RandomPassword()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if exists {
 		mo, err := m.broker.ModelOperator()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		agentConfBuf = mo.AgentConf
+		prevConf, err := agent.ParseConfigData(mo.AgentConf)
+		if err != nil {
+			return errors.Annotate(err, "cannot parse model operator agent config: ")
+		}
+		// reuse old password
+		if prevInfo, ok := prevConf.APIInfo(); ok && prevInfo.Password != "" {
+			password = prevInfo.Password
+			setPassword = false
+		} else if prevConf.OldPassword() != "" {
+			password = prevConf.OldPassword()
+			setPassword = false
+		}
+	}
+	if setPassword {
+		err := m.api.SetPassword(password)
+		if err != nil {
+			return errors.Annotate(err, "failed to set model api passwords")
+		}
+	}
+
+	agentConf, err := m.updateAgentConf(info.APIAddresses, password, info.Version)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	agentConfBuf, err := agentConf.Render()
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	m.logger.Debugf("ensuring model operator deployment in kubernetes for model %s", m.modelUUID)
@@ -105,15 +141,11 @@ func (m *ModelOperatorManager) loop() error {
 			Port:         DefaultModelOperatorPort,
 		},
 	)
-
 	if err != nil {
 		return errors.Annotate(err, "deploying model operator")
 	}
 
-	select {
-	case <-m.catacomb.Dying():
-		return m.catacomb.ErrDying()
-	}
+	return nil
 }
 
 // NewModelOperatorManager constructs a new model operator manager worker

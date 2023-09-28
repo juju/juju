@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.caasmodeloperator")
@@ -30,6 +31,8 @@ type API struct {
 	auth      facade.Authorizer
 	ctrlState CAASControllerState
 	state     CAASModelOperatorState
+
+	resources facade.Resources
 }
 
 // NewAPI is alternative means of constructing a controller model facade.
@@ -49,7 +52,33 @@ func NewAPI(
 		PasswordChanger: common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ModelTagKind)),
 		ctrlState:       ctrlSt,
 		state:           st,
+		resources:       resources,
 	}, nil
+}
+
+// WatchModelOperatorProvisioningInfo provides a watcher for changes that affect the
+// information returned by ModelOperatorProvisioningInfo.
+func (a *API) WatchModelOperatorProvisioningInfo() (params.NotifyWatchResult, error) {
+	result := params.NotifyWatchResult{}
+
+	model, err := a.state.Model()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
+	controllerConfigWatcher := a.ctrlState.WatchControllerConfig()
+	controllerAPIHostPortsWatcher := a.ctrlState.WatchAPIHostPortsForAgents()
+	modelConfigWatcher := model.WatchForModelConfigChanges()
+
+	multiWatcher := common.NewMultiNotifyWatcher(controllerConfigWatcher, controllerAPIHostPortsWatcher, modelConfigWatcher)
+
+	if _, ok := <-multiWatcher.Changes(); ok {
+		result.NotifyWatcherId = a.resources.Register(multiWatcher)
+	} else {
+		return result, watcher.EnsureErr(multiWatcher)
+	}
+
+	return result, nil
 }
 
 // ModelOperatorProvisioningInfo returns the information needed for provisioning
