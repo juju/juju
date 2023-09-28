@@ -15,12 +15,6 @@ import (
 	"github.com/juju/juju/rpc"
 )
 
-var (
-	// ErrVersion0NotSupported reports that version 0 of messaging is not
-	// supported. Instead version 1 or higher should be used.
-	ErrVersion0NotSupported = errors.ConstError("version 0 not supported")
-)
-
 var logger = loggo.GetLogger("juju.rpc.jsoncodec")
 
 // JSONConn sends and receives messages to an underlying connection
@@ -30,6 +24,7 @@ type JSONConn interface {
 	Send(msg interface{}) error
 	// Receive receives a message into msg.
 	Receive(msg interface{}) error
+	// Close closes the connection.
 	Close() error
 }
 
@@ -106,7 +101,7 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 		if c.isClosing() || err == io.EOF {
 			return io.EOF
 		}
-		return errors.Annotate(err, "error receiving message")
+		return errors.Annotate(err, "receiving message")
 	}
 
 	if logger.IsTraceEnabled() {
@@ -115,7 +110,7 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	var err error
 	c.msg, err = c.readMessage(m)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "reading message")
 	}
 
 	hdr.RequestId = c.msg.RequestId
@@ -135,10 +130,10 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 func (c *Codec) readMessage(m json.RawMessage) (inMsgV1, error) {
 	var msg inMsgV1
 	if err := json.Unmarshal(m, &msg); err != nil {
-		return msg, errors.Trace(err)
+		return msg, errors.Annotate(err, "unmarshalling message")
 	}
 	if msg.RequestId == 0 {
-		return msg, ErrVersion0NotSupported
+		return msg, errors.NotSupportedf("version 0")
 	}
 	return msg, nil
 }
@@ -181,7 +176,7 @@ func DumpRequest(hdr *rpc.Header, body interface{}) []byte {
 func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 	msg, err := response(hdr, body)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "writing message")
 	}
 	if logger.IsTraceEnabled() {
 		data, err := json.Marshal(msg)
@@ -197,11 +192,11 @@ func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 func response(hdr *rpc.Header, body interface{}) (interface{}, error) {
 	switch hdr.Version {
 	case 0:
-		return nil, ErrVersion0NotSupported
+		return nil, errors.NotSupportedf("version 0")
 	case 1:
 		return newOutMsgV1(hdr, body), nil
 	default:
-		return nil, errors.Errorf("unsupported version %d", hdr.Version)
+		return nil, errors.NotSupportedf("version %d", hdr.Version)
 	}
 }
 

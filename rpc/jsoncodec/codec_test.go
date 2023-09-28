@@ -6,7 +6,6 @@ package jsoncodec_test
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"reflect"
 	stdtesting "testing"
@@ -49,7 +48,7 @@ func (*suite) TestRead(c *gc.C) {
 				Action: "frob",
 			},
 		},
-		expectErr: jsoncodec.ErrVersion0NotSupported.Error(),
+		expectErr: `reading message: version 0 not supported`,
 	}, {
 		msg: `{"RequestId": 2, "Error": "an error", "ErrorCode": "a code"}`,
 		expectHdr: rpc.Header{
@@ -57,13 +56,13 @@ func (*suite) TestRead(c *gc.C) {
 			Error:     "an error",
 			ErrorCode: "a code",
 		},
-		expectErr: jsoncodec.ErrVersion0NotSupported.Error(),
+		expectErr: `reading message: version 0 not supported`,
 	}, {
 		msg: `{"RequestId": 3, "Response": {"X": "result"}}`,
 		expectHdr: rpc.Header{
 			RequestId: 3,
 		},
-		expectErr: jsoncodec.ErrVersion0NotSupported.Error(),
+		expectErr: `reading message: version 0 not supported`,
 	}, {
 		msg: `{"RequestId": 4, "Type": "foo", "Version": 2, "Id": "id", "Request": "frob", "Params": {"X": "param"}}`,
 		expectHdr: rpc.Header{
@@ -75,7 +74,7 @@ func (*suite) TestRead(c *gc.C) {
 				Action:  "frob",
 			},
 		},
-		expectErr: jsoncodec.ErrVersion0NotSupported.Error(),
+		expectErr: `reading message: version 0 not supported`,
 	}, {
 		msg: `{"request-id": 1, "type": "foo", "id": "id", "request": "frob", "params": {"X": "param"}}`,
 		expectHdr: rpc.Header{
@@ -163,7 +162,7 @@ func (*suite) TestErrorAfterClose(c *gc.C) {
 	codec := jsoncodec.New(conn)
 	var hdr rpc.Header
 	err := codec.ReadHeader(&hdr)
-	c.Assert(err, gc.ErrorMatches, "error receiving message: some error")
+	c.Assert(err, gc.ErrorMatches, "receiving message: some error")
 
 	err = codec.Close()
 	c.Assert(err, jc.ErrorIsNil)
@@ -190,14 +189,14 @@ func (*suite) TestWrite(c *gc.C) {
 			},
 		},
 		body:      &value{X: "param"},
-		expectErr: jsoncodec.ErrVersion0NotSupported.Error(),
+		expectErr: `writing message: version 0 not supported`,
 	}, {
 		hdr: &rpc.Header{
 			RequestId: 2,
 			Error:     "an error",
 			ErrorCode: "a code",
 		},
-		expectErr: jsoncodec.ErrVersion0NotSupported.Error(),
+		expectErr: `writing message: version 0 not supported`,
 	}, {
 		hdr: &rpc.Header{
 			RequestId: 2,
@@ -207,13 +206,13 @@ func (*suite) TestWrite(c *gc.C) {
 				"ignored": "for version0",
 			},
 		},
-		expectErr: jsoncodec.ErrVersion0NotSupported.Error(),
+		expectErr: `writing message: version 0 not supported`,
 	}, {
 		hdr: &rpc.Header{
 			RequestId: 3,
 		},
 		body:      &value{X: "result"},
-		expectErr: jsoncodec.ErrVersion0NotSupported.Error(),
+		expectErr: `writing message: version 0 not supported`,
 	}, {
 		hdr: &rpc.Header{
 			RequestId: 4,
@@ -225,7 +224,7 @@ func (*suite) TestWrite(c *gc.C) {
 			},
 		},
 		body:      &value{X: "param"},
-		expectErr: jsoncodec.ErrVersion0NotSupported.Error(),
+		expectErr: `writing message: version 0 not supported`,
 	}, {
 		hdr: &rpc.Header{
 			RequestId: 1,
@@ -309,31 +308,31 @@ func (*suite) TestDumpRequest(c *gc.C) {
 			},
 		},
 		body:   struct{ Arg string }{Arg: "an arg"},
-		expect: fmt.Sprintf("%q", jsoncodec.ErrVersion0NotSupported.Error()),
+		expect: `"version 0 not supported"`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 2,
 		},
 		body:   struct{ Ret string }{Ret: "return value"},
-		expect: fmt.Sprintf("%q", jsoncodec.ErrVersion0NotSupported.Error()),
+		expect: `"version 0 not supported"`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 3,
 		},
-		expect: fmt.Sprintf("%q", jsoncodec.ErrVersion0NotSupported.Error()),
+		expect: `"version 0 not supported"`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 4,
 			Error:     "an error",
 			ErrorCode: "an error code",
 		},
-		expect: fmt.Sprintf("%q", jsoncodec.ErrVersion0NotSupported.Error()),
+		expect: `"version 0 not supported"`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 5,
 		},
 		body:   make(chan int),
-		expect: fmt.Sprintf("%q", jsoncodec.ErrVersion0NotSupported.Error()),
+		expect: `"version 0 not supported"`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 1,
@@ -345,7 +344,7 @@ func (*suite) TestDumpRequest(c *gc.C) {
 			},
 		},
 		body:   struct{ Arg string }{Arg: "an arg"},
-		expect: fmt.Sprintf("%q", jsoncodec.ErrVersion0NotSupported.Error()),
+		expect: `"version 0 not supported"`,
 	}, {
 		hdr: rpc.Header{
 			RequestId: 1,

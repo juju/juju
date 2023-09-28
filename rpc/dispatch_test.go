@@ -5,7 +5,6 @@ package rpc_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -82,12 +82,12 @@ func websocketHandler(f func(*websocket.Conn)) http.Handler {
 
 func (s *dispatchSuite) TestWSWithoutParamsV0(c *gc.C) {
 	err := s.requestV0(c, `{"RequestId":1,"Type": "DispatchDummy","Id": "without","Request":"DoSomething"}`)
-	c.Assert(errors.Is(err, jsoncodec.ErrVersion0NotSupported), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.NotSupported), jc.IsTrue)
 }
 
 func (s *dispatchSuite) TestWSWithParamsV0(c *gc.C) {
 	err := s.requestV0(c, `{"RequestId":2,"Type": "DispatchDummy","Id": "with","Request":"DoSomething", "Params": {}}`)
-	c.Assert(errors.Is(err, jsoncodec.ErrVersion0NotSupported), jc.IsTrue)
+	c.Assert(errors.Is(err, errors.NotSupported), jc.IsTrue)
 }
 
 func (s *dispatchSuite) TestWSWithoutParamsV1(c *gc.C) {
