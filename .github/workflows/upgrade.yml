@@ -278,10 +278,10 @@ jobs:
           
           # Upgrade to the latest stable.
           juju upgrade-controller --debug
-          $GITHUB_WORKSPACE/.github/verify-agent-version.sh $CURRENT_STABLE_JUJU_TAG
+          $GITHUB_WORKSPACE/.github/verify-agent-version.sh iaas $CURRENT_STABLE_JUJU_TAG
           
           juju upgrade-controller --build-agent --debug
-          $GITHUB_WORKSPACE/.github/verify-agent-version.sh "${UPSTREAM_JUJU_TAG}.1"
+          $GITHUB_WORKSPACE/.github/verify-agent-version.sh iaas "${UPSTREAM_JUJU_TAG}.1"
           
           PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
           if [ "$PANIC" != "" ]; then
@@ -303,11 +303,11 @@ jobs:
           
           # Upgrade to the latest stable.
           juju upgrade-controller --debug
-          $GITHUB_WORKSPACE/.github/verify-agent-version.sh $CURRENT_STABLE_JUJU_TAG
+          $GITHUB_WORKSPACE/.github/verify-agent-version.sh caas $CURRENT_STABLE_JUJU_TAG
           
           # Upgrade to local built version.
           juju upgrade-controller --agent-stream=develop --debug
-          $GITHUB_WORKSPACE/.github/verify-agent-version.sh $UPSTREAM_JUJU_TAG
+          $GITHUB_WORKSPACE/.github/verify-agent-version.sh caas $UPSTREAM_JUJU_TAG
           
           PANIC=$(juju debug-log --replay --no-tail -m controller | grep "panic" || true)
           if [ "$PANIC" != "" ]; then
