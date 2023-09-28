@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -24,6 +25,11 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
+
+// ControllerConfigService provides access to the controller configuration.
+type ControllerConfigService interface {
+	ControllerConfig(context.Context) (controller.Config, error)
+}
 
 // StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
 type StorageProvisionerAPIv4 struct {
@@ -44,12 +50,15 @@ type StorageProvisionerAPIv4 struct {
 	getBlockDevicesAuthFunc  common.GetAuthFunc
 	getAttachmentAuthFunc    func() (func(names.Tag, names.Tag) bool, error)
 	logger                   loggo.Logger
+
+	controllerUUID string
 }
 
 // NewStorageProvisionerAPIv4 creates a new server-side StorageProvisioner v3 facade.
 func NewStorageProvisionerAPIv4(
 	st Backend,
 	sb StorageBackend,
+	controllerConfigService ControllerConfigService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	registry storage.ProviderRegistry,
@@ -59,6 +68,16 @@ func NewStorageProvisionerAPIv4(
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
+
+	// Cache the controller UUID so that we can use it later on.
+	// The controller UUID is a readonly property of the controller	config,
+	// so we don't need to refetch it for every request.
+	controllerConfig, err := controllerConfigService.ControllerConfig(context.Background())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	controllerUUID := controllerConfig.ControllerUUID()
+
 	canAccessStorageMachine := func(tag names.Tag, allowController bool) bool {
 		authEntityTag := authorizer.GetAuthTag()
 		if tag == authEntityTag {
@@ -79,7 +98,7 @@ func NewStorageProvisionerAPIv4(
 			switch tag := tag.(type) {
 			case names.ModelTag:
 				// Controllers can access all volumes
-				// and filesystems scoped to the environment.
+				// and file systems scoped to the environment.
 				isModelManager := authorizer.AuthController()
 				return isModelManager && tag == st.ModelTag()
 			case names.MachineTag:
@@ -220,6 +239,8 @@ func NewStorageProvisionerAPIv4(
 		getMachineAuthFunc:       getMachineAuthFunc,
 		getBlockDevicesAuthFunc:  getBlockDevicesAuthFunc,
 		logger:                   logger,
+
+		controllerUUID: controllerUUID,
 	}, nil
 }
 
@@ -320,7 +341,7 @@ func (s *StorageProvisionerAPIv4) WatchVolumes(ctx context.Context, args params.
 // WatchFilesystems watches for changes to filesystems scoped
 // to the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv4) WatchFilesystems(ctx context.Context, args params.Entities) (params.StringsWatchResults, error) {
-	w := filesystemwatcher.Watchers{s.sb}
+	w := filesystemwatcher.Watchers{Backend: s.sb}
 	return s.watchStorageEntities(args,
 		w.WatchModelManagedFilesystems,
 		w.WatchMachineManagedFilesystems,
@@ -391,7 +412,7 @@ func (s *StorageProvisionerAPIv4) WatchVolumeAttachments(ctx context.Context, ar
 // WatchFilesystemAttachments watches for changes to filesystem attachments
 // scoped to the entity with the tag passed to NewState.
 func (s *StorageProvisionerAPIv4) WatchFilesystemAttachments(ctx context.Context, args params.Entities) (params.MachineStorageIdsWatchResults, error) {
-	w := filesystemwatcher.Watchers{s.sb}
+	w := filesystemwatcher.Watchers{Backend: s.sb}
 	return s.watchAttachments(
 		args,
 		w.WatchModelManagedFilesystemAttachments,
@@ -730,10 +751,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
-	controllerCfg, err := s.st.ControllerConfig()
-	if err != nil {
-		return params.VolumeParamsResults{}, err
-	}
+
 	results := params.VolumeParamsResults{
 		Results: make([]params.VolumeParamsResult, len(args.Entities)),
 	}
@@ -760,7 +778,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 			return params.VolumeParams{}, err
 		}
 		volumeParams, err := storagecommon.VolumeParams(
-			volume, storageInstance, modelCfg.UUID(), controllerCfg.ControllerUUID(),
+			volume, storageInstance, modelCfg.UUID(), s.controllerUUID,
 			modelCfg, s.poolManager, s.registry,
 		)
 		if err != nil {
@@ -882,10 +900,6 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
-	controllerCfg, err := s.st.ControllerConfig()
-	if err != nil {
-		return params.FilesystemParamsResults{}, err
-	}
 	results := params.FilesystemParamsResults{
 		Results: make([]params.FilesystemParamsResult, len(args.Entities)),
 	}
@@ -908,7 +922,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 			return params.FilesystemParams{}, err
 		}
 		filesystemParams, err := storagecommon.FilesystemParams(
-			filesystem, storageInstance, modelConfig.UUID(), controllerCfg.ControllerUUID(),
+			filesystem, storageInstance, modelConfig.UUID(), s.controllerUUID,
 			modelConfig, s.poolManager, s.registry,
 		)
 		if err != nil {

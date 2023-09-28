@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 )
@@ -23,7 +22,6 @@ type Backend interface {
 	state.EntityFinder
 	state.ModelAccessor
 
-	ControllerConfig() (controller.Config, error)
 	MachineInstanceId(names.MachineTag) (instance.Id, error)
 	ModelTag() names.ModelTag
 	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
