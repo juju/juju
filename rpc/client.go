@@ -4,6 +4,7 @@
 package rpc
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"strings"
@@ -11,8 +12,11 @@ import (
 	"github.com/juju/errors"
 )
 
+// ErrShutdown is returned when a request is made on a connection that is
+// shutting down.
 var ErrShutdown = errors.New("connection is shut down")
 
+// IsShutdownErr returns true if the error is ErrShutdown.
 func IsShutdownErr(err error) bool {
 	return errors.Cause(err) == ErrShutdown
 }
@@ -24,6 +28,8 @@ type Call struct {
 	Response interface{}
 	Error    error
 	Done     chan *Call
+	TraceID  string
+	SpanID   string
 }
 
 // RequestError represents an error returned from an RPC request.
@@ -40,10 +46,12 @@ func (e *RequestError) Error() string {
 	return e.Message
 }
 
+// ErrorCode returns the error code associated with the error.
 func (e *RequestError) ErrorCode() string {
 	return e.Code
 }
 
+// ErrorInfo returns the error information associated with the error.
 func (e *RequestError) ErrorInfo() map[string]interface{} {
 	return e.Info
 }
@@ -94,6 +102,8 @@ func (conn *Conn) send(call *Call) {
 		RequestId: reqId,
 		Request:   call.Request,
 		Version:   1,
+		TraceID:   call.TraceID,
+		SpanID:    call.SpanID,
 	}
 	params := call.Params
 	if params == nil {
@@ -166,12 +176,15 @@ func (call *Call) done() {
 // If the action fails remotely, the error will have a cause of type RequestError.
 // The params value may be nil if no parameters are provided; the response value
 // may be nil to indicate that any result should be discarded.
-func (conn *Conn) Call(req Request, params, response interface{}) error {
+func (conn *Conn) Call(ctx context.Context, req Request, params, response interface{}) error {
+	traceID, spanID := TracingFromContext(ctx)
 	call := &Call{
 		Request:  req,
 		Params:   params,
 		Response: response,
 		Done:     make(chan *Call, 1),
+		TraceID:  traceID,
+		SpanID:   spanID,
 	}
 	conn.send(call)
 	result := <-call.Done

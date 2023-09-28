@@ -1516,7 +1516,7 @@ func (f *fakeRPCConnection) Close() error {
 	return nil
 }
 
-func (f *fakeRPCConnection) Call(req rpc.Request, params, response interface{}) error {
+func (f *fakeRPCConnection) Call(ctx context.Context, req rpc.Request, params, response interface{}) error {
 	f.stub.AddCall(req.Type+"."+req.Action, req.Version, params)
 	if f.response != nil {
 		rv := reflect.ValueOf(response)
