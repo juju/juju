@@ -2220,7 +2220,8 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 	origin := doc.CharmOrigin
 
 	// If the channel is empty, then we fall back to the Revision.
-	var revision int
+	// Default to -1 since that is used to commonly denote no revision.
+	revision := -1
 	if rev := origin.Revision; rev != nil {
 		revision = *rev
 	}
