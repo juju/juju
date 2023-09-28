@@ -26,11 +26,15 @@ func newFacadeV7(context facade.Context) (*CloudAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	serviceFactory := context.ServiceFactory()
+
 	ctlrSt := NewStateBackend(systemState)
 	return NewCloudAPI(
 		st, ctlrSt, pool,
-		context.ServiceFactory().Cloud(),
-		context.ServiceFactory().Credential(),
+		serviceFactory.ControllerConfig(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
 		context.Auth(), context.Logger().Child("cloud"),
 	)
 }

@@ -21,12 +21,18 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
 	stateerrors "github.com/juju/juju/state/errors"
 )
+
+// ControllerConfigService defines the controller config service.
+type ControllerConfigService interface {
+	ControllerConfig(ctx context.Context) (controller.Config, error)
+}
 
 // CloudV7 defines the methods on the cloud API facade, version 7.
 type CloudV7 interface {
@@ -47,10 +53,11 @@ type CloudV7 interface {
 // CloudAPI implements the cloud interface and is the concrete implementation
 // of the api end point.
 type CloudAPI struct {
-	backend           Backend
-	ctlrBackend       Backend
-	cloudService      CloudService
-	credentialService CredentialService
+	backend                 Backend
+	ctlrBackend             Backend
+	cloudService            CloudService
+	controllerConfigService ControllerConfigService
+	credentialService       CredentialService
 
 	authorizer             facade.Authorizer
 	apiUser                names.UserTag
@@ -67,7 +74,9 @@ var (
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
 func NewCloudAPI(
-	backend, ctlrBackend Backend, pool ModelPoolBackend, cloudService CloudService, credentialService CredentialService,
+	backend, ctlrBackend Backend, pool ModelPoolBackend,
+	controllerConfigService ControllerConfigService,
+	cloudService CloudService, credentialService CredentialService,
 	authorizer facade.Authorizer, logger loggo.Logger,
 ) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
@@ -568,8 +577,9 @@ func (api *CloudAPI) validateCredentialForModel(modelUUID string, cld cloud.Clou
 	}
 
 	modelErrors, err := validateNewCredentialForModelFunc(
-		m,
 		callContext,
+		m,
+		api.controllerConfigService,
 		tag,
 		credential,
 		cld,

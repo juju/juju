@@ -22,9 +22,6 @@ type PersistentBackend interface {
 
 	// AllMachines returns all machines in the model.
 	AllMachines() ([]Machine, error)
-
-	// ControllerConfig returns controller config.
-	ControllerConfig() (ControllerConfig, error)
 }
 
 // Model defines model methods needed for the check.
@@ -99,9 +96,4 @@ func (st stateShim) AllMachines() ([]Machine, error) {
 func (st stateShim) Model() (Model, error) {
 	m, err := st.State.Model()
 	return m, err
-}
-
-// ControllerConfig implements PersistentBackend.Model.
-func (st stateShim) ControllerConfig() (ControllerConfig, error) {
-	return st.State.ControllerConfig()
 }
