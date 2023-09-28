@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
+	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	corearch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -37,7 +38,7 @@ import (
 
 const controllerCharmURL = "ch:juju-controller"
 
-func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constraints.Value, charmPath string, channel charm.Channel, isCAAS bool, unitPassword string) (resultErr error) {
+func (c *BootstrapCommand) deployControllerCharm(st *state.State, controllerConfig controller.Config, cons constraints.Value, charmPath string, channel charm.Channel, isCAAS bool, unitPassword string) (resultErr error) {
 	arch := corearch.DefaultArchitecture
 	base := jujuversion.DefaultSupportedLTSBase()
 	if cons.HasArch() {
@@ -47,7 +48,7 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 	var controllerUnit *state.Unit
 	controllerAddress := ""
 	if isCAAS {
-		s, err := st.CloudService(st.ControllerUUID())
+		s, err := st.CloudService(controllerConfig.ControllerUUID())
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -107,7 +108,9 @@ func (c *BootstrapCommand) deployControllerCharm(st *state.State, cons constrain
 
 	// Once the charm is added, set up the controller application.
 	controllerUnit, err = addControllerApplication(
-		st, curl, *origin, cons, controllerAddress)
+		st, controllerConfig,
+		curl, *origin, cons, controllerAddress,
+	)
 	if err != nil {
 		return errors.Annotate(err, "cannot add controller application")
 	}
@@ -308,6 +311,7 @@ func addLocalControllerCharm(st *state.State, base corebase.Base, charmFileName 
 // addControllerApplication deploys and configures the controller application.
 func addControllerApplication(
 	st *state.State,
+	controllerConfig controller.Config,
 	curl *charm.URL,
 	origin corecharm.Origin,
 	cons constraints.Value,
@@ -320,17 +324,13 @@ func addControllerApplication(
 	cfg := charm.Settings{
 		"is-juju": true,
 	}
-	controllerCfg, err := st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg["identity-provider-url"] = controllerCfg.IdentityURL()
-	addr := controllerCfg.PublicDNSAddress()
+	cfg["identity-provider-url"] = controllerConfig.IdentityURL()
+	addr := controllerConfig.PublicDNSAddress()
 	if addr == "" {
 		addr = address
 	}
 	if addr != "" {
-		cfg["controller-url"] = api.ControllerAPIURL(addr, controllerCfg.APIPort())
+		cfg["controller-url"] = api.ControllerAPIURL(addr, controllerConfig.APIPort())
 	}
 
 	configSchema := environschema.Fields{
