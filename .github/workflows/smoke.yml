@@ -46,6 +46,7 @@ jobs:
       shell: bash
       run: |
         (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json '.registry-mirrors += ["http://10.0.1.123:80"]' | sudo tee /etc/docker/daemon.json
+        (cat /etc/docker/daemon.json 2> /dev/null || echo "{}") | yq -o json '.insecure-registries += ["10.0.1.123"]' | sudo tee /etc/docker/daemon.json
         sudo systemctl restart docker
         docker system info
 
