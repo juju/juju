@@ -1,4 +1,4 @@
-series: focal
+default-base: ubuntu@20.04/stable
 applications:
   influxdb:
     charm: influxdb
