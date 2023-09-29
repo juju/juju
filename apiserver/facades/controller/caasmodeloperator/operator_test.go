@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -79,4 +80,23 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 
 	c.Assert(vers, jc.DeepEquals, info.Version)
+}
+
+func (m *ModelOperatorSuite) TestWatchProvisioningInfo(c *gc.C) {
+	controllerConfigChanged := make(chan struct{}, 1)
+	modelConfigChanged := make(chan struct{}, 1)
+	apiHostPortsForAgentsChanged := make(chan struct{}, 1)
+	m.state.controllerConfigWatcher = statetesting.NewMockNotifyWatcher(controllerConfigChanged)
+	m.state.apiHostPortsForAgentsWatcher = statetesting.NewMockNotifyWatcher(apiHostPortsForAgentsChanged)
+	m.state.model.modelConfigChanged = statetesting.NewMockNotifyWatcher(modelConfigChanged)
+
+	controllerConfigChanged <- struct{}{}
+	apiHostPortsForAgentsChanged <- struct{}{}
+	modelConfigChanged <- struct{}{}
+
+	results, err := m.api.WatchModelOperatorProvisioningInfo()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Error, gc.IsNil)
+	res := m.resources.Get("1")
+	c.Assert(res, gc.FitsTypeOf, (*common.MultiNotifyWatcher)(nil))
 }

@@ -58,3 +58,7 @@ func (c *containerUnitAgent) GetContainerNames() []string {
 func (c *containerUnitAgent) DataDir() string {
 	return c.AgentConf.DataDir()
 }
+
+func EnsureAgentConf(ac agentconf.AgentConf) error {
+	return ensureAgentConf(ac)
+}

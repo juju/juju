@@ -6,6 +6,7 @@ package unit_test
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -22,7 +23,9 @@ import (
 	utilsmocks "github.com/juju/juju/cmd/containeragent/utils/mocks"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	jnames "github.com/juju/juju/juju/names"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -199,6 +202,55 @@ func (s *containerUnitAgentSuite) TestChangeConfig(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for config changed signal")
 	}
+}
+
+func (s *containerUnitAgentSuite) TestEnsureAgentConf(c *gc.C) {
+	dataDir := c.MkDir()
+	params := agent.AgentConfigParams{
+		Paths: agent.Paths{
+			DataDir: dataDir,
+		},
+		Tag:                    names.NewUnitTag("app/0"),
+		UpgradedToVersion:      jujuversion.Current,
+		Password:               "password",
+		CACert:                 "cacert",
+		APIAddresses:           []string{"localhost:1235"},
+		Nonce:                  "nonce",
+		Controller:             testing.ControllerTag,
+		Model:                  testing.ModelTag,
+		AgentLogfileMaxSizeMB:  150,
+		AgentLogfileMaxBackups: 4,
+	}
+	templateConfig, err := agent.NewAgentConfig(params)
+	c.Assert(err, jc.ErrorIsNil)
+	templateBytes, err := templateConfig.Render()
+	c.Assert(err, jc.ErrorIsNil)
+	err = os.WriteFile(path.Join(dataDir, "template-agent.conf"), templateBytes, 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ac := agentconf.NewAgentConf(dataDir)
+	err = unit.EnsureAgentConf(ac)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure the agent.conf was seeded from the template-agent.conf.
+	agentConfBytes, err := os.ReadFile(path.Join(dataDir, "agents", "unit-app-0", "agent.conf"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(agentConfBytes), gc.Equals, string(templateBytes))
+
+	// Change the agent.conf to be different than the template-agent.conf
+	c.Assert(ac.CurrentConfig().OldPassword(), gc.Equals, "password")
+	err = ac.ChangeConfig(func(cs agent.ConfigSetter) error {
+		cs.SetOldPassword("password2")
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ac.CurrentConfig().OldPassword(), gc.Equals, "password2")
+
+	// Start a new "agent" and make sure it has password2.
+	ac2 := agentconf.NewAgentConf(dataDir)
+	err = unit.EnsureAgentConf(ac2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ac2.CurrentConfig().OldPassword(), gc.Equals, "password2")
 }
 
 type FakeConfig struct {

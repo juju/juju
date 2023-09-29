@@ -9668,6 +9668,15 @@
                         }
                     },
                     "description": "WatchAPIHostPorts watches the API server addresses."
+                },
+                "WatchModelOperatorProvisioningInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    },
+                    "description": "WatchModelOperatorProvisioningInfo provides a watcher for changes that affect the\ninformation returned by ModelOperatorProvisioningInfo."
                 }
             },
             "definitions": {
