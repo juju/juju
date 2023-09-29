@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	"net"
@@ -89,11 +90,13 @@ func (s *serverSuite) TestStop(c *gc.C) {
 }
 
 func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
-	st := s.ControllerModel(c).State()
-	cfg, err := st.ControllerConfig()
+	serviceFactory := s.ControllerServiceFactory(c)
+	controllerConfig, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.SetAPIHostPorts(cfg, nil)
+	st := s.ControllerModel(c).State()
+
+	err = st.SetAPIHostPorts(controllerConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
