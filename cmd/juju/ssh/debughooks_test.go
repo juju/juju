@@ -51,7 +51,7 @@ var debugHooksTests = []struct {
 	expected: &argsSpec{
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
-		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) sudo .+`, // can be any of the 3
+		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) exec sudo .+`, // can be any of the 3
 	},
 }, {
 	info:        "proxy",
@@ -61,7 +61,7 @@ var debugHooksTests = []struct {
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
 		withProxy:       true,
-		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) sudo .+`, // can be any of the 3
+		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) exec sudo .+`, // can be any of the 3
 	},
 }, {
 	info:        "pty enabled",
@@ -71,7 +71,7 @@ var debugHooksTests = []struct {
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
 		enablePty:       true,
-		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) sudo .+`, // can be any of the 3
+		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) exec sudo .+`, // can be any of the 3
 	},
 }, {
 	info:        `"*" is a valid hook name: it means hook everything`,

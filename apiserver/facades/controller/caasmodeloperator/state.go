@@ -27,10 +27,12 @@ type CAASModelOperatorState interface {
 type CAASControllerState interface {
 	common.APIAddressAccessor
 	ControllerConfig() (controller.Config, error)
+	WatchControllerConfig() state.NotifyWatcher
 }
 
 type Model interface {
 	ModelConfig(context.Context) (*config.Config, error)
+	WatchForModelConfigChanges() state.NotifyWatcher
 }
 
 type stateShim struct {

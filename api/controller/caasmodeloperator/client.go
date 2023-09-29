@@ -8,7 +8,9 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/rpc/params"
 )
@@ -86,4 +88,17 @@ func (c *Client) SetPassword(password string) error {
 		return errors.Trace(err)
 	}
 	return result.OneError()
+}
+
+// WatchModelOperatorProvisioningInfo provides a watcher for changes that affect the
+// information returned by ModelOperatorProvisioningInfo.
+func (c *Client) WatchModelOperatorProvisioningInfo() (watcher.NotifyWatcher, error) {
+	var result params.NotifyWatchResult
+	if err := c.facade.FacadeCall("WatchModelOperatorProvisioningInfo", nil, &result); err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return apiwatcher.NewNotifyWatcher(c.facade.RawAPICaller(), result), nil
 }
