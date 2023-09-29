@@ -214,12 +214,9 @@ func (c *debugHooksCommand) getValidHooks(ch charm.Charm) (set.Strings, error) {
 
 func (c *debugHooksCommand) decideEntryPoint(ctx *cmd.Context) string {
 	if c.modelType == model.CAAS {
-		c.provider.setArgs([]string{"which", "sudo"})
-		if err := c.sshCommand.Run(ctx); err != nil {
-			return "/bin/bash -c '%s'"
-		}
+		return "exec /bin/bash -c '%s'"
 	}
-	return "sudo /bin/bash -c '%s'"
+	return "exec sudo /bin/bash -c '%s'"
 }
 
 // commonRun is shared between debugHooks and debugCode
@@ -244,7 +241,7 @@ func (c *debugHooksCommand) commonRun(
 	debugctx := unitdebug.NewHooksContext(resolvedTargetName)
 	clientScript := unitdebug.ClientScript(debugctx, hooks, debugAt)
 	b64Script := base64.StdEncoding.EncodeToString([]byte(clientScript))
-	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, b64Script)
+	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; chmod +x $F; exec $F`, b64Script)
 	args := []string{fmt.Sprintf(c.decideEntryPoint(ctx), innercmd)}
 	c.provider.setArgs(args)
 	return c.sshCommand.Run(ctx)
