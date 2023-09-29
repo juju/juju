@@ -37,13 +37,14 @@ type mockState struct {
 	testing.Stub
 
 	common.APIAddressAccessor
-	model                   *mockModel
-	applicationWatcher      *mockStringsWatcher
-	app                     *mockApplication
-	resource                *mockResources
-	operatorRepo            string
-	controllerConfigWatcher *statetesting.MockNotifyWatcher
-	isController            bool
+	model                        *mockModel
+	applicationWatcher           *mockStringsWatcher
+	app                          *mockApplication
+	resource                     *mockResources
+	operatorRepo                 string
+	controllerConfigWatcher      *statetesting.MockNotifyWatcher
+	apiHostPortsForAgentsWatcher *statetesting.MockNotifyWatcher
+	isController                 bool
 }
 
 func newMockState() *mockState {
@@ -124,6 +125,11 @@ func (st *mockState) Resources() caasapplicationprovisioner.Resources {
 func (st *mockState) IsController() bool {
 	st.MethodCall(st, "IsController")
 	return st.isController
+}
+
+func (st *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
+	st.MethodCall(st, "WatchAPIHostPortsForAgents")
+	return st.apiHostPortsForAgentsWatcher
 }
 
 type mockResources struct {
