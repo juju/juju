@@ -35,6 +35,7 @@ type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
 	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
+	NewUUIDsWatcher(string, changestream.ChangeType) (watcher.StringsWatcher, error)
 }
 
 // Service provides the API for working with upgrade info

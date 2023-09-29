@@ -17,16 +17,16 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type watcherSuite struct {
+type upgradeReadyWatcherSuite struct {
 	state *MockState
 	nsCh  chan []string
 
 	w watcher.NotifyWatcher
 }
 
-var _ = gc.Suite(&watcherSuite{})
+var _ = gc.Suite(&upgradeReadyWatcherSuite{})
 
-func (s *watcherSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *upgradeReadyWatcherSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.state = NewMockState(ctrl)
 	s.nsCh = make(chan []string)
@@ -41,7 +41,7 @@ func (s *watcherSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *watcherSuite) TestUpgradeReadyWatcherSingleNode(c *gc.C) {
+func (s *upgradeReadyWatcherSuite) TestUpgradeReadyWatcherSingleNode(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := s.w.Changes()
@@ -57,7 +57,7 @@ func (s *watcherSuite) TestUpgradeReadyWatcherSingleNode(c *gc.C) {
 	}
 }
 
-func (s *watcherSuite) TestUpgradeReadyWatcherHA(c *gc.C) {
+func (s *upgradeReadyWatcherSuite) TestUpgradeReadyWatcherHA(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	ch := s.w.Changes()

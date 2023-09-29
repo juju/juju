@@ -16,6 +16,7 @@ import (
 type upgradeReadyWatcher struct {
 	catacomb catacomb.Catacomb
 
+	ctx         context.Context
 	st          State
 	wf          WatcherFactory
 	upgradeUUID string
@@ -27,6 +28,7 @@ type upgradeReadyWatcher struct {
 // nodes have been registered, meaning the upgrade is ready to start
 func NewUpgradeReadyWatcher(ctx context.Context, st State, wf WatcherFactory, upgradeUUID string) (watcher.NotifyWatcher, error) {
 	w := &upgradeReadyWatcher{
+		ctx:         ctx,
 		st:          st,
 		wf:          wf,
 		upgradeUUID: upgradeUUID,
@@ -78,6 +80,8 @@ func (w *upgradeReadyWatcher) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+		case <-w.ctx.Done():
+			w.catacomb.Kill(context.Cause(w.ctx))
 		case _, ok := <-in:
 			if !ok {
 				return nil
