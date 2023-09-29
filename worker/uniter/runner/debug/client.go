@@ -84,27 +84,30 @@ while [ ! -f /usr/bin/tmux ]; do
 done
 
 if [ ! -f ~/.tmux.conf ]; then
-        if [ -f /usr/share/byobu/profiles/tmux ]; then
-                # Use byobu/tmux profile for familiar keybindings and branding
-                echo "source-file /usr/share/byobu/profiles/tmux" > ~/.tmux.conf
-        else
-                # Otherwise, use the legacy juju/tmux configuration
-                cat > ~/.tmux.conf <<END
-                {tmux_conf}
+	if [ -f /usr/share/byobu/profiles/tmux ]; then
+		# Use byobu/tmux profile for familiar keybindings and branding
+		echo "source-file /usr/share/byobu/profiles/tmux" > ~/.tmux.conf
+	else
+		# Otherwise, use the legacy juju/tmux configuration
+		cat > ~/.tmux.conf <<END
+{tmux_conf}
 END
-        fi
+	fi
 fi
 
 (
     # Close the inherited lock FD, or tmux will keep it open.
     exec 9>&-
+	# Since we just use byobu tmux configs without byobu-tmux, we need
+	# to export this to prevent the TERM being set to empty string.
+	export BYOBU_TERM=$TERM
     if ! tmux has-session -t {unit_name}; then
 		tmux new-session -d -s {unit_name}
 	fi
 	client_count=$(tmux list-clients | wc -l)
 	if [ $client_count -ge 1 ]; then
-		session_name={unit_name}"-"$client_cnt
-		exec tmux new-session -d -t {unit_name} -s $session_name
+		session_name={unit_name}"-"$client_count
+		tmux new-session -d -t {unit_name} -s $session_name
 		exec tmux attach-session -t $session_name \; set-option destroy-unattached
 	else
 	    exec tmux attach-session -t {unit_name}
