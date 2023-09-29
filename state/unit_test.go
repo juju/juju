@@ -800,8 +800,7 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-exist", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 	err = machine.SetProviderAddresses(
 		controllerConfig,
 		network.NewSpaceAddress("private.address.example.com", network.WithScope(network.ScopeCloudLocal)),
@@ -839,8 +838,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	public := network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic))
 	private := network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeCloudLocal))
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetProviderAddresses(controllerConfig, public, private)
 	c.Assert(err, jc.ErrorIsNil)
@@ -856,8 +854,7 @@ func (s *UnitSuite) TestStablePrivateAddress(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -879,8 +876,7 @@ func (s *UnitSuite) TestStablePublicAddress(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -906,8 +902,7 @@ func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
 	privateProvider := network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeCloudLocal))
 	privateMachine := network.NewSpaceAddress("127.0.0.2")
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetProviderAddresses(controllerConfig, privateProvider)
 	c.Assert(err, jc.ErrorIsNil)
@@ -946,8 +941,7 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	public := network.NewSpaceAddress("8.8.8.8", network.WithScope(network.ScopePublic))
 	private := network.NewSpaceAddress("127.0.0.1", network.WithScope(network.ScopeCloudLocal))
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetProviderAddresses(controllerConfig, public, private)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2921,8 +2915,7 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = m1.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.100"))
 	c.Assert(err, gc.IsNil)

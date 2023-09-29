@@ -4,12 +4,9 @@
 package state_test
 
 import (
-	"time"
-
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	mgotesting "github.com/juju/mgo/v3/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -17,6 +14,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -93,141 +91,6 @@ func (s *ControllerSuite) TestNewState(c *gc.C) {
 	c.Check(st, gc.Not(gc.Equals), s.State)
 }
 
-func (s *ControllerSuite) TestControllerConfig(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg["controller-uuid"], gc.Equals, s.State.ControllerUUID())
-}
-
-func (s *ControllerSuite) TestPing(c *gc.C) {
-	c.Assert(s.Controller.Ping(), gc.IsNil)
-	mgotesting.MgoServer.Restart()
-	c.Assert(s.Controller.Ping(), gc.NotNil)
-}
-
-func (s *ControllerSuite) TestUpdateControllerConfig(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	// Sanity check.
-	c.Check(cfg.AuditingEnabled(), gc.Equals, false)
-	c.Check(cfg.AuditLogCaptureArgs(), gc.Equals, true)
-	c.Assert(cfg.PublicDNSAddress(), gc.Equals, "")
-
-	err = s.State.UpdateControllerConfig(map[string]interface{}{
-		controller.AuditingEnabled:     true,
-		controller.AuditLogCaptureArgs: false,
-		controller.AuditLogMaxBackups:  "10",
-		controller.PublicDNSAddress:    "controller.test.com:1234",
-		controller.APIPortOpenDelay:    "100ms",
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	newCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(newCfg.AuditingEnabled(), gc.Equals, true)
-	c.Assert(newCfg.AuditLogCaptureArgs(), gc.Equals, false)
-	c.Assert(newCfg.AuditLogMaxBackups(), gc.Equals, 10)
-	c.Assert(newCfg.PublicDNSAddress(), gc.Equals, "controller.test.com:1234")
-	c.Assert(newCfg.APIPortOpenDelay(), gc.Equals, 100*time.Millisecond)
-}
-
-func (s *ControllerSuite) TestUpdateControllerConfigRemoveYieldsDefaults(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		controller.AuditingEnabled:     true,
-		controller.AuditLogCaptureArgs: true,
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.State.UpdateControllerConfig(nil, []string{
-		controller.AuditLogCaptureArgs,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(newCfg.AuditLogCaptureArgs(), gc.Equals, false)
-}
-
-func (s *ControllerSuite) TestUpdateControllerConfigRejectsDisallowedUpdates(c *gc.C) {
-	// Sanity check.
-	c.Assert(controller.AllowedUpdateConfigAttributes.Contains(controller.APIPort), jc.IsFalse)
-
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		controller.APIPort: 1234,
-	}, nil)
-	c.Assert(err, gc.ErrorMatches, `can't change "api-port" after bootstrap`)
-
-	err = s.State.UpdateControllerConfig(nil, []string{controller.APIPort})
-	c.Assert(err, gc.ErrorMatches, `can't change "api-port" after bootstrap`)
-}
-
-func (s *ControllerSuite) TestUpdateControllerConfigChecksSchema(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		controller.AuditLogExcludeMethods: []int{1, 2, 3},
-	}, nil)
-	c.Assert(err, gc.ErrorMatches, `audit-log-exclude-methods: expected string, got .*`)
-}
-
-func (s *ControllerSuite) TestUpdateControllerConfigValidates(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		controller.AuditLogExcludeMethods: "thing",
-	}, nil)
-	c.Assert(err, gc.ErrorMatches, `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "thing" at position 1`)
-}
-
-func (s *ControllerSuite) TestUpdatingUnknownName(c *gc.C) {
-	err := s.State.UpdateControllerConfig(map[string]interface{}{
-		"ana-ng": "majestic",
-	}, nil)
-	c.Assert(err, gc.ErrorMatches, `unknown controller config setting "ana-ng"`)
-}
-
-func (s *ControllerSuite) TestRemovingUnknownName(c *gc.C) {
-	err := s.State.UpdateControllerConfig(nil, []string{"dr-worm"})
-	c.Assert(err, gc.ErrorMatches, `unknown controller config setting "dr-worm"`)
-}
-
-func (s *ControllerSuite) TestUpdateControllerConfigRejectsSpaceWithoutAddresses(c *gc.C) {
-	_, err := s.State.AddSpace("mgmt-space", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("192.168.9.9")), jc.ErrorIsNil)
-
-	err = s.State.UpdateControllerConfig(map[string]interface{}{
-		controller.JujuManagementSpace: "mgmt-space",
-	}, nil)
-	c.Assert(err, gc.ErrorMatches,
-		`invalid config "juju-mgmt-space"="mgmt-space": machines with no addresses in this space: 0`)
-}
-
-func (s *ControllerSuite) TestUpdateControllerConfigAcceptsSpaceWithAddresses(c *gc.C) {
-	sp, err := s.State.AddSpace("mgmt-space", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	m, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobManageModel, state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	addr := network.NewSpaceAddress("192.168.9.9")
-	addr.SpaceID = sp.Id()
-
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(m.SetProviderAddresses(controllerConfig, addr), jc.ErrorIsNil)
-
-	err = s.State.UpdateControllerConfig(map[string]interface{}{
-		controller.JujuManagementSpace: "mgmt-space",
-	}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *ControllerSuite) TestControllerInfo(c *gc.C) {
 	info, err := s.State.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
@@ -254,8 +117,7 @@ func (s *ControllerSuite) TestSetMachineAddressesControllerCharm(c *gc.C) {
 		Machine:     controller,
 	})
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := testing.FakeControllerConfig()
 
 	addresses := network.NewSpaceAddresses("10.0.0.1")
 	err = controller.SetMachineAddresses(controllerConfig, addresses...)

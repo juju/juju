@@ -18,6 +18,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
@@ -67,6 +68,11 @@ func (s *allWatcherBaseSuite) SetUpTest(c *gc.C) {
 	s.internalStateSuite.SetUpTest(c)
 	s.currentTime = s.state.clock().Now()
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
+}
+
+func (s *allWatcherBaseSuite) controllerConfig(c *gc.C) controller.Config {
+	cfg := testing.FakeControllerConfig()
+	return cfg
 }
 
 // setUpScenario adds some entities to the state so that
@@ -141,8 +147,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	providerAddr := network.NewSpaceAddress("example.com")
 	providerAddr.SpaceID = space.Id()
 
-	controllerConfig, err := st.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := s.controllerConfig(c)
 
 	err = m.SetProviderAddresses(controllerConfig, providerAddr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -826,7 +831,7 @@ func (s *allWatcherStateSuite) TestChangeUnits(c *gc.C) {
 }
 
 func (s *allWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
-	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
+	testChangeUnitsNonNilPorts(c, s.owner, s.controllerConfig(c), s.performChangeTestCases)
 }
 
 func (s *allWatcherStateSuite) TestChangeRemoteApplications(c *gc.C) {
@@ -1197,7 +1202,7 @@ func (s *allModelWatcherStateSuite) TestChangeUnits(c *gc.C) {
 }
 
 func (s *allModelWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
-	testChangeUnitsNonNilPorts(c, s.owner, s.performChangeTestCases)
+	testChangeUnitsNonNilPorts(c, s.owner, s.controllerConfig(c), s.performChangeTestCases)
 }
 
 func (s *allModelWatcherStateSuite) TestChangeRemoteApplications(c *gc.C) {
@@ -3103,7 +3108,7 @@ const (
 	closePorts initFlag = 4
 )
 
-func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []changeTestFunc)) {
+func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, controllerConfig controller.Config, runChangeTests func(*gc.C, []changeTestFunc)) {
 	initModel := func(c *gc.C, st *State, flag initFlag) {
 		wordpress := AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 		u, err := wordpress.AddUnit(AddUnitParams{})
@@ -3116,9 +3121,6 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 			c.Assert(err, jc.ErrorIsNil)
 		}
 		if flag&openPorts != 0 {
-			controllerConfig, err := st.ControllerConfig()
-			c.Assert(err, jc.ErrorIsNil)
-
 			// Add a network to the machine and open a port.
 			publicAddress := network.NewSpaceAddress("1.2.3.4", corenetwork.WithScope(corenetwork.ScopePublic))
 			privateAddress := network.NewSpaceAddress("4.3.2.1", corenetwork.WithScope(corenetwork.ScopeCloudLocal))
