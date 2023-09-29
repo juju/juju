@@ -4,6 +4,7 @@
 package unit
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"path"
@@ -118,34 +119,6 @@ func (c *containerUnitAgent) CharmModifiedVersion() int {
 	return c.charmModifiedVersion
 }
 
-func (c *containerUnitAgent) ensureAgentConf(dataDir string) error {
-	templateConfigPath := path.Join(dataDir, k8sconstants.TemplateFileNameAgentConf)
-	logger.Debugf("template config path %s", templateConfigPath)
-	config, err := agent.ReadConfig(templateConfigPath)
-	if err != nil {
-		return errors.Annotate(err, "reading template agent config file")
-	}
-	unitTag := config.Tag()
-	configPath := agent.ConfigPath(dataDir, unitTag)
-	logger.Debugf("config path %s", configPath)
-	configDir := path.Dir(configPath)
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		return errors.Annotatef(err, "making agent directory %q", configDir)
-	}
-	configBytes, err := config.Render()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := os.WriteFile(configPath, configBytes, 0644); err != nil {
-		return errors.Annotate(err, "writing agent config file")
-	}
-
-	if err := c.ReadConfig(unitTag.String()); err != nil {
-		return errors.Annotate(err, "reading agent config file")
-	}
-	return nil
-}
-
 // Init initializes the command for running.
 func (c *containerUnitAgent) Init(args []string) error {
 	if err := c.AgentConf.CheckArgs(args); err != nil {
@@ -185,9 +158,7 @@ func (c *containerUnitAgent) Init(args []string) error {
 		Logger:        logger,
 	})
 
-	dataDir := c.DataDir()
-
-	if err := c.ensureAgentConf(dataDir); err != nil {
+	if err := ensureAgentConf(c.AgentConf); err != nil {
 		return errors.Annotate(err, "ensuring agent conf file")
 	}
 
@@ -197,7 +168,7 @@ func (c *containerUnitAgent) Init(args []string) error {
 	}
 
 	srcDir := path.Dir(os.Args[0])
-	if err := c.ensureToolSymlinks(srcDir, dataDir, unitTag); err != nil {
+	if err := c.ensureToolSymlinks(srcDir, c.DataDir(), unitTag); err != nil {
 		return errors.Annotate(err, "ensuring agent tool symlinks")
 	}
 	containerNames := c.environment.Getenv(k8sconstants.EnvJujuContainerNames)
@@ -427,4 +398,42 @@ func AgentDone(logger loggo.Logger, err error) error {
 		logger.Infof("agent restarting")
 	}
 	return err
+}
+
+func ensureAgentConf(ac agentconf.AgentConf) error {
+	templateConfigPath := path.Join(ac.DataDir(), k8sconstants.TemplateFileNameAgentConf)
+	logger.Debugf("template config path %s", templateConfigPath)
+	config, err := agent.ReadConfig(templateConfigPath)
+	if err != nil {
+		return errors.Annotate(err, "reading template agent config file")
+	}
+
+	unitTag := config.Tag()
+	configPath := agent.ConfigPath(ac.DataDir(), unitTag)
+	logger.Debugf("config path %s", configPath)
+	// if the rendered configuration already exists, use that copy
+	// as it likely has updated api addresses or could have a newer password,
+	// otherwise we need to copy the template.
+	if _, err := os.Stat(configPath); err == nil {
+		return ac.ReadConfig(unitTag.String())
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("cannot stat current config %s: %w", configPath, err)
+	}
+
+	configDir := path.Dir(configPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return errors.Annotatef(err, "making agent directory %q", configDir)
+	}
+	configBytes, err := config.Render()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := os.WriteFile(configPath, configBytes, 0644); err != nil {
+		return errors.Annotate(err, "writing agent config file")
+	}
+
+	if err := ac.ReadConfig(unitTag.String()); err != nil {
+		return errors.Annotate(err, "reading agent config file")
+	}
+	return nil
 }
