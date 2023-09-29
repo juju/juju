@@ -192,7 +192,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *workerSuite) ensureStartup(c *gc.C) {
 	select {
 	case state := <-s.states:
-		c.Assert(state, gc.Equals, "started")
+		c.Assert(state, gc.Equals, stateStarted)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}

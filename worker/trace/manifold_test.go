@@ -12,8 +12,6 @@ import (
 	dependencytesting "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
-
-	coretrace "github.com/juju/juju/core/trace"
 )
 
 type manifoldSuite struct {
@@ -68,27 +66,18 @@ func (s *manifoldSuite) TestInputs(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
-	type tracerGetter interface {
-		GetTracer(string) (coretrace.Tracer, error)
-	}
-
 	test := func(enabled bool) {
 		defer s.setupMocks(c).Finish()
 
-		s.expectCurrentConfig(false)
+		s.expectCurrentConfig(enabled)
+
+		if enabled {
+			s.expectOpenTelemetry()
+		}
 
 		w, err := Manifold(s.getConfig()).Start(s.getContext())
 		c.Assert(err, jc.ErrorIsNil)
 		defer workertest.CleanKill(c, w)
-
-		tracer, err := w.(tracerGetter).GetTracer("foo")
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(tracer, gc.NotNil)
-
-		// This shouldn't panic, if it's a noop tracer.
-		ctx, span := tracer.Start(context.Background(), "foo")
-		c.Assert(ctx, gc.NotNil)
-		c.Assert(span, gc.NotNil)
 	}
 
 	// Test the noop and real tracer.
@@ -96,4 +85,10 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		c.Logf("enabled: %v", enabled)
 		test(enabled)
 	}
+}
+
+func (s *manifoldSuite) expectOpenTelemetry() {
+	s.config.EXPECT().OpenTelemetryEndpoint().Return("blah")
+	s.config.EXPECT().OpenTelemetryInsecure().Return(false)
+	s.config.EXPECT().OpenTelemetryStackTraces().Return(true)
 }
