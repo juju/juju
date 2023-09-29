@@ -14,7 +14,7 @@ import (
 )
 
 type localControllerInfoFunc func(context.Context) ([]string, string, error)
-type publicDNSAddressFunc func() (string, error)
+type publicDNSAddressFunc func(context.Context) (string, error)
 type watchLocalControllerInfoFunc func() state.NotifyWatcher
 
 // CrossControllerAPI provides access to the CrossModelRelations API facade.
@@ -65,7 +65,7 @@ func (api *CrossControllerAPI) ControllerInfo(ctx context.Context) (params.Contr
 		results.Results[0].Error = apiservererrors.ServerError(err)
 		return results, nil
 	}
-	publicDNSAddress, err := api.publicDNSAddress()
+	publicDNSAddress, err := api.publicDNSAddress(ctx)
 	if err != nil {
 		results.Results[0].Error = apiservererrors.ServerError(err)
 		return results, nil

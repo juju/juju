@@ -44,7 +44,7 @@ func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
 	api, err := crosscontroller.NewCrossControllerAPI(
 		s.resources,
 		func(context.Context) ([]string, string, error) { return s.localControllerInfo() },
-		func() (string, error) { return s.publicDnsAddress, nil },
+		func(context.Context) (string, error) { return s.publicDnsAddress, nil },
 		func() state.NotifyWatcher { return s.watchLocalControllerInfo() },
 	)
 	c.Assert(err, jc.ErrorIsNil)
