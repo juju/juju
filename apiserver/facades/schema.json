@@ -6418,7 +6418,7 @@
     },
     {
         "Name": "CAASApplication",
-        "Description": "",
+        "Description": "Facade defines the API methods on the CAASApplication facade.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",

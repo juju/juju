@@ -60,7 +60,6 @@ func (s *dispatchSuite) SetUpTest(c *gc.C) {
 	s.serverAddr = s.server.Listener.Addr().String()
 
 	s.AddCleanup(func(*gc.C) {
-		close(s.dead)
 		s.server.Close()
 	})
 }
@@ -93,47 +92,29 @@ func (s *dispatchSuite) TestWSWithParamsV0(c *gc.C) {
 func (s *dispatchSuite) TestWSWithoutParamsV1(c *gc.C) {
 	resp := s.requestV1(c, `{"request-id":1,"type": "DispatchDummy","id": "without","request":"DoSomething"}`)
 	s.assertResponse(c, resp, `{"request-id":1,"response":{}}`)
-	s.ensureFinish(c)
 }
 
 func (s *dispatchSuite) TestWSWithParamsV1(c *gc.C) {
 	resp := s.requestV1(c, `{"request-id":2,"type": "DispatchDummy","id": "with","request":"DoSomething", "params": {}}`)
 	s.assertResponse(c, resp, `{"request-id":2,"response":{}}`)
-	s.ensureFinish(c)
 }
 
 func (s *dispatchSuite) assertResponse(c *gc.C, obtained, expected string) {
 	c.Assert(obtained, gc.Equals, expected+"\n")
 }
 
-func (s *dispatchSuite) ensureFinish(c *gc.C) {
-	// Ensure the test is finished, before starting another one. This is to
-	// prevent a data race on the dead channel in SetupTest.
-	select {
-	case <-s.dead:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("timeout waiting for response")
-	}
-}
-
 // request performs one request to the test server via websockets.
 func (s *dispatchSuite) requestV0(c *gc.C, req string) error {
 	ws := s.request(c, req)
 
-	result := make(chan struct{})
-
 	go func() {
 		_, _, err := ws.ReadMessage()
 		c.Check(err, gc.NotNil)
-
-		close(result)
 	}()
 
 	select {
 	case err := <-s.dead:
 		return err
-	case <-result:
-		return nil
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timeout waiting for response")
 		return nil
@@ -156,16 +137,23 @@ func (s *dispatchSuite) requestV1(c *gc.C, req string) string {
 		result <- string(resp)
 	}()
 
+	var resp string
+	select {
+	case err := <-s.dead:
+		c.Fatalf("server sent unexpected error: %v", err)
+	case resp = <-result:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timeout waiting for response")
+	}
+
 	select {
 	case err := <-s.dead:
 		c.Assert(err, jc.ErrorIsNil)
-		return ""
-	case resp := <-result:
-		return resp
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timeout waiting for response")
-		return ""
 	}
+
+	return resp
 }
 
 func (s *dispatchSuite) request(c *gc.C, req string) *websocket.Conn {

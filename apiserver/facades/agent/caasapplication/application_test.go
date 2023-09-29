@@ -19,6 +19,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
+	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
+	"github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -27,7 +29,7 @@ import (
 var _ = gc.Suite(&CAASApplicationSuite{})
 
 type CAASApplicationSuite struct {
-	coretesting.BaseSuite
+	testing.ServiceFactorySuite
 
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
@@ -38,7 +40,11 @@ type CAASApplicationSuite struct {
 }
 
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.ServiceFactorySuite.SetUpTest(c)
+
+	controllerConfig := coretesting.FakeControllerConfig()
+	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.clock = testclock.NewClock(time.Now())
 
@@ -52,7 +58,15 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState()
 	s.broker = &mockBroker{}
 
-	facade, err := caasapplication.NewFacade(s.resources, s.authorizer, s.st, s.st, s.broker, s.clock, loggo.GetLogger("juju.apiserver.caasaplication"))
+	facade, err := caasapplication.NewFacade(
+		s.resources,
+		s.authorizer,
+		s.st, s.st,
+		s.ControllerServiceFactory(c).ControllerConfig(),
+		s.broker,
+		s.clock,
+		loggo.GetLogger("juju.apiserver.caasaplication"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -92,7 +106,7 @@ func (s *CAASApplicationSuite) TestAddUnit(c *gc.C) {
 	c.Assert(results.Result.UnitName, gc.Equals, "gitlab/0")
 	c.Assert(results.Result.AgentConf, gc.NotNil)
 
-	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig", "APIHostPortsForAgents")
+	s.st.CheckCallNames(c, "Model", "Application", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit")
 
@@ -165,7 +179,7 @@ func (s *CAASApplicationSuite) TestReuseUnitByName(c *gc.C) {
 	c.Assert(results.Result.UnitName, gc.Equals, "gitlab/0")
 	c.Assert(results.Result.AgentConf, gc.NotNil)
 
-	s.st.CheckCallNames(c, "Model", "Application", "ControllerConfig", "APIHostPortsForAgents")
+	s.st.CheckCallNames(c, "Model", "Application", "APIHostPortsForAgents")
 	s.st.CheckCall(c, 1, "Application", "gitlab")
 	s.st.app.CheckCallNames(c, "Life", "Name", "Name", "UpsertCAASUnit")
 

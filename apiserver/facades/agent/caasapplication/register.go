@@ -29,7 +29,10 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
+
+	serviceFactory := ctx.ServiceFactory()
+
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model, serviceFactory.Cloud(), serviceFactory.Credential())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}
@@ -37,10 +40,14 @@ func newStateFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewFacade(resources, authorizer,
+	return NewFacade(
+		resources,
+		authorizer,
 		systemState,
-		&stateShim{st},
+		&stateShim{State: st},
+		serviceFactory.ControllerConfig(),
 		broker,
 		ctx.StatePool().Clock(),
-		ctx.Logger().Child("caasapplication"))
+		ctx.Logger().Child("caasapplication"),
+	)
 }
