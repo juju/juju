@@ -47,7 +47,7 @@ var debugHooksTests = []struct {
 	expected: &argsSpec{
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
-		args:            "ubuntu@0.public sudo /bin/bash -c 'F=$(mktemp); echo IyEvYmluL2Jhc2gKKApjbGVhbnVwX29uX2V4aXQoKSAKeyAKCWVjaG8gIkNsZWFuaW5nIHVwIHRoZSBkZWJ1ZyBzZXNzaW9uIgoJdG11eCBraWxsLXNlc3Npb24gLXQgbXlzcWwvMDsgCn0KdHJhcCBjbGVhbnVwX29uX2V4aXQgRVhJVAoKIyBMb2NrIHRoZSBqdWp1LTx1bml0Pi1kZWJ1ZyBsb2NrZmlsZS4KZmxvY2sgLW4gOCB8fCAoCgllY2hvICJGb3VuZCBleGlzdGluZyBkZWJ1ZyBzZXNzaW9ucywgYXR0ZW1wdGluZyB0byByZWNvbm5lY3QiIDI+JjEKCWV4ZWMgdG11eCBhdHRhY2gtc2Vzc2lvbiAtdCBteXNxbC8wCglleGl0ICQ/CgkpCigKIyBDbG9zZSB0aGUgaW5oZXJpdGVkIGxvY2sgRkQsIG9yIHRtdXggd2lsbCBrZWVwIGl0IG9wZW4uCmV4ZWMgOD4mLQoKIyBXcml0ZSBvdXQgdGhlIGRlYnVnLWhvb2tzIGFyZ3MuCmVjaG8gImUzMEsiIHwgYmFzZTY0IC1kID4gL3RtcC9qdWp1LXVuaXQtbXlzcWwtMC1kZWJ1Zy1ob29rcwoKIyBMb2NrIHRoZSBqdWp1LTx1bml0Pi1kZWJ1Zy1leGl0IGxvY2tmaWxlLgpmbG9jayAtbiA5IHx8IGV4aXQgMQoKIyBXYWl0IGZvciB0bXV4IHRvIGJlIGluc3RhbGxlZC4Kd2hpbGUgWyAhIC1mIC91c3IvYmluL3RtdXggXTsgZG8KICAgIHNsZWVwIDEKZG9uZQoKaWYgWyAhIC1mIH4vLnRtdXguY29uZiBdOyB0aGVuCiAgICAgICAgaWYgWyAtZiAvdXNyL3NoYXJlL2J5b2J1L3Byb2ZpbGVzL3RtdXggXTsgdGhlbgogICAgICAgICAgICAgICAgIyBVc2UgYnlvYnUvdG11eCBwcm9maWxlIGZvciBmYW1pbGlhciBrZXliaW5kaW5ncyBhbmQgYnJhbmRpbmcKICAgICAgICAgICAgICAgIGVjaG8gInNvdXJjZS1maWxlIC91c3Ivc2hhcmUvYnlvYnUvcHJvZmlsZXMvdG11eCIgPiB+Ly50bXV4LmNvbmYKICAgICAgICBlbHNlCiAgICAgICAgICAgICAgICAjIE90aGVyd2lzZSwgdXNlIHRoZSBsZWdhY3kganVqdS90bXV4IGNvbmZpZ3VyYXRpb24KICAgICAgICAgICAgICAgIGNhdCA+IH4vLnRtdXguY29uZiA8PEVORAogICAgICAgICAgICAgICAgCiMgU3RhdHVzIGJhcgpzZXQtb3B0aW9uIC1nIHN0YXR1cy1iZyBibGFjawpzZXQtb3B0aW9uIC1nIHN0YXR1cy1mZyB3aGl0ZQoKc2V0LXdpbmRvdy1vcHRpb24gLWcgd2luZG93LXN0YXR1cy1jdXJyZW50LWJnIHJlZApzZXQtd2luZG93LW9wdGlvbiAtZyB3aW5kb3ctc3RhdHVzLWN1cnJlbnQtYXR0ciBicmlnaHQKCnNldC1vcHRpb24gLWcgc3RhdHVzLXJpZ2h0ICcnCgojIFBhbmVzCnNldC1vcHRpb24gLWcgcGFuZS1ib3JkZXItZmcgd2hpdGUKc2V0LW9wdGlvbiAtZyBwYW5lLWFjdGl2ZS1ib3JkZXItZmcgd2hpdGUKCiMgTW9uaXRvciBhY3Rpdml0eSBvbiB3aW5kb3dzCnNldC13aW5kb3ctb3B0aW9uIC1nIG1vbml0b3ItYWN0aXZpdHkgb24KCiMgU2NyZWVuIGJpbmRpbmdzLCBzaW5jZSBwZW9wbGUgYXJlIG1vcmUgZmFtaWxpYXIgd2l0aCB0aGF0LgpzZXQtb3B0aW9uIC1nIHByZWZpeCBDLWEKYmluZCBDLWEgbGFzdC13aW5kb3cKYmluZCBhIHNlbmQta2V5IEMtYQoKYmluZCB8IHNwbGl0LXdpbmRvdyAtaApiaW5kIC0gc3BsaXQtd2luZG93IC12CgojIEZpeCBDVFJMLVBHVVAvUEdET1dOIGZvciB2aW0Kc2V0LXdpbmRvdy1vcHRpb24gLWcgeHRlcm0ta2V5cyBvbgoKIyBQcmV2ZW50IEVTQyBrZXkgZnJvbSBhZGRpbmcgZGVsYXkgYW5kIGJyZWFraW5nIFZpbSdzIEVTQyA+IGFycm93IGtleQpzZXQtb3B0aW9uIC1zIGVzY2FwZS10aW1lIDAKCkVORAogICAgICAgIGZpCmZpCgooCiAgICAjIENsb3NlIHRoZSBpbmhlcml0ZWQgbG9jayBGRCwgb3IgdG11eCB3aWxsIGtlZXAgaXQgb3Blbi4KICAgIGV4ZWMgOT4mLQogICAgaWYgISB0bXV4IGhhcy1zZXNzaW9uIC10IG15c3FsLzA7IHRoZW4KCQl0bXV4IG5ldy1zZXNzaW9uIC1kIC1zIG15c3FsLzAKCWZpCgljbGllbnRfY291bnQ9JCh0bXV4IGxpc3QtY2xpZW50cyB8IHdjIC1sKQoJaWYgWyAkY2xpZW50X2NvdW50IC1nZSAxIF07IHRoZW4KCQlzZXNzaW9uX25hbWU9bXlzcWwvMCItIiRjbGllbnRfY250CgkJZXhlYyB0bXV4IG5ldy1zZXNzaW9uIC1kIC10IG15c3FsLzAgLXMgJHNlc3Npb25fbmFtZQoJCWV4ZWMgdG11eCBhdHRhY2gtc2Vzc2lvbiAtdCAkc2Vzc2lvbl9uYW1lIFw7IHNldC1vcHRpb24gZGVzdHJveS11bmF0dGFjaGVkCgllbHNlCgkgICAgZXhlYyB0bXV4IGF0dGFjaC1zZXNzaW9uIC10IG15c3FsLzAKCWZpCikKKSA5Pi90bXAvanVqdS11bml0LW15c3FsLTAtZGVidWctaG9va3MtZXhpdAopIDg+L3RtcC9qdWp1LXVuaXQtbXlzcWwtMC1kZWJ1Zy1ob29rcwpleGl0ICQ/Cg== | base64 -d > $F; . $F'",
+		args:            "ubuntu@0.public exec sudo /bin/bash -c 'F=$(mktemp); echo IyEvYmluL2Jhc2gKKApjbGVhbnVwX29uX2V4aXQoKSAKeyAKCWVjaG8gIkNsZWFuaW5nIHVwIHRoZSBkZWJ1ZyBzZXNzaW9uIgoJdG11eCBraWxsLXNlc3Npb24gLXQgbXlzcWwvMDsgCn0KdHJhcCBjbGVhbnVwX29uX2V4aXQgRVhJVAoKIyBMb2NrIHRoZSBqdWp1LTx1bml0Pi1kZWJ1ZyBsb2NrZmlsZS4KZmxvY2sgLW4gOCB8fCAoCgllY2hvICJGb3VuZCBleGlzdGluZyBkZWJ1ZyBzZXNzaW9ucywgYXR0ZW1wdGluZyB0byByZWNvbm5lY3QiIDI+JjEKCWV4ZWMgdG11eCBhdHRhY2gtc2Vzc2lvbiAtdCBteXNxbC8wCglleGl0ICQ/CgkpCigKIyBDbG9zZSB0aGUgaW5oZXJpdGVkIGxvY2sgRkQsIG9yIHRtdXggd2lsbCBrZWVwIGl0IG9wZW4uCmV4ZWMgOD4mLQoKIyBXcml0ZSBvdXQgdGhlIGRlYnVnLWhvb2tzIGFyZ3MuCmVjaG8gImUzMEsiIHwgYmFzZTY0IC1kID4gL3RtcC9qdWp1LXVuaXQtbXlzcWwtMC1kZWJ1Zy1ob29rcwoKIyBMb2NrIHRoZSBqdWp1LTx1bml0Pi1kZWJ1Zy1leGl0IGxvY2tmaWxlLgpmbG9jayAtbiA5IHx8IGV4aXQgMQoKIyBXYWl0IGZvciB0bXV4IHRvIGJlIGluc3RhbGxlZC4Kd2hpbGUgWyAhIC1mIC91c3IvYmluL3RtdXggXTsgZG8KICAgIHNsZWVwIDEKZG9uZQoKaWYgWyAhIC1mIH4vLnRtdXguY29uZiBdOyB0aGVuCglpZiBbIC1mIC91c3Ivc2hhcmUvYnlvYnUvcHJvZmlsZXMvdG11eCBdOyB0aGVuCgkJIyBVc2UgYnlvYnUvdG11eCBwcm9maWxlIGZvciBmYW1pbGlhciBrZXliaW5kaW5ncyBhbmQgYnJhbmRpbmcKCQllY2hvICJzb3VyY2UtZmlsZSAvdXNyL3NoYXJlL2J5b2J1L3Byb2ZpbGVzL3RtdXgiID4gfi8udG11eC5jb25mCgllbHNlCgkJIyBPdGhlcndpc2UsIHVzZSB0aGUgbGVnYWN5IGp1anUvdG11eCBjb25maWd1cmF0aW9uCgkJY2F0ID4gfi8udG11eC5jb25mIDw8RU5ECgojIFN0YXR1cyBiYXIKc2V0LW9wdGlvbiAtZyBzdGF0dXMtYmcgYmxhY2sKc2V0LW9wdGlvbiAtZyBzdGF0dXMtZmcgd2hpdGUKCnNldC13aW5kb3ctb3B0aW9uIC1nIHdpbmRvdy1zdGF0dXMtY3VycmVudC1iZyByZWQKc2V0LXdpbmRvdy1vcHRpb24gLWcgd2luZG93LXN0YXR1cy1jdXJyZW50LWF0dHIgYnJpZ2h0CgpzZXQtb3B0aW9uIC1nIHN0YXR1cy1yaWdodCAnJwoKIyBQYW5lcwpzZXQtb3B0aW9uIC1nIHBhbmUtYm9yZGVyLWZnIHdoaXRlCnNldC1vcHRpb24gLWcgcGFuZS1hY3RpdmUtYm9yZGVyLWZnIHdoaXRlCgojIE1vbml0b3IgYWN0aXZpdHkgb24gd2luZG93cwpzZXQtd2luZG93LW9wdGlvbiAtZyBtb25pdG9yLWFjdGl2aXR5IG9uCgojIFNjcmVlbiBiaW5kaW5ncywgc2luY2UgcGVvcGxlIGFyZSBtb3JlIGZhbWlsaWFyIHdpdGggdGhhdC4Kc2V0LW9wdGlvbiAtZyBwcmVmaXggQy1hCmJpbmQgQy1hIGxhc3Qtd2luZG93CmJpbmQgYSBzZW5kLWtleSBDLWEKCmJpbmQgfCBzcGxpdC13aW5kb3cgLWgKYmluZCAtIHNwbGl0LXdpbmRvdyAtdgoKIyBGaXggQ1RSTC1QR1VQL1BHRE9XTiBmb3IgdmltCnNldC13aW5kb3ctb3B0aW9uIC1nIHh0ZXJtLWtleXMgb24KCiMgUHJldmVudCBFU0Mga2V5IGZyb20gYWRkaW5nIGRlbGF5IGFuZCBicmVha2luZyBWaW0ncyBFU0MgPiBhcnJvdyBrZXkKc2V0LW9wdGlvbiAtcyBlc2NhcGUtdGltZSAwCgpFTkQKCWZpCmZpCgooCiAgICAjIENsb3NlIHRoZSBpbmhlcml0ZWQgbG9jayBGRCwgb3IgdG11eCB3aWxsIGtlZXAgaXQgb3Blbi4KICAgIGV4ZWMgOT4mLQoJIyBTaW5jZSB3ZSBqdXN0IHVzZSBieW9idSB0bXV4IGNvbmZpZ3Mgd2l0aG91dCBieW9idS10bXV4LCB3ZSBuZWVkCgkjIHRvIGV4cG9ydCB0aGlzIHRvIHByZXZlbnQgdGhlIFRFUk0gYmVpbmcgc2V0IHRvIGVtcHR5IHN0cmluZy4KCWV4cG9ydCBCWU9CVV9URVJNPSRURVJNCiAgICBpZiAhIHRtdXggaGFzLXNlc3Npb24gLXQgbXlzcWwvMDsgdGhlbgoJCXRtdXggbmV3LXNlc3Npb24gLWQgLXMgbXlzcWwvMAoJZmkKCWNsaWVudF9jb3VudD0kKHRtdXggbGlzdC1jbGllbnRzIHwgd2MgLWwpCglpZiBbICRjbGllbnRfY291bnQgLWdlIDEgXTsgdGhlbgoJCXNlc3Npb25fbmFtZT1teXNxbC8wIi0iJGNsaWVudF9jb3VudAoJCXRtdXggbmV3LXNlc3Npb24gLWQgLXQgbXlzcWwvMCAtcyAkc2Vzc2lvbl9uYW1lCgkJZXhlYyB0bXV4IGF0dGFjaC1zZXNzaW9uIC10ICRzZXNzaW9uX25hbWUgXDsgc2V0LW9wdGlvbiBkZXN0cm95LXVuYXR0YWNoZWQKCWVsc2UKCSAgICBleGVjIHRtdXggYXR0YWNoLXNlc3Npb24gLXQgbXlzcWwvMAoJZmkKKQopIDk+L3RtcC9qdWp1LXVuaXQtbXlzcWwtMC1kZWJ1Zy1ob29rcy1leGl0CikgOD4vdG1wL2p1anUtdW5pdC1teXNxbC0wLWRlYnVnLWhvb2tzCmV4aXQgJD8K | base64 -d > $F; chmod +x $F; exec $F'",
 	},
 }, {
 	info:        "unit name without hook (api v1)",
@@ -57,7 +57,7 @@ var debugHooksTests = []struct {
 	expected: &argsSpec{
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
-		argsMatch:       `ubuntu@0\.public sudo /bin/bash .+`,
+		argsMatch:       `ubuntu@0\.public exec sudo /bin/bash .+`,
 	},
 }, {
 	info:        "unit name without hook (api v2)",
@@ -67,7 +67,7 @@ var debugHooksTests = []struct {
 	expected: &argsSpec{
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
-		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) sudo .+`, // can be any of the 3
+		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) exec sudo .+`, // can be any of the 3
 	},
 }, {
 	info:        "proxy (api v1)",
@@ -78,7 +78,7 @@ var debugHooksTests = []struct {
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
 		withProxy:       true,
-		argsMatch:       `ubuntu@0\.private sudo /bin/bash .+`,
+		argsMatch:       `ubuntu@0\.private exec sudo /bin/bash .+`,
 	},
 }, {
 	info:        "proxy (api v2)",
@@ -89,7 +89,7 @@ var debugHooksTests = []struct {
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
 		withProxy:       true,
-		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) sudo .+`, // can be any of the 3
+		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) exec sudo .+`, // can be any of the 3
 	},
 }, {
 	info:        "pty enabled",
@@ -100,7 +100,7 @@ var debugHooksTests = []struct {
 		hostKeyChecking: "yes",
 		knownHosts:      "0",
 		enablePty:       true,
-		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) sudo .+`, // can be any of the 3
+		argsMatch:       `ubuntu@0\.(private|public|1\.2\.3) exec sudo .+`, // can be any of the 3
 	},
 }, {
 	info:        `"*" is a valid hook name: it means hook everything`,
