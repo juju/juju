@@ -216,7 +216,7 @@ func (s *environInstSuite) TestListMachineTypes(c *gc.C) {
 	// If no zone is specified, no machine types will be pulled.
 	s.FakeConn.Zones = nil
 	_, err := s.Env.InstanceTypes(s.CallCtx, constraints.Value{})
-	c.Assert(err, gc.ErrorMatches, "no instance types in  matching constraints \"cores=2 mem=2048M\"")
+	c.Assert(err, gc.ErrorMatches, "no instance types in  matching constraints.*")
 
 	// If a non-empty list of zones is specified , we will make an API call
 	// to fetch the available machine types.

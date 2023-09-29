@@ -55,7 +55,7 @@ func (s *instanceInformationSuite) TestEnsureDefaultConstraints(c *gc.C) {
 	cons := constraints.Value{}
 	c.Assert(cons.String(), gc.Equals, ``)
 	cons = ensureDefaultConstraints(cons)
-	c.Assert(cons.String(), gc.Equals, `cores=2 mem=2048M`)
+	c.Assert(cons.String(), gc.Equals, `cores=2`)
 
 	var err error
 	// Do not fill default cores and mem if instance type is provided.
@@ -84,5 +84,5 @@ func (s *instanceInformationSuite) TestEnsureDefaultConstraints(c *gc.C) {
 	cons, err = constraints.Parse(`mem=4096M`)
 	c.Assert(err, jc.ErrorIsNil)
 	cons = ensureDefaultConstraints(cons)
-	c.Assert(cons.String(), gc.Equals, `mem=4096M`)
+	c.Assert(cons.String(), gc.Equals, `cores=2 mem=4096M`)
 }

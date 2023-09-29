@@ -53,6 +53,7 @@ var testInstanceTypes = []instances.InstanceType{{
 	Cost:     21,
 }, {
 	Name:     "t3a.medium",
+	CpuCores: 2,
 	CpuPower: instances.CpuPower(700),
 	Mem:      4096,
 	Arch:     "amd64",
@@ -120,7 +121,7 @@ var findInstanceSpecTests = []struct {
 	{
 		version: "18.04",
 		arch:    "amd64",
-		itype:   "t3a.micro",
+		itype:   "t3a.small",
 		image:   "ami-00001133",
 	}, {
 		version: "18.04",
@@ -144,13 +145,13 @@ var findInstanceSpecTests = []struct {
 		version: "18.04",
 		arch:    "amd64",
 		cons:    "mem=",
-		itype:   "t3a.nano",
+		itype:   "t3a.small",
 		image:   "ami-00001133",
 	}, {
 		version: "18.04",
 		arch:    "amd64",
 		cons:    "cpu-power=",
-		itype:   "t3a.micro",
+		itype:   "t3a.small",
 		image:   "ami-00001133",
 	}, {
 		version: "18.04",
@@ -194,13 +195,13 @@ var findInstanceSpecTests = []struct {
 	}, {
 		version: "22.04",
 		arch:    "amd64",
-		itype:   "t3a.micro",
+		itype:   "t3a.small",
 		image:   "ami-02204133",
 	}, {
 		version: "20.04",
 		arch:    "amd64",
 		cons:    "arch=amd64",
-		itype:   "t3a.micro",
+		itype:   "t3a.small",
 		image:   "ami-02004133",
 	}, {
 		version: "20.04",

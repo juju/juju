@@ -920,6 +920,24 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *environSuite) TestBootstrapFlexibleShape(c *gc.C) {
+	ctrl := s.patchEnv(c)
+	defer ctrl.Finish()
+
+	s.setupStartInstanceExpectations(true, true, gomock.Any())
+
+	ctx := envtesting.BootstrapTODOContext(c)
+	_, err := s.env.Bootstrap(ctx, nil,
+		environs.BootstrapParams{
+			ControllerConfig:         testing.FakeControllerConfig(),
+			AvailableTools:           makeToolsList("ubuntu"),
+			BootstrapSeries:          "jammy",
+			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+			BootstrapConstraints:     constraints.MustParse("cpu-cores=16"),
+		})
+	c.Assert(err, gc.IsNil)
+}
+
 type noPublicIPMatcher struct{}
 
 func (noPublicIPMatcher) Matches(arg interface{}) bool {

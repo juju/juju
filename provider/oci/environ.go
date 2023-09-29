@@ -617,6 +617,25 @@ func (e *Environ) startInstance(
 		FreeformTags: tags,
 	}
 
+	// If the selected spec is a flexible shape, we must provide the number
+	// of OCPUs at least, so if the user hasn't provided cpu constraints we
+	// must pass the default value.
+	if (spec.InstanceType.MaxCpuCores != nil && spec.InstanceType.MaxCpuCores != &spec.InstanceType.CpuCores) ||
+		(spec.InstanceType.MaxMem != nil && spec.InstanceType.MaxMem != &spec.InstanceType.Mem) {
+		instanceDetails.ShapeConfig = &ociCore.LaunchInstanceShapeConfigDetails{}
+		if args.Constraints.HasCpuCores() {
+			cpuCores := float32(*args.Constraints.CpuCores)
+			instanceDetails.ShapeConfig.Ocpus = &cpuCores
+		} else {
+			cpuCores := float32(instances.MinCpuCores)
+			instanceDetails.ShapeConfig.Ocpus = &cpuCores
+		}
+		if args.Constraints.HasMem() {
+			mem := float32(*args.Constraints.Mem)
+			instanceDetails.ShapeConfig.MemoryInGBs = &mem
+		}
+	}
+
 	request := ociCore.LaunchInstanceRequest{
 		LaunchInstanceDetails: instanceDetails,
 	}

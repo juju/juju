@@ -231,8 +231,31 @@ func listShapesResponse() []ociCore.Shape {
 			BillingType:                "PAID",
 		},
 		{
-			Shape:                      makeStringPointer("VM.Standard.A1.Flex"),
-			ProcessorDescription:       makeStringPointer("3.0 GHz Ampere® Altra™"),
+			Shape:                makeStringPointer("VM.Standard.A1.Flex"),
+			ProcessorDescription: makeStringPointer("3.0 GHz Ampere® Altra™"),
+			OcpuOptions: &ociCore.ShapeOcpuOptions{
+				Max: makeFloat32Pointer(80),
+			},
+			MemoryOptions: &ociCore.ShapeMemoryOptions{
+				MaxInGBs: makeFloat32Pointer(512),
+			},
+			Ocpus:                      makeFloat32Pointer(1),
+			MemoryInGBs:                makeFloat32Pointer(6),
+			LocalDisks:                 makeIntPointer(0),
+			LocalDisksTotalSizeInGBs:   (*float32)(nil),
+			PlatformConfigOptions:      (*ociCore.ShapePlatformConfigOptions)(nil),
+			IsBilledForStoppedInstance: makeBoolPointer(false),
+			BillingType:                "LIMITED_FREE",
+		},
+		{
+			Shape:                makeStringPointer("VM.Standard3.Flex"),
+			ProcessorDescription: makeStringPointer("2.0 GHz Intel® Xeon® Platinum 8167M (Skylake)"),
+			OcpuOptions: &ociCore.ShapeOcpuOptions{
+				Max: makeFloat32Pointer(32),
+			},
+			MemoryOptions: &ociCore.ShapeMemoryOptions{
+				MaxInGBs: makeFloat32Pointer(512),
+			},
 			Ocpus:                      makeFloat32Pointer(1),
 			MemoryInGBs:                makeFloat32Pointer(6),
 			LocalDisks:                 makeIntPointer(0),
