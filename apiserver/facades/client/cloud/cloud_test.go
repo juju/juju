@@ -35,13 +35,14 @@ import (
 
 type cloudSuite struct {
 	jujutesting.LoggingCleanupSuite
-	backend      *mocks.MockBackend
-	ctrlBackend  *mocks.MockBackend
-	cloudService *mocks.MockCloudService
-	credService  *mocks.MockCredentialService
-	pool         *mocks.MockModelPoolBackend
-	api          *cloud.CloudAPI
-	authorizer   *apiservertesting.FakeAuthorizer
+	backend                 *mocks.MockBackend
+	ctrlBackend             *mocks.MockBackend
+	cloudService            *mocks.MockCloudService
+	credService             *mocks.MockCredentialService
+	controllerConfigService *mocks.MockControllerConfigService
+	pool                    *mocks.MockModelPoolBackend
+	api                     *cloud.CloudAPI
+	authorizer              *apiservertesting.FakeAuthorizer
 }
 
 func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
@@ -57,10 +58,12 @@ func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
 
 	s.ctrlBackend = mocks.NewMockBackend(ctrl)
 	s.ctrlBackend.EXPECT().ControllerTag().Return(coretesting.ControllerTag).AnyTimes()
+
 	s.cloudService = mocks.NewMockCloudService(ctrl)
 	s.credService = mocks.NewMockCredentialService(ctrl)
+	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
 
-	api, err := cloud.NewCloudAPI(s.backend, s.ctrlBackend, s.pool, s.cloudService, s.credService, s.authorizer, loggo.GetLogger("juju.apiserver.cloud"))
+	api, err := cloud.NewCloudAPI(s.backend, s.ctrlBackend, s.pool, s.controllerConfigService, s.cloudService, s.credService, s.authorizer, loggo.GetLogger("juju.apiserver.cloud"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	return ctrl
@@ -838,9 +841,12 @@ func (s *cloudSuite) TestUpdateCredentialsOneModelSuccess(c *gc.C) {
 		attrs: map[string]string{}}, c)
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
-		func(
-			_ credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ jujucloud.Cloud, _ bool,
+		func(_ context.ProviderCallContext,
+			_ credentialcommon.PersistentBackend,
+			_ credentialcommon.ControllerConfigService,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential,
+			_ jujucloud.Cloud,
+			_ bool,
 		) (params.ErrorResults, error) {
 			return params.ErrorResults{}, nil
 		})
@@ -1002,8 +1008,12 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) {
 	defer s.setup(c, adminTag).Finish()
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
-		func(backend credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ jujucloud.Cloud, _ bool,
+		func(_ context.ProviderCallContext,
+			_ credentialcommon.PersistentBackend,
+			_ credentialcommon.ControllerConfigService,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential,
+			_ jujucloud.Cloud,
+			_ bool,
 		) (params.ErrorResults, error) {
 			return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
 		})
@@ -1074,8 +1084,12 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) {
 	}
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
-		func(backend credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ jujucloud.Cloud, _ bool,
+		func(_ context.ProviderCallContext,
+			backend credentialcommon.PersistentBackend,
+			_ credentialcommon.ControllerConfigService,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential,
+			_ jujucloud.Cloud,
+			_ bool,
 		) (params.ErrorResults, error) {
 			if backend.(*mockModelBackend).uuid == "deadbeef-0bad-400d-8000-4b1d0d06f00d" {
 				return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
@@ -1141,8 +1155,12 @@ func (s *cloudSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *gc.
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
 		func(
-			backend credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ jujucloud.Cloud, _ bool,
+			_ context.ProviderCallContext,
+			backend credentialcommon.PersistentBackend,
+			_ credentialcommon.ControllerConfigService,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential,
+			_ jujucloud.Cloud,
+			_ bool,
 		) (params.ErrorResults, error) {
 			if backend.(*mockModelBackend).uuid == "deadbeef-0bad-400d-8000-4b1d0d06f00d" {
 				return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
@@ -1205,8 +1223,12 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidation(c *gc.C) {
 	defer s.setup(c, adminTag).Finish()
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
-		func(_ credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ jujucloud.Cloud, _ bool,
+		func(_ context.ProviderCallContext,
+			_ credentialcommon.PersistentBackend,
+			_ credentialcommon.ControllerConfigService,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential,
+			_ jujucloud.Cloud,
+			_ bool,
 		) (params.ErrorResults, error) {
 			return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
 		})
@@ -1263,8 +1285,12 @@ func (s *cloudSuite) TestUpdateCredentialsAllModelsFailedValidationForce(c *gc.C
 	defer s.setup(c, adminTag).Finish()
 
 	s.PatchValue(cloud.ValidateNewCredentialForModelFunc,
-		func(_ credentialcommon.PersistentBackend, _ context.ProviderCallContext,
-			_ names.CloudCredentialTag, _ *jujucloud.Credential, _ jujucloud.Cloud, migrating bool) (params.ErrorResults,
+		func(_ context.ProviderCallContext,
+			_ credentialcommon.PersistentBackend,
+			_ credentialcommon.ControllerConfigService,
+			_ names.CloudCredentialTag, _ *jujucloud.Credential,
+			_ jujucloud.Cloud,
+			_ bool) (params.ErrorResults,
 			error) {
 			return params.ErrorResults{Results: []params.ErrorResult{{Error: &params.Error{Message: "not valid for model"}}}}, nil
 		})

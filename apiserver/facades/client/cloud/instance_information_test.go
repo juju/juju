@@ -31,6 +31,7 @@ type instanceTypesSuite struct {
 	ctrlBackend                 *mocks.MockBackend
 	cloudService                *mocks.MockCloudService
 	credService                 *mocks.MockCredentialService
+	controllerConfigService     *mocks.MockControllerConfigService
 	pool                        *mocks.MockModelPoolBackend
 	authorizer                  *testing.FakeAuthorizer
 	credcommonPersistentBackend *credentialcommonmocks.MockPersistentBackend
@@ -44,6 +45,7 @@ func (s *instanceTypesSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Contr
 	s.cloudService = mocks.NewMockCloudService(ctrl)
 	s.credService = mocks.NewMockCredentialService(ctrl)
 	s.pool = mocks.NewMockModelPoolBackend(ctrl)
+	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
 	s.credcommonPersistentBackend = credentialcommonmocks.NewMockPersistentBackend(ctrl)
 	s.authorizer = &testing.FakeAuthorizer{
 		Tag: userTag,
@@ -95,7 +97,16 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		context.NewEmptyCloudCallContext(), nil)
 	p.backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag)
 
-	api, err := cloudfacade.NewCloudAPI(p.backend, p.ctrlBackend, p.pool, p.cloudService, p.credService, p.authorizer, loggo.GetLogger("juju.apiserver.cloud"))
+	api, err := cloudfacade.NewCloudAPI(
+		p.backend,
+		p.ctrlBackend,
+		p.pool,
+		p.controllerConfigService,
+		p.cloudService,
+		p.credService,
+		p.authorizer,
+		loggo.GetLogger("juju.apiserver.cloud"),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := params.CloudInstanceTypesConstraints{
