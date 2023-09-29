@@ -23,7 +23,7 @@ jobs:
   Upgrade:
     name: Upgrade
     runs-on: [self-hosted, linux, x64, aws, xlarge]
-    if: false && github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:

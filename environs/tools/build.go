@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -255,30 +256,35 @@ func buildJujus(dir string) error {
 	// Determine if we are in tree of juju and if to prefer
 	// vendor or readonly mod deps.
 	var lastErr error
+	var cmdDir string
 	for _, m := range []string{"-mod=vendor", "-mod=readonly"} {
-		cmd := exec.Command("go", "list", m, "github.com/juju/juju")
+		var stdout, stderr bytes.Buffer
+		cmd := exec.Command("go", "list", "-json", m, "github.com/juju/juju")
 		cmd.Env = append(os.Environ(), "GO111MODULE=on")
-		out, err := cmd.CombinedOutput()
+		cmd.Stderr = &stderr
+		cmd.Stdout = &stdout
+		err := cmd.Run()
 		if err != nil {
-			info := `cannot build juju agent outside of github.com/juju/juju tree
-	cd into the directory containing juju %s %s
-	%s`
-			lastErr = errors.Annotatef(err, info, jujuversion.Current.String(), jujuversion.GitCommit, out)
+			lastErr = fmt.Errorf(`cannot build juju agent outside of github.com/juju/juju tree
+			cd into the directory containing juju version=%s commit=%s: %w:
+			%s`, jujuversion.Current.String(), jujuversion.GitCommit, err, stderr.String())
+			continue
+		}
+		pkg := struct {
+			Root string `json:"Root"`
+		}{}
+		err = json.Unmarshal(stdout.Bytes(), &pkg)
+		if err != nil {
+			lastErr = fmt.Errorf("cannot parse go list output for github.com/juju/juju version=%s commit=%s: %w",
+				jujuversion.Current.String(), jujuversion.GitCommit, err)
 			continue
 		}
 		lastErr = nil
+		cmdDir = pkg.Root
 		break
 	}
 	if lastErr != nil {
 		return lastErr
-	}
-
-	// When using integration tests, you can't build jujud from outside of the
-	// root package. So if the GOPATH is set, we'll use that as the working
-	// directory to rebuild jujud.
-	var cmdDir string
-	if path, ok := os.LookupEnv("GOPATH"); ok && path != "" {
-		cmdDir = filepath.Join(path, "src", "github.com", "juju", "juju")
 	}
 
 	// Build binaries.
