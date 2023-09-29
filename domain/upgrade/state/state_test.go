@@ -326,3 +326,13 @@ func (s *stateSuite) TestActiveUpgradesSingular(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(activeUpgrade, gc.Equals, uuid)
 }
+
+func (s *stateSuite) TestSetDBUpgradeCompleted(c *gc.C) {
+	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.st.SetDBUpgradeCompleted(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	info, _ := s.getUpgrade(c, s.st, uuid)
+	c.Check(info.DBCompletedAt, gc.NotNil)
+}
