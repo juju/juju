@@ -8,6 +8,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/gate"
 )
 
@@ -21,6 +22,7 @@ type Logger interface {
 
 // ManifoldConfig defines the configuration on which this manifold depends.
 type ManifoldConfig struct {
+	AgentName         string
 	UpgradeDBGateName string
 	Logger            Logger
 }
@@ -41,6 +43,7 @@ func (cfg ManifoldConfig) Validate() error {
 func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			cfg.AgentName,
 			cfg.UpgradeDBGateName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
@@ -50,8 +53,15 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			// Determine this controller's agent.
+			var controllerAgent agent.Agent
+			if err := context.Get(cfg.AgentName, &controllerAgent); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			workerCfg := Config{
 				UpgradeComplete: upgradeDatabaseLock,
+				Agent:           controllerAgent,
 				Logger:          cfg.Logger,
 			}
 			w, err := NewUpgradeDatabaseWorker(workerCfg)

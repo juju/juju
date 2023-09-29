@@ -5,6 +5,7 @@ package upgradedatabase
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/version/v2"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
@@ -31,13 +32,20 @@ type Worker struct {
 	tomb            tomb.Tomb
 	upgradeComplete gate.Lock
 
+	agent  agent.Agent
 	logger Logger
+
+	fromVersion version.Number
+	toVersion   version.Number
 }
 
 type Config struct {
 	// UpgradeComplete is a lock used to synchronise workers that must start
 	// after database upgrades are verified as completed.
 	UpgradeComplete gate.Lock
+
+	// Agent is the running machine agent.
+	Agent agent.Agent
 
 	// Logger is the logger for this worker.
 	Logger Logger
@@ -47,6 +55,9 @@ type Config struct {
 func (c Config) Validate() error {
 	if c.UpgradeComplete == nil {
 		return errors.NotValidf("nil UpgradeComplete lock")
+	}
+	if c.Agent == nil {
+		return errors.NotValidf("nil Agent")
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -62,6 +73,7 @@ func NewUpgradeDatabaseWorker(config Config) (*Worker, error) {
 
 	w := &Worker{
 		upgradeComplete: config.UpgradeComplete,
+		agent:           config.Agent,
 		logger:          config.Logger,
 	}
 
@@ -69,11 +81,42 @@ func NewUpgradeDatabaseWorker(config Config) (*Worker, error) {
 	return w, nil
 }
 
+// loop implements Worker main loop.
+func (w *Worker) loop() error {
+	if w.upgradeDone() {
+		return nil
+	}
+
+	// TODO(anvial): try to CreateUpgrade, the controller who gets the upgrade ID will rubUpgrade, all other controllers
+	// should get the error and only watchUpgrade
+
+	err := w.runUpgrade()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		}
+	}
+}
+
 // upgradeDone returns true if this worker
 // does not need to run any upgrade logic.
 func (w *Worker) upgradeDone() bool {
 	// If we are already unlocked, there is nothing to do.
 	if w.upgradeComplete.IsUnlocked() {
+		return true
+	}
+
+	// If we are already on the current version, there is nothing to do.
+	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
+	w.toVersion = jujuversion.Current
+	if w.fromVersion == w.toVersion {
+		w.logger.Infof("database upgrade for %v already completed", w.toVersion)
+		w.upgradeComplete.Unlock()
 		return true
 	}
 
@@ -98,22 +141,4 @@ func (w *Worker) Kill() {
 // Wait implements worker.Worker.Wait.
 func (w *Worker) Wait() error {
 	return w.tomb.Wait()
-}
-
-func (w *Worker) loop() error {
-	if w.upgradeDone() {
-		return nil
-	}
-
-	err := w.runUpgrade()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		}
-	}
 }

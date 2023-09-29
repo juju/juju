@@ -6,9 +6,13 @@ package upgradedatabase_test
 import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
+	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgradedatabase"
 )
 
@@ -45,4 +49,76 @@ func logIt(c *gc.C, level loggo.Level, message string, args interface{}) {
 	}
 
 	c.Logf("%s "+message, nArgs...)
+}
+
+type workerSuite struct {
+	baseSuite
+
+	lock     *upgradedatabase.MockLock
+	agent    *upgradedatabase.MockAgent
+	agentCfg *upgradedatabase.MockConfig
+}
+
+var _ = gc.Suite(&workerSuite{})
+
+func (s *workerSuite) TestNewLockSameVersionUnlocked(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
+
+	s.agentCfg.EXPECT().UpgradedToVersion().Return(jujuversion.Current)
+	c.Assert(upgradedatabase.NewLock(s.agentCfg).IsUnlocked(), jc.IsTrue)
+}
+
+func (s *workerSuite) TestNewLockOldVersionLocked(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
+
+	s.agentCfg.EXPECT().UpgradedToVersion().Return(version.Number{})
+	c.Assert(upgradedatabase.NewLock(s.agentCfg).IsUnlocked(), jc.IsFalse)
+}
+
+func (s *workerSuite) TestAlreadyCompleteNoWork(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
+
+	s.lock.EXPECT().IsUnlocked().Return(true)
+
+	w, err := upgradedatabase.NewUpgradeDatabaseWorker(s.getConfig())
+	c.Assert(err, jc.ErrorIsNil)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestAlreadyUpgradedNoWork(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
+
+	s.lock.EXPECT().IsUnlocked().Return(false)
+	s.agent.EXPECT().CurrentConfig().Return(s.agentCfg)
+	s.agentCfg.EXPECT().UpgradedToVersion().Return(jujuversion.Current)
+	s.lock.EXPECT().Unlock()
+
+	w, err := upgradedatabase.NewUpgradeDatabaseWorker(s.getConfig())
+	c.Assert(err, jc.ErrorIsNil)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) getConfig() upgradedatabase.Config {
+	return upgradedatabase.Config{
+		UpgradeComplete: s.lock,
+		Agent:           s.agent,
+		Logger:          s.logger,
+	}
+}
+
+func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.lock = upgradedatabase.NewMockLock(ctrl)
+	s.agent = upgradedatabase.NewMockAgent(ctrl)
+	s.agentCfg = upgradedatabase.NewMockConfig(ctrl)
+	s.logger = upgradedatabase.NewMockLogger(ctrl)
+
+	return ctrl
 }
