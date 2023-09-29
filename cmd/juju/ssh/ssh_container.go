@@ -306,10 +306,16 @@ type Context interface {
 func (c *sshContainer) ssh(ctx Context, enablePty bool, target *resolvedTarget) (err error) {
 	args := c.args
 	if len(args) == 0 {
-		args = []string{"sh"}
+		args = []string{"exec", "sh"}
 	}
 	cancel, stop := getInterruptAbortChan(ctx)
 	defer stop()
+	var env []string
+	if enablePty {
+		if term := os.Getenv("TERM"); term != "" {
+			env = append(env, "TERM="+term)
+		}
+	}
 	return c.execClient.Exec(
 		k8sexec.ExecParams{
 			PodName:       target.entity,
@@ -319,6 +325,7 @@ func (c *sshContainer) ssh(ctx Context, enablePty bool, target *resolvedTarget) 
 			Stderr:        ctx.GetStderr(),
 			Stdin:         ctx.GetStdin(),
 			TTY:           enablePty,
+			Env:           env,
 		},
 		cancel,
 	)
