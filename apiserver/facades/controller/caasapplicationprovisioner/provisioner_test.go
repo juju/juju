@@ -146,11 +146,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 		life: state.Alive,
 		charm: &mockCharm{
 			meta: &charm.Meta{},
-			url: &charm.URL{
-				Schema:   "cs",
-				Name:     "gitlab",
-				Revision: -1,
-			},
+			url:  "cs:gitlab",
 		},
 		watcher: statetesting.NewMockNotifyWatcher(appChanged),
 	}
