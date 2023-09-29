@@ -324,3 +324,5 @@ require (
 replace google.golang.org/grpc/naming => google.golang.org/grpc v1.29.1
 
 replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
+
+replace github.com/juju/worker/v3 => /home/simon/go/src/github.com/juju/worker

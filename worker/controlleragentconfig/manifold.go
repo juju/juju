@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -25,12 +26,16 @@ type Logger interface {
 // manifold.
 type ManifoldConfig struct {
 	Logger Logger
+	Clock  clock.Clock
 }
 
 // Validate validates the manifold configuration.
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -47,6 +52,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := NewWorker(WorkerConfig{
 				Logger: config.Logger,
 				Notify: Notify,
+				Clock:  config.Clock,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
