@@ -134,6 +134,44 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, `charm "ch:gitlab" pending not provisioned`)
 }
 
+func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
+	appChanged := make(chan struct{}, 1)
+	portsChanged := make(chan struct{}, 1)
+	modelConfigChanged := make(chan struct{}, 1)
+	controllerConfigChanged := make(chan struct{}, 1)
+	s.st.apiHostPortsForAgentsWatcher = statetesting.NewMockNotifyWatcher(portsChanged)
+	s.st.model.state.controllerConfigWatcher = statetesting.NewMockNotifyWatcher(controllerConfigChanged)
+	s.st.model.modelConfigChanges = statetesting.NewMockNotifyWatcher(modelConfigChanged)
+	s.st.app = &mockApplication{
+		life: state.Alive,
+		charm: &mockCharm{
+			meta: &charm.Meta{},
+			url: &charm.URL{
+				Schema:   "cs",
+				Name:     "gitlab",
+				Revision: -1,
+			},
+		},
+		watcher: statetesting.NewMockNotifyWatcher(appChanged),
+	}
+	appChanged <- struct{}{}
+	portsChanged <- struct{}{}
+	modelConfigChanged <- struct{}{}
+	controllerConfigChanged <- struct{}{}
+
+	results, err := s.api.WatchProvisioningInfo(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+		},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	res := s.resources.Get("1")
+	c.Assert(res, gc.FitsTypeOf, (*common.MultiNotifyWatcher)(nil))
+}
+
 func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 	s.st.app = &mockApplication{
 		life: state.Alive,
