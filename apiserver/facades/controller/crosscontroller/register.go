@@ -30,8 +30,9 @@ func newStateCrossControllerAPI(ctx facade.Context) (*CrossControllerAPI, error)
 		func(ctx context.Context) ([]string, string, error) {
 			return common.ControllerAPIInfo(ctx, st, serviceFactory.ControllerConfig())
 		},
-		func() (string, error) {
-			config, err := st.ControllerConfig()
+		func(ctx context.Context) (string, error) {
+			controllerConfig := serviceFactory.ControllerConfig()
+			config, err := controllerConfig.ControllerConfig(ctx)
 			if err != nil {
 				return "", errors.Trace(err)
 			}

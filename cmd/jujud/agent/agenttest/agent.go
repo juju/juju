@@ -303,9 +303,11 @@ func (s *AgentSuite) primeAPIHostPorts(c *gc.C) {
 	hostPorts := network.SpaceHostPorts{
 		{SpaceAddress: network.SpaceAddress{MachineAddress: mHP.MachineAddress}, NetPort: mHP.NetPort}}
 
-	st := s.ControllerModel(c).State()
-	controllerConfig, err := st.ControllerConfig()
+	serviceFactory := s.ControllerServiceFactory(c)
+	controllerConfig, err := serviceFactory.ControllerConfig().ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
+
+	st := s.ControllerModel(c).State()
 
 	err = st.SetAPIHostPorts(controllerConfig, []network.SpaceHostPorts{hostPorts})
 	c.Assert(err, jc.ErrorIsNil)

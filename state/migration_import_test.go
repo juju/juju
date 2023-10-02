@@ -70,8 +70,7 @@ func (s *MigrationImportSuite) TestExisting(c *gc.C) {
 	out, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlCfg := coretesting.FakeControllerConfig()
 
 	_, _, err = s.Controller.Import(out, ctrlCfg)
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
@@ -115,8 +114,7 @@ func (s *MigrationImportSuite) importModelDescription(
 	uuid := utils.MustNewUUID().String()
 	in := newModel(desc, uuid, "new")
 
-	ctrlCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlCfg := coretesting.FakeControllerConfig()
 
 	newModel, newSt, err := s.Controller.Import(in, ctrlCfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -161,8 +159,7 @@ func (s *MigrationImportSuite) TestNewModel(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	ctrlCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlCfg := coretesting.FakeControllerConfig()
 
 	newModel, newSt, err := s.Controller.Import(in, ctrlCfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -959,8 +956,7 @@ func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	ctrlCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlCfg := coretesting.FakeControllerConfig()
 
 	_, newSt, err := s.Controller.Import(in, ctrlCfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1032,8 +1028,7 @@ func (s *MigrationImportSuite) TestApplicationsSubordinatesAfter(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	ctrlCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlCfg := coretesting.FakeControllerConfig()
 
 	_, newSt, err := s.Controller.Import(in, ctrlCfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2564,8 +2559,7 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	ctrlCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlCfg := coretesting.FakeControllerConfig()
 
 	_, newSt, err := s.Controller.Import(in, ctrlCfg)
 	if err == nil {
@@ -2637,8 +2631,7 @@ func (s *MigrationImportSuite) TestRemoteApplicationsConsumerProxy(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
 
-	ctrlCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlCfg := coretesting.FakeControllerConfig()
 
 	_, newSt, err := s.Controller.Import(in, ctrlCfg)
 	if err == nil {
@@ -2837,8 +2830,7 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 	testModel, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlCfg := coretesting.FakeControllerConfig()
 
 	newConfig := testModel.Config()
 	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
@@ -2875,8 +2867,7 @@ func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, tool
 	testModel, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlCfg := coretesting.FakeControllerConfig()
 
 	newConfig := testModel.Config()
 	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
@@ -3218,8 +3209,7 @@ func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
 	err = backendStore.DeleteSecretBackend("foo", true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlCfg := coretesting.FakeControllerConfig()
 
 	uuid := utils.MustNewUUID().String()
 	in := newModel(out, uuid, "new")
@@ -3231,8 +3221,7 @@ func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
 	testModel, err := s.State.Export(map[string]string{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctrlCfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrlCfg := coretesting.FakeControllerConfig()
 
 	newConfig := testModel.Config()
 	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"

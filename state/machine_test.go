@@ -1823,8 +1823,7 @@ func (s *MachineSuite) TestSetProviderAddresses(c *gc.C) {
 			SpaceID: "1",
 		},
 	}
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 	err = machine.SetProviderAddresses(controllerConfig, addresses...)
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.Refresh()
@@ -1839,8 +1838,7 @@ func (s *MachineSuite) TestSetProviderAddressesWithContainers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	// When setting all addresses the subnet addresses have to be
 	// filtered out.
@@ -1870,8 +1868,7 @@ func (s *MachineSuite) TestSetProviderAddressesOnContainer(c *gc.C) {
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXD)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 	// When setting all addresses the subnet address has to accepted.
 	addresses := network.NewSpaceAddresses("127.0.0.1")
 	err = container.SetProviderAddresses(controllerConfig, addresses...)
@@ -1888,8 +1885,7 @@ func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 	addresses := network.NewSpaceAddresses("127.0.0.1", "8.8.8.8")
 	err = machine.SetMachineAddresses(controllerConfig, addresses...)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1905,8 +1901,7 @@ func (s *MachineSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 	// Add some machine addresses initially to make sure they're removed.
 	addresses := network.NewSpaceAddresses("127.0.0.1", "8.8.8.8")
 	err = machine.SetMachineAddresses(controllerConfig, addresses...)
@@ -1928,8 +1923,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 	providerAddresses := network.NewSpaceAddresses(
 		"127.0.0.2",
 		"8.8.8.8",
@@ -1986,8 +1980,7 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeDifferent(c *gc.C
 	addr0 := network.NewSpaceAddress("127.0.0.1")
 	addr1 := network.NewSpaceAddress("8.8.8.8")
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		machine, err := s.State.Machine(machine.Id())
@@ -2012,8 +2005,7 @@ func (s *MachineSuite) TestSetProviderAddressesConcurrentChangeEqual(c *gc.C) {
 	addr0 := network.NewSpaceAddress("127.0.0.1")
 	addr1 := network.NewSpaceAddress("8.8.8.8")
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	var revno1 int64
 	defer state.SetBeforeHooks(c, s.State, func() {
@@ -2045,8 +2037,7 @@ func (s *MachineSuite) TestSetProviderAddressesInvalidateMemory(c *gc.C) {
 	addr0 := network.NewSpaceAddress("127.0.0.1")
 	addr1 := network.NewSpaceAddress("8.8.8.8")
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	// Set addresses to [addr0] initially. We'll get a separate Machine
 	// object to update addresses, to ensure that the in-memory cache of
@@ -2123,8 +2114,7 @@ func (s *MachineSuite) TestPublicAddress(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2138,8 +2128,7 @@ func (s *MachineSuite) TestPrivateAddress(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2153,8 +2142,7 @@ func (s *MachineSuite) TestPublicAddressBetterMatch(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2175,8 +2163,7 @@ func (s *MachineSuite) TestPrivateAddressBetterMatch(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2197,8 +2184,7 @@ func (s *MachineSuite) TestPublicAddressChanges(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2219,8 +2205,7 @@ func (s *MachineSuite) TestPrivateAddressChanges(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2241,8 +2226,7 @@ func (s *MachineSuite) TestAddressesDeadMachine(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.2"), network.NewSpaceAddress("8.8.4.4"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2272,8 +2256,7 @@ func (s *MachineSuite) TestStablePrivateAddress(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2297,8 +2280,7 @@ func (s *MachineSuite) TestStablePublicAddress(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetProviderAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2322,8 +2304,7 @@ func (s *MachineSuite) TestAddressesRaceMachineFirst(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	changeAddresses := jujutxn.TestHook{
 		Before: func() {
@@ -2356,8 +2337,7 @@ func (s *MachineSuite) TestAddressesRaceProviderFirst(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	changeAddresses := jujutxn.TestHook{
 		Before: func() {
@@ -2390,8 +2370,7 @@ func (s *MachineSuite) TestPrivateAddressPrefersProvider(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2418,8 +2397,7 @@ func (s *MachineSuite) TestPublicAddressPrefersProvider(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.2"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2446,8 +2424,7 @@ func (s *MachineSuite) TestAddressesPrefersProviderBoth(c *gc.C) {
 	machine, err := s.State.AddMachine(state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("8.8.8.8"), network.NewSpaceAddress("10.0.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -2885,8 +2862,7 @@ func (s *MachineSuite) TestWatchAddresses(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 
-	controllerConfig, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig := coretesting.FakeControllerConfig()
 
 	// Set machine addresses: reported.
 	err = machine.SetMachineAddresses(controllerConfig, network.NewSpaceAddress("abc"))

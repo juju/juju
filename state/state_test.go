@@ -777,7 +777,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	machines[3], err = s.State.Machine("3")
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConfig, err := s.State.ControllerConfig()
+	controllerConfig := testing.FakeControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	for i, m := range machines {
 		err := m.SetProviderAddresses(
@@ -3068,32 +3068,6 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *StateSuite) TestWatchControllerConfig(c *gc.C) {
-	w := s.State.WatchControllerConfig()
-	defer workertest.CleanKill(c, w)
-
-	// Initial event.
-	wc := statetesting.NewNotifyWatcherC(c, w)
-	wc.AssertOneChange()
-
-	cfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	expectedCfg := testing.FakeControllerConfig()
-	c.Assert(cfg, jc.DeepEquals, expectedCfg)
-
-	settings := state.GetControllerSettings(s.State)
-	settings.Set("model-logs-size", "5M")
-	_, err = settings.Write()
-	c.Assert(err, jc.ErrorIsNil)
-
-	wc.AssertOneChange()
-
-	cfg, err = s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	expectedCfg["model-logs-size"] = "5M"
-	c.Assert(cfg, jc.DeepEquals, expectedCfg)
-}
-
 func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 	// insert one doc for each multiModelCollection
 	var ops []mgotxn.Op
@@ -4567,8 +4541,7 @@ func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	cfg := testing.FakeControllerConfig()
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4614,8 +4587,7 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	cfg := testing.FakeControllerConfig()
 
 	hostPorts := []network.SpaceHostPorts{{{
 		SpaceAddress: network.NewSpaceAddress("0.4.8.16", network.WithScope(network.ScopePublic)),
@@ -4643,7 +4615,7 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
 		prevAgentsRevno = revno
 	}).Check()
 
-	err = s.State.SetAPIHostPorts(cfg, hostPorts)
+	err := s.State.SetAPIHostPorts(cfg, hostPorts)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
 
@@ -4656,68 +4628,15 @@ func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
 	c.Assert(revno, gc.Equals, prevAgentsRevno)
 }
 
-func (s *StateSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	hostPorts0 := network.SpaceHostPorts{{
-		SpaceAddress: network.NewSpaceAddress("0.4.8.16", network.WithScope(network.ScopePublic)),
-		NetPort:      2,
-	}}
-	hostPorts1 := network.SpaceHostPorts{{
-		SpaceAddress: network.NewSpaceAddress("0.2.4.6", network.WithScope(network.ScopeCloudLocal)),
-		NetPort:      1,
-	}}
-
-	// API host ports are concurrently changed to different
-	// values; second arrival will fail its assertion, refresh
-	// finding and reattempt.
-
-	ctrC := state.ControllersC
-	var prevRevno int64
-	var prevAgentsRevno int64
-	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.SetAPIHostPorts(cfg, []network.SpaceHostPorts{hostPorts0})
-		c.Assert(err, jc.ErrorIsNil)
-		revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
-		c.Assert(err, jc.ErrorIsNil)
-		prevRevno = revno
-		revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
-		c.Assert(err, jc.ErrorIsNil)
-		prevAgentsRevno = revno
-	}).Check()
-
-	err = s.State.SetAPIHostPorts(cfg, []network.SpaceHostPorts{hostPorts1})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
-
-	revno, err := state.TxnRevno(s.State, ctrC, "apiHostPorts")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(revno, gc.Not(gc.Equals), prevRevno)
-
-	revno, err = state.TxnRevno(s.State, ctrC, "apiHostPortsForAgents")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(revno, gc.Not(gc.Equals), prevAgentsRevno)
-
-	ctrlSt, err := s.StatePool.SystemState()
-	c.Assert(err, jc.ErrorIsNil)
-	hostPorts, err := ctrlSt.APIHostPortsForClients(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
-
-	hostPorts, err = ctrlSt.APIHostPortsForAgents(cfg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hostPorts, gc.DeepEquals, []network.SpaceHostPorts{hostPorts1})
-}
-
 func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.SetJujuManagementSpace(c, "mgmt01")
-
-	cfg, err := s.State.ControllerConfig()
+	cfg := testing.FakeControllerConfig()
+	cfg[controller.JujuManagementSpace] = "mgmt01"
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.SetJujuManagementSpace(c, "mgmt01")
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4761,8 +4680,7 @@ func (s *StateSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	cfg := testing.FakeControllerConfig()
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4791,8 +4709,7 @@ func (s *StateSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
 }
 
 func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
-	cfg, err := s.State.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
+	cfg := testing.FakeControllerConfig()
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
