@@ -3,13 +3,13 @@
 
 package upgrade
 
-import "database/sql"
+import "time"
 
 type Info struct {
 	UUID            string
 	PreviousVersion string
 	TargetVersion   string
-	CreatedAt       string
-	StartedAt       sql.NullString
-	CompletedAt     sql.NullString
+	CreatedAt       time.Time
+	StartedAt       time.Time
+	CompletedAt     time.Time
 }
