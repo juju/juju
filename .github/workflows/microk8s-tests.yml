@@ -5,7 +5,7 @@ name: Test Kubeflow
 on: workflow_dispatch
 
 env:
-  DOCKER_USERNAME: jujuqabot
+  DOCKER_USERNAME: docker.io/jujuqabot
   JUJU_BUILD_NUMBER: 888
 
 permissions:
