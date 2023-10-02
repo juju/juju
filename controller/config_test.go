@@ -350,53 +350,6 @@ var newConfigTests = []struct {
 	},
 	expectError: `negative controller-resource-download-limit \(-42\) not valid, use 0 to disable the limit`,
 },
-
-	// These tests need to be refactored as we no longer validate the
-	// CAASImageRepo against docker for every request. All the tests have been
-	// kept, but in reality, we're leaning heavily on the url.Parse function.
-	{
-		about: "invalid CAAS docker image repo",
-		config: controller.Config{
-			controller.CAASImageRepo: "foo?bar",
-		},
-		expectError: ``,
-	}, {
-		about: "empty CAAS docker image repo",
-		config: controller.Config{
-			controller.CAASImageRepo: `{"foo": "bar"}`,
-		},
-		expectError: `invalid image repo:.*first path segment in URL cannot contain colon`,
-	}, {
-		about: "invalid CAAS operator docker image repo - leading colon",
-		config: controller.Config{
-			controller.CAASImageRepo: ":foo",
-		},
-		expectError: `invalid image repo:.*missing protocol scheme`,
-	}, {
-		about: "invalid CAAS docker image repo - trailing colon",
-		config: controller.Config{
-			controller.CAASImageRepo: `{"foo":""}`,
-		},
-		expectError: `invalid image repo.*first path segment in URL cannot contain colon`,
-	}, {
-		about: "invalid CAAS docker image repo - extra colon",
-		config: controller.Config{
-			controller.CAASImageRepo: "foo::bar",
-		},
-		expectError: ``,
-	}, {
-		about: "invalid CAAS docker image repo - leading /",
-		config: controller.Config{
-			controller.CAASImageRepo: "/foo",
-		},
-		expectError: ``,
-	}, {
-		about: "invalid CAAS docker image repo - extra /",
-		config: controller.Config{
-			controller.CAASImageRepo: "foo//bar",
-		},
-		expectError: ``,
-	},
 }
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {

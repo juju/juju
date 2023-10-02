@@ -927,17 +927,6 @@ func (c Config) CAASImageRepo() string {
 
 }
 
-func validateCAASImageRepo(imageRepo string) (string, error) {
-	if imageRepo == "" {
-		return "", nil
-	}
-	_, err := url.Parse(imageRepo)
-	if err != nil {
-		return "", errors.Annotate(err, "invalid image repo")
-	}
-	return imageRepo, nil
-}
-
 // MeteringURL returns the URL to use for metering api calls.
 func (c Config) MeteringURL() string {
 	url := c.asString(MeteringURL)
@@ -1118,19 +1107,6 @@ func Validate(c Config) error {
 
 	if err := c.validateSpaceConfig(JujuManagementSpace, "juju mgmt"); err != nil {
 		return errors.Trace(err)
-	}
-
-	var err error
-	if v, ok := c[CAASOperatorImagePath].(string); ok && v != "" {
-		if c[CAASOperatorImagePath], err = validateCAASImageRepo(v); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	if v, ok := c[CAASImageRepo].(string); ok && v != "" {
-		if c[CAASImageRepo], err = validateCAASImageRepo(v); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	var auditLogMaxSize int
