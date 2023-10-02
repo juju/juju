@@ -5,7 +5,7 @@ package state
 
 import "database/sql"
 
-type Info struct {
+type info struct {
 	UUID            string         `db:"uuid"`
 	PreviousVersion string         `db:"previous_version"`
 	TargetVersion   string         `db:"target_version"`

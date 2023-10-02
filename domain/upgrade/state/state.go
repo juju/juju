@@ -159,8 +159,8 @@ func (st *State) StartUpgrade(ctx context.Context, upgradeUUID string) error {
 		return errors.Trace(err)
 	}
 
-	getUpgradeStartedQuery := "SELECT started_at AS &Info.* FROM upgrade_info WHERE uuid = $M.info_uuid"
-	getUpgradeStartedStmt, err := sqlair.Prepare(getUpgradeStartedQuery, Info{}, sqlair.M{})
+	getUpgradeStartedQuery := "SELECT started_at AS &info.* FROM upgrade_info WHERE uuid = $M.info_uuid"
+	getUpgradeStartedStmt, err := sqlair.Prepare(getUpgradeStartedQuery, info{}, sqlair.M{})
 	if err != nil {
 		return errors.Annotatef(err, "preparing %q", getUpgradeStartedQuery)
 	}
@@ -172,7 +172,7 @@ func (st *State) StartUpgrade(ctx context.Context, upgradeUUID string) error {
 	}
 
 	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var node Info
+		var node info
 		err := tx.Query(ctx, getUpgradeStartedStmt, sqlair.M{"info_uuid": upgradeUUID}).Get(&node)
 		if err != nil {
 			return errors.Trace(err)
@@ -301,26 +301,26 @@ func (st *State) ActiveUpgrade(ctx context.Context) (string, error) {
 }
 
 // Upgrade returns the upgrade with the supplied uuid
-func (st *State) Upgrade(ctx context.Context, upgradeUUID string) (Info, error) {
+func (st *State) Upgrade(ctx context.Context, upgradeUUID string) (info, error) {
 	db, err := st.DB()
 	if err != nil {
-		return Info{}, errors.Trace(err)
+		return info{}, errors.Trace(err)
 	}
 
-	getUpgradeQuery := "SELECT * AS &Info.* FROM upgrade_info WHERE uuid = $M.info_uuid"
-	getUpgradeStmt, err := sqlair.Prepare(getUpgradeQuery, Info{}, sqlair.M{})
+	getUpgradeQuery := "SELECT * AS &info.* FROM upgrade_info WHERE uuid = $M.info_uuid"
+	getUpgradeStmt, err := sqlair.Prepare(getUpgradeQuery, info{}, sqlair.M{})
 	if err != nil {
-		return Info{}, errors.Annotatef(err, "preparing %q", getUpgradeQuery)
+		return info{}, errors.Annotatef(err, "preparing %q", getUpgradeQuery)
 	}
 
-	var upgrade Info
+	var upgradeInstance info
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, getUpgradeStmt, sqlair.M{"info_uuid": upgradeUUID}).Get(&upgrade)
+		err := tx.Query(ctx, getUpgradeStmt, sqlair.M{"info_uuid": upgradeUUID}).Get(&upgradeInstance)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return nil
 	})
 
-	return upgrade, errors.Trace(err)
+	return upgradeInstance, errors.Trace(err)
 }

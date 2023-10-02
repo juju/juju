@@ -44,14 +44,14 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.upgradeUUID = uuid
 }
 
-func (s *stateSuite) getUpgrade(c *gc.C, st *State, upgradeUUID string) (Info, []infoControllerNode) {
+func (s *stateSuite) getUpgrade(c *gc.C, st *State, upgradeUUID string) (info, []infoControllerNode) {
 	db, err := s.st.DB()
 	c.Assert(err, jc.ErrorIsNil)
 
 	infoQ := `
-SELECT * AS &Info.* FROM upgrade_info
+SELECT * AS &info.* FROM upgrade_info
 WHERE uuid = $M.info_uuid`
-	infoS, err := sqlair.Prepare(infoQ, Info{}, sqlair.M{})
+	infoS, err := sqlair.Prepare(infoQ, info{}, sqlair.M{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	nodeInfosQ := `
@@ -61,7 +61,7 @@ WHERE upgrade_info_uuid = $M.info_uuid`
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
-		info      Info
+		info      info
 		nodeInfos []infoControllerNode
 	)
 	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
@@ -80,7 +80,7 @@ func (s *stateSuite) TestCreateUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	upgradeInfo, nodeInfos := s.getUpgrade(c, s.st, uuid)
-	c.Check(upgradeInfo, gc.Equals, Info{
+	c.Check(upgradeInfo, gc.Equals, info{
 		UUID:            uuid,
 		PreviousVersion: "3.0.0",
 		TargetVersion:   "3.0.1",
@@ -332,7 +332,7 @@ func (s *stateSuite) TestUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	upgradeInfo, err := s.st.Upgrade(context.Background(), uuid)
-	c.Check(upgradeInfo, gc.Equals, Info{
+	c.Check(upgradeInfo, gc.Equals, info{
 		UUID:            uuid,
 		PreviousVersion: "3.0.0",
 		TargetVersion:   "3.0.1",
