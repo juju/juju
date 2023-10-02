@@ -13,6 +13,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/docker/imagerepo"
 )
 
 const (
@@ -35,10 +36,9 @@ func (cfg *ControllerPodConfig) dbVersion() (version.Number, error) {
 
 // GetJujuDbOCIImagePath returns the juju-db oci image path.
 func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() (string, error) {
-	imageRepo := cfg.Controller.CAASImageRepo().Repository
-	if imageRepo == "" {
-		imageRepo = JujudOCINamespace
-	}
+	repo := cfg.Controller.CAASImageRepo()
+	imageRepo := imageRepoFromPath(repo)
+
 	path := fmt.Sprintf("%s/%s", imageRepo, JujudbOCIName)
 	mongoVers, err := cfg.dbVersion()
 	if err != nil {
@@ -61,9 +61,8 @@ func IsCharmBaseImage(imagePath string) bool {
 // GetJujuOCIImagePath returns the jujud oci image path.
 func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (string, error) {
 	// First check the deprecated "caas-operator-image-path" config.
-	imagePath, err := RebuildOldOperatorImagePath(
-		controllerCfg.CAASOperatorImagePath().Repository, ver,
-	)
+	imageRepo := imageRepoFromPath(controllerCfg.CAASOperatorImagePath())
+	imagePath, err := RebuildOldOperatorImagePath(imageRepo, ver)
 	if imagePath != "" || err != nil {
 		return imagePath, err
 	}
@@ -71,7 +70,7 @@ func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (s
 	if ver != version.Zero {
 		tag = ver.String()
 	}
-	return imageRepoToPath(controllerCfg.CAASImageRepo().Repository, tag)
+	return imageRepoToPath(controllerCfg.CAASImageRepo(), tag)
 }
 
 // RebuildOldOperatorImagePath returns a updated image path for the specified juju version.
@@ -137,4 +136,20 @@ func ImageForBase(imageRepo string, base charm.Base) (string, error) {
 	}
 	image := fmt.Sprintf("%s/%s:%s", imageRepo, CharmBaseName, tag)
 	return image, nil
+}
+
+func imageRepoFromPath(path string) string {
+	imageRepo := JujudOCINamespace
+
+	details, err := imagerepo.DetailsFromPath(path)
+	if err != nil {
+		logger.Warningf("cannot parse %q from controller config: %v", path, err)
+	}
+
+	// If the image repo is not set, use the default.
+	imageRepo = details.Repository
+	if imageRepo == "" {
+		imageRepo = JujudOCINamespace
+	}
+	return details.Repository
 }

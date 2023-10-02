@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/docker/imagerepo"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
@@ -353,6 +354,11 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		return nil, errors.Annotatef(err, "getting application config")
 	}
 	base := app.Base()
+
+	details, err := imagerepo.DetailsFromPath(cfg.CAASImageRepo())
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting image repo details")
+	}
 	return &params.CAASApplicationProvisioningInfo{
 		Version:              vers,
 		APIAddresses:         addrs,
@@ -362,7 +368,7 @@ func (a *API) provisioningInfo(appName names.ApplicationTag) (*params.CAASApplic
 		Devices:              devices,
 		Constraints:          mergedCons,
 		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
-		ImageRepo:            params.NewDockerImageInfo(cfg.CAASImageRepo(), imagePath),
+		ImageRepo:            params.NewDockerImageInfo(details, imagePath),
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             *charmURL,
 		Trust:                appConfig.GetBool(application.TrustConfigOptionName, false),

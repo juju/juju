@@ -17,6 +17,7 @@ import (
 	api "github.com/juju/juju/api/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/imagerepo"
 	"github.com/juju/juju/docker/registry"
 )
 
@@ -31,12 +32,10 @@ type Logger interface {
 	Child(string) loggo.Logger
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/worker/caasmodelconfigmanager Facade
 type Facade interface {
 	ControllerConfig() (controller.Config, error)
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasmodelconfigmanager CAASBroker
 type CAASBroker interface {
 	EnsureImageRepoSecret(docker.ImageRepoDetails) error
 }
@@ -139,14 +138,21 @@ func (w *manager) loop() (err error) {
 	}()
 	controllerConfig, err := w.config.Facade.ControllerConfig()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot get controller config")
 	}
-	repoDetails := controllerConfig.CAASImageRepo()
-	if !repoDetails.IsPrivate() {
+	repo, err := imagerepo.NewImageRepo(controllerConfig.CAASImageRepo())
+	if err != nil {
+		return errors.Annotatef(err, "cannot create image repo")
+	}
+	details, err := repo.RequestDetails()
+	if err != nil {
+		return errors.Annotatef(err, "cannot parse %q from controller config", controllerConfig.CAASImageRepo())
+	}
+	if !details.IsPrivate() {
 		// No ops for public registry config.
 		return nil
 	}
-	w.reg, err = w.registryFunc(repoDetails)
+	w.reg, err = w.registryFunc(details)
 	if err != nil {
 		return errors.Trace(err)
 	}

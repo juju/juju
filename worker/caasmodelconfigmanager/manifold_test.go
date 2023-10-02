@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/worker/caasmodelconfigmanager"
-	"github.com/juju/juju/worker/caasmodelconfigmanager/mocks"
 )
 
 var _ = gc.Suite(&manifoldSuite{})
@@ -96,7 +95,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 
 	called := false
 	s.config.NewFacade = func(caller base.APICaller) (caasmodelconfigmanager.Facade, error) {
-		return mocks.NewMockFacade(ctrl), nil
+		return NewMockFacade(ctrl), nil
 	}
 	s.config.NewWorker = func(config caasmodelconfigmanager.Config) (worker.Worker, error) {
 		called = true
