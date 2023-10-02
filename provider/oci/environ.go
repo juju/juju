@@ -678,7 +678,7 @@ func ensureShapeConfig(
 		// VM.Standard.A1.Flex, if we set 2 Ocpus OCI will set 12GB of
 		// memory (default is 6GB per core).
 		if constraints.HasMem() {
-			mem := float32(*constraints.Mem)
+			mem := float32(*constraints.Mem / 1024)
 			instanceDetails.ShapeConfig.MemoryInGBs = &mem
 		}
 	}

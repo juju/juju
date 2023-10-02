@@ -334,17 +334,13 @@ func instanceTypes(cli ComputeClient, compartmentID, imageID *string) ([]instanc
 		// OcpuOptions will not be nil and they  indicate the maximum
 		// and minimum values. We assign the max memory and cpu cores
 		// values to the instance type in that case.
-		if val.MemoryOptions != nil {
-			if val.MemoryOptions.MaxInGBs != nil {
-				maxMem := uint64(*val.MemoryOptions.MaxInGBs) * 1024
-				newType.MaxMem = &maxMem
-			}
+		if val.MemoryOptions != nil && val.MemoryOptions.MaxInGBs != nil {
+			maxMem := uint64(*val.MemoryOptions.MaxInGBs) * 1024
+			newType.MaxMem = &maxMem
 		}
-		if val.OcpuOptions != nil {
-			if val.OcpuOptions.Max != nil {
-				maxCpuCores := uint64(*val.OcpuOptions.Max)
-				newType.MaxCpuCores = &maxCpuCores
-			}
+		if val.OcpuOptions != nil && val.OcpuOptions.Max != nil {
+			maxCpuCores := uint64(*val.OcpuOptions.Max)
+			newType.MaxCpuCores = &maxCpuCores
 		}
 		types = append(types, newType)
 	}

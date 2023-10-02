@@ -78,7 +78,7 @@ func (s *environSuite) TestEnsureShapeConfig(c *gc.C) {
 			maxMem:      makeUint64Pointer(512 * 1024),
 			cpuCores:    1,
 			mem:         1024,
-			constraints: "mem=64",
+			constraints: "mem=64G",
 			want: &ociCore.LaunchInstanceShapeConfigDetails{
 				Ocpus:       makeFloat32Pointer(float32(instances.MinCpuCores)),
 				MemoryInGBs: makeFloat32Pointer(64),
@@ -90,7 +90,7 @@ func (s *environSuite) TestEnsureShapeConfig(c *gc.C) {
 			maxMem:      makeUint64Pointer(512 * 1024),
 			cpuCores:    1,
 			mem:         1024,
-			constraints: "cores=31 mem=64",
+			constraints: "cores=31 mem=64G",
 			want: &ociCore.LaunchInstanceShapeConfigDetails{
 				Ocpus:       makeFloat32Pointer(31),
 				MemoryInGBs: makeFloat32Pointer(64),
