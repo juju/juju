@@ -14,6 +14,7 @@ type StateBackend interface {
 	RemoveOrphanedSecretPermissions() error
 	MigrateApplicationOpenedPortsToUnitScope() error
 	EnsureInitalRefCountForExternalSecretBackends() error
+	EnsureApplicationCharmOriginsHaveRevisions() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -42,4 +43,8 @@ func (s stateBackend) MigrateApplicationOpenedPortsToUnitScope() error {
 
 func (s stateBackend) EnsureInitalRefCountForExternalSecretBackends() error {
 	return state.EnsureInitalRefCountForExternalSecretBackends(s.pool)
+}
+
+func (s stateBackend) EnsureApplicationCharmOriginsHaveRevisions() error {
+	return state.EnsureApplicationCharmOriginsHaveRevisions(s.pool)
 }

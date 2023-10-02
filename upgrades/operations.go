@@ -21,6 +21,7 @@ var stateUpgradeOperations = func() []Operation {
 	steps := []Operation{
 		upgradeToVersion{version.MustParse("3.1.1"), stateStepsFor311()},
 		upgradeToVersion{version.MustParse("3.1.3"), stateStepsFor313()},
+		upgradeToVersion{version.MustParse("3.1.7"), stateStepsFor317()},
 	}
 	return steps
 }
@@ -32,6 +33,7 @@ var upgradeOperations = func() []Operation {
 	steps := []Operation{
 		upgradeToVersion{version.MustParse("3.1.1"), stepsFor311()},
 		upgradeToVersion{version.MustParse("3.1.3"), stepsFor313()},
+		upgradeToVersion{version.MustParse("3.1.7"), stepsFor317()},
 	}
 	return steps
 }

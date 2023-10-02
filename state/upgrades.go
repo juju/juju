@@ -4,6 +4,7 @@
 package state
 
 import (
+	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -252,4 +253,43 @@ func EnsureInitalRefCountForExternalSecretBackends(pool *StatePool) error {
 		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
+}
+
+func EnsureApplicationCharmOriginsHaveRevisions(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		allApps, err := st.AllApplications()
+		if err != nil {
+			return errors.Annotate(err, "loading applications")
+		}
+
+		var ops []txn.Op
+
+		for _, app := range allApps {
+			if app.CharmOrigin().Revision != nil {
+				continue
+			}
+			curlStr, _ := app.CharmURL()
+			if curlStr == nil {
+				logger.Warningf("Application %q has no charm url", app.Name())
+				continue
+			}
+			curl, err := charm.ParseURL(*curlStr)
+			if err != nil {
+				return errors.Annotatef(err, "parsing charm url %q", *curlStr)
+			}
+			if curl.Revision == -1 {
+				logger.Warningf("Charm url %q has no revision, defaulting to -1", curl.String())
+			}
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     app.doc.DocID,
+				Assert: bson.D{{"charm-origin.revision", bson.D{{"$exists", false}}}},
+				Update: bson.D{{"$set", bson.D{{"charm-origin.revision", curl.Revision}}}},
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runRawTransaction(ops))
+		}
+		return nil
+	}))
 }

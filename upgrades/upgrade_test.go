@@ -31,9 +31,6 @@ func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-// Untl we add upgrade steps for 3.0, keep static analysis happy.
-var _ = findStateStep
-
 func findStateStep(c *gc.C, ver version.Number, description string) upgrades.Step {
 	for _, op := range (*upgrades.StateUpgradeOperations)() {
 		if op.TargetVersion() == ver {
@@ -599,6 +596,7 @@ func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 	c.Assert(versions, gc.DeepEquals, []string{
 		"3.1.1",
 		"3.1.3",
+		"3.1.7",
 	})
 }
 
@@ -607,6 +605,7 @@ func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	c.Assert(versions, gc.DeepEquals, []string{
 		"3.1.1",
 		"3.1.3",
+		"3.1.7",
 	})
 }
 
