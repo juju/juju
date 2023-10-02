@@ -12,7 +12,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/romulus"
 	"github.com/juju/schema"
@@ -25,8 +24,6 @@ import (
 
 // Controller Config should only contain scala types, and should be
 // serializable to an intermediate format (e.g. yaml).
-
-var logger = loggo.GetLogger("juju.controller")
 
 const (
 	// MongoProfLow represents the most conservative mongo memory profile.

@@ -302,6 +302,9 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 		return result, errors.Trace(err)
 	}
 	details, err := imagerepo.DetailsFromPath(controllerCfg.CAASImageRepo())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 	if details.Empty() {
 		repoDetails, err := docker.NewImageRepoDetails(podcfg.JujudOCINamespace)
 		if err != nil {

@@ -139,17 +139,16 @@ func ImageForBase(imageRepo string, base charm.Base) (string, error) {
 }
 
 func imageRepoFromPath(path string) string {
-	imageRepo := JujudOCINamespace
-
 	details, err := imagerepo.DetailsFromPath(path)
 	if err != nil {
 		logger.Warningf("cannot parse %q from controller config: %v", path, err)
+		return JujudOCINamespace
 	}
 
 	// If the image repo is not set, use the default.
-	imageRepo = details.Repository
+	imageRepo := details.Repository
 	if imageRepo == "" {
 		imageRepo = JujudOCINamespace
 	}
-	return details.Repository
+	return imageRepo
 }
