@@ -3739,7 +3739,8 @@ func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
 
 	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
 
-	result, err := uniterAPI.OpenedApplicationPortRangesByEndpoint(arg)
+	api := &uniter.UniterAPIv18{UniterAPI: *uniterAPI}
+	result, err := api.OpenedApplicationPortRangesByEndpoint(arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ApplicationOpenedPortsResults{
 		Results: []params.ApplicationOpenedPortsResult{
