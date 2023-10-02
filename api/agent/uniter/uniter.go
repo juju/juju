@@ -447,35 +447,6 @@ func (client *Client) OpenedPortRangesByEndpoint() (map[names.UnitTag]network.Gr
 	return processOpenPortRangesByEndpointResults(results, client.unitTag)
 }
 
-// OpenedApplicationPortRangesByEndpoint returns all port ranges currently open for the given
-// application, grouped by application endpoint.
-func (client *Client) OpenedApplicationPortRangesByEndpoint(appTag names.ApplicationTag) (network.GroupedPortRanges, error) {
-	if client.BestAPIVersion() < 18 {
-		// OpenedApplicationPortRangesByEndpoint() was introduced in UniterAPIV18.
-		return nil, errors.NotImplementedf("OpenedApplicationPortRangesByEndpoint() (need V18+)")
-	}
-	arg := params.Entity{Tag: appTag.String()}
-	var result params.ApplicationOpenedPortsResults
-	if err := client.facade.FacadeCall("OpenedApplicationPortRangesByEndpoint", arg, &result); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(result.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
-	}
-	res := result.Results[0]
-	if res.Error != nil {
-		err := apiservererrors.RestoreError(res.Error)
-		return nil, errors.Annotatef(err, "unable to fetch opened ports for %s", appTag)
-	}
-	out := make(network.GroupedPortRanges)
-	for _, pgs := range res.ApplicationPortRanges {
-		for _, pg := range pgs.PortRanges {
-			out[pgs.Endpoint] = append(out[pgs.Endpoint], pg.NetworkPortRange())
-		}
-	}
-	return out, nil
-}
-
 // WatchRelationUnits returns a watcher that notifies of changes to the
 // counterpart units in the relation for the given unit.
 func (client *Client) WatchRelationUnits(

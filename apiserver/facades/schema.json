@@ -42122,7 +42122,7 @@
     {
         "Name": "Uniter",
         "Description": "UniterAPI implements the latest version (v18) of the Uniter API.",
-        "Version": 18,
+        "Version": 19,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -42626,15 +42626,6 @@
                     },
                     "description": "ModelConfig returns the current model's configuration."
                 },
-                "ModelUUID": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringResult"
-                        }
-                    },
-                    "description": "ModelUUID returns the model UUID that this unit resides in.\nIt is implemented here directly as a result of removing it from\nembedded APIAddresser *without* bumping the facade version.\nIt should be blanked when this facade version is next incremented."
-                },
                 "NetworkInfo": {
                     "type": "object",
                     "properties": {
@@ -42646,18 +42637,6 @@
                         }
                     },
                     "description": "NetworkInfo returns network interfaces/addresses for specified bindings."
-                },
-                "OpenedApplicationPortRangesByEndpoint": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entity"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ApplicationOpenedPortsResults"
-                        }
-                    },
-                    "description": "OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each application."
                 },
                 "OpenedMachinePortRangesByEndpoint": {
                     "type": "object",
@@ -43556,58 +43535,6 @@
                         "value",
                         "type",
                         "scope"
-                    ]
-                },
-                "ApplicationOpenedPorts": {
-                    "type": "object",
-                    "properties": {
-                        "endpoint": {
-                            "type": "string"
-                        },
-                        "port-ranges": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/PortRange"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "endpoint",
-                        "port-ranges"
-                    ]
-                },
-                "ApplicationOpenedPortsResult": {
-                    "type": "object",
-                    "properties": {
-                        "application-port-ranges": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ApplicationOpenedPorts"
-                            }
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "application-port-ranges"
-                    ]
-                },
-                "ApplicationOpenedPortsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ApplicationOpenedPortsResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "ApplicationStatusResult": {

@@ -54,9 +54,6 @@ type CredentialService interface {
 	WatchCredential(ctx context.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error)
 }
 
-// TODO (manadart 2020-10-21): Remove the ModelUUID method
-// from the next version of this facade.
-
 // UniterAPI implements the latest version (v18) of the Uniter API.
 type UniterAPI struct {
 	*common.LifeGetter
@@ -96,6 +93,13 @@ type UniterAPI struct {
 	cloudSpecer     cloudspec.CloudSpecer
 
 	logger loggo.Logger
+}
+
+// UniterAPIv18 Implements version 18 of the uniter API, which includes methods
+// ModelUUID and OpenedApplicationPortRangesByEndpoint that were removed from
+// later versions.
+type UniterAPIv18 struct {
+	UniterAPI
 }
 
 // OpenedMachinePortRangesByEndpoint returns the port ranges opened by each
@@ -196,7 +200,7 @@ func (u *UniterAPI) OpenedPortRangesByEndpoint(ctx context.Context) (params.Open
 }
 
 // OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each application.
-func (u *UniterAPI) OpenedApplicationPortRangesByEndpoint(ctx context.Context, entity params.Entity) (params.ApplicationOpenedPortsResults, error) {
+func (u *UniterAPIv18) OpenedApplicationPortRangesByEndpoint(ctx context.Context, entity params.Entity) (params.ApplicationOpenedPortsResults, error) {
 	result := params.ApplicationOpenedPortsResults{
 		Results: make([]params.ApplicationOpenedPortsResult, 1),
 	}
@@ -771,8 +775,7 @@ func (u *UniterAPI) SetWorkloadVersion(ctx context.Context, args params.EntityWo
 // ModelUUID returns the model UUID that this unit resides in.
 // It is implemented here directly as a result of removing it from
 // embedded APIAddresser *without* bumping the facade version.
-// It should be blanked when this facade version is next incremented.
-func (u *UniterAPI) ModelUUID(ctx context.Context) params.StringResult {
+func (u *UniterAPIv18) ModelUUID(ctx context.Context) params.StringResult {
 	return params.StringResult{Result: u.m.UUID()}
 }
 
