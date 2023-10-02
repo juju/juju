@@ -59,7 +59,7 @@ const modelRoot = "/model/"
 var logger = loggo.GetLogger("juju.api")
 
 type rpcConnection interface {
-	Call(req rpc.Request, params, response interface{}) error
+	Call(ctx context.Context, req rpc.Request, params, response interface{}) error
 	Dead() <-chan struct{}
 	Close() error
 }
@@ -1247,7 +1247,7 @@ func isX509Error(err error) bool {
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
 func (c *conn) APICall(facade string, vers int, id, method string, args, response interface{}) error {
-	err := c.client.Call(rpc.Request{
+	err := c.client.Call(context.TODO(), rpc.Request{
 		Type:    facade,
 		Version: vers,
 		Id:      id,

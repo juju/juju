@@ -59,18 +59,34 @@ type Header struct {
 	// Request holds the action to invoke.
 	Request Request
 
-	// Error holds the error, if any.
+	// Error holds the error string for a response. If there is no error,
+	// this will be empty.
 	Error string
 
-	// ErrorCode holds the code of the error, if any.
+	// ErrorCode holds the code of the error for a response. Error code will
+	// be empty if there is no error.
+	// TODO (stickupkid): This should be renamed to ResponseCode, that way
+	// we're not confusing a programmatic error (empty string) with a
+	// valid response code.
 	ErrorCode string
 
 	// ErrorInfo holds an optional set of additional information for an
-	// error, if any.
+	// error. This is used to provide additional information about the
+	// error.
+	// TODO (stickupkid): This should have been metadata for all responses
+	// not just errors.
 	ErrorInfo map[string]interface{}
 
 	// Version defines the wire format of the request and response structure.
 	Version int
+
+	// TraceID holds the trace id of the request. This is used for sending
+	// and receiving trace information.
+	TraceID string
+
+	// SpanID holds the span id of the request. This is used for sending
+	// and receiving trace information.
+	SpanID string
 }
 
 // Request represents an RPC to be performed, absent its parameters.
@@ -489,6 +505,8 @@ func (conn *Conn) writeErrorResponse(reqHdr *Header, err error, recorder Recorde
 	hdr := &Header{
 		RequestId: reqHdr.RequestId,
 		Version:   reqHdr.Version,
+		TraceID:   reqHdr.TraceID,
+		SpanID:    reqHdr.SpanID,
 	}
 	if err, ok := err.(ErrorCoder); ok {
 		hdr.ErrorCode = err.ErrorCode()
@@ -576,6 +594,8 @@ func (conn *Conn) runRequest(
 		hdr := &Header{
 			RequestId: req.hdr.RequestId,
 			Version:   version,
+			TraceID:   req.hdr.TraceID,
+			SpanID:    req.hdr.SpanID,
 		}
 		var rvi interface{}
 		if rv.IsValid() {

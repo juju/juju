@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sync"
+	"sync/atomic"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -34,8 +34,7 @@ type Codec struct {
 	// that the body can be read by ReadBody.
 	msg     inMsgV1
 	conn    JSONConn
-	mu      sync.Mutex
-	closing bool
+	closing atomic.Bool
 }
 
 // New returns an rpc codec that uses conn to send and receive
@@ -61,6 +60,8 @@ type inMsgV1 struct {
 	ErrorCode string                 `json:"error-code"`
 	ErrorInfo map[string]interface{} `json:"error-info"`
 	Response  json.RawMessage        `json:"response"`
+	TraceID   string                 `json:"trace-id"`
+	SpanID    string                 `json:"span-id"`
 }
 
 type outMsgV1 struct {
@@ -74,21 +75,22 @@ type outMsgV1 struct {
 	ErrorCode string                 `json:"error-code,omitempty"`
 	ErrorInfo map[string]interface{} `json:"error-info,omitempty"`
 	Response  interface{}            `json:"response,omitempty"`
+	TraceID   string                 `json:"trace-id,omitempty"`
+	SpanID    string                 `json:"span-id,omitempty"`
 }
 
+// Close closes the underlying connection and sets the codec to
+// closing mode, so that any further errors are ignored.
 func (c *Codec) Close() error {
-	c.mu.Lock()
-	c.closing = true
-	c.mu.Unlock()
+	c.closing.Swap(true)
 	return c.conn.Close()
 }
 
 func (c *Codec) isClosing() bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.closing
+	return c.closing.Load()
 }
 
+// ReadHeader reads the header from the connection.
 func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	var m json.RawMessage
 	if err := c.conn.Receive(&m); err != nil {
@@ -108,7 +110,7 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 		logger.Tracef("<- %s", m)
 	}
 	var err error
-	c.msg, err = c.readMessage(m)
+	c.msg, err = readMessage(m)
 	if err != nil {
 		return errors.Annotate(err, "reading message")
 	}
@@ -123,21 +125,13 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	hdr.Error = c.msg.Error
 	hdr.ErrorCode = c.msg.ErrorCode
 	hdr.ErrorInfo = c.msg.ErrorInfo
+	hdr.TraceID = c.msg.TraceID
+	hdr.SpanID = c.msg.SpanID
 	hdr.Version = 1
 	return nil
 }
 
-func (c *Codec) readMessage(m json.RawMessage) (inMsgV1, error) {
-	var msg inMsgV1
-	if err := json.Unmarshal(m, &msg); err != nil {
-		return msg, errors.Annotate(err, "unmarshalling message")
-	}
-	if msg.RequestId == 0 {
-		return msg, errors.NotSupportedf("version 0")
-	}
-	return msg, nil
-}
-
+// ReadBody reads the body from the connection.
 func (c *Codec) ReadBody(body interface{}, isRequest bool) error {
 	if body == nil {
 		return nil
@@ -154,6 +148,23 @@ func (c *Codec) ReadBody(body interface{}, isRequest bool) error {
 		return nil
 	}
 	return json.Unmarshal(rawBody, body)
+}
+
+// WriteMessage writes a message with the given header and body.
+func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
+	msg, err := response(hdr, body)
+	if err != nil {
+		return errors.Annotate(err, "writing message")
+	}
+	if logger.IsTraceEnabled() {
+		data, err := json.Marshal(msg)
+		if err != nil {
+			logger.Tracef("-> marshal error: %v", err)
+			return err
+		}
+		logger.Tracef("-> %s", data)
+	}
+	return c.conn.Send(msg)
 }
 
 // DumpRequest returns JSON-formatted data representing
@@ -173,20 +184,15 @@ func DumpRequest(hdr *rpc.Header, body interface{}) []byte {
 	return data
 }
 
-func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
-	msg, err := response(hdr, body)
-	if err != nil {
-		return errors.Annotate(err, "writing message")
+func readMessage(m json.RawMessage) (inMsgV1, error) {
+	var msg inMsgV1
+	if err := json.Unmarshal(m, &msg); err != nil {
+		return msg, errors.Annotate(err, "unmarshalling message")
 	}
-	if logger.IsTraceEnabled() {
-		data, err := json.Marshal(msg)
-		if err != nil {
-			logger.Tracef("-> marshal error: %v", err)
-			return err
-		}
-		logger.Tracef("-> %s", data)
+	if msg.RequestId == 0 {
+		return msg, errors.NotSupportedf("version 0")
 	}
-	return c.conn.Send(msg)
+	return msg, nil
 }
 
 func response(hdr *rpc.Header, body interface{}) (interface{}, error) {
@@ -215,6 +221,8 @@ func newOutMsgV1(hdr *rpc.Header, body interface{}) outMsgV1 {
 		Error:     hdr.Error,
 		ErrorCode: hdr.ErrorCode,
 		ErrorInfo: hdr.ErrorInfo,
+		TraceID:   hdr.TraceID,
+		SpanID:    hdr.SpanID,
 	}
 	if hdr.IsRequest() {
 		result.Params = body

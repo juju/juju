@@ -48,8 +48,16 @@ func (s *dispatchSuite) SetUpTest(c *gc.C) {
 		conn.Serve(&DispatchRoot{}, nil, nil)
 		conn.Start(context.Background())
 
-		<-conn.Dead()
-		s.dead <- conn.Close()
+		select {
+		case <-conn.Dead():
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timeout waiting for connection to be dead")
+		}
+		select {
+		case s.dead <- conn.Close():
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timeout waiting for connection to close")
+		}
 	}
 
 	unique := atomic.AddInt64(&s.unique, 1)
@@ -99,6 +107,11 @@ func (s *dispatchSuite) TestWSWithParamsV1(c *gc.C) {
 	s.assertResponse(c, resp, `{"request-id":2,"response":{}}`)
 }
 
+func (s *dispatchSuite) TestWSWithParamsV1Tracing(c *gc.C) {
+	resp := s.requestV1(c, `{"request-id":2,"type": "DispatchDummy","id": "with","request":"DoSomething", "params": {}, "trace-id": "foobar", "span-id": "baz"}`)
+	s.assertResponse(c, resp, `{"request-id":2,"response":{},"trace-id":"foobar","span-id":"baz"}`)
+}
+
 func (s *dispatchSuite) assertResponse(c *gc.C, obtained, expected string) {
 	c.Assert(obtained, gc.Equals, expected+"\n")
 }
@@ -139,13 +152,12 @@ func (s *dispatchSuite) requestV1(c *gc.C, req string) string {
 
 	var resp string
 	select {
-	case err := <-s.dead:
-		c.Fatalf("server sent unexpected error: %v", err)
 	case resp = <-result:
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timeout waiting for response")
 	}
 
+	// Wait for the server to close the connection, before returning.
 	select {
 	case err := <-s.dead:
 		c.Assert(err, jc.ErrorIsNil)
