@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -325,4 +326,16 @@ func (s *stateSuite) TestActiveUpgradesSingular(c *gc.C) {
 	activeUpgrade, err := s.st.ActiveUpgrade(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(activeUpgrade, gc.Equals, uuid)
+}
+
+func (s *stateSuite) TestSetDBUpgradeCompleted(c *gc.C) {
+	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.st.SetDBUpgradeCompleted(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.st.SetDBUpgradeCompleted(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+
+	info, _ := s.getUpgrade(c, s.st, uuid)
+	c.Check(info.DBCompletedAt, gc.NotNil)
 }

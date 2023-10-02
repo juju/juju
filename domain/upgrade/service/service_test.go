@@ -120,3 +120,12 @@ func (s *serviceSuite) TestActiveUpgradeNoUpgrade(c *gc.C) {
 	_, err := s.srv.ActiveUpgrade(context.Background())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
+
+func (s *serviceSuite) TestCompleteDBUpgrade(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().SetDBUpgradeCompleted(gomock.Any(), testUUID1).Return(nil)
+
+	err := s.srv.SetDBUpgradeCompleted(context.Background(), testUUID1)
+	c.Assert(err, jc.ErrorIsNil)
+}

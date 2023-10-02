@@ -436,6 +436,7 @@ CREATE TABLE upgrade_info (
     target_version   TEXT NOT NULL,
     created_at       TIMESTAMP NOT NULL,
     started_at       TIMESTAMP,
+    db_completed_at  TIMESTAMP,
     completed_at     TIMESTAMP
 );
 
