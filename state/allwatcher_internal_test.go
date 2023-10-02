@@ -70,11 +70,6 @@ func (s *allWatcherBaseSuite) SetUpTest(c *gc.C) {
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 }
 
-func (s *allWatcherBaseSuite) controllerConfig(c *gc.C) controller.Config {
-	cfg := testing.FakeControllerConfig()
-	return cfg
-}
-
 // setUpScenario adds some entities to the state so that
 // we can check that they all get pulled in by
 // all(Model)WatcherStateBacking.GetAll.
@@ -147,9 +142,8 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	providerAddr := network.NewSpaceAddress("example.com")
 	providerAddr.SpaceID = space.Id()
 
-	controllerConfig := s.controllerConfig(c)
-
-	err = m.SetProviderAddresses(controllerConfig, providerAddr)
+	cfg := testing.FakeControllerConfig()
+	err = m.SetProviderAddresses(cfg, providerAddr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var addresses []network.ProviderAddress
@@ -831,7 +825,8 @@ func (s *allWatcherStateSuite) TestChangeUnits(c *gc.C) {
 }
 
 func (s *allWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
-	testChangeUnitsNonNilPorts(c, s.owner, s.controllerConfig(c), s.performChangeTestCases)
+	cfg := testing.FakeControllerConfig()
+	testChangeUnitsNonNilPorts(c, s.owner, cfg, s.performChangeTestCases)
 }
 
 func (s *allWatcherStateSuite) TestChangeRemoteApplications(c *gc.C) {
@@ -1202,7 +1197,8 @@ func (s *allModelWatcherStateSuite) TestChangeUnits(c *gc.C) {
 }
 
 func (s *allModelWatcherStateSuite) TestChangeUnitsNonNilPorts(c *gc.C) {
-	testChangeUnitsNonNilPorts(c, s.owner, s.controllerConfig(c), s.performChangeTestCases)
+	cfg := testing.FakeControllerConfig()
+	testChangeUnitsNonNilPorts(c, s.owner, cfg, s.performChangeTestCases)
 }
 
 func (s *allModelWatcherStateSuite) TestChangeRemoteApplications(c *gc.C) {

@@ -69,7 +69,7 @@ func (s *ControllerAddressesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
-	cfg := s.controllerConfig(c)
+	cfg := testing.FakeControllerConfig()
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -115,7 +115,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpace(c *gc.C) {
 }
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(c *gc.C) {
-	cfg := s.controllerConfig(c)
+	cfg := testing.FakeControllerConfig()
 
 	hostPorts := []network.SpaceHostPorts{{{
 		SpaceAddress: network.NewSpaceAddress("0.4.8.16", network.WithScope(network.ScopePublic)),
@@ -157,7 +157,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentSame(
 }
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsNoMgmtSpaceConcurrentDifferent(c *gc.C) {
-	cfg := s.controllerConfig(c)
+	cfg := testing.FakeControllerConfig()
 
 	hostPorts0 := []network.SpaceHostPort{{
 		SpaceAddress: network.NewSpaceAddress("0.4.8.16", network.WithScope(network.ScopePublic)),
@@ -213,7 +213,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg := s.controllerConfig(c)
+	cfg := testing.FakeControllerConfig()
 	cfg[controller.JujuManagementSpace] = "mgmt01"
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
@@ -258,7 +258,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsWithMgmtSpace(c *gc.C) {
 }
 
 func (s *ControllerAddressesSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.C) {
-	cfg := s.controllerConfig(c)
+	cfg := testing.FakeControllerConfig()
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -287,7 +287,7 @@ func (s *ControllerAddressesSuite) TestSetAPIHostPortsForAgentsNoDocument(c *gc.
 }
 
 func (s *ControllerAddressesSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
-	cfg := s.controllerConfig(c)
+	cfg := testing.FakeControllerConfig()
 
 	addrs, err := s.State.APIHostPortsForClients(cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -316,7 +316,7 @@ func (s *ControllerAddressesSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) 
 }
 
 func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
-	cfg := s.controllerConfig(c)
+	cfg := testing.FakeControllerConfig()
 
 	w := s.State.WatchAPIHostPortsForClients()
 	defer workertest.CleanKill(c, w)
@@ -358,7 +358,7 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 		NetPort: 2,
 	}
 
-	cfg := s.controllerConfig(c)
+	cfg := testing.FakeControllerConfig()
 	cfg[controller.JujuManagementSpace] = "mgmt01"
 
 	err = s.State.SetAPIHostPorts(cfg, []network.SpaceHostPorts{{mgmtHP}})
@@ -380,11 +380,6 @@ func (s *ControllerAddressesSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
 	// Stop, check closed.
 	workertest.CleanKill(c, w)
 	wc.AssertClosed()
-}
-
-func (s *ControllerAddressesSuite) controllerConfig(c *gc.C) controller.Config {
-	cfg := testing.FakeControllerConfig()
-	return cfg
 }
 
 type CAASAddressesSuite struct {
