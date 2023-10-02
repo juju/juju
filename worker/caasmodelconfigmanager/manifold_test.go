@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	docker "github.com/juju/juju/docker"
 	"github.com/juju/juju/worker/caasmodelconfigmanager"
 )
 
@@ -41,7 +42,13 @@ func (s *manifoldSuite) validConfig() caasmodelconfigmanager.ManifoldConfig {
 		NewWorker: func(config caasmodelconfigmanager.Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewFacade: func(caller base.APICaller) (caasmodelconfigmanager.Facade, error) {
+		NewControllerConfigService: func(caller base.APICaller) (caasmodelconfigmanager.ControllerConfigService, error) {
+			return nil, nil
+		},
+		NewRegistry: func(i docker.ImageRepoDetails) (caasmodelconfigmanager.Registry, error) {
+			return nil, nil
+		},
+		NewImageRepo: func(path string) (caasmodelconfigmanager.ImageRepo, error) {
 			return nil, nil
 		},
 		Logger: loggo.GetLogger("test"),
@@ -63,14 +70,24 @@ func (s *manifoldSuite) TestMissingBrokerName(c *gc.C) {
 	s.checkNotValid(c, "empty BrokerName not valid")
 }
 
-func (s *manifoldSuite) TestMissingNewFacade(c *gc.C) {
-	s.config.NewFacade = nil
-	s.checkNotValid(c, "nil NewFacade not valid")
+func (s *manifoldSuite) TestMissingNewControllerConfigService(c *gc.C) {
+	s.config.NewControllerConfigService = nil
+	s.checkNotValid(c, "nil NewControllerConfigService not valid")
 }
 
 func (s *manifoldSuite) TestMissingNewWorker(c *gc.C) {
 	s.config.NewWorker = nil
 	s.checkNotValid(c, "nil NewWorker not valid")
+}
+
+func (s *manifoldSuite) TestMissingNewRegistry(c *gc.C) {
+	s.config.NewRegistry = nil
+	s.checkNotValid(c, "nil NewRegistry not valid")
+}
+
+func (s *manifoldSuite) TestMissingNewImageRepo(c *gc.C) {
+	s.config.NewImageRepo = nil
+	s.checkNotValid(c, "nil NewImageRepo not valid")
 }
 
 func (s *manifoldSuite) TestMissingLogger(c *gc.C) {
@@ -94,16 +111,23 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer ctrl.Finish()
 
 	called := false
-	s.config.NewFacade = func(caller base.APICaller) (caasmodelconfigmanager.Facade, error) {
-		return NewMockFacade(ctrl), nil
+	s.config.NewControllerConfigService = func(caller base.APICaller) (caasmodelconfigmanager.ControllerConfigService, error) {
+		return NewMockControllerConfigService(ctrl), nil
+	}
+	s.config.NewRegistry = func(i docker.ImageRepoDetails) (caasmodelconfigmanager.Registry, error) {
+		return NewMockRegistry(ctrl), nil
+	}
+	s.config.NewImageRepo = func(path string) (caasmodelconfigmanager.ImageRepo, error) {
+		return NewMockImageRepo(ctrl), nil
 	}
 	s.config.NewWorker = func(config caasmodelconfigmanager.Config) (worker.Worker, error) {
 		called = true
 		mc := jc.NewMultiChecker()
-		mc.AddExpr(`_.Facade`, gc.NotNil)
+		mc.AddExpr(`_.ControllerConfigService`, gc.NotNil)
 		mc.AddExpr(`_.Broker`, gc.NotNil)
 		mc.AddExpr(`_.Logger`, gc.NotNil)
 		mc.AddExpr(`_.RegistryFunc`, gc.NotNil)
+		mc.AddExpr(`_.ImageRepoFunc`, gc.NotNil)
 		mc.AddExpr(`_.Clock`, gc.NotNil)
 		c.Check(config, mc, caasmodelconfigmanager.Config{
 			ModelTag: names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff"),
@@ -112,7 +136,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	}
 	manifold := caasmodelconfigmanager.Manifold(s.config)
 	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
-		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
+		"api-caller": struct{ base.APICaller }{APICaller: &mockAPICaller{}},
 		"broker":     struct{ caas.Broker }{},
 	}))
 	c.Assert(err, jc.ErrorIsNil)
