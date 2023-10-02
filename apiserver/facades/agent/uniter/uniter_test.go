@@ -3397,48 +3397,6 @@ func (s *uniterSuite) TestRefreshNoArgs(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.UnitRefreshResults{Results: []params.UnitRefreshResult{}})
 }
 
-func (s *uniterSuite) TestOpenedApplicationPortRangesByEndpoint(c *gc.C) {
-	_, cm, app, unit := s.setupCAASModel(c)
-	st := cm.State()
-
-	appPortRanges, err := app.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(appPortRanges.UniquePortRanges(), gc.HasLen, 0)
-
-	portRanges, err := unit.OpenedPortRanges()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Open some ports using different endpoints.
-	portRanges.Open(allEndpoints, network.MustParsePortRange("1000/tcp"))
-	portRanges.Open("db", network.MustParsePortRange("1111/udp"))
-
-	c.Assert(st.ApplyOperation(portRanges.Changes()), jc.ErrorIsNil)
-
-	// Get the open port ranges
-	arg := params.Entity{Tag: "application-gitlab"}
-	expectPortRanges := []params.ApplicationOpenedPorts{
-		{
-			Endpoint:   "",
-			PortRanges: []params.PortRange{{FromPort: 1000, ToPort: 1000, Protocol: "tcp"}},
-		},
-		{
-			Endpoint:   "db",
-			PortRanges: []params.PortRange{{FromPort: 1111, ToPort: 1111, Protocol: "udp"}},
-		},
-	}
-
-	uniterAPI := s.newUniterAPI(c, st, s.authorizer)
-
-	api := &uniter.UniterAPIv18{UniterAPI: *uniterAPI}
-	result, err := api.OpenedApplicationPortRangesByEndpoint(context.Background(), arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ApplicationOpenedPortsResults{
-		Results: []params.ApplicationOpenedPortsResult{
-			{ApplicationPortRanges: expectPortRanges},
-		},
-	})
-}
-
 func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 	_, cm, app, unit := s.setupCAASModel(c)
 	st := cm.State()

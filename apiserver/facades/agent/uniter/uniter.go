@@ -95,13 +95,6 @@ type UniterAPI struct {
 	logger loggo.Logger
 }
 
-// UniterAPIv18 Implements version 18 of the uniter API, which includes methods
-// ModelUUID and OpenedApplicationPortRangesByEndpoint that were removed from
-// later versions.
-type UniterAPIv18 struct {
-	UniterAPI
-}
-
 // OpenedMachinePortRangesByEndpoint returns the port ranges opened by each
 // unit on the provided machines grouped by application endpoint.
 func (u *UniterAPI) OpenedMachinePortRangesByEndpoint(ctx context.Context, args params.Entities) (params.OpenPortRangesByEndpointResults, error) {
@@ -197,52 +190,6 @@ func (u *UniterAPI) OpenedPortRangesByEndpoint(ctx context.Context) (params.Open
 		return result.Results[0].UnitPortRanges[unitTag][a].Endpoint < result.Results[0].UnitPortRanges[unitTag][b].Endpoint
 	})
 	return result, nil
-}
-
-// OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each application.
-func (u *UniterAPIv18) OpenedApplicationPortRangesByEndpoint(ctx context.Context, entity params.Entity) (params.ApplicationOpenedPortsResults, error) {
-	result := params.ApplicationOpenedPortsResults{
-		Results: make([]params.ApplicationOpenedPortsResult, 1),
-	}
-
-	appTag, err := names.ParseApplicationTag(entity.Tag)
-	if err != nil {
-		result.Results[0].Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	app, err := u.st.Application(appTag.Id())
-	if err != nil {
-		result.Results[0].Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	openedPortRanges, err := app.OpenedPortRanges()
-	if err != nil {
-		result.Results[0].Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	for endpointName, pgs := range openedPortRanges.ByEndpoint() {
-		result.Results[0].ApplicationPortRanges = append(
-			result.Results[0].ApplicationPortRanges,
-			u.applicationOpenedPortsForEndpoint(endpointName, pgs),
-		)
-	}
-	sort.Slice(result.Results[0].ApplicationPortRanges, func(i, j int) bool {
-		return result.Results[0].ApplicationPortRanges[i].Endpoint < result.Results[0].ApplicationPortRanges[j].Endpoint
-	})
-	return result, nil
-}
-
-func (u *UniterAPI) applicationOpenedPortsForEndpoint(endpointName string, pgs []network.PortRange) params.ApplicationOpenedPorts {
-	network.SortPortRanges(pgs)
-	o := params.ApplicationOpenedPorts{
-		Endpoint:   endpointName,
-		PortRanges: make([]params.PortRange, len(pgs)),
-	}
-	for i, pg := range pgs {
-		o.PortRanges[i] = params.FromNetworkPortRange(pg)
-	}
-	return o
 }
 
 // AssignedMachine returns the machine tag for each given unit tag, or
@@ -770,13 +717,6 @@ func (u *UniterAPI) SetWorkloadVersion(ctx context.Context, args params.EntityWo
 		}
 	}
 	return result, nil
-}
-
-// ModelUUID returns the model UUID that this unit resides in.
-// It is implemented here directly as a result of removing it from
-// embedded APIAddresser *without* bumping the facade version.
-func (u *UniterAPIv18) ModelUUID(ctx context.Context) params.StringResult {
-	return params.StringResult{Result: u.m.UUID()}
 }
 
 // WatchActionNotifications returns a StringsWatcher for observing
