@@ -19,7 +19,7 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("Uniter", 18, func(ctx facade.Context) (facade.Facade, error) {
+	registry.MustRegister("Uniter", 19, func(ctx facade.Context) (facade.Facade, error) {
 		return newUniterAPI(ctx)
 	}, reflect.TypeOf((*UniterAPI)(nil)))
 }

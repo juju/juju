@@ -54,9 +54,6 @@ type CredentialService interface {
 	WatchCredential(ctx context.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error)
 }
 
-// TODO (manadart 2020-10-21): Remove the ModelUUID method
-// from the next version of this facade.
-
 // UniterAPI implements the latest version (v18) of the Uniter API.
 type UniterAPI struct {
 	*common.LifeGetter
@@ -193,52 +190,6 @@ func (u *UniterAPI) OpenedPortRangesByEndpoint(ctx context.Context) (params.Open
 		return result.Results[0].UnitPortRanges[unitTag][a].Endpoint < result.Results[0].UnitPortRanges[unitTag][b].Endpoint
 	})
 	return result, nil
-}
-
-// OpenedApplicationPortRangesByEndpoint returns the port ranges opened by each application.
-func (u *UniterAPI) OpenedApplicationPortRangesByEndpoint(ctx context.Context, entity params.Entity) (params.ApplicationOpenedPortsResults, error) {
-	result := params.ApplicationOpenedPortsResults{
-		Results: make([]params.ApplicationOpenedPortsResult, 1),
-	}
-
-	appTag, err := names.ParseApplicationTag(entity.Tag)
-	if err != nil {
-		result.Results[0].Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	app, err := u.st.Application(appTag.Id())
-	if err != nil {
-		result.Results[0].Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	openedPortRanges, err := app.OpenedPortRanges()
-	if err != nil {
-		result.Results[0].Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	for endpointName, pgs := range openedPortRanges.ByEndpoint() {
-		result.Results[0].ApplicationPortRanges = append(
-			result.Results[0].ApplicationPortRanges,
-			u.applicationOpenedPortsForEndpoint(endpointName, pgs),
-		)
-	}
-	sort.Slice(result.Results[0].ApplicationPortRanges, func(i, j int) bool {
-		return result.Results[0].ApplicationPortRanges[i].Endpoint < result.Results[0].ApplicationPortRanges[j].Endpoint
-	})
-	return result, nil
-}
-
-func (u *UniterAPI) applicationOpenedPortsForEndpoint(endpointName string, pgs []network.PortRange) params.ApplicationOpenedPorts {
-	network.SortPortRanges(pgs)
-	o := params.ApplicationOpenedPorts{
-		Endpoint:   endpointName,
-		PortRanges: make([]params.PortRange, len(pgs)),
-	}
-	for i, pg := range pgs {
-		o.PortRanges[i] = params.FromNetworkPortRange(pg)
-	}
-	return o
 }
 
 // AssignedMachine returns the machine tag for each given unit tag, or
@@ -766,14 +717,6 @@ func (u *UniterAPI) SetWorkloadVersion(ctx context.Context, args params.EntityWo
 		}
 	}
 	return result, nil
-}
-
-// ModelUUID returns the model UUID that this unit resides in.
-// It is implemented here directly as a result of removing it from
-// embedded APIAddresser *without* bumping the facade version.
-// It should be blanked when this facade version is next incremented.
-func (u *UniterAPI) ModelUUID(ctx context.Context) params.StringResult {
-	return params.StringResult{Result: u.m.UUID()}
 }
 
 // WatchActionNotifications returns a StringsWatcher for observing
