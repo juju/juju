@@ -22,9 +22,12 @@ type InstanceType struct {
 	Cost       uint64
 	RootDisk   uint64
 	// These attributes are not supported by all clouds.
-	VirtType    *string // The type of virtualisation used by the hypervisor, must match the image.
-	CpuPower    *uint64
-	Tags        []string
+	VirtType *string // The type of virtualisation used by the hypervisor, must match the image.
+	CpuPower *uint64
+	Tags     []string
+	// These two values are needed to know the maximum value of cpu and
+	// memory on flexible/custom instances. Currently only supported on
+	// OCI.
 	MaxCpuCores *uint64
 	MaxMem      *uint64
 }

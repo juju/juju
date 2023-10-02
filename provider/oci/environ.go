@@ -617,24 +617,7 @@ func (e *Environ) startInstance(
 		FreeformTags: tags,
 	}
 
-	// If the selected spec is a flexible shape, we must provide the number
-	// of OCPUs at least, so if the user hasn't provided cpu constraints we
-	// must pass the default value.
-	if (spec.InstanceType.MaxCpuCores != nil && spec.InstanceType.MaxCpuCores != &spec.InstanceType.CpuCores) ||
-		(spec.InstanceType.MaxMem != nil && spec.InstanceType.MaxMem != &spec.InstanceType.Mem) {
-		instanceDetails.ShapeConfig = &ociCore.LaunchInstanceShapeConfigDetails{}
-		if args.Constraints.HasCpuCores() {
-			cpuCores := float32(*args.Constraints.CpuCores)
-			instanceDetails.ShapeConfig.Ocpus = &cpuCores
-		} else {
-			cpuCores := float32(instances.MinCpuCores)
-			instanceDetails.ShapeConfig.Ocpus = &cpuCores
-		}
-		if args.Constraints.HasMem() {
-			mem := float32(*args.Constraints.Mem)
-			instanceDetails.ShapeConfig.MemoryInGBs = &mem
-		}
-	}
+	ensureShapeConfig(spec.InstanceType, args.Constraints, &instanceDetails)
 
 	request := ociCore.LaunchInstanceRequest{
 		LaunchInstanceDetails: instanceDetails,
@@ -670,6 +653,35 @@ func (e *Environ) startInstance(
 	}
 
 	return result, nil
+}
+
+func ensureShapeConfig(
+	instanceSpec instances.InstanceType,
+	constraints constraints.Value,
+	instanceDetails *ociCore.LaunchInstanceDetails) {
+
+	// If the selected spec is a flexible shape, we must provide the number
+	// of OCPUs at least, so if the user hasn't provided cpu constraints we
+	// must pass the default value.
+	if (instanceSpec.MaxCpuCores != nil && instanceSpec.MaxCpuCores != &instanceSpec.CpuCores) ||
+		(instanceSpec.MaxMem != nil && instanceSpec.MaxMem != &instanceSpec.Mem) {
+		instanceDetails.ShapeConfig = &ociCore.LaunchInstanceShapeConfigDetails{}
+		if constraints.HasCpuCores() {
+			cpuCores := float32(*constraints.CpuCores)
+			instanceDetails.ShapeConfig.Ocpus = &cpuCores
+		} else {
+			cpuCores := float32(instances.MinCpuCores)
+			instanceDetails.ShapeConfig.Ocpus = &cpuCores
+		}
+		// If we don't set the memory on ShapeConfig, OCI uses a
+		// default value of memory per Ocpu core. For example, for the
+		// VM.Standard.A1.Flex, if we set 2 Ocpus OCI will set 12GB of
+		// memory (default is 6GB per core).
+		if constraints.HasMem() {
+			mem := float32(*constraints.Mem)
+			instanceDetails.ShapeConfig.MemoryInGBs = &mem
+		}
+	}
 }
 
 // StopInstances implements environs.InstanceBroker.

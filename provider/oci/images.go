@@ -335,12 +335,16 @@ func instanceTypes(cli ComputeClient, compartmentID, imageID *string) ([]instanc
 		// and minimum values. We assign the max memory and cpu cores
 		// values to the instance type in that case.
 		if val.MemoryOptions != nil {
-			maxMem := uint64(*val.MemoryOptions.MaxInGBs) * 1024
-			newType.MaxMem = &maxMem
+			if val.MemoryOptions.MaxInGBs != nil {
+				maxMem := uint64(*val.MemoryOptions.MaxInGBs) * 1024
+				newType.MaxMem = &maxMem
+			}
 		}
 		if val.OcpuOptions != nil {
-			maxCpuCores := uint64(*val.OcpuOptions.Max)
-			newType.MaxCpuCores = &maxCpuCores
+			if val.OcpuOptions.Max != nil {
+				maxCpuCores := uint64(*val.OcpuOptions.Max)
+				newType.MaxCpuCores = &maxCpuCores
+			}
 		}
 		types = append(types, newType)
 	}
@@ -445,7 +449,6 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 	images := map[corebase.Base][]InstanceImage{}
 
 	for _, val := range items {
-		logger.Warningf("*** LISTING SHAPES FOR %s", val.String())
 		instTypes, err := instanceTypes(cli, compartmentID, val.Id)
 		if err != nil {
 			return nil, err
