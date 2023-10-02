@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -332,6 +333,8 @@ func (s *stateSuite) TestSetDBUpgradeCompleted(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetDBUpgradeCompleted(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.st.SetDBUpgradeCompleted(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	info, _ := s.getUpgrade(c, s.st, uuid)
 	c.Check(info.DBCompletedAt, gc.NotNil)
