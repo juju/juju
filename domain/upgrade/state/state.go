@@ -345,14 +345,14 @@ func (st *State) SelectUpgradeInfo(ctx context.Context, upgradeUUID string) (upg
 		return upgrade.Info{}, errors.Annotatef(err, "preparing %q", getUpgradeQuery)
 	}
 
-	var upgradeInstance info
+	var upgradeInfoRow info
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, getUpgradeStmt, sqlair.M{"info_uuid": upgradeUUID}).Get(&upgradeInstance)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
+		return errors.Trace(tx.Query(ctx, getUpgradeStmt, sqlair.M{"info_uuid": upgradeUUID}).Get(&upgradeInfoRow))
 	})
+	if err != nil {
+		return upgrade.Info{}, errors.Trace(err)
+	}
 
-	return upgradeInstance.ToUpgradeInfo()
+	result, err := upgradeInfoRow.ToUpgradeInfo()
+	return result, errors.Trace(err)
 }

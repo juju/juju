@@ -17,8 +17,8 @@ type Info struct {
 	CreatedAt time.Time
 	// StartedAt holds the time the upgrade was started
 	StartedAt time.Time
-	// CompletedAt holds the time the upgrade was completed
-	CompletedAt time.Time
 	// DBCompletedAt holds the time the upgrade was completed in the DB
 	DBCompletedAt time.Time
+	// CompletedAt holds the time the upgrade was completed
+	CompletedAt time.Time
 }
