@@ -14,6 +14,7 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/upgrade"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/database"
 )
@@ -338,4 +339,18 @@ func (s *stateSuite) TestSetDBUpgradeCompleted(c *gc.C) {
 
 	info, _ := s.getUpgrade(c, s.st, uuid)
 	c.Check(info.DBCompletedAt, gc.NotNil)
+}
+
+func (s *stateSuite) TestSelectUpgradeInfo(c *gc.C) {
+	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	upgradeInfo, err := s.st.SelectUpgradeInfo(context.Background(), uuid)
+	c.Check(upgradeInfo, gc.Equals, upgrade.Info{
+		UUID:            uuid,
+		PreviousVersion: "3.0.0",
+		TargetVersion:   "3.0.1",
+		CreatedAt:       upgradeInfo.CreatedAt,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }

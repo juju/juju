@@ -14,6 +14,8 @@ import (
 	"github.com/mattn/go-sqlite3"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/upgrade"
 )
 
 type serviceSuite struct {
@@ -127,5 +129,14 @@ func (s *serviceSuite) TestCompleteDBUpgrade(c *gc.C) {
 	s.state.EXPECT().SetDBUpgradeCompleted(gomock.Any(), testUUID1).Return(nil)
 
 	err := s.srv.SetDBUpgradeCompleted(context.Background(), testUUID1)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestUpgradeInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().SelectUpgradeInfo(gomock.Any(), testUUID1).Return(upgrade.Info{}, nil)
+
+	_, err := s.srv.UpgradeInfo(context.Background(), testUUID1)
 	c.Assert(err, jc.ErrorIsNil)
 }

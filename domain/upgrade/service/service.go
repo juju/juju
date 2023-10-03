@@ -11,6 +11,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/database"
@@ -26,6 +27,7 @@ type State interface {
 	SetControllerDone(context.Context, string, string) error
 	ActiveUpgrade(context.Context) (string, error)
 	SetDBUpgradeCompleted(context.Context, string) error
+	SelectUpgradeInfo(context.Context, string) (upgrade.Info, error)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -106,4 +108,13 @@ func (s *Service) ActiveUpgrade(ctx context.Context) (string, error) {
 // nodes have been registered, meaning the upgrade is ready to start
 func (s *Service) WatchForUpgradeReady(ctx context.Context, upgradeUUID string) (watcher.NotifyWatcher, error) {
 	return NewUpgradeReadyWatcher(ctx, s.st, s.watcherFactory, upgradeUUID)
+}
+
+// UpgradeInfo returns the upgrade info for the supplied upgradeUUID
+func (s *Service) UpgradeInfo(ctx context.Context, upgradeUUID string) (upgrade.Info, error) {
+	upgradeInfo, err := s.st.SelectUpgradeInfo(ctx, upgradeUUID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return upgrade.Info{}, errors.NotFoundf("upgrade %q", upgradeUUID)
+	}
+	return upgradeInfo, domain.CoerceError(err)
 }

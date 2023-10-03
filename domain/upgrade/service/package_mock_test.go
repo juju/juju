@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	changestream "github.com/juju/juju/core/changestream"
+	upgrade "github.com/juju/juju/core/upgrade"
 	watcher "github.com/juju/juju/core/watcher"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
@@ -80,6 +81,21 @@ func (m *MockState) CreateUpgrade(arg0 context.Context, arg1, arg2 version.Numbe
 func (mr *MockStateMockRecorder) CreateUpgrade(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUpgrade", reflect.TypeOf((*MockState)(nil).CreateUpgrade), arg0, arg1, arg2)
+}
+
+// SelectUpgradeInfo mocks base method.
+func (m *MockState) SelectUpgradeInfo(arg0 context.Context, arg1 string) (upgrade.Info, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SelectUpgradeInfo", arg0, arg1)
+	ret0, _ := ret[0].(upgrade.Info)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SelectUpgradeInfo indicates an expected call of SelectUpgradeInfo.
+func (mr *MockStateMockRecorder) SelectUpgradeInfo(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectUpgradeInfo", reflect.TypeOf((*MockState)(nil).SelectUpgradeInfo), arg0, arg1)
 }
 
 // SetControllerDone mocks base method.
