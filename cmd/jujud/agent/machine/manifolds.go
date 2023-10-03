@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/worker/changestreampruner"
 	"github.com/juju/juju/worker/common"
 	lxdbroker "github.com/juju/juju/worker/containerbroker"
+	"github.com/juju/juju/worker/controlleragentconfig"
 	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/deployer"
@@ -325,6 +326,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// Each machine agent has a flag manifold/worker which
 		// reports whether or not the agent is a controller.
 		isControllerFlagName: isControllerFlagManifold(true),
+
+		// Controller agent config manifold watches the controller
+		// agent config and bounces if it changes.
+		controllerAgentConfigName: ifController(controlleragentconfig.Manifold(controlleragentconfig.ManifoldConfig{
+			Logger: loggo.GetLogger("juju.worker.controlleragentconfig"),
+		})),
 
 		// The stateconfigwatcher manifold watches the machine agent's
 		// configuration and reports if state serving info is
@@ -1122,6 +1129,7 @@ const (
 	serviceFactoryName            = "service-factory"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	kvmContainerProvisioner       = "kvm-container-provisioner"
+	controllerAgentConfigName     = "controller-agent-config"
 
 	secretBackendRotateName = "secret-backend-rotate"
 
