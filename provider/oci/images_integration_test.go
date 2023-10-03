@@ -87,6 +87,10 @@ func makeIntPointer(name int) *int {
 	return &name
 }
 
+func makeUint64Pointer(name uint64) *uint64 {
+	return &name
+}
+
 func makeBoolPointer(name bool) *bool {
 	return &name
 }
@@ -103,7 +107,7 @@ func (s *imagesSuite) TestInstanceTypes(c *gc.C) {
 
 	types, err := oci.InstanceTypes(compute, &s.testCompartment, &s.testImageID)
 	c.Assert(err, gc.IsNil)
-	c.Check(types, gc.HasLen, 4)
+	c.Check(types, gc.HasLen, 5)
 	expectedTypes := []instances.InstanceType{
 		{
 			Name:     "VM.Standard1.1",
@@ -124,11 +128,21 @@ func (s *imagesSuite) TestInstanceTypes(c *gc.C) {
 			CpuCores: 160,
 			VirtType: makeStringPointer("metal"),
 		}, {
-			Name:     "VM.Standard.A1.Flex",
-			Arch:     arch.ARM64,
-			Mem:      6 * 1024,
-			CpuCores: 1,
-			VirtType: makeStringPointer("vm"),
+			Name:        "VM.Standard.A1.Flex",
+			Arch:        arch.ARM64,
+			Mem:         6 * 1024,
+			MaxCpuCores: makeUint64Pointer(80),
+			MaxMem:      makeUint64Pointer(512 * 1024),
+			CpuCores:    1,
+			VirtType:    makeStringPointer("vm"),
+		}, {
+			Name:        "VM.Standard3.Flex",
+			Arch:        arch.AMD64,
+			Mem:         6 * 1024,
+			MaxCpuCores: makeUint64Pointer(32),
+			MaxMem:      makeUint64Pointer(512 * 1024),
+			CpuCores:    1,
+			VirtType:    makeStringPointer("vm"),
 		},
 	}
 	c.Assert(types, gc.DeepEquals, expectedTypes)
@@ -224,7 +238,7 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	c.Assert(imageMap[jammy][0].Version.TimeStamp, gc.Equals, timeStamp)
 
 	// Check that InstanceTypes are set
-	c.Assert(imageMap[jammy][0].InstanceTypes, gc.HasLen, 4)
+	c.Assert(imageMap[jammy][0].InstanceTypes, gc.HasLen, 5)
 	c.Assert(imageMap[corebase.MakeDefaultBase("centos", "7")][0].InstanceTypes, gc.HasLen, 2)
 }
 

@@ -25,17 +25,18 @@ var (
 
 	// minCpuCores is the assumed minimum CPU cores we prefer in order to run a server.
 	minCpuCores uint64 = 2
-
-	// minMemoryHeuristic is the assumed minimum amount of memory (in MB) we prefer in order to run a server (2GB)
-	minMemoryHeuristic uint64 = 2048
 )
 
+// ensureDefaultConstraints adds the minimum number of cpu cores value to the
+// constraints if the user has not provided a cpu-cores constraint.
+// This function exists only so that the minimum cpu cores takes precedence
+// over the default cpu-cores and memory values implemented in
+// instances.MatchingInstanceTypes()
 func ensureDefaultConstraints(c constraints.Value) constraints.Value {
-	if c.HasInstanceType() || c.HasCpuCores() || c.HasMem() {
+	if c.HasInstanceType() || c.HasCpuCores() {
 		return c
 	}
 	c.CpuCores = &minCpuCores
-	c.Mem = &minMemoryHeuristic
 	return c
 }
 

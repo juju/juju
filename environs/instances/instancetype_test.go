@@ -102,6 +102,15 @@ var instanceTypes = []InstanceType{
 		Mem:      61952,
 		Cost:     2400,
 		VirtType: &hvm,
+	}, {
+		Name:        "VM.Standard3.Flex",
+		Arch:        "amd64",
+		CpuCores:    1,
+		CpuPower:    CpuPower(8800),
+		MaxCpuCores: makeUint64Pointer(32),
+		Mem:         6144,
+		MaxMem:      makeUint64Pointer(524288),
+		Cost:        50,
 	},
 }
 
@@ -116,24 +125,31 @@ var getInstanceTypesTest = []struct {
 		about: "cores",
 		cons:  "cores=2",
 		expectedItypes: []string{
-			"c1.medium", "m1.large", "m1.xlarge", "c1.large", "c1.xlarge", "cc1.4xlarge",
-			"cc2.8xlarge",
+			"VM.Standard3.Flex", "m1.large", "m1.xlarge", "c1.large", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
 		},
 	}, {
-		about:          "cpu-power",
-		cons:           "cpu-power=2000",
-		expectedItypes: []string{"c1.xlarge", "cc1.4xlarge", "cc2.8xlarge"},
+		about: "17 cores only the flexible shape",
+		cons:  "cores=17",
+		expectedItypes: []string{
+			"VM.Standard3.Flex",
+		},
+	}, {
+		about: "cpu-power",
+		cons:  "cpu-power=2000",
+		expectedItypes: []string{
+			"VM.Standard3.Flex", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
+		},
 	}, {
 		about: "mem",
 		cons:  "mem=4G",
 		expectedItypes: []string{
-			"m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
+			"VM.Standard3.Flex", "m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
 		},
 	}, {
 		about: "root-disk",
 		cons:  "root-disk=16G",
 		expectedItypes: []string{
-			"m1.medium", "m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
+			"VM.Standard3.Flex", "m1.medium", "m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
 		},
 	}, {
 		about:          "arches filtered by constraint",
@@ -146,8 +162,8 @@ var getInstanceTypesTest = []struct {
 		cons:  "cores=4",
 		itypesToUse: []InstanceType{
 			{Id: "5", Name: "it-5", Arch: "amd64", Mem: 1024, CpuCores: 2},
-			{Id: "4", Name: "it-4", Arch: "amd64", Mem: 2048, CpuCores: 4},
-			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 1024, CpuCores: 4},
+			{Id: "4", Name: "it-4", Arch: "amd64", Mem: 4096, CpuCores: 4},
+			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 2048, CpuCores: 4},
 			{Id: "2", Name: "it-2", Arch: "amd64", Mem: 256, CpuCores: 4},
 			{Id: "1", Name: "it-1", Arch: "amd64", Mem: 512, CpuCores: 4},
 		},
@@ -157,9 +173,9 @@ var getInstanceTypesTest = []struct {
 		about: "small mem specified, use that even though less than needed for mongodb",
 		cons:  "mem=300M",
 		itypesToUse: []InstanceType{
-			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 2048},
-			{Id: "2", Name: "it-2", Arch: "amd64", Mem: 256},
-			{Id: "1", Name: "it-1", Arch: "amd64", Mem: 512},
+			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 2048, CpuCores: 1},
+			{Id: "2", Name: "it-2", Arch: "amd64", Mem: 256, CpuCores: 1},
+			{Id: "1", Name: "it-1", Arch: "amd64", Mem: 512, CpuCores: 1},
 		},
 		expectedItypes: []string{"it-1", "it-3"},
 	},
@@ -167,10 +183,10 @@ var getInstanceTypesTest = []struct {
 		about: "mem specified and match found",
 		cons:  "mem=4G arch=amd64",
 		itypesToUse: []InstanceType{
-			{Id: "4", Name: "it-4", Arch: "arm64", Mem: 8096},
-			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 4096},
-			{Id: "2", Name: "it-2", Arch: "amd64", Mem: 2048},
-			{Id: "1", Name: "it-1", Arch: "amd64", Mem: 512},
+			{Id: "4", Name: "it-4", Arch: "arm64", Mem: 8096, CpuCores: 1},
+			{Id: "3", Name: "it-3", Arch: "amd64", Mem: 4096, CpuCores: 1},
+			{Id: "2", Name: "it-2", Arch: "amd64", Mem: 2048, CpuCores: 1},
+			{Id: "1", Name: "it-1", Arch: "amd64", Mem: 512, CpuCores: 1},
 		},
 		expectedItypes: []string{"it-3"},
 	},
@@ -245,8 +261,8 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *gc.C) {
 	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("cores=9000"))
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "cores=9000"`)
 
-	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("mem=90000M"))
-	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "mem=90000M"`)
+	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("mem=900000M"))
+	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "mem=900000M"`)
 
 	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("instance-type=dep.medium mem=8G"))
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "instance-type=dep.medium mem=8192M"`)
@@ -273,6 +289,15 @@ var instanceTypeMatchTests = []struct {
 	{"cpu-power=9001", "cc2.8xlarge", ""},
 	{"mem=1G", "t1.micro", ""},
 	{"arch=arm64", "c1.xlarge", ""},
+
+	// Match on flexible shape against their maximum cpu-cores
+	{"cores=1", "VM.Standard3.Flex", "amd64"},
+	{"cores=16", "VM.Standard3.Flex", "amd64"},
+	{"cores=31", "VM.Standard3.Flex", "amd64"},
+	// Match on flexible shape against their maximum memory
+	{"mem=1G", "VM.Standard3.Flex", "amd64"},
+	{"mem=16G", "VM.Standard3.Flex", "amd64"},
+	{"mem=511G", "VM.Standard3.Flex", "amd64"},
 }
 
 func (s *instanceTypeSuite) TestMatch(c *gc.C) {
@@ -458,4 +483,8 @@ func (s *instanceTypeSuite) TestSortByName(c *gc.C) {
 		}
 		c.Check(names, gc.DeepEquals, t.expectedItypes)
 	}
+}
+
+func makeUint64Pointer(val uint64) *uint64 {
+	return &val
 }

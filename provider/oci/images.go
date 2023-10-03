@@ -291,6 +291,11 @@ func NewInstanceImage(img ociCore.Image, compartmentID *string) (imgType Instanc
 	return imgType, nil
 }
 
+// instanceTypes will return the list of instanceTypes with information
+// retrieved from OCI shapes supported by the imageID and compartmentID.
+// TODO(nvinuesa) 2023-09-26
+// We should only keep flexible shapes as OCI recommends:
+// https://docs.oracle.com/en-us/iaas/Content/Compute/References/computeshapes.htm#flexible#previous-generation-shapes__previous-generation-vm#ariaid-title18
 func instanceTypes(cli ComputeClient, compartmentID, imageID *string) ([]instances.InstanceType, error) {
 	if cli == nil {
 		return nil, errors.Errorf("cannot use nil client")
@@ -324,6 +329,18 @@ func instanceTypes(cli ComputeClient, compartmentID, imageID *string) ([]instanc
 			Mem:      uint64(mem),
 			CpuCores: uint64(cpus),
 			VirtType: &instanceType,
+		}
+		// If the shape is a flexible shape then the MemoryOptions and
+		// OcpuOptions will not be nil and they  indicate the maximum
+		// and minimum values. We assign the max memory and cpu cores
+		// values to the instance type in that case.
+		if val.MemoryOptions != nil && val.MemoryOptions.MaxInGBs != nil {
+			maxMem := uint64(*val.MemoryOptions.MaxInGBs) * 1024
+			newType.MaxMem = &maxMem
+		}
+		if val.OcpuOptions != nil && val.OcpuOptions.Max != nil {
+			maxCpuCores := uint64(*val.OcpuOptions.Max)
+			newType.MaxCpuCores = &maxCpuCores
 		}
 		types = append(types, newType)
 	}

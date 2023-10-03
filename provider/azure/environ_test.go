@@ -2093,7 +2093,7 @@ func (s *environSuite) TestInstanceInformation(c *gc.C) {
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
 	types, err := env.InstanceTypes(s.callCtx, constraints.Value{})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(types.InstanceTypes, gc.HasLen, 6)
+	c.Assert(types.InstanceTypes, gc.HasLen, 4)
 
 	cons := constraints.MustParse("mem=4G")
 	types, err = env.InstanceTypes(s.callCtx, cons)
