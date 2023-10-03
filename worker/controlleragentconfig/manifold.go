@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package agentcontrollerconfig
+package controlleragentconfig
 
 import (
 	"github.com/juju/errors"
@@ -33,7 +33,6 @@ func (cfg ManifoldConfig) Validate() error {
 // Manifold returns a dependency manifold that runs the trace worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{},
 		Output: configOutput,
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
