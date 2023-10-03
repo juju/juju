@@ -330,6 +330,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// Controller agent config manifold watches the controller
 		// agent config and bounces if it changes.
 		controllerAgentConfigName: ifController(controlleragentconfig.Manifold(controlleragentconfig.ManifoldConfig{
+			Clock:  config.Clock,
 			Logger: loggo.GetLogger("juju.worker.controlleragentconfig"),
 		})),
 

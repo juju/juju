@@ -64,6 +64,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 func configOutput(in worker.Worker, out any) error {
+	w, ok := in.(*configWorker)
+	if !ok {
+		return errors.Errorf("expected configWorker, got %T", in)
+	}
+	switch out := out.(type) {
+	case *ConfigWatcher:
+		target, err := w.Watcher()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		*out = target
+	default:
+		return errors.Errorf("unsupported output of *ConfigWatcher type, got %T", out)
+	}
 	return nil
 }
 

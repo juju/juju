@@ -133,6 +133,16 @@ func (s *workerSuite) TestWatchWithSubscribe(c *gc.C) {
 	}
 
 	c.Assert(count, gc.Equals, 1)
+
+	select {
+	case <-watcher.Done():
+		c.Fatalf("should not have received a done signal")
+	case <-time.After(testing.ShortWait):
+	}
+
+	workertest.CleanKill(c, w)
+
+	ensureDone(c, watcher)
 }
 
 func (s *workerSuite) TestWatchAfterUnsubscribe(c *gc.C) {
@@ -160,6 +170,8 @@ func (s *workerSuite) TestWatchAfterUnsubscribe(c *gc.C) {
 		c.Assert(ok, jc.IsFalse)
 	case <-time.After(testing.ShortWait * 10):
 	}
+
+	ensureDone(c, watcher)
 }
 
 func (s *workerSuite) TestWatchWithKilledWorker(c *gc.C) {
@@ -183,6 +195,8 @@ func (s *workerSuite) TestWatchWithKilledWorker(c *gc.C) {
 		c.Assert(ok, jc.IsFalse)
 	case <-time.After(testing.ShortWait * 10):
 	}
+
+	ensureDone(c, watcher)
 }
 
 func (s *workerSuite) TestWatchMultiple(c *gc.C) {
@@ -193,7 +207,7 @@ func (s *workerSuite) TestWatchMultiple(c *gc.C) {
 
 	s.ensureStartup(c, states)
 
-	watchers := make([]Watcher, 10)
+	watchers := make([]ConfigWatcher, 10)
 	for i := range watchers {
 		watcher, err := w.Watcher()
 		c.Assert(err, jc.ErrorIsNil)
@@ -209,7 +223,7 @@ func (s *workerSuite) TestWatchMultiple(c *gc.C) {
 
 	var count int64
 	for i := 0; i < len(watchers); i++ {
-		go func(w Watcher) {
+		go func(w ConfigWatcher) {
 			defer wg.Done()
 
 			changes := w.Changes()
@@ -246,7 +260,7 @@ func (s *workerSuite) TestWatchMultipleWithUnsubscribe(c *gc.C) {
 
 	s.ensureStartup(c, states)
 
-	watchers := make([]Watcher, 10)
+	watchers := make([]ConfigWatcher, 10)
 	for i := range watchers {
 		watcher, err := w.Watcher()
 		c.Assert(err, jc.ErrorIsNil)
@@ -261,7 +275,7 @@ func (s *workerSuite) TestWatchMultipleWithUnsubscribe(c *gc.C) {
 
 	var count int64
 	for i := 0; i < len(watchers); i++ {
-		go func(i int, w Watcher) {
+		go func(i int, w ConfigWatcher) {
 			defer wg.Done()
 
 			changes := w.Changes()
@@ -358,5 +372,13 @@ func (s *workerSuite) sendSignal(c *gc.C, notify chan struct{}) {
 	case notify <- struct{}{}:
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out sending signal")
+	}
+}
+
+func ensureDone(c *gc.C, watcher ConfigWatcher) {
+	select {
+	case <-watcher.Done():
+	case <-time.After(testing.ShortWait):
+		c.Fatal("should have received a done signal")
 	}
 }

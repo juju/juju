@@ -44,8 +44,17 @@ func (c *WorkerConfig) Validate() error {
 	return nil
 }
 
-type Watcher interface {
+// ConfigWatcher is an interface that can be used to watch for changes to the
+// agent controller config.
+type ConfigWatcher interface {
+	// Changes returns a channel that will be closed when the agent
+	// controller config changes.
 	Changes() <-chan struct{}
+	// Done returns a channel that will be closed when the subscription is
+	// closed.
+	Done() <-chan struct{}
+	// Unsubscribe unsubscribes the watcher from the agent controller config
+	// changes.
 	Unsubscribe()
 }
 
@@ -108,7 +117,7 @@ func (w *configWorker) Wait() error {
 
 // Watcher returns a Watcher for watching for changes to the agent
 // controller config.
-func (w *configWorker) Watcher() (Watcher, error) {
+func (w *configWorker) Watcher() (ConfigWatcher, error) {
 	unique := atomic.AddInt64(&w.unique, 1)
 	namespace := fmt.Sprintf("watcher-%d", unique)
 	err := w.runner.StartWorker(namespace, func() (worker.Worker, error) {
@@ -121,7 +130,7 @@ func (w *configWorker) Watcher() (Watcher, error) {
 	if err != nil {
 		return nil, err
 	}
-	return watcher.(Watcher), nil
+	return watcher.(ConfigWatcher), nil
 }
 
 func (w *configWorker) loop() error {
@@ -199,6 +208,12 @@ func (w *subscription) Wait() error {
 // Changes returns a channel that will be closed when the agent
 func (w *subscription) Changes() <-chan struct{} {
 	return w.out
+}
+
+// Done returns a channel that will be closed when the subscription is
+// killed.
+func (w *subscription) Done() <-chan struct{} {
+	return w.tomb.Dying()
 }
 
 // Unsubscribe stops the subscription from sending changes.

@@ -59,3 +59,16 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 }
+
+func (s *manifoldSuite) TestOutput(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	man := Manifold(s.getConfig())
+	w, err := man.Start(s.getContext())
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	var watcher ConfigWatcher
+	c.Assert(man.Output(w, &watcher), jc.ErrorIsNil)
+	c.Assert(watcher, gc.NotNil)
+}
