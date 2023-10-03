@@ -265,25 +265,27 @@ func EnsureApplicationCharmOriginsHaveRevisions(pool *StatePool) error {
 		var ops []txn.Op
 
 		for _, app := range allApps {
-			if app.CharmOrigin().Revision != nil {
+			// We only need to fill in the revision if it's nil/
+			// There is an edge case though where a previous migration
+			// has incorrectly filled in the revision to 0 or -1
+			rev := app.CharmOrigin().Revision
+			if rev != nil && *rev > 0 {
 				continue
 			}
 			curlStr, _ := app.CharmURL()
 			if curlStr == nil {
-				logger.Warningf("Application %q has no charm url", app.Name())
-				continue
+				return errors.Errorf("application %q has no charm url", app.Name())
 			}
 			curl, err := charm.ParseURL(*curlStr)
 			if err != nil {
 				return errors.Annotatef(err, "parsing charm url %q", *curlStr)
 			}
 			if curl.Revision == -1 {
-				logger.Warningf("Charm url %q has no revision, defaulting to -1", curl.String())
+				return errors.Errorf("charm url %q has no revision", curl.String())
 			}
 			ops = append(ops, txn.Op{
 				C:      applicationsC,
 				Id:     app.doc.DocID,
-				Assert: bson.D{{"charm-origin.revision", bson.D{{"$exists", false}}}},
 				Update: bson.D{{"$set", bson.D{{"charm-origin.revision", curl.Revision}}}},
 			})
 		}

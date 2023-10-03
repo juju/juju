@@ -697,7 +697,7 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 	c.Assert(obtainedOrigin.Platform.Channel, gc.Equals, "20.04/stable")
 }
 
-func (s *MigrationImportSuite) TestApplicationCharmOriginFilledIn(c *gc.C) {
+func (s *MigrationImportSuite) TestLocalApplicationCharmOriginRevisionFilledIn(c *gc.C) {
 	platform := &state.Platform{Architecture: corearch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
 	f := factory.NewFactory(s.State, s.StatePool)
 
@@ -706,11 +706,8 @@ func (s *MigrationImportSuite) TestApplicationCharmOriginFilledIn(c *gc.C) {
 		Charm: testCharm,
 		Name:  "mysql",
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-hub",
-			Type:   "charm",
-			Channel: &state.Channel{
-				Risk: "edge",
-			},
+			Source:   "local",
+			Type:     "charm",
 			Platform: platform,
 		},
 	})
