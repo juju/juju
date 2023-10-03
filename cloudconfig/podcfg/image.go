@@ -61,8 +61,7 @@ func IsCharmBaseImage(imagePath string) bool {
 // GetJujuOCIImagePath returns the jujud oci image path.
 func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (string, error) {
 	// First check the deprecated "caas-operator-image-path" config.
-	imageRepo := imageRepoFromPath(controllerCfg.CAASOperatorImagePath())
-	imagePath, err := RebuildOldOperatorImagePath(imageRepo, ver)
+	imagePath, err := RebuildOldOperatorImagePath(controllerCfg.CAASOperatorImagePath(), ver)
 	if imagePath != "" || err != nil {
 		return imagePath, err
 	}
