@@ -251,6 +251,9 @@ juju_revoke_lease () {
   juju_agent --post leases/revoke model="$model" lease="$lease" ns="$ns"
 }
 
+juju_reload_config() {
+  sudo kill -SIGHUP $(pidof jujud)
+}
 
 # This asks for the command of the current pid.
 # Can't use $0 nor $SHELL due to this being wrong in various situations.
@@ -276,5 +279,6 @@ if [ "$shell" = "bash" ]; then
   export -f juju_stop_unit
   export -f juju_leases
   export -f juju_revoke_lease
+  export -f juju_reload_config
 fi
 `
