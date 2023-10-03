@@ -42,7 +42,7 @@ type Hub interface {
 }
 
 // NewDBWorkerFunc creates a tracked db worker.
-type NewDBWorkerFunc func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
+type NewDBWorkerFunc func(context.Context, DBOpener, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 
 // ManifoldConfig contains:
 // - The names of other manifolds on which the DB accessor depends.

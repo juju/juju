@@ -112,7 +112,7 @@ func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {
 		NewApp: func(string, ...app.Option) (DBApp, error) {
 			return s.dbApp, nil
 		},
-		NewDBWorker: func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
+		NewDBWorker: func(context.Context, DBOpener, string, ...TrackedDBWorkerOption) (TrackedDB, error) {
 			return db, nil
 		},
 		MetricsCollector: &Collector{},

@@ -38,6 +38,11 @@ type TrackedDB interface {
 	worker.Worker
 }
 
+// DBOpener defines the interface for opening a database connection.
+type DBOpener interface {
+	Open(context.Context, string) (*sql.DB, error)
+}
+
 // TrackedDBWorkerOption is a function that configures a TrackedDBWorker.
 type TrackedDBWorkerOption func(*trackedDBWorker)
 
@@ -72,7 +77,7 @@ func WithMetricsCollector(metrics *Collector) TrackedDBWorkerOption {
 type trackedDBWorker struct {
 	tomb tomb.Tomb
 
-	dbApp     DBApp
+	dbOpener  DBOpener
 	namespace string
 
 	mutex sync.RWMutex
@@ -90,10 +95,10 @@ type trackedDBWorker struct {
 
 // NewTrackedDBWorker creates a new TrackedDBWorker
 func NewTrackedDBWorker(
-	ctx context.Context, dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption,
+	ctx context.Context, dbOpener DBOpener, namespace string, opts ...TrackedDBWorkerOption,
 ) (TrackedDB, error) {
 	w := &trackedDBWorker{
-		dbApp:      dbApp,
+		dbOpener:   dbOpener,
 		namespace:  namespace,
 		clock:      clock.WallClock,
 		pingDBFunc: defaultPingDBFunc,
@@ -104,7 +109,7 @@ func NewTrackedDBWorker(
 		opt(w)
 	}
 
-	db, err := w.dbApp.Open(ctx, w.namespace)
+	db, err := w.dbOpener.Open(ctx, w.namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -361,7 +366,7 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 
 		// Attempt to open a new database. If there is an error, just crash
 		// the worker, we can't do anything else.
-		if db, err = w.dbApp.Open(ctx, w.namespace); err != nil {
+		if db, err = w.dbOpener.Open(ctx, w.namespace); err != nil {
 			return nil, errors.Trace(err)
 		}
 

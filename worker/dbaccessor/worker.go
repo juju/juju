@@ -626,6 +626,17 @@ func (w *dbWorker) startDqliteNode(ctx context.Context, options ...app.Option) e
 	return nil
 }
 
+func (w *dbWorker) DBApp() DBApp {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	return w.dbApp
+}
+
+func (w *dbWorker) Acquire() error {
+	return w.startExistingDqliteNode()
+}
+
 // openDatabase starts a TrackedDB worker for the database with the input name.
 // It is called by initialiseDqlite to open the controller databases,
 // and via GetDB to service downstream database requests.
@@ -662,8 +673,13 @@ func (w *dbWorker) openDatabase(namespace string) error {
 		ctx, cancel := w.scopedContext()
 		defer cancel()
 
+		opener := &dbOpener{
+			acquirer: w,
+			ref:      w.dbApp,
+		}
+
 		return w.cfg.NewDBWorker(ctx,
-			w.dbApp, namespace,
+			opener, namespace,
 			WithClock(w.cfg.Clock),
 			WithLogger(w.cfg.Logger),
 			WithMetricsCollector(w.cfg.MetricsCollector),
