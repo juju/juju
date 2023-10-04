@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -445,7 +444,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		CharmURL: charm.MustParseURL("ch:my-app"),
 		ImageDetails: resources.DockerImageDetails{
 			RegistryPath: "test-repo/jujud-operator:2.9.99",
-			ImageRepoDetails: docker.ImageRepoDetails{
+			ImageRepoDetails: resources.ImageRepoDetails{
 				Repository:    "test-repo",
 				ServerAddress: "registry.com",
 			},

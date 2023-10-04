@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 )
@@ -310,8 +309,8 @@ func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.D
 	for k, v := range res.Result.Images {
 		images[k] = resources.DockerImageDetails{
 			RegistryPath: v.RegistryPath,
-			ImageRepoDetails: docker.ImageRepoDetails{
-				BasicAuthConfig: docker.BasicAuthConfig{
+			ImageRepoDetails: resources.ImageRepoDetails{
+				BasicAuthConfig: resources.BasicAuthConfig{
 					Username: v.Username,
 					Password: v.Password,
 				},

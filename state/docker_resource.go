@@ -111,7 +111,7 @@ func (dr *dockerMetadataStorage) Get(resourceID string) (io.ReadCloser, int64, e
 	if err != nil {
 		return nil, -1, errors.Trace(err)
 	}
-	details := resources.DockerImageDetails{
+	details := docker.DockerImageDetails{
 		RegistryPath: doc.RegistryPath,
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -120,6 +120,7 @@ func (dr *dockerMetadataStorage) Get(resourceID string) (io.ReadCloser, int64, e
 			},
 		},
 	}
+
 	data, err := json.Marshal(details)
 	if err != nil {
 		return nil, -1, errors.Trace(err)

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -236,8 +235,8 @@ func (s *provisionerSuite) TestApplicationOCIResources(c *gc.C) {
 	c.Assert(imageResources, jc.DeepEquals, map[string]resources.DockerImageDetails{
 		"cockroachdb-image": {
 			RegistryPath: "cockroachdb/cockroach:v20.1.4",
-			ImageRepoDetails: docker.ImageRepoDetails{
-				BasicAuthConfig: docker.BasicAuthConfig{
+			ImageRepoDetails: resources.ImageRepoDetails{
+				BasicAuthConfig: resources.BasicAuthConfig{
 					Username: "jujuqa",
 					Password: "pwd",
 				},

@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
+	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
@@ -365,7 +366,7 @@ func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag
 		Devices:              devices,
 		Constraints:          mergedCons,
 		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
-		ImageRepo:            params.NewDockerImageInfo(cfg.CAASImageRepo(), imagePath),
+		ImageRepo:            params.NewDockerImageInfo(docker.ConvertToResourceImageDetails(cfg.CAASImageRepo()), imagePath),
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             *charmURL,
 		Trust:                appConfig.GetBool(coreapplication.TrustConfigOptionName, false),
@@ -699,7 +700,7 @@ func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
 			return params.DockerImageInfo{}, errors.Annotate(err, "file neither valid json or yaml")
 		}
 	}
-	if err := resources.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
+	if err := docker.ValidateDockerRegistryPath(details.RegistryPath); err != nil {
 		return params.DockerImageInfo{}, err
 	}
 	return params.DockerImageInfo{

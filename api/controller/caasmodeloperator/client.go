@@ -11,7 +11,6 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -46,17 +45,17 @@ func (c *Client) ModelOperatorProvisioningInfo() (ModelOperatorProvisioningInfo,
 	d := result.ImageDetails
 	imageRepo := resources.DockerImageDetails{
 		RegistryPath: d.RegistryPath,
-		ImageRepoDetails: docker.ImageRepoDetails{
+		ImageRepoDetails: resources.ImageRepoDetails{
 			Repository:    d.Repository,
 			ServerAddress: d.ServerAddress,
-			BasicAuthConfig: docker.BasicAuthConfig{
+			BasicAuthConfig: resources.BasicAuthConfig{
 				Username: d.Username,
 				Password: d.Password,
-				Auth:     docker.NewToken(d.Auth),
+				Auth:     resources.NewToken(d.Auth),
 			},
-			TokenAuthConfig: docker.TokenAuthConfig{
-				IdentityToken: docker.NewToken(d.IdentityToken),
-				RegistryToken: docker.NewToken(d.RegistryToken),
+			TokenAuthConfig: resources.TokenAuthConfig{
+				IdentityToken: resources.NewToken(d.IdentityToken),
+				RegistryToken: resources.NewToken(d.RegistryToken),
 				Email:         d.Email,
 			},
 		},

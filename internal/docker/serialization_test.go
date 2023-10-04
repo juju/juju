@@ -1,13 +1,12 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package resources_test
+package docker_test
 
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/internal/docker"
 )
 
@@ -27,21 +26,21 @@ func (s *DockerResourceSuite) TestValidRegistryPath(c *gc.C) {
 	}, {
 		registryPath: "me/mygitlab:latest",
 	}} {
-		err := resources.ValidateDockerRegistryPath(registryTest.registryPath)
+		err := docker.ValidateDockerRegistryPath(registryTest.registryPath)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
 
 func (s *DockerResourceSuite) TestInvalidRegistryPath(c *gc.C) {
-	err := resources.ValidateDockerRegistryPath("blah:sha256@")
+	err := docker.ValidateDockerRegistryPath("blah:sha256@")
 	c.Assert(err, gc.ErrorMatches, "docker image path .* not valid")
 }
 
 func (s *DockerResourceSuite) TestDockerImageDetailsUnmarshalJson(c *gc.C) {
 	data := []byte(`{"ImageName":"testing@sha256:beef-deed","Username":"docker-registry","Password":"fragglerock"}`)
-	result, err := resources.UnmarshalDockerResource(data)
+	result, err := docker.UnmarshalDockerResource(data)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+	c.Assert(result, gc.DeepEquals, docker.DockerImageDetails{
 		RegistryPath: "testing@sha256:beef-deed",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
@@ -58,9 +57,9 @@ registrypath: testing@sha256:beef-deed
 username: docker-registry
 password: fragglerock
 `[1:])
-	result, err := resources.UnmarshalDockerResource(data)
+	result, err := docker.UnmarshalDockerResource(data)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, resources.DockerImageDetails{
+	c.Assert(result, gc.DeepEquals, docker.DockerImageDetails{
 		RegistryPath: "testing@sha256:beef-deed",
 		ImageRepoDetails: docker.ImageRepoDetails{
 			BasicAuthConfig: docker.BasicAuthConfig{
