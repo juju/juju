@@ -90,10 +90,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	mongoSession := st.MongoSession()
 	agentConfig := agent.CurrentConfig()
-	stateServingInfo, ok := agentConfig.StateServingInfo()
-	if !ok {
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
 		_ = stTracker.Done()
-		return nil, errors.New("state serving info missing from agent config")
+		return nil, errors.Trace(err)
 	}
 	model, err := st.Model()
 	if err != nil {
@@ -108,9 +108,9 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		APIHostPortsSetter:   &CachingAPIHostPortsSetter{APIHostPortsSetter: st},
 		Clock:                clock,
 		Hub:                  config.Hub,
-		MongoPort:            stateServingInfo.StatePort,
-		APIPort:              stateServingInfo.APIPort,
-		ControllerAPIPort:    stateServingInfo.ControllerAPIPort,
+		MongoPort:            controllerConfig.StatePort(),
+		APIPort:              controllerConfig.APIPort(),
+		ControllerAPIPort:    controllerConfig.ControllerAPIPort(),
 		SupportsHA:           supportsHA,
 		PrometheusRegisterer: config.PrometheusRegisterer,
 		// On machine models, the controller id is the same as the machine/agent id.

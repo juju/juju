@@ -42,15 +42,13 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+	s.ControllerConfig = map[string]any{
+		controller.APIPort: 5678,
+	}
 	s.StateSuite.SetUpTest(c)
 
 	s.clock = testclock.NewClock(time.Time{})
-	s.agent = &mockAgent{conf: mockAgentConfig{
-		info: &controller.StateServingInfo{
-			StatePort: 1234,
-			APIPort:   5678,
-		},
-	}}
+	s.agent = &mockAgent{conf: mockAgentConfig{}}
 	s.hub = &mockHub{}
 	s.registerer = &fakeRegisterer{}
 	s.stateTracker = stubStateTracker{pool: s.StatePool, state: s.State}
@@ -147,15 +145,6 @@ func (s *ManifoldSuite) startWorkerClean(c *gc.C) worker.Worker {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
 	return w
-}
-
-func (s *ManifoldSuite) TestNoStateServingInfoClosesState(c *gc.C) {
-	s.agent.conf.info = nil
-
-	_, err := s.manifold.Start(s.context)
-	c.Assert(err, gc.ErrorMatches, "state serving info missing from agent config")
-
-	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
 type stubStateTracker struct {
