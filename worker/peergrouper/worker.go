@@ -56,7 +56,6 @@ type ControllerHost interface {
 	Id() string
 	Life() state.Life
 	Watch() state.NotifyWatcher
-	Status() (status.StatusInfo, error)
 	SetStatus(status.StatusInfo) error
 	Refresh() error
 	Addresses() network.SpaceAddresses
@@ -484,31 +483,19 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 		if _, ok := w.controllerTrackers[id]; ok {
 			continue
 		}
+
 		logger.Debugf("found new controller %q", id)
-
-		// Don't add the controller unless it is "Started"
-		nodeStatus, err := controllerHost.Status()
+		tracker, err := newControllerTracker(controllerNode, controllerHost, w.controllerChanges)
 		if err != nil {
-			return false, errors.Annotatef(err, "cannot get status for controller %q", id)
+			return false, errors.Trace(err)
 		}
-		// A controller in status Error or Stopped might still be properly running the controller. We still want to treat
-		// it as an active controller, even if we're trying to tear it down.
-		if nodeStatus.Status != status.Pending {
-			logger.Debugf("controller %q has started, adding it to peergrouper list", id)
-			tracker, err := newControllerTracker(controllerNode, controllerHost, w.controllerChanges)
-			if err != nil {
-				return false, errors.Trace(err)
-			}
-			if err := w.catacomb.Add(tracker); err != nil {
-				return false, errors.Trace(err)
-			}
-			w.controllerTrackers[id] = tracker
-			changed = true
-		} else {
-			logger.Debugf("controller %q not ready: %v", id, nodeStatus.Status)
+		if err := w.catacomb.Add(tracker); err != nil {
+			return false, errors.Trace(err)
 		}
-
+		w.controllerTrackers[id] = tracker
+		changed = true
 	}
+	
 	return changed, nil
 }
 
