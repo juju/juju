@@ -560,7 +560,7 @@ func (w *pgWorker) publishAPIServerDetails(
 		} else {
 			logger.Tracef("replica-set member %q not found", id)
 		}
-		
+
 		server := apiserver.APIServer{
 			ID:              id,
 			InternalAddress: internalAddress,
@@ -707,7 +707,7 @@ func (w *pgWorker) updateVoteStatus() error {
 			}
 		}
 	}
-	logger.Debugf("controllers which are no longer in replicaset: %v", orphanedNodes.Values())
+	logger.Debugf("controllers that are no longer in replicaset: %v", orphanedNodes.Values())
 	for _, id := range orphanedNodes.Values() {
 		node := w.controllerTrackers[id]
 		nonVoting = append(nonVoting, node)
