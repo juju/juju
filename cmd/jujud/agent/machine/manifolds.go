@@ -88,7 +88,6 @@ import (
 	"github.com/juju/juju/worker/singular"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/stateconfigwatcher"
-	"github.com/juju/juju/worker/stateconverter"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/terminationworker"
@@ -965,11 +964,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 		// isNotControllerFlagName is only used for the stateconverter,
 		isNotControllerFlagName: isControllerFlagManifold(false),
-		stateConverterName: ifNotController(ifNotMigrating(stateconverter.Manifold(stateconverter.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Logger:        loggo.GetLogger("juju.worker.stateconverter"),
-		}))),
 	}
 
 	return mergeManifolds(config, manifolds)
@@ -1137,7 +1131,6 @@ const (
 	auditConfigUpdaterName        = "audit-config-updater"
 	leaseExpiryName               = "lease-expiry"
 	leaseManagerName              = "lease-manager"
-	stateConverterName            = "state-converter"
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	kvmContainerProvisioner       = "kvm-container-provisioner"
 
