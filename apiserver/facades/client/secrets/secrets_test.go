@@ -445,6 +445,7 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, isInternal bool, finalStepFa
 		c.Assert(arg1, gc.DeepEquals, uri)
 		c.Assert(params.Description, gc.DeepEquals, ptr("this is a user secret."))
 		c.Assert(params.Label, gc.DeepEquals, ptr("label"))
+		c.Assert(params.AutoPrune, gc.DeepEquals, ptr(true))
 		if isInternal {
 			c.Assert(params.ValueRef, gc.IsNil)
 			c.Assert(params.Data, gc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
@@ -458,10 +459,23 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, isInternal bool, finalStepFa
 		if finalStepFailed {
 			return nil, errors.New("some error")
 		}
-		return &coresecrets.SecretMetadata{URI: uri}, nil
+		result := &coresecrets.SecretMetadata{URI: uri, LatestRevision: 3}
+		if params.AutoPrune != nil {
+			result.AutoPrune = *params.AutoPrune
+		}
+		return result, nil
 	})
 	if finalStepFailed && !isInternal {
 		s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
+	}
+	if !finalStepFailed {
+		s.secretsState.EXPECT().ListUnusedSecretRevisions(uri).Return([]int{1, 2}, nil)
+		// Prune the unused revisions.
+		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+			errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
+		s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
+		s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: coretesting.ModelTag.String()}, nil).Times(2)
+		s.secretsState.EXPECT().DeleteSecret(uri, []int{1, 2}).Return(nil, nil)
 	}
 	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer,
 		func() (*provider.ModelBackendConfigInfo, error) {

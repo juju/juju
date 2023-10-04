@@ -837,7 +837,7 @@ func (s *secretsSuite) TestRemoveSecretsForModelAdmin(c *gc.C) {
 		}, nil
 	}
 
-	results, err := secrets.RemoveSecretsForClient(
+	results, err := secrets.RemoveSecretsUserSupplied(
 		removeState, adminConfigGetter,
 		names.NewUserTag("foo"),
 		params.DeleteSecretArgs{
