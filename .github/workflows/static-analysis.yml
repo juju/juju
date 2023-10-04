@@ -48,7 +48,7 @@ jobs:
         echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
         echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
-        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.53.0
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.54.2
         sudo curl -sSfL https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_$(go env GOARCH) -o /usr/bin/shfmt
         sudo chmod +x /usr/bin/shfmt
         sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
