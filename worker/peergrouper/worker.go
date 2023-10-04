@@ -495,7 +495,7 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 		w.controllerTrackers[id] = tracker
 		changed = true
 	}
-	
+
 	return changed, nil
 }
 
@@ -552,10 +552,15 @@ func (w *pgWorker) publishAPIServerDetails(
 		var internalAddress string
 		if members[id] != nil {
 			mongoAddress, _, err := net.SplitHostPort(members[id].Address)
-			if err == nil {
+			if err != nil {
+				logger.Errorf("splitting host/port for address %q: %v", members[id].Address, err)
+			} else {
 				internalAddress = net.JoinHostPort(mongoAddress, strconv.Itoa(internalPort))
 			}
+		} else {
+			logger.Tracef("replica-set member %q not found", id)
 		}
+		
 		server := apiserver.APIServer{
 			ID:              id,
 			InternalAddress: internalAddress,
