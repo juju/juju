@@ -16,6 +16,7 @@ import (
 	api "github.com/juju/juju/api"
 	base "github.com/juju/juju/api/base"
 	application "github.com/juju/juju/api/client/application"
+	client "github.com/juju/juju/api/client/client"
 	charm0 "github.com/juju/juju/api/common/charm"
 	charms "github.com/juju/juju/api/common/charms"
 	constraints "github.com/juju/juju/core/constraints"
@@ -624,18 +625,18 @@ func (mr *MockDeployerAPIMockRecorder) SetConstraints(arg0, arg1 interface{}) *g
 }
 
 // Status mocks base method.
-func (m *MockDeployerAPI) Status(arg0 []string, arg1 bool) (*params.FullStatus, error) {
+func (m *MockDeployerAPI) Status(arg0 *client.StatusArgs) (*params.FullStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status", arg0, arg1)
+	ret := m.ctrl.Call(m, "Status", arg0)
 	ret0, _ := ret[0].(*params.FullStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Status indicates an expected call of Status.
-func (mr *MockDeployerAPIMockRecorder) Status(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockDeployerAPIMockRecorder) Status(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockDeployerAPI)(nil).Status), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockDeployerAPI)(nil).Status), arg0)
 }
 
 // WatchAll mocks base method.

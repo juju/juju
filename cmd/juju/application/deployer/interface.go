@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/client"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/store"
@@ -85,7 +86,7 @@ type DeployerAPI interface {
 
 	ListSpaces() ([]apiparams.Space, error)
 	Deploy(application.DeployArgs) error
-	Status(patterns []string, includeStorage bool) (*apiparams.FullStatus, error)
+	Status(*client.StatusArgs) (*apiparams.FullStatus, error)
 	WatchAll() (api.AllWatch, error)
 }
 

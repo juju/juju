@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/juju/status"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -139,9 +140,9 @@ type fakeStatusAPI struct {
 	errors               []error
 }
 
-func (f *fakeStatusAPI) Status(_ []string, includeStorage bool) (*params.FullStatus, error) {
-	if f.expectIncludeStorage != includeStorage {
-		return nil, errors.New("includeStorage param mismatch")
+func (f *fakeStatusAPI) Status(args *client.StatusArgs) (*params.FullStatus, error) {
+	if f.expectIncludeStorage != args.IncludeStorage {
+		return nil, errors.New("IncludeStorage arg mismatch")
 	}
 	if len(f.errors) > 0 {
 		err, rest := f.errors[0], f.errors[1:]

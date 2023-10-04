@@ -14,6 +14,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// DetailsBacked is used by StorageDetails, VolumeDetails and FilesystemDetails to access
+// state for collecting all the required information to send back over the wire.
 type DetailsBackend interface {
 	StorageAccess
 	VolumeAccess
@@ -23,6 +25,7 @@ type DetailsBackend interface {
 
 type UnitAssignedMachineFunc func(names.UnitTag) (names.MachineTag, error)
 
+// StorageDetails returns the storage instance as a params StorageDetails.
 func StorageDetails(
 	sb DetailsBackend,
 	unitToMachine UnitAssignedMachineFunc,

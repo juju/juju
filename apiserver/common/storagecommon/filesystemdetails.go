@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// FilesystemDetails returns the filesystem and its attachments as a params FilesystemDetails.
 func FilesystemDetails(
 	sb DetailsBackend,
 	unitToMachine UnitAssignedMachineFunc,

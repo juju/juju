@@ -324,11 +324,16 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		}
 	}
 
-	logger.Tracef("Applications: %v", context.allAppsUnitsCharmBindings.applications)
-	logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
-	logger.Tracef("Offers: %v", context.offers)
-	logger.Tracef("Leaders", context.leaders)
-	logger.Tracef("Relations: %v", context.relations)
+	if logger.IsTraceEnabled() {
+		logger.Tracef("Applications: %v", context.allAppsUnitsCharmBindings.applications)
+		logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
+		logger.Tracef("Offers: %v", context.offers)
+		logger.Tracef("Leaders", context.leaders)
+		logger.Tracef("Relations: %v", context.relations)
+		logger.Tracef("StorageInstances: %v", context.storageInstances)
+		logger.Tracef("Filesystems: %v", context.filesystems)
+		logger.Tracef("Volumes: %v", context.volumes)
+	}
 
 	if len(args.Patterns) > 0 {
 		patterns := resolveLeaderUnits(args.Patterns, context.leaders)
@@ -462,6 +467,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		context.branches = filterBranches(context.branches, matchedApps,
 			matchedUnits.Union(set.NewStrings(args.Patterns...)))
 
+		// Filter storage
 		matchedStorageTags := set.NewStrings()
 		matchedStorageInstances := []state.StorageInstance{}
 		for _, storageInstance := range context.storageInstances {

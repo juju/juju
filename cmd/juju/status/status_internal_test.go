@@ -24,6 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	corebase "github.com/juju/juju/core/base"
@@ -5021,9 +5022,9 @@ type fakeAPIClient struct {
 	closeCalled    bool
 }
 
-func (a *fakeAPIClient) Status(patterns []string, includeStorage bool) (*params.FullStatus, error) {
-	a.patternsUsed = patterns
-	a.includeStorage = includeStorage
+func (a *fakeAPIClient) Status(args *client.StatusArgs) (*params.FullStatus, error) {
+	a.patternsUsed = args.Patterns
+	a.includeStorage = args.IncludeStorage
 	return a.statusReturn, nil
 }
 
@@ -5796,13 +5797,13 @@ func (s *StatusSuite) TestStatusWithNilStatusAPI(c *gc.C) {
 		s.step(c, ctx)
 	}
 
-	client := fakeAPIClient{}
-	var status = client.Status
-	s.PatchValue(&status, func(_ []string, _ bool) (*params.FullStatus, error) {
+	fakeClient := fakeAPIClient{}
+	var status = fakeClient.Status
+	s.PatchValue(&status, func(_ *client.StatusArgs) (*params.FullStatus, error) {
 		return nil, nil
 	})
 	s.PatchValue(&newAPIClientForStatus, func(_ *statusCommand) (statusAPI, error) {
-		return &client, nil
+		return &fakeClient, nil
 	})
 
 	code, _, stderr := runStatus(c, "--no-color", "--format", "tabular")

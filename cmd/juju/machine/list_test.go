@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
@@ -26,7 +27,7 @@ func newMachineListCommand() cmd.Command {
 
 type fakeStatusAPI struct{}
 
-func (*fakeStatusAPI) Status(c []string, includeStorage bool) (*params.FullStatus, error) {
+func (*fakeStatusAPI) Status(args *client.StatusArgs) (*params.FullStatus, error) {
 	result := &params.FullStatus{
 		Model: params.ModelStatusInfo{
 			Name:    "dummyenv",

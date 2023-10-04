@@ -202,7 +202,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 	loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	s.setUpScenario(c)
-	status, err := apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).Status(nil, false)
+	status, err := apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).Status(nil)
 	clearSinceTimes(status)
 	clearContollerTimestamp(status)
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,7 +211,7 @@ func (s *clientSuite) TestClientStatus(c *gc.C) {
 
 func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
 	s.setUpScenario(c)
-	status, err := apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).Status(nil, false)
+	status, err := apiclient.NewClient(s.APIState, coretesting.NoopLogger{}).Status(nil)
 	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.ControllerTimestamp, gc.NotNil)

@@ -20,8 +20,6 @@ type StatusParams struct {
 	IncludeStorage bool     `json:"include-storage,omitempty"`
 }
 
-// TODO(ericsnow) Add FullStatusResult.
-
 // FullStatus holds information about the status of a juju model.
 type FullStatus struct {
 	Model               ModelStatusInfo                    `json:"model"`

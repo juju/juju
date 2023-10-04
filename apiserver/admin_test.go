@@ -170,7 +170,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	password := "password"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
 
-	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil, false)
+	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -183,7 +183,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 		Code:    "unauthorized access",
 	})
 
-	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil, false)
+	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -197,7 +197,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	password := "password"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
 
-	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil, false)
+	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -213,7 +213,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 		Code:    "unauthorized access",
 	})
 
-	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil, false)
+	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -1456,7 +1456,7 @@ func (s *migrationSuite) TestImportingModel(c *gc.C) {
 	info := s.APIInfo(c)
 	userConn := s.OpenAPIAs(c, info.Tag, info.Password)
 	defer userConn.Close()
-	_, err = apiclient.NewClient(userConn, coretesting.NoopLogger{}).Status(nil, false)
+	_, err = apiclient.NewClient(userConn, coretesting.NoopLogger{}).Status(nil)
 	c.Check(err, gc.ErrorMatches, "migration in progress, model is importing")
 
 	// Machines should be able to use the API.
@@ -1478,7 +1478,7 @@ func (s *migrationSuite) TestExportingModel(c *gc.C) {
 	defer userConn.Close()
 
 	// Status is fine.
-	_, err = apiclient.NewClient(userConn, coretesting.NoopLogger{}).Status(nil, false)
+	_, err = apiclient.NewClient(userConn, coretesting.NoopLogger{}).Status(nil)
 	c.Check(err, jc.ErrorIsNil)
 
 	// Modifying commands like destroy machines are not.

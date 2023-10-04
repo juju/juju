@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/v3/ssh"
 
 	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/client"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/sshclient"
 	"github.com/juju/juju/core/network"
@@ -50,7 +51,7 @@ type sshMachine struct {
 }
 
 type statusClient interface {
-	Status(patterns []string, includeStorage bool) (*params.FullStatus, error)
+	Status(args *client.StatusArgs) (*params.FullStatus, error)
 }
 
 type sshAPIClient interface {
@@ -551,8 +552,8 @@ func (c *sshMachine) AllowInterspersedFlags() bool {
 	return false
 }
 
-func (c *sshMachine) maybePopulateTargetViaField(target *resolvedTarget, statusGetter func([]string, bool) (*params.FullStatus, error)) error {
-	status, err := statusGetter(nil, false)
+func (c *sshMachine) maybePopulateTargetViaField(target *resolvedTarget, statusGetter func(*client.StatusArgs) (*params.FullStatus, error)) error {
+	status, err := statusGetter(nil)
 	if err != nil {
 		return errors.Trace(err)
 	}

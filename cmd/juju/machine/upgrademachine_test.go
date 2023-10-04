@@ -120,7 +120,7 @@ func (s *UpgradeMachineSuite) runUpgradeMachineCommandWithConfirmation(
 	uExp.UpgradeSeriesPrepare(prep.machineArg, prep.baseArg, prep.force).AnyTimes()
 	uExp.UpgradeSeriesComplete(s.completeExpectation.machineNumber).AnyTimes()
 
-	mockStatusAPI.EXPECT().Status(gomock.Nil(), gomock.Any()).AnyTimes().Return(s.statusExpectation.status, nil)
+	mockStatusAPI.EXPECT().Status(gomock.Nil()).AnyTimes().Return(s.statusExpectation.status, nil)
 
 	com := machine.NewUpgradeMachineCommandForTest(mockStatusAPI, mockUpgradeMachineAPI)
 

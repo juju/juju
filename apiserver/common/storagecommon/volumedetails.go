@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// VolumeDetails returns the volume and its attachments as a params VolumeDetails.
 func VolumeDetails(
 	sb DetailsBackend,
 	unitToMachine UnitAssignedMachineFunc,

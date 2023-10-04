@@ -19,6 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/viddy"
 
+	"github.com/juju/juju/api/client/client"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -30,7 +31,7 @@ import (
 var logger = loggo.GetLogger("juju.cmd.juju.status")
 
 type statusAPI interface {
-	Status(patterns []string, includeStorage bool) (*params.FullStatus, error)
+	Status(*client.StatusArgs) (*params.FullStatus, error)
 	Close() error
 }
 
@@ -265,7 +266,10 @@ func (c *statusCommand) getStatus(includeStorage bool) (*params.FullStatus, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return apiclient.Status(c.patterns, includeStorage)
+	return apiclient.Status(&client.StatusArgs{
+		Patterns:       c.patterns,
+		IncludeStorage: includeStorage,
+	})
 }
 
 func (c *statusCommand) runStatus(ctx *cmd.Context) error {

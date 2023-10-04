@@ -2257,7 +2257,7 @@ func (s *BundleDeployRepositorySuite) expectWatchAll() {
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIEmptyStatus() {
 	status := &params.FullStatus{}
-	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
@@ -2300,7 +2300,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusWordpressBundle() {
 		ControllerTimestamp: nil,
 		Branches:            nil,
 	}
-	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoBundle() {
@@ -2325,7 +2325,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoBundle() {
 		ControllerTimestamp: nil,
 		Branches:            nil,
 	}
-	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoMemBundle() {
@@ -2361,7 +2361,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjangoMemBundle() {
 		ControllerTimestamp: nil,
 		Branches:            nil,
 	}
-	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjango2Units() {
@@ -2389,7 +2389,7 @@ func (s *BundleDeployRepositorySuite) expectDeployerAPIStatusDjango2Units() {
 		ControllerTimestamp: nil,
 		Branches:            nil,
 	}
-	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIModelGet(c *gc.C) {
@@ -2811,7 +2811,7 @@ func (s *BundleHandlerMakeModelSuite) expectEmptyModelRepresentation() {
 
 func (s *BundleHandlerMakeModelSuite) expectDeployerAPIEmptyStatus() {
 	status := &params.FullStatus{}
-	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil).AnyTimes()
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil).AnyTimes()
 }
 
 func (s *BundleHandlerMakeModelSuite) expectDeployerAPIModelGet(c *gc.C) {
@@ -2858,5 +2858,5 @@ func (s *BundleHandlerMakeModelSuite) expectDeployerAPIStatusWordpressBundle() {
 		ControllerTimestamp: nil,
 		Branches:            nil,
 	}
-	s.deployerAPI.EXPECT().Status(gomock.Any(), gomock.Any()).Return(status, nil)
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(status, nil)
 }

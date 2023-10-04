@@ -49,13 +49,25 @@ func NewClient(c api.Connection, logger Logger) *Client {
 	}
 }
 
+// StatusArgs holds the options for a call to Status.
+type StatusArgs struct {
+	// Patterns is used to filter the status response.
+	Patterns []string
+
+	// IncludeStorage can be set to true to return storage in the response.
+	IncludeStorage bool
+}
+
 // Status returns the status of the juju model.
-func (c *Client) Status(patterns []string, includeStorage bool) (*params.FullStatus, error) {
+func (c *Client) Status(args *StatusArgs) (*params.FullStatus, error) {
+	if args == nil {
+		args = &StatusArgs{}
+	}
 	if c.BestAPIVersion() <= 6 {
-		return c.statusV6(patterns, includeStorage)
+		return c.statusV6(args.Patterns, args.IncludeStorage)
 	}
 	var result params.FullStatus
-	p := params.StatusParams{Patterns: patterns, IncludeStorage: includeStorage}
+	p := params.StatusParams{Patterns: args.Patterns, IncludeStorage: args.IncludeStorage}
 	if err := c.facade.FacadeCall("FullStatus", p, &result); err != nil {
 		return nil, err
 	}
@@ -88,6 +100,9 @@ func (c *Client) statusV6(patterns []string, includeStorage bool) (*params.FullS
 		if len(filesystemResult) != 1 {
 			return nil, errors.Errorf("cannot list filesystem details: expected one result got %d", len(filesystemResult))
 		}
+		if err := filesystemResult[0].Error; err != nil {
+			return nil, errors.Annotatef(err, "cannot list filesystem details")
+		}
 		result.Filesystems = filesystemResult[0].Result
 
 		volumeResult, err := storageClient.ListVolumes(nil)
@@ -96,6 +111,9 @@ func (c *Client) statusV6(patterns []string, includeStorage bool) (*params.FullS
 		}
 		if len(volumeResult) != 1 {
 			return nil, errors.Errorf("cannot list volume details: expected one result got %d", len(volumeResult))
+		}
+		if err := volumeResult[0].Error; err != nil {
+			return nil, errors.Annotatef(err, "cannot list volume details")
 		}
 		result.Volumes = volumeResult[0].Result
 	}

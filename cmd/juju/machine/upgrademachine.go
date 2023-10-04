@@ -19,6 +19,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/machinemanager"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -94,7 +95,7 @@ type UpgradeMachineAPI interface {
 }
 
 type StatusAPI interface {
-	Status(pattern []string, includeStorage bool) (*params.FullStatus, error)
+	Status(*client.StatusArgs) (*params.FullStatus, error)
 }
 
 // upgradeMachineCommand is responsible for updating the base of an application
@@ -335,7 +336,7 @@ func (c *upgradeMachineCommand) UpgradePrepare(ctx *cmd.Context) (err error) {
 
 func (c *upgradeMachineCommand) retrieveUnits() ([]string, error) {
 	// get the units for a given machine.
-	fullStatus, err := c.statusClient.Status(nil, false)
+	fullStatus, err := c.statusClient.Status(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

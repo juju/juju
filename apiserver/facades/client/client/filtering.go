@@ -100,7 +100,7 @@ func BuildPredicateFor(patterns []string) Predicate {
 	return func(i interface{}) (bool, error) {
 		switch i.(type) {
 		default:
-			panic(errors.Errorf("expected a machine or an applications or a unit or a storageinstance/filesystem/volume, got %T", i))
+			panic(errors.Errorf("expected a machine or an applications or a unit, got %T", i))
 		case *state.Machine:
 			shims, err := buildMachineMatcherShims(i.(*state.Machine), patterns)
 			if err != nil {

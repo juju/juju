@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/rpc/params"
@@ -18,7 +19,7 @@ import (
 
 // statusAPI defines the API methods for the machines and show-machine commands.
 type statusAPI interface {
-	Status(pattern []string, includeStorage bool) (*params.FullStatus, error)
+	Status(*client.StatusArgs) (*params.FullStatus, error)
 	Close() error
 }
 
@@ -65,7 +66,7 @@ func (c *baselistMachinesCommand) Run(ctx *cmd.Context) error {
 	}
 	defer apiclient.Close()
 
-	fullStatus, err := apiclient.Status(nil, false)
+	fullStatus, err := apiclient.Status(nil)
 	if err != nil {
 		if fullStatus == nil {
 			// Status call completely failed, there is nothing to report

@@ -7,6 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	client "github.com/juju/juju/api/client/client"
 	params "github.com/juju/juju/rpc/params"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -35,16 +36,16 @@ func (m *MockStatusAPI) EXPECT() *MockStatusAPIMockRecorder {
 }
 
 // Status mocks base method.
-func (m *MockStatusAPI) Status(arg0 []string, arg1 bool) (*params.FullStatus, error) {
+func (m *MockStatusAPI) Status(arg0 *client.StatusArgs) (*params.FullStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status", arg0, arg1)
+	ret := m.ctrl.Call(m, "Status", arg0)
 	ret0, _ := ret[0].(*params.FullStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Status indicates an expected call of Status.
-func (mr *MockStatusAPIMockRecorder) Status(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockStatusAPIMockRecorder) Status(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockStatusAPI)(nil).Status), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockStatusAPI)(nil).Status), arg0)
 }
