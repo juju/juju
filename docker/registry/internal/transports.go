@@ -16,6 +16,17 @@ import (
 	"github.com/juju/errors"
 )
 
+type dynamicTransportFunc func() (http.RoundTripper, error)
+
+// RoundTrip executes a single HTTP transaction, returning a Response for the provided Request.
+func (f dynamicTransportFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	transport, err := f()
+	if err != nil {
+		return nil, err
+	}
+	return transport.RoundTrip(req)
+}
+
 type basicTransport struct {
 	transport http.RoundTripper
 	username  string

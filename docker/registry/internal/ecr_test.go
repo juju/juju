@@ -67,7 +67,7 @@ func (s *elasticContainerRegistrySuite) getRegistry(c *gc.C, ensureAsserts func(
 						{AuthorizationToken: aws.String(`xxxx===`)},
 					},
 				}, nil,
-			)
+			).AnyTimes()
 		}
 	}
 
