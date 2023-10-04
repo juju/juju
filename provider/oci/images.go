@@ -152,6 +152,8 @@ func (t byVersion) Less(i, j int) bool {
 	return true
 }
 
+// Alias type representing list of InstanceImage separated by buckets of Base
+// and architecture for each Base.
 type imageMap map[corebase.Base]map[string][]InstanceImage
 
 // ImageCache holds a cache of all provider images for a fixed
@@ -269,8 +271,7 @@ func getImageType(img ociCore.Image) ImageType {
 }
 
 // NewInstanceImage returns a populated InstanceImage from the ociCore.Image
-// struct returned by oci's API. Also, it returns the architecture that is
-// detected from the image OperatingSystemVersion and it's name.
+// struct returned by oci's API, the image's architecture or an error.
 func NewInstanceImage(img ociCore.Image, compartmentID *string) (InstanceImage, string, error) {
 	var (
 		err  error
@@ -314,15 +315,29 @@ func parseUbuntuImage(img ociCore.Image) (corebase.Base, string, error) {
 		arch string
 		base corebase.Base
 	)
-	// we need to split the provided OperatingSystemVersion, since
-	// it can contain information that does not belong to the base's
-	// channel.
-	// E.g: Canonical-Ubuntu-22.04-Minimal-aarch64-2023.08.27-0
-	// becomes:
-	//        OperatingSystem:        Canonical Ubuntu
-	//        OperatingSystemVersion: 22.04 Minimal aarch64
+	// On some cases, the retrieved OperatingSystemVersion can contain
+	// the channel plus some extra information and in some others this
+	// extra information might be missing.
+	// Here are two examples:
+	// - The retrieved image with name Canonical-Ubuntu-22.04-Minimal-aarch64-2023.08.27-0
+	//   will contain the following values from the API:
+	//     OperatingSystem:        Canonical Ubuntu
+	//     OperatingSystemVersion: 22.04 Minimal aarch64
+	//   In this case, we need to separate the channel (22.04) from the
+	//   "postfix" (Minimal aarch64). The channel is needed to correctly
+	//   make the base.
+	// - The retrieved image with name Canonical-Ubuntu-22.04-aarch64-2023.08.23
+	//   will contain the following values from the API:
+	//     OperatingSystem:        Canonical Ubuntu
+	//     OperatingSystemVersion: 22.04
+	//   In this case, the OperatingSystemVersion is not consistent with
+	//   the previous example. This is an error on OCI's response (or on
+	//   the ubuntu image's metadata) so we need to find a workaround as
+	//   explained in the NOTE a few lines below.
 	channel, postfix, found := strings.Cut(*img.OperatingSystemVersion, " ")
 	base = corebase.MakeDefaultBase(UbuntuBase, channel)
+	// if not found, means that the OperatingSystemVersion only contained
+	// the channel.
 	if !found {
 		// NOTE(nvinuesa): For some images, the img.OperatingSystemVersion
 		// does not contain the architecture. For example, the
