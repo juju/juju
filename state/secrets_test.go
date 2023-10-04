@@ -761,6 +761,29 @@ func (s *SecretsSuite) TestUpdateData(c *gc.C) {
 	})
 }
 
+func (s *SecretsSuite) TestUpdateAutoPrune(c *gc.C) {
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md.AutoPrune, jc.IsFalse)
+	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		AutoPrune:   ptr(true),
+	})
+}
+
 func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()
@@ -893,6 +916,9 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 	}
 	if update.Description != nil {
 		expected.Description = *update.Description
+	}
+	if update.AutoPrune != nil {
+		expected.AutoPrune = *update.AutoPrune
 	}
 	if update.Label != nil {
 		expected.Label = *update.Label
@@ -1284,6 +1310,53 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 		CreateTime:  updateTime2,
 		UpdateTime:  updateTime2,
 	}})
+}
+
+func (s *SecretsSuite) TestListUnusedSecretRevisions(c *gc.C) {
+	uri := secrets.NewURI()
+	now := s.Clock.Now().Round(time.Second).UTC()
+	next := now.Add(time.Minute).Round(time.Second).UTC()
+	cp := state.CreateSecretParams{
+		Version: 1,
+		Owner:   s.owner.Tag(),
+		UpdateSecretParams: state.UpdateSecretParams{
+			LeaderToken:    &fakeToken{},
+			RotatePolicy:   ptr(secrets.RotateDaily),
+			NextRotateTime: ptr(next),
+			Data:           map[string]string{"foo": "bar"},
+		},
+	}
+	md, err := s.store.CreateSecret(uri, cp)
+	c.Assert(err, jc.ErrorIsNil)
+	newData := map[string]string{"foo": "bar", "hello": "world"}
+	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        newData,
+	})
+
+	backendStore := state.NewSecretBackends(s.State)
+	backendID, err := backendStore.CreateSecretBackend(state.CreateSecretBackendParams{
+		Name:        "myvault",
+		BackendType: "vault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertUpdatedSecret(c, md, 3, state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		ValueRef: &secrets.ValueRef{
+			BackendID:  backendID,
+			RevisionID: "rev-id",
+		},
+	})
+	r, err := s.store.ListUnusedSecretRevisions(uri)
+	c.Assert(err, jc.ErrorIsNil)
+
+	mc := jc.NewMultiChecker()
+	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
+	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
+	c.Assert(r, mc, []int{
+		1, 2,
+		// The latest revision `3` is still in use, so it's not returned.
+	})
 }
 
 func (s *SecretsSuite) TestGetSecretRevision(c *gc.C) {
