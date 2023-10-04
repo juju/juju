@@ -170,7 +170,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	password := "password"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
 
-	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status([]string{})
+	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -183,7 +183,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 		Code:    "unauthorized access",
 	})
 
-	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status([]string{})
+	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -197,7 +197,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	password := "password"
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
 
-	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status([]string{})
+	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",
@@ -213,7 +213,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 		Code:    "unauthorized access",
 	})
 
-	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status([]string{})
+	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
 		Message: `unknown object type "Client"`,
 		Code:    "not implemented",

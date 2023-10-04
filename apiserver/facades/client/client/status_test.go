@@ -716,13 +716,17 @@ func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
 
 	// Test status filtering with application 1: should get both relations
 	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
-	status, err := client.Status([]string{a1.Name()})
+	status, err := client.Status(&apiclient.StatusArgs{
+		Patterns: []string{a1.Name()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	assertApplicationRelations(c, a1.Name(), 2, status.Relations)
 
 	// test status filtering with application 3: should get 1 relation
-	status, err = client.Status([]string{a3.Name()})
+	status, err = client.Status(&apiclient.StatusArgs{
+		Patterns: []string{a3.Name()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	assertApplicationRelations(c, a3.Name(), 1, status.Relations)
@@ -767,7 +771,9 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
 	for i := 0; i < 20; i++ {
 		c.Logf("run %d", i)
-		status, err := client.Status([]string{applicationA.Name()})
+		status, err := client.Status(&apiclient.StatusArgs{
+			Patterns: []string{applicationA.Name()},
+		})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(status.Applications, gc.HasLen, 2)
 	}
@@ -833,7 +839,9 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 	// * no relations;
 	// * two applications.
 	client := apiclient.NewClient(s.APIState, coretesting.NoopLogger{})
-	status, err := client.Status([]string{applicationA.Name()})
+	status, err := client.Status(&apiclient.StatusArgs{
+		Patterns: []string{applicationA.Name()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	c.Assert(status.Applications, gc.HasLen, 2)

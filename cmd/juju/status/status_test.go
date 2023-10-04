@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/juju/status"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -21,9 +22,8 @@ import (
 type MinimalStatusSuite struct {
 	testing.BaseSuite
 
-	statusapi  *fakeStatusAPI
-	storageapi *mockListStorageAPI
-	clock      *timeRecorder
+	statusapi *fakeStatusAPI
+	clock     *timeRecorder
 }
 
 var _ = gc.Suite(&MinimalStatusSuite{})
@@ -38,13 +38,12 @@ func (s *MinimalStatusSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	}
-	s.storageapi = &mockListStorageAPI{}
 	s.clock = &timeRecorder{}
 	s.SetModelAndController(c, "test", "admin/test")
 }
 
 func (s *MinimalStatusSuite) runStatus(c *gc.C, args ...string) (*cmd.Context, error) {
-	statusCmd := status.NewTestStatusCommand(s.statusapi, s.storageapi, s.clock)
+	statusCmd := status.NewTestStatusCommand(s.statusapi, s.clock)
 	return cmdtesting.RunCommand(c, statusCmd, args...)
 }
 
@@ -55,6 +54,12 @@ func (s *MinimalStatusSuite) TestGoodCall(c *gc.C) {
 }
 
 func (s *MinimalStatusSuite) TestGoodCallWithStorage(c *gc.C) {
+	t := time.Now()
+	s.statusapi.expectIncludeStorage = true
+	s.statusapi.result.Storage = storageDetails(t)
+	s.statusapi.result.Filesystems = filesystemDetails(t)
+	s.statusapi.result.Volumes = volumeDetails(t)
+
 	context, err := s.runStatus(c, "--no-color", "--storage")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.clock.waits, gc.HasLen, 0)
@@ -130,11 +135,15 @@ func (s *MinimalStatusSuite) TestRetryCountOfZero(c *gc.C) {
 }
 
 type fakeStatusAPI struct {
-	result *params.FullStatus
-	errors []error
+	expectIncludeStorage bool
+	result               *params.FullStatus
+	errors               []error
 }
 
-func (f *fakeStatusAPI) Status(_ []string) (*params.FullStatus, error) {
+func (f *fakeStatusAPI) Status(args *client.StatusArgs) (*params.FullStatus, error) {
+	if f.expectIncludeStorage != args.IncludeStorage {
+		return nil, errors.New("IncludeStorage arg mismatch")
+	}
 	if len(f.errors) > 0 {
 		err, rest := f.errors[0], f.errors[1:]
 		f.errors = rest
@@ -166,29 +175,14 @@ func (r *timeRecorder) After(d time.Duration) <-chan time.Time {
 	return r.result
 }
 
-type mockListStorageAPI struct {
-	listErrors      bool
-	listFilesystems func([]string) ([]params.FilesystemDetailsListResult, error)
-	listVolumes     func([]string) ([]params.VolumeDetailsListResult, error)
-	omitPool        bool
-	time            time.Time
-}
-
-func (s *mockListStorageAPI) Close() error {
-	return nil
-}
-
-func (s *mockListStorageAPI) ListStorageDetails() ([]params.StorageDetails, error) {
-	if s.listErrors {
-		return nil, errors.New("list fails")
-	}
-	results := []params.StorageDetails{{
+func storageDetails(t time.Time) []params.StorageDetails {
+	return []params.StorageDetails{{
 		StorageTag: "storage-db-dir-1000",
 		OwnerTag:   "unit-transcode-0",
 		Kind:       params.StorageKindBlock,
 		Status: params.EntityStatus{
 			Status: corestatus.Pending,
-			Since:  &s.time,
+			Since:  &t,
 			Info:   "creating volume",
 		},
 		Attachments: map[string]params.StorageAttachmentDetails{
@@ -203,7 +197,7 @@ func (s *mockListStorageAPI) ListStorageDetails() ([]params.StorageDetails, erro
 		Life:       "dying",
 		Status: params.EntityStatus{
 			Status: corestatus.Attached,
-			Since:  &s.time,
+			Since:  &t,
 		},
 		Persistent: true,
 		Attachments: map[string]params.StorageAttachmentDetails{
@@ -218,7 +212,7 @@ func (s *mockListStorageAPI) ListStorageDetails() ([]params.StorageDetails, erro
 		Kind:       params.StorageKindFilesystem,
 		Status: params.EntityStatus{
 			Status: corestatus.Attached,
-			Since:  &s.time,
+			Since:  &t,
 		},
 		Persistent: true,
 		Attachments: map[string]params.StorageAttachmentDetails{
@@ -234,18 +228,14 @@ func (s *mockListStorageAPI) ListStorageDetails() ([]params.StorageDetails, erro
 		Kind:       params.StorageKindFilesystem,
 		Status: params.EntityStatus{
 			Status: corestatus.Detached,
-			Since:  &s.time,
+			Since:  &t,
 		},
 		Persistent: true,
 	}}
-	return results, nil
 }
 
-func (s *mockListStorageAPI) ListFilesystems(machines []string) ([]params.FilesystemDetailsListResult, error) {
-	if s.listFilesystems != nil {
-		return s.listFilesystems(machines)
-	}
-	results := []params.FilesystemDetailsListResult{{Result: []params.FilesystemDetails{
+func filesystemDetails(t time.Time) []params.FilesystemDetails {
+	return []params.FilesystemDetails{
 		// filesystem 0/0 is attached to machine 0, assigned to
 		// storage db-dir/1001, which is attached to unit
 		// abc/0.
@@ -257,7 +247,7 @@ func (s *mockListStorageAPI) ListFilesystems(machines []string) ([]params.Filesy
 				Size:         512,
 			},
 			Life:   "alive",
-			Status: createTestStatus(corestatus.Attached, "", s.time),
+			Status: createTestStatus(corestatus.Attached, "", t),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
 				"machine-0": {
 					Life: "alive",
@@ -271,7 +261,7 @@ func (s *mockListStorageAPI) ListFilesystems(machines []string) ([]params.Filesy
 				OwnerTag:   "unit-abc-0",
 				Kind:       params.StorageKindBlock,
 				Life:       "alive",
-				Status:     createTestStatus(corestatus.Attached, "", s.time),
+				Status:     createTestStatus(corestatus.Attached, "", t),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-abc-0": {
 						StorageTag: "storage-db-dir-1001",
@@ -290,7 +280,7 @@ func (s *mockListStorageAPI) ListFilesystems(machines []string) ([]params.Filesy
 				FilesystemId: "provider-supplied-filesystem-1",
 				Size:         2048,
 			},
-			Status: createTestStatus(corestatus.Attaching, "failed to attach, will retry", s.time),
+			Status: createTestStatus(corestatus.Attaching, "failed to attach, will retry", t),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
 				"machine-0": {},
 			},
@@ -302,7 +292,7 @@ func (s *mockListStorageAPI) ListFilesystems(machines []string) ([]params.Filesy
 			Info: params.FilesystemInfo{
 				Size: 42,
 			},
-			Status: createTestStatus(corestatus.Pending, "", s.time),
+			Status: createTestStatus(corestatus.Pending, "", t),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
 				"machine-1": {},
 			},
@@ -315,7 +305,7 @@ func (s *mockListStorageAPI) ListFilesystems(machines []string) ([]params.Filesy
 				FilesystemId: "provider-supplied-filesystem-2",
 				Size:         3,
 			},
-			Status: createTestStatus(corestatus.Attached, "", s.time),
+			Status: createTestStatus(corestatus.Attached, "", t),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
 				"machine-1": {
 					FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
@@ -333,7 +323,7 @@ func (s *mockListStorageAPI) ListFilesystems(machines []string) ([]params.Filesy
 				Pool:         "radiance",
 				Size:         1024,
 			},
-			Status: createTestStatus(corestatus.Attached, "", s.time),
+			Status: createTestStatus(corestatus.Attached, "", t),
 			MachineAttachments: map[string]params.FilesystemAttachmentDetails{
 				"machine-0": {
 					FilesystemAttachmentInfo: params.FilesystemAttachmentInfo{
@@ -352,7 +342,7 @@ func (s *mockListStorageAPI) ListFilesystems(machines []string) ([]params.Filesy
 				StorageTag: "storage-shared-fs-0",
 				OwnerTag:   "application-transcode",
 				Kind:       params.StorageKindBlock,
-				Status:     createTestStatus(corestatus.Attached, "", s.time),
+				Status:     createTestStatus(corestatus.Attached, "", t),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-transcode-0": {
 						StorageTag: "storage-shared-fs-0",
@@ -376,13 +366,13 @@ func (s *mockListStorageAPI) ListFilesystems(machines []string) ([]params.Filesy
 				FilesystemId: "provider-supplied-filesystem-5",
 				Size:         3,
 			},
-			Status: createTestStatus(corestatus.Attached, "", s.time),
+			Status: createTestStatus(corestatus.Attached, "", t),
 			Storage: &params.StorageDetails{
 				StorageTag: "storage-db-dir-1100",
 				OwnerTag:   "unit-abc-0",
 				Kind:       params.StorageKindBlock,
 				Life:       "alive",
-				Status:     createTestStatus(corestatus.Attached, "", s.time),
+				Status:     createTestStatus(corestatus.Attached, "", t),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-abc-0": {
 						StorageTag: "storage-db-dir-1100",
@@ -392,23 +382,11 @@ func (s *mockListStorageAPI) ListFilesystems(machines []string) ([]params.Filesy
 				},
 			},
 		},
-	}}}
-	if s.omitPool {
-		for _, result := range results {
-			for i, details := range result.Result {
-				details.Info.Pool = ""
-				result.Result[i] = details
-			}
-		}
 	}
-	return results, nil
 }
 
-func (s *mockListStorageAPI) ListVolumes(machines []string) ([]params.VolumeDetailsListResult, error) {
-	if s.listVolumes != nil {
-		return s.listVolumes(machines)
-	}
-	results := []params.VolumeDetailsListResult{{Result: []params.VolumeDetails{
+func volumeDetails(t time.Time) []params.VolumeDetails {
+	return []params.VolumeDetails{
 		// volume 0/0 is attached to machine 0, assigned to
 		// storage db-dir/1001, which is attached to unit
 		// abc/0.
@@ -420,7 +398,7 @@ func (s *mockListStorageAPI) ListVolumes(machines []string) ([]params.VolumeDeta
 				Size:     512,
 			},
 			Life:   "alive",
-			Status: createTestStatus(corestatus.Attached, "", s.time),
+			Status: createTestStatus(corestatus.Attached, "", t),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
 				"machine-0": {
 					Life: "alive",
@@ -434,7 +412,7 @@ func (s *mockListStorageAPI) ListVolumes(machines []string) ([]params.VolumeDeta
 				OwnerTag:   "unit-abc-0",
 				Kind:       params.StorageKindBlock,
 				Life:       "alive",
-				Status:     createTestStatus(corestatus.Attached, "", s.time),
+				Status:     createTestStatus(corestatus.Attached, "", t),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-abc-0": {
 						StorageTag: "storage-db-dir-1001",
@@ -455,7 +433,7 @@ func (s *mockListStorageAPI) ListVolumes(machines []string) ([]params.VolumeDeta
 				Persistent: true,
 				Size:       2048,
 			},
-			Status: createTestStatus(corestatus.Attaching, "failed to attach, will retry", s.time),
+			Status: createTestStatus(corestatus.Attaching, "failed to attach, will retry", t),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
 				"machine-0": {},
 			},
@@ -467,7 +445,7 @@ func (s *mockListStorageAPI) ListVolumes(machines []string) ([]params.VolumeDeta
 			Info: params.VolumeInfo{
 				Size: 42,
 			},
-			Status: createTestStatus(corestatus.Pending, "", s.time),
+			Status: createTestStatus(corestatus.Pending, "", t),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
 				"machine-1": {},
 			},
@@ -480,7 +458,7 @@ func (s *mockListStorageAPI) ListVolumes(machines []string) ([]params.VolumeDeta
 				VolumeId: "provider-supplied-volume-2",
 				Size:     3,
 			},
-			Status: createTestStatus(corestatus.Attached, "", s.time),
+			Status: createTestStatus(corestatus.Attached, "", t),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
 				"machine-1": {
 					VolumeAttachmentInfo: params.VolumeAttachmentInfo{
@@ -498,7 +476,7 @@ func (s *mockListStorageAPI) ListVolumes(machines []string) ([]params.VolumeDeta
 				Persistent: true,
 				Size:       1024,
 			},
-			Status: createTestStatus(corestatus.Attached, "", s.time),
+			Status: createTestStatus(corestatus.Attached, "", t),
 			MachineAttachments: map[string]params.VolumeAttachmentDetails{
 				"machine-0": {
 					VolumeAttachmentInfo: params.VolumeAttachmentInfo{
@@ -517,7 +495,7 @@ func (s *mockListStorageAPI) ListVolumes(machines []string) ([]params.VolumeDeta
 				StorageTag: "storage-shared-fs-0",
 				OwnerTag:   "application-transcode",
 				Kind:       params.StorageKindBlock,
-				Status:     createTestStatus(corestatus.Attached, "", s.time),
+				Status:     createTestStatus(corestatus.Attached, "", t),
 				Attachments: map[string]params.StorageAttachmentDetails{
 					"unit-transcode-0": {
 						StorageTag: "storage-shared-fs-0",
@@ -534,16 +512,7 @@ func (s *mockListStorageAPI) ListVolumes(machines []string) ([]params.VolumeDeta
 				},
 			},
 		},
-	}}}
-	if s.omitPool {
-		for _, result := range results {
-			for i, details := range result.Result {
-				details.Info.Pool = ""
-				result.Result[i] = details
-			}
-		}
 	}
-	return results, nil
 }
 
 func createTestStatus(testStatus corestatus.Status, message string, since time.Time) params.EntityStatus {

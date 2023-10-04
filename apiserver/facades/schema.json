@@ -16225,7 +16225,7 @@
     {
         "Name": "Client",
         "Description": "Client serves client-specific API methods.",
-        "Version": 6,
+        "Version": 7,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -16602,6 +16602,36 @@
                         "subordinate"
                     ]
                 },
+                "EntityStatus": {
+                    "type": "object",
+                    "properties": {
+                        "data": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "info": {
+                            "type": "string"
+                        },
+                        "since": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "status": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "status",
+                        "info",
+                        "since"
+                    ]
+                },
                 "Error": {
                     "type": "object",
                     "properties": {
@@ -16644,6 +16674,104 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "FilesystemAttachmentDetails": {
+                    "type": "object",
+                    "properties": {
+                        "FilesystemAttachmentInfo": {
+                            "$ref": "#/definitions/FilesystemAttachmentInfo"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "mount-point": {
+                            "type": "string"
+                        },
+                        "read-only": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "FilesystemAttachmentInfo"
+                    ]
+                },
+                "FilesystemAttachmentInfo": {
+                    "type": "object",
+                    "properties": {
+                        "mount-point": {
+                            "type": "string"
+                        },
+                        "read-only": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "FilesystemDetails": {
+                    "type": "object",
+                    "properties": {
+                        "filesystem-tag": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "$ref": "#/definitions/FilesystemInfo"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "machine-attachments": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/FilesystemAttachmentDetails"
+                                }
+                            }
+                        },
+                        "status": {
+                            "$ref": "#/definitions/EntityStatus"
+                        },
+                        "storage": {
+                            "$ref": "#/definitions/StorageDetails"
+                        },
+                        "unit-attachments": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/FilesystemAttachmentDetails"
+                                }
+                            }
+                        },
+                        "volume-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "filesystem-tag",
+                        "info",
+                        "status"
+                    ]
+                },
+                "FilesystemInfo": {
+                    "type": "object",
+                    "properties": {
+                        "filesystem-id": {
+                            "type": "string"
+                        },
+                        "pool": {
+                            "type": "string"
+                        },
+                        "size": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "filesystem-id",
+                        "pool",
+                        "size"
+                    ]
                 },
                 "FindToolsParams": {
                     "type": "object",
@@ -16714,6 +16842,12 @@
                             "type": "string",
                             "format": "date-time"
                         },
+                        "filesystems": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/FilesystemDetails"
+                            }
+                        },
                         "machines": {
                             "type": "object",
                             "patternProperties": {
@@ -16745,6 +16879,18 @@
                                 ".*": {
                                     "$ref": "#/definitions/RemoteApplicationStatus"
                                 }
+                            }
+                        },
+                        "storage": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StorageDetails"
+                            }
+                        },
+                        "volumes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/VolumeDetails"
                             }
                         }
                     },
@@ -17240,6 +17386,9 @@
                 "StatusParams": {
                     "type": "object",
                     "properties": {
+                        "include-storage": {
+                            "type": "boolean"
+                        },
                         "patterns": {
                             "type": "array",
                             "items": {
@@ -17250,6 +17399,71 @@
                     "additionalProperties": false,
                     "required": [
                         "patterns"
+                    ]
+                },
+                "StorageAttachmentDetails": {
+                    "type": "object",
+                    "properties": {
+                        "life": {
+                            "type": "string"
+                        },
+                        "location": {
+                            "type": "string"
+                        },
+                        "machine-tag": {
+                            "type": "string"
+                        },
+                        "storage-tag": {
+                            "type": "string"
+                        },
+                        "unit-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "storage-tag",
+                        "unit-tag",
+                        "machine-tag"
+                    ]
+                },
+                "StorageDetails": {
+                    "type": "object",
+                    "properties": {
+                        "attachments": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/StorageAttachmentDetails"
+                                }
+                            }
+                        },
+                        "kind": {
+                            "type": "integer"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "owner-tag": {
+                            "type": "string"
+                        },
+                        "persistent": {
+                            "type": "boolean"
+                        },
+                        "status": {
+                            "$ref": "#/definitions/EntityStatus"
+                        },
+                        "storage-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "storage-tag",
+                        "owner-tag",
+                        "kind",
+                        "status",
+                        "persistent"
                     ]
                 },
                 "Tools": {
@@ -17330,6 +17544,145 @@
                         "public-address",
                         "charm",
                         "subordinates"
+                    ]
+                },
+                "VolumeAttachmentDetails": {
+                    "type": "object",
+                    "properties": {
+                        "VolumeAttachmentInfo": {
+                            "$ref": "#/definitions/VolumeAttachmentInfo"
+                        },
+                        "bus-address": {
+                            "type": "string"
+                        },
+                        "device-link": {
+                            "type": "string"
+                        },
+                        "device-name": {
+                            "type": "string"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "plan-info": {
+                            "$ref": "#/definitions/VolumeAttachmentPlanInfo"
+                        },
+                        "read-only": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "VolumeAttachmentInfo"
+                    ]
+                },
+                "VolumeAttachmentInfo": {
+                    "type": "object",
+                    "properties": {
+                        "bus-address": {
+                            "type": "string"
+                        },
+                        "device-link": {
+                            "type": "string"
+                        },
+                        "device-name": {
+                            "type": "string"
+                        },
+                        "plan-info": {
+                            "$ref": "#/definitions/VolumeAttachmentPlanInfo"
+                        },
+                        "read-only": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "VolumeAttachmentPlanInfo": {
+                    "type": "object",
+                    "properties": {
+                        "device-attributes": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "device-type": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "VolumeDetails": {
+                    "type": "object",
+                    "properties": {
+                        "info": {
+                            "$ref": "#/definitions/VolumeInfo"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "machine-attachments": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/VolumeAttachmentDetails"
+                                }
+                            }
+                        },
+                        "status": {
+                            "$ref": "#/definitions/EntityStatus"
+                        },
+                        "storage": {
+                            "$ref": "#/definitions/StorageDetails"
+                        },
+                        "unit-attachments": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/VolumeAttachmentDetails"
+                                }
+                            }
+                        },
+                        "volume-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "volume-tag",
+                        "info",
+                        "status"
+                    ]
+                },
+                "VolumeInfo": {
+                    "type": "object",
+                    "properties": {
+                        "hardware-id": {
+                            "type": "string"
+                        },
+                        "persistent": {
+                            "type": "boolean"
+                        },
+                        "pool": {
+                            "type": "string"
+                        },
+                        "size": {
+                            "type": "integer"
+                        },
+                        "volume-id": {
+                            "type": "string"
+                        },
+                        "wwn": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "volume-id",
+                        "size",
+                        "persistent"
                     ]
                 }
             }

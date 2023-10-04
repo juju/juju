@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/v3/ssh"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	jujussh "github.com/juju/juju/network/ssh"
@@ -198,7 +199,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForHostMachineTarget(c 
 		host: "10.0.0.1",
 	}
 
-	statusGetter := func(_ []string) (*params.FullStatus, error) {
+	statusGetter := func(_ *client.StatusArgs) (*params.FullStatus, error) {
 		return &params.FullStatus{
 			Machines: map[string]params.MachineStatus{
 				"0": {
@@ -221,7 +222,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 		host: "252.66.6.42",
 	}
 
-	statusGetter := func(_ []string) (*params.FullStatus, error) {
+	statusGetter := func(_ *client.StatusArgs) (*params.FullStatus, error) {
 		return &params.FullStatus{
 			Machines: map[string]params.MachineStatus{
 				"0": {

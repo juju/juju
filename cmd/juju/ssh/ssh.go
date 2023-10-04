@@ -18,6 +18,7 @@ import (
 	"github.com/mattn/go-isatty"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/client/client"
 	apiclient "github.com/juju/juju/api/client/client"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -238,7 +239,7 @@ type sshProvider interface {
 	setLeaderAPI(leaderAPI LeaderAPI)
 	setHostChecker(checker jujussh.ReachableChecker)
 	resolveTarget(string) (*resolvedTarget, error)
-	maybePopulateTargetViaField(*resolvedTarget, func([]string) (*params.FullStatus, error)) error
+	maybePopulateTargetViaField(*resolvedTarget, func(*client.StatusArgs) (*params.FullStatus, error)) error
 	maybeResolveLeaderUnit(string) (string, error)
 	ssh(ctx Context, enablePty bool, target *resolvedTarget) error
 	copy(Context) error

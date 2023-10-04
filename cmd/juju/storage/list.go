@@ -146,6 +146,30 @@ func GetCombinedStorageInfo(p GetCombinedStorageInfoParams) (*CombinedStorage, e
 	return combined, nil
 }
 
+// CombinedStorageFromParams is called with a response from FullStatus.
+// TODO: move storage handling to a common package.
+func CombinedStorageFromParams(
+	storage []params.StorageDetails,
+	filesystems []params.FilesystemDetails,
+	volumes []params.VolumeDetails,
+) (*CombinedStorage, error) {
+	var err error
+	cs := &CombinedStorage{}
+	cs.StorageInstances, err = formatStorageDetails(storage)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cs.Filesystems, err = convertToFilesystemInfo(filesystems)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cs.Volumes, err = convertToVolumeInfo(volumes)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cs, nil
+}
+
 // StorageListAPI defines the API methods that the storage commands use.
 type StorageListAPI interface {
 	Close() error

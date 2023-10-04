@@ -6,7 +6,6 @@ package storage
 import (
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -20,12 +19,8 @@ import (
 
 type storageAccess interface {
 	storageInterface
-
-	// VolumeAccess is required for storage functionality.
-	VolumeAccess() storageVolume
-
-	// FilesystemAccess is required for storage functionality.
-	FilesystemAccess() storageFile
+	storageVolume
+	storageFile
 }
 
 type storageInterface interface {
@@ -108,41 +103,7 @@ var getStorageAccessor = func(st *state.State) (storageAccess, error) {
 	if err != nil {
 		return nil, err
 	}
-	storageAccess := &storageShim{
-		storageInterface: sb,
-		va:               sb,
-		fa:               sb,
-	}
-	return storageAccess, nil
-}
-
-type storageShim struct {
-	storageInterface
-	fa storageFile
-	va storageVolume
-}
-
-func (s *storageShim) VolumeAccess() storageVolume {
-	return s.va
-}
-
-func (s *storageShim) FilesystemAccess() storageFile {
-	return s.fa
-}
-
-// unitAssignedMachine returns the tag of the machine that the unit
-// is assigned to, or an error if the unit cannot be obtained or is
-// not assigned to a machine.
-func unitAssignedMachine(backend backend, tag names.UnitTag) (names.MachineTag, error) {
-	unit, err := backend.Unit(tag.Id())
-	if err != nil {
-		return names.MachineTag{}, errors.Trace(err)
-	}
-	mid, err := unit.AssignedMachineId()
-	if err != nil {
-		return names.MachineTag{}, errors.Trace(err)
-	}
-	return names.NewMachineTag(mid), nil
+	return sb, nil
 }
 
 type backend interface {

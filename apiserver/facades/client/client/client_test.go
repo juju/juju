@@ -463,7 +463,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	)
 
 	api, err := client.NewClient(
-		backend,
+		backend, nil,
 		nil, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil, nil, nil,
@@ -542,7 +542,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	)
 
 	api, err := client.NewClient(
-		backend,
+		backend, nil,
 		nil, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil, nil, nil,
@@ -626,7 +626,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	)
 
 	api, err := client.NewClient(
-		backend,
+		backend, nil,
 		nil, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil, nil, nil,
