@@ -317,7 +317,7 @@ func (s *SecretsAPI) createSecret(backend provider.SecretsBackend, arg params.Cr
 	md, err := s.secretsState.CreateSecret(uri, state.CreateSecretParams{
 		Version:            secrets.Version,
 		Owner:              secretOwner,
-		UpdateSecretParams: fromUpsertParams(arg.UpsertSecretArg),
+		UpdateSecretParams: fromUpsertParams(nil, arg.UpsertSecretArg),
 	})
 	if err != nil {
 		return "", errors.Trace(err)
@@ -325,7 +325,7 @@ func (s *SecretsAPI) createSecret(backend provider.SecretsBackend, arg params.Cr
 	return md.URI.String(), nil
 }
 
-func fromUpsertParams(p params.UpsertSecretArg) state.UpdateSecretParams {
+func fromUpsertParams(autoPrune *bool, p params.UpsertSecretArg) state.UpdateSecretParams {
 	var valueRef *coresecrets.ValueRef
 	if p.Content.ValueRef != nil {
 		valueRef = &coresecrets.ValueRef{
@@ -334,6 +334,7 @@ func fromUpsertParams(p params.UpsertSecretArg) state.UpdateSecretParams {
 		}
 	}
 	return state.UpdateSecretParams{
+		AutoPrune:   autoPrune,
 		LeaderToken: successfulToken{},
 		Description: p.Description,
 		Label:       p.Label,
@@ -406,8 +407,38 @@ func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.Up
 			}
 		}
 	}
-	_, err = s.secretsState.UpdateSecret(uri, fromUpsertParams(arg.UpsertSecretArg))
-	return errors.Trace(err)
+	md, err = s.secretsState.UpdateSecret(uri, fromUpsertParams(arg.AutoPrune, arg.UpsertSecretArg))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if md.AutoPrune {
+		// If the secret was updated, we need to delete the old unused secret revisions.
+		revsToDelete, err := s.secretsState.ListUnusedSecretRevisions(uri)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		pruneArg := params.DeleteSecretArg{URI: md.URI.String()}
+		for _, rev := range revsToDelete {
+			if rev == md.LatestRevision {
+				// We don't want to delete the latest revision.
+				continue
+			}
+			pruneArg.Revisions = append(pruneArg.Revisions, rev)
+		}
+		if len(pruneArg.Revisions) == 0 {
+			return nil
+		}
+		pruneResult, err := s.RemoveSecrets(params.DeleteSecretArgs{Args: []params.DeleteSecretArg{pruneArg}})
+		if err != nil {
+			// We don't want to fail the update if we can't prune the unused secret revisions because they will be picked up later
+			// when the secret has any new obsolute revisions.
+			logger.Warningf("failed to prune unused secret revisions for %q: %v", uri, err)
+		}
+		if err = pruneResult.Combine(); err != nil {
+			logger.Warningf("failed to prune unused secret revisions for %q: %v", uri, pruneResult.Combine())
+		}
+	}
+	return nil
 }
 
 // RemoveSecrets isn't on the v1 API.
@@ -415,7 +446,9 @@ func (s *SecretsAPIV1) RemoveSecrets(_ struct{}) {}
 
 // RemoveSecrets remove user secret.
 func (s *SecretsAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorResults, error) {
-	return commonsecrets.RemoveSecretsForClient(
+	// ??? should we allow to delete secrets/revisions if they are still been used???
+	// introduce --force for remove-secret command????
+	return commonsecrets.RemoveSecretsUserSupplied(
 		s.secretsState, s.backendConfigGetter,
 		s.authTag, args,
 		func(uri *coresecrets.URI) error {

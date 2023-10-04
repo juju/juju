@@ -551,10 +551,9 @@ func RemoveSecretsForAgent(
 	)
 }
 
-// RemoveSecretsForClient removes the specified secrets for client.
-// The secrets are removed from the state and
-// backend and the caller must have model admin access.
-func RemoveSecretsForClient(
+// RemoveSecretsUserSupplied removes the specified user supplied secrets.
+// The secrets are removed from the state and backend, and the caller must have model admin access.
+func RemoveSecretsUserSupplied(
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
 	authTag names.Tag, args params.DeleteSecretArgs,
 	canDelete func(*coresecrets.URI) error,
