@@ -4,10 +4,13 @@
 package machiner_test
 
 import (
+	"sync"
+
 	"github.com/juju/names/v4"
 	gitjujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -30,10 +33,15 @@ func (w *mockWatcher) Wait() error {
 }
 
 type mockMachine struct {
+	calls chan string
+
 	machiner.Machine
 	gitjujutesting.Stub
 	watcher mockWatcher
 	life    life.Value
+
+	mutex sync.Mutex
+	jobs  []model.MachineJob
 }
 
 func (m *mockMachine) Refresh() error {
@@ -49,6 +57,17 @@ func (m *mockMachine) Life() life.Value {
 func (m *mockMachine) EnsureDead() error {
 	m.MethodCall(m, "EnsureDead")
 	return m.NextErr()
+}
+
+func (m *mockMachine) Jobs() (*params.JobsResult, error) {
+	m.mutex.Lock()
+	jobs := m.jobs
+	m.mutex.Unlock()
+
+	m.MethodCall(m, "Jobs")
+	return &params.JobsResult{
+		Jobs: jobs,
+	}, m.NextErr()
 }
 
 func (m *mockMachine) SetMachineAddresses(addresses []network.MachineAddress) error {
@@ -72,6 +91,14 @@ func (m *mockMachine) Watch() (watcher.NotifyWatcher, error) {
 		return nil, err
 	}
 	return &m.watcher, nil
+}
+
+func (m *mockMachine) MethodCall(receiver interface{}, funcName string, args ...interface{}) {
+	m.Stub.MethodCall(receiver, funcName, args...)
+	select {
+	case m.calls <- funcName:
+	default:
+	}
 }
 
 type mockMachineAccessor struct {

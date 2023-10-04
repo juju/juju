@@ -4,6 +4,7 @@
 package machiner
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/juju/errors"
@@ -12,7 +13,9 @@ import (
 	"github.com/juju/worker/v3"
 
 	"github.com/juju/juju/api/common"
+	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	corelife "github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -52,6 +55,7 @@ func (cfg *Config) Validate() error {
 type Machiner struct {
 	config  Config
 	machine Machine
+	state   bool
 }
 
 // NewMachiner returns a Worker that will wait for the identified machine
@@ -85,6 +89,16 @@ func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 		return nil, errors.Trace(err)
 	}
 	mr.machine = m
+
+	// Check the machine jobs to see if we're responsible for state.
+	// Essentially, we need to work out if we're a controller or not.
+	// We'll do this by checking if any of the jobs are state jobs.
+	result, err := m.Jobs()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// If a machine requires state, we can classify it as a controller.
+	mr.state = requiresState(result)
 
 	switch {
 	case corelife.IsNotAlive(m.Life()):
@@ -187,6 +201,14 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 		return err
 	}
 
+	result, err := mr.machine.Jobs()
+	if err != nil {
+		return errors.Annotatef(err, "%s failed to get jobs", mr.config.Tag)
+	}
+	if requiresState(result) != mr.state {
+		return fmt.Errorf("bounce agent to pick up new jobs%w", errors.Hide(agenterrors.FatalError))
+	}
+
 	life := mr.machine.Life()
 	if life == corelife.Alive {
 		observedConfig, err := getObservedNetworkConfig(corenetwork.DefaultConfigSource())
@@ -246,4 +268,11 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 func (mr *Machiner) TearDown() error {
 	// Nothing to do here.
 	return nil
+}
+
+func requiresState(result *params.JobsResult) bool {
+	if result == nil {
+		return false
+	}
+	return model.AnyJobNeedsState(result.Jobs...)
 }

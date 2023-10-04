@@ -23,6 +23,7 @@ type Machine interface {
 	Refresh() error
 	Life() life.Value
 	EnsureDead() error
+	Jobs() (*params.JobsResult, error)
 	SetMachineAddresses(addresses []network.MachineAddress) error
 	SetStatus(machineStatus status.Status, info string, data map[string]interface{}) error
 	Watch() (watcher.NotifyWatcher, error)
