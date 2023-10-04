@@ -28,7 +28,6 @@ import (
 
 type MachinerSuite struct {
 	coretesting.BaseSuite
-	calls      chan string
 	accessor   *mockMachineAccessor
 	machineTag names.MachineTag
 	addresses  []net.Addr

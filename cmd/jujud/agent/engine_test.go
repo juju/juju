@@ -120,7 +120,6 @@ var (
 		"disk-manager",
 		"fan-configurer",
 		"is-controller-flag",
-		"is-not-controller-flag",
 		// "host-key-reporter", not stable, exits when done
 		"log-sender",
 		"logging-config-updater",

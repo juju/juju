@@ -84,7 +84,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"http-server-args",
 			"instance-mutater",
 			"is-controller-flag",
-			"is-not-controller-flag",
 			"is-primary-controller-flag",
 			"lease-expiry",
 			"lease-manager",
@@ -237,7 +236,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"http-server",
 		"http-server-args",
 		"is-controller-flag",
-		"is-not-controller-flag",
 		"is-primary-controller-flag",
 		"lease-expiry",
 		"lease-manager",
@@ -669,8 +667,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	},
 
 	"is-controller-flag": {"agent", "state-config-watcher"},
-
-	"is-not-controller-flag": {"agent", "state-config-watcher"},
 
 	"is-primary-controller-flag": {
 		"agent",

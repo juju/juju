@@ -322,7 +322,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// Each machine agent has a flag manifold/worker which
 		// reports whether or not the agent is a controller.
-		isControllerFlagName: isControllerFlagManifold(true),
+		isControllerFlagName: isControllerFlagManifold(),
 
 		// The stateconfigwatcher manifold watches the machine agent's
 		// configuration and reports if state serving info is
@@ -962,8 +962,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 			ContainerType:                instance.LXD,
 		})),
-		// isNotControllerFlagName is only used for the stateconverter,
-		isNotControllerFlagName: isControllerFlagManifold(false),
 	}
 
 	return mergeManifolds(config, manifolds)
@@ -1041,12 +1039,6 @@ var ifController = engine.Housing{
 	},
 }.Decorate
 
-var ifNotController = engine.Housing{
-	Flags: []string{
-		isNotControllerFlagName,
-	},
-}.Decorate
-
 var ifCredentialValid = engine.Housing{
 	Flags: []string{
 		validCredentialFlagName,
@@ -1114,7 +1106,6 @@ const (
 	externalControllerUpdaterName = "external-controller-updater"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"
-	isNotControllerFlagName       = "is-not-controller-flag"
 	instanceMutaterName           = "instance-mutater"
 	certificateWatcherName        = "certificate-watcher"
 	modelCacheName                = "model-cache"
