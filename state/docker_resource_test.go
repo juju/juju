@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/state"
 )
 
@@ -124,8 +125,8 @@ func (s *dockerMetadataStorageSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func readerToDockerDetails(c *gc.C, r io.ReadCloser) *resources.DockerImageDetails {
-	var info resources.DockerImageDetails
+func readerToDockerDetails(c *gc.C, r io.ReadCloser) *docker.DockerImageDetails {
+	var info docker.DockerImageDetails
 	respBuf := new(bytes.Buffer)
 	_, err := respBuf.ReadFrom(r)
 	c.Assert(err, jc.ErrorIsNil)

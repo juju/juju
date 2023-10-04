@@ -31,8 +31,6 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/resources",
 		"core/secrets",
 		"core/status",
-		//  TODO: these have been brought in from migration and this is BAD.
-		"internal/docker",
 	})
 
 }

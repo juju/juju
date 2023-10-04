@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/state"
@@ -135,7 +136,7 @@ func (st *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
 
 type mockResources struct {
 	caasapplicationprovisioner.Resources
-	resource *resources.DockerImageDetails
+	resource *docker.DockerImageDetails
 }
 
 func (m *mockResources) OpenResource(applicationID string, name string) (resources.Resource, io.ReadCloser, error) {

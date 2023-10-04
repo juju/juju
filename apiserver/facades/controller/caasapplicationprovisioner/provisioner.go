@@ -690,7 +690,7 @@ func (a *API) ApplicationOCIResources(ctx context.Context, args params.Entities)
 }
 
 func readDockerImageResource(reader io.Reader) (params.DockerImageInfo, error) {
-	var details resources.DockerImageDetails
+	var details docker.DockerImageDetails
 	contents, err := io.ReadAll(reader)
 	if err != nil {
 		return params.DockerImageInfo{}, errors.Trace(err)
