@@ -145,6 +145,14 @@ func (ba *BasicAuthConfig) init() error {
 	return nil
 }
 
+// DockerImageDetails holds the details for a Docker resource type.
+type DockerImageDetails struct {
+	// RegistryPath holds the path of the Docker image (including host and sha256) in a docker registry.
+	RegistryPath string `json:"ImageName" yaml:"registrypath"`
+
+	ImageRepoDetails `json:",inline" yaml:",inline"`
+}
+
 // ImageRepoDetails contains authorization information for connecting to a Registry.
 type ImageRepoDetails struct {
 	BasicAuthConfig `json:",inline" yaml:",inline"`

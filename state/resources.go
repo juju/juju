@@ -23,6 +23,7 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/state/storage"
 )
 
@@ -995,11 +996,33 @@ func (p *resourcePersistence) storeResource(res resources.Resource, r io.Reader,
 		if err != nil {
 			return errors.Trace(err)
 		}
-		dockerDetails, err := resources.UnmarshalDockerResource(respBuf.Bytes())
+		dockerDetails, err := docker.UnmarshalDockerResource(respBuf.Bytes())
 		if err != nil {
 			return errors.Trace(err)
 		}
-		err = p.dockerMetadataStorage.Save(res.ID, dockerDetails)
+
+		// Convert a serialized DockerImageDetails to a
+		// resources.DockerImageDetails
+		resourceDetails := resources.DockerImageDetails{
+			RegistryPath: dockerDetails.RegistryPath,
+			ImageRepoDetails: resources.ImageRepoDetails{
+				BasicAuthConfig: resources.BasicAuthConfig{
+					Auth:     dockerResourceToken(dockerDetails.BasicAuthConfig.Auth),
+					Username: dockerDetails.BasicAuthConfig.Username,
+					Password: dockerDetails.BasicAuthConfig.Password,
+				},
+				TokenAuthConfig: resources.TokenAuthConfig{
+					IdentityToken: dockerResourceToken(dockerDetails.TokenAuthConfig.IdentityToken),
+					RegistryToken: dockerResourceToken(dockerDetails.TokenAuthConfig.RegistryToken),
+					Email:         dockerDetails.TokenAuthConfig.Email,
+				},
+				Repository:    dockerDetails.Repository,
+				ServerAddress: dockerDetails.ServerAddress,
+				Region:        dockerDetails.Region,
+			},
+		}
+
+		err = p.dockerMetadataStorage.Save(res.ID, resourceDetails)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1012,6 +1035,16 @@ func (p *resourcePersistence) storeResource(res resources.Resource, r io.Reader,
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func dockerResourceToken(token *docker.Token) *resources.Token {
+	if token == nil {
+		return nil
+	}
+	return &resources.Token{
+		Value:     token.Value,
+		ExpiresAt: token.ExpiresAt,
+	}
 }
 
 // setUnitResourceProgress stores the resource info for a particular unit. The

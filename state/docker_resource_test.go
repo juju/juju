@@ -91,8 +91,8 @@ func (s *dockerMetadataStorageSuite) TestGet(c *gc.C) {
 	id := "test-123"
 	resource := resources.DockerImageDetails{
 		RegistryPath: "url@sha256:abc123",
-		ImageRepoDetails: docker.ImageRepoDetails{
-			BasicAuthConfig: docker.BasicAuthConfig{
+		ImageRepoDetails: resources.ImageRepoDetails{
+			BasicAuthConfig: resources.BasicAuthConfig{
 				Username: "testuser",
 				Password: "hunter2",
 			},
@@ -125,8 +125,8 @@ func (s *dockerMetadataStorageSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func readerToDockerDetails(c *gc.C, r io.ReadCloser) *resources.DockerImageDetails {
-	var info resources.DockerImageDetails
+func readerToDockerDetails(c *gc.C, r io.ReadCloser) *docker.DockerImageDetails {
+	var info docker.DockerImageDetails
 	respBuf := new(bytes.Buffer)
 	_, err := respBuf.ReadFrom(r)
 	c.Assert(err, jc.ErrorIsNil)

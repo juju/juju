@@ -46,7 +46,6 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/status",
 		"core/watcher",
 		"environs/context",
-		"internal/docker",
 		"internal/feature",
 		"internal/proxy",
 		"internal/proxy/config",

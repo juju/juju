@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/internal/docker"
 )
 
 // CAASUnitIntroductionArgs is used by sidecar units to introduce
@@ -93,7 +92,7 @@ type DockerImageInfo struct {
 }
 
 // NewDockerImageInfo converts docker.ImageRepoDetails to DockerImageInfo.
-func NewDockerImageInfo(info docker.ImageRepoDetails, registryPath string) DockerImageInfo {
+func NewDockerImageInfo(info resources.ImageRepoDetails, registryPath string) DockerImageInfo {
 	return DockerImageInfo{
 		Username:      info.Username,
 		Password:      info.Password,
@@ -110,17 +109,17 @@ func NewDockerImageInfo(info docker.ImageRepoDetails, registryPath string) Docke
 func ConvertDockerImageInfo(info DockerImageInfo) resources.DockerImageDetails {
 	return resources.DockerImageDetails{
 		RegistryPath: info.RegistryPath,
-		ImageRepoDetails: docker.ImageRepoDetails{
+		ImageRepoDetails: resources.ImageRepoDetails{
 			Repository:    info.Repository,
 			ServerAddress: info.ServerAddress,
-			BasicAuthConfig: docker.BasicAuthConfig{
+			BasicAuthConfig: resources.BasicAuthConfig{
 				Username: info.Username,
 				Password: info.Password,
-				Auth:     docker.NewToken(info.Auth),
+				Auth:     resources.NewToken(info.Auth),
 			},
-			TokenAuthConfig: docker.TokenAuthConfig{
-				IdentityToken: docker.NewToken(info.IdentityToken),
-				RegistryToken: docker.NewToken(info.RegistryToken),
+			TokenAuthConfig: resources.TokenAuthConfig{
+				IdentityToken: resources.NewToken(info.IdentityToken),
+				RegistryToken: resources.NewToken(info.RegistryToken),
 				Email:         info.Email,
 			},
 		},

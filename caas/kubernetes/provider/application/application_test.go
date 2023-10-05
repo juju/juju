@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/core/paths"
 	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/testing"
 )
@@ -332,8 +331,8 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 					Name: "nginx",
 					Image: coreresources.DockerImageDetails{
 						RegistryPath: "nginx-image:latest",
-						ImageRepoDetails: docker.ImageRepoDetails{
-							BasicAuthConfig: docker.BasicAuthConfig{
+						ImageRepoDetails: coreresources.ImageRepoDetails{
+							BasicAuthConfig: coreresources.BasicAuthConfig{
 								Username: "username",
 								Password: "password",
 							},
