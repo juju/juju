@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
@@ -28,13 +29,16 @@ type objectsClient struct {
 	client *s3.Client
 }
 
+// GetObject gets an object from the object store based on the bucket name and
+// object name.
 func (c *objectsClient) GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error) {
 	c.logger.Tracef("retrieving bucket %s object %s from s3 storage", bucketName, objectName)
-	obj, err := c.client.GetObject(ctx,
-		&s3.GetObjectInput{
-			Bucket: aws.String(bucketName),
-			Key:    aws.String(objectName),
-		})
+
+	obj, err := c.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(objectName),
+	},
+	)
 	if err != nil {
 		return nil, errors.Annotatef(err, "unable to get object %s on bucket %s using S3 client", objectName, bucketName)
 	}
@@ -45,11 +49,11 @@ type awsEndpointResolver struct {
 	endpoint string
 }
 
+// ResolveEndpoint returns the endpoint for the given service and region.
 func (a *awsEndpointResolver) ResolveEndpoint(service, region string) (aws.Endpoint, error) {
 	return aws.Endpoint{
-		URL: "https://" + a.endpoint,
+		URL: a.endpoint,
 	}, nil
-
 }
 
 type awsHTTPDoer struct {
@@ -58,8 +62,7 @@ type awsHTTPDoer struct {
 
 func (c *awsHTTPDoer) Do(req *http.Request) (*http.Response, error) {
 	var res *http.Response
-	err := c.client.Do(context.Background(), req, &res)
-
+	err := c.client.Do(req.Context(), req, &res)
 	return res, err
 }
 
@@ -78,6 +81,7 @@ func (l *awsLogger) Logf(classification logging.Classification, format string, v
 	}
 }
 
+// NewS3Client returns a new s3Caller client for accessing the object store.
 func NewS3Client(apiConn api.Connection, logger Logger) (Session, error) {
 	// We use api.Connection address because we assume this address is
 	// correct and reachable.
@@ -97,11 +101,13 @@ func NewS3Client(apiConn api.Connection, logger Logger) (Session, error) {
 		logger: logger,
 	}
 
+	httpsAPIAddress := ensureHTTPS(currentAPIAddress)
+
 	cfg, err := config.LoadDefaultConfig(
 		context.Background(),
 		config.WithLogger(awsLogger),
 		config.WithHTTPClient(awsHTTPDoer),
-		config.WithEndpointResolver(&awsEndpointResolver{endpoint: currentAPIAddress}),
+		config.WithEndpointResolver(&awsEndpointResolver{endpoint: httpsAPIAddress}),
 		// Standard retryer retries 3 times with 20s backoff time by
 		// default.
 		config.WithRetryer(func() aws.Retryer { return retry.NewStandard() }),
@@ -119,4 +125,15 @@ func NewS3Client(apiConn api.Connection, logger Logger) (Session, error) {
 		}),
 		logger: logger,
 	}, nil
+}
+
+// ensureHTTPS takes a URI and ensures that it is a HTTPS URL.
+func ensureHTTPS(address string) string {
+	if strings.HasPrefix(address, "https://") {
+		return address
+	}
+	if strings.HasPrefix(address, "http://") {
+		return strings.Replace(address, "http://", "https://", 1)
+	}
+	return "https://" + address
 }

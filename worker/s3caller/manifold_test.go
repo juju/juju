@@ -24,10 +24,6 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
 	cfg = s.getConfig()
-	cfg.APIConfigWatcherName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
 	cfg.APICallerName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
@@ -42,8 +38,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		APIConfigWatcherName: "api-config-watcher",
-		APICallerName:        "api-caller",
+		APICallerName: "api-caller",
 		NewS3Client: func(api.Connection, Logger) (Session, error) {
 			return s.session, nil
 		},

@@ -163,7 +163,7 @@ func (s *containerSetupSuite) expectContainerManagerConfig(cType instance.Contai
 	s.caller.EXPECT().APICall(
 		gomock.Any(),
 		"Provisioner", 666, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
-	).SetArg(5, resultSource).MinTimes(1)
+	).SetArg(6, resultSource).MinTimes(1)
 }
 
 type credentialAPIForTest struct{}

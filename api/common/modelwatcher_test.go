@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/instancemutater/mocks"
 )
 
 type modelwatcherTests struct {
@@ -52,10 +51,10 @@ func (s *modelwatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	facade := apimocks.NewMockFacadeCaller(ctrl)
-	caller := mocks.NewMockAPICaller(ctrl)
+	caller := apimocks.NewMockAPICaller(ctrl)
 	caller.EXPECT().BestFacadeVersion("NotifyWatcher").Return(666)
-	caller.EXPECT().APICall("NotifyWatcher", 666, "", "Next", nil, gomock.Any()).Return(nil).AnyTimes()
-	caller.EXPECT().APICall("NotifyWatcher", 666, "", "Stop", nil, gomock.Any()).Return(nil).AnyTimes()
+	caller.EXPECT().APICall(gomock.Any(), "NotifyWatcher", 666, "", "Next", nil, gomock.Any()).Return(nil).AnyTimes()
+	caller.EXPECT().APICall(gomock.Any(), "NotifyWatcher", 666, "", "Stop", nil, gomock.Any()).Return(nil).AnyTimes()
 
 	result := params.NotifyWatchResult{}
 	facade.EXPECT().FacadeCall("WatchForModelConfigChanges", nil, gomock.Any()).SetArg(2, result).Return(nil)

@@ -13,24 +13,18 @@ import (
 
 // Logger represents the logging methods called.
 type Logger interface {
-	Errorf(message string, args ...interface{})
-	Warningf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Debugf(message string, args ...interface{})
-	Tracef(message string, args ...interface{})
+	Warningf(message string, args ...any)
+	Debugf(message string, args ...any)
+	Tracef(message string, args ...any)
 }
 
 // ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {
-	// APIConfigWatcherName identifies a resource that will be
-	// invalidated when api configuration changes. It's not really
-	// fundamental, because it's not used directly, except to create
-	// Inputs; it would be perfectly reasonable to wrap a Manifold
-	// to report an extra Input instead.
-	APIConfigWatcherName string
-
+	// APICallerName is the name of the APICaller resource that
+	// supplies the API connection.
 	APICallerName string
 
+	// NewClient is used to create a new object store client.
 	NewS3Client func(apiConn api.Connection, logger Logger) (Session, error)
 
 	// Logger is used to write logging statements for the worker.
@@ -38,9 +32,6 @@ type ManifoldConfig struct {
 }
 
 func (cfg ManifoldConfig) Validate() error {
-	if cfg.APIConfigWatcherName == "" {
-		return errors.NotValidf("empty APIConfigWatcherName")
-	}
 	if cfg.APICallerName == "" {
 		return errors.NotValidf("nil APICallerName")
 	}
@@ -55,9 +46,10 @@ func (cfg ManifoldConfig) Validate() error {
 
 // Manifold returns a manifold whose worker wraps an S3 Session.
 func Manifold(config ManifoldConfig) dependency.Manifold {
-	inputs := []string{config.APIConfigWatcherName, config.APICallerName}
 	return dependency.Manifold{
-		Inputs: inputs,
+		Inputs: []string{
+			config.APICallerName,
+		},
 		Output: outputFunc,
 		Start:  config.startFunc(),
 	}
@@ -85,7 +77,7 @@ func (config ManifoldConfig) startFunc() dependency.StartFunc {
 }
 
 // outputFunc extracts a S3 client from a *s3caller.
-func outputFunc(in worker.Worker, out interface{}) error {
+func outputFunc(in worker.Worker, out any) error {
 	inWorker, _ := in.(*s3ClientWorker)
 	if inWorker == nil {
 		return errors.Errorf("in should be a %T; got %T", inWorker, in)

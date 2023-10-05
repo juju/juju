@@ -128,12 +128,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var s3Caller s3caller.Session
-			if err := ctx.Get(config.S3CallerName, &s3Caller); err != nil {
+			var objectStoreCaller s3caller.Session
+			if err := ctx.Get(config.S3CallerName, &objectStoreCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			s3Downloader := charms.NewS3CharmDownloader(s3Caller, apiConn)
+			s3Downloader := charms.NewS3CharmDownloader(objectStoreCaller, apiConn)
 
 			jujuSecretsAPI := secretsmanager.NewClient(apiConn)
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, isLeader bool, rotateSecrets chan []string) (worker.Worker, error) {

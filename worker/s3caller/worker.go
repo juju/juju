@@ -8,12 +8,6 @@ import (
 	"gopkg.in/tomb.v2"
 )
 
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
-
 func newS3ClientWorker(session Session) worker.Worker {
 	w := &s3ClientWorker{session: session}
 	w.tomb.Go(w.loop)
@@ -36,10 +30,6 @@ func (w *s3ClientWorker) Wait() error {
 }
 
 func (w *s3ClientWorker) loop() (err error) {
-	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		}
-	}
+	<-w.tomb.Dying()
+	return tomb.ErrDying
 }

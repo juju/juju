@@ -17,10 +17,10 @@ import (
 
 // NewS3CharmDownloader returns a new charm downloader that wraps a s3Caller
 // client for the provided endpoint.
-func NewS3CharmDownloader(s3Session s3caller.Session, apiCaller base.APICaller) *downloader.Downloader {
+func NewS3CharmDownloader(objectStoreClient s3caller.Session, apiCaller base.APICaller) *downloader.Downloader {
 	dlr := &downloader.Downloader{
 		OpenBlob: func(req downloader.Request) (io.ReadCloser, error) {
-			streamer := NewS3CharmOpener(s3Session, apiCaller)
+			streamer := NewS3CharmOpener(objectStoreClient, apiCaller)
 			reader, err := streamer.OpenCharm(req)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -37,9 +37,9 @@ type S3CharmOpener interface {
 }
 
 type s3charmOpener struct {
-	ctx       context.Context
-	s3Session s3caller.Session
-	apiCaller base.APICaller
+	ctx               context.Context
+	objectStoreCaller s3caller.Session
+	apiCaller         base.APICaller
 }
 
 func (s *s3charmOpener) OpenCharm(req downloader.Request) (io.ReadCloser, error) {
@@ -60,14 +60,14 @@ func (s *s3charmOpener) OpenCharm(req downloader.Request) (io.ReadCloser, error)
 	bucket := "model-" + modelTag.Id()
 
 	object := "charms/" + curl.Name + "-" + shortSha256
-	return s.s3Session.GetObject(s.ctx, bucket, object)
+	return s.objectStoreCaller.GetObject(s.ctx, bucket, object)
 }
 
 // NewS3CharmOpener returns a charm opener for the specified s3Caller.
-func NewS3CharmOpener(s3Session s3caller.Session, apiCaller base.APICaller) S3CharmOpener {
+func NewS3CharmOpener(objectStoreCaller s3caller.Session, apiCaller base.APICaller) S3CharmOpener {
 	return &s3charmOpener{
-		ctx:       context.Background(),
-		s3Session: s3Session,
-		apiCaller: apiCaller,
+		ctx:               context.Background(),
+		objectStoreCaller: objectStoreCaller,
+		apiCaller:         apiCaller,
 	}
 }

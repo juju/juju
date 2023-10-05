@@ -50,7 +50,7 @@ func (s *provisionerSuite) TestNew(c *gc.C) {
 }
 
 func (s *provisionerSuite) expectCall(caller *mocks.MockAPICaller, method, args, results interface{}) {
-	caller.EXPECT().APICall(gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any()).SetArg(5, results).Return(nil)
+	caller.EXPECT().APICall(gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any()).SetArg(6, results).Return(nil)
 }
 
 func (s *provisionerSuite) TestMachines(c *gc.C) {
@@ -714,7 +714,7 @@ func (s *provisionerContainerSuite) setupCaller(ctrl *gomock.Controller) *mocks.
 }
 
 func (s *provisionerContainerSuite) expectCall(caller *mocks.MockAPICaller, method, args, results interface{}) {
-	caller.EXPECT().APICall(gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any()).SetArg(5, results).Return(nil)
+	caller.EXPECT().APICall(gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any()).SetArg(6, results).Return(nil)
 }
 
 func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c *gc.C) {

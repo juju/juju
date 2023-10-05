@@ -141,7 +141,8 @@ func (fc facadeCaller) FacadeCall(request string, params, response interface{}) 
 	return fc.caller.APICall(
 		context.TODO(),
 		fc.facadeName, fc.bestVersion, "",
-		request, params, response)
+		request, params, response,
+	)
 }
 
 // Name returns the facade name.
