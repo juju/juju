@@ -13,6 +13,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/domain"
 )
 
@@ -300,6 +301,7 @@ func (st *State) ActiveUpgrade(ctx context.Context) (string, error) {
 	return activeUpgrade, errors.Trace(err)
 }
 
+// SetDBUpgradeCompleted marks the database upgrade as completed
 func (st State) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID string) error {
 	db, err := st.DB()
 	if err != nil {
@@ -328,4 +330,29 @@ AND db_completed_at IS NULL;`
 		}
 		return nil
 	}))
+}
+
+// SelectUpgradeInfo returns the upgrade info for the provided upgradeUUID
+func (st *State) SelectUpgradeInfo(ctx context.Context, upgradeUUID string) (upgrade.Info, error) {
+	db, err := st.DB()
+	if err != nil {
+		return upgrade.Info{}, errors.Trace(err)
+	}
+
+	getUpgradeQuery := "SELECT * AS &info.* FROM upgrade_info WHERE uuid = $M.info_uuid"
+	getUpgradeStmt, err := sqlair.Prepare(getUpgradeQuery, info{}, sqlair.M{})
+	if err != nil {
+		return upgrade.Info{}, errors.Annotatef(err, "preparing %q", getUpgradeQuery)
+	}
+
+	var upgradeInfoRow info
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Trace(tx.Query(ctx, getUpgradeStmt, sqlair.M{"info_uuid": upgradeUUID}).Get(&upgradeInfoRow))
+	})
+	if err != nil {
+		return upgrade.Info{}, errors.Trace(err)
+	}
+
+	result, err := upgradeInfoRow.ToUpgradeInfo()
+	return result, errors.Trace(err)
 }
