@@ -18,15 +18,19 @@ type azureContainerRegistry struct {
 	*baseClient
 }
 
-func newAzureContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport, normalizeRepoDetailsAzure)
-	return &azureContainerRegistry{c}
+func newAzureContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (RegistryInternal, error) {
+	c, err := newBase(repoDetails, transport, normalizeRepoDetailsAzure)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &azureContainerRegistry{c}, nil
 }
 
-func normalizeRepoDetailsAzure(repoDetails *docker.ImageRepoDetails) {
+func normalizeRepoDetailsAzure(repoDetails *docker.ImageRepoDetails) error {
 	if repoDetails.ServerAddress == "" {
 		repoDetails.ServerAddress = repoDetails.Repository
 	}
+	return nil
 }
 
 // Match checks if the repository details matches current provider format.

@@ -17,9 +17,12 @@ type githubContainerRegistry struct {
 	*baseClient
 }
 
-func newGithubContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
-	return &githubContainerRegistry{c}
+func newGithubContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (RegistryInternal, error) {
+	c, err := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &githubContainerRegistry{c}, nil
 }
 
 // Match checks if the repository details matches current provider format.

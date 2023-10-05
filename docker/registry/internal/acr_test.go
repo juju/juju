@@ -94,8 +94,9 @@ func (s *azureContainerRegistrySuite) getRegistry(c *gc.C) (*internal.AzureConta
 		)
 	}
 
-	reg := internal.NewAzureContainerRegistry(s.imageRepoDetails, s.mockRoundTripper)
-	err := internal.InitProvider(reg)
+	reg, err := internal.NewAzureContainerRegistry(s.imageRepoDetails, s.mockRoundTripper)
+	c.Assert(err, jc.ErrorIsNil)
+	err = internal.InitProvider(reg)
 	if !s.imageRepoDetails.IsPrivate() {
 		c.Assert(err, gc.ErrorMatches, `username and password are required for registry "jujuqa.azurecr.io"`)
 		return nil, ctrl

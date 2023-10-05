@@ -12,13 +12,13 @@ import (
 )
 
 // NewBase creates a new base provider.
-func NewBase(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) *baseClient {
+func NewBase(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (*baseClient, error) {
 	return newBase(repoDetails, transport, normalizeRepoDetailsCommon)
 }
 
 // Providers returns all the supported registry providers.
-func Providers() []func(docker.ImageRepoDetails, http.RoundTripper) RegistryInternal {
-	return []func(docker.ImageRepoDetails, http.RoundTripper) RegistryInternal{
+func Providers() []func(docker.ImageRepoDetails, http.RoundTripper) (RegistryInternal, error) {
+	return []func(docker.ImageRepoDetails, http.RoundTripper) (RegistryInternal, error){
 		newAzureContainerRegistry,
 		newDockerhub,
 		newGitlabContainerRegistry,

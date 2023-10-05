@@ -103,7 +103,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 		{
 			Name:            "test",
 			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-			Image:           "juju/image",
+			Image:           "juju-repo.local/juju/image",
 			ImagePullPolicy: specs.PullPolicy("Always"),
 			ProviderContainer: &k8sspecs.K8sContainerSpec{
 				ReadinessProbe: &core.Probe{
@@ -122,7 +122,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 		}, {
 			Name:  "test2",
 			Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
-			Image: "juju/image2",
+			Image: "juju-repo.local/juju/image2",
 		},
 	}
 
@@ -155,7 +155,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 			Containers: []core.Container{
 				{
 					Name:            "test",
-					Image:           "juju/image",
+					Image:           "juju-repo.local/juju/image",
 					Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
 					ImagePullPolicy: core.PullAlways,
 					SecurityContext: &core.SecurityContext{
@@ -173,7 +173,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 					VolumeMounts: dataVolumeMounts(),
 				}, {
 					Name:  "test2",
-					Image: "juju/image2",
+					Image: "juju-repo.local/juju/image2",
 					Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
 					// Defaults since not specified.
 					SecurityContext: &core.SecurityContext{
@@ -253,7 +253,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 		{
 			Name:            "test",
 			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-			Image:           "juju/image",
+			Image:           "juju-repo.local/juju/image",
 			ImagePullPolicy: specs.PullPolicy("Always"),
 			EnvConfig: map[string]interface{}{
 				"restricted": "yes",
@@ -328,7 +328,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 		}, {
 			Name:  "test2",
 			Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
-			Image: "juju/image2",
+			Image: "juju-repo.local/juju/image2",
 		},
 	}
 
@@ -357,7 +357,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 			Containers: []core.Container{
 				{
 					Name:            "test",
-					Image:           "juju/image",
+					Image:           "juju-repo.local/juju/image",
 					Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
 					ImagePullPolicy: core.PullAlways,
 					SecurityContext: &core.SecurityContext{
@@ -404,7 +404,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 					},
 				}, {
 					Name:  "test2",
-					Image: "juju/image2",
+					Image: "juju-repo.local/juju/image2",
 					Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
 					// Defaults since not specified.
 					SecurityContext: &core.SecurityContext{
@@ -426,7 +426,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 		{
 			Name:            "test",
 			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-			Image:           "juju/image",
+			Image:           "juju-repo.local/juju/image",
 			ImagePullPolicy: specs.PullPolicy("Always"),
 			ProviderContainer: &k8sspecs.K8sContainerSpec{
 				ReadinessProbe: &core.Probe{
@@ -445,13 +445,13 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 		}, {
 			Name:  "test2",
 			Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
-			Image: "juju/image2",
+			Image: "juju-repo.local/juju/image2",
 		},
 		{
 			Name:            "test-init",
 			Init:            true,
 			Ports:           []specs.ContainerPort{{ContainerPort: 90, Protocol: "TCP"}},
-			Image:           "juju/image-init",
+			Image:           "juju-repo.local/juju/image-init",
 			ImagePullPolicy: specs.PullPolicy("Always"),
 			WorkingDir:      "/path/to/here",
 			Command:         []string{"sh", "ls"},
@@ -467,7 +467,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 			Containers: []core.Container{
 				{
 					Name:            "test",
-					Image:           "juju/image",
+					Image:           "juju-repo.local/juju/image",
 					Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
 					ImagePullPolicy: core.PullAlways,
 					ReadinessProbe: &core.Probe{
@@ -485,7 +485,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 					VolumeMounts: dataVolumeMounts(),
 				}, {
 					Name:  "test2",
-					Image: "juju/image2",
+					Image: "juju-repo.local/juju/image2",
 					Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
 					// Defaults since not specified.
 					SecurityContext: &core.SecurityContext{
@@ -499,7 +499,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 			InitContainers: append([]core.Container{
 				{
 					Name:            "test-init",
-					Image:           "juju/image-init",
+					Image:           "juju-repo.local/juju/image-init",
 					Ports:           []core.ContainerPort{{ContainerPort: int32(90), Protocol: core.ProtocolTCP}},
 					WorkingDir:      "/path/to/here",
 					Command:         []string{"sh", "ls"},
@@ -548,7 +548,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
 		{
 			Name:            "test",
 			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-			Image:           "juju/image",
+			Image:           "juju-repo.local/juju/image",
 			ImagePullPolicy: "Always",
 		},
 	}
@@ -580,7 +580,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpec(c *gc.C) {
 			Containers: []core.Container{
 				{
 					Name:            "test",
-					Image:           "juju/image",
+					Image:           "juju-repo.local/juju/image",
 					Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
 					ImagePullPolicy: core.PullAlways,
 					SecurityContext: &core.SecurityContext{
@@ -602,7 +602,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecPrimarySA(c *gc.C) {
 		{
 			Name:            "test",
 			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-			Image:           "juju/image",
+			Image:           "juju-repo.local/juju/image",
 			ImagePullPolicy: "Always",
 		},
 	}
@@ -619,7 +619,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecPrimarySA(c *gc.C) {
 			Containers: []core.Container{
 				{
 					Name:            "test",
-					Image:           "juju/image",
+					Image:           "juju-repo.local/juju/image",
 					Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
 					ImagePullPolicy: core.PullAlways,
 					SecurityContext: &core.SecurityContext{
@@ -640,7 +640,7 @@ func getBasicPodspec() *specs.PodSpec {
 	pSpecs.Containers = []specs.ContainerSpec{{
 		Name:         "test",
 		Ports:        []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-		ImageDetails: specs.ImageDetails{ImagePath: "juju/image", Username: "fred", Password: "secret"},
+		ImageDetails: specs.ImageDetails{ImagePath: "juju-repo.local/juju/image", Username: "fred", Password: "secret"},
 		Command:      []string{"sh", "-c"},
 		Args:         []string{"doIt", "--debug"},
 		WorkingDir:   "/path/to/here",
@@ -654,7 +654,7 @@ func getBasicPodspec() *specs.PodSpec {
 	}, {
 		Name:  "test2",
 		Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP", Name: "fred"}},
-		Image: "juju/image2",
+		Image: "juju-repo.local/juju/image2",
 	}}
 	return pSpecs
 }
@@ -743,7 +743,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecConfigPairs(c *gc.C) {
 			Containers: []core.Container{
 				{
 					Name:       "test",
-					Image:      "juju/image",
+					Image:      "juju-repo.local/juju/image",
 					Ports:      []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
 					Command:    []string{"sh", "-c"},
 					Args:       []string{"doIt", "--debug"},
@@ -764,7 +764,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecConfigPairs(c *gc.C) {
 					VolumeMounts: dataVolumeMounts(),
 				}, {
 					Name:  "test2",
-					Image: "juju/image2",
+					Image: "juju-repo.local/juju/image2",
 					Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP, Name: "fred"}},
 					// Defaults since not specified.
 					SecurityContext: &core.SecurityContext{
@@ -804,7 +804,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithRegistryCredentials(c *gc.C) {
 			Containers: []core.Container{
 				{
 					Name:       "test",
-					Image:      "juju/image",
+					Image:      "juju-repo.local/juju/image",
 					Ports:      []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
 					Command:    []string{"sh", "-c"},
 					Args:       []string{"doIt", "--debug"},
@@ -825,7 +825,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithRegistryCredentials(c *gc.C) {
 					VolumeMounts: dataVolumeMounts(),
 				}, {
 					Name:  "test2",
-					Image: "juju/image2",
+					Image: "juju-repo.local/juju/image2",
 					Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP, Name: "fred"}},
 					// Defaults since not specified.
 					SecurityContext: &core.SecurityContext{
@@ -1256,7 +1256,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	basicPodSpec.Containers = []specs.ContainerSpec{{
 		Name:         "test",
 		Ports:        []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-		ImageDetails: specs.ImageDetails{ImagePath: "juju/image", Username: "fred", Password: "secret"},
+		ImageDetails: specs.ImageDetails{ImagePath: "juju-repo.local/juju/image", Username: "fred", Password: "secret"},
 		Command:      []string{"sh", "-c"},
 		Args:         []string{"doIt", "--debug"},
 		WorkingDir:   "/path/to/here",
@@ -1302,7 +1302,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 		Name:  "test2",
 		Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP", Name: "fred"}},
 		Init:  true,
-		Image: "juju/image2",
+		Image: "juju-repo.local/juju/image2",
 		VolumeConfig: []specs.FileSet{
 			{
 				// exact same volume can be mounted to same path in different container.
@@ -1335,7 +1335,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	workloadSpec.Pod.Containers = []core.Container{
 		{
 			Name:            "test",
-			Image:           "juju/image",
+			Image:           "juju-repo.local/juju/image",
 			Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
 			ImagePullPolicy: core.PullAlways,
 			SecurityContext: &core.SecurityContext{
@@ -1356,7 +1356,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	workloadSpec.Pod.InitContainers = []core.Container{
 		{
 			Name:  "test2",
-			Image: "juju/image2",
+			Image: "juju-repo.local/juju/image2",
 			Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
 			// Defaults since not specified.
 			SecurityContext: &core.SecurityContext{
@@ -1400,7 +1400,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	c.Assert(workloadSpec.Pod.Containers, gc.DeepEquals, []core.Container{
 		{
 			Name:            "test",
-			Image:           "juju/image",
+			Image:           "juju-repo.local/juju/image",
 			Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
 			ImagePullPolicy: core.PullAlways,
 			SecurityContext: &core.SecurityContext{
@@ -1425,7 +1425,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	c.Assert(workloadSpec.Pod.InitContainers, gc.DeepEquals, []core.Container{
 		{
 			Name:  "test2",
-			Image: "juju/image2",
+			Image: "juju-repo.local/juju/image2",
 			Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
 			// Defaults since not specified.
 			SecurityContext: &core.SecurityContext{
