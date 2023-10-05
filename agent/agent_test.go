@@ -491,7 +491,7 @@ func (*suite) TestAPIInfoServesLocalhostWhenServingInfoPresent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(apiinfo.Addrs, jc.SameContents, []string{"localhost:52", "foo.example:1235"})
+	c.Check(apiinfo.Addrs, jc.SameContents, []string{"localhost:52"})
 }
 
 func (*suite) TestAPIInfoServesStandardAPIPortWhenControllerAPIPortNotSet(c *gc.C) {
@@ -503,7 +503,7 @@ func (*suite) TestAPIInfoServesStandardAPIPortWhenControllerAPIPortNotSet(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 	apiinfo, ok := conf.APIInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Check(apiinfo.Addrs, jc.SameContents, []string{"localhost:47", "foo.example:1235"})
+	c.Check(apiinfo.Addrs, jc.SameContents, []string{"localhost:47"})
 }
 
 func (*suite) TestMongoInfo(c *gc.C) {
