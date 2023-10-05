@@ -122,7 +122,6 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 		nil,                             // Jobs
 		nil,                             // Watch
 		nil,                             // Refresh
-		nil,                             // Jobs
 		errors.New("cannot set status"), // SetStatus (stopped)
 	)
 	w, err := machiner.NewMachiner(machiner.Config{
@@ -141,12 +140,11 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 		"Life",
 		"Watch",
 		"Refresh",
-		"Jobs",
 		"Life",
 		"SetStatus",
 	)
 	s.accessor.machine.CheckCall(
-		c, 6, "SetStatus",
+		c, 5, "SetStatus",
 		status.Stopped,
 		"",
 		map[string]interface{}(nil),
@@ -159,7 +157,6 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 		nil, // Jobs
 		nil, // Watch
 		nil, // Refresh
-		nil, // Jobs
 		nil, // SetStatus
 		errors.New("cannot ensure machine is dead"), // EnsureDead
 	)
@@ -175,7 +172,7 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 		"machine-123 failed to set machine to dead: cannot ensure machine is dead",
 	)
 	s.accessor.machine.CheckCall(
-		c, 8, "SetStatus",
+		c, 7, "SetStatus",
 		status.Error,
 		"destroying machine: machine-123 failed to set machine to dead: cannot ensure machine is dead",
 		map[string]interface{}(nil),
@@ -188,7 +185,6 @@ func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
 		nil, // Jobs
 		nil, // Watch
 		nil, // Refresh
-		nil, // Jobs
 		nil, // SetStatus
 		&params.Error{Code: params.CodeHasAssignedUnits}, // EnsureDead
 	)
@@ -209,7 +205,6 @@ func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
 		"Life",
 		"Watch",
 		"Refresh",
-		"Jobs",
 		"Life",
 		"SetStatus",
 		"EnsureDead",
@@ -222,7 +217,6 @@ func (s *MachinerSuite) TestMachinerMachineHasContainers(c *gc.C) {
 		nil, // Jobs
 		nil, // Watch
 		nil, // Refresh
-		nil, // Jobs
 		nil, // SetStatus
 		&params.Error{Code: params.CodeMachineHasContainers}, // EnsureDead
 	)
@@ -243,7 +237,6 @@ func (s *MachinerSuite) TestMachinerMachineHasContainers(c *gc.C) {
 		"Life",
 		"Watch",
 		"Refresh",
-		"Jobs",
 		"Life",
 		"SetStatus",
 		"EnsureDead",
@@ -259,7 +252,6 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 		nil, // Jobs
 		nil, // Watch
 		nil, // Refresh
-		nil, // Jobs
 		nil, // SetStatus
 		&params.Error{Code: params.CodeMachineHasAttachedStorage},
 	)
@@ -286,8 +278,6 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	}, {
 		FuncName: "Refresh",
 	}, {
-		FuncName: "Jobs",
-	}, {
 		FuncName: "Life",
 	}, {
 		FuncName: "SetStatus",
@@ -310,7 +300,6 @@ func (s *MachinerSuite) TestMachinerTryAgain(c *gc.C) {
 		nil, // Jobs
 		nil, // Watch
 		nil, // Refresh
-		nil, // Jobs
 		nil, // SetStatus
 		&params.Error{Code: params.CodeTryAgain},
 	)
@@ -336,8 +325,6 @@ func (s *MachinerSuite) TestMachinerTryAgain(c *gc.C) {
 		FuncName: "Watch",
 	}, {
 		FuncName: "Refresh",
-	}, {
-		FuncName: "Jobs",
 	}, {
 		FuncName: "Life",
 	}, {
@@ -446,10 +433,14 @@ func (s *MachinerSuite) TestJobsErrorDuringSetup(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestJobsErrorWatching(c *gc.C) {
-	// This allows us to skip the status call during setup.
-	s.accessor.machine.life = life.Dying
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
+		return []params.NetworkConfig{}, nil
+	})
+
 	s.accessor.machine.SetErrors(
 		nil, // Jobs
+		nil, // SetMachineAddresses
+		nil, // SetStatus
 		nil, // Watch
 		nil, // Refresh
 		&params.Error{Code: params.CodeNotFound},
@@ -467,15 +458,20 @@ func (s *MachinerSuite) TestJobsErrorWatching(c *gc.C) {
 	s.accessor.machine.CheckCallNames(c,
 		"Jobs",
 		"Life",
+		"SetMachineAddresses",
+		"SetStatus",
 		"Watch",
 		"Refresh",
+		"Life",
 		"Jobs",
 	)
 }
 
 func (s *MachinerSuite) TestJobsChangedToState(c *gc.C) {
-	// This allows us to skip the status call during setup.
-	s.accessor.machine.life = life.Dying
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
+		return []params.NetworkConfig{{}}, nil
+	})
+
 	s.accessor.machine.mutex.Lock()
 	s.accessor.machine.jobs = []model.MachineJob{model.JobHostUnits}
 	s.accessor.machine.mutex.Unlock()
@@ -500,15 +496,21 @@ func (s *MachinerSuite) TestJobsChangedToState(c *gc.C) {
 	s.accessor.machine.CheckCallNames(c,
 		"Jobs",
 		"Life",
+		"SetMachineAddresses",
+		"SetStatus",
 		"Watch",
 		"Refresh",
+		"Life",
+		"SetObservedNetworkConfig",
 		"Jobs",
 	)
 }
 
 func (s *MachinerSuite) TestJobsChangedFrom(c *gc.C) {
-	// This allows us to skip the status call during setup.
-	s.accessor.machine.life = life.Dying
+	s.PatchValue(machiner.GetObservedNetworkConfig, func(source corenetwork.ConfigSource) ([]params.NetworkConfig, error) {
+		return []params.NetworkConfig{{}}, nil
+	})
+
 	s.accessor.machine.mutex.Lock()
 	s.accessor.machine.jobs = []model.MachineJob{model.JobHostUnits, model.JobManageModel}
 	s.accessor.machine.mutex.Unlock()
@@ -533,8 +535,12 @@ func (s *MachinerSuite) TestJobsChangedFrom(c *gc.C) {
 	s.accessor.machine.CheckCallNames(c,
 		"Jobs",
 		"Life",
+		"SetMachineAddresses",
+		"SetStatus",
 		"Watch",
 		"Refresh",
+		"Life",
+		"SetObservedNetworkConfig",
 		"Jobs",
 	)
 }
@@ -569,8 +575,8 @@ func (s *MachinerSuite) TestGetObservedNetworkConfigEmpty(c *gc.C) {
 		"SetStatus",
 		"Watch",
 		"Refresh",
-		"Jobs",
 		"Life",
+		"Jobs",
 	)
 }
 
@@ -590,9 +596,9 @@ func (s *MachinerSuite) TestSetObservedNetworkConfig(c *gc.C) {
 		"SetStatus",
 		"Watch",
 		"Refresh",
-		"Jobs",
 		"Life",
 		"SetObservedNetworkConfig",
+		"Jobs",
 	)
 }
 
@@ -612,7 +618,6 @@ func (s *MachinerSuite) TestAliveErrorGetObservedNetworkConfig(c *gc.C) {
 		"SetStatus",
 		"Watch",
 		"Refresh",
-		"Jobs",
 		"Life",
 	)
 }

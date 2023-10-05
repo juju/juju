@@ -201,14 +201,6 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 		return err
 	}
 
-	result, err := mr.machine.Jobs()
-	if err != nil {
-		return errors.Annotatef(err, "%s failed to get jobs", mr.config.Tag)
-	}
-	if requiresState(result) != mr.state {
-		return fmt.Errorf("bounce agent to pick up new jobs%w", errors.Hide(agenterrors.FatalError))
-	}
-
 	life := mr.machine.Life()
 	if life == corelife.Alive {
 		observedConfig, err := getObservedNetworkConfig(corenetwork.DefaultConfigSource())
@@ -223,6 +215,14 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 			}
 		}
 		logger.Debugf("observed network config updated for %q to %+v", mr.config.Tag, observedConfig)
+
+		result, err := mr.machine.Jobs()
+		if err != nil {
+			return errors.Annotatef(err, "%s failed to get jobs", mr.config.Tag)
+		}
+		if requiresState(result) != mr.state {
+			return fmt.Errorf("bounce agent to pick up new jobs%w", errors.Hide(agenterrors.FatalError))
+		}
 
 		return nil
 	}
