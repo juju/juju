@@ -678,11 +678,6 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 				},
 				{
 					Name:      "charm-data",
-					MountPath: "/var/lib/juju",
-					SubPath:   "var/lib/juju",
-				},
-				{
-					Name:      "charm-data",
 					MountPath: "/charm/containers",
 					SubPath:   "charm/containers",
 				},
@@ -718,6 +713,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Name:      "juju-controller-test-agent-conf",
 					MountPath: "/var/lib/juju/template-agent.conf",
 					SubPath:   "controller-unit-agent.conf",
+				},
+				{
+					Name:      "storage",
+					MountPath: "/var/lib/juju",
 				},
 			},
 		},
