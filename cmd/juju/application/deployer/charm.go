@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	"github.com/juju/juju/cmd/juju/common"
 	corebase "github.com/juju/juju/core/base"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
@@ -418,7 +419,6 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	}
 
 	selector := seriesSelector{
-		charmURLSeries:      userRequestedURL.Series,
 		seriesFlag:          seriesFlag,
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: workloadSeries,
@@ -431,24 +431,15 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	series, err := selector.charmSeries()
 	logger.Tracef("Using series %q from %v to deploy %v", series, supportedSeries, userRequestedURL)
 
-	imageStream := modelCfg.ImageStream()
-	// Avoid deploying charm if it's not valid for the model.
-	// We check this first before possibly suggesting --force.
-	if err == nil {
-		if err2 := c.validateCharmSeriesWithName(series, storeCharmOrBundleURL.Name, imageStream); err2 != nil {
-			return errors.Trace(err2)
-		}
-	}
-
-	if charm.IsUnsupportedSeriesError(err) {
+	if corecharm.IsUnsupportedSeriesError(err) {
 		msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", err)
 		if usingDefaultSeries {
 			msg += " Used the default-series."
 		}
 		return errors.Errorf(msg)
 	}
-	if validationErr := charmValidationError(storeCharmOrBundleURL.Name, errors.Trace(err)); validationErr != nil {
-		return errors.Trace(validationErr)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	// Ensure we save the origin.
@@ -514,6 +505,7 @@ func (c *repositoryCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI DeployerA
 	// tell different things when deploying a charm and in sake of understanding
 	// what we deploy, we should converge the two so that both report identical
 	// values.
+	imageStream := modelCfg.ImageStream()
 	if curl != nil && series == "" {
 		if err := c.validateCharmSeriesWithName(curl.Series, curl.Name, imageStream); err != nil {
 			return errors.Trace(err)

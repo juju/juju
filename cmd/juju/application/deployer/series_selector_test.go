@@ -46,7 +46,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				conf:                defaultBase{"ubuntu@15.10", true},
 				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
-			err: "series: wily not supported",
+			err: `juju does not support series "wily"`,
 		},
 		{
 			title: "juju deploy simple --series=precise   # default series set, no supported series",
@@ -55,7 +55,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				conf:                defaultBase{"ubuntu@15.10", true},
 				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
-			err: "series: precise not supported",
+			err: `juju does not support series "precise"`,
 		}, {
 			title: "juju deploy simple --series=bionic   # default series set, no supported series, no supported juju series",
 			seriesSelector: seriesSelector{
@@ -68,34 +68,6 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy simple --series=bionic   # default series set, no supported series",
 			seriesSelector: seriesSelector{
 				seriesFlag:          "bionic",
-				conf:                defaultBase{"ubuntu@15.10", true},
-				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
-			},
-			expectedSeries: "bionic",
-		},
-		{
-			title: "juju deploy trusty/simple   # charm series set, default series set, no supported series",
-			seriesSelector: seriesSelector{
-				charmURLSeries:      "trusty",
-				conf:                defaultBase{"ubuntu@15.10", true},
-				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
-			},
-			err: "series: trusty not supported",
-		},
-		{
-			title: "juju deploy bionic/simple   # charm series set, default series set, no supported series",
-			seriesSelector: seriesSelector{
-				charmURLSeries:      "bionic",
-				conf:                defaultBase{"ubuntu@15.10", true},
-				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
-			},
-			expectedSeries: "bionic",
-		},
-		{
-			title: "juju deploy cosmic/simple --series=bionic   # series specified, charm series set, default series set, no supported series",
-			seriesSelector: seriesSelector{
-				seriesFlag:          "bionic",
-				charmURLSeries:      "cosmic",
 				conf:                defaultBase{"ubuntu@15.10", true},
 				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
@@ -144,9 +116,9 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			seriesSelector: seriesSelector{
 				supportedSeries:     []string{"bionic", "cosmic"},
 				conf:                defaultBase{"ubuntu@15.10", true},
-				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
+				supportedJujuSeries: set.NewStrings("bionic", "cosmic", "wily"),
 			},
-			err: `series "wily" is not supported, supported series are: bionic,cosmic`,
+			err: `series "wily" not supported by charm, the charm supported series are: bionic,cosmic`,
 		},
 		{
 			title: "juju deploy multiseries   # use model series defaults if supported by charm",
@@ -164,7 +136,7 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 				conf:                defaultBase{"ubuntu@19.04", true},
 				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
-			err: "series: disco not supported",
+			err: `juju does not support series "disco"`,
 		},
 		{
 			title: "juju deploy multiseries --series=bionic   # use supported requested",
@@ -190,11 +162,11 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			title: "juju deploy multiseries --series=bionic   # unsupported requested",
 			seriesSelector: seriesSelector{
 				seriesFlag:          "bionic",
-				supportedSeries:     []string{"utopic", "vivid"},
+				supportedSeries:     []string{"utopic", "vivid", "cosmic"},
 				conf:                defaultBase{},
 				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
 			},
-			err: `series: bionic`,
+			err: `series "bionic" not supported by charm, the charm supported series are: cosmic`,
 		},
 		{
 			title: "juju deploy multiseries --series=bionic --force   # unsupported forced",
@@ -207,9 +179,9 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			err: "expected supported juju series to exist",
 		},
 		{
-			title: "juju deploy bionic/multiseries  # non-default but supported series",
+			title: "juju deploy multiseries --series bionic  # non-default but supported series",
 			seriesSelector: seriesSelector{
-				charmURLSeries:      "bionic",
+				seriesFlag:          "bionic",
 				supportedSeries:     []string{"utopic", "vivid", "bionic"},
 				conf:                defaultBase{},
 				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
@@ -217,19 +189,18 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			expectedSeries: "bionic",
 		},
 		{
-			title: "juju deploy bionic/multiseries  # non-default but supported series",
+			title: "juju deploy multiseries --series bionic  # non-default but supported series",
 			seriesSelector: seriesSelector{
-				charmURLSeries:  "bionic",
+				seriesFlag:      "bionic",
 				supportedSeries: []string{"utopic", "vivid", "bionic"},
 				conf:            defaultBase{},
 			},
 			err: "expected supported juju series to exist",
 		},
 		{
-			title: "juju deploy bionic/multiseries --series=cosmic  # non-default but supported series",
+			title: "juju deploy multiseries --series=cosmic  # non-default but supported series",
 			seriesSelector: seriesSelector{
 				seriesFlag:          "cosmic",
-				charmURLSeries:      "bionic",
 				supportedSeries:     []string{"utopic", "vivid", "bionic", "cosmic"},
 				conf:                defaultBase{},
 				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
@@ -237,20 +208,19 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			expectedSeries: "cosmic",
 		},
 		{
-			title: "juju deploy bionic/multiseries --series=cosmic  # unsupported series",
-			seriesSelector: seriesSelector{
-				seriesFlag:      "cosmic",
-				charmURLSeries:  "bionic",
-				supportedSeries: []string{"bionic", "utopic", "vivid"},
-				conf:            defaultBase{},
-			},
-			err: `series: cosmic`,
-		},
-		{
-			title: "juju deploy bionic/multiseries --series=cosmic  # unsupported series",
+			title: "juju deploy multiseries --series=cosmic  # unsupported series",
 			seriesSelector: seriesSelector{
 				seriesFlag:          "cosmic",
-				charmURLSeries:      "bionic",
+				supportedSeries:     []string{"bionic", "utopic", "vivid"},
+				supportedJujuSeries: set.NewStrings("bionic", "focal"),
+				conf:                defaultBase{},
+			},
+			err: `juju does not support series "cosmic"`,
+		},
+		{
+			title: "juju deploy multiseries --series=cosmic  # unsupported series",
+			seriesSelector: seriesSelector{
+				seriesFlag:          "cosmic",
 				supportedSeries:     []string{"bionic", "utopic", "vivid", "cosmic"},
 				conf:                defaultBase{},
 				supportedJujuSeries: set.NewStrings("bionic", "cosmic"),
@@ -258,15 +228,44 @@ func (s *SeriesSelectorSuite) TestCharmSeries(c *gc.C) {
 			expectedSeries: "cosmic",
 		},
 		{
-			title: "juju deploy bionic/multiseries --series=precise --force  # unsupported series forced",
+			title: "juju deploy multiseries --series=precise --force  # unsupported series forced",
 			seriesSelector: seriesSelector{
 				seriesFlag:      "precise",
-				charmURLSeries:  "bionic",
 				supportedSeries: []string{"bionic", "utopic", "vivid"},
 				force:           true,
 				conf:            defaultBase{},
 			},
 			err: "expected supported juju series to exist",
+		},
+		{
+			title: "juju deploy multiseries --series bionic  # no overlap between charm supported and juju supported series",
+			seriesSelector: seriesSelector{
+				seriesFlag:          "focal",
+				supportedSeries:     []string{"xenial", "bionic"},
+				supportedJujuSeries: set.NewStrings("focal", "jammy"),
+				conf:                defaultBase{},
+			},
+			err: `the charm defined series "xenial, bionic" not supported`,
+		},
+		{
+			title: "juju deploy multiseries --series bionic  # no overlap between charm supported and juju supported series, force a valid series",
+			seriesSelector: seriesSelector{
+				seriesFlag:          "focal",
+				supportedSeries:     []string{"xenial", "bionic"},
+				supportedJujuSeries: set.NewStrings("focal", "jammy"),
+				conf:                defaultBase{},
+				force:               true,
+			},
+			expectedSeries: "focal",
+		},
+		{
+			title: "juju deploy multiseries  # no overlap between charm supported and juju supported series",
+			seriesSelector: seriesSelector{
+				supportedSeries:     []string{"xenial", "bionic"},
+				supportedJujuSeries: set.NewStrings("focal", "jammy"),
+				conf:                defaultBase{},
+			},
+			err: `the charm defined series "xenial, bionic" not supported`,
 		},
 	}
 

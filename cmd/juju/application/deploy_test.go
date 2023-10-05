@@ -417,7 +417,7 @@ func (s *DeploySuite) TestDeployFromPath(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveOverlap(c *gc.C) {
-	// Donot remove this because we want to test: series supported by the charm and series supported by Juju have overlap.
+	// Do not remove this because we want to test: series supported by the charm and series supported by Juju have overlap.
 	s.PatchValue(&deployer.SupportedJujuSeries,
 		func(time.Time, string, string) (set.Strings, error) {
 			return set.NewStrings(
@@ -428,11 +428,11 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveOverlap(c *gc.C) {
 
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
 	err := s.runDeploy(c, path, "--base", "ubuntu@12.10")
-	c.Assert(err, gc.ErrorMatches, `series "quantal" is not supported, supported series are: focal,jammy`)
+	c.Assert(err, gc.ErrorMatches, `juju does not support series "quantal"`)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveNoOverlap(c *gc.C) {
-	// Donot remove this because we want to test: series supported by the charm and series supported by Juju have NO overlap.
+	// Do not remove this because we want to test: series supported by the charm and series supported by Juju have NO overlap.
 	s.PatchValue(&deployer.SupportedJujuSeries,
 		func(time.Time, string, string) (set.Strings, error) {
 			return set.NewStrings("kinetic"), nil
@@ -441,7 +441,7 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveNoOverlap(c *gc.C) 
 
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
 	err := s.runDeploy(c, path, "--base", "ubuntu@12.10")
-	c.Assert(err, gc.ErrorMatches, `multi-series is not available on the following series: quantal`)
+	c.Assert(err, gc.ErrorMatches, `juju does not support series "quantal"`)
 }
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
@@ -1448,7 +1448,7 @@ func (s *DeploySuite) TestDeployLocalWithSeriesMismatchReturnsError(c *gc.C) {
 
 	_, _, err := s.runDeployWithOutput(c, charmDir.Path, "--base", "ubuntu@12.10")
 
-	c.Check(err, gc.ErrorMatches, `terms1 is not available on the following series: quantal not supported`)
+	c.Check(err, gc.ErrorMatches, `juju does not support series "quantal"`)
 }
 
 func (s *DeploySuite) TestDeployLocalWithSeriesAndForce(c *gc.C) {
@@ -1535,7 +1535,7 @@ func (s *DeploySuite) TestDeployLocalWithSupportedNonESMSeries(c *gc.C) {
 func (s *DeploySuite) TestDeployLocalWithNotSupportedNonESMSeries(c *gc.C) {
 	_, loggingPath := s.setupNonESMBase(c)
 	err := s.runDeploy(c, loggingPath, "--base", "ubuntu@17.10")
-	c.Assert(err, gc.ErrorMatches, "logging is not available on the following series: artful not supported")
+	c.Assert(err, gc.ErrorMatches, `juju does not support series "artful"`)
 }
 
 // setupConfigFile creates a configuration file for testing set

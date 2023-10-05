@@ -103,6 +103,7 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 	dCharm.validateCharmSeriesWithName = func(series, name string, imageStream string) error {
 		return nil
 	}
+
 	repoCharm := &repositoryCharm{
 		deployCharm:      *dCharm,
 		userRequestedURL: s.url,
@@ -127,6 +128,30 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 	err := repoCharm.PrepareAndDeploy(ctx, s.deployerAPI, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(output.String(), gc.Equals, "\"testme\" from  charm \"testme\", revision -1 on ubuntu@22.04 would be deployed\n")
+}
+
+func (s *charmSuite) TestRepositoryCharmDeployDryRunUnsupportedSeries(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.resolver = mocks.NewMockResolver(ctrl)
+	s.expectResolveChannel()
+	s.expectDeployerAPIModelGet(c, corebase.Base{})
+
+	dCharm := s.newDeployCharm()
+	dCharm.dryRun = true
+	dCharm.validateCharmSeriesWithName = func(series, name string, imageStream string) error {
+		return nil
+	}
+	dCharm.baseFlag = corebase.MustParseBaseFromString("ubuntu@22.04")
+
+	repoCharm := &repositoryCharm{
+		deployCharm:      *dCharm,
+		userRequestedURL: s.url,
+		clock:            clock.WallClock,
+	}
+
+	err := repoCharm.PrepareAndDeploy(s.ctx, s.deployerAPI, s.resolver)
+	c.Assert(err, gc.ErrorMatches, `series "jammy" not supported by charm, .* Use --force to deploy the charm anyway.`)
 }
 
 func (s *charmSuite) newDeployCharm() *deployCharm {

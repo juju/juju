@@ -373,7 +373,7 @@ func (d *factory) maybeReadLocalCharm(getter ModelConfigGetter) (Deployer, error
 		}
 
 		seriesName, err = seriesSelector.charmSeries()
-		if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

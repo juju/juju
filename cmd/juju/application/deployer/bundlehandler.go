@@ -665,7 +665,6 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 	}
 
 	selector := seriesSelector{
-		charmURLSeries:      url.Series,
 		seriesFlag:          change.Params.Series,
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: workloadSeries,
@@ -1000,7 +999,6 @@ func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.Char
 
 	selector := seriesSelector{
 		seriesFlag:          chSeries,
-		charmURLSeries:      chID.URL.Series,
 		supportedSeries:     supportedSeries,
 		supportedJujuSeries: workloadSeries,
 		conf:                h.modelConfig,
@@ -1008,7 +1006,7 @@ func (h *bundleHandler) selectedSeries(ch charm.CharmMeta, chID application.Char
 		fromBundle:          true,
 	}
 	selectedSeries, err := selector.charmSeries()
-	return selectedSeries, charmValidationError(curl.Name, errors.Trace(err))
+	return selectedSeries, errors.Trace(err)
 }
 
 // scaleApplication updates the number of units for an application.

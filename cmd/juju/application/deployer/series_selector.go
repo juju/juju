@@ -39,9 +39,6 @@ type modelConfig interface {
 type seriesSelector struct {
 	// seriesFlag is the series passed to the --series flag on the command line.
 	seriesFlag string
-	// charmURLSeries is the series specified as part of the charm URL, i.e.
-	// ch:jammy/ubuntu.
-	charmURLSeries string
 	// conf is the configuration for the model we're deploying to.
 	conf modelConfig
 	// supportedSeries is the list of series the charm supports.
@@ -58,22 +55,19 @@ type seriesSelector struct {
 // charmSeries determines what series to use with a charm.
 // Order of preference is:
 //   - user requested with --series or defined by bundle when deploying
-//   - user requested in charm's url (e.g. juju deploy jammy/ubuntu)
 //   - model default, if set, acts like --series
 //   - default from charm metadata supported series / series in url
 //   - default LTS
+//
+// If charmSeries returns successfully we guarantee:
+//   - The returned series is supported by juju
+//   - Unless force is used, the returned series is supported by the charm
 func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 	// TODO(sidecar): handle systems
 
 	// User has requested a series with --series.
 	if s.seriesFlag != "" {
 		return s.userRequested(s.seriesFlag)
-	}
-
-	// User specified a series in the charm URL, e.g.
-	// juju deploy precise/ubuntu.
-	if s.charmURLSeries != "" {
-		return s.userRequested(s.charmURLSeries)
 	}
 
 	// No series explicitly requested by the user.
@@ -130,6 +124,21 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 
 // userRequested checks the series the user has requested, and returns it if it
 // is supported, or if they used --force.
+//
+// There are a number of different cases we model here:
+//   - If the force flag if provided, simply check that this series is valid
+//     and return it
+//   - Without force, run SeriesForCharm to deduce which series to use.
+//   - If this is successful, validate the series and return it
+//   - If we error with an UnsupportedSeriesError then:
+//   - Check if the error occurred because the requested series is invalid
+//     If so, return early with NotSupported
+//   - Otherwise, attempt to construct a true list of the supported series,
+//     the intersection of the charm supported and juju supported series,
+//     and return a new UnsupportedSeriesError. This is so we don't leak
+//     series juju does not support to the user in our error
+//   - edge case: If no series supported by the charm are supported by juju,
+//     return an error indicating this
 func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
 	// TODO(sidecar): handle computed series
 	series, err := corecharm.SeriesForCharm(requestedSeries, s.supportedSeries)
@@ -137,14 +146,17 @@ func (s seriesSelector) userRequested(requestedSeries string) (string, error) {
 		series = requestedSeries
 	} else if err != nil {
 		if corecharm.IsUnsupportedSeriesError(err) {
+			// Check if the requested series is valid. If it is invalid,
+			// we do not wish to return an UnsupportedSeriesError. These
+			// should be used when a charm does not support a requested series
+			if validSeriesErr := s.validateSeries(requestedSeries); validSeriesErr != nil {
+				return "", validSeriesErr
+			}
 			supported := s.supportedJujuSeries.Intersection(set.NewStrings(s.supportedSeries...))
 			if supported.IsEmpty() {
-				return "", errors.NewNotSupported(nil, fmt.Sprintf("series: %s", requestedSeries))
+				return "", errors.Errorf("the charm defined series %q not supported", strings.Join(s.supportedSeries, ", "))
 			}
-			return "", errors.Errorf(
-				"series %q is not supported, supported series are: %s",
-				requestedSeries, strings.Join(supported.SortedValues(), ","),
-			)
+			return "", corecharm.NewUnsupportedSeriesError(requestedSeries, supported.SortedValues())
 		}
 		return "", err
 	}
@@ -171,7 +183,7 @@ func (s seriesSelector) validateSeries(seriesName string) error {
 	}
 
 	if !s.supportedJujuSeries.Contains(seriesName) {
-		return errors.NotSupportedf("series: %s", seriesName)
+		return errors.NewNotSupported(nil, fmt.Sprintf("juju does not support series %q", seriesName))
 	}
 	return nil
 }
