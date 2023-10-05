@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
@@ -117,17 +116,6 @@ func (i *InstanceImage) SetInstanceTypes(types []instances.InstanceType) {
 	i.InstanceTypes = types
 }
 
-// Archs returns the list of unique supported architectures by the
-// InstanceImage. This is necessary because an InstanceImage can support
-// multiple shapes.
-func (i *InstanceImage) Archs() []string {
-	archs := set.NewStrings()
-	for _, val := range i.InstanceTypes {
-		archs.Add(val.Arch)
-	}
-	return archs.Values()
-}
-
 // byVersion sorts shapes by version number
 type byVersion []InstanceImage
 
@@ -205,19 +193,15 @@ func (i ImageCache) ImageMetadata(base corebase.Base, arch string, defaultVirtTy
 				val.ImageType = ImageTypeVM
 			}
 		}
-		// Iterate over the list of supported architectures of the
-		// image.
-		for _, arch := range val.Archs() {
-			imgMeta := &imagemetadata.ImageMetadata{
-				Id:   val.Id,
-				Arch: arch,
-				// TODO(gsamfira): add region name?
-				// RegionName: region,
-				Version:  val.Base.Channel.Track,
-				VirtType: string(val.ImageType),
-			}
-			metadata = append(metadata, imgMeta)
+		imgMeta := &imagemetadata.ImageMetadata{
+			Id:   val.Id,
+			Arch: arch,
+			// TODO(gsamfira): add region name?
+			// RegionName: region,
+			Version:  val.Base.Channel.Track,
+			VirtType: string(val.ImageType),
 		}
+		metadata = append(metadata, imgMeta)
 	}
 
 	return metadata
@@ -498,6 +482,16 @@ func refreshImageCache(cli ComputeClient, compartmentID *string) (*ImageCache, e
 		instTypes, err := instanceTypes(cli, compartmentID, val.Id)
 		if err != nil {
 			return nil, err
+		}
+		// An image only suports one architecture, but since for each
+		// image we retrieve the list of shapes from OCI and we map
+		// them to InstanceTypes, we just make sure that all of the
+		// shapes have the same architecture as the image and we log
+		// in case one of them doesn't.
+		for _, instType := range instTypes {
+			if instType.Arch != arch {
+				logger.Debugf("instance type %s has arch %s while image %s only supports %s", instType.Name, instType.Arch, *val.Id, arch)
+			}
 		}
 		img.SetInstanceTypes(instTypes)
 		// TODO: ListImages can return more than one option for a base
