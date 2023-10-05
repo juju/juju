@@ -7,7 +7,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -55,11 +54,6 @@ func (s *SecretUserSuppliedManager) DeleteRevisions(args params.DeleteSecretArgs
 		s.secretsState, s.backendConfigGetter,
 		s.authTag, args,
 		func(uri *coresecrets.URI) error {
-			// Only admin can delete user secrets.
-			_, err := common.HasModelAdmin(s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
-			if err != nil {
-				return errors.Trace(err)
-			}
 			md, err := s.secretsState.GetSecret(uri)
 			if err != nil {
 				return errors.Trace(err)

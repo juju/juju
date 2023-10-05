@@ -14,7 +14,6 @@ import (
 
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
-	// jujusecrets "github.com/juju/juju/secrets"
 )
 
 // logger is here to stop the desire of creating a package level logger.

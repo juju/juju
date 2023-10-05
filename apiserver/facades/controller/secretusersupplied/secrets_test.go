@@ -7,20 +7,16 @@ import (
 	"fmt"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/authentication"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/secretusersupplied"
 	"github.com/juju/juju/apiserver/facades/controller/secretusersupplied/mocks"
-	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
@@ -106,9 +102,6 @@ func (s *secretusersuppliedSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
 	s.state.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		URI: uri, OwnerTag: coretesting.ModelTag.String(),
 		AutoPrune: true,
@@ -154,9 +147,6 @@ func (s *secretusersuppliedSuite) TestDeleteRevisionsAutoPruneDisabled(c *gc.C) 
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
-		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
 	s.state.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
 		URI: uri, OwnerTag: coretesting.ModelTag.String(),
 		AutoPrune: false,

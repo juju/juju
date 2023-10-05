@@ -39895,7 +39895,8 @@
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
                         }
-                    }
+                    },
+                    "description": "DeleteRevisions deletes the specified revisions of the specified secret."
                 },
                 "WatchObsoleteRevisionsNeedPrune": {
                     "type": "object",
@@ -39904,7 +39905,7 @@
                             "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
-                    "description": "WatchObsoleteRevisionsNeedPrune returns a watcher for notifying when:\n  - a secret revision owned by the model no longer\n    has any consumers and should be pruned.\n\nObsolete revisions results are \"uri/revno\" and deleted\nsecret results are \"uri\".????"
+                    "description": "WatchObsoleteRevisionsNeedPrune returns a watcher for notifying when:\n  - a secret revision owned by the model no longer\n    has any consumers and should be pruned."
                 }
             },
             "definitions": {
