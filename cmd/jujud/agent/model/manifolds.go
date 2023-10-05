@@ -64,6 +64,7 @@ import (
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/pruner"
 	"github.com/juju/juju/worker/remoterelations"
+	"github.com/juju/juju/worker/secretspruner"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
@@ -328,6 +329,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker: gate.NewFlagWorker,
 			// No Logger defined in gate package.
 		}),
+
+		secretsPrunerName: ifNotMigrating(secretspruner.Manifold(secretspruner.ManifoldConfig{
+			APICallerName:    apiCallerName,
+			Logger:           config.LoggingContext.GetLogger("juju.worker.secretspruner"),
+			NewSecretsFacade: secretspruner.NewSecretsFacade,
+			NewWorker:        secretspruner.NewWorker,
+		})),
 	}
 	return result
 }
@@ -729,6 +737,8 @@ const (
 	caasUnitProvisionerName        = "caas-unit-provisioner"
 	caasStorageProvisionerName     = "caas-storage-provisioner"
 	caasBrokerTrackerName          = "caas-broker-tracker"
+
+	secretsPrunerName = "secrets-pruner"
 
 	validCredentialFlagName = "valid-credential-flag"
 )
