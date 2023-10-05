@@ -102,6 +102,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
 	"github.com/juju/juju/apiserver/facades/controller/secretbackendmanager"
+	"github.com/juju/juju/apiserver/facades/controller/secretusersupplied"
 	"github.com/juju/juju/apiserver/facades/controller/singular"
 	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
@@ -214,6 +215,7 @@ func AllFacades() *facade.Registry {
 	upgradeseries.Register(registry)
 	upgradesteps.Register(registry)
 	usermanager.Register(registry)
+	secretusersupplied.Register(registry)
 
 	// TODO (stickupkid): The following should be moved into a package.
 	registry.MustRegister("Pinger", 1, func(ctx facade.Context) (facade.Facade, error) {
