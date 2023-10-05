@@ -4,6 +4,7 @@
 package logforwarder_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -233,7 +234,7 @@ type mockCaller struct {
 	base.APICaller
 }
 
-func (*mockCaller) APICall(objType string, version int, id, request string, params, response interface{}) error {
+func (*mockCaller) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {
 	return nil
 }
 

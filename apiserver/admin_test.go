@@ -108,7 +108,7 @@ func (s *loginSuite) TestLoginWithInvalidTag(c *gc.C) {
 	}
 
 	var response params.LoginResult
-	err := st.APICall("Admin", 3, "", "Login", request, &response)
+	err := st.APICall(context.Background(), "Admin", 3, "", "Login", request, &response)
 	c.Assert(err, gc.ErrorMatches, `.*"bar" is not a valid tag.*`)
 }
 
@@ -422,10 +422,10 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 	s.WithUpgrading = true
 	s.testLoginDuringMaintenance(c, func(st api.Connection) {
 		var statusResult params.FullStatus
-		err := st.APICall("Client", clientFacadeVersion, "", "FullStatus", params.StatusParams{}, &statusResult)
+		err := st.APICall(context.Background(), "Client", clientFacadeVersion, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, jc.ErrorIsNil)
 
-		err = st.APICall("Client", clientFacadeVersion, "", "ModelSet", params.ModelSet{}, nil)
+		err = st.APICall(context.Background(), "Client", clientFacadeVersion, "", "ModelSet", params.ModelSet{}, nil)
 		c.Assert(err, jc.Satisfies, params.IsCodeUpgradeInProgress)
 	})
 }
@@ -553,7 +553,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 	request := &params.LoginRequest{
 		AuthTag: names.NewUserTag(api.AnonymousUsername).String(),
 	}
-	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.IsNil)
 	c.Assert(result.ControllerTag, gc.Equals, s.ControllerModel(c).State().ControllerTag().String())
@@ -579,7 +579,7 @@ func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
 		AuthTag:       names.NewUserTag(api.AnonymousUsername).String(),
 		ClientVersion: jujuversion.Current.String(),
 	}
-	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.IsNil)
 	c.Assert(result.ControllerTag, gc.Equals, s.ControllerModel(c).State().ControllerTag().String())
@@ -791,7 +791,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (*state.User, param
 		Credentials:   password,
 		ClientVersion: jujuversion.Current.String(),
 	}
-	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	return user, result
@@ -992,7 +992,7 @@ func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {
 	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = apiState.APICall("Admin", 2, "", "Login", struct{}{}, nil)
+	err = apiState.APICall(context.Background(), "Admin", 2, "", "Login", struct{}{}, nil)
 	c.Assert(err, gc.ErrorMatches, ".*this version of Juju does not support login from old clients.*")
 }
 

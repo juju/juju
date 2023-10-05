@@ -104,19 +104,19 @@ func (s *instanceMutaterSuite) clientForScenario(c *gc.C, behaviours ...func()) 
 func (s *instanceMutaterSuite) expectWatchModelMachines() {
 	aExp := s.apiCaller.EXPECT()
 	aExp.BestFacadeVersion("InstanceMutater").Return(1)
-	aExp.APICall("InstanceMutater", 1, "", "WatchModelMachines", nil, gomock.Any()).Return(nil)
+	aExp.APICall(gomock.Any(), "InstanceMutater", 1, "", "WatchModelMachines", nil, gomock.Any()).Return(nil)
 }
 
 func (s *instanceMutaterSuite) expectStringsWatcher() {
 	aExp := s.apiCaller.EXPECT()
 	aExp.BestFacadeVersion("StringsWatcher").Return(1)
-	aExp.APICall("StringsWatcher", 1, "", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
+	aExp.APICall(gomock.Any(), "StringsWatcher", 1, "", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
 }
 
 func (s *instanceMutaterSuite) expectWatchModelMachinesWithError() {
 	aExp := s.apiCaller.EXPECT()
 	aExp.BestFacadeVersion("InstanceMutater").Return(1)
-	aExp.APICall("InstanceMutater", 1, "", "WatchModelMachines", nil, gomock.Any()).Return(errors.New("failed"))
+	aExp.APICall(gomock.Any(), "InstanceMutater", 1, "", "WatchModelMachines", nil, gomock.Any()).Return(errors.New("failed"))
 }
 
 func successAPICaller(c *gc.C, method string, expectArgs, useResults interface{}) *apitesting.CallChecker {

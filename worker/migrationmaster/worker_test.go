@@ -1397,7 +1397,7 @@ func (c *stubConnection) BestFacadeVersion(string) int {
 	return c.facadeVersion
 }
 
-func (c *stubConnection) APICall(objType string, _ int, _, request string, args, response interface{}) error {
+func (c *stubConnection) APICall(ctx context.Context, objType string, _ int, _, request string, args, response interface{}) error {
 	c.stub.AddCall(objType+"."+request, args)
 
 	if objType == "MigrationTarget" {

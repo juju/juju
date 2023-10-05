@@ -4,6 +4,7 @@
 package watcher
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -52,7 +53,7 @@ type watcherAPICall func(method string, result interface{}) error
 func makeWatcherAPICaller(caller base.APICaller, facadeName, watcherId string) watcherAPICall {
 	bestVersion := caller.BestFacadeVersion(facadeName)
 	return func(request string, result interface{}) error {
-		return caller.APICall(facadeName, bestVersion,
+		return caller.APICall(context.TODO(), facadeName, bestVersion,
 			watcherId, request, nil, &result)
 	}
 }

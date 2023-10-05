@@ -373,11 +373,11 @@ func (s *instanceMutaterMachineSuite) expectWatchContainersWithErrors(err error)
 func (s *instanceMutaterMachineSuite) expectNotifyWatcher() {
 	aExp := s.apiCaller.EXPECT()
 	aExp.BestFacadeVersion("NotifyWatcher").Return(1)
-	aExp.APICall("NotifyWatcher", 1, "1", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
+	aExp.APICall(gomock.Any(), "NotifyWatcher", 1, "1", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
 }
 
 func (s *instanceMutaterMachineSuite) expectStringsWatcher() {
 	aExp := s.apiCaller.EXPECT()
 	aExp.BestFacadeVersion("StringsWatcher").Return(1)
-	aExp.APICall("StringsWatcher", 1, "1", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
+	aExp.APICall(gomock.Any(), "StringsWatcher", 1, "1", "Next", nil, gomock.Any()).Return(nil).MinTimes(1)
 }

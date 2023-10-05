@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -36,7 +37,7 @@ func (s *MonitorSuite) SetUpTest(c *gc.C) {
 	s.broken = make(chan struct{})
 	s.monitor = &monitor{
 		clock:       s.clock,
-		ping:        func() error { return nil },
+		ping:        func(context.Context) error { return nil },
 		pingPeriod:  testPingPeriod,
 		pingTimeout: testPingTimeout,
 		closed:      s.closed,
@@ -60,7 +61,7 @@ func (s *MonitorSuite) TestDead(c *gc.C) {
 }
 
 func (s *MonitorSuite) TestFirstPingFails(c *gc.C) {
-	s.monitor.ping = func() error { return errors.New("boom") }
+	s.monitor.ping = func(context.Context) error { return errors.New("boom") }
 	go s.monitor.run()
 
 	s.waitThenAdvance(c, testPingPeriod)
@@ -69,7 +70,7 @@ func (s *MonitorSuite) TestFirstPingFails(c *gc.C) {
 
 func (s *MonitorSuite) TestLaterPingFails(c *gc.C) {
 	pings := 0
-	s.monitor.ping = func() error {
+	s.monitor.ping = func(context.Context) error {
 		if pings > 0 {
 			return errors.New("boom")
 		}
@@ -86,7 +87,7 @@ func (s *MonitorSuite) TestLaterPingFails(c *gc.C) {
 }
 
 func (s *MonitorSuite) TestPingsTimesOut(c *gc.C) {
-	s.monitor.ping = func() error {
+	s.monitor.ping = func(context.Context) error {
 		// Advance the clock only once this ping call is being waited on.
 		s.waitThenAdvance(c, testPingTimeout)
 		return nil

@@ -77,7 +77,7 @@ func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult,
 		request params.LoginRequest
 		result  params.LoginResult
 	)
-	err := client.APICall("Admin", 3, "", "Login", &request, &result)
+	err := client.APICall(context.Background(), "Admin", 3, "", "Login", &request, &result)
 	if err != nil {
 		return params.LoginResult{}, errors.Annotatef(err, "cannot log in")
 	}
@@ -108,7 +108,7 @@ func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult,
 	// Add the macaroons that have been saved by HandleError to our login request.
 	request.Macaroons = httpbakery.MacaroonsForURL(bakeryClient.Client.Jar, cookieURL)
 
-	err = client.APICall("Admin", 3, "", "Login", &request, &result)
+	err = client.APICall(context.Background(), "Admin", 3, "", "Login", &request, &result)
 	return result, err
 }
 

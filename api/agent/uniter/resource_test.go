@@ -104,7 +104,7 @@ func (s *stubAPI) HTTPClient() (*httprequest.Client, error) {
 	}, nil
 }
 
-func (s *stubAPI) APICall(objType string, version int, id, request string, args, response interface{}) error {
+func (s *stubAPI) APICall(ctx context.Context, objType string, version int, id, request string, args, response interface{}) error {
 	s.AddCall(request, args, response)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)

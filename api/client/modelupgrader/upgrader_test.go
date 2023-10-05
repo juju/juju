@@ -4,6 +4,7 @@
 package modelupgrader_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -36,6 +37,7 @@ func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *gc.C) {
 	gomock.InOrder(
 		apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1),
 		apiCaller.EXPECT().APICall(
+			context.Background(),
 			"ModelUpgrader", 1, "", "AbortModelUpgrade",
 			params.ModelParam{
 				ModelTag: coretesting.ModelTag.String(),
@@ -56,6 +58,7 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
 	gomock.InOrder(
 		apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1),
 		apiCaller.EXPECT().APICall(
+			context.Background(),
 			"ModelUpgrader", 1, "", "UpgradeModel",
 			params.UpgradeModelParams{
 				ModelTag:            coretesting.ModelTag.String(),

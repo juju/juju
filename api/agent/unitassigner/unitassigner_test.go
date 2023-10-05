@@ -4,6 +4,7 @@
 package unitassigner
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -83,7 +84,7 @@ type fakeAssignCaller struct {
 	c        *gc.C
 }
 
-func (f *fakeAssignCaller) APICall(objType string, version int, id, request string, param, response interface{}) error {
+func (f *fakeAssignCaller) APICall(ctx context.Context, objType string, version int, id, request string, param, response interface{}) error {
 	f.Lock()
 	defer f.Unlock()
 	f.request = request
@@ -112,7 +113,7 @@ type fakeWatchCaller struct {
 	c        *gc.C
 }
 
-func (f *fakeWatchCaller) APICall(objType string, version int, id, request string, param, response interface{}) error {
+func (f *fakeWatchCaller) APICall(ctx context.Context, objType string, version int, id, request string, param, response interface{}) error {
 	f.Lock()
 	defer f.Unlock()
 

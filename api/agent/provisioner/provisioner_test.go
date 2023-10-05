@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/provisioner"
+	"github.com/juju/juju/api/agent/provisioner/mocks"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/worker/instancemutater/mocks"
 )
 
 type provisionerSuite struct {
@@ -50,7 +50,7 @@ func (s *provisionerSuite) TestNew(c *gc.C) {
 }
 
 func (s *provisionerSuite) expectCall(caller *mocks.MockAPICaller, method, args, results interface{}) {
-	caller.EXPECT().APICall("Provisioner", 666, "", method, args, gomock.Any()).SetArg(5, results).Return(nil)
+	caller.EXPECT().APICall(gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any()).SetArg(5, results).Return(nil)
 }
 
 func (s *provisionerSuite) TestMachines(c *gc.C) {
@@ -714,7 +714,7 @@ func (s *provisionerContainerSuite) setupCaller(ctrl *gomock.Controller) *mocks.
 }
 
 func (s *provisionerContainerSuite) expectCall(caller *mocks.MockAPICaller, method, args, results interface{}) {
-	caller.EXPECT().APICall("Provisioner", 666, "", method, args, gomock.Any()).SetArg(5, results).Return(nil)
+	caller.EXPECT().APICall(gomock.Any(), "Provisioner", 666, "", method, args, gomock.Any()).SetArg(5, results).Return(nil)
 }
 
 func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c *gc.C) {
