@@ -1,0 +1,7 @@
+snapshot:
+  description: Take a snapshot of the database.
+  params:
+    outfile:
+      description: The file to write out to.
+      type: string
+      default: foo.bz2

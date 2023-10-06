@@ -2297,7 +2297,7 @@ func (s *StateSuite) TestAddApplicationIncompatibleOSWithSeriesInURL(c *gc.C) {
 			Channel: "7/stable",
 		}},
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" not supported by charm, supported series are "quantal"`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": OS "centos" not supported by charm "dummy", supported OSes are: ubuntu`)
 }
 
 func (s *StateSuite) TestAddApplicationCompatibleOSWithSeriesInURL(c *gc.C) {
@@ -2340,7 +2340,7 @@ func (s *StateSuite) TestAddApplicationOSIncompatibleWithSupportedSeries(c *gc.C
 			Channel: "7/stable",
 		}},
 	})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": series "centos7" not supported by charm, supported series are "jammy, focal, bionic"`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "wordpress": OS "centos" not supported by charm "multi-series", supported OSes are: ubuntu`)
 }
 
 func (s *StateSuite) TestAllApplications(c *gc.C) {
