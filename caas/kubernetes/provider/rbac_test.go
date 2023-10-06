@@ -90,6 +90,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokenCreate(c *gc.C) {
 			gomock.Any(), "unit-gitlab-0", types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: "juju"},
 		).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(gomock.Any(), roleBinding, v1.CreateOptions{FieldManager: "juju"}).Return(roleBinding, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "unit-gitlab-0", v1.GetOptions{}).Return(roleBinding, nil),
 		s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), "unit-gitlab-0", treq, v1.CreateOptions{}).Return(
 			&authenticationv1.TokenRequest{Status: authenticationv1.TokenRequestStatus{Token: "token"}}, nil,
 		),
@@ -175,6 +176,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokenControllerModelCreate(c *gc.C) {
 			gomock.Any(), "controller-k1-unit-gitlab-0", types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: "juju"},
 		).Return(nil, s.k8sNotFoundError()),
 		s.mockClusterRoleBindings.EXPECT().Create(gomock.Any(), clusterroleBinding, v1.CreateOptions{FieldManager: "juju"}).Return(clusterroleBinding, nil),
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), "controller-k1-unit-gitlab-0", v1.GetOptions{}).Return(clusterroleBinding, nil),
 		s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), "unit-gitlab-0", treq, v1.CreateOptions{}).Return(
 			&authenticationv1.TokenRequest{Status: authenticationv1.TokenRequestStatus{Token: "token"}}, nil,
 		),
@@ -251,6 +253,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokeUpdate(c *gc.C) {
 		s.mockRoleBindings.EXPECT().Patch(
 			gomock.Any(), "unit-gitlab-0", types.StrategicMergePatchType, gomock.Any(), v1.PatchOptions{FieldManager: "juju"},
 		).Return(roleBinding, nil),
+		s.mockRoleBindings.EXPECT().Get(gomock.Any(), "unit-gitlab-0", v1.GetOptions{}).Return(roleBinding, nil),
 		s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), "unit-gitlab-0", treq, v1.CreateOptions{}).Return(
 			&authenticationv1.TokenRequest{Status: authenticationv1.TokenRequestStatus{Token: "token"}}, nil,
 		),
@@ -327,6 +330,7 @@ func (s *rbacSuite) TestEnsureSecretAccessTokeControllerModelUpdate(c *gc.C) {
 		s.mockClusterRoles.EXPECT().Update(gomock.Any(), clusterrole, v1.UpdateOptions{}).Return(clusterrole, nil),
 		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), "controller-k1-unit-gitlab-0", v1.GetOptions{}).Return(clusterroleBinding, nil),
 		s.mockClusterRoleBindings.EXPECT().Update(gomock.Any(), clusterroleBinding, v1.UpdateOptions{FieldManager: "juju"}).Return(clusterroleBinding, nil),
+		s.mockClusterRoleBindings.EXPECT().Get(gomock.Any(), "controller-k1-unit-gitlab-0", v1.GetOptions{}).Return(clusterroleBinding, nil),
 		s.mockServiceAccounts.EXPECT().CreateToken(gomock.Any(), "unit-gitlab-0", treq, v1.CreateOptions{}).Return(
 			&authenticationv1.TokenRequest{Status: authenticationv1.TokenRequestStatus{Token: "token"}}, nil,
 		),
