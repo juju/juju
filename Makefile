@@ -453,8 +453,8 @@ check-deps:
 
 
 # CAAS related targets
-export OCI_BUILDER         ?= docker
-DOCKER_USERNAME            ?= jujusolutions
+export OCI_BUILDER         ?= $(shell (which podman 2>&1 > /dev/null && echo podman) || echo docker )
+DOCKER_USERNAME            ?= docker.io/jujusolutions
 DOCKER_BUILDX_CONTEXT      ?= juju-make
 DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
 JUJUD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
