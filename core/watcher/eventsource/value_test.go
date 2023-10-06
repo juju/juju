@@ -4,6 +4,7 @@
 package eventsource
 
 import (
+	context "context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +23,83 @@ type valueSuite struct {
 }
 
 var _ = gc.Suite(&valueSuite{})
+
+func (s *valueSuite) TestNotificationsByPredicate(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	subExp := s.sub.EXPECT()
+
+	// We go through the worker loop minimum 4 times:
+	// - Read initial delta (additional subsequent events aren't guaranteed).
+	// - Dispatch initial notification.
+	// - Read deltas.
+	// - Dispatch notification.
+	// - Pick up tomb.Dying()
+	done := make(chan struct{})
+	subExp.Done().Return(done).MinTimes(4)
+
+	deltas := make(chan []changestream.ChangeEvent)
+	subExp.Changes().Return(deltas)
+
+	subExp.Unsubscribe()
+
+	s.eventsource.EXPECT().Subscribe(
+		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+	).Return(s.sub, nil)
+
+	w := NewValuePredicateWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All, func(ctx context.Context, e []changestream.ChangeEvent) bool {
+		if len(e) != 1 {
+			c.Fatalf("expected 1 event, got %d", len(e))
+		}
+		return e[0].Changed() == "some-key-value"
+	})
+	defer workertest.CleanKill(c, w)
+
+	// Initial notification.
+	select {
+	case <-w.Changes():
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for initial watcher changes")
+	}
+
+	// Simulate an incoming change from the stream.
+	select {
+	case deltas <- []changestream.ChangeEvent{changeEvent{
+		changeType: 0,
+		namespace:  "random_namespace",
+		changed:    "some-key-value",
+	}}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out dispatching change event")
+	}
+
+	// Notification for change.
+	select {
+	case <-w.Changes():
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for initial watcher changes")
+	}
+
+	// Simulate an incoming change from the stream.
+	select {
+	case deltas <- []changestream.ChangeEvent{changeEvent{
+		changeType: 1,
+		namespace:  "random_namespace",
+		changed:    "should-not-match",
+	}}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out dispatching change event")
+	}
+
+	// Notification for change.
+	select {
+	case <-w.Changes():
+		c.Fatal("unexpected changes")
+	case <-time.After(time.Second):
+	}
+
+	workertest.CleanKill(c, w)
+}
 
 func (s *valueSuite) TestNotificationsSent(c *gc.C) {
 	defer s.setupMocks(c).Finish()

@@ -4,10 +4,17 @@
 package eventsource
 
 import (
+	"context"
+
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
 )
+
+// ValuePredicate is a function that determines whether a change event
+// should be sent to the watcher.
+// Returning false will prevent the events from being sent.
+type ValuePredicate func(context.Context, []changestream.ChangeEvent) bool
 
 // ValueWatcher watches for events associated with a single value
 // from a namespace.
@@ -20,6 +27,8 @@ type ValueWatcher struct {
 	namespace   string
 	changeValue string
 	changeMask  changestream.ChangeType
+
+	predicate ValuePredicate
 }
 
 // NewValueWatcher returns a new watcher that receives changes from the input
@@ -32,6 +41,24 @@ func NewValueWatcher(base *BaseWatcher, namespace, changeValue string, changeMas
 		namespace:   namespace,
 		changeValue: changeValue,
 		changeMask:  changeMask,
+		predicate:   func(context.Context, []changestream.ChangeEvent) bool { return true },
+	}
+
+	w.tomb.Go(w.loop)
+	return w
+}
+
+// NewValuePredicateWatcher returns a new watcher that receives changes from
+// the input base watcher's db/queue when predicate accepts the change-log
+// events occur for a specific changeValue from the input namespace.
+func NewValuePredicateWatcher(base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType, predicate ValuePredicate) *ValueWatcher {
+	w := &ValueWatcher{
+		BaseWatcher: base,
+		out:         make(chan struct{}),
+		namespace:   namespace,
+		changeValue: changeValue,
+		changeMask:  changeMask,
+		predicate:   predicate,
 	}
 
 	w.tomb.Go(w.loop)
@@ -75,10 +102,17 @@ func (w *ValueWatcher) loop() error {
 			return tomb.ErrDying
 		case <-subscription.Done():
 			return ErrSubscriptionClosed
-		case _, ok := <-in:
+		case changes, ok := <-in:
 			if !ok {
 				w.logger.Debugf("change channel closed for %q; terminating watcher for %q", w.namespace, w.changeValue)
 				return nil
+			}
+
+			// Check with the predicate to determine if we should send a
+			// notification.
+			ctx := w.tomb.Context(context.Background())
+			if !w.predicate(ctx, changes) {
+				continue
 			}
 
 			// We have changes. Tick over to dispatch mode.
