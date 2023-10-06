@@ -154,6 +154,21 @@ func (mr *MockStateMockRecorder) StartUpgrade(arg0, arg1 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUpgrade", reflect.TypeOf((*MockState)(nil).StartUpgrade), arg0, arg1)
 }
 
+// WatchUpgradeInfo mocks base method.
+func (m *MockState) WatchUpgradeInfo(arg0 context.Context, arg1 string) (watcher.Watcher[struct{}], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchUpgradeInfo", arg0, arg1)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchUpgradeInfo indicates an expected call of WatchUpgradeInfo.
+func (mr *MockStateMockRecorder) WatchUpgradeInfo(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUpgradeInfo", reflect.TypeOf((*MockState)(nil).WatchUpgradeInfo), arg0, arg1)
+}
+
 // MockWatcherFactory is a mock of WatcherFactory interface.
 type MockWatcherFactory struct {
 	ctrl     *gomock.Controller
@@ -192,17 +207,17 @@ func (mr *MockWatcherFactoryMockRecorder) NewNamespaceWatcher(arg0, arg1, arg2 i
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNamespaceWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewNamespaceWatcher), arg0, arg1, arg2)
 }
 
-// NewUUIDsWatcher mocks base method.
-func (m *MockWatcherFactory) NewUUIDsWatcher(arg0 string, arg1 changestream.ChangeType) (watcher.Watcher[[]string], error) {
+// NewValueWatcher mocks base method.
+func (m *MockWatcherFactory) NewValueWatcher(arg0, arg1 string, arg2 changestream.ChangeType) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewUUIDsWatcher", arg0, arg1)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret := m.ctrl.Call(m, "NewValueWatcher", arg0, arg1, arg2)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewUUIDsWatcher indicates an expected call of NewUUIDsWatcher.
-func (mr *MockWatcherFactoryMockRecorder) NewUUIDsWatcher(arg0, arg1 interface{}) *gomock.Call {
+// NewValueWatcher indicates an expected call of NewValueWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewValueWatcher(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewUUIDsWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewUUIDsWatcher), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewValueWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewValueWatcher), arg0, arg1, arg2)
 }

@@ -28,6 +28,7 @@ type State interface {
 	ActiveUpgrade(context.Context) (string, error)
 	SetDBUpgradeCompleted(context.Context, string) error
 	SelectUpgradeInfo(context.Context, string) (upgrade.Info, error)
+	WatchUpgradeInfo(context.Context, string) (watcher.NotifyWatcher, error)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -35,7 +36,9 @@ type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
 	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
-	NewUUIDsWatcher(string, changestream.ChangeType) (watcher.StringsWatcher, error)
+	// NewValueWatcher returns a watcher for a particular change value
+	// in a namespace, based on the input change mask.
+	NewValueWatcher(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error)
 }
 
 // Service provides the API for working with upgrade info
@@ -109,6 +112,12 @@ func (s *Service) ActiveUpgrade(ctx context.Context) (string, error) {
 // nodes have been registered, meaning the upgrade is ready to start
 func (s *Service) WatchForUpgradeReady(ctx context.Context, upgradeUUID string) (watcher.NotifyWatcher, error) {
 	return NewUpgradeReadyWatcher(ctx, s.st, s.watcherFactory, upgradeUUID)
+}
+
+// WatchForUpgradeInfo creates a watcher which notifies when the upgrade
+// info has been updated
+func (s *Service) WatchForUpgradeInfo(ctx context.Context, upgradeUUID string) (watcher.NotifyWatcher, error) {
+	return s.watcherFactory.NewValueWatcher("upgrade_info", upgradeUUID, changestream.Create|changestream.Update)
 }
 
 // UpgradeInfo returns the upgrade info for the supplied upgradeUUID
