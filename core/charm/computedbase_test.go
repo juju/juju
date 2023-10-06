@@ -100,7 +100,7 @@ func (s *computedBaseSuite) TestBaseToUse(c *gc.C) {
 		err            string
 	}{{
 		series: base.Base{},
-		err:    "base not specified and charm does not define any",
+		err:    "charm does not define any bases",
 	}, {
 		series:    trusty,
 		baseToUse: trusty,
@@ -128,7 +128,59 @@ func (s *computedBaseSuite) TestBaseToUse(c *gc.C) {
 	}
 }
 
-func (s *computedBaseSuite) TestIsMissingBaseError(c *gc.C) {
-	c.Assert(IsMissingBaseError(errMissingBase), jc.IsTrue)
-	c.Assert(IsMissingBaseError(errors.New("foo")), jc.IsFalse)
+func (s *computedBaseSuite) TestBaseIsCompatibleWithCharm(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cm := NewMockCharmMeta(ctrl)
+	cm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{{
+			Name: "ubuntu",
+			Channel: charm.Channel{
+				Track: "18.04",
+				Risk:  "stable",
+			},
+		}, {
+			Name: "ubuntu",
+			Channel: charm.Channel{
+				Track: "20.04",
+				Risk:  "stable",
+			},
+		}},
+	}).AnyTimes()
+	cm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "my-charm",
+	}).AnyTimes()
+
+	focal := base.MustParseBaseFromString("ubuntu@20.04")
+	jammy := base.MustParseBaseFromString("ubuntu@22.04")
+
+	c.Assert(BaseIsCompatibleWithCharm(focal, cm), jc.ErrorIsNil)
+	c.Assert(BaseIsCompatibleWithCharm(jammy, cm), jc.Satisfies, IsUnsupportedBaseError)
+}
+
+func (s *computedBaseSuite) TestOSIsCompatibleWithCharm(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	cm := NewMockCharmMeta(ctrl)
+	cm.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: []charm.Base{{
+			Name: "ubuntu",
+			Channel: charm.Channel{
+				Track: "18.04",
+				Risk:  "stable",
+			},
+		}, {
+			Name: "ubuntu",
+			Channel: charm.Channel{
+				Track: "20.04",
+				Risk:  "stable",
+			},
+		}},
+	}).AnyTimes()
+	cm.EXPECT().Meta().Return(&charm.Meta{
+		Name: "my-charm",
+	}).AnyTimes()
+
+	c.Assert(OSIsCompatibleWithCharm("ubuntu", cm), jc.ErrorIsNil)
+	c.Assert(OSIsCompatibleWithCharm("centos", cm), jc.ErrorIs, errors.NotSupported)
 }

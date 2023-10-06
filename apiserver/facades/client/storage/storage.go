@@ -17,9 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
@@ -93,7 +91,7 @@ func (a *StorageAPI) StorageDetails(ctx stdcontext.Context, entities params.Enti
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		details, err := createStorageDetails(a.backend, a.storageAccess, storageInstance)
+		details, err := storagecommon.StorageDetails(a.storageAccess, a.unitAssignedMachine, storageInstance)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -135,7 +133,7 @@ func (a *StorageAPI) listStorageDetails(filter params.StorageFilter) ([]params.S
 	}
 	results := make([]params.StorageDetails, len(stateInstances))
 	for i, stateInstance := range stateInstances {
-		details, err := createStorageDetails(a.backend, a.storageAccess, stateInstance)
+		details, err := storagecommon.StorageDetails(a.storageAccess, a.unitAssignedMachine, stateInstance)
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting details for %s",
@@ -145,109 +143,6 @@ func (a *StorageAPI) listStorageDetails(filter params.StorageFilter) ([]params.S
 		results[i] = *details
 	}
 	return results, nil
-}
-
-func createStorageDetails(
-	backend backend,
-	st storageAccess,
-	si state.StorageInstance,
-) (*params.StorageDetails, error) {
-	// Get information from underlying volume or filesystem.
-	var persistent bool
-	var statusEntity status.StatusGetter
-	if si.Kind() == state.StorageKindFilesystem {
-		stFile := st.FilesystemAccess()
-		if stFile == nil {
-			return nil, errors.NotImplementedf("FilesystemStorage instance")
-		}
-		// TODO(axw) when we support persistent filesystems,
-		// e.g. CephFS, we'll need to do set "persistent"
-		// here too.
-		filesystem, err := stFile.StorageInstanceFilesystem(si.StorageTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		statusEntity = filesystem
-	} else {
-		stVolume := st.VolumeAccess()
-		if stVolume == nil {
-			return nil, errors.NotImplementedf("BlockStorage instance")
-		}
-		volume, err := stVolume.StorageInstanceVolume(si.StorageTag())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if info, err := volume.Info(); err == nil {
-			persistent = info.Persistent
-		}
-		statusEntity = volume
-	}
-	aStatus, err := statusEntity.Status()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Get unit storage attachments.
-	var storageAttachmentDetails map[string]params.StorageAttachmentDetails
-	storageAttachments, err := st.StorageAttachments(si.StorageTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(storageAttachments) > 0 {
-		storageAttachmentDetails = make(map[string]params.StorageAttachmentDetails)
-		for _, a := range storageAttachments {
-			// TODO(caas) - handle attachments to units
-			machineTag, location, err := storageAttachmentInfo(backend, st, a)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			details := params.StorageAttachmentDetails{
-				StorageTag: a.StorageInstance().String(),
-				UnitTag:    a.Unit().String(),
-				Location:   location,
-				Life:       life.Value(a.Life().String()),
-			}
-			if machineTag.Id() != "" {
-				details.MachineTag = machineTag.String()
-			}
-			storageAttachmentDetails[a.Unit().String()] = details
-		}
-	}
-
-	var ownerTag string
-	if owner, ok := si.Owner(); ok {
-		ownerTag = owner.String()
-	}
-
-	return &params.StorageDetails{
-		StorageTag:  si.Tag().String(),
-		OwnerTag:    ownerTag,
-		Kind:        params.StorageKind(si.Kind()),
-		Life:        life.Value(si.Life().String()),
-		Status:      common.EntityStatusFromState(aStatus),
-		Persistent:  persistent,
-		Attachments: storageAttachmentDetails,
-	}, nil
-}
-
-func storageAttachmentInfo(
-	backend backend,
-	st storageAccess,
-	a state.StorageAttachment,
-) (_ names.MachineTag, location string, _ error) {
-	machineTag, err := unitAssignedMachine(backend, a.Unit())
-	if errors.Is(err, errors.NotAssigned) {
-		return names.MachineTag{}, "", nil
-	} else if err != nil {
-		return names.MachineTag{}, "", errors.Trace(err)
-	}
-	info, err := storagecommon.StorageAttachmentInfo(st, st.VolumeAccess(), st.FilesystemAccess(), a, machineTag)
-	if errors.Is(err, errors.NotProvisioned) {
-		return machineTag, "", nil
-	} else if err != nil {
-		return names.MachineTag{}, "", errors.Trace(err)
-	}
-	return machineTag, info.Location, nil
 }
 
 // ListPools returns a list of pools.
@@ -426,16 +321,13 @@ func (a *StorageAPI) ListVolumes(ctx stdcontext.Context, filters params.VolumeFi
 	results := params.VolumeDetailsListResults{
 		Results: make([]params.VolumeDetailsListResult, len(filters.Filters)),
 	}
-	stVolumeAccess := a.storageAccess.VolumeAccess()
 	for i, filter := range filters.Filters {
-		volumes, volumeAttachments, err := filterVolumes(stVolumeAccess, filter)
+		volumes, volumeAttachments, err := filterVolumes(a.storageAccess, filter)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		details, err := createVolumeDetailsList(
-			a.backend, a.storageAccess, volumes, volumeAttachments,
-		)
+		details, err := a.createVolumeDetailsList(volumes, volumeAttachments)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -500,19 +392,16 @@ func filterVolumes(
 	return volumes, volumeAttachments, nil
 }
 
-func createVolumeDetailsList(
-	backend backend,
-	st storageAccess,
+func (a *StorageAPI) createVolumeDetailsList(
 	volumes []state.Volume,
 	attachments map[names.VolumeTag][]state.VolumeAttachment,
 ) ([]params.VolumeDetails, error) {
-
 	if len(volumes) == 0 {
 		return nil, nil
 	}
 	results := make([]params.VolumeDetails, len(volumes))
 	for i, v := range volumes {
-		details, err := createVolumeDetails(backend, st, v, attachments[v.VolumeTag()])
+		details, err := storagecommon.VolumeDetails(a.storageAccess, a.unitAssignedMachine, v, attachments[v.VolumeTag()])
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting details for %s",
@@ -522,63 +411,6 @@ func createVolumeDetailsList(
 		results[i] = *details
 	}
 	return results, nil
-}
-
-func createVolumeDetails(
-	backend backend,
-	st storageAccess,
-	v state.Volume,
-	attachments []state.VolumeAttachment,
-) (*params.VolumeDetails, error) {
-
-	details := &params.VolumeDetails{
-		VolumeTag: v.VolumeTag().String(),
-		Life:      life.Value(v.Life().String()),
-	}
-
-	if info, err := v.Info(); err == nil {
-		details.Info = storagecommon.VolumeInfoFromState(info)
-	}
-
-	if len(attachments) > 0 {
-		details.MachineAttachments = make(map[string]params.VolumeAttachmentDetails, len(attachments))
-		details.UnitAttachments = make(map[string]params.VolumeAttachmentDetails, len(attachments))
-		for _, attachment := range attachments {
-			attDetails := params.VolumeAttachmentDetails{
-				Life: life.Value(attachment.Life().String()),
-			}
-			if stateInfo, err := attachment.Info(); err == nil {
-				attDetails.VolumeAttachmentInfo = storagecommon.VolumeAttachmentInfoFromState(
-					stateInfo,
-				)
-			}
-			if attachment.Host().Kind() == names.MachineTagKind {
-				details.MachineAttachments[attachment.Host().String()] = attDetails
-			} else {
-				details.UnitAttachments[attachment.Host().String()] = attDetails
-			}
-		}
-	}
-
-	aStatus, err := v.Status()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	details.Status = common.EntityStatusFromState(aStatus)
-
-	if storageTag, err := v.StorageInstance(); err == nil {
-		storageInstance, err := st.StorageInstance(storageTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		storageDetails, err := createStorageDetails(backend, st, storageInstance)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		details.Storage = storageDetails
-	}
-
-	return details, nil
 }
 
 // ListFilesystems returns a list of filesystems in the environment matching
@@ -592,16 +424,13 @@ func (a *StorageAPI) ListFilesystems(ctx stdcontext.Context, filters params.File
 		return results, errors.Trace(err)
 	}
 
-	stFileAccess := a.storageAccess.FilesystemAccess()
 	for i, filter := range filters.Filters {
-		filesystems, filesystemAttachments, err := filterFilesystems(stFileAccess, filter)
+		filesystems, filesystemAttachments, err := filterFilesystems(a.storageAccess, filter)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		details, err := createFilesystemDetailsList(
-			a.backend, a.storageAccess, filesystems, filesystemAttachments,
-		)
+		details, err := a.createFilesystemDetailsList(filesystems, filesystemAttachments)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -662,19 +491,16 @@ func filterFilesystems(
 	return filesystems, filesystemAttachments, nil
 }
 
-func createFilesystemDetailsList(
-	backend backend,
-	st storageAccess,
+func (a *StorageAPI) createFilesystemDetailsList(
 	filesystems []state.Filesystem,
 	attachments map[names.FilesystemTag][]state.FilesystemAttachment,
 ) ([]params.FilesystemDetails, error) {
-
 	if len(filesystems) == 0 {
 		return nil, nil
 	}
 	results := make([]params.FilesystemDetails, len(filesystems))
 	for i, f := range filesystems {
-		details, err := createFilesystemDetails(backend, st, f, attachments[f.FilesystemTag()])
+		details, err := storagecommon.FilesystemDetails(a.storageAccess, a.unitAssignedMachine, f, attachments[f.FilesystemTag()])
 		if err != nil {
 			return nil, errors.Annotatef(
 				err, "getting details for %s",
@@ -684,67 +510,6 @@ func createFilesystemDetailsList(
 		results[i] = *details
 	}
 	return results, nil
-}
-
-func createFilesystemDetails(
-	backend backend,
-	st storageAccess,
-	f state.Filesystem,
-	attachments []state.FilesystemAttachment,
-) (*params.FilesystemDetails, error) {
-
-	details := &params.FilesystemDetails{
-		FilesystemTag: f.FilesystemTag().String(),
-		Life:          life.Value(f.Life().String()),
-	}
-
-	if volumeTag, err := f.Volume(); err == nil {
-		details.VolumeTag = volumeTag.String()
-	}
-
-	if info, err := f.Info(); err == nil {
-		details.Info = storagecommon.FilesystemInfoFromState(info)
-	}
-
-	if len(attachments) > 0 {
-		details.MachineAttachments = make(map[string]params.FilesystemAttachmentDetails, len(attachments))
-		details.UnitAttachments = make(map[string]params.FilesystemAttachmentDetails, len(attachments))
-		for _, attachment := range attachments {
-			attDetails := params.FilesystemAttachmentDetails{
-				Life: life.Value(attachment.Life().String()),
-			}
-			if stateInfo, err := attachment.Info(); err == nil {
-				attDetails.FilesystemAttachmentInfo = storagecommon.FilesystemAttachmentInfoFromState(
-					stateInfo,
-				)
-			}
-			if attachment.Host().Kind() == names.MachineTagKind {
-				details.MachineAttachments[attachment.Host().String()] = attDetails
-			} else {
-				details.UnitAttachments[attachment.Host().String()] = attDetails
-			}
-		}
-	}
-
-	aStatus, err := f.Status()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	details.Status = common.EntityStatusFromState(aStatus)
-
-	if storageTag, err := f.Storage(); err == nil {
-		storageInstance, err := st.StorageInstance(storageTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		storageDetails, err := createStorageDetails(backend, st, storageInstance)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		details.Storage = storageDetails
-	}
-
-	return details, nil
 }
 
 // AddToUnit validates and creates additional storage instances for units.
@@ -1055,7 +820,7 @@ func (a *StorageAPI) importFilesystem(
 		filesystemInfo.Size = info.Size
 	}
 
-	storageTag, err := a.storageAccess.FilesystemAccess().AddExistingFilesystem(filesystemInfo, volumeInfo, arg.StorageName)
+	storageTag, err := a.storageAccess.AddExistingFilesystem(filesystemInfo, volumeInfo, arg.StorageName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1101,4 +866,19 @@ func (a *StorageAPI) UpdatePool(ctx stdcontext.Context, p params.StoragePoolArgs
 		}
 	}
 	return results, nil
+}
+
+// unitAssignedMachine returns the tag of the machine that the unit
+// is assigned to, or an error if the unit cannot be obtained or is
+// not assigned to a machine.
+func (a *StorageAPI) unitAssignedMachine(tag names.UnitTag) (names.MachineTag, error) {
+	unit, err := a.backend.Unit(tag.Id())
+	if err != nil {
+		return names.MachineTag{}, errors.Trace(err)
+	}
+	mid, err := unit.AssignedMachineId()
+	if err != nil {
+		return names.MachineTag{}, errors.Trace(err)
+	}
+	return names.NewMachineTag(mid), nil
 }

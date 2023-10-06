@@ -7,6 +7,7 @@ package mocks
 import (
 	reflect "reflect"
 
+	client "github.com/juju/juju/api/client/client"
 	params "github.com/juju/juju/rpc/params"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -35,7 +36,7 @@ func (m *MockStatusAPI) EXPECT() *MockStatusAPIMockRecorder {
 }
 
 // Status mocks base method.
-func (m *MockStatusAPI) Status(arg0 []string) (*params.FullStatus, error) {
+func (m *MockStatusAPI) Status(arg0 *client.StatusArgs) (*params.FullStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Status", arg0)
 	ret0, _ := ret[0].(*params.FullStatus)

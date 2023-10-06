@@ -232,11 +232,11 @@ func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
-	logging := s.AddTestingApplication(c, "logging", s.AddSeriesCharm(c, "logging", "bionic"))
+	logging := s.AddTestingApplication(c, "logging", s.AddSeriesCharm(c, "logging-raring", "bionic"))
 	loggingEP, err := logging.Endpoint("info")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": principal and subordinate applications' series must match`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": principal and subordinate applications' bases must match`)
 }
 
 func (s *RelationSuite) TestAddContainerRelationMultiSeriesMatch(c *gc.C) {
@@ -276,7 +276,7 @@ requires:
 
 	_, err = s.State.AddRelation(principalEP, subordEP)
 	principalEP.Scope = charm.ScopeContainer
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "multi-series-subordinate:multi-directory multi-series:multi-directory": principal and subordinate applications' series must match`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "multi-series-subordinate:multi-directory multi-series:multi-directory": principal and subordinate applications' bases must match`)
 }
 
 func (s *RelationSuite) TestAddContainerRelationWithNoSubordinate(c *gc.C) {

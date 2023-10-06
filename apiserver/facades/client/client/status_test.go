@@ -771,13 +771,17 @@ func (s *statusUnitTestSuite) TestRelationFiltered(c *gc.C) {
 	// Test status filtering with application 1: should get both relations
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
-	status, err := client.Status([]string{a1.Name()})
+	status, err := client.Status(&apiclient.StatusArgs{
+		Patterns: []string{a1.Name()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	assertApplicationRelations(c, a1.Name(), 2, status.Relations)
 
 	// test status filtering with application 3: should get 1 relation
-	status, err = client.Status([]string{a3.Name()})
+	status, err = client.Status(&apiclient.StatusArgs{
+		Patterns: []string{a3.Name()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	assertApplicationRelations(c, a3.Name(), 1, status.Relations)
@@ -825,7 +829,9 @@ func (s *statusUnitTestSuite) TestApplicationFilterIndependentOfAlphabeticUnitOr
 	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
 	for i := 0; i < 20; i++ {
 		c.Logf("run %d", i)
-		status, err := client.Status([]string{applicationA.Name()})
+		status, err := client.Status(&apiclient.StatusArgs{
+			Patterns: []string{applicationA.Name()},
+		})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(status.Applications, gc.HasLen, 2)
 	}
@@ -894,7 +900,9 @@ func (s *statusUnitTestSuite) TestFilterOutRelationsForRelatedApplicationsThatDo
 	// * two applications.
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
-	status, err := client.Status([]string{applicationA.Name()})
+	status, err := client.Status(&apiclient.StatusArgs{
+		Patterns: []string{applicationA.Name()},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, gc.NotNil)
 	c.Assert(status.Applications, gc.HasLen, 2)
@@ -1205,7 +1213,9 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnit(c *gc.C) {
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
 
-	status, err := client.Status([]string{s.appA + "/0"})
+	status, err := client.Status(&apiclient.StatusArgs{
+		Patterns: []string{s.appA + "/0"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Branches, gc.HasLen, 1)
 	b, ok := status.Branches["apple"]
@@ -1228,7 +1238,9 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterUnitLeader(c *gc.C) {
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
 
-	status, err := client.Status([]string{s.appA + "/leader"})
+	status, err := client.Status(&apiclient.StatusArgs{
+		Patterns: []string{s.appA + "/leader"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Branches, gc.HasLen, 1)
 	b, ok := status.Branches["apple"]
@@ -1246,7 +1258,9 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterApplication(c *gc.C) 
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
 
-	status, err := client.Status([]string{s.appB})
+	status, err := client.Status(&apiclient.StatusArgs{
+		Patterns: []string{s.appB},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Branches, gc.HasLen, 1)
 	b, ok := status.Branches["banana"]
@@ -1265,7 +1279,9 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterSubordinateUnit(c *gc
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
 
-	status, err := client.Status([]string{s.subB + "/0"})
+	status, err := client.Status(&apiclient.StatusArgs{
+		Patterns: []string{s.subB + "/0"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Branches, gc.HasLen, 1)
 	b, ok := status.Branches["apple"]
@@ -1283,7 +1299,9 @@ func (s *filteringBranchesSuite) TestFullStatusBranchFilterTwoBranchesSubordinat
 	conn := s.OpenControllerModelAPI(c)
 	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
 
-	status, err := client.Status([]string{s.appB + "/0"})
+	status, err := client.Status(&apiclient.StatusArgs{
+		Patterns: []string{s.appB + "/0"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.Branches, gc.HasLen, 2)
 	b, ok := status.Branches["apple"]

@@ -86,15 +86,15 @@ func (s *charmPathSuite) TestCharmWithManifest(c *gc.C) {
 }
 
 func (s *charmPathSuite) TestNoBaseSpecified(c *gc.C) {
-	charmDir := filepath.Join(s.repoPath, "dummy")
-	s.cloneCharmDir(s.repoPath, "dummy")
+	charmDir := filepath.Join(s.repoPath, "sample-fail-no-os")
+	s.cloneCharmDir(s.repoPath, "sample-fail-no-os")
 	_, _, err := corecharm.NewCharmAtPath(charmDir, base.Base{})
 	c.Assert(err, gc.ErrorMatches, "base not specified and charm does not define any")
 }
 
 func (s *charmPathSuite) TestNoBaseSpecifiedForceStillFails(c *gc.C) {
-	charmDir := filepath.Join(s.repoPath, "dummy")
-	s.cloneCharmDir(s.repoPath, "dummy")
+	charmDir := filepath.Join(s.repoPath, "sample-fail-no-os")
+	s.cloneCharmDir(s.repoPath, "sample-fail-no-os")
 	_, _, err := corecharm.NewCharmAtPathForceBase(charmDir, base.Base{}, true)
 	c.Assert(err, gc.ErrorMatches, "base not specified and charm does not define any")
 }

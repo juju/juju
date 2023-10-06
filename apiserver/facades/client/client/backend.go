@@ -13,6 +13,7 @@ import (
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -239,4 +240,26 @@ type MongoSessionShim struct {
 // CurrentStatus returns the current status of the replicaset.
 func (s MongoSessionShim) CurrentStatus() (*replicaset.Status, error) {
 	return replicaset.CurrentStatus(s.Session)
+}
+
+type StorageInterface interface {
+	storagecommon.StorageAccess
+	storagecommon.VolumeAccess
+	storagecommon.FilesystemAccess
+
+	AllStorageInstances() ([]state.StorageInstance, error)
+	AllFilesystems() ([]state.Filesystem, error)
+	AllVolumes() ([]state.Volume, error)
+
+	StorageAttachments(names.StorageTag) ([]state.StorageAttachment, error)
+	FilesystemAttachments(names.FilesystemTag) ([]state.FilesystemAttachment, error)
+	VolumeAttachments(names.VolumeTag) ([]state.VolumeAttachment, error)
+}
+
+var getStorageState = func(st *state.State) (StorageInterface, error) {
+	sb, err := state.NewStorageBackend(st)
+	if err != nil {
+		return nil, err
+	}
+	return sb, nil
 }

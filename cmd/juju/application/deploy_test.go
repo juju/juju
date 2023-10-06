@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
 	apicharms "github.com/juju/juju/api/client/charms"
+	"github.com/juju/juju/api/client/client"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/resources"
 	commoncharm "github.com/juju/juju/api/common/charm"
@@ -1370,8 +1371,8 @@ func (f *fakeDeployAPI) GetBundle(url *charm.URL, _ commoncharm.Origin, _ string
 	return results[0].(charm.Bundle), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) Status(patterns []string) (*params.FullStatus, error) {
-	results := f.MethodCall(f, "Status", patterns)
+func (f *fakeDeployAPI) Status(args *apiclient.StatusArgs) (*params.FullStatus, error) {
+	results := f.MethodCall(f, "Status", args)
 	return results[0].(*params.FullStatus), jujutesting.TypeAssertError(results[1])
 }
 
@@ -1807,5 +1808,5 @@ func withAllWatcher(fakeAPI *fakeDeployAPI) {
 
 	fakeAPI.Call("BestFacadeVersion", "AllWatcher").Returns(0)
 	fakeAPI.Call("APICall", "AllWatcher", 0, "0", "Stop", nil, nil).Returns(error(nil))
-	fakeAPI.Call("Status", []string(nil)).Returns(&params.FullStatus{}, error(nil))
+	fakeAPI.Call("Status", (*client.StatusArgs)(nil)).Returns(&params.FullStatus{}, error(nil))
 }

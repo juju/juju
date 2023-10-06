@@ -19,7 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/viddy"
 
-	storageapi "github.com/juju/juju/api/client/storage"
+	"github.com/juju/juju/api/client/client"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -31,7 +31,7 @@ import (
 var logger = loggo.GetLogger("juju.cmd.juju.status")
 
 type statusAPI interface {
-	Status(patterns []string) (*params.FullStatus, error)
+	Status(*client.StatusArgs) (*params.FullStatus, error)
 	Close() error
 }
 
@@ -50,12 +50,11 @@ type Clock interface {
 
 type statusCommand struct {
 	modelcmd.ModelCommandBase
-	out        cmd.Output
-	patterns   []string
-	isoTime    bool
-	statusAPI  statusAPI
-	storageAPI storage.StorageListAPI
-	clock      Clock
+	out       cmd.Output
+	patterns  []string
+	isoTime   bool
+	statusAPI statusAPI
+	clock     Clock
 
 	retryCount int
 	retryDelay time.Duration
@@ -254,62 +253,53 @@ func (c *statusCommand) getStatusAPI() (statusAPI, error) {
 	return c.statusAPI, nil
 }
 
-func (c *statusCommand) getStorageAPI() (storage.StorageListAPI, error) {
-	if c.storageAPI == nil {
-		root, err := c.NewAPIRoot()
-		if err != nil {
-			return nil, err
-		}
-		c.storageAPI = storageapi.NewClient(root)
-	}
-	return c.storageAPI, nil
-}
-
 func (c *statusCommand) close() {
 	// We really don't care what the errors are if there are some.
 	// The user can't do anything about it.  Just try.
 	if c.statusAPI != nil {
 		c.statusAPI.Close()
 	}
-	if c.storageAPI != nil {
-		c.storageAPI.Close()
-	}
 }
 
-func (c *statusCommand) getStatus() (*params.FullStatus, error) {
+func (c *statusCommand) getStatus(includeStorage bool) (*params.FullStatus, error) {
 	apiclient, err := c.getStatusAPI()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return apiclient.Status(c.patterns)
-}
-
-func (c *statusCommand) getStorageInfo(ctx *cmd.Context) (*storage.CombinedStorage, error) {
-	apiclient, err := c.getStorageAPI()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return storage.GetCombinedStorageInfo(
-		storage.GetCombinedStorageInfoParams{
-			Context:         ctx,
-			APIClient:       apiclient,
-			Ids:             []string{},
-			WantStorage:     true,
-			WantVolumes:     true,
-			WantFilesystems: true,
-		})
+	return apiclient.Status(&client.StatusArgs{
+		Patterns:       c.patterns,
+		IncludeStorage: includeStorage,
+	})
 }
 
 func (c *statusCommand) runStatus(ctx *cmd.Context) error {
+	showIntegrations := c.integrations || c.relations
+	showStorage := c.storage
+	if c.out.Name() != "tabular" {
+		showIntegrations = true
+		showStorage = true
+		providedIgnoredFlags := c.checkProvidedIgnoredFlagF()
+		if !providedIgnoredFlags.IsEmpty() {
+			// For non-tabular formats this is redundant and needs to be mentioned to the user.
+			joinedMsg := strings.Join(providedIgnoredFlags.SortedValues(), ", ")
+			if providedIgnoredFlags.Size() > 1 {
+				joinedMsg += " options are"
+			} else {
+				joinedMsg += " option is"
+			}
+			ctx.Infof("provided %s always enabled in non tabular formats", joinedMsg)
+		}
+	}
+
 	// Always attempt to get the status at least once, and retry if it fails.
-	status, err := c.getStatus()
+	status, err := c.getStatus(showStorage)
 	if err != nil && !modelcmd.IsModelMigratedError(err) {
 		for i := 0; i < c.retryCount; i++ {
 			// fun bit - make sure a new api connection is used for each new call
 			c.SetModelAPI(nil)
 			// Wait for a bit before retries.
 			<-c.clock.After(c.retryDelay)
-			status, err = c.getStatus()
+			status, err = c.getStatus(showStorage)
 			if err == nil || modelcmd.IsModelMigratedError(err) {
 				break
 			}
@@ -336,23 +326,6 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	showIntegrations := c.integrations || c.relations
-	showStorage := c.storage
-	if c.out.Name() != "tabular" {
-		showIntegrations = true
-		showStorage = true
-		providedIgnoredFlags := c.checkProvidedIgnoredFlagF()
-		if !providedIgnoredFlags.IsEmpty() {
-			// For non-tabular formats this is redundant and needs to be mentioned to the user.
-			joinedMsg := strings.Join(providedIgnoredFlags.SortedValues(), ", ")
-			if providedIgnoredFlags.Size() > 1 {
-				joinedMsg += " options are"
-			} else {
-				joinedMsg += " option is"
-			}
-			ctx.Infof("provided %s always enabled in non tabular formats", joinedMsg)
-		}
-	}
 	formatterParams := NewStatusFormatterParams{
 		Status:         status,
 		ControllerName: controllerName,
@@ -362,7 +335,8 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 		ActiveBranch:   activeBranch,
 	}
 	if showStorage {
-		storageInfo, err := c.getStorageInfo(ctx)
+		// TODO: move this into StatusFormatter
+		storageInfo, err := storage.CombinedStorageFromParams(status.Storage, status.Filesystems, status.Volumes)
 		if err != nil {
 			return errors.Trace(err)
 		}

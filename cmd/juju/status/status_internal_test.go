@@ -47,7 +47,7 @@ var (
 
 func runStatus(c *gc.C, testCtx *context, args ...string) (code int, stdout, stderr string) {
 	ctx := cmdtesting.Context(c)
-	code = cmd.Main(NewStatusCommandForTest(testCtx.store, testCtx.api, testCtx.storageapi, clock.WallClock), ctx, args)
+	code = cmd.Main(NewStatusCommandForTest(testCtx.store, testCtx.api, clock.WallClock), ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).String()
 	stderr = ctx.Stderr.(*bytes.Buffer).String()
 	return
@@ -115,9 +115,8 @@ type context struct {
 	subordinateUnits map[string]int
 	nextinstanceId   int
 
-	store      *jujuclient.MemStore
-	api        *fakeStatusAPI
-	storageapi *mockListStorageAPI
+	store *jujuclient.MemStore
+	api   *fakeStatusAPI
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
@@ -158,7 +157,6 @@ func (s *StatusSuite) newContext() *context {
 				RemoteApplications: make(map[string]params.RemoteApplicationStatus),
 			},
 		},
-		storageapi: &mockListStorageAPI{empty: true},
 	}
 }
 

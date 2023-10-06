@@ -25,6 +25,11 @@ type InstanceType struct {
 	VirtType *string // The type of virtualisation used by the hypervisor, must match the image.
 	CpuPower *uint64
 	Tags     []string
+	// These two values are needed to know the maximum value of cpu and
+	// memory on flexible/custom instances. Currently only supported on
+	// OCI.
+	MaxCpuCores *uint64
+	MaxMem      *uint64
 }
 
 // InstanceTypeNetworking hold relevant information about an instances
@@ -65,13 +70,17 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 		return nothing, false
 	}
 	if cons.CpuCores != nil && itype.CpuCores < *cons.CpuCores {
-		return nothing, false
+		if itype.MaxCpuCores == nil || *itype.MaxCpuCores < *cons.CpuCores {
+			return nothing, false
+		}
 	}
 	if cons.CpuPower != nil && itype.CpuPower != nil && *itype.CpuPower < *cons.CpuPower {
 		return nothing, false
 	}
 	if cons.Mem != nil && itype.Mem < *cons.Mem {
-		return nothing, false
+		if itype.MaxMem == nil || *itype.MaxMem < *cons.Mem {
+			return nothing, false
+		}
 	}
 	if cons.RootDisk != nil && itype.RootDisk > 0 && itype.RootDisk < *cons.RootDisk {
 		return nothing, false
@@ -85,8 +94,12 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 	return itype, true
 }
 
-// minMemoryHeuristic is the assumed minimum amount of memory (in MB) we prefer in order to run a server (1GB)
-const minMemoryHeuristic = 1024
+const (
+	// MinCpuCores is the assumed minimum CPU cores we prefer in order to run a server.
+	MinCpuCores uint64 = 1
+	// minMemoryHeuristic is the assumed minimum amount of memory (in MB) we prefer in order to run a server (2GB)
+	minMemoryHeuristic uint64 = 2048
+)
 
 // matchingTypesForConstraint returns instance types from allTypes which match cons.
 func matchingTypesForConstraint(allTypes []InstanceType, cons constraints.Value) []InstanceType {
@@ -108,13 +121,19 @@ func MatchingInstanceTypes(allInstanceTypes []InstanceType, region string, cons 
 
 	// Rules used to select instance types:
 	// - non memory constraints like cores etc are always honoured
+	// - if no cpu-cores constraint specified, try opinionated default
+	//   with enough cpu cores to run a server.
 	// - if no mem constraint specified and instance-type not specified,
 	//   try opinionated default with enough mem to run a server.
 	// - if no matches and no mem constraint specified, try again and
 	//   return any matching instance with the largest memory
 	origCons := cons
-	if !cons.HasInstanceType() && cons.Mem == nil {
-		minMem := uint64(minMemoryHeuristic)
+	if !cons.HasInstanceType() && !cons.HasCpuCores() {
+		minCpuCores := MinCpuCores
+		cons.CpuCores = &minCpuCores
+	}
+	if !cons.HasInstanceType() && !cons.HasMem() {
+		minMem := minMemoryHeuristic
 		cons.Mem = &minMem
 	}
 	itypes = matchingTypesForConstraint(allInstanceTypes, cons)

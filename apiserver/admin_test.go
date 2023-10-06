@@ -167,7 +167,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	password := "password"
 	u := f.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
 
-	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status([]string{})
+	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(err, gc.NotNil)
 	c.Check(errors.Is(err, errors.NotImplemented), jc.IsTrue)
 	c.Check(strings.Contains(err.Error(), `unknown facade type "Client"`), jc.IsTrue)
@@ -179,7 +179,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 		Code:    "unauthorized access",
 	})
 
-	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status([]string{})
+	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(err, gc.NotNil)
 	c.Check(errors.Is(err, errors.NotImplemented), jc.IsTrue)
 	c.Check(strings.Contains(err.Error(), `unknown facade type "Client"`), jc.IsTrue)
@@ -193,7 +193,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	password := "password"
 	u := f.MakeUser(c, &factory.UserParams{Password: password})
 
-	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status([]string{})
+	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(err, gc.NotNil)
 	c.Check(errors.Is(err, errors.NotImplemented), jc.IsTrue)
 	c.Check(strings.Contains(err.Error(), `unknown facade type "Client"`), jc.IsTrue)
@@ -208,7 +208,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 		Code:    "unauthorized access",
 	})
 
-	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status([]string{})
+	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
 	c.Assert(err, gc.NotNil)
 	c.Check(errors.Is(err, errors.NotImplemented), jc.IsTrue)
 	c.Check(strings.Contains(err.Error(), `unknown facade type "Client"`), jc.IsTrue)
