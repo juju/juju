@@ -49,7 +49,11 @@ func findInstanceSpec(
 		ic.Constraints = withDefaultNonControllerConstraints(ic.Constraints)
 	}
 	suitableImages := filterImages(allImageMetadata, ic)
-	logger.Debugf("found %d suitable image(s): %s", len(suitableImages), pretty.Sprint(suitableImages))
+	logger.Debugf("found %d suitable image(s) from %d available: %s",
+		len(suitableImages),
+		len(allImageMetadata),
+		pretty.Sprint(suitableImages),
+	)
 	images := instances.ImageMetadataToImages(suitableImages)
 	return instances.FindInstanceSpec(images, ic, instanceTypes)
 }
