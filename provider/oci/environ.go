@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/core/arch"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -333,7 +333,7 @@ var unsupportedConstraints = []string{
 func (e *Environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	validator.RegisterVocabulary(constraints.Arch, []string{arch.AMD64})
+	validator.RegisterVocabulary(constraints.Arch, []string{corearch.AMD64, corearch.ARM64})
 	logger.Infof("Returning constraints validator: %v", validator)
 	return validator, nil
 }
@@ -498,8 +498,6 @@ func (e *Environ) startInstance(
 		return nil, errors.Trace(err)
 	}
 
-	types := imgCache.SupportedShapes(args.InstanceConfig.Base)
-
 	defaultType := VirtualMachine.String()
 	if args.Constraints.VirtType == nil {
 		args.Constraints.VirtType = &defaultType
@@ -507,16 +505,11 @@ func (e *Environ) startInstance(
 
 	// check if we find an image that is compliant with the
 	// constraints provided in the oracle cloud account
-	args.ImageMetadata = imgCache.ImageMetadata(args.InstanceConfig.Base, *args.Constraints.VirtType)
-
 	spec, image, err := findInstanceSpec(
-		args.ImageMetadata,
-		types,
-		&instances.InstanceConstraint{
-			Base:        args.InstanceConfig.Base,
-			Arch:        arch,
-			Constraints: args.Constraints,
-		},
+		args.InstanceConfig.Base,
+		arch,
+		args.Constraints,
+		imgCache,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
