@@ -153,7 +153,7 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshAuthAuthTokenMissing(c 
 	}
 	setImageRepoDetails(c, reg, repoDetails)
 	shouldRefreshAuth, tick := reg.ShouldRefreshAuth()
-	c.Assert(tick, gc.IsNil)
+	c.Assert(tick, gc.Equals, time.Duration(0))
 	c.Assert(shouldRefreshAuth, jc.IsTrue)
 }
 
@@ -172,7 +172,7 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshNoExpireTime(c *gc.C) {
 	repoDetails.Auth = docker.NewToken(`xxx===`)
 	setImageRepoDetails(c, reg, repoDetails)
 	shouldRefreshAuth, tick := reg.ShouldRefreshAuth()
-	c.Assert(tick, gc.IsNil)
+	c.Assert(tick, gc.Equals, time.Duration(0))
 	c.Assert(shouldRefreshAuth, jc.IsTrue)
 }
 
@@ -196,7 +196,7 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenExpired(c *gc.C) {
 	}
 	setImageRepoDetails(c, reg, repoDetails)
 	shouldRefreshAuth, tick := reg.ShouldRefreshAuth()
-	c.Assert(tick, gc.IsNil)
+	c.Assert(tick, gc.Equals, time.Duration(0))
 	c.Assert(shouldRefreshAuth, jc.IsTrue)
 
 	// // already expired.
@@ -207,7 +207,7 @@ func (s *elasticContainerRegistrySuite) TestShouldRefreshTokenExpired(c *gc.C) {
 	}
 	setImageRepoDetails(c, reg, repoDetails)
 	shouldRefreshAuth, tick = reg.ShouldRefreshAuth()
-	c.Assert(tick, gc.IsNil)
+	c.Assert(tick, gc.Equals, time.Duration(0))
 	c.Assert(shouldRefreshAuth, jc.IsTrue)
 }
 

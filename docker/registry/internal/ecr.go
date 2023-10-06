@@ -127,16 +127,15 @@ func (c *elasticContainerRegistry) refreshTokenForElasticContainerRegistry(image
 }
 
 // ShouldRefreshAuth checks if the repoDetails should be refreshed.
-func (c *elasticContainerRegistry) ShouldRefreshAuth() (bool, *time.Duration) {
+func (c *elasticContainerRegistry) ShouldRefreshAuth() (bool, time.Duration) {
 	if c.repoDetails.Auth.Empty() || c.repoDetails.Auth.ExpiresAt == nil {
-		return true, nil
+		return true, time.Duration(0)
 	}
 	d := time.Until(*c.repoDetails.Auth.ExpiresAt)
 	if d <= advanceExpiry {
-		return true, nil
+		return true, time.Duration(0)
 	}
-	nextCheckDuration := d - advanceExpiry
-	return false, &nextCheckDuration
+	return false, d - advanceExpiry
 }
 
 // RefreshAuth refreshes the repoDetails.

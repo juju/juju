@@ -20,7 +20,7 @@ type Registry interface {
 	Close() error
 	Ping() error
 	ImageRepoDetails() docker.ImageRepoDetails
-	ShouldRefreshAuth() (bool, *time.Duration)
+	ShouldRefreshAuth() (bool, time.Duration)
 	RefreshAuth() error
 }
 

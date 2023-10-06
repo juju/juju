@@ -108,11 +108,11 @@ func (mr *MockRegistryMockRecorder) RefreshAuth() *gomock.Call {
 }
 
 // ShouldRefreshAuth mocks base method.
-func (m *MockRegistry) ShouldRefreshAuth() (bool, *time.Duration) {
+func (m *MockRegistry) ShouldRefreshAuth() (bool, time.Duration) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ShouldRefreshAuth")
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(*time.Duration)
+	ret1, _ := ret[1].(time.Duration)
 	return ret0, ret1
 }
 
