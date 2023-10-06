@@ -743,20 +743,6 @@ func (s *secretsSuite) TestRemoveSecretsForSecretOwners(c *gc.C) {
 		RevisionID: "rev-666",
 	}}, nil)
 
-	cfg := &provider.ModelBackendConfig{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
-		ModelName:      "fred",
-		BackendConfig: provider.BackendConfig{
-			BackendType: "some-backend",
-			Config:      map[string]interface{}{"foo": "admin"},
-		},
-	}
-	mockprovider.EXPECT().CleanupSecrets(
-		cfg, names.NewUnitTag("mariadb/0"),
-		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
-	).Return(nil)
-
 	adminConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
 		return &provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id",

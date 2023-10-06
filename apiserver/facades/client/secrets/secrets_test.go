@@ -475,6 +475,32 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, isInternal bool, finalStepFa
 			errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 		s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
 		s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: coretesting.ModelTag.String()}, nil).Times(2)
+		s.secretsState.EXPECT().GetSecretRevision(uri, 1).Return(&coresecrets.SecretRevisionMetadata{
+			Revision: 1,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-1"},
+		}, nil)
+		s.secretsState.EXPECT().GetSecretRevision(uri, 2).Return(&coresecrets.SecretRevisionMetadata{
+			Revision: 2,
+			ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-2"},
+		}, nil)
+
+		cfg := &provider.ModelBackendConfig{
+			ControllerUUID: coretesting.ControllerTag.Id(),
+			ModelUUID:      coretesting.ModelTag.Id(),
+			ModelName:      "some-model",
+			BackendConfig: provider.BackendConfig{
+				BackendType: "active-type",
+				Config:      map[string]interface{}{"foo": "active-type"},
+			},
+		}
+		s.provider.EXPECT().NewBackend(cfg).Return(s.backend, nil)
+		s.backend.EXPECT().DeleteContent(gomock.Any(), "rev-1").Return(nil)
+		s.backend.EXPECT().DeleteContent(gomock.Any(), "rev-2").Return(nil)
+		s.provider.EXPECT().CleanupSecrets(
+			cfg, names.NewUserTag("foo"),
+			provider.SecretRevisions{uri.ID: set.NewStrings("rev-1", "rev-2")},
+		).Return(nil)
+
 		s.secretsState.EXPECT().DeleteSecret(uri, []int{1, 2}).Return(nil, nil)
 	}
 	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer,
@@ -554,6 +580,10 @@ func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: coretesting.ModelTag.String()}, nil).Times(2)
+	s.secretsState.EXPECT().GetSecretRevision(&expectURI, 666).Return(&coresecrets.SecretRevisionMetadata{
+		Revision: 666,
+		ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-666"},
+	}, nil)
 	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return([]coresecrets.ValueRef{{
 		BackendID:  "backend-id",
 		RevisionID: "rev-666",
@@ -732,7 +762,26 @@ func (s *SecretsSuite) TestRemoveSecretRevision(c *gc.C) {
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, coretesting.ModelTag).Return(nil)
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{URI: uri, OwnerTag: coretesting.ModelTag.String()}, nil).Times(2)
+	s.secretsState.EXPECT().GetSecretRevision(&expectURI, 666).Return(&coresecrets.SecretRevisionMetadata{
+		Revision: 666,
+		ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-666"},
+	}, nil)
 	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(nil, nil)
+	cfg := &provider.ModelBackendConfig{
+		ControllerUUID: coretesting.ControllerTag.Id(),
+		ModelUUID:      coretesting.ModelTag.Id(),
+		ModelName:      "some-model",
+		BackendConfig: provider.BackendConfig{
+			BackendType: "active-type",
+			Config:      map[string]interface{}{"foo": "active-type"},
+		},
+	}
+	s.provider.EXPECT().NewBackend(cfg).Return(s.backend, nil)
+	s.backend.EXPECT().DeleteContent(gomock.Any(), "rev-666").Return(nil)
+	s.provider.EXPECT().CleanupSecrets(
+		cfg, names.NewUserTag("foo"),
+		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
+	).Return(nil)
 
 	facade, err := apisecrets.NewTestAPI(s.secretsState, s.secretConsumer,
 		func() (*provider.ModelBackendConfigInfo, error) {
