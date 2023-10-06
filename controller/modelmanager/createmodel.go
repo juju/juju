@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3"
+	"github.com/juju/utils/v3/ssh"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/environs"
@@ -69,6 +70,27 @@ func (c ModelConfigCreator) NewModelConfig(
 		attrs[config.UUIDKey] = uuid.String()
 	}
 	attrs[config.TypeKey] = cloud.Type
+
+	// We need to get the system-identity public key to be added to the
+	// newly created model config at AuthorizedKeys.
+	// First, we take the controller model's AuthorizedKeys one by one and
+	// try to find the one corresponding to system-identity.
+	for _, key := range ssh.SplitAuthorisedKeys(base.AuthorizedKeys()) {
+		parsedKey, err := ssh.ParseAuthorisedKey(key)
+		if err != nil {
+			logger.Tracef("error parsing controller authorized key %s", key)
+			continue
+		}
+		// system-identity public key must be commented with
+		// Juju:juju-system-key
+		if parsedKey.Comment == config.JujuSystemKey {
+			// If found, add this key to the attrs.
+			prevAuthKeys := attrs[config.AuthorizedKeysKey].(string)
+			attrs[config.AuthorizedKeysKey] = config.ConcatAuthKeys(prevAuthKeys, key)
+			break
+		}
+	}
+
 	cfg, err := finalizeConfig(provider, cloud, attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
