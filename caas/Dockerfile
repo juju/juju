@@ -1,7 +1,6 @@
 FROM public.ecr.aws/ubuntu/ubuntu:20.04
 ARG TARGETOS
 ARG TARGETARCH
-ARG BUILDOS
 
 # Add the syslog user for audit logging.
 RUN useradd --system -M syslog
