@@ -11,6 +11,7 @@ import (
 	changestream "github.com/juju/juju/core/changestream"
 	upgrade "github.com/juju/juju/core/upgrade"
 	watcher "github.com/juju/juju/core/watcher"
+	upgrade0 "github.com/juju/juju/domain/upgrade"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -39,10 +40,10 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // ActiveUpgrade mocks base method.
-func (m *MockState) ActiveUpgrade(arg0 context.Context) (string, error) {
+func (m *MockState) ActiveUpgrade(arg0 context.Context) (upgrade0.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ActiveUpgrade", arg0)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(upgrade0.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -54,7 +55,7 @@ func (mr *MockStateMockRecorder) ActiveUpgrade(arg0 interface{}) *gomock.Call {
 }
 
 // AllProvisionedControllersReady mocks base method.
-func (m *MockState) AllProvisionedControllersReady(arg0 context.Context, arg1 string) (bool, error) {
+func (m *MockState) AllProvisionedControllersReady(arg0 context.Context, arg1 upgrade0.UUID) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllProvisionedControllersReady", arg0, arg1)
 	ret0, _ := ret[0].(bool)
@@ -69,10 +70,10 @@ func (mr *MockStateMockRecorder) AllProvisionedControllersReady(arg0, arg1 inter
 }
 
 // CreateUpgrade mocks base method.
-func (m *MockState) CreateUpgrade(arg0 context.Context, arg1, arg2 version.Number) (string, error) {
+func (m *MockState) CreateUpgrade(arg0 context.Context, arg1, arg2 version.Number) (upgrade0.UUID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateUpgrade", arg0, arg1, arg2)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(upgrade0.UUID)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -83,23 +84,8 @@ func (mr *MockStateMockRecorder) CreateUpgrade(arg0, arg1, arg2 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateUpgrade", reflect.TypeOf((*MockState)(nil).CreateUpgrade), arg0, arg1, arg2)
 }
 
-// SelectUpgradeInfo mocks base method.
-func (m *MockState) SelectUpgradeInfo(arg0 context.Context, arg1 string) (upgrade.Info, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SelectUpgradeInfo", arg0, arg1)
-	ret0, _ := ret[0].(upgrade.Info)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SelectUpgradeInfo indicates an expected call of SelectUpgradeInfo.
-func (mr *MockStateMockRecorder) SelectUpgradeInfo(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectUpgradeInfo", reflect.TypeOf((*MockState)(nil).SelectUpgradeInfo), arg0, arg1)
-}
-
 // SetControllerDone mocks base method.
-func (m *MockState) SetControllerDone(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockState) SetControllerDone(arg0 context.Context, arg1 upgrade0.UUID, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetControllerDone", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -113,7 +99,7 @@ func (mr *MockStateMockRecorder) SetControllerDone(arg0, arg1, arg2 interface{})
 }
 
 // SetControllerReady mocks base method.
-func (m *MockState) SetControllerReady(arg0 context.Context, arg1, arg2 string) error {
+func (m *MockState) SetControllerReady(arg0 context.Context, arg1 upgrade0.UUID, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetControllerReady", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -127,7 +113,7 @@ func (mr *MockStateMockRecorder) SetControllerReady(arg0, arg1, arg2 interface{}
 }
 
 // SetDBUpgradeCompleted mocks base method.
-func (m *MockState) SetDBUpgradeCompleted(arg0 context.Context, arg1 string) error {
+func (m *MockState) SetDBUpgradeCompleted(arg0 context.Context, arg1 upgrade0.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetDBUpgradeCompleted", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -141,7 +127,7 @@ func (mr *MockStateMockRecorder) SetDBUpgradeCompleted(arg0, arg1 interface{}) *
 }
 
 // StartUpgrade mocks base method.
-func (m *MockState) StartUpgrade(arg0 context.Context, arg1 string) error {
+func (m *MockState) StartUpgrade(arg0 context.Context, arg1 upgrade0.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartUpgrade", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -152,6 +138,21 @@ func (m *MockState) StartUpgrade(arg0 context.Context, arg1 string) error {
 func (mr *MockStateMockRecorder) StartUpgrade(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUpgrade", reflect.TypeOf((*MockState)(nil).StartUpgrade), arg0, arg1)
+}
+
+// UpgradeInfo mocks base method.
+func (m *MockState) UpgradeInfo(arg0 context.Context, arg1 upgrade0.UUID) (upgrade.Info, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpgradeInfo", arg0, arg1)
+	ret0, _ := ret[0].(upgrade.Info)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpgradeInfo indicates an expected call of UpgradeInfo.
+func (mr *MockStateMockRecorder) UpgradeInfo(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeInfo", reflect.TypeOf((*MockState)(nil).UpgradeInfo), arg0, arg1)
 }
 
 // MockWatcherFactory is a mock of WatcherFactory interface.

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/upgrade"
 )
 
 type upgradeReadyWatcher struct {
@@ -18,14 +19,14 @@ type upgradeReadyWatcher struct {
 
 	st          State
 	wf          WatcherFactory
-	upgradeUUID string
+	upgradeUUID upgrade.UUID
 
 	out chan struct{}
 }
 
 // NewUpgradeReadyWatcher creates a watcher which notifies when all controller
 // nodes have been registered, meaning the upgrade is ready to start
-func NewUpgradeReadyWatcher(ctx context.Context, st State, wf WatcherFactory, upgradeUUID string) (watcher.NotifyWatcher, error) {
+func NewUpgradeReadyWatcher(ctx context.Context, st State, wf WatcherFactory, upgradeUUID upgrade.UUID) (watcher.NotifyWatcher, error) {
 	w := &upgradeReadyWatcher{
 		st:          st,
 		wf:          wf,

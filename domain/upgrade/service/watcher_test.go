@@ -18,6 +18,8 @@ import (
 )
 
 type watcherSuite struct {
+	baseServiceSuite
+
 	state *MockState
 	nsCh  chan []string
 
@@ -34,8 +36,9 @@ func (s *watcherSuite) setupMocks(c *gc.C) *gomock.Controller {
 	nsWatcher := watchertest.NewMockStringsWatcher(s.nsCh)
 	wf := NewMockWatcherFactory(ctrl)
 	wf.EXPECT().NewNamespaceWatcher("upgrade_info_controller_node", changestream.Create|changestream.Update, "").Return(nsWatcher, nil)
+
 	var err error
-	s.w, err = NewUpgradeReadyWatcher(context.Background(), s.state, wf, testUUID1)
+	s.w, err = NewUpgradeReadyWatcher(context.Background(), s.state, wf, s.upgradeUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -46,7 +49,7 @@ func (s *watcherSuite) TestUpgradeReadyWatcherSingleNode(c *gc.C) {
 
 	ch := s.w.Changes()
 
-	s.state.EXPECT().AllProvisionedControllersReady(gomock.Any(), testUUID1).Return(true, nil)
+	s.state.EXPECT().AllProvisionedControllersReady(gomock.Any(), s.upgradeUUID).Return(true, nil)
 
 	s.nsCh <- []string{"blah"}
 	select {
@@ -62,13 +65,13 @@ func (s *watcherSuite) TestUpgradeReadyWatcherHA(c *gc.C) {
 
 	ch := s.w.Changes()
 
-	s.state.EXPECT().AllProvisionedControllersReady(gomock.Any(), testUUID1).Return(false, nil).Times(2)
-	s.state.EXPECT().AllProvisionedControllersReady(gomock.Any(), testUUID1).Return(true, nil)
+	s.state.EXPECT().AllProvisionedControllersReady(gomock.Any(), s.upgradeUUID).Return(false, nil).Times(2)
+	s.state.EXPECT().AllProvisionedControllersReady(gomock.Any(), s.upgradeUUID).Return(true, nil)
 
 	s.nsCh <- []string{"blah"}
 	s.nsCh <- []string{"blah"}
 	select {
-	case _, _ = <-ch:
+	case <-ch:
 		c.Fatal("Received unexpected ready notification")
 	case <-time.After(coretesting.ShortWait):
 	}
