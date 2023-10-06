@@ -106,6 +106,10 @@ func (s *secretusersuppliedSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
 		URI: uri, OwnerTag: coretesting.ModelTag.String(),
 		AutoPrune: true,
 	}, nil).Times(2)
+	s.state.EXPECT().GetSecretRevision(uri, 666).Return(&coresecrets.SecretRevisionMetadata{
+		Revision: 666,
+		ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-666"},
+	}, nil)
 	s.state.EXPECT().DeleteSecret(uri, []int{666}).Return([]coresecrets.ValueRef{{
 		BackendID:  "backend-id",
 		RevisionID: "rev-666",

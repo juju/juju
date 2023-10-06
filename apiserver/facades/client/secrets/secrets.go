@@ -446,8 +446,7 @@ func (s *SecretsAPIV1) RemoveSecrets(_ struct{}) {}
 
 // RemoveSecrets remove user secret.
 func (s *SecretsAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorResults, error) {
-	// ??? should we allow to delete secrets/revisions if they are still been used???
-	// introduce --force for remove-secret command????
+	// TODO(secrets): JUJU-4719.
 	return commonsecrets.RemoveSecretsUserSupplied(
 		s.secretsState, s.backendConfigGetter,
 		s.authTag, args,

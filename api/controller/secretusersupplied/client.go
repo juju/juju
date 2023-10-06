@@ -26,7 +26,7 @@ func NewClient(caller base.APICaller) *Client {
 }
 
 // WatchObsoleteRevisionsNeedPrune returns a watcher that triggers on secret
-// obsolete revision changes changes.
+// obsolete revision changes.
 func (c *Client) WatchObsoleteRevisionsNeedPrune() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
 	err := c.facade.FacadeCall("WatchObsoleteRevisionsNeedPrune", nil, &result)
@@ -40,7 +40,11 @@ func (c *Client) WatchObsoleteRevisionsNeedPrune() (watcher.StringsWatcher, erro
 	return w, nil
 }
 
+// DeleteRevisions deletes the specified revisions of the secret.
 func (c *Client) DeleteRevisions(uri *secrets.URI, revisions ...int) error {
+	if uri == nil {
+		return errors.Errorf("uri cannot be nil")
+	}
 	if len(revisions) == 0 {
 		return errors.Errorf("at least one revision must be specified")
 	}
@@ -53,9 +57,6 @@ func (c *Client) DeleteRevisions(uri *secrets.URI, revisions ...int) error {
 	err := c.facade.FacadeCall("DeleteRevisions", params.DeleteSecretArgs{Args: []params.DeleteSecretArg{arg}}, &results)
 	if err != nil {
 		return errors.Trace(err)
-	}
-	if len(results.Results) == 0 {
-		return nil
 	}
 	if len(results.Results) != 1 {
 		return errors.Errorf("unexpected number of results: %d", len(results.Results))

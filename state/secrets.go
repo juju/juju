@@ -638,9 +638,7 @@ func (st *State) deleteSecrets(uris []*secrets.URI, revisions ...int) (external 
 					return nil, errors.Annotatef(err, "updating backend refcounts for %s", uri.String())
 				}
 			}
-			// ???? Why we donnot remove the external resources from backend if we are not removing all revisions?????
-			// return nil, nil
-			return external, nil
+			return nil, nil
 		}
 	}
 

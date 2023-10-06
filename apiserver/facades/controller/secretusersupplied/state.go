@@ -15,4 +15,5 @@ type SecretsState interface {
 	DeleteSecret(*secrets.URI, ...int) ([]secrets.ValueRef, error)
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
 	WatchObsoleteRevisionsNeedPrune(owners []names.Tag) (state.StringsWatcher, error)
+	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 }

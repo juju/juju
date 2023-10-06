@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -467,6 +466,10 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
+	s.secretsState.EXPECT().GetSecretRevision(&expectURI, 666).Return(&coresecrets.SecretRevisionMetadata{
+		Revision: 666,
+		ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-666"},
+	}, nil)
 	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return([]coresecrets.ValueRef{{
 		BackendID:  "backend-id",
 		RevisionID: "rev-666",
@@ -474,19 +477,6 @@ func (s *SecretsManagerSuite) TestRemoveSecrets(c *gc.C) {
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 	s.expectSecretAccessQuery(2)
-	cfg := &provider.ModelBackendConfig{
-		ControllerUUID: coretesting.ControllerTag.Id(),
-		ModelUUID:      coretesting.ModelTag.Id(),
-		ModelName:      "fred",
-		BackendConfig: provider.BackendConfig{
-			BackendType: "some-backend",
-			Config:      map[string]interface{}{"foo": "admin"},
-		},
-	}
-	s.provider.EXPECT().CleanupSecrets(
-		cfg, names.NewUnitTag("mariadb/0"),
-		provider.SecretRevisions{uri.ID: set.NewStrings("rev-666")},
-	).Return(nil)
 
 	results, err := s.facade.RemoveSecrets(params.DeleteSecretArgs{
 		Args: []params.DeleteSecretArg{{
@@ -506,6 +496,10 @@ func (s *SecretsManagerSuite) TestRemoveSecretRevision(c *gc.C) {
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil)
+	s.secretsState.EXPECT().GetSecretRevision(&expectURI, 666).Return(&coresecrets.SecretRevisionMetadata{
+		Revision: 666,
+		ValueRef: &coresecrets.ValueRef{BackendID: "backend-id", RevisionID: "rev-666"},
+	}, nil)
 	s.secretsState.EXPECT().DeleteSecret(&expectURI, []int{666}).Return(nil, nil)
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)

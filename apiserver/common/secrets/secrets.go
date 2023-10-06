@@ -547,7 +547,9 @@ func RemoveSecretsForAgent(
 ) (params.ErrorResults, error) {
 	return removeSecrets(
 		removeState, adminConfigGetter, authTag, args, canDelete,
-		func(provider.SecretBackendProvider, provider.ModelBackendConfig, []string) error { return nil },
+		func(provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error {
+			return nil
+		},
 	)
 }
 
@@ -560,15 +562,18 @@ func RemoveSecretsUserSupplied(
 ) (params.ErrorResults, error) {
 	return removeSecrets(
 		removeState, adminConfigGetter, authTag, args, canDelete,
-		func(p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revisions []string) error {
+		func(p provider.SecretBackendProvider, cfg provider.ModelBackendConfig, revs provider.SecretRevisions) error {
 			backend, err := p.NewBackend(&cfg)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			for _, revId := range revisions {
+			for _, revId := range revs.RevisionIDs() {
 				if err = backend.DeleteContent(context.TODO(), revId); err != nil {
 					return errors.Trace(err)
 				}
+			}
+			if err := p.CleanupSecrets(&cfg, authTag, revs); err != nil {
+				return errors.Trace(err)
 			}
 			return nil
 		},
@@ -579,71 +584,77 @@ func removeSecrets(
 	removeState SecretsRemoveState, adminConfigGetter BackendAdminConfigGetter,
 	authTag names.Tag, args params.DeleteSecretArgs,
 	canDelete func(*coresecrets.URI) error,
-	removeSecretsFromBackend func(provider.SecretBackendProvider, provider.ModelBackendConfig, []string) error,
+	removeFromBackend func(provider.SecretBackendProvider, provider.ModelBackendConfig, provider.SecretRevisions) error,
 ) (params.ErrorResults, error) {
-	removeSecret := func(uri *coresecrets.URI, revisions ...int) ([]coresecrets.ValueRef, error) {
-		if _, err := removeState.GetSecret(uri); err != nil {
-			// Check if the uri exists or not.
-			return nil, errors.Trace(err)
-		}
-		if err := canDelete(uri); err != nil {
-			return nil, errors.Trace(err)
-		}
-		return removeState.DeleteSecret(uri, revisions...)
-	}
-
-	type deleteInfo struct {
-		uri       *coresecrets.URI
-		revisions []int
-	}
-	toDelete := make([]deleteInfo, len(args.Args))
-	for i, arg := range args.Args {
-		uri, err := coresecrets.ParseURI(arg.URI)
-		if err != nil {
-			return params.ErrorResults{}, errors.Trace(err)
-		}
-		toDelete[i] = deleteInfo{uri: uri, revisions: arg.Revisions}
-	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	externalRevisions := make(map[string]provider.SecretRevisions)
-	for i, d := range toDelete {
-		external, err := removeSecret(d.uri, d.revisions...)
-		result.Results[i].Error = apiservererrors.ServerError(err)
-		if err == nil {
-			for _, rev := range external {
-				if _, ok := externalRevisions[rev.BackendID]; !ok {
-					externalRevisions[rev.BackendID] = provider.SecretRevisions{}
-				}
-				externalRevisions[rev.BackendID].Add(d.uri, rev.RevisionID)
-			}
-		}
-	}
-	if len(externalRevisions) == 0 {
+
+	if len(args.Args) == 0 {
 		return result, nil
 	}
-
 	cfgInfo, err := adminConfigGetter()
 	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
-	for backendID, r := range externalRevisions {
-		// TODO: include unitTag in params.DeleteSecretArgs for operator uniters?
-		// This should be resolved once lp:1991213 and lp:1991854 are fixed.
-		backendCfg, ok := cfgInfo.Configs[backendID]
-		if !ok {
-			return params.ErrorResults{}, errors.NotFoundf("secret backend %q", backendID)
+
+	removeFromExternal := func(uri *coresecrets.URI, revisions ...int) error {
+		externalRevs := make(map[string]provider.SecretRevisions)
+		for _, rev := range revisions {
+			revMeta, err := removeState.GetSecretRevision(uri, rev)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			valRef := revMeta.ValueRef
+			if valRef == nil {
+				// Internal secret, nothing to do here.
+				continue
+			}
+			if _, ok := externalRevs[valRef.BackendID]; !ok {
+				externalRevs[valRef.BackendID] = provider.SecretRevisions{}
+			}
+			externalRevs[valRef.BackendID].Add(uri, valRef.RevisionID)
 		}
-		provider, err := GetProvider(backendCfg.BackendType)
+
+		for backendID, r := range externalRevs {
+			backendCfg, ok := cfgInfo.Configs[backendID]
+			if !ok {
+				return errors.NotFoundf("secret backend %q", backendID)
+			}
+			provider, err := GetProvider(backendCfg.BackendType)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if err := removeFromBackend(provider, backendCfg, r); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		return nil
+	}
+
+	for i, arg := range args.Args {
+		uri, err := coresecrets.ParseURI(arg.URI)
 		if err != nil {
-			return params.ErrorResults{}, errors.Trace(err)
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
-		if err := removeSecretsFromBackend(provider, backendCfg, r.RevisionIDs()); err != nil {
-			return params.ErrorResults{}, errors.Trace(err)
+		if _, err := removeState.GetSecret(uri); err != nil {
+			// Check if the uri exists or not.
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
-		if err := provider.CleanupSecrets(&backendCfg, authTag, r); err != nil {
-			return params.ErrorResults{}, errors.Trace(err)
+		if err := canDelete(uri); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if err := removeFromExternal(uri, arg.Revisions...); err != nil {
+			// We remove the secret from the backend first.
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		if _, err = removeState.DeleteSecret(uri, arg.Revisions...); err != nil {
+			result.Results[i].Error = apiservererrors.ServerError(err)
+			continue
 		}
 	}
 	return result, nil
