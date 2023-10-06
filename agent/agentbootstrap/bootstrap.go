@@ -23,14 +23,12 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/raft/queue"
-	"github.com/juju/juju/docker/imagerepo"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -221,9 +219,6 @@ func InitializeState(
 
 	var controllerNode bootstrapController
 	if isCAAS {
-		if err = validateCAASImageRepo(args.ControllerConfig); err != nil {
-			return nil, errors.Annotate(err, "validating controller config")
-		}
 		if controllerNode, err = initBootstrapNode(st, args); err != nil {
 			return nil, errors.Annotate(err, "cannot initialize bootstrap controller")
 		}
@@ -282,54 +277,6 @@ func verifyModelConfigDefaultSpace(st *state.State) error {
 
 	_, err = st.SpaceByName(name)
 	return errors.Annotatef(err, "cannot verify %s", config.DefaultSpace)
-}
-
-func validateCAASImageRepo(cfg controller.Config) error {
-	path := cfg.CAASImageRepo()
-	deprecated := cfg.CAASOperatorImagePath()
-
-	if path == "" && deprecated == "" {
-		return nil
-	}
-
-	// Ensure that if both are set, they are the same. We can't have divergent
-	// image repos. This is a temporary measure to allow for a transition period
-	// where we support both the old and new config keys.
-	if path != "" && deprecated != "" && path != deprecated {
-		return errors.NotValidf("CAASImageRepo and CAASOperatorImagePath cannot be different, if both set")
-	}
-
-	repoImage := deprecated
-	if repoImage == "" {
-		repoImage = path
-	}
-
-	imageRepo, err := imagerepo.NewImageRepo(repoImage)
-	if err != nil {
-		return errors.Annotatef(err, "invalid image repo %q", repoImage)
-	}
-
-	details, err := imageRepo.RequestDetails()
-	if err != nil {
-		return errors.Annotatef(err, "cannot get image repo details %q", repoImage)
-	}
-
-	// Nothing to set.
-	// TODO (stickupkid): I'm unsure what to actually do here, because in theory
-	// we need to remove the CAASImageRepo and CAASOperatorImagePath keys from
-	// the controller config.
-	if details.Empty() {
-		return nil
-	}
-
-	// Only set the content, if they had values to begin with.
-	if path != "" {
-		cfg[controller.CAASImageRepo] = details.Content()
-	}
-	if deprecated != "" {
-		cfg[controller.CAASOperatorImagePath] = details.Content()
-	}
-	return nil
 }
 
 func getCloudCredentials(
