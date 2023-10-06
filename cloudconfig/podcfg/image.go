@@ -65,11 +65,7 @@ func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (s
 	if imagePath != "" || err != nil {
 		return imagePath, err
 	}
-	tag := ""
-	if ver != version.Zero {
-		tag = ver.String()
-	}
-	return imageRepoToPath(controllerCfg.CAASImageRepo(), tag)
+	return imageRepoToPath(controllerCfg.CAASImageRepo(), stringifyVersion(ver))
 }
 
 // RebuildOldOperatorImagePath returns a updated image path for the specified juju version.
@@ -77,12 +73,7 @@ func RebuildOldOperatorImagePath(imagePath string, ver version.Number) (string, 
 	if imagePath == "" {
 		return "", nil
 	}
-	tag := ""
-	if ver != version.Zero {
-		// ver is always a valid tag.
-		tag = ver.String()
-	}
-	return tagImagePath(imagePath, tag)
+	return tagImagePath(imagePath, stringifyVersion(ver))
 }
 
 func tagImagePath(fullPath, tag string) (string, error) {
@@ -99,6 +90,16 @@ func tagImagePath(fullPath, tag string) (string, error) {
 		imageNamed, _ = reference.WithTag(imageNamed, tag)
 	}
 	return imageNamed.String(), nil
+}
+
+// ImageRepoToPath returns the OCI image path.
+// If the imageRepo is empty, the default namespace is used.
+func ImageRepoToPath(imageRepo string, ver version.Number) (string, error) {
+	if imageRepo == "" {
+		imageRepo = JujudOCINamespace
+	}
+	path := fmt.Sprintf("%s/%s", imageRepo, JujudOCIName)
+	return tagImagePath(path, stringifyVersion(ver))
 }
 
 func imageRepoToPath(imageRepo, tag string) (string, error) {
@@ -150,4 +151,11 @@ func imageRepoFromPath(path string) string {
 		imageRepo = JujudOCINamespace
 	}
 	return imageRepo
+}
+
+func stringifyVersion(v version.Number) string {
+	if v == version.Zero {
+		return ""
+	}
+	return v.String()
 }

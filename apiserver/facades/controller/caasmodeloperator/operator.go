@@ -115,14 +115,16 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 		return result, errors.Annotate(err, "getting api addresses")
 	}
 
-	registryPath, err := podcfg.GetJujuOCIImagePath(controllerConf, vers)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
 	details, err := imagerepo.DetailsFromPath(controllerConf.CAASImageRepo())
 	if err != nil {
 		return result, errors.Annotatef(err, "getting image repo details")
 	}
+
+	registryPath, err := podcfg.ImageRepoToPath(details.Repository, vers)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
 	imageInfo := params.NewDockerImageInfo(details, registryPath)
 	logger.Tracef("image info %v", imageInfo)
 
