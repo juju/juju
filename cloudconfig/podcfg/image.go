@@ -92,9 +92,9 @@ func tagImagePath(fullPath, tag string) (string, error) {
 	return imageNamed.String(), nil
 }
 
-// ImageRepoToPath returns the OCI image path.
+// JujudOCIImageReference returns the OCI image path.
 // If the imageRepo is empty, the default namespace is used.
-func ImageRepoToPath(imageRepo string, ver version.Number) (string, error) {
+func JujudOCIImageReference(imageRepo string, ver version.Number) (string, error) {
 	if imageRepo == "" {
 		imageRepo = JujudOCINamespace
 	}

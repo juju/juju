@@ -91,7 +91,7 @@ func (*imageSuite) TestRecoverRepoFromOperatorPath(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `image path "jujusolutions/nope:2.6-beta3" does not match the form somerepo/jujud-operator:\.\*`)
 }
 
-func (*imageSuite) TestImageRepoToPath(c *gc.C) {
+func (*imageSuite) TestJujudOCIImageReference(c *gc.C) {
 	tests := []struct {
 		repo     string
 		ver      version.Number
@@ -111,7 +111,7 @@ func (*imageSuite) TestImageRepoToPath(c *gc.C) {
 	}}
 	for i, test := range tests {
 		c.Logf("test %d: %q %q", i, test.repo, test.ver)
-		path, err := podcfg.ImageRepoToPath(test.repo, test.ver)
+		path, err := podcfg.JujudOCIImageReference(test.repo, test.ver)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(path, gc.Equals, test.expected)
 	}

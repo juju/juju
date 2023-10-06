@@ -120,7 +120,7 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 		return result, errors.Annotatef(err, "getting image repo details")
 	}
 
-	registryPath, err := podcfg.ImageRepoToPath(details.Repository, vers)
+	registryPath, err := podcfg.JujudOCIImageReference(details.Repository, vers)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

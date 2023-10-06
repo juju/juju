@@ -1512,12 +1512,35 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 	return c.buildContainerSpecForCommands(setupCmd, machineCmd, jujudEnv)
 }
 
+func (c *controllerStack) getControllerImagePath() (string, error) {
+	path := c.pcfg.Controller.CAASOperatorImagePath()
+	details, err := imagerepo.DetailsFromPath(path)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	imagePath, err := podcfg.RebuildOldOperatorImagePath(details.Repository, c.pcfg.JujuVersion)
+	if imagePath != "" || err != nil {
+		return imagePath, err
+	}
+
+	path = c.pcfg.Controller.CAASImageRepo()
+	details, err = imagerepo.DetailsFromPath(path)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	controllerImage, err := podcfg.JujudOCIImageReference(details.Repository, c.pcfg.JujuVersion)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return controllerImage, err
+}
+
 func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd string, jujudEnv map[string]string) (*core.PodSpec, error) {
-	controllerImage, err := c.pcfg.GetControllerImagePath()
+	controllerImage, err := c.getControllerImagePath()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	containers, err := c.controllerContainers(setupCmd, machineCmd, controllerImage, jujudEnv)
 	if err != nil {
 		return nil, errors.Trace(err)
