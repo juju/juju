@@ -4,6 +4,11 @@
 package controlleragentconfig
 
 import (
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -11,9 +16,9 @@ import (
 
 // Logger represents the logging methods called.
 type Logger interface {
-	Errorf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Debugf(message string, args ...interface{})
+	Errorf(message string, args ...any)
+	Infof(message string, args ...any)
+	Debugf(message string, args ...any)
 }
 
 // ManifoldConfig defines the configuration for the agent controller config
@@ -41,6 +46,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			w, err := NewWorker(WorkerConfig{
 				Logger: config.Logger,
+				Notify: Notify,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -53,4 +59,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 func configOutput(in worker.Worker, out any) error {
 	return nil
+}
+
+// Notify sets up the signal handler for the worker.
+func Notify(ctx context.Context, ch chan os.Signal) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	signal.Notify(ch, syscall.SIGHUP)
 }

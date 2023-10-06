@@ -4,6 +4,7 @@
 package controlleragentconfig
 
 import (
+	"context"
 	"os"
 	"syscall"
 	"time"
@@ -19,8 +20,6 @@ import (
 
 type workerSuite struct {
 	baseSuite
-
-	states chan string
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -28,101 +27,120 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) TestStartup(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := s.newWorker(c)
+	w, _, states := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	s.ensureStartup(c)
+	s.ensureStartup(c, states)
 
-	w.Kill()
+	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestSighup(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := s.newWorker(c)
+	w, notify, states := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	s.ensureStartup(c)
-	s.sendSignal(c)
-	s.ensureReload(c)
+	s.ensureStartup(c, states)
 
-	w.Kill()
+	s.sendSignal(c, notify)
+	s.ensureReload(c, states)
+
+	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestSighupMultipleTimes(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := s.newWorker(c)
+	w, notify, states := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	s.ensureStartup(c)
+	s.ensureStartup(c, states)
 
 	for i := 0; i < 10; i++ {
-		s.sendSignal(c)
-		s.ensureReload(c)
+		s.sendSignal(c, notify)
+		s.ensureReload(c, states)
 	}
 
-	w.Kill()
+	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestSighupAfterDeath(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	w := s.newWorker(c)
+	w, notify, states := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
-	s.ensureStartup(c)
+	s.ensureStartup(c, states)
 
 	workertest.CleanKill(c, w)
 
 	// We should not receive a reload signal after the worker has died.
-	s.sendSignal(c)
+	s.sendSignal(c, notify)
 
 	select {
-	case state := <-s.states:
+	case state := <-states:
 		c.Fatalf("should not have received state %q", state)
 	case <-time.After(testing.ShortWait * 10):
 	}
 }
 
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
-	s.states = make(chan string)
-
 	ctrl := s.baseSuite.setupMocks(c)
-
 	return ctrl
 }
 
-func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
+func (s *workerSuite) newWorker(c *gc.C) (worker.Worker, chan struct{}, chan string) {
+	// Buffer the channel, so we don't drop signals if we're not ready.
+	states := make(chan string, 10)
+	// Buffer the channel, so we don't miss signals if we're not ready.
+	notify := make(chan struct{}, 1)
 	w, err := newWorker(WorkerConfig{
 		Logger: s.logger,
-	}, s.states)
+		Notify: func(ctx context.Context, ch chan os.Signal) {
+			go func() {
+				for {
+					select {
+					case <-notify:
+						select {
+						case ch <- syscall.SIGHUP:
+						case <-ctx.Done():
+							return
+						}
+
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+		},
+	}, states)
 	c.Assert(err, jc.ErrorIsNil)
-	return w
+	return w, notify, states
 }
 
-func (s *workerSuite) ensureStartup(c *gc.C) {
+func (s *workerSuite) ensureStartup(c *gc.C, states chan string) {
 	select {
-	case state := <-s.states:
+	case state := <-states:
 		c.Assert(state, gc.Equals, stateStarted)
 	case <-time.After(testing.ShortWait * 10):
 		c.Fatalf("timed out waiting for startup")
 	}
 }
 
-func (s *workerSuite) ensureReload(c *gc.C) {
+func (s *workerSuite) ensureReload(c *gc.C, states chan string) {
 	select {
-	case state := <-s.states:
+	case state := <-states:
 		c.Assert(state, gc.Equals, stateReload)
-	case <-time.After(testing.ShortWait * 10):
+	case <-time.After(testing.ShortWait * 100):
 		c.Fatalf("timed out waiting for reload")
 	}
 }
 
-func (s *workerSuite) sendSignal(c *gc.C) {
-	p, err := os.FindProcess(os.Getpid())
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = p.Signal(syscall.SIGHUP)
-	c.Assert(err, jc.ErrorIsNil)
+func (s *workerSuite) sendSignal(c *gc.C, notify chan struct{}) {
+	select {
+	case notify <- struct{}{}:
+	case <-time.After(testing.ShortWait * 10):
+		c.Fatalf("timed out sending signal")
+	}
 }

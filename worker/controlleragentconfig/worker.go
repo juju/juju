@@ -4,9 +4,8 @@
 package controlleragentconfig
 
 import (
+	"context"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
@@ -22,12 +21,16 @@ const (
 // agent controller config worker.
 type WorkerConfig struct {
 	Logger Logger
+	Notify func(context.Context, chan os.Signal)
 }
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if c.Notify == nil {
+		return errors.NotValidf("nil Notify")
 	}
 	return nil
 }
@@ -73,7 +76,7 @@ func (w *configWorker) loop() error {
 	// We must use a buffered channel or risk missing the signal
 	// if we're not ready to receive when the signal is sent.
 	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, syscall.SIGHUP)
+	w.cfg.Notify(w.tomb.Context(context.Background()), ch)
 
 	// Report the initial started state.
 	w.reportInternalState(stateStarted)
