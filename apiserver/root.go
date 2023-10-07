@@ -340,7 +340,7 @@ type apiRootHandler interface {
 	State() *state.State
 	// ServiceFactory returns the service factory.
 	ServiceFactory() servicefactory.ServiceFactory
-	// TraceGetter returns the tracer for opentelemetry.
+	// Tracer returns the tracer for opentelemetry.
 	Tracer() trace.Tracer
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext

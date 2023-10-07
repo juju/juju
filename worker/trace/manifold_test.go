@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/dependency"
 	dependencytesting "github.com/juju/worker/v3/dependency/testing"
@@ -79,7 +80,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 
 		w, err := Manifold(s.getConfig()).Start(s.getContext())
 		c.Assert(err, jc.ErrorIsNil)
-		defer workertest.CleanKill(c, w)
+		workertest.CleanKill(c, w)
 	}
 
 	// Test the noop and real tracer.
@@ -90,6 +91,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 }
 
 func (s *manifoldSuite) expectOpenTelemetry() {
+	s.config.EXPECT().Tag().Return(names.NewControllerAgentTag("0"))
 	s.config.EXPECT().OpenTelemetryEndpoint().Return("blah")
 	s.config.EXPECT().OpenTelemetryInsecure().Return(false)
 	s.config.EXPECT().OpenTelemetryStackTraces().Return(true)
