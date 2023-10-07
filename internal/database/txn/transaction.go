@@ -7,8 +7,10 @@ import (
 	"context"
 	"database/sql"
 	"runtime"
+	"sync"
 	"time"
 
+	"github.com/canonical/go-dqlite/tracing"
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -111,6 +113,7 @@ type RetryingTxnRunner struct {
 	logger        Logger
 	retryStrategy RetryStrategy
 	semaphore     Semaphore
+	tracePool     sync.Pool
 }
 
 // NewRetryingTxnRunner returns a new RetryingTxnRunner.
@@ -120,11 +123,27 @@ func NewRetryingTxnRunner(opts ...Option) *RetryingTxnRunner {
 		opt(o)
 	}
 
+	// Create one span pool up front, so all pooled tracing can use the
+	// same one.
+	spanPool := &sync.Pool{
+		New: func() any {
+			return &dqliteSpan{}
+		},
+	}
+
 	return &RetryingTxnRunner{
 		timeout:       o.timeout,
 		logger:        o.logger,
 		retryStrategy: o.retryStrategy,
 		semaphore:     o.semaphore,
+
+		tracePool: sync.Pool{
+			New: func() any {
+				return &dqliteTracer{
+					pool: spanPool,
+				}
+			},
+		},
 	}
 }
 
@@ -221,8 +240,19 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 		return errors.Trace(err)
 	}
 
-	// TODO (stickupkid): Pass in the dqlite tracing context here.
+	// This is the last generic place that we can place a trace for the
+	// dqlite library. Ideally we would push this into the dqlite only code,
+	// but that requires a lot of abstractions, that I'm unsure is worth it.
+	if tracer, enabled := trace.TracerFromContext(ctx); enabled {
+		dtracer := t.tracePool.Get().(*dqliteTracer)
+		defer t.tracePool.Put(dtracer)
 
+		// Force the tracer onto the pooled object. We guarantee that the trace
+		// should be done once the run has been completed.
+		dtracer.tracer = tracer
+
+		ctx = tracing.WithTracer(ctx, dtracer)
+	}
 	return fn(ctx)
 }
 
@@ -268,3 +298,41 @@ func (s noopSemaphore) Acquire(context.Context, int64) error {
 }
 
 func (s noopSemaphore) Release(int64) {}
+
+// dqliteTracer is a pooled object for implementing a dqlite tracing from a
+// juju tracing trace. The dqlite trace is just the lightest touch for
+// implementing tracing. The library doesn't need to include the full OTEL
+// library, it's overkill. In doing so, it has a reduced tracing API.
+// As there are going to thousands of these in flight, it's wise to pool these
+// as much as possible, to provide compatibility.
+type dqliteTracer struct {
+	tracer trace.Tracer
+	pool   *sync.Pool
+}
+
+// Start creates a span and a context.Context containing the newly-created
+// span.
+func (d *dqliteTracer) Start(ctx context.Context, name string, query string) (context.Context, tracing.Span) {
+	ctx, span := d.tracer.Start(ctx, name, trace.WithAttributes(trace.StringAttr("query", query)))
+
+	dspan := d.pool.Get().(*dqliteSpan)
+	defer d.pool.Put(dspan)
+
+	// Force the span onto the pooled object. We guarantee that the span
+	// should be done once the run has been completed.
+	dspan.span = span
+
+	return ctx, dspan
+}
+
+type dqliteSpan struct {
+	span trace.Span
+}
+
+// End completes the Span. The Span is considered complete and ready to be
+// delivered through the rest of the telemetry pipeline after this method
+// is called. Therefore, updates to the Span are not allowed after this
+// method has been called.
+func (d *dqliteSpan) End() {
+	d.span.End()
+}
