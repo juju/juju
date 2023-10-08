@@ -13,7 +13,7 @@ const (
 
 // WithTracing returns a context with the given traceID and spanID.
 func WithTracing(ctx context.Context, traceID, spanID string) context.Context {
-	return context.WithValue(ctx, tracingKey, &trace{
+	return context.WithValue(ctx, tracingKey, &distributedTrace{
 		traceID: traceID,
 		spanID:  spanID,
 	})
@@ -25,14 +25,17 @@ func TracingFromContext(ctx context.Context) (string, string) {
 	if val == nil {
 		return "", ""
 	}
-	t, ok := val.(*trace)
+	t, ok := val.(*distributedTrace)
 	if !ok {
 		return "", ""
 	}
 	return t.traceID, t.spanID
 }
 
-type trace struct {
+// distributedTrace represents a distributed trace, that contains both
+// traceID and spanID. This can be used to pass tracing information
+// between different services.
+type distributedTrace struct {
 	traceID string
 	spanID  string
 }

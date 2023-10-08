@@ -18,6 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -357,7 +358,10 @@ func (c customMethodCaller) Call(_ context.Context, objId string, arg reflect.Va
 	return c.objMethod.Call(context.TODO(), obj, arg)
 }
 
-func (cc *CustomRoot) Kill() {
+func (cc *CustomRoot) Kill() {}
+
+func (cc *CustomRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
+	return ctx, trace.NoopSpan{}
 }
 
 func (cc *CustomRoot) FindMethod(

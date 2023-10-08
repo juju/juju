@@ -3,6 +3,8 @@
 
 package trace
 
+import "fmt"
+
 // Attribute allows you to add additional information to help identify
 // an operation (event, error or span end).
 type Attribute interface {
@@ -27,5 +29,25 @@ func (a StringAttribute) Key() string {
 
 // Value returns a string.
 func (a StringAttribute) Value() string {
+	return a.value
+}
+
+// IntAttribute defines an attribute with a string value.
+type IntAttribute struct {
+	key, value string
+}
+
+// IntAttr creates a IntAttribute.
+func IntAttr(key string, value int) IntAttribute {
+	return IntAttribute{key: key, value: fmt.Sprintf("%d", value)}
+}
+
+// Key defines the identifier for the attribute.
+func (a IntAttribute) Key() string {
+	return a.key
+}
+
+// Value returns a string.
+func (a IntAttribute) Value() string {
 	return a.value
 }

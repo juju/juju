@@ -19,23 +19,23 @@ import (
 // TracerGetter is the interface that is used to get a tracer.
 type TracerGetter interface {
 	// GetTracer returns a tracer for the given namespace.
-	GetTracer(namespace string) (coretrace.Tracer, error)
+	GetTracer(context.Context, coretrace.TracerNamespace) (coretrace.Tracer, error)
 }
 
 // Logger represents the logging methods called.
 type Logger interface {
-	Errorf(message string, args ...interface{})
-	Warningf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Debugf(message string, args ...interface{})
-	Tracef(message string, args ...interface{})
+	Errorf(message string, args ...any)
+	Warningf(message string, args ...any)
+	Infof(message string, args ...any)
+	Debugf(message string, args ...any)
+	Tracef(message string, args ...any)
 
 	IsTraceEnabled() bool
 	IsLevelEnabled(loggo.Level) bool
 }
 
 // TracerWorkerFunc is the function signature for creating a new tracer worker.
-type TracerWorkerFunc func(context.Context, string, string, bool, bool, Logger) (TrackedTracer, error)
+type TracerWorkerFunc func(ctx context.Context, namespace coretrace.TaggedTracerNamespace, endpoint string, insecureSkipVerify bool, showStackTraces bool, logger Logger, newClient NewClientFunc) (TrackedTracer, error)
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
@@ -84,15 +84,22 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			// For the current implementation, if trace is disabled, return
 			// a noop worker. If the open telemetry does change, then we will
 			// bounce the world and this will be re-evaluated.
+			// This will be evaluated via the agent config worker.
 			if !currentConfig.OpenTelemetryEnabled() {
+				config.Logger.Infof("OpenTelemetry disabled, not starting trace worker")
 				return NewNoopWorker(), nil
 			}
+
+			endpoint := currentConfig.OpenTelemetryEndpoint()
+
+			config.Logger.Infof("OpenTelemetry enabled, starting trace worker using endpoint %q", endpoint)
 
 			w, err := NewWorker(WorkerConfig{
 				Clock:              config.Clock,
 				Logger:             config.Logger,
 				NewTracerWorker:    config.NewTracerWorker,
-				Endpoint:           currentConfig.OpenTelemetryEndpoint(),
+				Tag:                currentConfig.Tag(),
+				Endpoint:           endpoint,
 				InsecureSkipVerify: currentConfig.OpenTelemetryInsecure(),
 				StackTracesEnabled: currentConfig.OpenTelemetryStackTraces(),
 			})
@@ -105,15 +112,20 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func tracerOutput(in worker.Worker, out interface{}) error {
-	w, ok := in.(*tracerWorker)
-	if !ok {
-		return errors.Errorf("expected input of type traceW, got %T", in)
+func tracerOutput(in worker.Worker, out any) error {
+	if w, ok := in.(*noopWorker); ok {
+		return tracerSetOutput(w, out)
 	}
+	if w, ok := in.(*tracerWorker); ok {
+		return tracerSetOutput(w, out)
+	}
+	return errors.Errorf("expected input of type TracerGetter, got %T", in)
+}
 
+func tracerSetOutput(in TracerGetter, out any) error {
 	switch out := out.(type) {
 	case *TracerGetter:
-		var target TracerGetter = w
+		var target TracerGetter = in
 		*out = target
 	default:
 		return errors.Errorf("expected output of Tracer, got %T", out)

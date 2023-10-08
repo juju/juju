@@ -21,9 +21,11 @@ import (
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/trace"
 )
 
 var (
@@ -51,6 +53,10 @@ func (testingAPIRootHandler) State() *state.State {
 }
 
 func (testingAPIRootHandler) ServiceFactory() servicefactory.ServiceFactory {
+	return nil
+}
+
+func (testingAPIRootHandler) Tracer() coretrace.Tracer {
 	return nil
 }
 
@@ -104,7 +110,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, configGe
 		},
 		tag: names.NewMachineTag("0"),
 	}
-	h, err := newAPIHandler(srv, st, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
+	h, err := newAPIHandler(srv, st, nil, nil, coretrace.NoopTracer{}, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.Resources()
 }
@@ -113,6 +119,10 @@ type StubServiceFactoryGetter struct{}
 
 func (s *StubServiceFactoryGetter) FactoryForModel(string) servicefactory.ServiceFactory {
 	return nil
+}
+
+type StubTracerGetter struct {
+	trace.TracerGetter
 }
 
 // TestingAPIHandlerWithEntity gives you the sane kind of APIHandler as

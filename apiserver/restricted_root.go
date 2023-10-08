@@ -4,6 +4,9 @@
 package apiserver
 
 import (
+	"context"
+
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 )
@@ -21,6 +24,11 @@ func restrictRoot(root rpc.Root, check func(string, string) error) *restrictedRo
 type restrictedRoot struct {
 	rpc.Root
 	check func(facadeName, methodName string) error
+}
+
+// StartTrace implements rpc.Root.
+func (r *restrictedRoot) StartTrace(ctx context.Context) (context.Context, trace.Span) {
+	return r.Root.StartTrace(ctx)
 }
 
 // FindMethod implements rpc.Root.

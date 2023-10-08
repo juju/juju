@@ -15,6 +15,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"golang.org/x/sync/semaphore"
+
+	"github.com/juju/juju/core/trace"
 )
 
 // Logger describes methods for emitting log output.
@@ -136,9 +138,6 @@ func NewRetryingTxnRunner(opts ...Option) *RetryingTxnRunner {
 // This should not be used directly, instead the TxnRunner should be used to
 // handle transactions.
 func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(context.Context, *sqlair.TX) error) error {
-	ctx, cancel := context.WithTimeout(ctx, t.timeout)
-	defer cancel()
-
 	return t.run(ctx, func(ctx context.Context) error {
 		tx, err := db.Begin(ctx, nil)
 		if err != nil {
@@ -169,9 +168,6 @@ func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 // This should not be used directly, instead the TxnRunner should be used to
 // handle transactions.
 func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(context.Context, *sql.Tx) error) error {
-	ctx, cancel := context.WithTimeout(ctx, t.timeout)
-	defer cancel()
-
 	return t.run(ctx, func(ctx context.Context) error {
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
@@ -201,7 +197,16 @@ func (t *RetryingTxnRunner) Retry(ctx context.Context, fn func() error) error {
 }
 
 // run will execute the input function if there is a semaphore slot available.
-func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) error) error {
+func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) error) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	ctx, cancel := context.WithTimeout(ctx, t.timeout)
+	defer cancel()
+
 	if err := t.semaphore.Acquire(ctx, 1); err != nil {
 		return errors.Trace(err)
 	}
@@ -215,6 +220,8 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 	if err := ctx.Err(); err != nil {
 		return errors.Trace(err)
 	}
+
+	// TODO (stickupkid): Pass in the dqlite tracing context here.
 
 	return fn(ctx)
 }

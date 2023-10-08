@@ -7,8 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coretrace "github.com/juju/juju/core/trace"
@@ -23,6 +25,8 @@ var _ = gc.Suite(&tracerSuite{})
 func (s *tracerSuite) TestTracer(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectClient()
+
 	tracer := s.newTracer(c)
 	defer workertest.CleanKill(c, tracer)
 
@@ -35,6 +39,8 @@ func (s *tracerSuite) TestTracer(c *gc.C) {
 
 func (s *tracerSuite) TestTracerStartContext(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
 
 	tracer := s.newTracer(c)
 	defer workertest.CleanKill(c, tracer)
@@ -51,6 +57,8 @@ func (s *tracerSuite) TestTracerStartContext(c *gc.C) {
 
 func (s *tracerSuite) TestTracerStartContextShouldBeCanceled(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
 
 	tracer := s.newTracer(c)
 	defer workertest.CleanKill(c, tracer)
@@ -73,6 +81,10 @@ func (s *tracerSuite) TestTracerStartContextShouldBeCanceled(c *gc.C) {
 func (s *tracerSuite) TestTracerAddEvent(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectClient()
+
+	s.span.EXPECT().AddEvent(gomock.Any(), gomock.Any()).AnyTimes()
+
 	tracer := s.newTracer(c)
 	defer workertest.CleanKill(c, tracer)
 
@@ -86,6 +98,8 @@ func (s *tracerSuite) TestTracerAddEvent(c *gc.C) {
 func (s *tracerSuite) TestTracerRecordErrorWithNil(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectClient()
+
 	tracer := s.newTracer(c)
 	defer workertest.CleanKill(c, tracer)
 
@@ -98,6 +112,11 @@ func (s *tracerSuite) TestTracerRecordErrorWithNil(c *gc.C) {
 func (s *tracerSuite) TestTracerRecordError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectClient()
+
+	s.span.EXPECT().RecordError(gomock.Any(), gomock.Any()).AnyTimes()
+	s.span.EXPECT().SetStatus(gomock.Any(), gomock.Any()).AnyTimes()
+
 	tracer := s.newTracer(c)
 	defer workertest.CleanKill(c, tracer)
 
@@ -108,7 +127,11 @@ func (s *tracerSuite) TestTracerRecordError(c *gc.C) {
 }
 
 func (s *tracerSuite) newTracer(c *gc.C) TrackedTracer {
-	tracer, err := NewTracerWorker(context.Background(), "agent", "http://meshuggah.com", false, false, s.logger)
+	ns := coretrace.Namespace("agent", "controller").WithTag(names.NewMachineTag("0"))
+	newClient := func(context.Context, coretrace.TaggedTracerNamespace, string, bool) (Client, ClientTracerProvider, ClientTracer, error) {
+		return s.client, s.clientTracerProvider, s.clientTracer, nil
+	}
+	tracer, err := NewTracerWorker(context.Background(), ns, "http://meshuggah.com", false, false, s.logger, newClient)
 	c.Assert(err, jc.ErrorIsNil)
 	return tracer
 }

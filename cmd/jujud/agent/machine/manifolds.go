@@ -628,6 +628,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeGateName:        upgradeStepsGateName,
 			AuditConfigUpdaterName: auditConfigUpdaterName,
 			CharmhubHTTPClientName: charmhubHTTPClientName,
+			TraceName:              traceName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability

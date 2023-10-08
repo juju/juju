@@ -22,13 +22,59 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// Client manages connections to the collector, handles the
+// transformation of data into wire format, and the transmission of that
+// data to the collector.
+type Client interface {
+	// Start should establish connection(s) to endpoint(s). It is
+	// called just once by the exporter, so the implementation
+	// does not need to worry about idempotence and locking.
+	Start(ctx context.Context) error
+
+	// Stop should close the connections. The function is called
+	// only once by the exporter, so the implementation does not
+	// need to worry about idempotence, but it may be called
+	// concurrently with UploadTraces, so proper
+	// locking is required. The function serves as a
+	// synchronization point - after the function returns, the
+	// process of closing connections is assumed to be finished.
+	Stop(ctx context.Context) error
+}
+
+// Tracer is the creator of Spans.
+type ClientTracer interface {
+	// Start creates a span and a context.Context containing the newly-created span.
+	//
+	// If the context.Context provided in `ctx` contains a Span then the newly-created
+	// Span will be a child of that span, otherwise it will be a root span. This behavior
+	// can be overridden by providing `WithNewRoot()` as a SpanOption, causing the
+	// newly-created Span to be a root span even if `ctx` contains a Span.
+	//
+	// When creating a Span it is recommended to provide all known span attributes using
+	// the `WithAttributes()` SpanOption as samplers will only have access to the
+	// attributes provided when a Span is created.
+	//
+	// Any Span that is created MUST also be ended. This is the responsibility of the user.
+	// Implementations of this API may leak memory or other resources if Spans are not ended.
+	Start(ctx context.Context, spanName string, opts ...trace.SpanStartOption) (context.Context, trace.Span)
+}
+
+// ClientTracerProvider is the interface for a tracer provider.
+type ClientTracerProvider interface {
+	ForceFlush(ctx context.Context) error
+	Shutdown(ctx context.Context) error
+}
+
+// NewClientFunc is the function signature for creating a new client.
+type NewClientFunc func(context.Context, coretrace.TaggedTracerNamespace, string, bool) (Client, ClientTracerProvider, ClientTracer, error)
+
 type tracer struct {
 	tomb tomb.Tomb
 
-	namespace          string
-	client             otlptrace.Client
-	clientProvider     *sdktrace.TracerProvider
-	clientTracer       trace.Tracer
+	namespace          coretrace.TaggedTracerNamespace
+	client             Client
+	clientProvider     ClientTracerProvider
+	clientTracer       ClientTracer
 	stackTracesEnabled bool
 	logger             Logger
 }
@@ -36,11 +82,12 @@ type tracer struct {
 // NewTracerWorker returns a new tracer worker.
 func NewTracerWorker(
 	ctx context.Context,
-	namespace string,
+	namespace coretrace.TaggedTracerNamespace,
 	endpoint string,
 	insecureSkipVerify bool,
 	stackTracesEnabled bool,
 	logger Logger,
+	newClient NewClientFunc,
 ) (TrackedTracer, error) {
 	client, clientProvider, clientTracer, err := newClient(ctx, namespace, endpoint, insecureSkipVerify)
 	if err != nil {
@@ -89,6 +136,13 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 
 	// Grab any attributes from the options and add them to the span.
 	attrs := attributes(o.Attributes())
+	attrs = append(attrs,
+		attribute.String("namespace", t.namespace.Namespace),
+		attribute.String("namespace.short", t.namespace.ShortNamespace()),
+		attribute.String("namespace.tag", t.namespace.Tag.String()),
+		attribute.String("namespace.worker", t.namespace.Worker),
+	)
+
 	ctx, span = t.clientTracer.Start(ctx, name, trace.WithAttributes(attrs...))
 
 	if t.logger.IsTraceEnabled() {
@@ -96,11 +150,20 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 		t.logger.Tracef("SpanContext: span-id %s, trace-id %s", spanContext.SpanID(), spanContext.TraceID())
 	}
 
-	return ctx, &managedSpan{
+	managed := &managedSpan{
 		span:               span,
 		cancel:             cancel,
 		stackTracesEnabled: t.requiresStackTrace(o.StackTrace()),
 	}
+	return coretrace.WithSpan(ctx, &limitedSpan{
+		Span:   managed,
+		logger: t.logger,
+	}), managed
+}
+
+// Enabled returns if the tracer is enabled.
+func (t *tracer) Enabled() bool {
+	return true
 }
 
 // requiresStackTrace returns true if the stack trace should be enabled on the
@@ -116,6 +179,10 @@ func (t *tracer) loop() error {
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()
+
+		if err := t.clientProvider.ForceFlush(ctx); err != nil {
+			t.logger.Infof("failed to flush client: %v", err)
+		}
 
 		if err := t.client.Stop(ctx); err != nil {
 			t.logger.Infof("failed to stop client: %v", err)
@@ -138,13 +205,15 @@ func (w *tracer) scopedContext(ctx context.Context) (context.Context, context.Ca
 	return w.tomb.Context(ctx), cancel
 }
 
-func newClient(ctx context.Context, namespace, endpoint string, insecureSkipVerify bool) (otlptrace.Client, *sdktrace.TracerProvider, trace.Tracer, error) {
+// NewClient returns a new tracing client.
+func NewClient(ctx context.Context, namespace coretrace.TaggedTracerNamespace, endpoint string, insecureSkipVerify bool) (Client, ClientTracerProvider, ClientTracer, error) {
 	options := []otlptracegrpc.Option{
 		otlptracegrpc.WithEndpoint(endpoint),
 	}
 	if insecureSkipVerify {
 		options = append(options, otlptracegrpc.WithInsecure())
 	}
+
 	client := otlptracegrpc.NewClient(options...)
 	exporter, err := otlptrace.New(ctx, client)
 	if err != nil {
@@ -153,16 +222,16 @@ func newClient(ctx context.Context, namespace, endpoint string, insecureSkipVeri
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(newResource(namespace)),
+		sdktrace.WithResource(newResource(namespace.ServiceName())),
 	)
 
-	return client, tp, tp.Tracer(namespace), nil
+	return client, tp, tp.Tracer(namespace.String()), nil
 }
 
-func newResource(namespace string) *resource.Resource {
+func newResource(serviceName string) *resource.Resource {
 	return resource.NewWithAttributes(
 		semconv.SchemaURL,
-		semconv.ServiceName(namespace),
+		semconv.ServiceName(serviceName),
 		semconv.ServiceVersion(version.Current.String()),
 	)
 }
@@ -210,4 +279,15 @@ func attributes(attrs []coretrace.Attribute) []attribute.KeyValue {
 		kv = append(kv, attribute.String(attr.Key(), attr.Value()))
 	}
 	return kv
+}
+
+// limitedSpan prevents you shooting yourself in the foot by ending a span that
+// you don't own.
+type limitedSpan struct {
+	coretrace.Span
+	logger Logger
+}
+
+func (s *limitedSpan) End(attrs ...coretrace.Attribute) {
+	s.logger.Warningf("attempted to end a span that you don't own")
 }

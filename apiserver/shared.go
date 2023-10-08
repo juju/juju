@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/trace"
 )
 
 // SharedHub represents the methods of the pubsub.StructuredHub
@@ -49,6 +50,7 @@ type sharedServerContext struct {
 	charmhubHTTPClient   facade.HTTPClient
 	dbGetter             changestream.WatchableDBGetter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
+	tracerGetter         trace.TracerGetter
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
@@ -72,6 +74,7 @@ type sharedServerConfig struct {
 	charmhubHTTPClient   facade.HTTPClient
 	dbGetter             changestream.WatchableDBGetter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
+	tracerGetter         trace.TracerGetter
 	machineTag           names.Tag
 	dataDir              string
 	logDir               string
@@ -102,6 +105,9 @@ func (c *sharedServerConfig) validate() error {
 	if c.serviceFactoryGetter == nil {
 		return errors.NotValidf("nil serviceFactoryGetter")
 	}
+	if c.tracerGetter == nil {
+		return errors.NotValidf("nil tracerGetter")
+	}
 	if c.machineTag == nil {
 		return errors.NotValidf("empty machineTag")
 	}
@@ -123,6 +129,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		charmhubHTTPClient:   config.charmhubHTTPClient,
 		dbGetter:             config.dbGetter,
 		serviceFactoryGetter: config.serviceFactoryGetter,
+		tracerGetter:         config.tracerGetter,
 		machineTag:           config.machineTag,
 		dataDir:              config.dataDir,
 		logDir:               config.logDir,

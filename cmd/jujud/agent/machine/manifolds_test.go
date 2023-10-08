@@ -478,6 +478,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state",
 		"state-config-watcher",
 		"syslog",
+		"trace",
 		"upgrade-steps-gate",
 	},
 
@@ -658,6 +659,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"state",
 		"state-config-watcher",
 		"syslog",
+		"trace",
 		"upgrade-steps-gate",
 	},
 
@@ -1122,6 +1124,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state",
 		"state-config-watcher",
 		"syslog",
+		"trace",
 		"upgrade-steps-gate",
 	},
 
@@ -1227,6 +1230,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"state",
 		"state-config-watcher",
 		"syslog",
+		"trace",
 		"upgrade-steps-gate",
 	},
 

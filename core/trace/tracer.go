@@ -5,8 +5,14 @@ package trace
 
 import (
 	"context"
+	"fmt"
+	"runtime"
+	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/core/database"
 )
 
 const (
@@ -71,6 +77,9 @@ type Tracer interface {
 	// of the user. Implementations of this API may leak memory or other
 	// resources if Spans are not ended.
 	Start(context.Context, string, ...Option) (context.Context, Span)
+
+	// Enabled returns if the tracer is enabled.
+	Enabled() bool
 }
 
 // Span is the individual component of a trace. It represents a single named
@@ -96,4 +105,93 @@ type Span interface {
 	// is called. Therefore, updates to the Span are not allowed after this
 	// method has been called.
 	End(...Attribute)
+}
+
+// Name is the name of the span.
+type Name string
+
+func (n Name) String() string {
+	return string(n)
+}
+
+// NameFromFunc will return the name from the function. This is useful for
+// automatically generating a name for a span.
+func NameFromFunc() Name {
+	// Get caller frame.
+	var pcs [1]uintptr
+	n := runtime.Callers(2, pcs[:])
+	if n < 1 {
+		return "unknown"
+	}
+
+	fn := runtime.FuncForPC(pcs[0])
+	name := fn.Name()
+	if lastSlash := strings.LastIndexByte(name, '/'); lastSlash > 0 {
+		name = name[lastSlash+1:]
+	}
+
+	return Name(name)
+}
+
+// Start returns a new context with the given trace.
+func Start(ctx context.Context, name Name, options ...Option) (context.Context, Span) {
+	// Tracer is always guaranteed to be returned here. If there is no tracer
+	// available it will return a noop tracer.
+	tracer, _ := TracerFromContext(ctx)
+	return tracer.Start(ctx, name.String(), options...)
+}
+
+// TracerNamespace is a combination of the worker name and the namespace, it
+// allows us to uniquely identify a tracer.
+// Note: the worker doesn't need to be 100% accurate, it is just used to
+// identify the tracer.
+type TracerNamespace struct {
+	Worker    string
+	Namespace string
+}
+
+// Namespace returns a new namespace.
+func Namespace(worker, namespace string) TracerNamespace {
+	return TracerNamespace{
+		Worker:    worker,
+		Namespace: namespace,
+	}
+}
+
+// ShortNamespace returns a short representation of the namespace.
+func (ns TracerNamespace) ShortNamespace() string {
+	// Don't shorten the controller namespace.
+	if ns.Namespace == database.ControllerNS {
+		return ns.Namespace
+	}
+	return ns.Namespace[:6]
+}
+
+// String returns a short representation of the namespace.
+func (ns TracerNamespace) String() string {
+	return fmt.Sprintf("%s:%s", ns.Worker, ns.Namespace)
+}
+
+// WithTag returns a new TaggedTracerNamespace.
+func (ns TracerNamespace) WithTag(tag names.Tag) TaggedTracerNamespace {
+	return TaggedTracerNamespace{
+		TracerNamespace: ns,
+		Tag:             tag,
+	}
+}
+
+// TaggedTracerNamespace is a TracerNamespace with a tag.
+type TaggedTracerNamespace struct {
+	TracerNamespace
+	Tag names.Tag
+}
+
+func (ns TaggedTracerNamespace) ServiceName() string {
+	// TODO (stickupkid): This won't always be jujud, work out the right
+	// agent binary.
+	return fmt.Sprintf("jujud-%s", ns.ShortNamespace())
+}
+
+func (ns TaggedTracerNamespace) String() string {
+	return fmt.Sprintf("%s:%s:%s", ns.Tag.String(), ns.Worker, ns.Namespace)
 }
