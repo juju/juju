@@ -47,7 +47,7 @@ var (
 
 func runStatus(c *gc.C, testCtx *context, args ...string) (code int, stdout, stderr string) {
 	ctx := cmdtesting.Context(c)
-	code = cmd.Main(NewStatusCommandForTest(testCtx.store, testCtx.api, testCtx.storageapi, clock.WallClock), ctx, args)
+	code = cmd.Main(NewStatusCommandForTest(testCtx.store, testCtx.api, clock.WallClock), ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).String()
 	stderr = ctx.Stderr.(*bytes.Buffer).String()
 	return
@@ -115,9 +115,8 @@ type context struct {
 	subordinateUnits map[string]int
 	nextinstanceId   int
 
-	store      *jujuclient.MemStore
-	api        *fakeStatusAPI
-	storageapi *mockListStorageAPI
+	store *jujuclient.MemStore
+	api   *fakeStatusAPI
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
@@ -158,7 +157,6 @@ func (s *StatusSuite) newContext() *context {
 				RemoteApplications: make(map[string]params.RemoteApplicationStatus),
 			},
 		},
-		storageapi: &mockListStorageAPI{empty: true},
 	}
 }
 
@@ -4560,6 +4558,7 @@ func (e expect) step(c *gc.C, ctx *context) {
 		if ctx.expectIsoTime {
 			args = append(args, "--utc")
 		}
+		ctx.api.expectIncludeStorage = format.name != "tabular"
 		c.Logf("running status %s", strings.Join(args, " "))
 		code, stdout, stderr := runStatus(c, ctx, args...)
 		c.Assert(code, gc.Equals, 0)
@@ -4719,6 +4718,7 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 	for _, s := range steps {
 		s.step(c, ctx)
 	}
+	ctx.api.expectIncludeStorage = true
 	code, stdout, stderr := runStatus(c, ctx, "--no-color", "--format", "summary")
 	c.Check(code, gc.Equals, 0)
 	c.Check(stderr, gc.Equals, "")
@@ -4800,6 +4800,8 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 }
 
 func assertOneLineStatus(c *gc.C, ctx *context, expected string) {
+	ctx.api.expectIncludeStorage = true
+
 	code, stdout, stderr := runStatus(c, ctx, "--no-color", "--format", "oneline")
 	c.Check(code, gc.Equals, 0)
 	c.Check(stderr, gc.Equals, "")
@@ -4950,6 +4952,7 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 
 func (s *StatusSuite) TestStatusWithFormatYaml(c *gc.C) {
 	ctx := s.prepareTabularData(c)
+	ctx.api.expectIncludeStorage = true
 
 	code, stdout, stderr := runStatus(c, ctx, "--no-color", "--format", "yaml")
 	c.Check(code, gc.Equals, 0)
@@ -4959,6 +4962,7 @@ func (s *StatusSuite) TestStatusWithFormatYaml(c *gc.C) {
 
 func (s *StatusSuite) TestStatusWithFormatJson(c *gc.C) {
 	ctx := s.prepareTabularData(c)
+	ctx.api.expectIncludeStorage = true
 
 	code, stdout, stderr := runStatus(c, ctx, "--no-color", "--format", "json")
 	c.Check(code, gc.Equals, 0)
@@ -5541,6 +5545,7 @@ func (s *StatusSuite) setupModel(c *gc.C) *context {
 
 func (s *StatusSuite) TestFilterArgs(c *gc.C) {
 	ctx := s.newContext()
+	ctx.api.expectIncludeStorage = true
 	ctx.api.result = nil
 	runStatus(c, ctx, "--no-color", "--format", "oneline", "active")
 	c.Assert(ctx.api.patterns, jc.DeepEquals, []string{"active"})
@@ -5848,6 +5853,7 @@ func (s *StatusSuite) TestTabularDisplayRelations(c *gc.C) {
 
 func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
 	ctx := s.setupModel(c)
+	ctx.api.expectIncludeStorage = true
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--format=yaml", "--relations")
 	c.Assert(stderr, gc.Equals, "provided relations option is always enabled in non tabular formats\n")
@@ -5858,6 +5864,7 @@ func (s *StatusSuite) TestNonTabularDisplayRelations(c *gc.C) {
 
 func (s *StatusSuite) TestNonTabularDisplayStorage(c *gc.C) {
 	ctx := s.setupModel(c)
+	ctx.api.expectIncludeStorage = true
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--format=yaml", "--storage")
 	c.Assert(stderr, gc.Equals, "provided storage option is always enabled in non tabular formats\n")
@@ -5867,6 +5874,7 @@ func (s *StatusSuite) TestNonTabularDisplayStorage(c *gc.C) {
 
 func (s *StatusSuite) TestNonTabularDisplayRelationsAndStorage(c *gc.C) {
 	ctx := s.setupModel(c)
+	ctx.api.expectIncludeStorage = true
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--format=yaml", "--relations", "--storage")
 	c.Assert(stderr, gc.Equals, "provided relations, storage options are always enabled in non tabular formats\n")
@@ -5876,6 +5884,7 @@ func (s *StatusSuite) TestNonTabularDisplayRelationsAndStorage(c *gc.C) {
 
 func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
 	ctx := s.setupModel(c)
+	ctx.api.expectIncludeStorage = true
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--format=yaml")
 	c.Assert(stderr, gc.HasLen, 0)
@@ -5904,6 +5913,7 @@ func (s *StatusSuite) TestBranchesOutputTabular(c *gc.C) {
 
 func (s *StatusSuite) TestBranchesOutputNonTabular(c *gc.C) {
 	ctx := s.prepareBranchesOutput(c)
+	ctx.api.expectIncludeStorage = true
 
 	_, stdout, stderr := runStatus(c, ctx, "--no-color", "--format=yaml")
 	c.Assert(stderr, gc.HasLen, 0)

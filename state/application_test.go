@@ -336,77 +336,6 @@ deployment:
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:focal/focal-gitlab-k8s-2": cannot change a charm's deployment info`)
 }
 
-func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentTypeFails(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS,
-	})
-	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "elastic-operator", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "elastic-operator", Charm: ch})
-
-	// Create a charm with new deployment info in metadata.
-	metaYaml := `
-name: elastic-operator
-summary: test
-description: test
-provides:
-  website:
-    interface: http
-requires:
-  db:
-    interface: mysql
-series:
-  - kubernetes
-deployment:
-  type: stateful
-  service: loadbalancer
-`[1:]
-	newCh := state.AddCustomCharm(c, st, "elastic-operator", "metadata.yaml", metaYaml, "focal", 2)
-	cfg := state.SetCharmConfig{
-		Charm:      newCh,
-		ForceUnits: true,
-	}
-	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "elastic-operator" to charm "local:focal/focal-elastic-operator-2": cannot change a charm's deployment type`)
-}
-
-func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentModeFails(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS,
-	})
-	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "elastic-operator", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "elastic-operator", Charm: ch})
-
-	// Create a charm with new deployment info in metadata.
-	metaYaml := `
-name: elastic-operator
-summary: test
-description: test
-provides:
-  website:
-    interface: http
-requires:
-  db:
-    interface: mysql
-series:
-  - kubernetes
-deployment:
-  mode: workload
-`[1:]
-	newCh := state.AddCustomCharm(c, st, "elastic-operator", "metadata.yaml", metaYaml, "focal", 2)
-	cfg := state.SetCharmConfig{
-		Charm:      newCh,
-		ForceUnits: true,
-	}
-	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "elastic-operator" to charm "local:focal/focal-elastic-operator-2": cannot change a charm's deployment mode`)
-}
-
 func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
 	sp := s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
 	sch := s.AddMetaCharm(c, "mysql", metaBaseWithNewEndpoint, 2)
@@ -649,17 +578,6 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsInvalid(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-mysql-2": validating config settings: option "key" expected string, got 123.45`)
 }
 
-func (s *ApplicationSuite) TestSetCharmLegacy(c *gc.C) {
-	chDifferentSeries := state.AddTestingCharmForSeries(c, s.State, "precise", "mysql")
-
-	cfg := state.SetCharmConfig{
-		Charm:     chDifferentSeries,
-		ForceBase: true,
-	}
-	err := s.mysql.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:precise/precise-mysql-1": cannot change an application's series`)
-}
-
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	app := state.AddTestingApplicationForBase(c, s.State, state.UbuntuBase("12.04"), "application", ch)
@@ -669,7 +587,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.
 		Charm: chDifferentSeries,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series2-8": only these series are supported: trusty, wily`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series2-8": base "ubuntu@12.04" not supported by charm, the charm supported bases are: ubuntu@14.04, ubuntu@15.10`)
 }
 
 func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
@@ -700,7 +618,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
 		ForceBase: true,
 	}
 	err := app.SetCharm(cfg)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series-centos-1": OS "Ubuntu" not supported by charm`)
+	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series-centos-1": OS "ubuntu" not supported by charm.*`)
 }
 
 func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
@@ -708,11 +626,6 @@ func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
 	cfg := state.SetCharmConfig{Charm: logging}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-logging-1": cannot change an application's subordinacy`)
-
-	othermysql := s.AddSeriesCharm(c, "mysql", "bionic")
-	cfg2 := state.SetCharmConfig{Charm: othermysql}
-	err = s.mysql.SetCharm(cfg2)
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:bionic/bionic-mysql-1": cannot change an application's series`)
 }
 
 func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
@@ -777,8 +690,6 @@ var metaBaseCAAS = `
 name: mysql
 summary: "Fake MySQL Database engine"
 description: "Complete with nonsense relations"
-series:
-  - kubernetes
 provides:
   server: mysql
 requires:
@@ -1807,8 +1718,8 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 	// Trusty is listed in only version 1 of the charm.
 	err := app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
 	c.Assert(err, gc.ErrorMatches,
-		"updating application series: base \"ubuntu@22.04\" not supported by charm \"multi-series\", "+
-			"supported bases are: ubuntu@20.04, ubuntu@18.04")
+		"updating application base: base \"ubuntu@22.04\" not supported by charm, "+
+			"the charm supported bases are: ubuntu@20.04, ubuntu@18.04")
 }
 
 func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(c *gc.C) {
@@ -1883,7 +1794,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateFail(c *gc.
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	err := app.UpdateApplicationBase(state.UbuntuBase("16.04"), false)
-	c.Assert(err, jc.ErrorIs, stateerrors.IncompatibleBaseError)
+	c.Assert(err, gc.ErrorMatches, `updating application base: base "ubuntu@16.04" not supported by charm.*`)
 	assertApplicationBaseUpdate(c, app, state.UbuntuBase("20.04"))
 	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("20.04"))
 }
@@ -1967,7 +1878,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompati
 	).Check()
 
 	err = app.UpdateApplicationBase(state.UbuntuBase("18.04"), false)
-	c.Assert(err, jc.ErrorIs, stateerrors.IncompatibleBaseError)
+	c.Assert(err, gc.ErrorMatches, `updating application base: base "ubuntu@18.04" not supported by charm.*`)
 	assertApplicationBaseUpdate(c, app, state.UbuntuBase("20.04"))
 	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("20.04"))
 
@@ -5455,17 +5366,26 @@ func (s *ApplicationSuite) TestSetOperatorStatus(c *gc.C) {
 func (s *ApplicationSuite) TestCharmLegacyOnlySupportsOneSeries(c *gc.C) {
 	ch := state.AddTestingCharmForSeries(c, s.State, "precise", "mysql")
 	app := s.AddTestingApplication(c, "legacy-charm", ch)
-	err := app.VerifySupportedBase(state.UbuntuBase("12.10"), false)
+	err := app.VerifySupportedBase(state.UbuntuBase("12.10"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = app.VerifySupportedBase(state.UbuntuBase("16.04"), false)
-	c.Assert(err, gc.ErrorMatches, "base \"ubuntu@16.04\" not supported by charm \"mysql\", supported bases are: ubuntu@12.10")
+	err = app.VerifySupportedBase(state.UbuntuBase("16.04"))
+	c.Assert(err, gc.ErrorMatches, "base \"ubuntu@16.04\" not supported by charm, the charm supported bases are: ubuntu@12.10")
 }
 
 func (s *ApplicationSuite) TestCharmLegacyNoOSInvalid(c *gc.C) {
-	ch := state.AddTestingCharmForSeries(c, s.State, "precise", "dummy")
-	app := s.AddTestingApplication(c, "legacy-charm", ch)
-	err := app.VerifySupportedBase(state.UbuntuBase("12.10"), false)
-	c.Assert(err, gc.ErrorMatches, `charm "dummy" does not support any bases. Not valid`)
+	ch := state.AddTestingCharmForSeries(c, s.State, "precise", "sample-fail-no-os")
+	_, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:  "sample-fail-no-os",
+		Charm: ch,
+		CharmOrigin: &state.CharmOrigin{
+			Source: "charm-hub",
+			Platform: &state.Platform{
+				OS:      "ubuntu",
+				Channel: "22.04/stable",
+			},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `.*charm does not define any bases`)
 }
 
 func (s *ApplicationSuite) TestDeployedMachines(c *gc.C) {

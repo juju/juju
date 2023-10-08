@@ -240,7 +240,7 @@ func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, er
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
-	if corecharm.IsMissingBaseError(err) {
+	if errors.Is(err, corecharm.MissingBaseError) {
 		return nil, err
 	} else if corecharm.IsUnsupportedBaseError(err) {
 		return nil, errors.Trace(err)

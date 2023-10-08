@@ -368,7 +368,7 @@ func (mr *MockStatusClientAPIMockRecorder) Close() *gomock.Call {
 }
 
 // Status mocks base method.
-func (m *MockStatusClientAPI) Status(arg0 []string) (*params.FullStatus, error) {
+func (m *MockStatusClientAPI) Status(arg0 *client.StatusArgs) (*params.FullStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Status", arg0)
 	ret0, _ := ret[0].(*params.FullStatus)

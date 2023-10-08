@@ -1446,50 +1446,19 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 }
 
 func (st *State) processCommonModelApplicationArgs(args *AddApplicationArgs) (Base, error) {
-	// User has specified series. Overriding supported series is
+	// User has specified base. Overriding supported bases is
 	// handled by the client, so args.Release is not necessarily
-	// one of the charm's supported series. We require that the
-	// specified series is of the same operating system as one of
-	// the supported series. For old-style charms with the series
-	// in the URL, that series is the one and only supported
-	// series.
+	// one of the charm's supported bases. We require that the
+	// specified base is of the same operating system as one of
+	// the supported bases.
 	appBase, err := corebase.ParseBase(args.CharmOrigin.Platform.OS, args.CharmOrigin.Platform.Channel)
 	if err != nil {
 		return Base{}, errors.Trace(err)
 	}
-	curl, err := charm.ParseURL(args.Charm.URL())
+
+	err = corecharm.OSIsCompatibleWithCharm(appBase.OS, args.Charm)
 	if err != nil {
 		return Base{}, errors.Trace(err)
-	}
-
-	var supportedSeries []string
-	if cSeries := curl.Series; cSeries != "" {
-		supportedSeries = []string{cSeries}
-	} else {
-		var err error
-		supportedSeries, err = corecharm.ComputedSeries(args.Charm)
-		if err != nil {
-			return Base{}, errors.Trace(err)
-		}
-	}
-	if len(supportedSeries) > 0 {
-		supportedOperatingSystems := make(map[string]bool)
-		for _, chSeries := range supportedSeries {
-			os, err := corebase.GetOSFromSeries(chSeries)
-			if err != nil {
-				// If we can't figure out a series written in the charm
-				// just skip it.
-				continue
-			}
-			supportedOperatingSystems[strings.ToLower(os.String())] = true
-		}
-		if !supportedOperatingSystems[appBase.OS] {
-			series, _ := corebase.GetSeriesFromBase(appBase)
-			return Base{}, errors.NewNotSupported(errors.Errorf(
-				"series %q not supported by charm, supported series are %q",
-				series, strings.Join(supportedSeries, ", "),
-			), "")
-		}
 	}
 
 	// Ignore constraints that result from this call as
@@ -2151,15 +2120,15 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	}
 
 	// If either endpoint has container scope, so must the other; and the
-	// applications's series must also match, because they'll be deployed to
+	// application's base must also match, because they'll be deployed to
 	// the same machines.
-	compatibleSeries := true
+	compatibleBases := true
 	if eps[0].Scope == charm.ScopeContainer {
 		eps[1].Scope = charm.ScopeContainer
 	} else if eps[1].Scope == charm.ScopeContainer {
 		eps[0].Scope = charm.ScopeContainer
 	} else {
-		compatibleSeries = false
+		compatibleBases = false
 	}
 
 	// We only get a unique relation id once, to save on roundtrips. If it's
@@ -2187,7 +2156,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		// Collect per-application operations, checking sanity as we go.
 		var ops []txn.Op
 		var subordinateCount int
-		appBases := map[string][]string{}
+		appBases := map[string][]corebase.Base{}
 		for _, ep := range eps {
 			app, err := aliveApplication(st, ep.ApplicationName)
 			if err != nil {
@@ -2221,24 +2190,12 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				if !ep.ImplementedBy(ch) {
 					return nil, errors.Errorf("%q does not implement %q", ep.ApplicationName, ep)
 				}
-				charmSeries, err := corecharm.ComputedSeries(ch)
+				charmBases, err := corecharm.ComputedBases(ch)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				var charmBases []string
-				for _, s := range charmSeries {
-					b, err := corebase.GetBaseFromSeries(s)
-					if err != nil {
-						return nil, errors.Trace(err)
-					}
-					charmBases = append(charmBases, b.DisplayString())
-				}
 				if len(charmBases) == 0 {
-					localBase, err := corebase.ParseBase(localApp.Base().OS, localApp.Base().Channel)
-					if err != nil {
-						return nil, errors.Trace(err)
-					}
-					charmBases = []string{localBase.DisplayString()}
+					return nil, errors.NotValidf("charm %q does not support any bases", ch.Meta().Name)
 				}
 				appBases[localApp.doc.Name] = charmBases
 				ops = append(ops, txn.Op{
@@ -2254,14 +2211,10 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, errors.Trace(err)
 			}
 		}
-		if compatibleSeries && len(appBases) > 1 {
-			// We need to ensure that there's intersection between the supported
-			// bases of both applications' charms.
-			app1Bases := set.NewStrings(appBases[eps[0].ApplicationName]...)
-			app2Bases := set.NewStrings(appBases[eps[1].ApplicationName]...)
-			if app1Bases.Intersection(app2Bases).Size() == 0 {
-				return nil, errors.Errorf("principal and subordinate applications' series must match")
-			}
+		// We need to ensure that there's intersection between the supported
+		// bases of both applications' charms.
+		if compatibleBases && len(appBases) > 1 && !compatibleSupportedBases(appBases[eps[0].ApplicationName], appBases[eps[1].ApplicationName]) {
+			return nil, errors.Errorf("principal and subordinate applications' bases must match")
 		}
 		if eps[0].Scope == charm.ScopeContainer && subordinateCount < 1 {
 			return nil, errors.Errorf("container scoped relation requires at least one subordinate application")
@@ -2307,6 +2260,17 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		return &Relation{st, *doc}, nil
 	}
 	return nil, errors.Trace(err)
+}
+
+func compatibleSupportedBases(b1s, b2s []corebase.Base) bool {
+	for _, b1 := range b1s {
+		for _, b2 := range b2s {
+			if b1.IsCompatible(b2) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // enforceMaxRelationLimit returns an error if adding an additional relation

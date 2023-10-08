@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/status"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
 	"github.com/juju/juju/internal/tools"
@@ -1665,7 +1664,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 
 	// If it's a v1 or v2 machine charm (no containers), check series.
 	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || len(cfg.Charm.Meta().Containers) == 0 {
-		err := checkSeriesForSetCharm(a.CharmOrigin().Platform, cfg.Charm, cfg.ForceBase)
+		err := checkBaseForSetCharm(a.CharmOrigin().Platform, cfg.Charm, cfg.ForceBase)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1925,63 +1924,18 @@ func (a *Application) SetDownloadedIDAndHash(id, hash string) error {
 	return nil
 }
 
-func checkSeriesForSetCharm(currentPlatform *Platform, ch *Charm, ForceBase bool) error {
-	// For old style charms written for only one series, we still retain
-	// this check. Newer charms written for multi-series have a URL
-	// with series = "".
-	curSeries, err := corebase.GetSeriesFromChannel(currentPlatform.OS, currentPlatform.Channel)
+// checkBaseForSetCharm verifies that the
+func checkBaseForSetCharm(currentPlatform *Platform, ch *Charm, ForceBase bool) error {
+	curBase, err := corebase.ParseBase(currentPlatform.OS, currentPlatform.Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	charmSeries, err := corecharm.ComputedSeries(ch)
-	if err != nil {
-		return errors.Trace(err)
+	if !ForceBase {
+		return errors.Trace(corecharm.BaseIsCompatibleWithCharm(curBase, ch))
 	}
-	curl, err := charm.ParseURL(ch.URL())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if curl.Series != "" {
-		// Allow series change when switching to charmhub charms.
-		if !charm.CharmHub.Matches(curl.Schema) && curl.Series != curSeries {
-			return errors.Errorf("cannot change an application's series")
-		}
-	} else if !ForceBase {
-		supported := false
-		for _, oneSeries := range charmSeries {
-			if oneSeries == curSeries {
-				supported = true
-				break
-			}
-		}
-		if !supported {
-			supportedSeries := "no series"
-			if len(charmSeries) > 0 {
-				supportedSeries = strings.Join(charmSeries, ", ")
-			}
-			return errors.Errorf("only these series are supported: %v", supportedSeries)
-		}
-	} else {
-		// Even with forceBase=true, we do not allow a charm to be used which is for
-		// a different OS. This assumes the charm declares it has supported series which
-		// we can check for OS compatibility. Otherwise, we just accept the series supplied.
-		currentOS := os.OSTypeForName(currentPlatform.OS)
-		supportedOS := false
-		for _, oneSeries := range charmSeries {
-			charmSeriesOS, err := corebase.GetOSFromSeries(oneSeries)
-			if err != nil {
-				return nil
-			}
-			if currentOS == charmSeriesOS {
-				supportedOS = true
-				break
-			}
-		}
-		if !supportedOS && len(charmSeries) > 0 {
-			return errors.Errorf("OS %q not supported by charm", currentOS)
-		}
-	}
-	return nil
+	// Even with forceBase=true, we do not allow a charm to be used which is for
+	// a different OS.
+	return errors.Trace(corecharm.OSIsCompatibleWithCharm(curBase.OS, ch))
 }
 
 // preUpgradeRelationLimitCheck ensures that the already established relation
@@ -2107,9 +2061,11 @@ func (a *Application) UpdateApplicationBase(newBase Base, force bool) (err error
 		}
 
 		// Verify and gather data for the transaction operations.
-		err = a.VerifySupportedBase(newBase, force)
-		if err != nil {
-			return nil, err
+		if !force {
+			err = a.VerifySupportedBase(newBase)
+			if err != nil {
+				return nil, err
+			}
 		}
 		units, err := a.AllUnits()
 		if err != nil {
@@ -2126,9 +2082,11 @@ func (a *Application) UpdateApplicationBase(newBase Base, force bool) (err error
 				if err != nil {
 					return nil, err
 				}
-				err = app.VerifySupportedBase(newBase, force)
-				if err != nil {
-					return nil, err
+				if !force {
+					err = app.VerifySupportedBase(newBase)
+					if err != nil {
+						return nil, err
+					}
 				}
 				subApps = append(subApps, app)
 			}
@@ -2169,34 +2127,23 @@ func (a *Application) UpdateApplicationBase(newBase Base, force bool) (err error
 	}
 
 	err = a.st.db().Run(buildTxn)
-	return errors.Annotatef(err, "updating application series")
+	return errors.Annotatef(err, "updating application base")
 }
 
 // VerifySupportedBase verifies if the given base is supported by the
 // application.
 // TODO (stickupkid): This will be removed once we align all upgrade-machine
 // commands.
-func (a *Application) VerifySupportedBase(b Base, force bool) error {
+func (a *Application) VerifySupportedBase(b Base) error {
 	ch, _, err := a.Charm()
 	if err != nil {
 		return err
 	}
-	supportedBases, err := corecharm.ComputedBases(ch)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if len(supportedBases) == 0 {
-		return errors.NewNotValid(nil, fmt.Sprintf("charm %q does not support any bases. Not valid", ch.Meta().Name))
-	}
 	base, err := corebase.ParseBase(b.OS, b.Channel)
 	if err != nil {
-		return errors.Trace(err)
+		return err
 	}
-	_, baseSupportedErr := corecharm.BaseForCharm(base, supportedBases)
-	if baseSupportedErr != nil && !force {
-		return stateerrors.NewErrIncompatibleBase(supportedBases, base, ch.Meta().Name)
-	}
-	return nil
+	return corecharm.BaseIsCompatibleWithCharm(base, ch)
 }
 
 // String returns the application name.

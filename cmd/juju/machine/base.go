@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
+	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/juju/status"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/rpc/params"
@@ -18,7 +19,7 @@ import (
 
 // statusAPI defines the API methods for the machines and show-machine commands.
 type statusAPI interface {
-	Status(pattern []string) (*params.FullStatus, error)
+	Status(*client.StatusArgs) (*params.FullStatus, error)
 	Close() error
 }
 

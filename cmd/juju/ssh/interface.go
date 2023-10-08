@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/client/application"
+	"github.com/juju/juju/api/client/client"
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/common/charms"
 	jujucloud "github.com/juju/juju/cloud"
@@ -18,7 +19,7 @@ import (
 
 // StatusClientAPI defines status related APIs.
 type StatusClientAPI interface {
-	Status(patterns []string) (*params.FullStatus, error)
+	Status(args *client.StatusArgs) (*params.FullStatus, error)
 	Close() error
 }
 

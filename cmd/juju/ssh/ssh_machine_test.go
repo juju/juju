@@ -18,6 +18,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/core/network"
 	jujussh "github.com/juju/juju/internal/network/ssh"
@@ -195,7 +196,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForHostMachineTarget(c 
 		host: "10.0.0.1",
 	}
 
-	statusGetter := func(_ []string) (*params.FullStatus, error) {
+	statusGetter := func(_ *client.StatusArgs) (*params.FullStatus, error) {
 		return &params.FullStatus{
 			Machines: map[string]params.MachineStatus{
 				"0": {
@@ -218,7 +219,7 @@ func (s *SSHMachineSuite) TestMaybePopulateTargetViaFieldForContainerMachineTarg
 		host: "252.66.6.42",
 	}
 
-	statusGetter := func(_ []string) (*params.FullStatus, error) {
+	statusGetter := func(_ *client.StatusArgs) (*params.FullStatus, error) {
 		return &params.FullStatus{
 			Machines: map[string]params.MachineStatus{
 				"0": {
@@ -334,7 +335,7 @@ func (s *SSHMachineSuite) setupModel(
 		sshClient.EXPECT().PublicKeys(t).DoAndReturn(f).AnyTimes()
 	}
 
-	statusClient.EXPECT().Status(nil).DoAndReturn(func(_ []string) (*params.FullStatus, error) {
+	statusClient.EXPECT().Status(nil).DoAndReturn(func(_ *client.StatusArgs) (*params.FullStatus, error) {
 		machine := machineTarget(targets[0])
 		addr, err := getAddresses(machine)
 		if err != nil {

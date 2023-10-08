@@ -503,7 +503,28 @@ func (k *kubernetesClient) ensureClusterBindingForSecretAccessToken(sa *core.Ser
 	}
 	clusterRoleBinding := resources.NewClusterRoleBinding(bindingSpec.Name, bindingSpec)
 	_, err = clusterRoleBinding.Ensure(context.TODO(), k.client(), resources.ClaimJujuOwnership)
-	return errors.Trace(err)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Ensure role binding exists before we return to avoid a race where a client
+	// attempts to perform an operation before the role is allowed.
+	return errors.Trace(retry.Call(retry.CallArgs{
+		Func: func() error {
+			api := k.client().RbacV1().ClusterRoleBindings()
+			_, err := api.Get(context.TODO(), clusterRoleBinding.Name, v1.GetOptions{ResourceVersion: clusterRoleBinding.ResourceVersion})
+			if k8serrors.IsNotFound(err) {
+				return errors.NewNotFound(err, "k8s")
+			}
+			return errors.Trace(err)
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, errors.NotFound)
+		},
+		Clock:    jujuclock.WallClock,
+		Attempts: 5,
+		Delay:    time.Second,
+	}))
 }
 
 func (k *kubernetesClient) ensureBindingForSecretAccessToken(sa *core.ServiceAccount, objMeta v1.ObjectMeta, owned, read, removed []string) error {
@@ -546,7 +567,28 @@ func (k *kubernetesClient) ensureBindingForSecretAccessToken(sa *core.ServiceAcc
 	}
 	roleBinding := resources.NewRoleBinding(bindingSpec.Name, bindingSpec.Namespace, bindingSpec)
 	err = roleBinding.Apply(context.TODO(), k.client())
-	return errors.Trace(err)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Ensure role binding exists before we return to avoid a race where a client
+	// attempts to perform an operation before the role is allowed.
+	return errors.Trace(retry.Call(retry.CallArgs{
+		Func: func() error {
+			api := k.client().RbacV1().RoleBindings(k.namespace)
+			_, err := api.Get(context.TODO(), roleBinding.Name, v1.GetOptions{ResourceVersion: roleBinding.ResourceVersion})
+			if k8serrors.IsNotFound(err) {
+				return errors.NewNotFound(err, "k8s")
+			}
+			return errors.Trace(err)
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.Is(err, errors.NotFound)
+		},
+		Clock:    jujuclock.WallClock,
+		Attempts: 5,
+		Delay:    time.Second,
+	}))
 }
 
 func cleanRules(existing []rbacv1.PolicyRule, shouldRemove func(string) bool) []rbacv1.PolicyRule {

@@ -35,11 +35,12 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
-	stateAccessor Backend
-	pool          Pool
-	auth          facade.Authorizer
-	resources     facade.Resources
-	presence      facade.Presence
+	stateAccessor   Backend
+	pool            Pool
+	storageAccessor StorageInterface
+	auth            facade.Authorizer
+	resources       facade.Resources
+	presence        facade.Presence
 
 	multiwatcherFactory multiwatcher.Factory
 
@@ -62,6 +63,11 @@ type Client struct {
 	check           *common.BlockChecker
 	callContext     context.ProviderCallContext
 	registryAPIFunc func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
+}
+
+// ClientV6 serves the (v6) client-specific API methods.
+type ClientV6 struct {
+	*Client
 }
 
 func (c *Client) checkCanRead() error {
@@ -138,9 +144,15 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		return nil, errors.Trace(err)
 	}
 
+	storageAccessor, err := getStorageState(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewClient(
-		&stateShim{State: st, model: model, session: nil},
-		&poolShim{pool: ctx.StatePool()},
+		&stateShim{st, model, nil},
+		&poolShim{ctx.StatePool()},
+		storageAccessor,
 		resources,
 		authorizer,
 		presence,
@@ -158,6 +170,7 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 func NewClient(
 	backend Backend,
 	pool Pool,
+	storageAccessor StorageInterface,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	presence facade.Presence,
@@ -176,6 +189,7 @@ func NewClient(
 		api: &API{
 			stateAccessor:       backend,
 			pool:                pool,
+			storageAccessor:     storageAccessor,
 			auth:                authorizer,
 			resources:           resources,
 			presence:            presence,

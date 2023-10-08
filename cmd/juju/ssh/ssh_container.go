@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api/client/application"
 	apicharms "github.com/juju/juju/api/client/charms"
+	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/sshclient"
 	controllerapi "github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -335,6 +336,6 @@ func (c *sshContainer) getExecClient() (k8sexec.Executor, error) {
 	return c.execClientGetter(c.namespace, cloudSpec)
 }
 
-func (c *sshContainer) maybePopulateTargetViaField(_ *resolvedTarget, _ func([]string) (*params.FullStatus, error)) error {
+func (c *sshContainer) maybePopulateTargetViaField(_ *resolvedTarget, _ func(*client.StatusArgs) (*params.FullStatus, error)) error {
 	return nil
 }

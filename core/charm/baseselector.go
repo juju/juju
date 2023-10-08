@@ -160,7 +160,7 @@ func (s BaseSelector) CharmBase() (selectedBase base.Base, err error) {
 	if err == nil {
 		s.logger.Infof(msgLatestLTSBase, base.LatestLTSBase())
 		return preferredBase, nil
-	} else if IsMissingBaseError(err) {
+	} else if errors.Is(err, MissingBaseError) {
 		return base.Base{}, err
 	}
 

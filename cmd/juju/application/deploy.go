@@ -137,8 +137,8 @@ func (a *deployAPIAdapter) AddLocalCharm(url *charm.URL, c charm.Charm, b bool) 
 	return a.charmsClient.AddLocalCharm(url, c, b, agentVersion)
 }
 
-func (a *deployAPIAdapter) Status(patterns []string) (*apiparams.FullStatus, error) {
-	return a.legacyClient.Status(patterns)
+func (a *deployAPIAdapter) Status(opts *apiclient.StatusArgs) (*apiparams.FullStatus, error) {
+	return a.legacyClient.Status(opts)
 }
 
 // NewDeployCommand returns a command to deploy applications.
