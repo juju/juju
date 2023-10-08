@@ -5,6 +5,4 @@ maintainers:
 description: |
   A test CAAS charm for elastic search operator.
 series:
-  - kubernetes
-deployment:
-  mode: operator
+  - focal

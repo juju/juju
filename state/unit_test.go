@@ -3319,6 +3319,6 @@ func (s *CAASUnitSuite) TestOperatorAddAction(c *gc.C) {
 	action, err := s.Model.AddAction(unit, operationID, "snapshot", nil, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(action.Parameters(), jc.DeepEquals, map[string]interface{}{
-		"outfile": "abcd", "workload-context": false,
+		"outfile": "abcd",
 	})
 }
