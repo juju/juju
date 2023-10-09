@@ -56,7 +56,6 @@ type ControllerHost interface {
 	Id() string
 	Life() state.Life
 	Watch() state.NotifyWatcher
-	Status() (status.StatusInfo, error)
 	SetStatus(status.StatusInfo) error
 	Refresh() error
 	Addresses() network.SpaceAddresses
@@ -484,31 +483,19 @@ func (w *pgWorker) updateControllerNodes() (bool, error) {
 		if _, ok := w.controllerTrackers[id]; ok {
 			continue
 		}
+
 		logger.Debugf("found new controller %q", id)
-
-		// Don't add the controller unless it is "Started"
-		nodeStatus, err := controllerHost.Status()
+		tracker, err := newControllerTracker(controllerNode, controllerHost, w.controllerChanges)
 		if err != nil {
-			return false, errors.Annotatef(err, "cannot get status for controller %q", id)
+			return false, errors.Trace(err)
 		}
-		// A controller in status Error or Stopped might still be properly running the controller. We still want to treat
-		// it as an active controller, even if we're trying to tear it down.
-		if nodeStatus.Status != status.Pending {
-			logger.Debugf("controller %q has started, adding it to peergrouper list", id)
-			tracker, err := newControllerTracker(controllerNode, controllerHost, w.controllerChanges)
-			if err != nil {
-				return false, errors.Trace(err)
-			}
-			if err := w.catacomb.Add(tracker); err != nil {
-				return false, errors.Trace(err)
-			}
-			w.controllerTrackers[id] = tracker
-			changed = true
-		} else {
-			logger.Debugf("controller %q not ready: %v", id, nodeStatus.Status)
+		if err := w.catacomb.Add(tracker); err != nil {
+			return false, errors.Trace(err)
 		}
-
+		w.controllerTrackers[id] = tracker
+		changed = true
 	}
+
 	return changed, nil
 }
 
@@ -565,10 +552,15 @@ func (w *pgWorker) publishAPIServerDetails(
 		var internalAddress string
 		if members[id] != nil {
 			mongoAddress, _, err := net.SplitHostPort(members[id].Address)
-			if err == nil {
+			if err != nil {
+				logger.Errorf("splitting host/port for address %q: %v", members[id].Address, err)
+			} else {
 				internalAddress = net.JoinHostPort(mongoAddress, strconv.Itoa(internalPort))
 			}
+		} else {
+			logger.Tracef("replica-set member %q not found", id)
 		}
+
 		server := apiserver.APIServer{
 			ID:              id,
 			InternalAddress: internalAddress,
@@ -715,7 +707,7 @@ func (w *pgWorker) updateVoteStatus() error {
 			}
 		}
 	}
-	logger.Debugf("controllers which are no longer in replicaset: %v", orphanedNodes.Values())
+	logger.Debugf("controllers that are no longer in replicaset: %v", orphanedNodes.Values())
 	for _, id := range orphanedNodes.Values() {
 		node := w.controllerTrackers[id]
 		nonVoting = append(nonVoting, node)

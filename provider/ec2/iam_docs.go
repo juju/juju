@@ -42,7 +42,6 @@ const (
         "ec2:DescribeAvailabilityZones",
         "ec2:DescribeIamInstanceProfileAssociations",
         "ec2:DescribeInstances",
-        "ec2:DescribeInstanceTypeOfferings",
         "ec2:DescribeInstanceTypes",
         "ec2:DescribeInternetGateways",
         "ec2:DescribeNetworkInterfaces",

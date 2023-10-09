@@ -218,10 +218,9 @@ func (st *fakeState) addController(id string, wantsVote bool) *fakeController {
 		panic(fmt.Errorf("id %q already used", id))
 	}
 	doc := controllerDoc{
-		id:         id,
-		wantsVote:  wantsVote,
-		statusInfo: status.StatusInfo{Status: status.Started},
-		life:       state.Alive,
+		id:        id,
+		wantsVote: wantsVote,
+		life:      state.Alive,
 	}
 	m := &fakeController{
 		errors:  &st.errors,
