@@ -4,6 +4,7 @@
 package state
 
 import (
+	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -252,4 +253,45 @@ func EnsureInitalRefCountForExternalSecretBackends(pool *StatePool) error {
 		return errors.Trace(st.runRawTransaction(ops))
 	}
 	return nil
+}
+
+func EnsureApplicationCharmOriginsHaveRevisions(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		allApps, err := st.AllApplications()
+		if err != nil {
+			return errors.Annotate(err, "loading applications")
+		}
+
+		var ops []txn.Op
+
+		for _, app := range allApps {
+			// We only need to fill in the revision if it's nil/
+			// There is an edge case though where a previous migration
+			// has incorrectly filled in the revision to 0 or -1
+			rev := app.CharmOrigin().Revision
+			if rev != nil && *rev > 0 {
+				continue
+			}
+			curlStr, _ := app.CharmURL()
+			if curlStr == nil {
+				return errors.Errorf("application %q has no charm url", app.Name())
+			}
+			curl, err := charm.ParseURL(*curlStr)
+			if err != nil {
+				return errors.Annotatef(err, "parsing charm url %q", *curlStr)
+			}
+			if curl.Revision == -1 {
+				return errors.Errorf("charm url %q has no revision", curl.String())
+			}
+			ops = append(ops, txn.Op{
+				C:      applicationsC,
+				Id:     app.doc.DocID,
+				Update: bson.D{{"$set", bson.D{{"charm-origin.revision", curl.Revision}}}},
+			})
+		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runRawTransaction(ops))
+		}
+		return nil
+	}))
 }

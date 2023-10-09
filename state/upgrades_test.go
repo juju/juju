@@ -6,6 +6,7 @@ package state
 import (
 	"sort"
 
+	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -369,4 +370,56 @@ func (s *upgradesSuite) TestEnsureInitalRefCountForExternalSecretBackends(c *gc.
 	expectedData := upgradedData(refCountCollection, expected)
 	expectedData.filter = bson.D{{"_id", bson.M{"$regex": "secretbackend#revisions#.*"}}}
 	s.assertUpgradedData(c, EnsureInitalRefCountForExternalSecretBackends, expectedData)
+}
+
+func (s *upgradesSuite) TestEnsureApplicationCharmOriginsHaveRevisions(c *gc.C) {
+	ch := AddTestingCharm(c, s.state, "dummy")
+	platform := Platform{OS: "ubuntu", Channel: "20.04"}
+	_ = addTestingApplication(c, addTestingApplicationParams{
+		st:   s.state,
+		name: "my-local-app",
+		ch:   ch,
+		origin: &CharmOrigin{
+			Source:   charm.Local.String(),
+			Platform: &platform,
+		},
+		numUnits: 1,
+	})
+
+	apps, err := s.state.AllApplications()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(apps, gc.HasLen, 1)
+	c.Assert(apps[0].CharmOrigin().Revision, gc.IsNil)
+
+	expected := bsonMById{{
+		"_id": s.state.docID("my-local-app"),
+		"charm-origin": bson.M{
+			"hash":     "",
+			"id":       "",
+			"platform": bson.M{"os": "ubuntu", "channel": "20.04"},
+			"source":   "local",
+			"revision": 1,
+		},
+		"charmmodifiedversion": 0,
+		"charmurl":             "local:quantal/quantal-dummy-1",
+		"exposed":              false,
+		"forcecharm":           false,
+		"life":                 0,
+		"metric-credentials":   []uint8{},
+		"minunits":             0,
+		"model-uuid":           s.state.ModelUUID(),
+		"name":                 "my-local-app",
+		"passwordhash":         "",
+		"provisioning-state":   nil,
+		"relationcount":        0,
+		"scale":                0,
+		"subordinate":          false,
+		"unitcount":            1,
+	}}
+
+	appColl, closer := s.state.db().GetRawCollection(applicationsC)
+	defer closer()
+
+	expectedData := upgradedData(appColl, expected)
+	s.assertUpgradedData(c, EnsureApplicationCharmOriginsHaveRevisions, expectedData)
 }

@@ -287,6 +287,16 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		// Fill in the charm origin revision from the charm url if it's absent
+		if arg.CharmOrigin.Revision == nil {
+			curl, err := charm.ParseURL(arg.CharmURL)
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			rev := curl.Revision
+			arg.CharmOrigin.Revision = &rev
+		}
 		err := deployApplication(
 			api.backend,
 			api.model,
