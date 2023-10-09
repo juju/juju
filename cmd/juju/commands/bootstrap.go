@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/docker/imagerepo"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -1595,6 +1596,10 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	if err != nil {
 		return bootstrapConfigs{}, errors.Annotate(err, "constructing controller config")
 	}
+	if err := validateCAASImageRepo(controllerConfig); err != nil {
+		return bootstrapConfigs{}, errors.Trace(err)
+	}
+
 	if controllerConfig.AutocertDNSName() != "" {
 		if _, ok := controllerConfigAttrs[controller.APIPort]; !ok {
 			// The configuration did not explicitly mention the API port,
@@ -1629,6 +1634,54 @@ func (c *bootstrapCommand) bootstrapConfigs(
 		storagePools:             storagePools,
 	}
 	return configs, nil
+}
+
+func validateCAASImageRepo(cfg controller.Config) error {
+	path := cfg.CAASImageRepo()
+	deprecated := cfg.CAASOperatorImagePath()
+
+	if path == "" && deprecated == "" {
+		return nil
+	}
+
+	// Ensure that if both are set, they are the same. We can't have divergent
+	// image repos. This is a temporary measure to allow for a transition period
+	// where we support both the old and new config keys.
+	if path != "" && deprecated != "" && path != deprecated {
+		return errors.NotValidf("CAASImageRepo and CAASOperatorImagePath cannot be different, if both set")
+	}
+
+	repoImage := deprecated
+	if repoImage == "" {
+		repoImage = path
+	}
+
+	imageRepo, err := imagerepo.NewImageRepo(repoImage)
+	if err != nil {
+		return errors.Annotatef(err, "invalid image repo %q", repoImage)
+	}
+
+	details, err := imageRepo.RequestDetails()
+	if err != nil {
+		return errors.Annotatef(err, "cannot get image repo details %q", repoImage)
+	}
+
+	// Nothing to set.
+	// TODO (stickupkid): I'm unsure what to actually do here, because in theory
+	// we need to remove the CAASImageRepo and CAASOperatorImagePath keys from
+	// the controller config.
+	if details.Empty() {
+		return nil
+	}
+
+	// Only set the content, if they had values to begin with.
+	if path != "" {
+		cfg[controller.CAASImageRepo] = details.Content()
+	}
+	if deprecated != "" {
+		cfg[controller.CAASOperatorImagePath] = details.Content()
+	}
+	return nil
 }
 
 // ensureDefaultBase ensures that the default base is set if the default series

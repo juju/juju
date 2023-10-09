@@ -5,25 +5,24 @@ package caasmodelconfigmanager_test
 
 import (
 	"encoding/base64"
+	"errors"
+	"fmt"
 	"time"
 
-	"github.com/juju/clock/testclock"
+	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/dependency"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
-	registrymocks "github.com/juju/juju/docker/registry/mocks"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasmodelconfigmanager"
-	"github.com/juju/juju/worker/caasmodelconfigmanager/mocks"
 )
 
 var _ = gc.Suite(&workerSuite{})
@@ -34,29 +33,26 @@ type workerSuite struct {
 	modelTag names.ModelTag
 	logger   loggo.Logger
 
-	facade           *mocks.MockFacade
-	broker           *mocks.MockCAASBroker
-	reg              *registrymocks.MockRegistry
-	clock            *testclock.Clock
+	controllerConfigService *MockControllerConfigService
+	registry                *MockRegistry
+	imageRepo               *MockImageRepo
+	broker                  *MockCAASBroker
+
+	clock            clock.Clock
 	controllerConfig controller.Config
 }
 
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+
 	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
 	s.logger = loggo.GetLogger("test")
 	s.controllerConfig = coretesting.FakeControllerConfig()
-	s.clock = testclock.NewClock(time.Time{})
-}
-
-func (s *workerSuite) TearDownTest(c *gc.C) {
-	s.IsolationSuite.TearDownTest(c)
-	s.facade = nil
+	s.clock = clock.WallClock
 }
 
 func (s *workerSuite) TestConfigValidate(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	cfg := caasmodelconfigmanager.Config{}
 	c.Check(cfg.Validate(), gc.ErrorMatches, `ModelTag is missing not valid`)
@@ -64,240 +60,217 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 	cfg = caasmodelconfigmanager.Config{
 		ModelTag: s.modelTag,
 	}
-	c.Check(cfg.Validate(), gc.ErrorMatches, `Facade is missing not valid`)
+	c.Check(cfg.Validate(), gc.ErrorMatches, `ControllerConfigService is missing not valid`)
 
 	cfg = caasmodelconfigmanager.Config{
-		ModelTag: s.modelTag,
-		Facade:   mocks.NewMockFacade(ctrl),
+		ModelTag:                s.modelTag,
+		ControllerConfigService: s.controllerConfigService,
 	}
 	c.Check(cfg.Validate(), gc.ErrorMatches, `Broker is missing not valid`)
 
 	cfg = caasmodelconfigmanager.Config{
-		ModelTag: s.modelTag,
-		Facade:   mocks.NewMockFacade(ctrl),
-		Broker:   mocks.NewMockCAASBroker(ctrl),
+		ModelTag:                s.modelTag,
+		ControllerConfigService: s.controllerConfigService,
+		Broker:                  s.broker,
 	}
 	c.Check(cfg.Validate(), gc.ErrorMatches, `Logger is missing not valid`)
 
 	cfg = caasmodelconfigmanager.Config{
-		ModelTag: s.modelTag,
-		Facade:   mocks.NewMockFacade(ctrl),
-		Broker:   mocks.NewMockCAASBroker(ctrl),
-		Logger:   s.logger,
+		ModelTag:                s.modelTag,
+		ControllerConfigService: s.controllerConfigService,
+		Broker:                  s.broker,
+		Logger:                  s.logger,
 	}
 	c.Check(cfg.Validate(), gc.ErrorMatches, `Clock is missing not valid`)
 
 	cfg = caasmodelconfigmanager.Config{
-		ModelTag: s.modelTag,
-		Facade:   mocks.NewMockFacade(ctrl),
-		Broker:   mocks.NewMockCAASBroker(ctrl),
-		Logger:   s.logger,
-		Clock:    s.clock,
+		ModelTag:                s.modelTag,
+		ControllerConfigService: s.controllerConfigService,
+		Broker:                  s.broker,
+		Logger:                  s.logger,
+		Clock:                   s.clock,
 	}
 	c.Check(cfg.Validate(), gc.ErrorMatches, `RegistryFunc is missing not valid`)
 
 	cfg = caasmodelconfigmanager.Config{
-		ModelTag:     s.modelTag,
-		Facade:       mocks.NewMockFacade(ctrl),
-		Broker:       mocks.NewMockCAASBroker(ctrl),
-		Logger:       s.logger,
-		Clock:        s.clock,
-		RegistryFunc: func(i docker.ImageRepoDetails) (registry.Registry, error) { return nil, nil },
+		ModelTag:                s.modelTag,
+		ControllerConfigService: s.controllerConfigService,
+		Broker:                  s.broker,
+		Logger:                  s.logger,
+		Clock:                   s.clock,
+		RegistryFunc:            func(i docker.ImageRepoDetails) (caasmodelconfigmanager.Registry, error) { return nil, nil },
+	}
+	c.Check(cfg.Validate(), gc.ErrorMatches, `ImageRepoFunc is missing not valid`)
+
+	cfg = caasmodelconfigmanager.Config{
+		ModelTag:                s.modelTag,
+		ControllerConfigService: s.controllerConfigService,
+		Broker:                  s.broker,
+		Logger:                  s.logger,
+		Clock:                   s.clock,
+		RegistryFunc:            func(i docker.ImageRepoDetails) (caasmodelconfigmanager.Registry, error) { return nil, nil },
+		ImageRepoFunc:           func(path string) (caasmodelconfigmanager.ImageRepo, error) { return nil, nil },
 	}
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 }
 
-func (s *workerSuite) getWorkerStarter(c *gc.C) (func(...*gomock.Call) worker.Worker, *gomock.Controller) {
+func (s *workerSuite) TestCAASImageRepoNotSet(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerConfig[controller.CAASImageRepo] = ""
+	s.controllerConfigService.EXPECT().ControllerConfig().Return(s.controllerConfig, nil)
+
+	w, err := caasmodelconfigmanager.NewWorker(s.config())
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	w.Kill()
+	c.Assert(errors.Is(w.Wait(), dependency.ErrUninstall), jc.IsTrue)
+}
+
+func (s *workerSuite) TestCAASImageRepoSetButInvalid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.controllerConfig[controller.CAASImageRepo] = "foo"
+	s.controllerConfigService.EXPECT().ControllerConfig().Return(s.controllerConfig, nil)
+
+	s.imageRepo.EXPECT().RequestDetails().Return(docker.ImageRepoDetails{}, nil)
+
+	w, err := caasmodelconfigmanager.NewWorker(s.config())
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	w.Kill()
+	c.Assert(errors.Is(w.Wait(), dependency.ErrUninstall), jc.IsTrue)
+}
+
+func (s *workerSuite) TestCAASImageRepoOnFirstTime(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+
+	s.expectImageRepoDetails()
+	s.expectRegDetails("foo", "bar")
+	s.registry.EXPECT().Ping().Return(nil)
+	s.registry.EXPECT().ShouldRefreshAuth().Return(false, ptr(time.Millisecond*100))
+	s.registry.EXPECT().RefreshAuth().Return(nil)
+	s.broker.EXPECT().EnsureImageRepoSecret(imageDetails("foo", "bar")).DoAndReturn(func(docker.ImageRepoDetails) error {
+		close(done)
+		return nil
+	})
+
+	w, err := caasmodelconfigmanager.NewWorker(s.config())
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for second request")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestCAASImageRepoWithRefresh(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	done := make(chan struct{})
+
+	s.expectImageRepoDetails()
+	s.expectRegDetails("foo", "bar")
+	s.registry.EXPECT().Ping().Return(nil)
+
+	// First request.
+	s.registry.EXPECT().ShouldRefreshAuth().Return(true, ptr(time.Millisecond*100))
+	s.registry.EXPECT().RefreshAuth().Return(nil)
+	s.broker.EXPECT().EnsureImageRepoSecret(imageDetails("foo", "bar")).Return(nil)
+
+	// Second request.
+	s.registry.EXPECT().ShouldRefreshAuth().DoAndReturn(func() (bool, *time.Duration) {
+		close(done)
+		return false, nil
+	})
+
+	w, err := caasmodelconfigmanager.NewWorker(s.config())
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	select {
+	case <-done:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for second request")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.facade = mocks.NewMockFacade(ctrl)
-	s.broker = mocks.NewMockCAASBroker(ctrl)
-	s.reg = registrymocks.NewMockRegistry(ctrl)
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.registry = NewMockRegistry(ctrl)
+	s.imageRepo = NewMockImageRepo(ctrl)
+	s.broker = NewMockCAASBroker(ctrl)
 
-	cfg := caasmodelconfigmanager.Config{
-		ModelTag: s.modelTag,
-		Logger:   s.logger,
-		Facade:   s.facade,
-		Broker:   s.broker,
-		Clock:    s.clock,
-		RegistryFunc: func(i docker.ImageRepoDetails) (registry.Registry, error) {
-			c.Assert(i, gc.DeepEquals, s.controllerConfig.CAASImageRepo())
-			return s.reg, nil
+	return ctrl
+}
+
+func (s *workerSuite) config() caasmodelconfigmanager.Config {
+	return caasmodelconfigmanager.Config{
+		ModelTag:                s.modelTag,
+		ControllerConfigService: s.controllerConfigService,
+		Broker:                  s.broker,
+		Logger:                  s.logger,
+		Clock:                   s.clock,
+		RegistryFunc: func(i docker.ImageRepoDetails) (caasmodelconfigmanager.Registry, error) {
+			return s.registry, nil
+		},
+		ImageRepoFunc: func(path string) (caasmodelconfigmanager.ImageRepo, error) {
+			return s.imageRepo, nil
 		},
 	}
-	return func(calls ...*gomock.Call) worker.Worker {
-		gomock.InOrder(calls...)
-		w, err := caasmodelconfigmanager.NewWorker(cfg)
-		c.Assert(err, jc.ErrorIsNil)
-		s.AddCleanup(func(c *gc.C) {
-			workertest.CleanKill(c, w)
-		})
-		return w
-	}, ctrl
 }
 
-func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
+func (s *workerSuite) expectImageRepoDetails() {
 	s.controllerConfig[controller.CAASImageRepo] = `
-{
-    "serveraddress": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-    "username": "aws_access_key_id",
-    "repository": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-    "password": "aws_secret_access_key",
-    "region": "ap-southeast-2"
-}`[1:]
+	{
+		"serveraddress": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		"username": "aws_access_key_id",
+		"repository": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		"password": "aws_secret_access_key",
+		"region": "ap-southeast-2"
+	}`
+	s.controllerConfigService.EXPECT().ControllerConfig().Return(s.controllerConfig, nil)
+	s.imageRepo.EXPECT().RequestDetails().Return(docker.ImageRepoDetails{
+		ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		Region:        "ap-southeast-2",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Username: "aws_access_key_id",
+			Password: "aws_secret_access_key",
+			Auth:     docker.NewToken(base64.StdEncoding.EncodeToString([]byte("aws_access_key_id:aws_secret_access_key"))),
+		},
+	}, nil)
+}
 
-	refreshed := s.controllerConfig.CAASImageRepo()
-	refreshed.Auth = docker.NewToken(`refreshed===`)
+func (s *workerSuite) expectRegDetails(username, password string) {
+	s.registry.EXPECT().ImageRepoDetails().Return(imageDetails(username, password))
+}
 
-	done := make(chan struct{}, 1)
-	startWorker, ctrl := s.getWorkerStarter(c)
-	defer ctrl.Finish()
-
-	_ = startWorker(
-		// 1st round.
-		s.facade.EXPECT().ControllerConfig().Return(s.controllerConfig, nil),
-		s.reg.EXPECT().Ping().Return(nil),
-		s.reg.EXPECT().ShouldRefreshAuth().Return(true, nil),
-		s.reg.EXPECT().RefreshAuth().Return(nil),
-		s.reg.EXPECT().ImageRepoDetails().DoAndReturn(
-			func() docker.ImageRepoDetails {
-				o := s.controllerConfig.CAASImageRepo()
-				c.Assert(o, gc.DeepEquals, docker.ImageRepoDetails{
-					ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-					Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-					Region:        "ap-southeast-2",
-					BasicAuthConfig: docker.BasicAuthConfig{
-						Username: "aws_access_key_id",
-						Password: "aws_secret_access_key",
-						Auth:     docker.NewToken(base64.StdEncoding.EncodeToString([]byte("aws_access_key_id:aws_secret_access_key"))),
-					},
-				})
-				return o
-			},
-		),
-		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(
-			func(i docker.ImageRepoDetails) error {
-				c.Assert(i, gc.DeepEquals, s.controllerConfig.CAASImageRepo())
-				return nil
-			},
-		),
-		// 2nd round.
-		s.reg.EXPECT().ShouldRefreshAuth().Return(true, nil),
-		s.reg.EXPECT().RefreshAuth().Return(nil),
-		s.reg.EXPECT().ImageRepoDetails().Return(refreshed),
-		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(
-			func(i docker.ImageRepoDetails) error {
-				c.Assert(i, gc.DeepEquals, refreshed)
-				close(done)
-				return nil
-			},
-		),
-	)
-
-	err := s.clock.WaitAdvance(30*time.Second, coretesting.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	select {
-	case <-done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for worker to start")
+func imageDetails(username, password string) docker.ImageRepoDetails {
+	return docker.ImageRepoDetails{
+		ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
+		Region:        "ap-southeast-2",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Username: username,
+			Password: password,
+			Auth:     docker.NewToken(base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", username, password)))),
+		},
 	}
 }
 
-func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
-	s.controllerConfig[controller.CAASImageRepo] = `
-{
-    "serveraddress": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-    "username": "aws_access_key_id",
-    "repository": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-    "password": "aws_secret_access_key",
-    "region": "ap-southeast-2"
-}`[1:]
-
-	done := make(chan struct{}, 1)
-	startWorker, ctrl := s.getWorkerStarter(c)
-	defer ctrl.Finish()
-
-	_ = startWorker(
-		// 1st round.
-		s.facade.EXPECT().ControllerConfig().Return(s.controllerConfig, nil),
-		s.reg.EXPECT().Ping().Return(nil),
-		s.reg.EXPECT().ShouldRefreshAuth().Return(true, nil),
-		s.reg.EXPECT().RefreshAuth().Return(nil),
-		s.reg.EXPECT().ImageRepoDetails().DoAndReturn(
-			func() docker.ImageRepoDetails {
-				o := s.controllerConfig.CAASImageRepo()
-				c.Assert(o, gc.DeepEquals, docker.ImageRepoDetails{
-					ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-					Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-					Region:        "ap-southeast-2",
-					BasicAuthConfig: docker.BasicAuthConfig{
-						Username: "aws_access_key_id",
-						Password: "aws_secret_access_key",
-						Auth:     docker.NewToken(base64.StdEncoding.EncodeToString([]byte("aws_access_key_id:aws_secret_access_key"))),
-					},
-				})
-				return o
-			},
-		),
-		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(
-			func(i docker.ImageRepoDetails) error {
-				c.Assert(i, gc.DeepEquals, s.controllerConfig.CAASImageRepo())
-				return nil
-			},
-		),
-		// 2nd round.
-		s.reg.EXPECT().ShouldRefreshAuth().DoAndReturn(func() (bool, *time.Duration) {
-			nextTick := 7 * time.Minute
-			return false, &nextTick
-		}),
-		// 3rd round.
-		s.reg.EXPECT().ShouldRefreshAuth().DoAndReturn(func() (bool, *time.Duration) {
-			return true, nil
-		}),
-		s.reg.EXPECT().RefreshAuth().Return(nil),
-		s.reg.EXPECT().ImageRepoDetails().Return(s.controllerConfig.CAASImageRepo()),
-		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(
-			func(i docker.ImageRepoDetails) error {
-				c.Assert(i, gc.DeepEquals, s.controllerConfig.CAASImageRepo())
-				close(done)
-				return nil
-			},
-		),
-	)
-
-	err := s.clock.WaitAdvance(30*time.Second, coretesting.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.clock.WaitAdvance(7*time.Minute, coretesting.ShortWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
-	select {
-	case <-done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for worker to start")
-	}
-}
-
-func (s *workerSuite) TestWorkerNoOpsForPublicRepo(c *gc.C) {
-	s.controllerConfig[controller.CAASImageRepo] = `
-{
-    "serveraddress": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-    "repository": "66668888.dkr.ecr.eu-west-1.amazonaws.com",
-    "region": "ap-southeast-2",
-}`[1:]
-
-	done := make(chan struct{}, 1)
-	startWorker, ctrl := s.getWorkerStarter(c)
-	defer ctrl.Finish()
-
-	_ = startWorker(
-		s.facade.EXPECT().ControllerConfig().DoAndReturn(func() (controller.Config, error) {
-			close(done)
-			return s.controllerConfig, nil
-		}),
-	)
-
-	select {
-	case <-done:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for worker to start")
-	}
+func ptr[T any](t T) *T {
+	return &t
 }

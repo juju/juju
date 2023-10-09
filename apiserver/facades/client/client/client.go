@@ -20,6 +20,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/imagerepo"
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
@@ -300,17 +301,20 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	imageRepoDetails := controllerCfg.CAASImageRepo()
-	if imageRepoDetails.Empty() {
+	details, err := imagerepo.DetailsFromPath(controllerCfg.CAASImageRepo())
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if details.Empty() {
 		repoDetails, err := docker.NewImageRepoDetails(podcfg.JujudOCINamespace)
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		imageRepoDetails = *repoDetails
+		details = *repoDetails
 	}
-	reg, err := c.registryAPIFunc(imageRepoDetails)
+	reg, err := c.registryAPIFunc(details)
 	if err != nil {
-		return result, errors.Annotatef(err, "constructing registry API for %s", imageRepoDetails)
+		return result, errors.Annotatef(err, "constructing registry API for %s", details)
 	}
 	defer func() { _ = reg.Close() }()
 	imageName := podcfg.JujudOCIName

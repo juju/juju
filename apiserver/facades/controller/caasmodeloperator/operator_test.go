@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasmodeloperator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cloudconfig/podcfg"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -57,13 +56,7 @@ func (m *ModelOperatorSuite) TestProvisioningInfo(c *gc.C) {
 	info, err := m.api.ModelOperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerConf, err := m.state.ControllerConfig()
-	c.Assert(err, jc.ErrorIsNil)
-
-	imagePath, err := podcfg.GetJujuOCIImagePath(controllerConf, info.Version)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(imagePath, gc.Equals, info.ImageDetails.RegistryPath)
-
+	c.Assert(info.ImageDetails.RegistryPath, gc.Equals, "test-account/jujud-operator:2.6-beta3")
 	c.Assert(info.ImageDetails.Auth, gc.Equals, `xxxxx==`)
 	c.Assert(info.ImageDetails.Repository, gc.Equals, `test-account`)
 

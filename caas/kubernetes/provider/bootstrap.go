@@ -43,6 +43,7 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/docker/imagerepo"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/juju/osenv"
@@ -307,7 +308,11 @@ func newcontrollerStack(
 	cs.resourceNameVolBootstrapParams = cs.getResourceName(cloudconfig.FileNameBootstrapParams)
 	cs.resourceNameVolAgentConf = cs.getResourceName(agentconstants.AgentConfigFilename)
 
-	if cs.dockerAuthSecretData, err = pcfg.Controller.CAASImageRepo().SecretData(); err != nil {
+	details, err := imagerepo.DetailsFromPath(pcfg.Controller.CAASImageRepo())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if cs.dockerAuthSecretData, err = details.SecretData(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return cs, nil
@@ -1507,12 +1512,35 @@ func (c *controllerStack) buildContainerSpecForController() (*core.PodSpec, erro
 	return c.buildContainerSpecForCommands(setupCmd, machineCmd, jujudEnv)
 }
 
+func (c *controllerStack) getControllerImagePath() (string, error) {
+	path := c.pcfg.Controller.CAASOperatorImagePath()
+	details, err := imagerepo.DetailsFromPath(path)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	imagePath, err := podcfg.RebuildOldOperatorImagePath(details.Repository, c.pcfg.JujuVersion)
+	if imagePath != "" || err != nil {
+		return imagePath, err
+	}
+
+	path = c.pcfg.Controller.CAASImageRepo()
+	details, err = imagerepo.DetailsFromPath(path)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	controllerImage, err := podcfg.JujudOCIImageReference(details.Repository, c.pcfg.JujuVersion)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return controllerImage, err
+}
+
 func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd string, jujudEnv map[string]string) (*core.PodSpec, error) {
-	controllerImage, err := c.pcfg.GetControllerImagePath()
+	controllerImage, err := c.getControllerImagePath()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	containers, err := c.controllerContainers(setupCmd, machineCmd, controllerImage, jujudEnv)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1542,7 +1570,11 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		return nil, errors.Trace(err)
 	}
 	repo := c.pcfg.Controller.CAASOperatorImagePath()
-	charmBaseImage, err := podcfg.ImageForBase(repo.Repository, charm.Base{
+	details, err := imagerepo.DetailsFromPath(repo)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	charmBaseImage, err := podcfg.ImageForBase(details.Repository, charm.Base{
 		Name: strings.ToLower(os.String()),
 		Channel: charm.Channel{
 			Track: ver,
@@ -1557,7 +1589,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		AgentVersion:         c.pcfg.JujuVersion,
 		AgentImagePath:       controllerImage,
 		CharmBaseImagePath:   charmBaseImage,
-		IsPrivateImageRepo:   repo.IsPrivate(),
+		IsPrivateImageRepo:   details.IsPrivate(),
 		CharmModifiedVersion: 0,
 		InitialScale:         1,
 		Constraints:          c.pcfg.Bootstrap.BootstrapMachineConstraints,

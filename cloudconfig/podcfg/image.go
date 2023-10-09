@@ -13,6 +13,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/docker/imagerepo"
 )
 
 const (
@@ -35,10 +36,9 @@ func (cfg *ControllerPodConfig) dbVersion() (version.Number, error) {
 
 // GetJujuDbOCIImagePath returns the juju-db oci image path.
 func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() (string, error) {
-	imageRepo := cfg.Controller.CAASImageRepo().Repository
-	if imageRepo == "" {
-		imageRepo = JujudOCINamespace
-	}
+	repo := cfg.Controller.CAASImageRepo()
+	imageRepo := imageRepoFromPath(repo)
+
 	path := fmt.Sprintf("%s/%s", imageRepo, JujudbOCIName)
 	mongoVers, err := cfg.dbVersion()
 	if err != nil {
@@ -61,17 +61,11 @@ func IsCharmBaseImage(imagePath string) bool {
 // GetJujuOCIImagePath returns the jujud oci image path.
 func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (string, error) {
 	// First check the deprecated "caas-operator-image-path" config.
-	imagePath, err := RebuildOldOperatorImagePath(
-		controllerCfg.CAASOperatorImagePath().Repository, ver,
-	)
+	imagePath, err := RebuildOldOperatorImagePath(controllerCfg.CAASOperatorImagePath(), ver)
 	if imagePath != "" || err != nil {
 		return imagePath, err
 	}
-	tag := ""
-	if ver != version.Zero {
-		tag = ver.String()
-	}
-	return imageRepoToPath(controllerCfg.CAASImageRepo().Repository, tag)
+	return imageRepoToPath(controllerCfg.CAASImageRepo(), stringifyVersion(ver))
 }
 
 // RebuildOldOperatorImagePath returns a updated image path for the specified juju version.
@@ -79,12 +73,7 @@ func RebuildOldOperatorImagePath(imagePath string, ver version.Number) (string, 
 	if imagePath == "" {
 		return "", nil
 	}
-	tag := ""
-	if ver != version.Zero {
-		// ver is always a valid tag.
-		tag = ver.String()
-	}
-	return tagImagePath(imagePath, tag)
+	return tagImagePath(imagePath, stringifyVersion(ver))
 }
 
 func tagImagePath(fullPath, tag string) (string, error) {
@@ -101,6 +90,16 @@ func tagImagePath(fullPath, tag string) (string, error) {
 		imageNamed, _ = reference.WithTag(imageNamed, tag)
 	}
 	return imageNamed.String(), nil
+}
+
+// JujudOCIImageReference returns the OCI image path.
+// If the imageRepo is empty, the default namespace is used.
+func JujudOCIImageReference(imageRepo string, ver version.Number) (string, error) {
+	if imageRepo == "" {
+		imageRepo = JujudOCINamespace
+	}
+	path := fmt.Sprintf("%s/%s", imageRepo, JujudOCIName)
+	return tagImagePath(path, stringifyVersion(ver))
 }
 
 func imageRepoToPath(imageRepo, tag string) (string, error) {
@@ -137,4 +136,26 @@ func ImageForBase(imageRepo string, base charm.Base) (string, error) {
 	}
 	image := fmt.Sprintf("%s/%s:%s", imageRepo, CharmBaseName, tag)
 	return image, nil
+}
+
+func imageRepoFromPath(path string) string {
+	details, err := imagerepo.DetailsFromPath(path)
+	if err != nil {
+		logger.Warningf("cannot parse %q from controller config: %v", path, err)
+		return JujudOCINamespace
+	}
+
+	// If the image repo is not set, use the default.
+	imageRepo := details.Repository
+	if imageRepo == "" {
+		imageRepo = JujudOCINamespace
+	}
+	return imageRepo
+}
+
+func stringifyVersion(v version.Number) string {
+	if v == version.Zero {
+		return ""
+	}
+	return v.String()
 }
