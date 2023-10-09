@@ -15,11 +15,11 @@ import (
 // ValuePredicate is a function that determines whether a change event
 // should be sent to the watcher.
 // Returning false will prevent the events from being sent.
-type ValuePredicate func(context.Context, []changestream.ChangeEvent) (bool, error)
+type ValuePredicate func(context.Context, changestream.WatchableDB, []changestream.ChangeEvent) (bool, error)
 
 // defaultPredicate is the default predicate used by ValueWatcher.
 // It will always return true, allowing all events to be sent.
-func defaultPredicate(context.Context, []changestream.ChangeEvent) (bool, error) {
+func defaultPredicate(context.Context, changestream.WatchableDB, []changestream.ChangeEvent) (bool, error) {
 	return true, nil
 }
 
@@ -118,7 +118,7 @@ func (w *ValueWatcher) loop() error {
 			// Check with the predicate to determine if we should send a
 			// notification.
 			ctx := w.tomb.Context(context.Background())
-			allow, err := w.predicate(ctx, changes)
+			allow, err := w.predicate(ctx, w.watchableDB, changes)
 			if err != nil {
 				return errors.Trace(err)
 			}

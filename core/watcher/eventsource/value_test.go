@@ -48,7 +48,7 @@ func (s *valueSuite) TestNotificationsByPredicate(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValuePredicateWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All, func(ctx context.Context, e []changestream.ChangeEvent) (bool, error) {
+	w := NewValuePredicateWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All, func(ctx context.Context, _ changestream.WatchableDB, e []changestream.ChangeEvent) (bool, error) {
 		if len(e) != 1 {
 			c.Fatalf("expected 1 event, got %d", len(e))
 		}
@@ -119,7 +119,7 @@ func (s *valueSuite) TestNotificationsByPredicateError(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValuePredicateWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All, func(ctx context.Context, e []changestream.ChangeEvent) (bool, error) {
+	w := NewValuePredicateWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All, func(_ context.Context, _ changestream.WatchableDB, _ []changestream.ChangeEvent) (bool, error) {
 		return false, errors.Errorf("boom")
 	})
 	defer workertest.DirtyKill(c, w)
