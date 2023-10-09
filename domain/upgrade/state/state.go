@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/domain"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
+	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 )
 
 // State is used to access the database.
@@ -191,7 +192,7 @@ WHERE uuid = ?
 		// If the upgrade is already started, we don't need to do anything.
 		if err := upgrade.State(state).TransitionTo(upgrade.Started); err != nil {
 			if errors.Is(err, upgrade.ErrAlreadyAtState) {
-				return nil
+				return errors.Annotatef(upgradeerrors.ErrUpgradeAlreadyStarted, "upgrade %q already started", upgradeUUID)
 			}
 			return errors.Trace(err)
 		}
@@ -206,7 +207,7 @@ WHERE uuid = ?
 			return errors.Trace(err)
 		}
 		if num := affected; num != 1 {
-			return errors.Errorf("expected to start upgrade, but %d rows were affected", num)
+			return errors.Annotatef(upgradeerrors.ErrUpgradeAlreadyStarted, "expected to start upgrade, but %d rows were affected", num)
 		}
 		return nil
 	}))

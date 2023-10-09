@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/upgrade"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
+	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -210,7 +211,7 @@ func (s *stateSuite) TestStartUpgrade(c *gc.C) {
 	s.ensureUpgradeInfoState(c, uuid, upgrade.Started)
 }
 
-func (s *stateSuite) TestStartUpgradeIdempotent(c *gc.C) {
+func (s *stateSuite) TestStartUpgradeCalledMultipleTimes(c *gc.C) {
 	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
@@ -222,7 +223,7 @@ func (s *stateSuite) TestStartUpgradeIdempotent(c *gc.C) {
 	s.ensureUpgradeInfoState(c, uuid, upgrade.Started)
 
 	err = s.st.StartUpgrade(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, upgradeerrors.ErrUpgradeAlreadyStarted)
 
 	s.ensureUpgradeInfoState(c, uuid, upgrade.Started)
 }
