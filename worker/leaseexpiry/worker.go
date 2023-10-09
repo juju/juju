@@ -89,7 +89,7 @@ func (w *expiryWorker) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-timer.Chan():
-			if err := w.store.ExpireLeases(ctx); err != nil {
+			if err := w.expireLeases(ctx); err != nil {
 				return errors.Trace(err)
 			}
 			// Random delay between 1 and 5 seconds.
@@ -107,4 +107,20 @@ func (w *expiryWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (w *expiryWorker) Wait() error {
 	return w.tomb.Wait()
+}
+
+func (w *expiryWorker) expireLeases(ctx context.Context) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("namespace.worker", "leaseexpiry"),
+		trace.StringAttr("namespace.action", "expire-leases"),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	if err := w.store.ExpireLeases(ctx); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

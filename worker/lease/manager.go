@@ -272,6 +272,15 @@ func (manager *Manager) retryingClaim(ctx context.Context, claim claim) {
 		success bool
 	)
 
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("namespace.worker", "lease"),
+		trace.StringAttr("namespace.action", "handle-claim"),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	for a := manager.startRetry(); a.Next(); {
 		var act action
 		act, success, err = manager.handleClaim(ctx, claim)
@@ -326,23 +335,6 @@ func (manager *Manager) retryingClaim(ctx context.Context, claim claim) {
 			manager.tomb.Kill(errors.Trace(err))
 		}
 	}
-}
-
-type action string
-
-const (
-	claimAction  action = "claim"
-	extendAction action = "extend"
-)
-
-func (a action) String() string {
-	switch a {
-	case claimAction:
-		return "claiming"
-	case extendAction:
-		return "extending"
-	}
-	return "unknown"
 }
 
 // handleClaim processes the supplied claim. It will only return
@@ -404,7 +396,18 @@ func (manager *Manager) handleClaim(ctx context.Context, claim claim) (action, b
 // out after a number of retries.
 func (manager *Manager) retryingRevoke(ctx context.Context, revoke revoke) {
 	defer manager.finishedRevoke()
+
 	var err error
+
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("namespace.worker", "lease"),
+		trace.StringAttr("namespace.action", "handle-revoke"),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	for a := manager.startRetry(); a.Next(); {
 		err = manager.handleRevoke(ctx, revoke)
 		if isFatalRetryError(err) {
@@ -636,35 +639,23 @@ func (manager *Manager) startRetry() *retry.Attempt {
 	)
 }
 
-func isFatalRetryError(err error) bool {
-	switch {
-	case txn.IsErrRetryable(err):
-		return false
-	case lease.IsTimeout(err):
-		return false
-	case lease.IsInvalid(err):
-		return false
-	}
-	return true
-}
-
-func isFatalClaimRetryError(act action, err error, count int) bool {
-	switch {
-	case txn.IsErrRetryable(err):
-		return false
-	case lease.IsTimeout(err):
-		return false
-	case lease.IsInvalid(err):
-		return false
-	}
-	return true
-}
-
 func (manager *Manager) handlePin(ctx context.Context, p pin) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("namespace.worker", "lease"),
+		trace.StringAttr("namespace.action", "handle-pin"),
+	))
+	defer span.End()
+
 	p.respond(errors.Trace(manager.config.Store.PinLease(ctx, p.leaseKey, p.entity)))
 }
 
 func (manager *Manager) handleUnpin(ctx context.Context, p pin) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("namespace.worker", "lease"),
+		trace.StringAttr("namespace.action", "handle-unpin"),
+	))
+	defer span.End()
+
 	p.respond(errors.Trace(manager.config.Store.UnpinLease(ctx, p.leaseKey, p.entity)))
 }
 
@@ -779,4 +770,45 @@ outstanding-revokes: %v
 	// Including the goroutines because the httpserver won't dump them
 	// anymore if this worker stops happily.
 	return dumpFile.Name(), pprof.Lookup("goroutine").WriteTo(dumpFile, 1)
+}
+
+func isFatalRetryError(err error) bool {
+	switch {
+	case txn.IsErrRetryable(err):
+		return false
+	case lease.IsTimeout(err):
+		return false
+	case lease.IsInvalid(err):
+		return false
+	}
+	return true
+}
+
+type action string
+
+const (
+	claimAction  action = "claim"
+	extendAction action = "extend"
+)
+
+func (a action) String() string {
+	switch a {
+	case claimAction:
+		return "claiming"
+	case extendAction:
+		return "extending"
+	}
+	return "unknown"
+}
+
+func isFatalClaimRetryError(act action, err error, count int) bool {
+	switch {
+	case txn.IsErrRetryable(err):
+		return false
+	case lease.IsTimeout(err):
+		return false
+	case lease.IsInvalid(err):
+		return false
+	}
+	return true
 }
