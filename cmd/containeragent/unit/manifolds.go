@@ -191,7 +191,6 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// API for uploading and downloading charms. It provides a
 		// S3-compatible API.
 		s3CallerName: s3caller.Manifold(s3caller.ManifoldConfig{
-			AgentName:            agentName,
 			APIConfigWatcherName: apiConfigWatcherName,
 			APICallerName:        apiCallerName,
 			NewS3Client:          s3caller.NewS3Client,
