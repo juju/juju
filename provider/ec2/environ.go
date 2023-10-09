@@ -2044,6 +2044,11 @@ func (e *environ) ingressRulesInGroup(ctx context.ProviderCallContext, name stri
 			FromPort: int(aws.ToInt32(p.FromPort)),
 			ToPort:   int(aws.ToInt32(p.ToPort)),
 		}
+		if portRange.Protocol == "icmpv6" {
+			// For now we need to filter out the icmpv6 rules as they are complicated and not
+			// represented well in the juju model.
+			continue
+		}
 		rules = append(rules, firewall.NewIngressRule(portRange, sourceCIDRs...))
 	}
 	if err := rules.Validate(); err != nil {

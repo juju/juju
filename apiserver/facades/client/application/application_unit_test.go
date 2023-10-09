@@ -1406,7 +1406,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 	args := params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			ApplicationName: "foo",
-			CharmURL:        "local:foo-0",
+			CharmURL:        "local:foo-4",
 			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
 			NumUnits:        1,
 		}, {
@@ -1420,7 +1420,7 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 			NumUnits: 1,
 		}, {
 			ApplicationName: "hub",
-			CharmURL:        "hub-0",
+			CharmURL:        "hub-7",
 			CharmOrigin: &params.CharmOrigin{
 				Source: "charm-hub",
 				Risk:   "stable",
@@ -1439,6 +1439,10 @@ func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
 
 	c.Assert(s.deployParams["foo"].CharmOrigin.Source, gc.Equals, corecharm.Source("local"))
 	c.Assert(s.deployParams["hub"].CharmOrigin.Source, gc.Equals, corecharm.Source("charm-hub"))
+
+	// assert revision is filled in from the charm url
+	c.Assert(*s.deployParams["foo"].CharmOrigin.Revision, gc.Equals, 4)
+	c.Assert(*s.deployParams["hub"].CharmOrigin.Revision, gc.Equals, 7)
 }
 
 func createCharmOriginFromURL(curl *charm.URL) *params.CharmOrigin {
@@ -1627,13 +1631,18 @@ func (s *ApplicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFai
 	resourcesManager.EXPECT().RemovePendingAppResources("my-app", resources).Return(nil)
 	s.backend.EXPECT().Resources().Return(resourcesManager)
 
+	rev := 8
 	results, err := s.api.Deploy(params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
-			// CharmURL is missing to ensure deployApplication fails
-			// so that we can assert pending app resources are removed
+			// CharmURL is missing & revision included to ensure deployApplication
+			// fails sufficiently far through execution so that we can assert pending
+			// app resources are removed
 			ApplicationName: "my-app",
-			CharmOrigin:     validCharmOriginForTest(),
-			Resources:       resources,
+			CharmOrigin: &params.CharmOrigin{
+				Source:   "charm-hub",
+				Revision: &rev,
+			},
+			Resources: resources,
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
