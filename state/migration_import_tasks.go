@@ -640,6 +640,7 @@ func (ImportSecrets) Execute(src SecretsInput, runner TransactionRunner, knownSe
 				LatestRevision:   secret.LatestRevision(),
 				LatestExpireTime: secret.LatestExpireTime(),
 				RotatePolicy:     secret.RotatePolicy(),
+				AutoPrune:        secret.AutoPrune(),
 				CreateTime:       secret.Created(),
 				UpdateTime:       secret.Updated(),
 			},

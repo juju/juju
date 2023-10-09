@@ -1910,6 +1910,7 @@ func (e *exporter) secrets() error {
 			Description:     md.Description,
 			Label:           md.Label,
 			RotatePolicy:    md.RotatePolicy.String(),
+			AutoPrune:       md.AutoPrune,
 			Owner:           owner,
 			Created:         md.CreateTime,
 			Updated:         md.UpdateTime,

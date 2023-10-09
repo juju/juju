@@ -3113,6 +3113,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	updateTime := time.Now().UTC().Round(time.Second)
 	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
+		AutoPrune:   ptr(true),
 		ValueRef: &secrets.ValueRef{
 			BackendID:  backendID,
 			RevisionID: "rev-id",
