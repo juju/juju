@@ -5,6 +5,7 @@ package upgrade
 
 import (
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )
 
@@ -35,6 +36,9 @@ func (s *upgradeSuite) TestParseState(c *gc.C) {
 	}, {
 		str: "steps-completed",
 		st:  StepsCompleted,
+	}, {
+		str: "error",
+		st:  Error,
 	}}
 	for i, test := range tests {
 		c.Logf("test %d: %q", i, test.str)
@@ -61,6 +65,9 @@ func (s *upgradeSuite) TestIsTerminal(c *gc.C) {
 		st: DBCompleted,
 	}, {
 		st:       StepsCompleted,
+		terminal: true,
+	}, {
+		st:       Error,
 		terminal: true,
 	}}
 	for i, test := range tests {
@@ -103,7 +110,36 @@ func (s *upgradeSuite) TestTransitionTo(c *gc.C) {
 				c.Check(err, gc.IsNil)
 				continue
 			}
-			c.Check(err, gc.ErrorMatches, `cannot transition from .* to .*`)
+			c.Check(err, jc.ErrorIs, ErrUnableToTransition)
 		}
+	}
+}
+
+func (s *upgradeSuite) TestTransitionToError(c *gc.C) {
+	// Brute force test all possible transitions.
+	tests := []struct {
+		st  State
+		err error
+	}{{
+		st: Created,
+	}, {
+		st: Started,
+	}, {
+		st: DBCompleted,
+	}, {
+		st: StepsCompleted,
+	}, {
+		st:  Error,
+		err: ErrAlreadyAtState,
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %q", i, test.st)
+
+		err := test.st.TransitionTo(Error)
+		if test.err != nil {
+			c.Check(err, jc.ErrorIs, test.err)
+			continue
+		}
+		c.Check(err, gc.IsNil)
 	}
 }

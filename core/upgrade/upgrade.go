@@ -5,16 +5,28 @@ package upgrade
 
 import "github.com/juju/errors"
 
-var ErrAlreadyAtState = errors.ConstError("already at state")
+var (
+	ErrAlreadyAtState     = errors.ConstError("already at state")
+	ErrUnableToTransition = errors.ConstError("unable to transition")
+)
 
 // State represents the state of the upgrade.
 type State int
 
 const (
+	// Created is the initial state of an upgrade. All upgrades should start
+	// in this initial state.
 	Created State = iota
+	// Started is the state of an upgrade after it has been started.
 	Started
+	// DBCompleted is the state of an upgrade after the database has been
+	// upgraded.
 	DBCompleted
+	// StepsCompleted is the state of an upgrade after all the steps have
+	// been completed.
 	StepsCompleted
+	// Error is the state of an upgrade after an error has occurred.
+	Error
 )
 
 // ParseState returns the state from a string.
@@ -28,6 +40,8 @@ func ParseState(str string) (State, error) {
 		return DBCompleted, nil
 	case "steps-completed":
 		return StepsCompleted, nil
+	case "error":
+		return Error, nil
 	default:
 		return 0, errors.Errorf("unknown state %q", str)
 	}
@@ -37,6 +51,11 @@ func ParseState(str string) (State, error) {
 func (s State) TransitionTo(target State) error {
 	if target == s {
 		return ErrAlreadyAtState
+	}
+
+	// We always allow transitions to the Error state.
+	if target == Error {
+		return nil
 	}
 
 	switch s {
@@ -53,12 +72,13 @@ func (s State) TransitionTo(target State) error {
 			return nil
 		}
 	}
-	return errors.Errorf("cannot transition from %q to %q", s, target)
+	return errors.Annotatef(ErrUnableToTransition, "going from %q to %q", s, target)
 }
 
 // IsTerminal returns true if the state is terminal.
+// A terminal state is one that cannot be transitioned from.
 func (s State) IsTerminal() bool {
-	return s == StepsCompleted
+	return s == StepsCompleted || s == Error
 }
 
 func (s State) String() string {
@@ -71,6 +91,8 @@ func (s State) String() string {
 		return "db-completed"
 	case StepsCompleted:
 		return "steps-completed"
+	case Error:
+		return "error"
 	default:
 		return "unknown"
 	}
