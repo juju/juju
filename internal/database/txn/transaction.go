@@ -21,6 +21,20 @@ import (
 	"github.com/juju/juju/core/trace"
 )
 
+const (
+	// rootTraceName is used to define the root trace name for all transaction
+	// traces.
+	// This is purely for optimization purposes, as we can't use the
+	// trace.NameFromFunc for all these micro traces.
+	rootTraceName = "txn.(*RetryingTxnRunner)."
+)
+
+// txn represents a transaction interface that can be used for committing
+// a transaction.
+type txn interface {
+	Commit() error
+}
+
 // Logger describes methods for emitting log output.
 type Logger interface {
 	Errorf(string, ...interface{})
@@ -170,11 +184,7 @@ func (t *RetryingTxnRunner) Txn(ctx context.Context, db *sqlair.DB, fn func(cont
 			return errors.Trace(err)
 		}
 
-		if err := tx.Commit(); err != nil && err != sql.ErrTxDone {
-			return errors.Trace(err)
-		}
-
-		return nil
+		return t.commit(ctx, tx)
 	})
 }
 
@@ -200,12 +210,25 @@ func (t *RetryingTxnRunner) StdTxn(ctx context.Context, db *sql.DB, fn func(cont
 			return errors.Trace(err)
 		}
 
-		if err := tx.Commit(); err != nil && err != sql.ErrTxDone {
-			return errors.Trace(err)
-		}
-
-		return nil
+		return t.commit(ctx, tx)
 	})
+}
+
+// Commit is split out as we can't pass a context directly to the commit. To
+// enable tracing, we need to just wrap the commit call. All other traces are
+// done at the dqlite level.
+func (t *RetryingTxnRunner) commit(ctx context.Context, tx txn) (err error) {
+	// Hardcode the name of the span
+	_, span := trace.Start(ctx, traceName("commit"))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	if err := tx.Commit(); err != nil && err != sql.ErrTxDone {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // Retry defines a generic retry function for applying a function that
@@ -217,7 +240,7 @@ func (t *RetryingTxnRunner) Retry(ctx context.Context, fn func() error) error {
 
 // run will execute the input function if there is a semaphore slot available.
 func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) error) (err error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc())
+	ctx, span := trace.Start(ctx, traceName("run"))
 	defer func() {
 		span.RecordError(err)
 		span.End()
@@ -298,6 +321,10 @@ func (s noopSemaphore) Acquire(context.Context, int64) error {
 }
 
 func (s noopSemaphore) Release(int64) {}
+
+func traceName(name string) trace.Name {
+	return trace.Name(rootTraceName + name)
+}
 
 // dqliteTracer is a pooled object for implementing a dqlite tracing from a
 // juju tracing trace. The dqlite trace is just the lightest touch for

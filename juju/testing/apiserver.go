@@ -171,6 +171,7 @@ func leaseManager(controllerUUID string, db database.DBGetter, clock clock.Clock
 		MaxSleep:             time.Minute,
 		EntityUUID:           controllerUUID,
 		PrometheusRegisterer: noopRegisterer{},
+		Tracer:               trace.NoopTracer{},
 	})
 }
 
