@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -146,68 +147,41 @@ func (inst *sdkInstance) IngressRules(ctx context.ProviderCallContext, machineId
 	return ranges, nil
 }
 
-// FetchInstanceTypeInfoForRegion is responsible for fetching all of the
-// available instance types for an AWS region.
-func FetchInstanceTypeInfoForRegion(
+// FetchInstanceClient describes the funcs needed from the EC2 client for
+// fetching instance types in a region. It's assumed that the ec2 client
+// conforming to this interface is scoped to the region that instances are being
+// requested for.
+type FetchInstanceClient interface {
+	// DescribeInstanceTypes is the same func as that of the ec2 client. See:
+	// https://github.com/aws/aws-sdk-go-v2/blob/service/ec2/v1.123.0/service/ec2/api_op_DescribeInstanceTypes.go#L21
+	DescribeInstanceTypes(stdcontext.Context, *ec2.DescribeInstanceTypesInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypesOutput, error)
+}
+
+// FetchInstanceTypeInfo is responsible for fetching all of the
+// available instance types for an AWS region. This func assumes that the ec2
+// client provided is scoped to a region already.
+func FetchInstanceTypeInfo(
 	ctx context.ProviderCallContext,
-	ec2Client Client,
-	region string,
+	ec2Client FetchInstanceClient,
 ) ([]types.InstanceTypeInfo, error) {
-	const (
-		maxOfferingsResults = 1000
-		maxTypesPage        = 100
-	)
+	const maxResults = int32(100)
 
-	azResults, err := ec2Client.DescribeAvailabilityZones(ctx, &ec2.DescribeAvailabilityZonesInput{
-		Filters: []types.Filter{makeFilter("region-name", region)},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("fetching availability zones for region %q: %w", region, err)
-	}
-
-	azFilter := types.Filter{Name: aws.String("location")}
-	for _, az := range azResults.AvailabilityZones {
-		azFilter.Values = append(azFilter.Values, aws.ToString(az.ZoneName))
-	}
-
-	var instTypeNames []types.InstanceType
-	var token *string
+	instanceTypes := []types.InstanceTypeInfo{}
+	var nextToken *string
 	for {
-		typeOfferings, err := ec2Client.DescribeInstanceTypeOfferings(ctx, &ec2.DescribeInstanceTypeOfferingsInput{
-			LocationType: "availability-zone",
-			MaxResults:   aws.Int32(maxOfferingsResults),
-			NextToken:    token,
-			Filters:      []types.Filter{azFilter},
-		})
-		if err != nil {
-			return nil, fmt.Errorf("describing instnace type offerings for region %q: %w", region, err)
-		}
-
-		for _, offering := range typeOfferings.InstanceTypeOfferings {
-			instTypeNames = append(instTypeNames, offering.InstanceType)
-		}
-		token = typeOfferings.NextToken
-		if token == nil {
-			break
-		}
-	}
-
-	instanceTypes := make([]types.InstanceTypeInfo, 0, len(instTypeNames))
-	for len(instTypeNames) > 0 {
-		querySize := len(instTypeNames)
-		if querySize > maxTypesPage {
-			querySize = maxTypesPage
-		}
-		page := instTypeNames[0:querySize]
-		instTypeNames = instTypeNames[querySize:]
-
 		instTypeResults, err := ec2Client.DescribeInstanceTypes(ctx, &ec2.DescribeInstanceTypesInput{
-			InstanceTypes: page,
+			MaxResults: aws.Int32(maxResults),
+			NextToken:  nextToken,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("describing instance types for region %q: %w", region, err)
+			return nil, fmt.Errorf("describing instance types: %w", err)
 		}
 		instanceTypes = append(instanceTypes, instTypeResults.InstanceTypes...)
+		nextToken = instTypeResults.NextToken
+
+		if nextToken == nil {
+			break
+		}
 	}
 
 	return instanceTypes, nil

@@ -55,18 +55,16 @@ func DeduceOrigin(url *charm.URL, channel charm.Channel, platform corecharm.Plat
 		if channel.Branch != "" {
 			branch = &channel.Branch
 		}
-		var revision *int
-		if url.Revision != -1 {
-			revision = &url.Revision
-		}
 		origin = commoncharm.Origin{
 			Source:       commoncharm.OriginCharmHub,
-			Revision:     revision,
 			Risk:         string(channel.Risk),
 			Track:        track,
 			Branch:       branch,
 			Architecture: architecture,
 		}
+	}
+	if url.Revision != -1 {
+		origin.Revision = &url.Revision
 	}
 	if platform.OS != "" && platform.Channel != "" {
 		base, err := corebase.ParseBase(platform.OS, platform.Channel)

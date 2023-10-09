@@ -282,11 +282,22 @@ func (s *nodeManagerSuite) TestSetClusterToLocalNodeSuccess(c *gc.C) {
 	c.Check(newServers, gc.DeepEquals, []dqlite.NodeInfo{servers[0]})
 }
 
-func (s *nodeManagerSuite) TestWithAddressOptionSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestWithAddressOptionIPv4Success(c *gc.C) {
 	m := NewNodeManager(nil, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 	m.port = dqlitetesting.FindTCPPort(c)
 
 	dqliteApp, err := app.New(c.MkDir(), m.WithAddressOption("127.0.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = dqliteApp.Close()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *nodeManagerSuite) TestWithAddressOptionIPv6Success(c *gc.C) {
+	m := NewNodeManager(nil, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+	m.port = dqlitetesting.FindTCPPort(c)
+
+	dqliteApp, err := app.New(c.MkDir(), m.WithAddressOption("::1"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = dqliteApp.Close()
