@@ -16,7 +16,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/httprequest.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 )
 
@@ -79,7 +78,7 @@ func (l *awsLogger) Logf(classification logging.Classification, format string, v
 	}
 }
 
-func NewS3Client(apiConn api.Connection, agentConfig agent.Config, logger Logger) (Session, error) {
+func NewS3Client(apiConn api.Connection, logger Logger) (Session, error) {
 	// We use api.Connection address because we assume this address is
 	// correct and reachable.
 	currentAPIAddress := apiConn.Addr()
