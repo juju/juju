@@ -7,6 +7,7 @@ import (
 	context "context"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
@@ -47,11 +48,11 @@ func (s *valueSuite) TestNotificationsByPredicate(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValuePredicateWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All, func(ctx context.Context, e []changestream.ChangeEvent) bool {
+	w := NewValuePredicateWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All, func(ctx context.Context, e []changestream.ChangeEvent) (bool, error) {
 		if len(e) != 1 {
 			c.Fatalf("expected 1 event, got %d", len(e))
 		}
-		return e[0].Changed() == "some-key-value"
+		return e[0].Changed() == "some-key-value", nil
 	})
 	defer workertest.CleanKill(c, w)
 
@@ -99,6 +100,59 @@ func (s *valueSuite) TestNotificationsByPredicate(c *gc.C) {
 	}
 
 	workertest.CleanKill(c, w)
+}
+
+func (s *valueSuite) TestNotificationsByPredicateError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	subExp := s.sub.EXPECT()
+
+	done := make(chan struct{})
+	subExp.Done().Return(done).MinTimes(1)
+
+	deltas := make(chan []changestream.ChangeEvent)
+	subExp.Changes().Return(deltas)
+
+	subExp.Unsubscribe()
+
+	s.eventsource.EXPECT().Subscribe(
+		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
+	).Return(s.sub, nil)
+
+	w := NewValuePredicateWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All, func(ctx context.Context, e []changestream.ChangeEvent) (bool, error) {
+		return false, errors.Errorf("boom")
+	})
+	defer workertest.DirtyKill(c, w)
+
+	// Initial notification.
+	select {
+	case <-w.Changes():
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for initial watcher changes")
+	}
+
+	// Simulate an incoming change from the stream.
+	select {
+	case deltas <- []changestream.ChangeEvent{changeEvent{
+		changeType: 0,
+		namespace:  "random_namespace",
+		changed:    "some-key-value",
+	}}:
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out dispatching change event")
+	}
+
+	// Notification for change.
+	select {
+	case _, ok := <-w.Changes():
+		// Ensure the channel is closed, when the predicate dies.
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for initial watcher changes")
+	}
+
+	err := workertest.CheckKill(c, w)
+	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (s *valueSuite) TestNotificationsSent(c *gc.C) {
