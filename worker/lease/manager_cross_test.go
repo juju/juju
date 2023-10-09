@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -183,6 +184,7 @@ func (s *CrossSuite) TestDifferentNamespaceValidation(c *gc.C) {
 		MaxSleep:             defaultMaxSleep,
 		Logger:               loggo.GetLogger("lease_test"),
 		PrometheusRegisterer: noopRegisterer{},
+		Tracer:               trace.NoopTracer{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {

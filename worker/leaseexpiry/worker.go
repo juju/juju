@@ -13,6 +13,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/trace"
 )
 
 // Config encapsulates the configuration options for
@@ -21,6 +22,7 @@ type Config struct {
 	Clock  clock.Clock
 	Logger Logger
 	Store  lease.ExpiryStore
+	Tracer trace.Tracer
 }
 
 // Validate checks whether the worker configuration settings are valid.
@@ -34,6 +36,9 @@ func (cfg Config) Validate() error {
 	if cfg.Store == nil {
 		return errors.NotValidf("nil Store")
 	}
+	if cfg.Tracer == nil {
+		return errors.NotValidf("nil Trace")
+	}
 
 	return nil
 }
@@ -44,6 +49,7 @@ type expiryWorker struct {
 	clock  clock.Clock
 	logger Logger
 	store  lease.ExpiryStore
+	tracer trace.Tracer
 }
 
 // NewWorker returns a worker that periodically deletes
@@ -59,6 +65,7 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 		clock:  cfg.Clock,
 		logger: cfg.Logger,
 		store:  cfg.Store,
+		tracer: cfg.Tracer,
 	}
 
 	w.tomb.Go(w.loop)
@@ -74,6 +81,7 @@ func (w *expiryWorker) loop() error {
 	// It is cancelled by killing the tomb, which prevents shutdown
 	// being blocked by such calls.
 	ctx := w.tomb.Context(context.Background())
+	ctx = trace.WithTracer(ctx, w.tracer)
 
 	for {
 		select {

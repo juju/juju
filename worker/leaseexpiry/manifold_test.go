@@ -4,6 +4,8 @@
 package leaseexpiry_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
@@ -15,8 +17,10 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
+	coretrace "github.com/juju/juju/core/trace"
 	jujujujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/leaseexpiry"
+	workertrace "github.com/juju/juju/worker/trace"
 )
 
 type manifoldSuite struct {
@@ -30,7 +34,7 @@ var _ = gc.Suite(&manifoldSuite{})
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	cfg := s.newManifoldConfig(c)
 
-	c.Check(leaseexpiry.Manifold(cfg).Inputs, jc.DeepEquals, []string{"clock-name", "db-accessor-name"})
+	c.Check(leaseexpiry.Manifold(cfg).Inputs, jc.DeepEquals, []string{"clock-name", "db-accessor-name", "trace-name"})
 }
 
 func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
@@ -42,6 +46,10 @@ func (s *manifoldSuite) TestConfigValidate(c *gc.C) {
 
 	cfg = validCfg
 	cfg.DBAccessorName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = validCfg
+	cfg.TraceName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = validCfg
@@ -79,6 +87,7 @@ func (s *manifoldSuite) newStubContext() *dt.Context {
 	return dt.StubContext(nil, map[string]interface{}{
 		"clock-name":       clock.WallClock,
 		"db-accessor-name": stubDBGetter{runner: nil},
+		"trace-name":       stubTracerGetter{},
 	})
 }
 
@@ -88,6 +97,7 @@ func (s *manifoldSuite) newManifoldConfig(c *gc.C) leaseexpiry.ManifoldConfig {
 	return leaseexpiry.ManifoldConfig{
 		ClockName:      "clock-name",
 		DBAccessorName: "db-accessor-name",
+		TraceName:      "trace-name",
 		Logger:         jujujujutesting.CheckLogger{Log: c},
 		NewWorker:      func(config leaseexpiry.Config) (worker.Worker, error) { return nil, nil },
 		NewStore: func(db coredatabase.DBGetter, logger leaseexpiry.Logger) lease.ExpiryStore {
@@ -105,4 +115,12 @@ func (s stubDBGetter) GetDB(name string) (coredatabase.TxnRunner, error) {
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, name)
 	}
 	return s.runner, nil
+}
+
+type stubTracerGetter struct {
+	workertrace.TracerGetter
+}
+
+func (s stubTracerGetter) GetTracer(context.Context, coretrace.TracerNamespace) (coretrace.Tracer, error) {
+	return coretrace.NoopTracer{}, nil
 }

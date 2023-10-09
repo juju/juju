@@ -739,6 +739,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		leaseExpiryName: ifPrimaryController(leaseexpiry.Manifold(leaseexpiry.ManifoldConfig{
 			ClockName:      clockName,
 			DBAccessorName: dbAccessorName,
+			TraceName:      traceName,
 			Logger:         loggo.GetLogger("juju.worker.leaseexpiry"),
 			NewWorker:      leaseexpiry.NewWorker,
 			NewStore:       leaseexpiry.NewStore,
@@ -749,6 +750,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			ClockName:            clockName,
 			DBAccessorName:       dbAccessorName,
+			TraceName:            traceName,
 			Logger:               loggo.GetLogger("juju.worker.lease"),
 			LogDir:               agentConfig.LogDir(),
 			PrometheusRegisterer: config.PrometheusRegisterer,

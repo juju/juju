@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/trace"
 )
 
 // Secretary is responsible for validating the sanity of lease and holder names
@@ -48,6 +49,9 @@ type ManagerConfig struct {
 	// Store is responsible for recording, retrieving, and expiring leases.
 	Store lease.Store
 
+	// Tracer is used to record tracing information as the manager runs.
+	Tracer trace.Tracer
+
 	// Logger is used to report debugging/status information as the
 	// manager runs.
 	Logger Logger
@@ -78,6 +82,9 @@ func (config ManagerConfig) Validate() error {
 	}
 	if config.Store == nil {
 		return errors.NotValidf("nil Store")
+	}
+	if config.Tracer == nil {
+		return errors.NotValidf("nil Tracer")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")

@@ -21,6 +21,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/database/txn"
 )
 
@@ -153,6 +154,7 @@ func (manager *Manager) loop() error {
 	// Doing this ensures that no such operations can block worker shutdown.
 	// Killing the tomb, cancels the context.
 	ctx := manager.tomb.Context(context.Background())
+	ctx = trace.WithTracer(ctx, manager.config.Tracer)
 
 	leases, err := manager.config.Store.Leases(ctx)
 	if err != nil {
@@ -501,7 +503,7 @@ func (manager *Manager) handleRevoke(ctx context.Context, revoke revoke) error {
 // handleCheck processes and responds to the supplied check. It will only return
 // unrecoverable errors; mere untruth of the assertion just indicates a bad
 // request, and is communicated back to the check's originator.
-func (manager *Manager) handleCheck(ctx context.Context, check check) error {
+func (manager *Manager) handleCheck(ctx context.Context, check check) (err error) {
 	key := check.leaseKey
 
 	manager.config.Logger.Tracef("[%s] handling Check for lease %s on behalf of %s",

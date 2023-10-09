@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/trace"
 	jujujujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/leaseexpiry"
 )
@@ -33,6 +34,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 	validCfg := leaseexpiry.Config{
 		Clock:  clock.WallClock,
 		Logger: jujujujutesting.CheckLogger{Log: c},
+		Tracer: trace.NoopTracer{},
 		Store:  store,
 	}
 
@@ -73,6 +75,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	w, err := leaseexpiry.NewWorker(leaseexpiry.Config{
 		Clock:  clk,
 		Logger: jujujujutesting.CheckLogger{Log: c},
+		Tracer: trace.NoopTracer{},
 		Store:  store,
 	})
 	c.Assert(err, jc.ErrorIsNil)

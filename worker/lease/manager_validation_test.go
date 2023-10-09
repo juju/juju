@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/worker/lease"
 )
 
@@ -38,6 +39,7 @@ func (s *ValidationSuite) SetUpTest(c *gc.C) {
 		MaxSleep:             time.Minute,
 		Logger:               loggo.GetLogger("lease_test"),
 		PrometheusRegisterer: struct{ prometheus.Registerer }{},
+		Tracer:               trace.NoopTracer{},
 	}
 }
 
@@ -58,6 +60,14 @@ func (s *ValidationSuite) TestMissingClock(c *gc.C) {
 	s.config.Clock = nil
 	manager, err := lease.NewManager(s.config)
 	c.Check(err, gc.ErrorMatches, "nil Clock not valid")
+	c.Check(err, jc.ErrorIs, errors.NotValid)
+	c.Check(manager, gc.IsNil)
+}
+
+func (s *ValidationSuite) TestMissingTracer(c *gc.C) {
+	s.config.Tracer = nil
+	manager, err := lease.NewManager(s.config)
+	c.Check(err, gc.ErrorMatches, "nil Tracer not valid")
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(manager, gc.IsNil)
 }
