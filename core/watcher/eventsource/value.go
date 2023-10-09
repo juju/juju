@@ -6,20 +6,21 @@ package eventsource
 import (
 	"context"
 
+	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 )
 
 // ValuePredicate is a function that determines whether a change event
 // should be sent to the watcher.
 // Returning false will prevent the events from being sent.
-type ValuePredicate func(context.Context, changestream.WatchableDB, []changestream.ChangeEvent) (bool, error)
+type ValuePredicate func(context.Context, database.TxnRunner, []changestream.ChangeEvent) (bool, error)
 
 // defaultPredicate is the default predicate used by ValueWatcher.
 // It will always return true, allowing all events to be sent.
-func defaultPredicate(context.Context, changestream.WatchableDB, []changestream.ChangeEvent) (bool, error) {
+func defaultPredicate(context.Context, database.TxnRunner, []changestream.ChangeEvent) (bool, error) {
 	return true, nil
 }
 
