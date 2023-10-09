@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   migrate:
-    name: 2.9-to-3.x via ${{ matrix.client }} client
+    name: 3.1-to-4.x via ${{ matrix.client }} client
     runs-on: [self-hosted, linux, arm64, aws, large]
     if: github.event.pull_request.draft == false
     strategy:
@@ -25,8 +25,8 @@ jobs:
       matrix:
         # TODO: add microk8s tests
         cloud: ["lxd"]
-        channel: ["2.9/stable"]
-        client: ['2.9', '3.x']
+        channel: ["3.1/stable"]
+        client: ['3.1', '4.x']
 
     steps:
       - name: Checkout code
@@ -47,14 +47,15 @@ jobs:
         if: matrix.cloud == 'lxd'
         uses: canonical/setup-lxd@v0.1.1
 
-      - name: Install Juju 2.9
+      - name: Install Juju 3.1
         run: |
-          sudo snap install juju --classic --channel ${{ matrix.channel }}
+          sudo snap install juju --channel ${{ matrix.channel }}
+          mkdir -p ~/.local/share/juju
 
-      - name: Bootstrap a 2.9 controller and model
+      - name: Bootstrap a 3.1 controller and model
         run: |
           /snap/bin/juju version
-          /snap/bin/juju bootstrap lxd test29 --constraints "arch=$(go env GOARCH)"
+          /snap/bin/juju bootstrap lxd test31 --constraints "arch=$(go env GOARCH)"
           /snap/bin/juju add-model test-migrate
           /snap/bin/juju set-model-constraints arch=$(go env GOARCH)
           /snap/bin/juju deploy ubuntu
@@ -62,28 +63,28 @@ jobs:
           # TODO: use juju-restore
           # TODO: add users/permissions/models and test that those migrate over
 
-      - name: Upgrade client to 3.x
+      - name: Upgrade client to 4.x
         run: |
           make go-install &>/dev/null
 
-      - name: Bootstrap 3.x controller
+      - name: Bootstrap 4.x controller
         run: |
           juju version
-          juju bootstrap lxd test3x --constraints "arch=$(go env GOARCH)"
+          juju bootstrap lxd test4x --constraints "arch=$(go env GOARCH)"
           juju switch controller
           juju wait-for application controller
 
         # TODO: create backup and juju restore
 
-      - name: Migrate default model to 3.x controller
+      - name: Migrate default model to 4.x controller
         run: |
           # Determine which Juju client to use
           JUJU='juju'
-          if [[ ${{ matrix.client }} == '2.9' ]]; then
+          if [[ ${{ matrix.client }} == '3.1' ]]; then
             JUJU='/snap/bin/juju'
           fi
           
-          $JUJU switch test29
+          $JUJU switch test31
           
           # Ensure application is fully deployed
           # We have to use the old client to speak to the new controller, as
@@ -95,12 +96,12 @@ jobs:
           sleep 10
 
           $JUJU version
-          $JUJU migrate test-migrate test3x
+          $JUJU migrate test-migrate test4x
 
       - name: Check the migration was successful
         run: |
           set -x
-          juju switch test3x
+          juju switch test4x
           
           # Wait for 'test-migrate' model to come through
           attempt=0
