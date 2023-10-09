@@ -5,6 +5,7 @@ package leaseexpiry
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"github.com/juju/clock"
@@ -91,7 +92,9 @@ func (w *expiryWorker) loop() error {
 			if err := w.store.ExpireLeases(ctx); err != nil {
 				return errors.Trace(err)
 			}
-			timer.Reset(time.Second)
+			// Random delay between 1 and 5 seconds.
+			delay := time.Second + (time.Duration(rand.Intn(4000)) * time.Millisecond)
+			timer.Reset(delay)
 		}
 	}
 }

@@ -67,8 +67,14 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 	ch := make(chan time.Time, 1)
 	ch <- time.Now()
 	timer.EXPECT().Chan().Return(ch).MinTimes(1)
-	timer.EXPECT().Reset(time.Second).Do(func(any) {
+	timer.EXPECT().Reset(gomock.Any()).DoAndReturn(func(t time.Duration) bool {
 		defer close(done)
+
+		// Ensure it's within the expected range.
+		c.Check(t >= time.Second*1, jc.IsTrue)
+		c.Check(t <= time.Second*5, jc.IsTrue)
+
+		return true
 	})
 	timer.EXPECT().Stop().Return(true)
 
