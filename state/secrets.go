@@ -91,7 +91,7 @@ type SecretsStore interface {
 	ListUnusedSecretRevisions(uri *secrets.URI) ([]int, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	WatchObsolete(owners []names.Tag) (StringsWatcher, error)
-	WatchObsoleteRevisionsNeedPrune(ownerTags []names.Tag) (StringsWatcher, error)
+	WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error)
 	ChangeSecretBackend(ChangeSecretBackendParams) error
 }
 
@@ -1997,8 +1997,8 @@ func (s *secretsStore) WatchObsolete(ownerTags []names.Tag) (StringsWatcher, err
 	return newObsoleteSecretsWatcher(s.st, owners, nil), nil
 }
 
-// WatchObsoleteRevisionsNeedPrune returns a watcher for notifying when a user supplied secret revision needs to be pruned.
-func (s *secretsStore) WatchObsoleteRevisionsNeedPrune(ownerTags []names.Tag) (StringsWatcher, error) {
+// WatchRevisionsToPrune returns a watcher for notifying when a user supplied secret revision needs to be pruned.
+func (s *secretsStore) WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error) {
 	if len(ownerTags) == 0 {
 		return nil, errors.New("missing secret owners")
 	}

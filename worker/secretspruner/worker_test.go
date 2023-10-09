@@ -40,7 +40,7 @@ func (s *workerSuite) getWorkerNewer(c *gc.C, calls ...*gomock.Call) (func(strin
 
 	s.changedCh = make(chan []string, 1)
 	s.done = make(chan struct{})
-	s.facade.EXPECT().WatchObsoleteRevisionsNeedPrune().Return(watchertest.NewMockStringsWatcher(s.changedCh), nil)
+	s.facade.EXPECT().WatchRevisionsToPrune().Return(watchertest.NewMockStringsWatcher(s.changedCh), nil)
 
 	start := func(expectedErr string) {
 		w, err := secretspruner.NewWorker(secretspruner.Config{

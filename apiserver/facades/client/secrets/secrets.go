@@ -447,7 +447,7 @@ func (s *SecretsAPIV1) RemoveSecrets(_ struct{}) {}
 // RemoveSecrets remove user secret.
 func (s *SecretsAPI) RemoveSecrets(args params.DeleteSecretArgs) (params.ErrorResults, error) {
 	// TODO(secrets): JUJU-4719.
-	return commonsecrets.RemoveSecretsUserSupplied(
+	return commonsecrets.RemoveUserSecrets(
 		s.secretsState, s.backendConfigGetter,
 		s.authTag, args,
 		func(uri *coresecrets.URI) error {

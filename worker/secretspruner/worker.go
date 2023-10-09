@@ -31,7 +31,7 @@ type Logger interface {
 
 // SecretsFacade instances provide a set of API for the worker to deal with secret prune.
 type SecretsFacade interface {
-	WatchObsoleteRevisionsNeedPrune() (watcher.StringsWatcher, error)
+	WatchRevisionsToPrune() (watcher.StringsWatcher, error)
 	DeleteRevisions(uri *coresecrets.URI, revisions ...int) error
 }
 
@@ -83,7 +83,7 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	watcher, err := w.config.SecretsFacade.WatchObsoleteRevisionsNeedPrune()
+	watcher, err := w.config.SecretsFacade.WatchRevisionsToPrune()
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretusersupplied
+package usersecrets
 
 import (
 	"github.com/juju/names/v4"
@@ -14,6 +14,6 @@ import (
 type SecretsState interface {
 	DeleteSecret(*secrets.URI, ...int) ([]secrets.ValueRef, error)
 	GetSecret(*secrets.URI) (*secrets.SecretMetadata, error)
-	WatchObsoleteRevisionsNeedPrune(owners []names.Tag) (state.StringsWatcher, error)
+	WatchRevisionsToPrune(owners []names.Tag) (state.StringsWatcher, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 }

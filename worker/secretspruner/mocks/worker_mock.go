@@ -128,17 +128,17 @@ func (mr *MockSecretsFacadeMockRecorder) DeleteRevisions(arg0 interface{}, arg1 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRevisions", reflect.TypeOf((*MockSecretsFacade)(nil).DeleteRevisions), varargs...)
 }
 
-// WatchObsoleteRevisionsNeedPrune mocks base method.
-func (m *MockSecretsFacade) WatchObsoleteRevisionsNeedPrune() (watcher.StringsWatcher, error) {
+// WatchRevisionsToPrune mocks base method.
+func (m *MockSecretsFacade) WatchRevisionsToPrune() (watcher.StringsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchObsoleteRevisionsNeedPrune")
+	ret := m.ctrl.Call(m, "WatchRevisionsToPrune")
 	ret0, _ := ret[0].(watcher.StringsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WatchObsoleteRevisionsNeedPrune indicates an expected call of WatchObsoleteRevisionsNeedPrune.
-func (mr *MockSecretsFacadeMockRecorder) WatchObsoleteRevisionsNeedPrune() *gomock.Call {
+// WatchRevisionsToPrune indicates an expected call of WatchRevisionsToPrune.
+func (mr *MockSecretsFacadeMockRecorder) WatchRevisionsToPrune() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsoleteRevisionsNeedPrune", reflect.TypeOf((*MockSecretsFacade)(nil).WatchObsoleteRevisionsNeedPrune))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRevisionsToPrune", reflect.TypeOf((*MockSecretsFacade)(nil).WatchRevisionsToPrune))
 }

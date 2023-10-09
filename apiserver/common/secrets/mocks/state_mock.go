@@ -223,19 +223,19 @@ func (mr *MockSecretsStoreMockRecorder) WatchObsolete(arg0 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsStore)(nil).WatchObsolete), arg0)
 }
 
-// WatchObsoleteRevisionsNeedPrune mocks base method.
-func (m *MockSecretsStore) WatchObsoleteRevisionsNeedPrune(arg0 []names.Tag) (state.StringsWatcher, error) {
+// WatchRevisionsToPrune mocks base method.
+func (m *MockSecretsStore) WatchRevisionsToPrune(arg0 []names.Tag) (state.StringsWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchObsoleteRevisionsNeedPrune", arg0)
+	ret := m.ctrl.Call(m, "WatchRevisionsToPrune", arg0)
 	ret0, _ := ret[0].(state.StringsWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WatchObsoleteRevisionsNeedPrune indicates an expected call of WatchObsoleteRevisionsNeedPrune.
-func (mr *MockSecretsStoreMockRecorder) WatchObsoleteRevisionsNeedPrune(arg0 interface{}) *gomock.Call {
+// WatchRevisionsToPrune indicates an expected call of WatchRevisionsToPrune.
+func (mr *MockSecretsStoreMockRecorder) WatchRevisionsToPrune(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsoleteRevisionsNeedPrune", reflect.TypeOf((*MockSecretsStore)(nil).WatchObsoleteRevisionsNeedPrune), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRevisionsToPrune", reflect.TypeOf((*MockSecretsStore)(nil).WatchRevisionsToPrune), arg0)
 }
 
 // MockSecretBackendsStorage is a mock of SecretBackendsStorage interface.

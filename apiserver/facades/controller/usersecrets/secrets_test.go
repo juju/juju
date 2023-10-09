@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretusersupplied_test
+package usersecrets_test
 
 import (
 	"fmt"
@@ -15,15 +15,15 @@ import (
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
-	"github.com/juju/juju/apiserver/facades/controller/secretusersupplied"
-	"github.com/juju/juju/apiserver/facades/controller/secretusersupplied/mocks"
+	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
+	"github.com/juju/juju/apiserver/facades/controller/usersecrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/secrets/provider"
 	coretesting "github.com/juju/juju/testing"
 )
 
-type secretusersuppliedSuite struct {
+type userSecretsSuite struct {
 	testing.IsolationSuite
 
 	authorizer *facademocks.MockAuthorizer
@@ -36,12 +36,12 @@ type secretusersuppliedSuite struct {
 	provider *mocks.MockSecretBackendProvider
 	backend  *mocks.MockSecretsBackend
 
-	facade *secretusersupplied.SecretUserSuppliedManager
+	facade *usersecrets.UserSecretsManager
 }
 
-var _ = gc.Suite(&secretusersuppliedSuite{})
+var _ = gc.Suite(&userSecretsSuite{})
 
-func (s *secretusersuppliedSuite) setup(c *gc.C) *gomock.Controller {
+func (s *userSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -57,7 +57,7 @@ func (s *secretusersuppliedSuite) setup(c *gc.C) *gomock.Controller {
 	s.authorizer.EXPECT().AuthController().Return(true)
 
 	var err error
-	s.facade, err = secretusersupplied.NewTestAPI(
+	s.facade, err = usersecrets.NewTestAPI(
 		s.authorizer, s.resources, s.authTag,
 		coretesting.ControllerTag.Id(), coretesting.ModelTag.Id(), s.state,
 		func() (*provider.ModelBackendConfigInfo, error) {
@@ -81,16 +81,16 @@ func (s *secretusersuppliedSuite) setup(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *secretusersuppliedSuite) TestWatchObsoleteRevisionsNeedPrune(c *gc.C) {
+func (s *userSecretsSuite) TestWatchRevisionsToPrune(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.state.EXPECT().WatchObsoleteRevisionsNeedPrune([]names.Tag{names.NewModelTag(coretesting.ModelTag.Id())}).Return(s.stringWatcher, nil)
+	s.state.EXPECT().WatchRevisionsToPrune([]names.Tag{names.NewModelTag(coretesting.ModelTag.Id())}).Return(s.stringWatcher, nil)
 	s.resources.EXPECT().Register(s.stringWatcher).Return("watcher-id")
 	stringChan := make(chan []string, 1)
 	stringChan <- []string{"1", "2", "3"}
 	s.stringWatcher.EXPECT().Changes().Return(stringChan)
 
-	result, err := s.facade.WatchObsoleteRevisionsNeedPrune()
+	result, err := s.facade.WatchRevisionsToPrune()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{
 		StringsWatcherId: "watcher-id",
@@ -98,7 +98,7 @@ func (s *secretusersuppliedSuite) TestWatchObsoleteRevisionsNeedPrune(c *gc.C) {
 	})
 }
 
-func (s *secretusersuppliedSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
+func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()
@@ -147,7 +147,7 @@ func (s *secretusersuppliedSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
 	})
 }
 
-func (s *secretusersuppliedSuite) TestDeleteRevisionsAutoPruneDisabled(c *gc.C) {
+func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneDisabled(c *gc.C) {
 	defer s.setup(c).Finish()
 
 	uri := coresecrets.NewURI()

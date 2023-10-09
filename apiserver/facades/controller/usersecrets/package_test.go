@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretusersupplied
+package usersecrets
 
 import (
 	"testing"
@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/secrets/provider"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state.go github.com/juju/juju/apiserver/facades/controller/secretusersupplied SecretsState
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state.go github.com/juju/juju/apiserver/facades/controller/usersecrets SecretsState
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/watcher.go github.com/juju/juju/state StringsWatcher
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/secretsbackend.go github.com/juju/juju/secrets/provider SecretsBackend,SecretBackendProvider
 
@@ -30,11 +30,11 @@ func NewTestAPI(
 	modelUUID string,
 	secretsState SecretsState,
 	backendConfigGetter func() (*provider.ModelBackendConfigInfo, error),
-) (*SecretUserSuppliedManager, error) {
+) (*UserSecretsManager, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	return &SecretUserSuppliedManager{
+	return &UserSecretsManager{
 		authorizer:          authorizer,
 		resources:           resources,
 		authTag:             authTag,

@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretusersupplied
+package usersecrets
 
 import (
 	"github.com/juju/errors"
@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// Client is the api client for the SecretUserSuppliedManager facade.
+// Client is the api client for the UserSecretsManager facade.
 type Client struct {
 	facade base.FacadeCaller
 }
@@ -21,15 +21,15 @@ type Client struct {
 // NewClient creates a secret backends manager api client.
 func NewClient(caller base.APICaller) *Client {
 	return &Client{
-		facade: base.NewFacadeCaller(caller, "SecretUserSuppliedManager"),
+		facade: base.NewFacadeCaller(caller, "UserSecretsManager"),
 	}
 }
 
-// WatchObsoleteRevisionsNeedPrune returns a watcher that triggers on secret
+// WatchRevisionsToPrune returns a watcher that triggers on secret
 // obsolete revision changes.
-func (c *Client) WatchObsoleteRevisionsNeedPrune() (watcher.StringsWatcher, error) {
+func (c *Client) WatchRevisionsToPrune() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchObsoleteRevisionsNeedPrune", nil, &result)
+	err := c.facade.FacadeCall("WatchRevisionsToPrune", nil, &result)
 	if err != nil {
 		return nil, err
 	}

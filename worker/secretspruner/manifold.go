@@ -9,7 +9,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/controller/secretusersupplied"
+	"github.com/juju/juju/api/controller/usersecrets"
 )
 
 // ManifoldConfig describes the resources used by the secretspruner worker.
@@ -23,7 +23,7 @@ type ManifoldConfig struct {
 
 // NewSecretsFacade returns a new SecretsFacade.
 func NewSecretsFacade(caller base.APICaller) SecretsFacade {
-	return secretusersupplied.NewClient(caller)
+	return usersecrets.NewClient(caller)
 }
 
 // Manifold returns a Manifold that encapsulates the secretspruner worker.

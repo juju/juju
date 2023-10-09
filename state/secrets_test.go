@@ -778,10 +778,15 @@ func (s *SecretsSuite) TestUpdateAutoPrune(c *gc.C) {
 	md, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md.AutoPrune, jc.IsFalse)
-	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
-		LeaderToken: &fakeToken{},
-		AutoPrune:   ptr(true),
-	})
+	c.Assert(md.LatestRevision, gc.Equals, 1)
+	s.assertUpdatedSecret(
+		c, md,
+		1, // Update AutoPrune should not increment the revision.
+		state.UpdateSecretParams{
+			LeaderToken: &fakeToken{},
+			AutoPrune:   ptr(true),
+		},
+	)
 }
 
 func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {

@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretusersupplied
+package usersecrets
 
 import (
 	"github.com/juju/errors"
@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// SecretUserSuppliedManager is the implementation for the secretusersupplied facade.
-type SecretUserSuppliedManager struct {
+// UserSecretsManager is the implementation for the usersecrets facade.
+type UserSecretsManager struct {
 	authorizer facade.Authorizer
 	resources  facade.Resources
 
@@ -29,12 +29,12 @@ type SecretUserSuppliedManager struct {
 	backendConfigGetter func() (*provider.ModelBackendConfigInfo, error)
 }
 
-// WatchObsoleteRevisionsNeedPrune returns a watcher for notifying when:
+// WatchRevisionsToPrune returns a watcher for notifying when:
 //   - a secret revision owned by the model no longer
 //     has any consumers and should be pruned.
-func (s *SecretUserSuppliedManager) WatchObsoleteRevisionsNeedPrune() (params.StringsWatchResult, error) {
+func (s *UserSecretsManager) WatchRevisionsToPrune() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
-	w, err := s.secretsState.WatchObsoleteRevisionsNeedPrune([]names.Tag{names.NewModelTag(s.modelUUID)})
+	w, err := s.secretsState.WatchRevisionsToPrune([]names.Tag{names.NewModelTag(s.modelUUID)})
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -49,8 +49,8 @@ func (s *SecretUserSuppliedManager) WatchObsoleteRevisionsNeedPrune() (params.St
 }
 
 // DeleteRevisions deletes the specified revisions of the specified secret.
-func (s *SecretUserSuppliedManager) DeleteRevisions(args params.DeleteSecretArgs) (params.ErrorResults, error) {
-	return commonsecrets.RemoveSecretsUserSupplied(
+func (s *UserSecretsManager) DeleteRevisions(args params.DeleteSecretArgs) (params.ErrorResults, error) {
+	return commonsecrets.RemoveUserSecrets(
 		s.secretsState, s.backendConfigGetter,
 		s.authTag, args,
 		func(uri *coresecrets.URI) error {

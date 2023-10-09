@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretusersupplied
+package usersecrets
 
 import (
 	"reflect"
@@ -17,13 +17,13 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
-	registry.MustRegister("SecretUserSuppliedManager", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return NewSecretUserSuppliedManager(ctx)
-	}, reflect.TypeOf((*SecretUserSuppliedManager)(nil)))
+	registry.MustRegister("UserSecretsManager", 1, func(ctx facade.Context) (facade.Facade, error) {
+		return NewUserSecretsManager(ctx)
+	}, reflect.TypeOf((*UserSecretsManager)(nil)))
 }
 
-// NewSecretUserSuppliedManager creates a SecretUserSuppliedManager.
-func NewSecretUserSuppliedManager(context facade.Context) (*SecretUserSuppliedManager, error) {
+// NewUserSecretsManager creates a UserSecretsManager.
+func NewUserSecretsManager(context facade.Context) (*UserSecretsManager, error) {
 	if !context.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -36,7 +36,7 @@ func NewSecretUserSuppliedManager(context facade.Context) (*SecretUserSuppliedMa
 		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
 	}
 
-	return &SecretUserSuppliedManager{
+	return &UserSecretsManager{
 		authorizer:          context.Auth(),
 		resources:           context.Resources(),
 		authTag:             context.Auth().GetAuthTag(),
