@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/feature"
@@ -447,7 +448,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 
-	secretCAASImageRepoData, err := s.controllerCfg.CAASImageRepo().SecretData()
+	repoDetails, err := docker.NewImageRepoDetails(s.controllerCfg.CAASImageRepo())
+	c.Assert(err, jc.ErrorIsNil)
+	secretCAASImageRepoData, err := repoDetails.SecretData()
 	c.Assert(err, jc.ErrorIsNil)
 
 	secretCAASImageRepo := &core.Secret{

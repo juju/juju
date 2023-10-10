@@ -226,25 +226,24 @@ func fileExists(p string) (bool, error) {
 }
 
 // NewImageRepoDetails tries to parse as json or basic repository path and returns an instance of ImageRepoDetails.
-func NewImageRepoDetails(repo string) (o *ImageRepoDetails, err error) {
+func NewImageRepoDetails(repo string) (o ImageRepoDetails, err error) {
 	if repo == "" {
 		return o, nil
 	}
 	data := []byte(repo)
-	o = &ImageRepoDetails{}
-	err = json.Unmarshal(data, o)
+	err = json.Unmarshal(data, &o)
 	if err != nil {
 		logger.Tracef("unmarshalling %q, err %#v", repo, err)
-		return &ImageRepoDetails{Repository: repo}, nil
+		return ImageRepoDetails{Repository: repo}, nil
 	}
 	if err = o.Validate(); err != nil {
-		return nil, errors.Trace(err)
+		return o, errors.Trace(err)
 	}
 	return o, nil
 }
 
 // LoadImageRepoDetails tries to parse a file path or file content and returns an instance of ImageRepoDetails.
-func LoadImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) {
+func LoadImageRepoDetails(contentOrPath string) (o ImageRepoDetails, err error) {
 	if contentOrPath == "" {
 		return o, nil
 	}
@@ -254,7 +253,7 @@ func LoadImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error)
 		logger.Debugf("reading image repository information from %q", contentOrPath)
 		data, err = os.ReadFile(contentOrPath)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return o, errors.Trace(err)
 		}
 	}
 	return NewImageRepoDetails(string(data))

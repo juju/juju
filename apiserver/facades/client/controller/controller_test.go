@@ -1024,7 +1024,7 @@ func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
 func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 	config, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(config.CAASImageRepo().Empty(), jc.IsTrue)
+	c.Assert(config.CAASImageRepo(), gc.Equals, "")
 
 	err = s.controller.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
 		"caas-image-repo": "juju-repo.local",
@@ -1058,7 +1058,9 @@ func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
 
 	config, err = s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(config.CAASImageRepo(), gc.DeepEquals, docker.ImageRepoDetails{
+	repoDetails, err := docker.NewImageRepoDetails(config.CAASImageRepo())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(repoDetails, gc.DeepEquals, docker.ImageRepoDetails{
 		Repository: "jujusolutions",
 		BasicAuthConfig: docker.BasicAuthConfig{
 			Username: "foo",

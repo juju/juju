@@ -122,7 +122,7 @@ func (s *workerSuite) getWorkerStarter(c *gc.C) (func(...*gomock.Call) worker.Wo
 		Broker:   s.broker,
 		Clock:    s.clock,
 		RegistryFunc: func(i docker.ImageRepoDetails) (registry.Registry, error) {
-			c.Check(i, gc.DeepEquals, s.controllerConfig.CAASImageRepo())
+			c.Check(i, gc.DeepEquals, s.CAASImageRepo(c))
 			return s.reg, nil
 		},
 	}
@@ -144,7 +144,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
     "region": "ap-southeast-2"
 }`[1:]
 
-	refreshed := s.controllerConfig.CAASImageRepo()
+	refreshed := s.CAASImageRepo(c)
 	refreshed.Auth = docker.NewToken(`refreshed===`)
 
 	done := make(chan struct{}, 1)
@@ -163,7 +163,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 		s.reg.EXPECT().ShouldRefreshAuth().Return(true, time.Duration(0)),
 		s.reg.EXPECT().RefreshAuth().Return(nil),
 		s.reg.EXPECT().ImageRepoDetails().DoAndReturn(func() docker.ImageRepoDetails {
-			o := s.controllerConfig.CAASImageRepo()
+			o := s.CAASImageRepo(c)
 			c.Check(o, gc.DeepEquals, docker.ImageRepoDetails{
 				ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
 				Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
@@ -176,7 +176,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 			return o
 		}),
 		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(func(i docker.ImageRepoDetails) error {
-			c.Check(i, gc.DeepEquals, s.controllerConfig.CAASImageRepo())
+			c.Check(i, gc.DeepEquals, s.CAASImageRepo(c))
 			return nil
 		}),
 		// 2nd round.
@@ -226,7 +226,7 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 		s.reg.EXPECT().ShouldRefreshAuth().Return(true, time.Duration(0)),
 		s.reg.EXPECT().RefreshAuth().Return(nil),
 		s.reg.EXPECT().ImageRepoDetails().DoAndReturn(func() docker.ImageRepoDetails {
-			o := s.controllerConfig.CAASImageRepo()
+			o := s.CAASImageRepo(c)
 			c.Check(o, gc.DeepEquals, docker.ImageRepoDetails{
 				ServerAddress: "66668888.dkr.ecr.eu-west-1.amazonaws.com",
 				Repository:    "66668888.dkr.ecr.eu-west-1.amazonaws.com",
@@ -239,7 +239,7 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 			return o
 		}),
 		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(func(i docker.ImageRepoDetails) error {
-			c.Check(i, gc.DeepEquals, s.controllerConfig.CAASImageRepo())
+			c.Check(i, gc.DeepEquals, s.CAASImageRepo(c))
 			return nil
 		}),
 		// 2nd round.
@@ -251,9 +251,9 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 			return true, time.Duration(0)
 		}),
 		s.reg.EXPECT().RefreshAuth().Return(nil),
-		s.reg.EXPECT().ImageRepoDetails().Return(s.controllerConfig.CAASImageRepo()),
+		s.reg.EXPECT().ImageRepoDetails().Return(s.CAASImageRepo(c)),
 		s.broker.EXPECT().EnsureImageRepoSecret(gomock.Any()).DoAndReturn(func(i docker.ImageRepoDetails) error {
-			c.Check(i, gc.DeepEquals, s.controllerConfig.CAASImageRepo())
+			c.Check(i, gc.DeepEquals, s.CAASImageRepo(c))
 			close(done)
 			return nil
 		}),
@@ -300,4 +300,10 @@ func (s *workerSuite) TestWorkerNoOpsForPublicRepo(c *gc.C) {
 	}
 
 	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) CAASImageRepo(c *gc.C) docker.ImageRepoDetails {
+	r, err := docker.NewImageRepoDetails(s.controllerConfig.CAASImageRepo())
+	c.Assert(err, jc.ErrorIsNil)
+	return r
 }

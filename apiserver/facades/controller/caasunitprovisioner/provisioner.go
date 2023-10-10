@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/rpc/params"
@@ -392,7 +393,12 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	imageRepo := params.NewDockerImageInfo(controllerCfg.CAASImageRepo(), registryPath)
+
+	imageRepoDetails, err := docker.NewImageRepoDetails(controllerCfg.CAASImageRepo())
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+	}
+	imageRepo := params.NewDockerImageInfo(imageRepoDetails, registryPath)
 	logger.Tracef("imageRepo %v", imageRepo)
 	filesystemParams, err := f.applicationFilesystemParams(app, controllerCfg, modelConfig)
 	if err != nil {
