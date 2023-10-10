@@ -14,7 +14,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	"github.com/juju/juju/docker/imagerepo"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
@@ -115,17 +114,11 @@ func (a *API) ModelOperatorProvisioningInfo() (params.ModelOperatorInfo, error) 
 		return result, errors.Annotate(err, "getting api addresses")
 	}
 
-	details, err := imagerepo.DetailsFromPath(controllerConf.CAASImageRepo())
-	if err != nil {
-		return result, errors.Annotatef(err, "getting image repo details")
-	}
-
-	registryPath, err := podcfg.JujudOCIImageReference(details.Repository, vers)
+	registryPath, err := podcfg.GetJujuOCIImagePath(controllerConf, vers)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-
-	imageInfo := params.NewDockerImageInfo(details, registryPath)
+	imageInfo := params.NewDockerImageInfo(controllerConf.CAASImageRepo(), registryPath)
 	logger.Tracef("image info %v", imageInfo)
 
 	result = params.ModelOperatorInfo{

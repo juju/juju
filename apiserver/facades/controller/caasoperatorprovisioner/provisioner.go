@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
-	"github.com/juju/juju/docker/imagerepo"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/pki"
@@ -133,26 +132,23 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		modelConfig,
 	)
 
-	details, err := imagerepo.DetailsFromPath(cfg.CAASImageRepo())
-	if err != nil {
-		return result, errors.Annotatef(err, "getting image repo details")
-	}
+	imageRepo := cfg.CAASImageRepo()
 	registryPath, err := podcfg.GetJujuOCIImagePath(cfg, vers)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	imageInfo := params.NewDockerImageInfo(details, registryPath)
+	imageInfo := params.NewDockerImageInfo(imageRepo, registryPath)
 	logger.Tracef("image info %v", imageInfo)
 
 	// PodSpec charms now use focal as the operator base until PodSpec is removed.
-	baseRegistryPath, err := podcfg.ImageForBase(details.Repository, charm.Base{
+	baseRegistryPath, err := podcfg.ImageForBase(imageRepo.Repository, charm.Base{
 		Name:    "ubuntu",
 		Channel: charm.Channel{Track: "20.04", Risk: charm.Stable},
 	})
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	baseImageInfo := params.NewDockerImageInfo(details, baseRegistryPath)
+	baseImageInfo := params.NewDockerImageInfo(imageRepo, baseRegistryPath)
 	logger.Tracef("base image info %v", baseImageInfo)
 
 	apiAddresses, err := a.APIAddresses()

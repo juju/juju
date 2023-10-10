@@ -160,36 +160,6 @@ type ImageRepoDetails struct {
 	Region string `json:"region,omitempty" yaml:"region,omitempty"`
 }
 
-// NewImageRepoDetails tries to parse a file path or file content and returns an
-// instance of ImageRepoDetails.
-func NewImageRepoDetails(contentOrPath string) (*ImageRepoDetails, error) {
-	if contentOrPath == "" {
-		return nil, errors.NotValidf("empty content or path")
-	}
-
-	data := []byte(contentOrPath)
-	isPath, err := fileExists(contentOrPath)
-	if err == nil && isPath {
-		logger.Debugf("reading image repository information from %q", contentOrPath)
-		data, err = os.ReadFile(contentOrPath)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	var details ImageRepoDetails
-	if err = json.Unmarshal(data, &details); err != nil {
-		logger.Tracef("unmarshalling %q, err %#v", contentOrPath, err)
-		return &ImageRepoDetails{Repository: contentOrPath}, nil
-	}
-	if err := details.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := details.init(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &details, nil
-}
-
 // AuthEqual compares if the provided one equals to current repository detail.
 func (rid ImageRepoDetails) AuthEqual(r ImageRepoDetails) bool {
 	return reflect.DeepEqual(rid.BasicAuthConfig, r.BasicAuthConfig) &&
@@ -199,6 +169,10 @@ func (rid ImageRepoDetails) AuthEqual(r ImageRepoDetails) bool {
 // IsPrivate checks if the repository detail is private.
 func (rid ImageRepoDetails) IsPrivate() bool {
 	return !rid.BasicAuthConfig.Empty() || !rid.TokenAuthConfig.Empty()
+}
+
+type dockerConfigData struct {
+	Auths map[string]ImageRepoDetails `json:"auths"`
 }
 
 // SecretData returns secret data format.
@@ -239,11 +213,6 @@ func (rid *ImageRepoDetails) Validate() error {
 	return nil
 }
 
-// Empty checks if the auth information is empty.
-func (rid ImageRepoDetails) Empty() bool {
-	return rid == ImageRepoDetails{}
-}
-
 func (rid *ImageRepoDetails) init() error {
 	if err := rid.BasicAuthConfig.init(); err != nil {
 		return errors.Annotatef(err, "initializing basic auth config for repository %q", rid.Repository)
@@ -252,6 +221,11 @@ func (rid *ImageRepoDetails) init() error {
 		return errors.Annotatef(err, "initializing token auth config for repository %q", rid.Repository)
 	}
 	return nil
+}
+
+// Empty checks if the auth information is empty.
+func (rid ImageRepoDetails) Empty() bool {
+	return rid == ImageRepoDetails{}
 }
 
 func fileExists(p string) (bool, error) {
@@ -265,6 +239,32 @@ func fileExists(p string) (bool, error) {
 	return !info.IsDir(), nil
 }
 
-type dockerConfigData struct {
-	Auths map[string]ImageRepoDetails `json:"auths"`
+// NewImageRepoDetails tries to parse a file path or file content and returns an instance of ImageRepoDetails.
+func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) {
+	if contentOrPath == "" {
+		return o, nil
+	}
+	data := []byte(contentOrPath)
+	isPath, err := fileExists(contentOrPath)
+	if err == nil && isPath {
+		logger.Debugf("reading image repository information from %q", contentOrPath)
+		data, err = os.ReadFile(contentOrPath)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	o = &ImageRepoDetails{}
+	err = json.Unmarshal(data, o)
+	if err != nil {
+		logger.Tracef("unmarshalling %q, err %#v", contentOrPath, err)
+		return &ImageRepoDetails{Repository: contentOrPath}, nil
+	}
+
+	if err = o.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err = o.init(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return o, nil
 }
