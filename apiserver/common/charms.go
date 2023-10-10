@@ -14,12 +14,18 @@ import (
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/storage"
 )
+
+// ReadObjectStore represents an object store that can only be read from.
+type ReadObjectStore interface {
+	// Get returns an io.ReadCloser for data at path, namespaced to the
+	// model.
+	Get(string) (io.ReadCloser, int64, error)
+}
 
 // ReadCharmFromStorage fetches the charm at the specified path from the store
 // and copies it to a temp directory in dataDir.
-func ReadCharmFromStorage(store storage.Storage, dataDir, storagePath string) (string, error) {
+func ReadCharmFromStorage(objectStore ReadObjectStore, dataDir, storagePath string) (string, error) {
 	// Ensure the working directory exists.
 	tmpDir := filepath.Join(dataDir, "charm-get-tmp")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
@@ -27,7 +33,7 @@ func ReadCharmFromStorage(store storage.Storage, dataDir, storagePath string) (s
 	}
 
 	// Use the storage to retrieve and save the charm archive.
-	reader, _, err := store.Get(storagePath)
+	reader, _, err := objectStore.Get(storagePath)
 	if err != nil {
 		return "", errors.Annotate(err, "cannot get charm from model storage")
 	}

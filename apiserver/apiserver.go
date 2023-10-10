@@ -352,6 +352,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		dbGetter:             cfg.DBGetter,
 		serviceFactoryGetter: cfg.ServiceFactoryGetter,
 		tracerGetter:         cfg.TracerGetter,
+		objectStoreGetter:    cfg.ObjectStoreGetter,
 		machineTag:           cfg.Tag,
 		dataDir:              cfg.DataDir,
 		logDir:               cfg.LogDir,
@@ -754,9 +755,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		GetHandler: modelRestHandler.ServeGet,
 	}
 	modelCharmsHandler := &charmsHandler{
-		ctxt:          httpCtxt,
-		dataDir:       srv.dataDir,
-		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
+		ctxt:              httpCtxt,
+		dataDir:           srv.dataDir,
+		stateAuthFunc:     httpCtxt.stateForRequestAuthenticatedUser,
+		objectStoreGetter: srv.shared.objectStoreGetter,
+		logger:            logger.Child("charms-handler"),
 	}
 	modelCharmsHTTPHandler := &CharmsHTTPHandler{
 		PostHandler: modelCharmsHandler.ServePost,

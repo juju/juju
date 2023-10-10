@@ -2,6 +2,7 @@ package objectstore
 
 import (
 	"context"
+	"io"
 
 	"gopkg.in/tomb.v2"
 )
@@ -33,6 +34,12 @@ func (s *objectStore) Kill() {
 // Wait implements the worker.Worker interface.
 func (s *objectStore) Wait() error {
 	return s.tomb.Wait()
+}
+
+// Get returns an io.ReadCloser for data at path, namespaced to the
+// model.
+func (t *objectStore) Get(path string) (io.ReadCloser, int64, error) {
+	return nil, -1, nil
 }
 
 func (t *objectStore) loop() error {

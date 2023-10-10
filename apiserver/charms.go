@@ -6,6 +6,7 @@ package apiserver
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -26,6 +27,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/core/charm/downloader"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/storage"
@@ -79,11 +81,25 @@ func (h *CharmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Logger is an interface for logging for the apiserver.
+type Logger interface {
+	Tracef(string, ...interface{})
+	IsTraceEnabled() bool
+}
+
+// ObjectStoreGetter is an interface for getting an object store.
+type ObjectStoreGetter interface {
+	// GetObjectStore returns the object store for the given namespace.
+	GetObjectStore(context.Context, string) (objectstore.ObjectStore, error)
+}
+
 // charmsHandler handles charm upload through HTTPS in the API server.
 type charmsHandler struct {
-	ctxt          httpContext
-	dataDir       string
-	stateAuthFunc func(*http.Request) (*state.PooledState, error)
+	ctxt              httpContext
+	dataDir           string
+	stateAuthFunc     func(*http.Request) (*state.PooledState, error)
+	objectStoreGetter ObjectStoreGetter
+	logger            Logger
 }
 
 // bundleContentSenderFunc functions are responsible for sending a
@@ -95,7 +111,10 @@ func (h *charmsHandler) ServeUnsupported(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error {
-	logger.Child("charmsHandler").Tracef("ServePost(%s)", r.URL)
+	if h.logger.IsTraceEnabled() {
+		h.logger.Tracef("ServePost(%s)", r.URL)
+	}
+
 	if r.Method != "POST" {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
@@ -121,7 +140,10 @@ func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
-	logger.Child("charmsHandler").Tracef("ServeGet(%s)", r.URL)
+	if h.logger.IsTraceEnabled() {
+		h.logger.Tracef("ServeGet(%s)", r.URL)
+	}
+
 	if r.Method != "GET" {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
@@ -505,7 +527,6 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 		fileArg = "icon.svg"
 	}
 
-	store := storage.NewStorage(st.ModelUUID(), st.MongoSession())
 	// Use the storage to retrieve and save the charm archive.
 	ch, err := st.Charm(curl)
 	if err != nil {
@@ -515,6 +536,13 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 	// a suitable error.
 	if !ch.IsUploaded() {
 		return errRet(errors.NewNotYetAvailable(nil, curl))
+	}
+
+	// Get the underlying object store for the model UUID, which we can then
+	// retrieve the blob from.
+	store, err := h.objectStoreGetter.GetObjectStore(r.Context(), st.ModelUUID())
+	if err != nil {
+		return errRet(errors.Annotate(err, "cannot get object store"))
 	}
 
 	archivePath, err = common.ReadCharmFromStorage(store, h.dataDir, ch.StoragePath())

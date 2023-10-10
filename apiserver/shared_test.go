@@ -65,6 +65,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		dbGetter:             StubDBGetter{},
 		serviceFactoryGetter: &StubServiceFactoryGetter{},
 		tracerGetter:         &StubTracerGetter{},
+		objectStoreGetter:    &StubObjectStoreGetter{},
 		machineTag:           names.NewMachineTag("0"),
 		dataDir:              c.MkDir(),
 		logDir:               c.MkDir(),
@@ -106,7 +107,7 @@ func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "nil leaseManager not valid")
 }
 
-func (s *sharedServerContextSuite) TestConfigNoControllerconfig(c *gc.C) {
+func (s *sharedServerContextSuite) TestConfigNoControllerConfig(c *gc.C) {
 	s.config.controllerConfig = nil
 	err := s.config.validate()
 	c.Check(err, jc.ErrorIs, errors.NotValid)

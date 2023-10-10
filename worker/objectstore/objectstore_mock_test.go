@@ -5,6 +5,7 @@
 package objectstore
 
 import (
+	io "io"
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
@@ -31,6 +32,22 @@ func NewMockTrackedObjectStore(ctrl *gomock.Controller) *MockTrackedObjectStore 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockTrackedObjectStore) EXPECT() *MockTrackedObjectStoreMockRecorder {
 	return m.recorder
+}
+
+// Get mocks base method.
+func (m *MockTrackedObjectStore) Get(arg0 string) (io.ReadCloser, int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get", arg0)
+	ret0, _ := ret[0].(io.ReadCloser)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// Get indicates an expected call of Get.
+func (mr *MockTrackedObjectStoreMockRecorder) Get(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockTrackedObjectStore)(nil).Get), arg0)
 }
 
 // Kill mocks base method.

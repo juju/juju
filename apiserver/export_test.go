@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/objectstore"
 	"github.com/juju/juju/worker/trace"
 )
 
@@ -122,6 +123,10 @@ func (s *StubServiceFactoryGetter) FactoryForModel(string) servicefactory.Servic
 
 type StubTracerGetter struct {
 	trace.TracerGetter
+}
+
+type StubObjectStoreGetter struct {
+	objectstore.ObjectStoreGetter
 }
 
 // TestingAPIHandlerWithEntity gives you the sane kind of APIHandler as
