@@ -13439,18 +13439,6 @@
                     },
                     "description": "CredentialContents returns the specified cloud credentials,\nincluding the secrets if requested.\nIf no specific credential name/cloud was passed in, all credentials for this user\nare returned.\nOnly credential owner can see its contents as well as what models use it.\nController admin has no special superpowers here and is treated the same as all other users."
                 },
-                "InstanceTypes": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/CloudInstanceTypesConstraints"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/InstanceTypesResults"
-                        }
-                    },
-                    "description": "InstanceTypes returns instance type information for the cloud and region\nin which the current model is deployed."
-                },
                 "ListCloudInfo": {
                     "type": "object",
                     "properties": {
@@ -13790,40 +13778,6 @@
                         "results"
                     ]
                 },
-                "CloudInstanceTypesConstraint": {
-                    "type": "object",
-                    "properties": {
-                        "cloud-tag": {
-                            "type": "string"
-                        },
-                        "constraints": {
-                            "$ref": "#/definitions/Value"
-                        },
-                        "region": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "cloud-tag",
-                        "region"
-                    ]
-                },
-                "CloudInstanceTypesConstraints": {
-                    "type": "object",
-                    "properties": {
-                        "constraints": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CloudInstanceTypesConstraint"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "constraints"
-                    ]
-                },
                 "CloudRegion": {
                     "type": "object",
                     "properties": {
@@ -14041,80 +13995,6 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/ErrorResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "InstanceType": {
-                    "type": "object",
-                    "properties": {
-                        "arches": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "cost": {
-                            "type": "integer"
-                        },
-                        "cpu-cores": {
-                            "type": "integer"
-                        },
-                        "memory": {
-                            "type": "integer"
-                        },
-                        "name": {
-                            "type": "string"
-                        },
-                        "root-disk": {
-                            "type": "integer"
-                        },
-                        "virt-type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "arches",
-                        "cpu-cores",
-                        "memory"
-                    ]
-                },
-                "InstanceTypesResult": {
-                    "type": "object",
-                    "properties": {
-                        "cost-currency": {
-                            "type": "string"
-                        },
-                        "cost-divisor": {
-                            "type": "integer"
-                        },
-                        "cost-unit": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "instance-types": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/InstanceType"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "InstanceTypesResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/InstanceTypesResult"
                             }
                         }
                     },
@@ -14433,66 +14313,6 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/UserCloud"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
-                },
-                "Value": {
-                    "type": "object",
-                    "properties": {
-                        "allocate-public-ip": {
-                            "type": "boolean"
-                        },
-                        "arch": {
-                            "type": "string"
-                        },
-                        "container": {
-                            "type": "string"
-                        },
-                        "cores": {
-                            "type": "integer"
-                        },
-                        "cpu-power": {
-                            "type": "integer"
-                        },
-                        "image-id": {
-                            "type": "string"
-                        },
-                        "instance-role": {
-                            "type": "string"
-                        },
-                        "instance-type": {
-                            "type": "string"
-                        },
-                        "mem": {
-                            "type": "integer"
-                        },
-                        "root-disk": {
-                            "type": "integer"
-                        },
-                        "root-disk-source": {
-                            "type": "string"
-                        },
-                        "spaces": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "tags": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "virt-type": {
-                            "type": "string"
-                        },
-                        "zones": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
                             }
                         }
                     },

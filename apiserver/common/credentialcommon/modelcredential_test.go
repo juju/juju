@@ -29,7 +29,6 @@ import (
 )
 
 var _ = gc.Suite(&CheckMachinesSuite{})
-var _ = gc.Suite(&ModelCredentialSuite{})
 
 type CheckMachinesSuite struct {
 	testing.IsolationSuite
@@ -38,19 +37,15 @@ type CheckMachinesSuite struct {
 	instance    *mockInstance
 	callContext context.ProviderCallContext
 
-	backend *mockPersistedBackend
-	machine *mockMachine
+	machineService *mocks.MockMachineService
+	machine        *mockMachine
 }
 
 func (s *CheckMachinesSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.backend = createModelBackend()
 
 	// This is what the test gets from the state.
 	s.machine = createTestMachine("1", "wind-up")
-	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
-		return []credentialcommon.Machine{s.machine}, nil
-	}
 
 	// This is what the test gets from the cloud.
 	s.instance = &mockInstance{id: "wind-up"}
@@ -63,19 +58,29 @@ func (s *CheckMachinesSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewEmptyCloudCallContext()
 }
 
+func (s *CheckMachinesSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.machineService = mocks.NewMockMachineService(ctrl)
+	return ctrl
+}
+
 func (s *CheckMachinesSuite) TestCheckMachinesSuccess(c *gc.C) {
-	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, false)
+	defer s.setupMocks(c).Finish()
+
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{s.machine}, nil)
+
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesInstancesMissing(c *gc.C) {
-	machine1 := createTestMachine("2", "birds")
-	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
-		return []credentialcommon.Machine{s.machine, machine1}, nil
-	}
+	defer s.setupMocks(c).Finish()
 
-	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, false)
+	machine1 := createTestMachine("2", "birds")
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{s.machine, machine1}, nil)
+
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -83,22 +88,30 @@ func (s *CheckMachinesSuite) TestCheckMachinesInstancesMissing(c *gc.C) {
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesExtraInstances(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{s.machine}, nil)
+
 	instance2 := &mockInstance{id: "analyse"}
 	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 		return []instances.Instance{s.instance, instance2}, nil
 	}
 
-	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, false)
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.IsNil)
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesExtraInstancesWhenMigrating(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{s.machine}, nil)
+
 	instance2 := &mockInstance{id: "analyse"}
 	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 		return []instances.Instance{s.instance, instance2}, nil
 	}
-	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, true)
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -106,62 +119,73 @@ func (s *CheckMachinesSuite) TestCheckMachinesExtraInstancesWhenMigrating(c *gc.
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachines(c *gc.C) {
-	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
-		return nil, errors.New("boom")
-	}
+	defer s.setupMocks(c).Finish()
 
-	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, false)
+	s.machineService.EXPECT().AllMachines().Return(nil, errors.New("boom"))
+
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, false)
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingInstances(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{s.machine}, nil)
+
 	s.provider.allInstancesFunc = func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 		return nil, errors.New("kaboom")
 	}
 
-	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, false)
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, false)
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesHandlesContainers(c *gc.C) {
-	machine1 := createTestMachine("1", "")
-	machine1.container = true
-	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
-		return []credentialcommon.Machine{s.machine, machine1}, nil
-	}
+	defer s.setupMocks(c).Finish()
 
-	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, false)
+	machine1 := createTestMachine("2", "")
+	machine1.container = true
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{s.machine, machine1}, nil)
+
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesHandlesManual(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	machine1 := createTestMachine("2", "")
-	machine1.manualFunc = func() (bool, error) { return false, errors.New("manual retrieval failure") }
-	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
-		return []credentialcommon.Machine{s.machine, machine1}, nil
-	}
-
-	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, false)
-	c.Assert(err, gc.ErrorMatches, "manual retrieval failure")
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
-
 	machine1.manualFunc = func() (bool, error) { return true, nil }
-	results, err = credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, false)
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{s.machine, machine1}, nil)
+
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
+func (s *CheckMachinesSuite) TestCheckMachinesHandlesManualFailure(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	machine1 := createTestMachine("2", "")
+	machine1.manualFunc = func() (bool, error) { return false, errors.New("manual retrieval failure") }
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{s.machine, machine1}, nil)
+
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, false)
+	c.Assert(err, gc.ErrorMatches, "manual retrieval failure")
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+}
+
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceId(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	machine1 := createTestMachine("2", "")
 	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.New("retrieval failure") }
-	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
-		return []credentialcommon.Machine{s.machine, machine1}, nil
-	}
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{s.machine, machine1}, nil)
 
-	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, false)
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -174,11 +198,9 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 	machine1 := createTestMachine("2", "")
 	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.New("retrieval failure") }
 	s.machine.instanceIdFunc = machine1.instanceIdFunc
-	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
-		return []credentialcommon.Machine{s.machine, machine1}, nil
-	}
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{s.machine, machine1}, nil)
 
-	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, false)
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -189,14 +211,14 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFatalWhenMigrating(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	machine1 := createTestMachine("2", "")
 	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.New("retrieval failure") }
 	s.machine.instanceIdFunc = machine1.instanceIdFunc
-	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
-		return []credentialcommon.Machine{s.machine, machine1}, nil
-	}
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{s.machine, machine1}, nil)
 
-	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, true)
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, true)
 	c.Assert(err, jc.ErrorIsNil)
 	// There should be 3 errors here:
 	// * 2 of them because failing to get an instance id from one machine should not stop the processing the rest of the machines;
@@ -211,52 +233,61 @@ func (s *CheckMachinesSuite) TestCheckMachinesErrorGettingMachineInstanceIdNonFa
 }
 
 func (s *CheckMachinesSuite) TestCheckMachinesNotProvisionedError(c *gc.C) {
-	machine2 := createTestMachine("2", "")
-	machine2.instanceIdFunc = func() (instance.Id, error) { return "", errors.NotProvisionedf("machine 2") }
-	s.backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
-		return []credentialcommon.Machine{s.machine, machine2}, nil
-	}
+	defer s.setupMocks(c).Finish()
+
+	machine1 := createTestMachine("2", "")
+	machine1.instanceIdFunc = func() (instance.Id, error) { return "", errors.NotProvisionedf("machine 2") }
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{s.machine, machine1}, nil)
 
 	// We should ignore the unprovisioned machine - we wouldn't expect
 	// the cloud to know about it.
-	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.backend, s.provider, false)
+	results, err := credentialcommon.CheckMachineInstances(s.callContext, s.machineService, s.provider, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
+var _ = gc.Suite(&ModelCredentialSuite{})
+
 type ModelCredentialSuite struct {
 	testing.IsolationSuite
 
-	backend                 *mockPersistedBackend
-	credentialService       *mocks.MockCredentialService
-	controllerConfigService *mocks.MockControllerConfigService
-	callContext             context.ProviderCallContext
+	machineService    *mocks.MockMachineService
+	credentialService *mocks.MockCredentialService
+	model             *mocks.MockModel
+	modelConfigErr    error
+
+	callContext context.ProviderCallContext
 }
 
 func (s *ModelCredentialSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.backend = createModelBackend()
 	s.callContext = context.NewEmptyCloudCallContext()
+	s.modelConfigErr = nil
 }
 
 func (s *ModelCredentialSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.credentialService = mocks.NewMockCredentialService(ctrl)
-	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+	s.machineService = mocks.NewMockMachineService(ctrl)
+
+	s.model = mocks.NewMockModel(ctrl)
+	s.model.EXPECT().ControllerUUID().Return(jujuesting.ControllerTag.Id()).AnyTimes()
+	s.model.EXPECT().CloudRegion().Return("nine")
+	s.model.EXPECT().Config().DoAndReturn(func() (*config.Config, error) {
+		return nil, s.modelConfigErr
+	})
 	return ctrl
 }
 
 func (s *ModelCredentialSuite) TestValidateNewModelCredentialUnknownModelType(c *gc.C) {
-	unknownModel := createTestModel()
-	unknownModel.modelType = "unknown"
-	s.backend.modelFunc = func() (credentialcommon.Model, error) {
-		return unknownModel, nil
-	}
+	defer s.setupMocks(c).Finish()
+
+	s.model.EXPECT().Type().Return(state.ModelType("unknown")).MinTimes(1)
 
 	results, err := credentialcommon.ValidateNewModelCredential(
 		s.callContext,
-		s.backend,
-		s.controllerConfigService,
+		s.model,
+		s.machineService,
 		names.NewCloudCredentialTag("dummy/bob/default"),
 		&testCredential,
 		testCloud, false,
@@ -265,104 +296,85 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialUnknownModelType(c 
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ModelCredentialSuite) TestBuildingOpenParamsErrorGettingModel(c *gc.C) {
-	s.backend.SetErrors(errors.New("get model error"))
-	results, err := credentialcommon.ValidateNewModelCredential(
-		s.callContext,
-		s.backend,
-		s.controllerConfigService,
-		names.CloudCredentialTag{},
-		nil, testCloud, false)
-	c.Assert(err, gc.ErrorMatches, "get model error")
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
-	s.backend.CheckCallNames(c, "Model")
-}
-
 func (s *ModelCredentialSuite) TestBuildingOpenParamsErrorGettingModelConfig(c *gc.C) {
-	model := createTestModel()
-	model.configFunc = func() (*config.Config, error) {
-		return nil, errors.New("get model config error")
-	}
+	defer s.setupMocks(c).Finish()
 
-	s.backend.modelFunc = func() (credentialcommon.Model, error) {
-		return model, nil
-	}
+	s.modelConfigErr = errors.New("get model config error")
 
 	results, err := credentialcommon.ValidateNewModelCredential(
 		s.callContext,
-		s.backend,
-		s.controllerConfigService,
+		s.model,
+		s.machineService,
 		names.NewCloudCredentialTag("dummy/bob/default"),
 		&testCredential, testCloud, false)
 	c.Assert(err, gc.ErrorMatches, "get model config error")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
-	s.backend.CheckCallNames(c, "Model")
 }
 
 func (s *ModelCredentialSuite) TestBuildingOpenParamsErrorValidateCredentialForModelCloud(c *gc.C) {
 	c.Skip("TODO(wallyworld) - need to move to dqlite for this test")
-	model := createTestModel()
-	model.validateCredentialFunc = func(tag names.CloudCredentialTag, credential cloud.Credential) error {
-		return errors.New("credential not for model cloud error")
-	}
 
-	s.backend.modelFunc = func() (credentialcommon.Model, error) {
-		return model, nil
-	}
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	//model.validateCredentialFunc = func(tag names.CloudCredentialTag, credential cloud.Credential) error {
+	//	return errors.New("credential not for model cloud error")
+	//}
 
 	results, err := credentialcommon.ValidateNewModelCredential(
 		s.callContext,
-		s.backend,
-		s.controllerConfigService,
+		s.model,
+		s.machineService,
 		names.CloudCredentialTag{},
 		&testCredential, testCloud, false)
 	c.Assert(err, gc.ErrorMatches, "credential not for model cloud error")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
-	s.backend.CheckCallNames(c, "Model")
-}
-
-func (s *ModelCredentialSuite) TestValidateExistingModelCredentialErrorGettingModel(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.backend.SetErrors(errors.New("get model error"))
-	results, err := credentialcommon.ValidateExistingModelCredential(s.callContext, s.backend, s.controllerConfigService, s.credentialService, testCloud, false)
-	c.Assert(err, gc.ErrorMatches, "get model error")
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
-	s.backend.CheckCallNames(c, "Model")
 }
 
 func (s *ModelCredentialSuite) TestValidateExistingModelCredentialUnsetCloudCredential(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	model := createTestModel()
-	model.cloudCredentialTagFunc = func() (names.CloudCredentialTag, bool) {
-		return names.CloudCredentialTag{}, false
-	}
+	s.model = mocks.NewMockModel(ctrl)
+	s.credentialService = mocks.NewMockCredentialService(ctrl)
 
-	s.backend.modelFunc = func() (credentialcommon.Model, error) {
-		return model, nil
-	}
-
-	results, err := credentialcommon.ValidateExistingModelCredential(s.callContext, s.backend, s.controllerConfigService, s.credentialService, testCloud, false)
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{}, nil)
+	s.ensureEnvForIAASModel()
+	results, err := credentialcommon.ValidateExistingModelCredential(
+		s.callContext,
+		s.model,
+		s.machineService,
+		names.CloudCredentialTag{},
+		s.credentialService, testCloud, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
-	s.backend.CheckCallNames(c, "Model")
 }
 
 func (s *ModelCredentialSuite) TestValidateExistingModelCredentialErrorGettingCredential(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.credentialService = mocks.NewMockCredentialService(ctrl)
 
 	tag := names.NewCloudCredentialTag("cirrus/fred/default")
 	s.credentialService.EXPECT().CloudCredential(gomock.Any(), tag).Return(cloud.Credential{}, errors.New("no nope niet"))
 
-	results, err := credentialcommon.ValidateExistingModelCredential(s.callContext, s.backend, s.controllerConfigService, s.credentialService, testCloud, false)
+	results, err := credentialcommon.ValidateExistingModelCredential(
+		s.callContext,
+		s.model,
+		s.machineService,
+		tag,
+		s.credentialService,
+		testCloud, false)
 	c.Assert(err, gc.ErrorMatches, "no nope niet")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
-	s.backend.CheckCallNames(c, "Model")
 }
 
 func (s *ModelCredentialSuite) TestValidateExistingModelCredentialInvalidCredential(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.credentialService = mocks.NewMockCredentialService(ctrl)
 
 	tag := names.NewCloudCredentialTag("cirrus/fred/default")
 	cred := cloud.NewEmptyCredential()
@@ -370,27 +382,36 @@ func (s *ModelCredentialSuite) TestValidateExistingModelCredentialInvalidCredent
 	cred.Invalid = true
 	s.credentialService.EXPECT().CloudCredential(gomock.Any(), tag).Return(cred, nil)
 
-	results, err := credentialcommon.ValidateExistingModelCredential(s.callContext, s.backend, s.controllerConfigService, s.credentialService, testCloud, false)
+	results, err := credentialcommon.ValidateExistingModelCredential(
+		s.callContext,
+		s.model,
+		s.machineService,
+		tag,
+		s.credentialService,
+		testCloud, false)
 	c.Assert(err, gc.ErrorMatches, `credential "cred" not valid`)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
-	s.backend.CheckCallNames(c, "Model")
 }
 
 func (s *ModelCredentialSuite) TestOpeningProviderFails(c *gc.C) {
 	s.PatchValue(credentialcommon.NewEnv, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
 		return nil, errors.New("explosive")
 	})
-	results, err := credentialcommon.CheckIAASModelCredential(s.callContext, environs.OpenParams{}, s.backend, false)
+	results, err := credentialcommon.CheckIAASModelCredential(s.callContext, environs.OpenParams{}, s.machineService, false)
 	c.Assert(err, gc.ErrorMatches, "explosive")
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
 func (s *ModelCredentialSuite) TestValidateNewModelCredentialForIAASModel(c *gc.C) {
-	s.ensureEnvForIAASModel(c)
+	defer s.setupMocks(c).Finish()
+
+	s.model.EXPECT().Type().Return(state.ModelTypeIAAS)
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{}, nil)
+	s.ensureEnvForIAASModel()
 	results, err := credentialcommon.ValidateNewModelCredential(
 		s.callContext,
-		s.backend,
-		s.controllerConfigService,
+		s.model,
+		s.machineService,
 		names.NewCloudCredentialTag("dummy/bob/default"),
 		&testCredential, testCloud, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -398,22 +419,31 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialForIAASModel(c *gc.
 }
 
 func (s *ModelCredentialSuite) TestValidateModelCredentialCloudMismatch(c *gc.C) {
-	s.ensureEnvForIAASModel(c)
+	s.ensureEnvForIAASModel()
 	_, err := credentialcommon.ValidateNewModelCredential(
 		s.callContext,
-		s.backend,
-		s.controllerConfigService,
+		s.model,
+		s.machineService,
 		names.NewCloudCredentialTag("other/bob/default"),
 		&testCredential, testCloud, false)
 	c.Assert(err, gc.ErrorMatches, `credential "other/bob/default" not valid`)
 }
 
 func (s *ModelCredentialSuite) TestValidateExistingModelCredentialForIAASModel(c *gc.C) {
-	s.ensureEnvForIAASModel(c)
+	defer s.setupMocks(c).Finish()
+
+	s.model.EXPECT().Type().Return(state.ModelTypeIAAS)
+	s.machineService.EXPECT().AllMachines().Return([]credentialcommon.Machine{}, nil)
+
+	tag := names.NewCloudCredentialTag("dummy/bob/default")
+	s.credentialService.EXPECT().CloudCredential(gomock.Any(), tag).Return(cloud.Credential{}, nil)
+
+	s.ensureEnvForIAASModel()
 	results, err := credentialcommon.ValidateExistingModelCredential(
 		s.callContext,
-		s.backend,
-		s.controllerConfigService,
+		s.model,
+		s.machineService,
+		tag,
 		s.credentialService, testCloud, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
@@ -451,11 +481,15 @@ func (s *ModelCredentialSuite) TestCAASCredentialCheckSucceeds(c *gc.C) {
 }
 
 func (s *ModelCredentialSuite) TestValidateNewModelCredentialForCAASModel(c *gc.C) {
-	s.ensureEnvForCAASModel(c)
+	defer s.setupMocks(c).Finish()
+
+	s.model.EXPECT().Type().Return(state.ModelTypeCAAS)
+
+	s.ensureEnvForCAASModel()
 	results, err := credentialcommon.ValidateNewModelCredential(
 		s.callContext,
-		s.backend,
-		s.controllerConfigService,
+		s.model,
+		s.machineService,
 		names.NewCloudCredentialTag("dummy/bob/default"),
 		&testCredential, testCloud, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -463,18 +497,25 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialForCAASModel(c *gc.
 }
 
 func (s *ModelCredentialSuite) TestValidateExistingModelCredentialForCAASSuccess(c *gc.C) {
-	s.ensureEnvForCAASModel(c)
-	results, err := credentialcommon.ValidateExistingModelCredential(s.callContext, s.backend, s.controllerConfigService, s.credentialService, testCloud, false)
+	defer s.setupMocks(c).Finish()
+
+	s.model.EXPECT().Type().Return(state.ModelTypeCAAS)
+
+	tag := names.NewCloudCredentialTag("dummy/bob/default")
+	s.credentialService.EXPECT().CloudCredential(gomock.Any(), tag).Return(cloud.Credential{}, nil)
+
+	s.ensureEnvForCAASModel()
+	results, err := credentialcommon.ValidateExistingModelCredential(
+		s.callContext,
+		s.model,
+		s.machineService,
+		tag,
+		s.credentialService, testCloud, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
 }
 
-func (s *ModelCredentialSuite) ensureEnvForCAASModel(c *gc.C) {
-	caasModel := createTestModel()
-	caasModel.modelType = state.ModelTypeCAAS
-	s.backend.modelFunc = func() (credentialcommon.Model, error) {
-		return caasModel, nil
-	}
+func (s *ModelCredentialSuite) ensureEnvForCAASModel() {
 	s.PatchValue(credentialcommon.NewCAASBroker, func(stdcontext.Context, environs.OpenParams) (caas.Broker, error) {
 		return &mockCaasBroker{
 			namespacesFunc: func() ([]string, error) { return []string{}, nil },
@@ -482,7 +523,7 @@ func (s *ModelCredentialSuite) ensureEnvForCAASModel(c *gc.C) {
 	})
 }
 
-func (s *ModelCredentialSuite) ensureEnvForIAASModel(c *gc.C) {
+func (s *ModelCredentialSuite) ensureEnvForIAASModel() {
 	s.PatchValue(credentialcommon.NewEnv, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
 		return &mockEnviron{
 			mockProvider: &mockProvider{
@@ -493,29 +534,6 @@ func (s *ModelCredentialSuite) ensureEnvForIAASModel(c *gc.C) {
 			},
 		}, nil
 	})
-}
-
-func createModelBackend() *mockPersistedBackend {
-	backend := mockPersistedBackend{Stub: &testing.Stub{}}
-	backend.allMachinesFunc = func() ([]credentialcommon.Machine, error) {
-		return []credentialcommon.Machine{}, backend.NextErr()
-	}
-	backend.modelFunc = func() (credentialcommon.Model, error) {
-		return createTestModel(), backend.NextErr()
-	}
-	backend.controllerConfigFunc = func() (credentialcommon.ControllerConfig, error) {
-		return testControllerConfig, backend.NextErr()
-	}
-
-	backend.cloudFunc = func(name string) (cloud.Cloud, error) {
-		return cloud.Cloud{
-			Name:      "nuage",
-			Type:      "dummy",
-			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
-			Regions:   []cloud.Region{{Name: "nine", Endpoint: "endpoint"}},
-		}, backend.NextErr()
-	}
-	return &backend
 }
 
 type mockProvider struct {
@@ -573,86 +591,6 @@ func createTestMachine(id, instanceId string) *mockMachine {
 	}
 }
 
-type mockPersistedBackend struct {
-	*testing.Stub
-	allMachinesFunc func() ([]credentialcommon.Machine, error)
-
-	modelFunc            func() (credentialcommon.Model, error)
-	controllerConfigFunc func() (credentialcommon.ControllerConfig, error)
-	cloudFunc            func(name string) (cloud.Cloud, error)
-}
-
-func (m *mockPersistedBackend) AllMachines() ([]credentialcommon.Machine, error) {
-	m.MethodCall(m, "AllMachines")
-	return m.allMachinesFunc()
-}
-
-func (m *mockPersistedBackend) Model() (credentialcommon.Model, error) {
-	m.MethodCall(m, "Model")
-	return m.modelFunc()
-}
-
-func (m *mockPersistedBackend) ControllerConfig() (credentialcommon.ControllerConfig, error) {
-	m.MethodCall(m, "ControllerConfig")
-	return m.controllerConfigFunc()
-}
-
-func (m *mockPersistedBackend) Cloud(name string) (cloud.Cloud, error) {
-	m.MethodCall(m, "Cloud", name)
-	return m.cloudFunc(name)
-}
-
-type mockModel struct {
-	modelType              state.ModelType
-	cloudNameFunc          func() string
-	cloudRegionFunc        func() string
-	configFunc             func() (*config.Config, error)
-	validateCredentialFunc func(tag names.CloudCredentialTag, credential cloud.Credential) error
-	cloudCredentialTagFunc func() (names.CloudCredentialTag, bool)
-}
-
-func (m *mockModel) CloudName() string {
-	return m.cloudNameFunc()
-}
-
-func (m *mockModel) CloudRegion() string {
-	return m.cloudRegionFunc()
-}
-
-func (m *mockModel) Config() (*config.Config, error) {
-	return m.configFunc()
-}
-
-func (m *mockModel) Type() state.ModelType {
-	return m.modelType
-}
-
-func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
-	return m.cloudCredentialTagFunc()
-}
-
-func (m *mockModel) ValidateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error {
-	return m.validateCredentialFunc(tag, credential)
-}
-
-func createTestModel() *mockModel {
-	return &mockModel{
-		modelType:       state.ModelTypeIAAS,
-		cloudNameFunc:   func() string { return "nuage" },
-		cloudRegionFunc: func() string { return "nine" },
-		configFunc: func() (*config.Config, error) {
-			return nil, nil
-		},
-		validateCredentialFunc: func(tag names.CloudCredentialTag, credential cloud.Credential) error {
-			return nil
-		},
-		cloudCredentialTagFunc: func() (names.CloudCredentialTag, bool) {
-			// return true here since, most of the time, we want to test when the cloud credential is set.
-			return names.NewCloudCredentialTag("cirrus/fred/default"), true
-		},
-	}
-}
-
 var (
 	testCloud = cloud.Cloud{
 		Name:    "dummy",
@@ -665,7 +603,6 @@ var (
 			"password": "password",
 		},
 	)
-	testControllerConfig = jujuesting.FakeControllerConfig()
 )
 
 type mockEnviron struct {

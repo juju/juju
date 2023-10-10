@@ -14,7 +14,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/context"
@@ -22,26 +21,16 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ControllerConfigService defines the controller config service.
-type ControllerConfigService interface {
-	ControllerConfig(stdcontext.Context) (controller.Config, error)
-}
-
 // ValidateExistingModelCredential checks if the cloud credential that a given model uses is valid for it.
 func ValidateExistingModelCredential(
 	callCtx context.ProviderCallContext,
-	backend PersistentBackend,
-	controllerConfigService ControllerConfigService,
+	model Model,
+	backend MachineService,
+	credentialTag names.CloudCredentialTag,
 	credentialService common.CredentialService,
 	cld cloud.Cloud, checkCloudInstances bool,
 ) (params.ErrorResults, error) {
-	model, err := backend.Model()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-
-	credentialTag, isSet := model.CloudCredentialTag()
-	if !isSet {
+	if credentialTag.IsZero() {
 		return params.ErrorResults{}, nil
 	}
 
@@ -54,24 +43,20 @@ func ValidateExistingModelCredential(
 		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Label)
 	}
 	credential := cloud.NewCredential(storedCredential.AuthType(), storedCredential.Attributes())
-	return ValidateNewModelCredential(callCtx, backend, controllerConfigService, credentialTag, &credential, cld, checkCloudInstances)
+	return ValidateNewModelCredential(callCtx, model, backend, credentialTag, &credential, cld, checkCloudInstances)
 }
 
 // ValidateNewModelCredential checks if a new cloud credential could be valid for a given model.
 func ValidateNewModelCredential(
 	callCtx context.ProviderCallContext,
-	backend PersistentBackend,
-	controllerConfigService ControllerConfigService,
+	model Model,
+	backend MachineService,
 	credentialTag names.CloudCredentialTag,
 	credential *cloud.Credential,
 	cld cloud.Cloud,
 	checkCloudInstances bool,
 ) (params.ErrorResults, error) {
-	openParams, err := buildOpenParams(callCtx, controllerConfigService, backend, cld, credentialTag, credential)
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	model, err := backend.Model()
+	openParams, err := buildOpenParams(model, cld, credentialTag, credential)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -97,7 +82,7 @@ func checkCAASModelCredential(ctx stdcontext.Context, brokerParams environs.Open
 	return params.ErrorResults{}, nil
 }
 
-func checkIAASModelCredential(callCtx context.ProviderCallContext, openParams environs.OpenParams, backend PersistentBackend, checkCloudInstances bool) (params.ErrorResults, error) {
+func checkIAASModelCredential(callCtx context.ProviderCallContext, openParams environs.OpenParams, backend MachineService, checkCloudInstances bool) (params.ErrorResults, error) {
 	env, err := newEnv(callCtx, openParams)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -112,7 +97,7 @@ func checkIAASModelCredential(callCtx context.ProviderCallContext, openParams en
 // checkMachineInstances compares model machines from state with
 // the ones reported by the provider using supplied credential.
 // This only makes sense for non-k8s providers.
-func checkMachineInstances(callCtx context.ProviderCallContext, backend PersistentBackend, provider CloudProvider, checkCloudInstances bool) (params.ErrorResults, error) {
+func checkMachineInstances(callCtx context.ProviderCallContext, backend MachineService, provider CloudProvider, checkCloudInstances bool) (params.ErrorResults, error) {
 	fail := func(original error) (params.ErrorResults, error) {
 		return params.ErrorResults{}, original
 	}
@@ -194,21 +179,14 @@ var (
 )
 
 func buildOpenParams(
-	ctx context.ProviderCallContext,
-	controllerConfigService ControllerConfigService,
-	backend PersistentBackend, modelCloud cloud.Cloud,
+	model Model, modelCloud cloud.Cloud,
 	credentialTag names.CloudCredentialTag, credential *cloud.Credential,
 ) (environs.OpenParams, error) {
 	fail := func(original error) (environs.OpenParams, error) {
 		return environs.OpenParams{}, original
 	}
 
-	model, err := backend.Model()
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-
-	err = validateCloudCredential(modelCloud, credentialTag)
+	err := validateCloudCredential(modelCloud, credentialTag)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -223,12 +201,8 @@ func buildOpenParams(
 		return fail(errors.Trace(err))
 	}
 
-	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
 	return environs.OpenParams{
-		ControllerUUID: controllerConfig.ControllerUUID(),
+		ControllerUUID: model.ControllerUUID(),
 		Cloud:          tempCloudSpec,
 		Config:         cfg,
 	}, nil

@@ -59,7 +59,6 @@ type API struct {
 	modelImporter             ModelImporter
 	externalControllerService ExternalControllerService
 	cloudService              common.CloudService
-	controllerConfigService   ControllerConfigService
 	credentialService         common.CredentialService
 	pool                      *state.StatePool
 	authorizer                facade.Authorizer
@@ -98,7 +97,6 @@ func NewAPI(
 		state:                     st,
 		modelImporter:             modelImporter,
 		pool:                      pool,
-		controllerConfigService:   controllerConfigService,
 		externalControllerService: externalControllerService,
 		cloudService:              cloudService,
 		credentialService:         credentialService,
@@ -378,10 +376,17 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
+
+	credentialTag, isSet := model.CloudCredentialTag()
+	if !isSet {
+		return params.ErrorResults{}, nil
+	}
+
 	return credentialcommon.ValidateExistingModelCredential(
 		environscontext.CallContext(st.State),
-		credentialcommon.NewPersistentBackend(st.State),
-		api.controllerConfigService,
+		model,
+		credentialcommon.NewMachineService(st.State),
+		credentialTag,
 		api.credentialService,
 		*cloud,
 		cloud.Type != "manual",

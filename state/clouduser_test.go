@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -106,7 +106,7 @@ func (s *CloudUserSuite) TestCloudsForUser(c *gc.C) {
 	cloudName := s.assertAddCloud(c, permission.AddModelAccess)
 	info, err := s.State.CloudsForUser(names.NewUserTag("validusername"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info, jc.DeepEquals, []state.CloudInfo{
+	c.Assert(info, jc.DeepEquals, []cloud.CloudAccess{
 		{
 			Name:   cloudName,
 			Access: permission.AddModelAccess,

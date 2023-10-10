@@ -8,7 +8,9 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
+	envcontext "github.com/juju/juju/environs/context"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -20,20 +22,44 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacadeV7 is used for API registration.
 func newFacadeV7(context facade.Context) (*CloudAPI, error) {
-	st := NewStateBackend(context.State())
-	pool := NewModelPoolBackend(context.StatePool())
-	systemState, err := pool.SystemState()
+	credentialCallContextGetter := func(modelUUID string) (credentialcommon.Model, credentialcommon.MachineService, envcontext.ProviderCallContext, error) {
+		modelState, err := context.StatePool().Get(modelUUID)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		defer modelState.Release()
+
+		model, err := modelState.Model()
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		return model, credentialcommon.NewMachineService(modelState.State), envcontext.CallContext(modelState.State), err
+	}
+	systemState, err := context.StatePool().SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cloudPermissionService := systemState
+
+	userService := stateShim{context.State()}
+	modelCredentialService := context.State()
+
+	controllerInfo, err := systemState.ControllerInfo()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	serviceFactory := context.ServiceFactory()
 
-	ctlrSt := NewStateBackend(systemState)
 	return NewCloudAPI(
-		st, ctlrSt, pool,
-		serviceFactory.ControllerConfig(),
+		systemState.ControllerTag(),
+		controllerInfo.CloudName,
+		credentialCallContextGetter,
+		credentialcommon.ValidateNewModelCredential,
+		userService,
+		modelCredentialService,
 		serviceFactory.Cloud(),
+		cloudPermissionService,
 		serviceFactory.Credential(),
 		context.Auth(), context.Logger().Child("cloud"),
 	)

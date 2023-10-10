@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v4"
 	jujutxn "github.com/juju/txn/v3"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 )
@@ -58,35 +59,26 @@ func (st *State) modelsWithCredential(tag names.CloudCredentialTag) ([]modelDoc,
 	return docs, nil
 }
 
-// CredentialOwnerModelAccess stores cloud credential model information for the credential owner
-// or an error retrieving it.
-type CredentialOwnerModelAccess struct {
-	ModelUUID   string
-	ModelName   string
-	OwnerAccess permission.Access
-	Error       error
-}
-
 // CredentialModelsAndOwnerAccess returns all models that use given cloud credential as well as
 // what access the credential owner has on these models.
-func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]CredentialOwnerModelAccess, error) {
+func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]cloud.CredentialOwnerModelAccess, error) {
 	models, err := st.modelsWithCredential(tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var results []CredentialOwnerModelAccess
+	var results []cloud.CredentialOwnerModelAccess
 	for _, m := range models {
 		ownerAccess, err := st.UserAccess(tag.Owner(), names.NewModelTag(m.UUID))
 		if err != nil {
 			if errors.Is(err, errors.NotFound) {
-				results = append(results, CredentialOwnerModelAccess{ModelName: m.Name, ModelUUID: m.UUID, OwnerAccess: permission.NoAccess})
+				results = append(results, cloud.CredentialOwnerModelAccess{ModelName: m.Name, ModelUUID: m.UUID, OwnerAccess: permission.NoAccess})
 				continue
 			}
-			results = append(results, CredentialOwnerModelAccess{ModelName: m.Name, ModelUUID: m.UUID, Error: errors.Trace(err)})
+			results = append(results, cloud.CredentialOwnerModelAccess{ModelName: m.Name, ModelUUID: m.UUID, Error: errors.Trace(err)})
 			continue
 		}
-		results = append(results, CredentialOwnerModelAccess{ModelName: m.Name, ModelUUID: m.UUID, OwnerAccess: ownerAccess.Access})
+		results = append(results, cloud.CredentialOwnerModelAccess{ModelName: m.Name, ModelUUID: m.UUID, OwnerAccess: ownerAccess.Access})
 	}
 	return results, nil
 }

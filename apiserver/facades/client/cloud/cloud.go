@@ -21,18 +21,13 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/environs"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	stateerrors "github.com/juju/juju/state/errors"
 )
-
-// ControllerConfigService defines the controller config service.
-type ControllerConfigService interface {
-	ControllerConfig(ctx context.Context) (controller.Config, error)
-}
 
 // CloudV7 defines the methods on the cloud API facade, version 7.
 type CloudV7 interface {
@@ -53,37 +48,62 @@ type CloudV7 interface {
 // CloudAPI implements the cloud interface and is the concrete implementation
 // of the api end point.
 type CloudAPI struct {
-	backend                 Backend
-	ctlrBackend             Backend
-	cloudService            CloudService
-	controllerConfigService ControllerConfigService
-	credentialService       CredentialService
+	userService            UserService
+	modelCredentialService ModelCredentialService
+
+	cloudService           CloudService
+	cloudPermissionService CloudPermissionService
+	credentialService      CredentialService
+
+	credentialCallContextGetter CredentialCallContextGetter
+	validateCredentialFunc      ValidateCredentialFunc
 
 	authorizer             facade.Authorizer
 	apiUser                names.UserTag
 	isAdmin                bool
 	getCredentialsAuthFunc common.GetAuthFunc
-	pool                   ModelPoolBackend
-	logger                 loggo.Logger
+
+	controllerTag   names.ControllerTag
+	controllerCloud string
+
+	logger loggo.Logger
 }
 
 var (
 	_ CloudV7 = (*CloudAPI)(nil)
 )
 
+// CredentialCallContextGetter returns the artefacts for a specified model, used to make credential api calls.
+type CredentialCallContextGetter func(modelUUID string) (credentialcommon.Model, credentialcommon.MachineService, envcontext.ProviderCallContext, error)
+
+// ValidateCredentialFunc checks if a new cloud credential could be valid for a given model.
+type ValidateCredentialFunc func(
+	callCtx envcontext.ProviderCallContext,
+	model credentialcommon.Model,
+	backend credentialcommon.MachineService,
+	credentialTag names.CloudCredentialTag,
+	credential *cloud.Credential,
+	cld cloud.Cloud,
+	checkCloudInstances bool,
+) (params.ErrorResults, error)
+
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
 func NewCloudAPI(
-	backend, ctlrBackend Backend, pool ModelPoolBackend,
-	controllerConfigService ControllerConfigService,
-	cloudService CloudService, credentialService CredentialService,
+	controllerTag names.ControllerTag,
+	controllerCloud string,
+	credentialCallContextGetter CredentialCallContextGetter,
+	validateCredentialFunc ValidateCredentialFunc,
+	userService UserService,
+	modelCredentialService ModelCredentialService,
+	cloudService CloudService, cloudPermissionService CloudPermissionService, credentialService CredentialService,
 	authorizer facade.Authorizer, logger loggo.Logger,
 ) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
+	err := authorizer.HasPermission(permission.SuperuserAccess, controllerTag)
 	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, err
 	}
@@ -99,21 +119,25 @@ func NewCloudAPI(
 		}, nil
 	}
 	return &CloudAPI{
-		backend:                backend,
-		ctlrBackend:            ctlrBackend,
-		cloudService:           cloudService,
-		credentialService:      credentialService,
-		authorizer:             authorizer,
-		getCredentialsAuthFunc: getUserAuthFunc,
-		apiUser:                authUser,
-		isAdmin:                isAdmin,
-		pool:                   pool,
-		logger:                 logger,
+		controllerTag:               controllerTag,
+		controllerCloud:             controllerCloud,
+		userService:                 userService,
+		modelCredentialService:      modelCredentialService,
+		cloudService:                cloudService,
+		cloudPermissionService:      cloudPermissionService,
+		credentialService:           credentialService,
+		authorizer:                  authorizer,
+		getCredentialsAuthFunc:      getUserAuthFunc,
+		apiUser:                     authUser,
+		isAdmin:                     isAdmin,
+		credentialCallContextGetter: credentialCallContextGetter,
+		validateCredentialFunc:      validateCredentialFunc,
+		logger:                      logger,
 	}, nil
 }
 
 func (api *CloudAPI) canAccessCloud(cloud string, user names.UserTag, access permission.Access) (bool, error) {
-	perm, err := api.ctlrBackend.GetCloudAccess(cloud, user)
+	perm, err := api.cloudPermissionService.GetCloudAccess(cloud, user)
 	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}
@@ -131,7 +155,7 @@ func (api *CloudAPI) Clouds(ctx context.Context) (params.CloudsResult, error) {
 	if err != nil {
 		return result, err
 	}
-	err = api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	err = api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
 	if err != nil &&
 		!errors.Is(err, authentication.ErrorEntityMissingPermission) &&
 		!errors.Is(err, errors.NotFound) {
@@ -161,7 +185,7 @@ func (api *CloudAPI) Cloud(ctx context.Context, args params.Entities) (params.Cl
 	results := params.CloudResults{
 		Results: make([]params.CloudResult, len(args.Entities)),
 	}
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
 	if err != nil &&
 		!errors.Is(err, authentication.ErrorEntityMissingPermission) &&
 		!errors.Is(err, errors.NotFound) {
@@ -227,14 +251,14 @@ func (api *CloudAPI) CloudInfo(ctx context.Context, args params.Entities) (param
 }
 
 func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*params.CloudInfo, error) {
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
 	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, errors.Trace(err)
 	}
 	isAdmin := err == nil
 	// If not a controller admin, check for cloud admin.
 	if !isAdmin {
-		perm, err := api.ctlrBackend.GetCloudAccess(tag.Id(), api.apiUser)
+		perm, err := api.cloudPermissionService.GetCloudAccess(tag.Id(), api.apiUser)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
@@ -249,7 +273,7 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 		CloudDetails: cloudDetailsToParams(*aCloud),
 	}
 
-	cloudUsers, err := api.ctlrBackend.GetCloudUsers(tag.Id())
+	cloudUsers, err := api.cloudPermissionService.GetCloudUsers(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -263,7 +287,7 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 		userTag := names.NewUserTag(userId)
 		displayName := userId
 		if userTag.IsLocal() {
-			u, err := api.backend.User(userTag)
+			u, err := api.userService.User(userTag)
 			if err != nil {
 				if !stateerrors.IsDeletedUserError(err) {
 					// We ignore deleted users for now. So if it is not a
@@ -317,7 +341,7 @@ func (api *CloudAPI) ListCloudInfo(ctx context.Context, req params.ListCloudsReq
 		return result, nil
 	}
 
-	cloudInfos, err := api.ctlrBackend.CloudsForUser(userTag)
+	cloudAccess, err := api.cloudPermissionService.CloudsForUser(userTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -327,14 +351,14 @@ func (api *CloudAPI) ListCloudInfo(ctx context.Context, req params.ListCloudsReq
 		cloudsByName[cld.Name] = cld
 	}
 
-	for _, ci := range cloudInfos {
-		cld, ok := cloudsByName[ci.Name]
+	for _, ca := range cloudAccess {
+		cld, ok := cloudsByName[ca.Name]
 		if !ok {
 			continue
 		}
 		info := &params.ListCloudInfo{
 			CloudDetails: cloudDetailsToParams(cld),
-			Access:       string(ci.Access),
+			Access:       string(ca.Access),
 		}
 		result.Results = append(result.Results, params.ListCloudInfoResult{Result: info})
 	}
@@ -445,7 +469,7 @@ func (api *CloudAPI) UpdateCredentialsCheckModels(ctx context.Context, args para
 func (api *CloudAPI) commonUpdateCredentials(ctx context.Context, update bool, force, legacy bool, args params.TaggedCredentials) (params.UpdateCredentialResults, error) {
 	if force {
 		// Only controller admins can ask for an update to be forced.
-		err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+		err := api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
 		if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return params.UpdateCredentialResults{}, errors.Trace(err)
 		}
@@ -549,7 +573,7 @@ func (api *CloudAPI) commonUpdateCredentials(ctx context.Context, update bool, f
 				// Existing credential will become valid after this call, and
 				// the model status of all models that use it will be reverted.
 				if existing.Invalid != in.Invalid && !in.Invalid {
-					if err := api.backend.CloudCredentialUpdated(tag); err != nil {
+					if err := api.modelCredentialService.CloudCredentialUpdated(tag); err != nil {
 						results[i].Error = apiservererrors.ServerError(err)
 						continue
 					}
@@ -561,7 +585,7 @@ func (api *CloudAPI) commonUpdateCredentials(ctx context.Context, update bool, f
 }
 
 func (api *CloudAPI) credentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
-	models, err := api.backend.CredentialModels(tag)
+	models, err := api.modelCredentialService.CredentialModels(tag)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
@@ -571,15 +595,15 @@ func (api *CloudAPI) credentialModels(tag names.CloudCredentialTag) (map[string]
 func (api *CloudAPI) validateCredentialForModel(modelUUID string, cld cloud.Cloud, tag names.CloudCredentialTag, credential *cloud.Credential) []params.ErrorResult {
 	var result []params.ErrorResult
 
-	m, callContext, err := api.pool.GetModelCallContext(modelUUID)
+	model, machineService, callContext, err := api.credentialCallContextGetter(modelUUID)
 	if err != nil {
 		return append(result, params.ErrorResult{Error: apiservererrors.ServerError(err)})
 	}
 
-	modelErrors, err := validateNewCredentialForModelFunc(
+	modelErrors, err := api.validateCredentialFunc(
 		callContext,
-		m,
-		api.controllerConfigService,
+		model,
+		machineService,
 		tag,
 		credential,
 		cld,
@@ -593,8 +617,6 @@ func (api *CloudAPI) validateCredentialForModel(modelUUID string, cld cloud.Clou
 	}
 	return result
 }
-
-var validateNewCredentialForModelFunc = credentialcommon.ValidateNewModelCredential
 
 func plural(length int) string {
 	if length == 1 {
@@ -682,7 +704,7 @@ func (api *CloudAPI) RevokeCredentialsCheckModels(ctx context.Context, args para
 		} else {
 			// If credential was successfully removed, we also want to clear all references to it from the models.
 			// lp#1841885
-			if err := api.backend.RemoveModelsCredential(tag); err != nil {
+			if err := api.modelCredentialService.RemoveModelsCredential(tag); err != nil {
 				results.Results[i].Error = apiservererrors.ServerError(err)
 			}
 		}
@@ -770,18 +792,14 @@ func (api *CloudAPI) Credential(ctx context.Context, args params.Entities) (para
 
 // AddCloud adds a new cloud, different from the one managed by the controller.
 func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs) error {
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
 	if err != nil {
 		return err
 	}
 
 	if cloudArgs.Cloud.Type != k8sconstants.CAASProviderType {
 		// All non-k8s cloud need to go through whitelist.
-		controllerInfo, err := api.backend.ControllerInfo()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		controllerCloud, err := api.cloudService.Get(ctx, controllerInfo.CloudName)
+		controllerCloud, err := api.cloudService.Get(ctx, api.controllerCloud)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -804,7 +822,7 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 	if err != nil {
 		return errors.Annotatef(err, "creating cloud %q", cloudArgs.Name)
 	}
-	err = api.backend.CreateCloudAccess(cloudArgs.Name, api.apiUser, permission.AdminAccess)
+	err = api.cloudPermissionService.CreateCloudAccess(cloudArgs.Name, api.apiUser, permission.AdminAccess)
 	return errors.Trace(err)
 }
 
@@ -813,7 +831,7 @@ func (api *CloudAPI) UpdateCloud(ctx context.Context, cloudArgs params.UpdateClo
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(cloudArgs.Clouds)),
 	}
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
 	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return results, errors.Trace(err)
 	} else if err != nil {
@@ -832,7 +850,7 @@ func (api *CloudAPI) RemoveClouds(ctx context.Context, args params.Entities) (pa
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.ctlrBackend.ControllerTag())
+	err := api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
 	if err != nil && !errors.Is(err, errors.NotFound) && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
@@ -924,7 +942,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 		}
 
 		// get models
-		models, err := api.backend.CredentialModelsAndOwnerAccess(tag)
+		models, err := api.modelCredentialService.CredentialModelsAndOwnerAccess(tag)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
 		}
@@ -979,7 +997,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 }
 
 // ModifyCloudAccess changes the model access granted to users.
-func (c *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyCloudAccessRequest) (params.ErrorResults, error) {
+func (api *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyCloudAccessRequest) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
@@ -993,23 +1011,23 @@ func (c *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyClou
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		_, err = c.cloudService.Get(ctx, cloudTag.Id())
+		_, err = api.cloudService.Get(ctx, cloudTag.Id())
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if c.apiUser.String() == arg.UserTag {
+		if api.apiUser.String() == arg.UserTag {
 			result.Results[i].Error = apiservererrors.ServerError(errors.New("cannot change your own cloud access"))
 			continue
 		}
 
-		err = c.authorizer.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+		err = api.authorizer.HasPermission(permission.SuperuserAccess, api.controllerTag)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
 		if err != nil {
-			callerAccess, err := c.backend.GetCloudAccess(cloudTag.Id(), c.apiUser)
+			callerAccess, err := api.cloudPermissionService.GetCloudAccess(cloudTag.Id(), api.apiUser)
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
@@ -1033,14 +1051,14 @@ func (c *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyClou
 		}
 
 		result.Results[i].Error = apiservererrors.ServerError(
-			ChangeCloudAccess(c.backend, cloudTag.Id(), targetUserTag, arg.Action, cloudAccess))
+			ChangeCloudAccess(api.cloudPermissionService, cloudTag.Id(), targetUserTag, arg.Action, cloudAccess))
 	}
 	return result, nil
 }
 
 // ChangeCloudAccess performs the requested access grant or revoke action for the
 // specified user on the cloud.
-func ChangeCloudAccess(backend Backend, cloud string, targetUserTag names.UserTag, action params.CloudAction, access permission.Access) error {
+func ChangeCloudAccess(backend CloudPermissionService, cloud string, targetUserTag names.UserTag, action params.CloudAction, access permission.Access) error {
 	switch action {
 	case params.GrantCloudAccess:
 		err := grantCloudAccess(backend, cloud, targetUserTag, access)
@@ -1055,7 +1073,7 @@ func ChangeCloudAccess(backend Backend, cloud string, targetUserTag names.UserTa
 	}
 }
 
-func grantCloudAccess(backend Backend, cloud string, targetUserTag names.UserTag, access permission.Access) error {
+func grantCloudAccess(backend CloudPermissionService, cloud string, targetUserTag names.UserTag, access permission.Access) error {
 	err := backend.CreateCloudAccess(cloud, targetUserTag, access)
 	if errors.Is(err, errors.AlreadyExists) {
 		cloudAccess, err := backend.GetCloudAccess(cloud, targetUserTag)
@@ -1083,7 +1101,7 @@ func grantCloudAccess(backend Backend, cloud string, targetUserTag names.UserTag
 	return nil
 }
 
-func revokeCloudAccess(backend Backend, cloud string, targetUserTag names.UserTag, access permission.Access) error {
+func revokeCloudAccess(backend CloudPermissionService, cloud string, targetUserTag names.UserTag, access permission.Access) error {
 	switch access {
 	case permission.AddModelAccess:
 		// Revoking add-model access removes all access.
