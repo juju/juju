@@ -4,9 +4,12 @@
 package eventsource
 
 import (
+	"context"
+
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 )
 
 // BaseWatcher encapsulates members common to all EventQueue-based watchers.
@@ -36,4 +39,15 @@ func (w *BaseWatcher) Kill() {
 // and returns the error with which it was killed.
 func (w *BaseWatcher) Wait() error {
 	return w.tomb.Wait()
+}
+
+// Predicate is a function that determines whether a change event
+// should be sent to the watcher.
+// Returning false will prevent the events from being sent.
+type Predicate func(context.Context, database.TxnRunner, []changestream.ChangeEvent) (bool, error)
+
+// defaultPredicate is the default predicate used by the watchers.
+// It will always return true, allowing all events to be sent.
+func defaultPredicate(context.Context, database.TxnRunner, []changestream.ChangeEvent) (bool, error) {
+	return true, nil
 }

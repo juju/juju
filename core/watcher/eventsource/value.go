@@ -10,19 +10,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
-	"github.com/juju/juju/core/database"
 )
-
-// ValuePredicate is a function that determines whether a change event
-// should be sent to the watcher.
-// Returning false will prevent the events from being sent.
-type ValuePredicate func(context.Context, database.TxnRunner, []changestream.ChangeEvent) (bool, error)
-
-// defaultPredicate is the default predicate used by ValueWatcher.
-// It will always return true, allowing all events to be sent.
-func defaultPredicate(context.Context, database.TxnRunner, []changestream.ChangeEvent) (bool, error) {
-	return true, nil
-}
 
 // ValueWatcher watches for events associated with a single value
 // from a namespace.
@@ -36,7 +24,7 @@ type ValueWatcher struct {
 	changeValue string
 	changeMask  changestream.ChangeType
 
-	predicate ValuePredicate
+	predicate Predicate
 }
 
 // NewValueWatcher returns a new watcher that receives changes from the input
@@ -59,7 +47,7 @@ func NewValueWatcher(base *BaseWatcher, namespace, changeValue string, changeMas
 // NewValuePredicateWatcher returns a new watcher that receives changes from
 // the input base watcher's db/queue when predicate accepts the change-log
 // events occur for a specific changeValue from the input namespace.
-func NewValuePredicateWatcher(base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType, predicate ValuePredicate) *ValueWatcher {
+func NewValuePredicateWatcher(base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType, predicate Predicate) *ValueWatcher {
 	w := &ValueWatcher{
 		BaseWatcher: base,
 		out:         make(chan struct{}),
@@ -87,9 +75,7 @@ func (w *ValueWatcher) loop() error {
 	})
 	subscription, err := w.watchableDB.Subscribe(opt)
 	if err != nil {
-		// TODO(wallyworld) - remove when we have dqlite watchers on k8s
-		w.logger.Warningf("error subscribing to entity %q in namespace %q: %v", w.changeValue, w.namespace, err)
-		subscription = noopSubscription{}
+		return errors.Annotatef(err, "subscribing to namespace %q", w.namespace)
 	}
 	defer subscription.Unsubscribe()
 

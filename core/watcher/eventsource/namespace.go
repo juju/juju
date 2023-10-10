@@ -28,12 +28,15 @@ type NamespaceWatcher struct {
 	namespace  string
 	selectAll  string
 	changeMask changestream.ChangeType
+
+	predicate Predicate
 }
 
 // NewNamespaceWatcher returns a new watcher that receives changes from the
 // input base watcher's db/queue when changes in the namespace occur.
 func NewNamespaceWatcher(
-	base *BaseWatcher, namespace string, changeMask changestream.ChangeType, initialStateQuery string,
+	base *BaseWatcher, namespace string,
+	changeMask changestream.ChangeType, initialStateQuery string,
 ) watcher.StringsWatcher {
 	w := &NamespaceWatcher{
 		BaseWatcher: base,
@@ -41,6 +44,27 @@ func NewNamespaceWatcher(
 		namespace:   namespace,
 		selectAll:   initialStateQuery,
 		changeMask:  changeMask,
+		predicate:   defaultPredicate,
+	}
+
+	w.tomb.Go(w.loop)
+	return w
+}
+
+// NewNamespacePredicateWatcher returns a new watcher that receives changes
+// from the input base watcher's db/queue when changes in the namespace occur.
+func NewNamespacePredicateWatcher(
+	base *BaseWatcher, namespace string,
+	changeMask changestream.ChangeType, initialStateQuery string,
+	predicate Predicate,
+) watcher.StringsWatcher {
+	w := &NamespaceWatcher{
+		BaseWatcher: base,
+		out:         make(chan []string),
+		namespace:   namespace,
+		selectAll:   initialStateQuery,
+		changeMask:  changeMask,
+		predicate:   predicate,
 	}
 
 	w.tomb.Go(w.loop)
@@ -61,13 +85,7 @@ func (w *NamespaceWatcher) loop() error {
 	}
 	subscription, err := w.watchableDB.Subscribe(changestream.Namespace(w.namespace, w.changeMask))
 	if err != nil {
-		// TODO(wallyworld) - remove when we have dqlite watchers on k8s
-		w.logger.Warningf("error subscribing to namespace %q: %v", w.namespace, err)
-		subscription = noopSubscription{}
-	}
-	// TODO(wallyworld) - this is nil sometimes is cmd/jujud/agent tests.
-	if subscription == nil {
-		return errors.Errorf("nil subscription subscribing to namespace %q", w.namespace)
+		return errors.Annotatef(err, "subscribing to namespace %q", w.namespace)
 	}
 	defer subscription.Unsubscribe()
 
@@ -85,6 +103,11 @@ func (w *NamespaceWatcher) loop() error {
 	var in <-chan []changestream.ChangeEvent
 	out := w.out
 
+	// Note: we don't use the predicate to prevent the initial event. All
+	// namespace watchers are __required__ to send the initial state. The API
+	// design for watchers when they subscribe is that they must send the
+	// initial state, and then optional deltas thereafter.
+
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -95,6 +118,17 @@ func (w *NamespaceWatcher) loop() error {
 			if !ok {
 				w.logger.Debugf("change channel closed for %q; terminating watcher", w.namespace)
 				return nil
+			}
+
+			// Check with the predicate to determine if we should send a
+			// notification.
+			ctx := w.tomb.Context(context.Background())
+			allow, err := w.predicate(ctx, w.watchableDB, subChanges)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !allow {
+				continue
 			}
 
 			// We have changes. Tick over to dispatch mode.
