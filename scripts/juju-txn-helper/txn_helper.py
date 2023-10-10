@@ -175,6 +175,7 @@ def _print_op_details(db_client, op_index, op, include_passes):  # pylint: disab
     collection = getattr(db_client, op['c'])
     match_doc_id = op['d']
     find_filter = {"_id": match_doc_id}
+    should_print = False
     if 'a' not in op:
         if include_passes:
             print('  Op {}: no assertion present; passes'.format(op_index))
