@@ -157,6 +157,7 @@ func (w *configWorker) loop() error {
 				runnerWorker, err := w.runner.Worker(name, w.catacomb.Dying())
 				if err != nil {
 					if errors.Is(err, errors.NotFound) {
+						w.cfg.Logger.Debugf("worker %q not found, skipping", name)
 						continue
 					}
 					// If the runner is dead, we should stop.
