@@ -9,6 +9,7 @@ JUJUD_BIN_DIR=${JUJUD_BIN_DIR:-${BUILD_DIR}/bin}
 
 # Versioning variables
 JUJU_BUILD_NUMBER=${JUJU_BUILD_NUMBER:-}
+JUJU_DB_VERSION=${JUJU_DB_VERSION:-}
 
 # Docker variables
 OCI_BUILDER=${OCI_BUILDER:-docker}
@@ -147,6 +148,23 @@ build_push_operator_image() {
         echo "unknown OCI_BUILDER=${OCI_BUILDER} expected docker or podman"
         exit 1
     fi
+}
+
+seed_repository() {
+  set -x
+  docker pull "docker.io/jujusolutions/juju-db:${JUJU_DB_VERSION}"
+	docker tag "docker.io/jujusolutions/juju-db:${JUJU_DB_VERSION}" "${DOCKER_USERNAME}/juju-db:${JUJU_DB_VERSION}"
+	docker push "${DOCKER_USERNAME}/juju-db:${JUJU_DB_VERSION}"
+
+  # copy all the lts that are available
+  for (( i = 18; ; i += 2 )); do
+    if docker pull "docker.io/jujusolutions/charm-base:ubuntu-$i.04" ; then
+      docker tag "docker.io/jujusolutions/charm-base:ubuntu-$i.04" "${DOCKER_USERNAME}/charm-base:ubuntu-$i.04"
+      docker push "${DOCKER_USERNAME}/charm-base:ubuntu-$i.04"
+    else
+      break
+    fi
+  done	
 }
 
 wait_for_dpkg() {

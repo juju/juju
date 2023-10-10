@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/cmd/juju/commands"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
@@ -45,6 +44,8 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -destination ./mocks/packngo.go -package mocks github.com/packethost/packngo DeviceService,OSService,PlanService,ProjectIPService
 
 var logger = loggo.GetLogger("juju.provider.equinix")
+
+const sshPort = 22
 
 type environConfig struct {
 	config *config.Config
@@ -286,8 +287,8 @@ func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, e
 		"iptables -A INPUT -i lo -j ACCEPT",
 		"iptables -A OUTPUT -o lo -j ACCEPT",
 		"iptables -P INPUT ! -i lo -s 127.0.0.0/8 -j REJECT",
-		fmt.Sprintf("iptables -A OUTPUT -p tcp --sport %d -m conntrack --ctstate ESTABLISHED -j ACCEPT", commands.SSHPort),
-		fmt.Sprintf(acceptInputPort, commands.SSHPort),
+		fmt.Sprintf("iptables -A OUTPUT -p tcp --sport %d -m conntrack --ctstate ESTABLISHED -j ACCEPT", sshPort),
+		fmt.Sprintf(acceptInputPort, sshPort),
 	}
 	if args.InstanceConfig.IsController() {
 		for _, port := range []int{

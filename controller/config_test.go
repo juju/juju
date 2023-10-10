@@ -6,8 +6,6 @@ package controller_test
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	stdtesting "testing"
 	"time"
 
@@ -657,42 +655,9 @@ func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *gc.C) {
 func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	// Ensure no requests are made from controller config code.
 	mockRoundTripper := mocks.NewMockRoundTripper(ctrl)
-	gomock.InOrder(
-		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
-				resps := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(nil),
-				}
-				return resps, nil
-			},
-		),
-		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://registry.foo.com/v2`)
-				resps := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(nil),
-				}
-				return resps, nil
-			},
-		),
-		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/`)
-				resps := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       ioutil.NopCloser(nil),
-				}
-				return resps, nil
-			},
-		),
-	)
 	s.PatchValue(&registry.DefaultTransport, mockRoundTripper)
 
 	type tc struct {
