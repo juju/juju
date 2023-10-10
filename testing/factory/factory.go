@@ -497,6 +497,10 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		if chSeries == "kubernetes" {
 			chSeries = corebase.LegacyKubernetesSeries()
 		}
+		rev := curl.Revision
+		if rev == -1 {
+			rev = 0
+		}
 		base, err := corebase.GetBaseFromSeries(chSeries)
 		c.Assert(err, jc.ErrorIsNil)
 		var channel *state.Channel
@@ -515,7 +519,9 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 				Architecture: curl.Architecture,
 				OS:           base.OS,
 				Channel:      base.Channel.String(),
-			}}
+			},
+			Revision: &rev,
+		}
 	}
 
 	rSt := factory.st.Resources()

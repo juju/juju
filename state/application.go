@@ -1047,6 +1047,11 @@ func (a *Application) CharmURL() (*string, bool) {
 	return a.doc.CharmURL, a.doc.ForceCharm
 }
 
+// CharmRevision returns the revision of an application's charm
+func (a *Application) CharmRevision() *int {
+	return a.CharmOrigin().Revision
+}
+
 // Endpoints returns the application's currently available relation endpoints.
 func (a *Application) Endpoints() (eps []Endpoint, err error) {
 	ch, _, err := a.Charm()

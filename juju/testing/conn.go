@@ -845,6 +845,10 @@ func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Ch
 	if appSeries == "kubernetes" {
 		appSeries = corebase.LegacyKubernetesSeries()
 	}
+	rev := curl.Revision
+	if rev == -1 {
+		rev = 0
+	}
 	base, err := corebase.GetBaseFromSeries(appSeries)
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
@@ -854,7 +858,9 @@ func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Ch
 			Platform: &state.Platform{
 				OS:      base.OS,
 				Channel: base.Channel.String(),
-			}},
+			},
+			Revision: &rev,
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
@@ -875,6 +881,10 @@ func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *
 	curl := charm.MustParseURL(ch.URL())
 	base, err := corebase.GetBaseFromSeries(curl.Series)
 	c.Assert(err, jc.ErrorIsNil)
+	rev := curl.Revision
+	if rev == -1 {
+		rev = 0
+	}
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
 		Charm: ch,
@@ -884,7 +894,9 @@ func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *
 				Architecture: arch,
 				OS:           base.OS,
 				Channel:      base.Channel.String(),
-			}},
+			},
+			Revision: &rev,
+		},
 		Constraints: constraints.MustParse("arch=" + arch),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -895,6 +907,10 @@ func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, c
 	curl := charm.MustParseURL(ch.URL())
 	base, err := corebase.GetBaseFromSeries(curl.Series)
 	c.Assert(err, jc.ErrorIsNil)
+	rev := curl.Revision
+	if rev == -1 {
+		rev = 0
+	}
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
 		Charm: ch,
@@ -903,7 +919,9 @@ func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, c
 			Platform: &state.Platform{
 				OS:      base.OS,
 				Channel: base.Channel.String(),
-			}},
+			},
+			Revision: &rev,
+		},
 		Storage: storage,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -914,6 +932,10 @@ func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, 
 	curl := charm.MustParseURL(ch.URL())
 	base, err := corebase.GetBaseFromSeries(curl.Series)
 	c.Assert(err, jc.ErrorIsNil)
+	rev := curl.Revision
+	if rev == -1 {
+		rev = 0
+	}
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:  name,
 		Charm: ch,
@@ -922,7 +944,9 @@ func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, 
 			Platform: &state.Platform{
 				OS:      base.OS,
 				Channel: base.Channel.String(),
-			}},
+			},
+			Revision: &rev,
+		},
 		EndpointBindings: bindings,
 	})
 	c.Assert(err, jc.ErrorIsNil)
