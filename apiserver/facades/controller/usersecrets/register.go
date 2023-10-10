@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/state"
 )
 

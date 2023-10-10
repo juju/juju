@@ -6,8 +6,8 @@ package registry_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/internal/docker"
+	"github.com/juju/juju/internal/docker/registry"
 )
 
 type registrySuite struct {
