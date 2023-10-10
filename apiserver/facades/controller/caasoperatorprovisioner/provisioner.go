@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/pki"
@@ -132,7 +134,10 @@ func (a *API) OperatorProvisioningInfo(args params.Entities) (params.OperatorPro
 		modelConfig,
 	)
 
-	imageRepo := cfg.CAASImageRepo()
+	imageRepo, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
+	if err != nil {
+		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+	}
 	registryPath, err := podcfg.GetJujuOCIImagePath(cfg, vers)
 	if err != nil {
 		return result, errors.Trace(err)

@@ -58,7 +58,7 @@ sudo snap install expect
 The static analysis tests also require `golangci-lint`:
 
 ```
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.53.0
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
 ```
 
 To get started, it's best to quickly look at the help command from the runner.

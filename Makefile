@@ -508,8 +508,9 @@ ifeq ($(shell if [ "$(GO_INSTALLED_VERSION)" \< "$(GO_MOD_VERSION)" ]; then echo
 endif
 endif
 
-WAIT_FOR_DPKG=sh -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
-JUJU_DB_CHANNEL=4.4/stable
+WAIT_FOR_DPKG=bash -c '. "${PROJECT_DIR}/make_functions.sh"; wait_for_dpkg "$$@"' wait_for_dpkg
+JUJU_DB_VERSION=4.4
+JUJU_DB_CHANNEL=${JUJU_DB_VERSION}/stable
 
 .PHONY: install-mongo-dependencies
 install-mongo-dependencies:
@@ -552,7 +553,8 @@ check-deps:
 
 
 # CAAS related targets
-DOCKER_USERNAME            ?= jujusolutions
+export OCI_BUILDER         ?= $(shell (which podman 2>&1 > /dev/null && echo podman) || echo docker )
+DOCKER_USERNAME            ?= docker.io/jujusolutions
 DOCKER_BUILDX_CONTEXT      ?= juju-make
 DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
 JUJUD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
@@ -565,6 +567,7 @@ BUILD_OPERATOR_IMAGE=bash -c '. "${PROJECT_DIR}/make_functions.sh"; build_push_o
 OPERATOR_IMAGE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
 OPERATOR_IMAGE_RELEASE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
 UPDATE_MICROK8S_OPERATOR=bash -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
+SEED_REPOSITORY=bash -c '. "${PROJECT_DIR}/make_functions.sh"; seed_repository "$$@"' seed_repository
 
 image_check_prereq=image-check-build
 ifneq ($(OPERATOR_IMAGE_BUILD_SRC),true)
@@ -585,7 +588,9 @@ image-check-build-skip:
 .PHONY: docker-builder
 docker-builder:
 ## docker-builder: Makes sure that there is a buildx context for building the oci images
+ifeq ($(OCI_BUILDER),docker)
 	-@docker buildx create --name ${DOCKER_BUILDX_CONTEXT}
+endif
 
 .PHONY: image-check
 operator-image: image-check docker-builder
@@ -609,11 +614,15 @@ push-operator-image-undefined:
 push-operator-image: $(push_operator_image_prereq)
 ## push-operator-image: Push up the newly built operator image via docker
 
-
 .PHONY: push-release-operator-image
 push-release-operator-image: PUSH_IMAGE=true
 push-release-operator-image: operator-image
 ## push-release-operator-image: Push up the newly built release operator image via docker
+
+.PHONY: seed-repository
+seed-repository:
+## seed-repository: Copy required juju images from docker.io/jujusolutions
+	JUJU_DB_VERSION=$(JUJU_DB_VERSION) $(SEED_REPOSITORY)
 
 
 .PHONY: host-install
@@ -623,18 +632,19 @@ host-install:
 
 .PHONY: minikube-operator-update
 minikube-operator-update: host-install operator-image
-## minikube-operator-update: Push up the newly built operator image for use with minikube
-	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | minikube image load --overwrite=true -
+## minikube-operator-update: Inject the newly built operator image into minikube
+	$(OCI_BUILDER) save "$(shell ${OPERATOR_IMAGE_PATH})" | minikube image load --overwrite=true -
 
 .PHONY: microk8s-operator-update
 microk8s-operator-update: host-install operator-image
-## microk8s-operator-update: Push up the newly built operator image for use with microk8s
+## microk8s-operator-update: Inject the newly built operator image into microk8s
 	@${UPDATE_MICROK8S_OPERATOR}
 
 .PHONY: k3s-operator-update
 k3s-operator-update: host-install operator-image
-## k3s-operator-update: Push up the newly built operator image for use with k3s
-	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | sudo k3s ctr images import -
+## k3s-operator-update: Inject the newly built operator image into k3s
+	$(OCI_BUILDER) save "$(shell ${OPERATOR_IMAGE_PATH})" | sudo k3s ctr images import -
+
 
 .PHONY: check-k8s-model
 check-k8s-model:
@@ -646,7 +656,7 @@ check-k8s-model:
 local-operator-update: check-k8s-model operator-image
 ## local-operator-update: Build then update local operator image
 	$(eval kubeworkers != juju status -m ${JUJU_K8S_MODEL} kubernetes-worker --format json | jq -c '.machines | keys' | tr  -c '[:digit:]' ' ' 2>&1)
-	docker save "$(shell ${OPERATOR_IMAGE_PATH})" | gzip > ${DOCKER_STAGING_DIR}/jujud-operator-image.tar.gz
+	$(OCI_BUILDER) save "$(shell ${OPERATOR_IMAGE_PATH})" | gzip > ${DOCKER_STAGING_DIR}/jujud-operator-image.tar.gz
 	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} ${DOCKER_STAGING_DIR}/jujud-operator-image.tar.gz $(wm):/tmp/jujud-operator-image.tar.gz ; )
 	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/jujud-operator-image.tar.gz | docker load" ; )
 

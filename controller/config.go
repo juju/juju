@@ -12,19 +12,14 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 	"github.com/juju/romulus"
 	"github.com/juju/utils/v3"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/pki"
 )
-
-var logger = loggo.GetLogger("juju.controller")
 
 const (
 	// MongoProfLow represents the most conservative mongo memory profile.
@@ -455,23 +450,32 @@ var (
 	// config attributes that are allowed to be updated after the
 	// controller has been created.
 	AllowedUpdateConfigAttributes = set.NewStrings(
-		AgentLogfileMaxSize,
 		AgentLogfileMaxBackups,
+		AgentLogfileMaxSize,
 		AgentRateLimitMax,
 		AgentRateLimitRate,
 		APIPortOpenDelay,
+		ApplicationResourceDownloadLimit,
 		AuditingEnabled,
 		AuditLogCaptureArgs,
 		AuditLogExcludeMethods,
 		AuditLogMaxBackups,
 		AuditLogMaxSize,
+		CAASImageRepo,
 		// TODO Juju 3.0: ControllerAPIPort should be required and treated
 		// more like api-port.
 		ControllerAPIPort,
 		ControllerName,
+		ControllerResourceDownloadLimit,
+		Features,
+		JujuHASpace,
+		JujuManagementSpace,
+		MaxAgentStateSize,
+		MaxCharmStateSize,
 		MaxDebugLogDuration,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
+		MigrationMinionWaitMax,
 		ModelLogfileMaxBackups,
 		ModelLogfileMaxSize,
 		ModelLogsSize,
@@ -479,14 +483,6 @@ var (
 		PruneTxnQueryCount,
 		PruneTxnSleepTime,
 		PublicDNSAddress,
-		JujuHASpace,
-		JujuManagementSpace,
-		Features,
-		MaxCharmStateSize,
-		MaxAgentStateSize,
-		MigrationMinionWaitMax,
-		ApplicationResourceDownloadLimit,
-		ControllerResourceDownloadLimit,
 		QueryTracingEnabled,
 		QueryTracingThreshold,
 	)
@@ -935,51 +931,15 @@ func (c Config) JujuManagementSpace() string {
 
 // CAASOperatorImagePath sets the url of the docker image
 // used for the application operator.
-func (c Config) CAASOperatorImagePath() (o docker.ImageRepoDetails) {
-	str := c.asString(CAASOperatorImagePath)
-	repoDetails, err := docker.NewImageRepoDetails(str)
-	if repoDetails != nil {
-		return *repoDetails
-	}
-	// This should not happen since we have done validation in c.Valiate().
-	logger.Tracef("parsing controller config %q: %q, err %v", CAASOperatorImagePath, str, err)
-	return o
-}
-
-func validateCAASImageRepo(imageRepo string) (string, error) {
-	if imageRepo == "" {
-		return "", nil
-	}
-	imageDetails, err := docker.NewImageRepoDetails(imageRepo)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if err = imageDetails.Validate(); err != nil {
-		return "", errors.Trace(err)
-	}
-	r, err := registry.New(*imageDetails)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer func() { _ = r.Close() }()
-
-	if err = r.Ping(); err != nil {
-		return "", errors.Trace(err)
-	}
-	return r.ImageRepoDetails().Content(), nil
+// Deprecated: use CAASImageRepo
+func (c Config) CAASOperatorImagePath() string {
+	return c.asString(CAASOperatorImagePath)
 }
 
 // CAASImageRepo sets the url of the docker repo
 // used for the jujud operator and mongo images.
-func (c Config) CAASImageRepo() (o docker.ImageRepoDetails) {
-	str := c.asString(CAASImageRepo)
-	repoDetails, err := docker.NewImageRepoDetails(str)
-	if repoDetails != nil {
-		return *repoDetails
-	}
-	// This should not happen since we have done validation in c.Valiate().
-	logger.Tracef("parsing controller config %q: %q, err %v", CAASImageRepo, str, err)
-	return o
+func (c Config) CAASImageRepo() string {
+	return c.asString(CAASImageRepo)
 }
 
 // MeteringURL returns the URL to use for metering api calls.
@@ -1167,19 +1127,6 @@ func Validate(c Config) error {
 
 	if err := c.validateSpaceConfig(JujuManagementSpace, "juju mgmt"); err != nil {
 		return errors.Trace(err)
-	}
-
-	var err error
-	if v, ok := c[CAASOperatorImagePath].(string); ok && v != "" {
-		if c[CAASOperatorImagePath], err = validateCAASImageRepo(v); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	if v, ok := c[CAASImageRepo].(string); ok && v != "" {
-		if c[CAASImageRepo], err = validateCAASImageRepo(v); err != nil {
-			return errors.Trace(err)
-		}
 	}
 
 	var auditLogMaxSize int
