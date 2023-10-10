@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/controller"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/docker"
 	envtools "github.com/juju/juju/environs/tools"
@@ -95,13 +96,15 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 	streamsAgents coretools.List,
 ) (coretools.Versions, error) {
 	result := coretools.Versions{}
-	imageRepoDetails := args.ControllerCfg.CAASImageRepo()
+	imageRepoDetails, err := docker.NewImageRepoDetails(args.ControllerCfg.CAASImageRepo())
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+	}
 	if imageRepoDetails.Empty() {
-		repoDetails, err := docker.NewImageRepoDetails(podcfg.JujudOCINamespace)
+		imageRepoDetails, err = docker.NewImageRepoDetails(podcfg.JujudOCINamespace)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		imageRepoDetails = *repoDetails
 	}
 	reg, err := m.registryAPIFunc(imageRepoDetails)
 	if err != nil {

@@ -33,6 +33,8 @@ func newFacade(ctx facade.Context) (*Facade, error) {
 	}
 	return &Facade{
 		auth:                authorizer,
+		resources:           ctx.Resources(),
 		controllerConfigAPI: common.NewStateControllerConfig(systemState),
+		ctrlState:           systemState,
 	}, nil
 }

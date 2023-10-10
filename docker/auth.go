@@ -109,10 +109,6 @@ func (ac *TokenAuthConfig) Validate() error {
 	return nil
 }
 
-func (ac *TokenAuthConfig) init() error {
-	return nil
-}
-
 // BasicAuthConfig contains authorization information for basic auth.
 type BasicAuthConfig struct {
 	// Auth is the base64 encoded "username:password" string.
@@ -132,16 +128,6 @@ func (ba BasicAuthConfig) Empty() bool {
 
 // Validate validates the spec.
 func (ba *BasicAuthConfig) Validate() error {
-	return nil
-}
-
-func (ba *BasicAuthConfig) init() error {
-	if ba.Empty() {
-		return nil
-	}
-	if ba.Auth.Empty() {
-		ba.Auth = NewToken(base64.StdEncoding.EncodeToString([]byte(ba.Username + ":" + ba.Password)))
-	}
 	return nil
 }
 
@@ -181,6 +167,10 @@ func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 		return nil, nil
 	}
 	rid.Repository = ""
+	if !rid.BasicAuthConfig.Empty() && rid.BasicAuthConfig.Auth.Empty() {
+		rid.BasicAuthConfig.Auth = NewToken(
+			base64.StdEncoding.EncodeToString([]byte(rid.BasicAuthConfig.Username + ":" + rid.BasicAuthConfig.Password)))
+	}
 	o := dockerConfigData{
 		Auths: map[string]ImageRepoDetails{
 			rid.ServerAddress: rid,
@@ -191,6 +181,12 @@ func (rid ImageRepoDetails) SecretData() ([]byte, error) {
 
 // Content returns the json marshalled string with raw credentials.
 func (rid ImageRepoDetails) Content() string {
+	copy := rid
+	copy.Repository = ""
+	if copy.Empty() {
+		// If only repository is set, return it.
+		return rid.Repository
+	}
 	d, _ := json.Marshal(rid)
 	return string(d)
 }
@@ -213,16 +209,6 @@ func (rid *ImageRepoDetails) Validate() error {
 	return nil
 }
 
-func (rid *ImageRepoDetails) init() error {
-	if err := rid.BasicAuthConfig.init(); err != nil {
-		return errors.Annotatef(err, "initializing basic auth config for repository %q", rid.Repository)
-	}
-	if err := rid.TokenAuthConfig.init(); err != nil {
-		return errors.Annotatef(err, "initializing token auth config for repository %q", rid.Repository)
-	}
-	return nil
-}
-
 // Empty checks if the auth information is empty.
 func (rid ImageRepoDetails) Empty() bool {
 	return rid == ImageRepoDetails{}
@@ -239,8 +225,25 @@ func fileExists(p string) (bool, error) {
 	return !info.IsDir(), nil
 }
 
-// NewImageRepoDetails tries to parse a file path or file content and returns an instance of ImageRepoDetails.
-func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) {
+// NewImageRepoDetails tries to parse as json or basic repository path and returns an instance of ImageRepoDetails.
+func NewImageRepoDetails(repo string) (o ImageRepoDetails, err error) {
+	if repo == "" {
+		return o, nil
+	}
+	data := []byte(repo)
+	err = json.Unmarshal(data, &o)
+	if err != nil {
+		logger.Tracef("unmarshalling %q, err %#v", repo, err)
+		return ImageRepoDetails{Repository: repo}, nil
+	}
+	if err = o.Validate(); err != nil {
+		return o, errors.Trace(err)
+	}
+	return o, nil
+}
+
+// LoadImageRepoDetails tries to parse a file path or file content and returns an instance of ImageRepoDetails.
+func LoadImageRepoDetails(contentOrPath string) (o ImageRepoDetails, err error) {
 	if contentOrPath == "" {
 		return o, nil
 	}
@@ -250,21 +253,8 @@ func NewImageRepoDetails(contentOrPath string) (o *ImageRepoDetails, err error) 
 		logger.Debugf("reading image repository information from %q", contentOrPath)
 		data, err = os.ReadFile(contentOrPath)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return o, errors.Trace(err)
 		}
 	}
-	o = &ImageRepoDetails{}
-	err = json.Unmarshal(data, o)
-	if err != nil {
-		logger.Tracef("unmarshalling %q, err %#v", contentOrPath, err)
-		return &ImageRepoDetails{Repository: contentOrPath}, nil
-	}
-
-	if err = o.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err = o.init(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return o, nil
+	return NewImageRepoDetails(string(data))
 }
