@@ -12,6 +12,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v4"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
 )
 
@@ -102,26 +103,17 @@ func (st *State) RemoveCloudAccess(cloud string, user names.UserTag) error {
 	return errors.Trace(err)
 }
 
-// CloudInfo describes interesting information for a given cloud.
-type CloudInfo struct {
-	// Name is the name of the cloud.
-	Name string
-
-	// Access is the access level the supplied user has on this cloud.
-	Access permission.Access
-}
-
 // CloudsForUser returns details including access level of clouds which can
 // be seen by the specified user.
-func (st *State) CloudsForUser(user names.UserTag) ([]CloudInfo, error) {
+func (st *State) CloudsForUser(user names.UserTag) ([]cloud.CloudAccess, error) {
 	cloudNames, err := st.cloudNamesForUser(user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	result := make([]CloudInfo, len(cloudNames))
+	result := make([]cloud.CloudAccess, len(cloudNames))
 	for i, name := range cloudNames {
-		result[i] = CloudInfo{
+		result[i] = cloud.CloudAccess{
 			Name: name,
 		}
 	}
@@ -157,7 +149,7 @@ func (st *State) cloudNamesForUser(user names.UserTag) ([]string, error) {
 }
 
 // fillInCloudUserAccess fills in the Access rights for this user on the clouds (but not other users).
-func (st *State) fillInCloudUserAccess(user names.UserTag, cloudInfo []CloudInfo) error {
+func (st *State) fillInCloudUserAccess(user names.UserTag, cloudInfo []cloud.CloudAccess) error {
 	// Note: Even for Superuser we track the individual Access for each model.
 	username := strings.ToLower(user.Name())
 	var permissionIds []string

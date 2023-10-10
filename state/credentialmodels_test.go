@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
@@ -66,7 +67,7 @@ func (s *CredentialModelsSuite) addModel(c *gc.C, modelName string, tag names.Cl
 func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccess(c *gc.C) {
 	out, err := s.State.CredentialModelsAndOwnerAccess(s.credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, gc.DeepEquals, []state.CredentialOwnerModelAccess{
+	c.Assert(out, gc.DeepEquals, []cloud.CredentialOwnerModelAccess{
 		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess, ModelUUID: s.abcModelTag.Id()},
 	})
 }
@@ -81,7 +82,7 @@ func (s *CredentialModelsSuite) TestCredentialModelsAndOwnerAccessMany(c *gc.C) 
 
 	out, err := s.State.CredentialModelsAndOwnerAccess(s.credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.SameContents, []state.CredentialOwnerModelAccess{
+	c.Assert(out, jc.SameContents, []cloud.CredentialOwnerModelAccess{
 		{ModelName: "abcmodel", OwnerAccess: permission.AdminAccess, ModelUUID: s.abcModelTag.Id()},
 		{ModelName: "xyzmodel", OwnerAccess: permission.AdminAccess, ModelUUID: xyzModelTag.Id()},
 	})
