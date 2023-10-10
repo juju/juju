@@ -4,6 +4,10 @@
 package controller_test
 
 import (
+	"encoding/base64"
+	"fmt"
+	"io"
+	"net/http"
 	stdtesting "testing"
 	"time"
 
@@ -11,9 +15,12 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/romulus"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/docker/registry"
+	"github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/testing"
 )
 
@@ -172,185 +179,227 @@ var newConfigTests = []struct {
 	},
 	expectError: "model logs size less than 1 MB not valid",
 }, {
-	about: "negative controller-api-port",
+	about: "invalid CAAS docker image repo",
 	config: controller.Config{
-		controller.ControllerAPIPort: -5,
+		controller.CAASImageRepo: "foo?bar",
 	},
-	expectError: `non-positive integer for controller-api-port not valid`,
-}, {
-	about: "controller-api-port matching api-port",
-	config: controller.Config{
-		controller.APIPort:           12345,
-		controller.ControllerAPIPort: 12345,
-	},
-	expectError: `controller-api-port matching api-port not valid`,
-}, {
-	about: "controller-api-port matching state-port",
-	config: controller.Config{
-		controller.APIPort:           12345,
-		controller.StatePort:         54321,
-		controller.ControllerAPIPort: 54321,
-	},
-	expectError: `controller-api-port matching state-port not valid`,
-}, {
-	about: "api-port-open-delay not a duration",
-	config: controller.Config{
-		controller.APIPortOpenDelay: "15",
-	},
-	expectError: `api-port-open-delay: conversion to duration: time: missing unit in duration "15"`,
-}, {
-	about: "txn-prune-sleep-time not a duration",
-	config: controller.Config{
-		controller.PruneTxnSleepTime: "15",
-	},
-	expectError: `prune-txn-sleep-time: conversion to duration: time: missing unit in duration "15"`,
-}, {
-	about: "mongo-memory-profile not valid",
-	config: controller.Config{
-		controller.MongoMemoryProfile: "not-valid",
-	},
-	expectError: `mongo-memory-profile: expected one of "low" or "default" got string\("not-valid"\)`,
-}, {
-	about: "max-debug-log-duration not valid",
-	config: controller.Config{
-		controller.MaxDebugLogDuration: time.Duration(0),
-	},
-	expectError: `max-debug-log-duration cannot be zero`,
-}, {
-	about: "agent-logfile-max-backups not valid",
-	config: controller.Config{
-		controller.AgentLogfileMaxBackups: -1,
-	},
-	expectError: `negative agent-logfile-max-backups not valid`,
-}, {
-	about: "agent-logfile-max-size not valid",
-	config: controller.Config{
-		controller.AgentLogfileMaxSize: "0",
-	},
-	expectError: `agent-logfile-max-size less than 1 MB not valid`,
-}, {
-	about: "model-logfile-max-backups not valid",
-	config: controller.Config{
-		controller.ModelLogfileMaxBackups: -1,
-	},
-	expectError: `negative model-logfile-max-backups not valid`,
-}, {
-	about: "model-logfile-max-size not valid",
-	config: controller.Config{
-		controller.ModelLogfileMaxSize: "0",
-	},
-	expectError: `model-logfile-max-size less than 1 MB not valid`,
-}, {
-	about: "agent-ratelimit-max non-int",
-	config: controller.Config{
-		controller.AgentRateLimitMax: "ten",
-	},
-	expectError: `agent-ratelimit-max: expected number, got string\("ten"\)`,
-}, {
-	about: "agent-ratelimit-max negative",
-	config: controller.Config{
-		controller.AgentRateLimitMax: "-5",
-	},
-	expectError: `negative agent-ratelimit-max \(-5\) not valid`,
-}, {
-	about: "agent-ratelimit-rate missing unit",
-	config: controller.Config{
-		controller.AgentRateLimitRate: "150",
-	},
-	expectError: `agent-ratelimit-rate: conversion to duration: time: missing unit in duration "?150"?`,
-}, {
-	about: "agent-ratelimit-rate bad type, int",
-	config: controller.Config{
-		controller.AgentRateLimitRate: 150,
-	},
-	expectError: `agent-ratelimit-rate: expected string or time.Duration, got int\(150\)`,
-}, {
-	about: "agent-ratelimit-rate zero",
-	config: controller.Config{
-		controller.AgentRateLimitRate: "0s",
-	},
-	expectError: `agent-ratelimit-rate cannot be zero`,
-}, {
-	about: "agent-ratelimit-rate negative",
-	config: controller.Config{
-		controller.AgentRateLimitRate: "-5s",
-	},
-	expectError: `agent-ratelimit-rate cannot be negative`,
-}, {
-	about: "agent-ratelimit-rate too large",
-	config: controller.Config{
-		controller.AgentRateLimitRate: "4h",
-	},
-	expectError: `agent-ratelimit-rate must be between 0..1m`,
-}, {
-	about: "max-charm-state-size non-int",
-	config: controller.Config{
-		controller.MaxCharmStateSize: "ten",
-	},
-	expectError: `max-charm-state-size: expected number, got string\("ten"\)`,
-}, {
-	about: "max-charm-state-size cannot be negative",
-	config: controller.Config{
-		controller.MaxCharmStateSize: "-42",
-	},
-	expectError: `invalid max charm state size: should be a number of bytes \(or 0 to disable limit\), got -42`,
-}, {
-	about: "max-agent-state-size non-int",
-	config: controller.Config{
-		controller.MaxAgentStateSize: "ten",
-	},
-	expectError: `max-agent-state-size: expected number, got string\("ten"\)`,
-}, {
-	about: "max-agent-state-size cannot be negative",
-	config: controller.Config{
-		controller.MaxAgentStateSize: "-42",
-	},
-	expectError: `invalid max agent state size: should be a number of bytes \(or 0 to disable limit\), got -42`,
-}, {
-	about: "combined charm/agent state cannot exceed mongo's 16M limit/doc",
-	config: controller.Config{
-		controller.MaxCharmStateSize: "14000000",
-		controller.MaxAgentStateSize: "3000000",
-	},
-	expectError: `invalid max charm/agent state sizes: combined value should not exceed mongo's 16M per-document limit, got 17000000`,
-}, {
-	about: "invalid non-synced-writes-to-raft-log - string",
-	config: controller.Config{
-		controller.NonSyncedWritesToRaftLog: "I live dangerously",
-	},
-	expectError: `non-synced-writes-to-raft-log: expected bool, got string\("I live dangerously"\)`,
-}, {
-	about: "invalid batch-raft-fsm - string",
-	config: controller.Config{
-		controller.BatchRaftFSM: "I live dangerously",
-	},
-	expectError: `batch-raft-fsm: expected bool, got string\("I live dangerously"\)`,
-}, {
-	about: "public-dns-address: expect string, got number",
-	config: controller.Config{
-		controller.PublicDNSAddress: 42,
-	},
-	expectError: `public-dns-address: expected string, got int\(42\)`,
-}, {
-	about: "migration-agent-wait-time not a duration",
-	config: controller.Config{
-		controller.MigrationMinionWaitMax: "15",
-	},
-	expectError: `migration-agent-wait-time: conversion to duration: time: missing unit in duration "15"`,
-}, {
-	about: "application-resource-download-limit cannot be negative",
-	config: controller.Config{
-		controller.ApplicationResourceDownloadLimit: "-42",
-	},
-	expectError: `negative application-resource-download-limit \(-42\) not valid, use 0 to disable the limit`,
-}, {
-	about: "controller-resource-download-limit cannot be negative",
-	config: controller.Config{
-		controller.ControllerResourceDownloadLimit: "-42",
-	},
-	expectError: `negative controller-resource-download-limit \(-42\) not valid, use 0 to disable the limit`,
+	expectError: `docker image path "foo\?bar": invalid reference format`,
 },
-}
+	{
+		about: "empty CAAS docker image repo",
+		config: controller.Config{
+			controller.CAASImageRepo: `{"foo": "bar"}`,
+		},
+		expectError: `empty repository not valid`,
+	}, {
+		about: "invalid CAAS operator docker image repo - leading colon",
+		config: controller.Config{
+			controller.CAASImageRepo: ":foo",
+		},
+		expectError: `docker image path ":foo": invalid reference format`,
+	}, {
+		about: "invalid CAAS docker image repo - trailing colon",
+		config: controller.Config{
+			controller.CAASImageRepo: `{"foo":""}`,
+		},
+		expectError: `empty repository not valid`,
+	}, {
+		about: "invalid CAAS docker image repo - extra colon",
+		config: controller.Config{
+			controller.CAASImageRepo: "foo::bar",
+		},
+		expectError: `docker image path "foo::bar": invalid reference format`,
+	}, {
+		about: "invalid CAAS docker image repo - leading /",
+		config: controller.Config{
+			controller.CAASImageRepo: "/foo",
+		},
+		expectError: `docker image path "/foo": invalid reference format`,
+	}, {
+		about: "invalid CAAS docker image repo - extra /",
+		config: controller.Config{
+			controller.CAASImageRepo: "foo//bar",
+		},
+		expectError: `docker image path "foo//bar": invalid reference format`,
+	}, {
+		about: "negative controller-api-port",
+		config: controller.Config{
+			controller.ControllerAPIPort: -5,
+		},
+		expectError: `non-positive integer for controller-api-port not valid`,
+	}, {
+		about: "controller-api-port matching api-port",
+		config: controller.Config{
+			controller.APIPort:           12345,
+			controller.ControllerAPIPort: 12345,
+		},
+		expectError: `controller-api-port matching api-port not valid`,
+	}, {
+		about: "controller-api-port matching state-port",
+		config: controller.Config{
+			controller.APIPort:           12345,
+			controller.StatePort:         54321,
+			controller.ControllerAPIPort: 54321,
+		},
+		expectError: `controller-api-port matching state-port not valid`,
+	}, {
+		about: "api-port-open-delay not a duration",
+		config: controller.Config{
+			controller.APIPortOpenDelay: "15",
+		},
+		expectError: `api-port-open-delay: conversion to duration: time: missing unit in duration "15"`,
+	}, {
+		about: "txn-prune-sleep-time not a duration",
+		config: controller.Config{
+			controller.PruneTxnSleepTime: "15",
+		},
+		expectError: `prune-txn-sleep-time: conversion to duration: time: missing unit in duration "15"`,
+	}, {
+		about: "mongo-memory-profile not valid",
+		config: controller.Config{
+			controller.MongoMemoryProfile: "not-valid",
+		},
+		expectError: `mongo-memory-profile: expected one of "low" or "default" got string\("not-valid"\)`,
+	}, {
+		about: "max-debug-log-duration not valid",
+		config: controller.Config{
+			controller.MaxDebugLogDuration: time.Duration(0),
+		},
+		expectError: `max-debug-log-duration cannot be zero`,
+	}, {
+		about: "agent-logfile-max-backups not valid",
+		config: controller.Config{
+			controller.AgentLogfileMaxBackups: -1,
+		},
+		expectError: `negative agent-logfile-max-backups not valid`,
+	}, {
+		about: "agent-logfile-max-size not valid",
+		config: controller.Config{
+			controller.AgentLogfileMaxSize: "0",
+		},
+		expectError: `agent-logfile-max-size less than 1 MB not valid`,
+	}, {
+		about: "model-logfile-max-backups not valid",
+		config: controller.Config{
+			controller.ModelLogfileMaxBackups: -1,
+		},
+		expectError: `negative model-logfile-max-backups not valid`,
+	}, {
+		about: "model-logfile-max-size not valid",
+		config: controller.Config{
+			controller.ModelLogfileMaxSize: "0",
+		},
+		expectError: `model-logfile-max-size less than 1 MB not valid`,
+	}, {
+		about: "agent-ratelimit-max non-int",
+		config: controller.Config{
+			controller.AgentRateLimitMax: "ten",
+		},
+		expectError: `agent-ratelimit-max: expected number, got string\("ten"\)`,
+	}, {
+		about: "agent-ratelimit-max negative",
+		config: controller.Config{
+			controller.AgentRateLimitMax: "-5",
+		},
+		expectError: `negative agent-ratelimit-max \(-5\) not valid`,
+	}, {
+		about: "agent-ratelimit-rate missing unit",
+		config: controller.Config{
+			controller.AgentRateLimitRate: "150",
+		},
+		expectError: `agent-ratelimit-rate: conversion to duration: time: missing unit in duration "?150"?`,
+	}, {
+		about: "agent-ratelimit-rate bad type, int",
+		config: controller.Config{
+			controller.AgentRateLimitRate: 150,
+		},
+		expectError: `agent-ratelimit-rate: expected string or time.Duration, got int\(150\)`,
+	}, {
+		about: "agent-ratelimit-rate zero",
+		config: controller.Config{
+			controller.AgentRateLimitRate: "0s",
+		},
+		expectError: `agent-ratelimit-rate cannot be zero`,
+	}, {
+		about: "agent-ratelimit-rate negative",
+		config: controller.Config{
+			controller.AgentRateLimitRate: "-5s",
+		},
+		expectError: `agent-ratelimit-rate cannot be negative`,
+	}, {
+		about: "agent-ratelimit-rate too large",
+		config: controller.Config{
+			controller.AgentRateLimitRate: "4h",
+		},
+		expectError: `agent-ratelimit-rate must be between 0..1m`,
+	}, {
+		about: "max-charm-state-size non-int",
+		config: controller.Config{
+			controller.MaxCharmStateSize: "ten",
+		},
+		expectError: `max-charm-state-size: expected number, got string\("ten"\)`,
+	}, {
+		about: "max-charm-state-size cannot be negative",
+		config: controller.Config{
+			controller.MaxCharmStateSize: "-42",
+		},
+		expectError: `invalid max charm state size: should be a number of bytes \(or 0 to disable limit\), got -42`,
+	}, {
+		about: "max-agent-state-size non-int",
+		config: controller.Config{
+			controller.MaxAgentStateSize: "ten",
+		},
+		expectError: `max-agent-state-size: expected number, got string\("ten"\)`,
+	}, {
+		about: "max-agent-state-size cannot be negative",
+		config: controller.Config{
+			controller.MaxAgentStateSize: "-42",
+		},
+		expectError: `invalid max agent state size: should be a number of bytes \(or 0 to disable limit\), got -42`,
+	}, {
+		about: "combined charm/agent state cannot exceed mongo's 16M limit/doc",
+		config: controller.Config{
+			controller.MaxCharmStateSize: "14000000",
+			controller.MaxAgentStateSize: "3000000",
+		},
+		expectError: `invalid max charm/agent state sizes: combined value should not exceed mongo's 16M per-document limit, got 17000000`,
+	}, {
+		about: "invalid non-synced-writes-to-raft-log - string",
+		config: controller.Config{
+			controller.NonSyncedWritesToRaftLog: "I live dangerously",
+		},
+		expectError: `non-synced-writes-to-raft-log: expected bool, got string\("I live dangerously"\)`,
+	}, {
+		about: "invalid batch-raft-fsm - string",
+		config: controller.Config{
+			controller.BatchRaftFSM: "I live dangerously",
+		},
+		expectError: `batch-raft-fsm: expected bool, got string\("I live dangerously"\)`,
+	}, {
+		about: "public-dns-address: expect string, got number",
+		config: controller.Config{
+			controller.PublicDNSAddress: 42,
+		},
+		expectError: `public-dns-address: expected string, got int\(42\)`,
+	}, {
+		about: "migration-agent-wait-time not a duration",
+		config: controller.Config{
+			controller.MigrationMinionWaitMax: "15",
+		},
+		expectError: `migration-agent-wait-time: conversion to duration: time: missing unit in duration "15"`,
+	}, {
+		about: "application-resource-download-limit cannot be negative",
+		config: controller.Config{
+			controller.ApplicationResourceDownloadLimit: "-42",
+		},
+		expectError: `negative application-resource-download-limit \(-42\) not valid, use 0 to disable the limit`,
+	}, {
+		about: "controller-resource-download-limit cannot be negative",
+		config: controller.Config{
+			controller.ControllerResourceDownloadLimit: "-42",
+		},
+		expectError: `negative controller-resource-download-limit \(-42\) not valid, use 0 to disable the limit`,
+	}, {}}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
 	for i, test := range newConfigTests {
@@ -602,6 +651,83 @@ func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cfg.AsSpaceConstraints(nil), gc.IsNil)
+}
+
+func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+	mockRoundTripper := mocks.NewMockRoundTripper(ctrl)
+	gomock.InOrder(
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
+				resps := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(nil),
+				}
+				return resps, nil
+			},
+		),
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://registry.foo.com/v2`)
+				resps := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(nil),
+				}
+				return resps, nil
+			},
+		),
+		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
+			func(req *http.Request) (*http.Response, error) {
+				c.Assert(req.Method, gc.Equals, `GET`)
+				c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/`)
+				resps := &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(nil),
+				}
+				return resps, nil
+			},
+		),
+	)
+	s.PatchValue(&registry.DefaultTransport, mockRoundTripper)
+
+	type tc struct {
+		content  string
+		expected string
+	}
+	for _, imageRepo := range []tc{
+		//used to reset since we don't have a --reset option
+		{content: "", expected: ""},
+		{content: "juju-operator-repo", expected: ""},
+		{content: "registry.foo.com/jujuqa", expected: ""},
+		{content: "ghcr.io/jujuqa", expected: ""},
+		{content: "registry.gitlab.com/jujuqa", expected: ""},
+		{
+			content: fmt.Sprintf(`
+{
+    "serveraddress": "ghcr.io",
+    "auth": "%s",
+    "repository": "ghcr.io/test-account"
+}`, base64.StdEncoding.EncodeToString([]byte("username:pwd"))),
+			expected: "ghcr.io/test-account"},
+	} {
+		c.Logf("testing %#v", imageRepo)
+		if imageRepo.expected == "" {
+			imageRepo.expected = imageRepo.content
+		}
+		cfg, err := controller.NewConfig(
+			testing.ControllerTag.Id(),
+			testing.CACert,
+			map[string]interface{}{
+				controller.CAASImageRepo: imageRepo.content,
+			},
+		)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(cfg.CAASImageRepo().Repository, gc.Equals, imageRepo.expected)
+	}
 }
 
 func (s *ConfigSuite) TestControllerNameDefault(c *gc.C) {

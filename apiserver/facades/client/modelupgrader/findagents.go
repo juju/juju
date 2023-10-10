@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/cloudconfig/podcfg"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/docker"
-	"github.com/juju/juju/docker/imagerepo"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/state"
@@ -96,22 +95,17 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 	streamsAgents coretools.List,
 ) (coretools.Versions, error) {
 	result := coretools.Versions{}
-
-	details, err := imagerepo.DetailsFromPath(args.ControllerCfg.CAASImageRepo())
-	if err != nil {
-		return result, errors.Annotatef(err, "getting image repo details")
-	}
-
-	if details.Empty() {
+	imageRepoDetails := args.ControllerCfg.CAASImageRepo()
+	if imageRepoDetails.Empty() {
 		repoDetails, err := docker.NewImageRepoDetails(podcfg.JujudOCINamespace)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		details = *repoDetails
+		imageRepoDetails = *repoDetails
 	}
-	reg, err := m.registryAPIFunc(details)
+	reg, err := m.registryAPIFunc(imageRepoDetails)
 	if err != nil {
-		return nil, errors.Annotatef(err, "constructing registry API for %s", details)
+		return nil, errors.Annotatef(err, "constructing registry API for %s", imageRepoDetails)
 	}
 	defer func() { _ = reg.Close() }()
 	streamsVersions := set.NewStrings()
