@@ -65,7 +65,7 @@ jobs:
 
       - name: Upgrade client to 4.x
         run: |
-          make go-install &>/dev/null
+          make juju jujud &>/dev/null
 
       - name: Bootstrap 4.x controller
         run: |
@@ -102,7 +102,8 @@ jobs:
         run: |
           set -x
           juju switch test4x
-          
+          juju status -m test4x/test-migrate
+
           # Wait for 'test-migrate' model to come through
           attempt=0
           while true; do
@@ -110,6 +111,7 @@ jobs:
             if [[ -n $RES ]]; then
               break
             fi
+            juju status
             sleep 5
             attempt=$((attempt+1))
             if [ "$attempt" -eq 10 ]; then
