@@ -90,6 +90,9 @@ func (w *ValueWatcher) loop() error {
 
 	w.drainInitialEvent(in)
 
+	// Cache the context so we don't have to call it on every iteration.
+	ctx := w.tomb.Context(context.Background())
+
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -104,7 +107,6 @@ func (w *ValueWatcher) loop() error {
 
 			// Check with the predicate to determine if we should send a
 			// notification.
-			ctx := w.tomb.Context(context.Background())
 			allow, err := w.predicate(ctx, w.watchableDB, changes)
 			if err != nil {
 				return errors.Trace(err)

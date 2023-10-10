@@ -108,6 +108,9 @@ func (w *NamespaceWatcher) loop() error {
 	// design for watchers when they subscribe is that they must send the
 	// initial state, and then optional deltas thereafter.
 
+	// Cache the context so we don't have to call it on every iteration.
+	ctx := w.tomb.Context(context.Background())
+
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -122,7 +125,6 @@ func (w *NamespaceWatcher) loop() error {
 
 			// Check with the predicate to determine if we should send a
 			// notification.
-			ctx := w.tomb.Context(context.Background())
 			allow, err := w.predicate(ctx, w.watchableDB, subChanges)
 			if err != nil {
 				return errors.Trace(err)
