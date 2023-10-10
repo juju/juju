@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/juju/cmd/v3"
@@ -122,9 +123,7 @@ func (f *ConfigFlag) AbsoluteFileNames(ctx *cmd.Context) ([]string, error) {
 // String implements gnuflag.Value.String.
 func (f *ConfigFlag) String() string {
 	strs := make([]string, 0, len(f.attrs)+len(f.files))
-	for _, f := range f.files {
-		strs = append(strs, f)
-	}
+	strs = append(strs, f.files...)
 	for k, v := range f.attrs {
 		strs = append(strs, fmt.Sprintf("%s=%v", k, v))
 	}
@@ -156,3 +155,36 @@ func ParseConstraints(ctx *cmd.Context, cons string) (constraints.Value, error) 
 	}
 	return constraint, nil
 }
+
+// AutoBoolValue is like gnuflag.boolValue, but remembers
+// whether or not a value has been set, so its behaviour
+// can be determined dynamically, during command execution.
+type AutoBoolValue struct {
+	b *bool
+}
+
+// Set implements flag.Value.
+func (b *AutoBoolValue) Set(s string) error {
+	v, err := strconv.ParseBool(s)
+	if err != nil {
+		return err
+	}
+	b.b = &v
+	return nil
+}
+
+// Get returns the value.
+func (b *AutoBoolValue) Get() *bool {
+	return b.b
+}
+
+// String implements flag.Value.
+func (b *AutoBoolValue) String() string {
+	if b.b != nil {
+		return fmt.Sprint(*b.b)
+	}
+	return "nil"
+}
+
+// IsBoolFlag implements flag.Value.
+func (b *AutoBoolValue) IsBoolFlag() bool { return true }

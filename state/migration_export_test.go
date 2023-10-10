@@ -2692,6 +2692,7 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 
 	_, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
+		AutoPrune:   ptr(true),
 		ValueRef: &secrets.ValueRef{
 			BackendID:  backendID,
 			RevisionID: "rev-id",
@@ -2748,6 +2749,7 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	c.Assert(secret.Id(), gc.Equals, uri.ID)
 	c.Assert(secret.Description(), gc.Equals, "my secret")
 	c.Assert(secret.NextRotateTime(), jc.DeepEquals, ptr(next))
+	c.Assert(secret.AutoPrune(), jc.DeepEquals, true)
 	entity, err := secret.Owner()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(entity.Id(), gc.Equals, "mysql")
