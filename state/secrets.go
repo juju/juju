@@ -2017,6 +2017,10 @@ func (s *secretsStore) WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatc
 			logger.Warningf("cannot get secret %q, err %#v", uri, err)
 			return false
 		}
+		if s.st.modelTag.String() != md.OwnerTag {
+			// Only prune secrets owned by this model (user secrets).
+			return false
+		}
 		return md.AutoPrune
 	}
 	return newObsoleteSecretsWatcher(s.st, owners, fitler), nil

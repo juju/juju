@@ -2930,7 +2930,7 @@ func (s *SecretsObsoleteWatcherSuite) SetUpTest(c *gc.C) {
 	s.ownerUnit = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.ownerApp})
 }
 
-func (s *SecretsObsoleteWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatcher, *secrets.URI) {
+func (s *SecretsObsoleteWatcherSuite) setupWatcher(c *gc.C, forAutoPrune bool) (state.StringsWatcher, *secrets.URI) {
 	uri := secrets.NewURI()
 	cp := state.CreateSecretParams{
 		Version: 1,
@@ -2940,10 +2940,21 @@ func (s *SecretsObsoleteWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatche
 			Data:        map[string]string{"foo": "bar"},
 		},
 	}
+	if forAutoPrune {
+		cp.Owner = names.NewModelTag(s.State.ModelUUID())
+	}
 	_, err := s.store.CreateSecret(uri, cp)
 	c.Assert(err, jc.ErrorIsNil)
-	w, err := s.store.WatchObsolete(
-		[]names.Tag{s.ownerApp.Tag(), s.ownerUnit.Tag()})
+	var w state.StringsWatcher
+	if forAutoPrune {
+		w, err = s.store.WatchRevisionsToPrune(
+			[]names.Tag{names.NewModelTag(s.State.ModelUUID())},
+		)
+	} else {
+		w, err = s.store.WatchObsolete(
+			[]names.Tag{s.ownerApp.Tag(), s.ownerUnit.Tag()},
+		)
+	}
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc := testing.NewStringsWatcherC(c, w)
@@ -2953,12 +2964,12 @@ func (s *SecretsObsoleteWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatche
 }
 
 func (s *SecretsObsoleteWatcherSuite) TestWatcherStartStop(c *gc.C) {
-	w, _ := s.setupWatcher(c)
+	w, _ := s.setupWatcher(c, false)
 	testing.AssertStop(c, w)
 }
 
 func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
-	w, uri := s.setupWatcher(c)
+	w, uri := s.setupWatcher(c, false)
 	wc := testing.NewStringsWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
@@ -3011,8 +3022,66 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisionsToPrune(c *gc.C) {
+	w, uri := s.setupWatcher(c, true)
+	wc := testing.NewStringsWatcherC(c, w)
+	defer testing.AssertStop(c, w)
+
+	err := s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 1,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	p := state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar2"},
+	}
+	_, err = s.store.UpdateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	// No change because AutoPrune is not turned on.
+	wc.AssertNoChange()
+
+	// The previous consumer of rev 1 now uses rev 2; rev 1 is orphaned.
+	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 2,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// No change because AutoPrune is not turned on.
+	wc.AssertNoChange()
+
+	// turn on AutoPrune.
+	p = state.UpdateSecretParams{
+		AutoPrune:   ptr(true),
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar3"},
+	}
+	_, err = s.store.UpdateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String() + "/1")
+	wc.AssertNoChange()
+
+	// New revision 4 added, so rev 3 is now also obsolete.
+	p = state.UpdateSecretParams{
+		LeaderToken: &fakeToken{},
+		Data:        map[string]string{"foo": "bar4"},
+	}
+	_, err = s.store.UpdateSecret(uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String()+"/1", uri.String()+"/3")
+	wc.AssertNoChange()
+
+	// The previous consumer of rev 1 now uses rev 2; rev 1 is orphaned.
+	err = s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
+		CurrentRevision: 4,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(uri.String()+"/1", uri.String()+"/2", uri.String()+"/3")
+	wc.AssertNoChange()
+}
+
 func (s *SecretsObsoleteWatcherSuite) TestWatchOwnedDeleted(c *gc.C) {
-	w, uri := s.setupWatcher(c)
+	w, uri := s.setupWatcher(c, false)
 	wc := testing.NewStringsWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
@@ -3061,7 +3130,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchOwnedDeleted(c *gc.C) {
 }
 
 func (s *SecretsObsoleteWatcherSuite) TestWatchDeletedSupercedesObsolete(c *gc.C) {
-	w, uri := s.setupWatcher(c)
+	w, uri := s.setupWatcher(c, false)
 	wc := testing.NewStringsWatcherC(c, w)
 	defer testing.AssertStop(c, w)
 
