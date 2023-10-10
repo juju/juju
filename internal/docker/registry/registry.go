@@ -28,9 +28,18 @@ var (
 
 // New returns a Registry interface providing methods for interacting with registry APIs.
 func New(repoDetails docker.ImageRepoDetails) (Registry, error) {
-	var provider internal.RegistryInternal = internal.NewBase(repoDetails, DefaultTransport)
+	var provider internal.RegistryInternal
+	var err error
+	provider, err = internal.NewBase(repoDetails, DefaultTransport)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	for _, providerNewer := range internal.Providers() {
-		p := providerNewer(repoDetails, DefaultTransport)
+		p, err := providerNewer(repoDetails, DefaultTransport)
+		if err != nil {
+			logger.Errorf("error matching registry client %#v for %s: %s", p, repoDetails, err.Error())
+			continue
+		}
 		if p.Match() {
 			logger.Tracef("found registry client %#v for %s", p, repoDetails)
 			provider = p

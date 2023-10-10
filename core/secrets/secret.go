@@ -174,6 +174,9 @@ type SecretMetadata struct {
 	LatestExpireTime *time.Time
 	// NextRotateTime is when the secret should be rotated.
 	NextRotateTime *time.Time
+
+	// AutoPrune is true if the secret revisions should be pruned when it's not been used.
+	AutoPrune bool
 }
 
 // SecretRevisionMetadata holds metadata about a secret revision.

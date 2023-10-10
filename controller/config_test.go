@@ -725,7 +725,7 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 	for _, imageRepo := range []tc{
 		//used to reset since we don't have a --reset option
 		{content: "", expected: ""},
-		{content: "juju-operator-repo", expected: ""},
+		{content: "docker.io/juju-operator-repo", expected: ""},
 		{content: "registry.foo.com/jujuqa", expected: ""},
 		{content: "ghcr.io/jujuqa", expected: ""},
 		{content: "registry.gitlab.com/jujuqa", expected: ""},

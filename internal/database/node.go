@@ -9,9 +9,11 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -261,7 +263,9 @@ func (m *NodeManager) WithLoopbackAddressOption() app.Option {
 // WithAddressOption returns a Dqlite application Option
 // for specifying the local address:port to use.
 func (m *NodeManager) WithAddressOption(ip string) app.Option {
-	return app.WithAddress(fmt.Sprintf("%s:%d", ip, m.port))
+	// dqlite expects an ipv6 address to be in square brackets
+	// e.g. [::1]:1234 so we need to use net.JoinHostPort.
+	return app.WithAddress(net.JoinHostPort(ip, strconv.Itoa(m.port)))
 }
 
 // WithTLSOption returns a Dqlite application Option for TLS encryption

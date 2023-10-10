@@ -47,6 +47,7 @@ type UpdateSecretParams struct {
 	Params         map[string]interface{}
 	Data           secrets.SecretData
 	ValueRef       *secrets.ValueRef
+	AutoPrune      *bool
 }
 
 func (u *UpdateSecretParams) hasUpdate() bool {
@@ -57,7 +58,8 @@ func (u *UpdateSecretParams) hasUpdate() bool {
 		u.ExpireTime != nil ||
 		len(u.Data) > 0 ||
 		u.ValueRef != nil ||
-		len(u.Params) > 0
+		len(u.Params) > 0 ||
+		u.AutoPrune != nil
 }
 
 // ChangeSecretBackendParams are used to change the backend of a secret.
@@ -86,8 +88,10 @@ type SecretsStore interface {
 	ListSecrets(SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListModelSecrets(bool) (map[string]set.Strings, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
+	ListUnusedSecretRevisions(uri *secrets.URI) ([]int, error)
 	GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error)
 	WatchObsolete(owners []names.Tag) (StringsWatcher, error)
+	WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error)
 	ChangeSecretBackend(ChangeSecretBackendParams) error
 }
 
@@ -116,6 +120,9 @@ type secretMetadataDoc struct {
 
 	CreateTime time.Time `bson:"create-time"`
 	UpdateTime time.Time `bson:"update-time"`
+
+	// AutoPrune is true if the secret revisions should be pruned when it's not been used.
+	AutoPrune bool `bson:"auto-prune"`
 }
 
 type valueRefDoc struct {
@@ -200,6 +207,9 @@ func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, p *Update
 	if p.Label != nil {
 		doc.Label = toValue(p.Label)
 	}
+	if p.AutoPrune != nil {
+		doc.AutoPrune = *p.AutoPrune
+	}
 	if p.RotatePolicy != nil {
 		doc.RotatePolicy = string(toValue(p.RotatePolicy))
 	}
@@ -220,6 +230,15 @@ func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, p *Update
 
 func secretRevisionKey(uri *secrets.URI, revision int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, revision)
+}
+
+func splitSecretRevision(c string) (string, int) {
+	parts := strings.Split(c, "/")
+	if len(parts) < 2 {
+		return parts[0], 0
+	}
+	rev, _ := strconv.Atoi(parts[1])
+	return parts[0], rev
 }
 
 func (s *secretsStore) secretRevisionDoc(uri *secrets.URI, owner string, revision int, expireTime *time.Time, data secrets.SecretData, valueRef *secrets.ValueRef) *secretRevisionDoc {
@@ -517,6 +536,7 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc, nextRotateTime *
 		Description:      doc.Description,
 		Label:            doc.Label,
 		OwnerTag:         doc.OwnerTag,
+		AutoPrune:        doc.AutoPrune,
 		CreateTime:       doc.CreateTime,
 		UpdateTime:       doc.UpdateTime,
 	}, nil
@@ -1040,6 +1060,21 @@ func (s *secretsStore) ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretR
 	return s.listSecretRevisions(uri, nil)
 }
 
+// ListUnusedSecretRevisions returns the revision numbers that are not consumered by any applications.
+func (s *secretsStore) ListUnusedSecretRevisions(uri *secrets.URI) ([]int, error) {
+	docs, err := s.listSecretRevisionDocs(uri, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var revisions []int
+	for _, doc := range docs {
+		if doc.Obsolete {
+			revisions = append(revisions, doc.Revision)
+		}
+	}
+	return revisions, nil
+}
+
 // GetSecretRevision returns the specified revision metadata for the given secret.
 func (s *secretsStore) GetSecretRevision(uri *secrets.URI, revision int) (*secrets.SecretRevisionMetadata, error) {
 	rev, err := s.listSecretRevisions(uri, &revision)
@@ -1052,11 +1087,8 @@ func (s *secretsStore) GetSecretRevision(uri *secrets.URI, revision int) (*secre
 	return rev[0], nil
 }
 
-func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*secrets.SecretRevisionMetadata, error) {
+func (s *secretsStore) listSecretRevisionDocs(uri *secrets.URI, revision *int) ([]secretRevisionDoc, error) {
 	secretRevisionCollection, closer := s.st.db().GetCollection(secretRevisionsC)
-	defer closer()
-
-	secretBackendsColl, closer := s.st.db().GetCollection(secretBackendsC)
 	defer closer()
 
 	var (
@@ -1073,6 +1105,17 @@ func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return docs, nil
+}
+
+func (s *secretsStore) listSecretRevisions(uri *secrets.URI, revision *int) ([]*secrets.SecretRevisionMetadata, error) {
+	docs, err := s.listSecretRevisionDocs(uri, revision)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	secretBackendsColl, closer := s.st.db().GetCollection(secretBackendsC)
+	defer closer()
 
 	backendNames := make(map[string]string)
 	result := make([]*secrets.SecretRevisionMetadata, len(docs))
@@ -1951,7 +1994,36 @@ func (s *secretsStore) WatchObsolete(ownerTags []names.Tag) (StringsWatcher, err
 	for i, owner := range ownerTags {
 		owners[i] = owner.String()
 	}
-	return newObsoleteSecretsWatcher(s.st, owners), nil
+	return newObsoleteSecretsWatcher(s.st, owners, nil), nil
+}
+
+// WatchRevisionsToPrune returns a watcher for notifying when a user supplied secret revision needs to be pruned.
+func (s *secretsStore) WatchRevisionsToPrune(ownerTags []names.Tag) (StringsWatcher, error) {
+	if len(ownerTags) == 0 {
+		return nil, errors.New("missing secret owners")
+	}
+	owners := make([]string, len(ownerTags))
+	for i, owner := range ownerTags {
+		owners[i] = owner.String()
+	}
+	fitler := func(id string) bool {
+		uri, err := secrets.ParseURI(id)
+		if err != nil {
+			logger.Warningf("invalid secret URI %q, err %#v", id, err)
+			return false
+		}
+		md, err := s.GetSecret(uri)
+		if err != nil {
+			logger.Warningf("cannot get secret %q, err %#v", uri, err)
+			return false
+		}
+		if s.st.modelTag.String() != md.OwnerTag {
+			// Only prune secrets owned by this model (user secrets).
+			return false
+		}
+		return md.AutoPrune
+	}
+	return newObsoleteSecretsWatcher(s.st, owners, fitler), nil
 }
 
 type obsoleteSecretsWatcher struct {
@@ -1964,7 +2036,7 @@ type obsoleteSecretsWatcher struct {
 	known  set.Strings
 }
 
-func newObsoleteSecretsWatcher(st modelBackend, owners []string) *obsoleteSecretsWatcher {
+func newObsoleteSecretsWatcher(st modelBackend, owners []string, filter func(string) bool) *obsoleteSecretsWatcher {
 	// obsoleteRevisionsWatcher is for tracking secret revisions with no consumers.
 	obsoleteRevisionsWatcher := newCollectionWatcher(st, colWCfg{
 		col: secretRevisionsC,
@@ -1979,8 +2051,11 @@ func newObsoleteSecretsWatcher(st modelBackend, owners []string) *obsoleteSecret
 			if err != nil {
 				return false
 			}
-
-			return doc.Obsolete
+			if filter == nil {
+				return doc.Obsolete
+			}
+			uri, _ := splitSecretRevision(st.localID(doc.DocID))
+			return doc.Obsolete && filter(uri)
 		},
 		idconv: func(idStr string) string {
 			id, rev := splitSecretRevision(idStr)
@@ -2026,15 +2101,6 @@ func (w *obsoleteSecretsWatcher) initial() error {
 		w.known.Add(doc.DocID)
 	}
 	return errors.Trace(iter.Close())
-}
-
-func splitSecretRevision(c string) (string, int) {
-	parts := strings.Split(c, "/")
-	if len(parts) < 2 {
-		return parts[0], 0
-	}
-	rev, _ := strconv.Atoi(parts[1])
-	return parts[0], rev
 }
 
 func (w *obsoleteSecretsWatcher) mergedOwnedChanges(currentChanges []string, change watcher.Change) ([]string, error) {

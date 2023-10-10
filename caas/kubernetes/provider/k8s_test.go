@@ -63,7 +63,7 @@ func getBasicPodspec() *specs.PodSpec {
 	pSpecs.Containers = []specs.ContainerSpec{{
 		Name:         "test",
 		Ports:        []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
-		ImageDetails: specs.ImageDetails{ImagePath: "juju/image", Username: "fred", Password: "secret"},
+		ImageDetails: specs.ImageDetails{ImagePath: "juju-repo.local/juju/image", Username: "fred", Password: "secret"},
 		Command:      []string{"sh", "-c"},
 		Args:         []string{"doIt", "--debug"},
 		WorkingDir:   "/path/to/here",
@@ -77,7 +77,7 @@ func getBasicPodspec() *specs.PodSpec {
 	}, {
 		Name:  "test2",
 		Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP", Name: "fred"}},
-		Image: "juju/image2",
+		Image: "juju-repo.local/juju/image2",
 	}}
 	return pSpecs
 }

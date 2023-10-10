@@ -53,6 +53,7 @@ var (
 		"storage-provisioner",   // tertiary dependency: will be inactive because migration workers will be inactive
 		"undertaker",
 		"unit-assigner", // tertiary dependency: will be inactive because migration workers will be inactive
+		"secrets-pruner",
 	}
 	aliveModelWorkers = []string{
 		"action-pruner",
@@ -76,6 +77,7 @@ var (
 		"status-history-pruner",
 		"storage-provisioner",
 		"unit-assigner",
+		"secrets-pruner",
 	}
 	migratingModelWorkers = []string{
 		"environ-tracker",

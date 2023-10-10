@@ -708,6 +708,27 @@ func (s *MigrationImportSuite) TestApplicationsUpdateSeriesNotPlatform(c *gc.C) 
 	c.Assert(obtainedOrigin.Platform.Channel, gc.Equals, "20.04/stable")
 }
 
+func (s *MigrationImportSuite) TestLocalApplicationCharmOriginRevisionFilledIn(c *gc.C) {
+	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
+	f := factory.NewFactory(s.State, s.StatePool)
+
+	testCharm := f.MakeCharm(c, &factory.CharmParams{Revision: "8"})
+	_ = f.MakeApplication(c, &factory.ApplicationParams{
+		Charm: testCharm,
+		Name:  "mysql",
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "local",
+			Type:     "charm",
+			Platform: platform,
+		},
+	})
+
+	_, newSt := s.importModel(c, s.State)
+	newApp, err := newSt.Application("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*newApp.CharmOrigin().Revision, gc.Equals, 8)
+}
+
 func (s *MigrationImportSuite) TestApplicationStatus(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 mem=8G")
 	platform := &state.Platform{Architecture: arch.DefaultArchitecture, OS: "ubuntu", Channel: "12.10/stable"}
@@ -3069,6 +3090,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	updateTime := time.Now().UTC().Round(time.Second)
 	md, err = store.UpdateSecret(md.URI, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
+		AutoPrune:   ptr(true),
 		ValueRef: &secrets.ValueRef{
 			BackendID:  backendID,
 			RevisionID: "rev-id",

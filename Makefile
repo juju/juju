@@ -572,7 +572,7 @@ check-deps:
 
 
 # CAAS related targets
-DOCKER_USERNAME            ?= jujusolutions
+DOCKER_USERNAME            ?= docker.io/jujusolutions
 DOCKER_BUILDX_CONTEXT      ?= juju-make
 DOCKER_STAGING_DIR         ?= ${BUILD_DIR}/docker-staging
 JUJUD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator

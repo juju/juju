@@ -266,10 +266,9 @@ func (c *instanceTypeCache) populateCache(ctx context.ProviderCallContext) error
 		return nil
 	}
 
-	instTypesInfo, err := FetchInstanceTypeInfoForRegion(
+	instTypesInfo, err := FetchInstanceTypeInfo(
 		ctx,
 		c.ec2Client,
-		c.region,
 	)
 	if err != nil {
 		return fmt.Errorf("populating instance type cache for region %q: %w", c.region, err)

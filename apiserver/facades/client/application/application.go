@@ -293,6 +293,16 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
+		// Fill in the charm origin revision from the charm url if it's absent
+		if arg.CharmOrigin.Revision == nil {
+			curl, err := charm.ParseURL(arg.CharmURL)
+			if err != nil {
+				result.Results[i].Error = apiservererrors.ServerError(err)
+				continue
+			}
+			rev := curl.Revision
+			arg.CharmOrigin.Revision = &rev
+		}
 		err := deployApplication(
 			ctx,
 			api.backend,
