@@ -47,8 +47,10 @@ func (c *WorkerConfig) Validate() error {
 // ConfigWatcher is an interface that can be used to watch for changes to the
 // agent controller config.
 type ConfigWatcher interface {
-	// Changes returns a channel that will be closed when the agent
+	// Changes returns a channel that will dispatch changes when the agent
 	// controller config changes.
+	// The channel will be closed when the subscription is terminated or
+	// the underlying worker is killed.
 	Changes() <-chan struct{}
 	// Done returns a channel that will be closed when the subscription is
 	// closed.
