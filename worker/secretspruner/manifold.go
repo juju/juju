@@ -17,12 +17,12 @@ type ManifoldConfig struct {
 	APICallerName string
 	Logger        Logger
 
-	NewSecretsFacade func(base.APICaller) SecretsFacade
-	NewWorker        func(Config) (worker.Worker, error)
+	NewUserSecretsFacade func(base.APICaller) SecretsFacade
+	NewWorker            func(Config) (worker.Worker, error)
 }
 
-// NewSecretsFacade returns a new SecretsFacade.
-func NewSecretsFacade(caller base.APICaller) SecretsFacade {
+// NewUserSecretsFacade returns a new SecretsFacade.
+func NewUserSecretsFacade(caller base.APICaller) SecretsFacade {
 	return usersecrets.NewClient(caller)
 }
 
@@ -44,8 +44,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
-	if cfg.NewSecretsFacade == nil {
-		return errors.NotValidf("nil NewSecretsFacade")
+	if cfg.NewUserSecretsFacade == nil {
+		return errors.NotValidf("nil NewUserSecretsFacade")
 	}
 	if cfg.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
@@ -65,7 +65,7 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 	}
 
 	worker, err := cfg.NewWorker(Config{
-		SecretsFacade: cfg.NewSecretsFacade(apiCaller),
+		SecretsFacade: cfg.NewUserSecretsFacade(apiCaller),
 		Logger:        cfg.Logger,
 	})
 	if err != nil {

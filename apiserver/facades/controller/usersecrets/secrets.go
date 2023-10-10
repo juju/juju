@@ -63,7 +63,7 @@ func (s *UserSecretsManager) DeleteRevisions(args params.DeleteSecretArgs) (para
 				return apiservererrors.ErrPerm
 			}
 			if !md.AutoPrune {
-				return errors.Errorf("cannot delete auto-prune secret %q", uri.String())
+				return errors.Errorf("cannot delete non auto-prune secret %q", uri.String())
 			}
 			return nil
 		},

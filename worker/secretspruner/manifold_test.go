@@ -37,7 +37,7 @@ func (s *manifoldSuite) validConfig() secretspruner.ManifoldConfig {
 		NewWorker: func(config secretspruner.Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewSecretsFacade: func(base.APICaller) secretspruner.SecretsFacade { return nil },
+		NewUserSecretsFacade: func(base.APICaller) secretspruner.SecretsFacade { return nil },
 	}
 }
 
@@ -60,8 +60,8 @@ func (s *manifoldSuite) TestMissingNewWorker(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestMissingNewFacade(c *gc.C) {
-	s.config.NewSecretsFacade = nil
-	s.checkNotValid(c, "nil NewSecretsFacade not valid")
+	s.config.NewUserSecretsFacade = nil
+	s.checkNotValid(c, "nil NewUserSecretsFacade not valid")
 }
 
 func (s *manifoldSuite) checkNotValid(c *gc.C, expect string) {
@@ -75,7 +75,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer ctrl.Finish()
 
 	facade := mocks.NewMockSecretsFacade(ctrl)
-	s.config.NewSecretsFacade = func(base.APICaller) secretspruner.SecretsFacade {
+	s.config.NewUserSecretsFacade = func(base.APICaller) secretspruner.SecretsFacade {
 		return facade
 	}
 

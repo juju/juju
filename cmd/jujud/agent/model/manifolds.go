@@ -331,10 +331,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		secretsPrunerName: ifNotMigrating(secretspruner.Manifold(secretspruner.ManifoldConfig{
-			APICallerName:    apiCallerName,
-			Logger:           config.LoggingContext.GetLogger("juju.worker.secretspruner"),
-			NewSecretsFacade: secretspruner.NewSecretsFacade,
-			NewWorker:        secretspruner.NewWorker,
+			APICallerName:        apiCallerName,
+			Logger:               config.LoggingContext.GetLogger("juju.worker.secretspruner"),
+			NewUserSecretsFacade: secretspruner.NewUserSecretsFacade,
+			NewWorker:            secretspruner.NewWorker,
 		})),
 	}
 	return result

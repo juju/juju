@@ -102,7 +102,6 @@ func (w *Worker) loop() (err error) {
 				return errors.New("secret prune changed watch closed")
 			}
 			w.config.Logger.Debugf("got user supplied secret revisions to prune")
-			w.config.Logger.Warningf("got user supplied secret revisions to prune %#v", changes)
 
 			if len(changes) == 0 {
 				w.config.Logger.Debugf("no secret revisions to prune")
@@ -113,8 +112,7 @@ func (w *Worker) loop() (err error) {
 				return errors.Trace(err)
 			}
 			for uriStr, revs := range revisions {
-				w.config.Logger.Debugf("pruning secret revisions %q", uriStr)
-				w.config.Logger.Warningf("pruning secret %q revisions %#v", uriStr, revs)
+				w.config.Logger.Debugf("pruning secret revisions %q: %v", uriStr, revs.SortedValues())
 				uri, err := coresecrets.ParseURI(uriStr)
 				if err != nil {
 					return errors.Trace(err)
@@ -135,7 +133,6 @@ func (w *Worker) processChanges(changes ...string) (map[string]set.Ints, error) 
 		uri := parts[0]
 		if len(parts) < 2 {
 			// This should never happen.
-			w.config.Logger.Warningf("secret %q has been removed, no need to prune", revInfo)
 			w.config.Logger.Debugf("secret %q has been removed, no need to prune", revInfo)
 			continue
 		}
@@ -149,6 +146,5 @@ func (w *Worker) processChanges(changes ...string) (map[string]set.Ints, error) 
 		}
 		out[uri].Add(rev)
 	}
-	w.config.Logger.Warningf("out %#v", out)
 	return out, nil
 }

@@ -4,15 +4,13 @@
 package secrets
 
 import (
-	"fmt"
-	"strconv"
-
 	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/secrets"
 )
@@ -24,7 +22,7 @@ type updateSecretCommand struct {
 	secretsAPIFunc func() (UpdateSecretsAPI, error)
 
 	secretURI *secrets.URI
-	autoPrune autoBoolValue
+	autoPrune common.AutoBoolValue
 }
 
 // UpdateSecretsAPI is the secrets client API.
@@ -112,39 +110,6 @@ func (c *updateSecretCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer secretsAPI.Close()
-	return secretsAPI.UpdateSecret(c.secretURI, c.autoPrune.b, c.Label, c.Description, c.Data)
+	defer func() { _ = secretsAPI.Close() }()
+	return secretsAPI.UpdateSecret(c.secretURI, c.autoPrune.Get(), c.Label, c.Description, c.Data)
 }
-
-// autoBoolValue is like gnuflag.boolValue, but remembers
-// whether or not a value has been set, so its behaviour
-// can be determined dynamically, during command execution.
-type autoBoolValue struct {
-	b *bool
-}
-
-func (b *autoBoolValue) Set(s string) error {
-	fmt.Println("autoBoolValue.Set", s)
-	v, err := strconv.ParseBool(s)
-	if err != nil {
-		return err
-	}
-	b.b = &v
-	return nil
-}
-
-func (b *autoBoolValue) Get() interface{} {
-	if b.b != nil {
-		return *b.b
-	}
-	return b.b // nil
-}
-
-func (b *autoBoolValue) String() string {
-	if b.b != nil {
-		return fmt.Sprint(*b.b)
-	}
-	return "<auto>"
-}
-
-func (b *autoBoolValue) IsBoolFlag() bool { return true }

@@ -158,3 +158,22 @@ func assertConfigFlagReadAttrs(c *gc.C, f ConfigFlag, expect map[string]interfac
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attrs, jc.DeepEquals, expect)
 }
+
+func (*FlagsSuite) TestAutoBoolValue(c *gc.C) {
+	var f AutoBoolValue
+	c.Assert(f.Get(), gc.IsNil)
+	c.Assert(f.String(), gc.Equals, "nil")
+
+	c.Assert(f.Set("true"), jc.ErrorIsNil)
+	c.Assert(*f.Get(), jc.IsTrue)
+	c.Assert(f.String(), gc.Equals, "true")
+
+	c.Assert(f.Set("false"), jc.ErrorIsNil)
+	c.Assert(*f.Get(), jc.IsFalse)
+	c.Assert(f.String(), gc.Equals, "false")
+
+	c.Assert(f.Set(""), gc.ErrorMatches, `strconv.ParseBool: parsing "": invalid syntax`)
+	c.Assert(f.Set("non-bool"), gc.ErrorMatches, `strconv.ParseBool: parsing "non-bool": invalid syntax`)
+
+	c.Assert(f.IsBoolFlag(), jc.IsTrue)
+}

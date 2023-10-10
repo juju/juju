@@ -171,7 +171,7 @@ func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneDisabled(c *gc.C) {
 		Results: []params.ErrorResult{
 			{
 				Error: &params.Error{
-					Message: fmt.Sprintf("cannot delete auto-prune secret %q", uri.String()),
+					Message: fmt.Sprintf("cannot delete non auto-prune secret %q", uri.String()),
 				},
 			},
 		},

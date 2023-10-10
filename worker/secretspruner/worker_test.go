@@ -49,6 +49,7 @@ func (s *workerSuite) getWorkerNewer(c *gc.C, calls ...*gomock.Call) (func(strin
 		})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(w, gc.NotNil)
+		workertest.CheckAlive(c, w)
 		s.AddCleanup(func(c *gc.C) {
 			if expectedErr == "" {
 				workertest.CleanKill(c, w)
