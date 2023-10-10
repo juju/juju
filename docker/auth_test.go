@@ -4,7 +4,6 @@
 package docker_test
 
 import (
-	"encoding/base64"
 	"os"
 	"path/filepath"
 
@@ -47,7 +46,7 @@ func (s *authSuite) TestNewImageRepoDetailsReadFromFile(c *gc.C) {
 	fullpath := filepath.Join(dir, filename)
 	err := os.WriteFile(fullpath, []byte(quayContent), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	imageRepoDetails, err := docker.NewImageRepoDetails(fullpath)
+	imageRepoDetails, err := docker.LoadImageRepoDetails(fullpath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(imageRepoDetails, jc.DeepEquals, &docker.ImageRepoDetails{
 		Repository:    "test-account",
@@ -78,7 +77,6 @@ func (s *authSuite) TestNewImageRepoDetailsReadFromContent(c *gc.C) {
 		BasicAuthConfig: docker.BasicAuthConfig{
 			Username: "aws_access_key_id",
 			Password: "aws_secret_access_key",
-			Auth:     docker.NewToken(base64.StdEncoding.EncodeToString([]byte("aws_access_key_id:aws_secret_access_key"))),
 		},
 		TokenAuthConfig: docker.TokenAuthConfig{
 			IdentityToken: docker.NewToken("xxxxx=="),

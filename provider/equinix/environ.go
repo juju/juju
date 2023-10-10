@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
-	"github.com/juju/juju/cmd/juju/ssh"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -45,6 +44,8 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -destination ./mocks/packngo.go -package mocks github.com/packethost/packngo DeviceService,OSService,PlanService,ProjectIPService
 
 var logger = loggo.GetLogger("juju.provider.equinix")
+
+const sshPort = 22
 
 type environConfig struct {
 	config *config.Config
@@ -289,8 +290,8 @@ func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, e
 	cloudCfg.AddPackage("jq")
 
 	// Set a default INPUT policy of drop, permitting ssh
-	iptablesDefault := strings.Split(fmt.Sprintf(defaultIPTablesCommands, ssh.SSHPort), "\n")
-	iptablesDefault = append(iptablesDefault, fmt.Sprintf(acceptInputPort, ssh.SSHPort))
+	iptablesDefault := strings.Split(fmt.Sprintf(defaultIPTablesCommands, sshPort), "\n")
+	iptablesDefault = append(iptablesDefault, fmt.Sprintf(acceptInputPort, sshPort))
 	if args.InstanceConfig.IsController() {
 		for _, port := range []int{
 			args.InstanceConfig.ControllerConfig.APIPort(),
