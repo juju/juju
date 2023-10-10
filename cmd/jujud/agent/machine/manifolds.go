@@ -808,9 +808,10 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		objectStoreName: ifController(objectstore.Manifold(objectstore.ManifoldConfig{
 			AgentName:            agentName,
+			StateName:            stateName,
 			Clock:                config.Clock,
 			Logger:               loggo.GetLogger("juju.worker.objectstore"),
-			NewObjectStoreWorker: objectstore.NewObjectStoreWorker,
+			NewObjectStoreWorker: objectstore.NewStateObjectStore,
 		})),
 	}
 

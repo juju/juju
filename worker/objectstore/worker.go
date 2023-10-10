@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/state"
 )
 
 const (
@@ -33,6 +34,11 @@ type WorkerConfig struct {
 	Clock                clock.Clock
 	Logger               Logger
 	NewObjectStoreWorker ObjectStoreWorkerFunc
+
+	// StatePool is only here for backwards compatibility. Once we have
+	// the right abstractions in place, and we have a replacement, we can
+	// remove this.
+	StatePool *state.StatePool
 }
 
 // Validate ensures that the config values are valid.
@@ -45,6 +51,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.NewObjectStoreWorker == nil {
 		return errors.NotValidf("nil NewObjectStoreWorker")
+	}
+	if c.StatePool == nil {
+		return errors.NotValidf("nil StatePool")
 	}
 	return nil
 }
@@ -224,9 +233,15 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 		ctx, cancel := w.scopedContext()
 		defer cancel()
 
+		state, err := w.cfg.StatePool.Get(namespace)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 		return w.cfg.NewObjectStoreWorker(
 			ctx,
 			namespace,
+			state,
 			w.cfg.Logger,
 		)
 	})

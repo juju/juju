@@ -929,7 +929,13 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"object-store": {
 		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
 		"is-controller-flag",
+		"query-logger",
+		"service-factory",
+		"state",
 		"state-config-watcher",
 	},
 
@@ -1450,7 +1456,13 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"object-store": {
 		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
 		"is-controller-flag",
+		"query-logger",
+		"service-factory",
+		"state",
 		"state-config-watcher",
 	},
 

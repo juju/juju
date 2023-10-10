@@ -44,9 +44,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		AgentName: "agent",
+		StateName: "state",
 		Clock:     s.clock,
 		Logger:    s.logger,
-		NewObjectStoreWorker: func(context.Context, string, Logger) (TrackedObjectStore, error) {
+		NewObjectStoreWorker: func(context.Context, string, MongoSession, Logger) (TrackedObjectStore, error) {
 			return nil, nil
 		},
 	}
@@ -59,7 +60,7 @@ func (s *manifoldSuite) getContext() dependency.Context {
 	return dependencytesting.StubContext(nil, resources)
 }
 
-var expectedInputs = []string{"agent"}
+var expectedInputs = []string{"agent", "state"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)

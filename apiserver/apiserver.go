@@ -747,9 +747,10 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		controllerModelUUID,
 	)
 	modelRestHandler := &modelRestHandler{
-		ctxt:          httpCtxt,
-		dataDir:       srv.dataDir,
-		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
+		ctxt:              httpCtxt,
+		dataDir:           srv.dataDir,
+		objectStoreGetter: srv.shared.objectStoreGetter,
+		stateAuthFunc:     httpCtxt.stateForRequestAuthenticatedUser,
 	}
 	modelRestServer := &RestHTTPHandler{
 		GetHandler: modelRestHandler.ServeGet,

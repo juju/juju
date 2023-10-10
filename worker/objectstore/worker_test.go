@@ -165,7 +165,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
 		Clock:  s.clock,
 		Logger: s.logger,
-		NewObjectStoreWorker: func(context.Context, string, Logger) (TrackedObjectStore, error) {
+		NewObjectStoreWorker: func(context.Context, string, MongoSession, Logger) (TrackedObjectStore, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedObjectStore, nil
 		},

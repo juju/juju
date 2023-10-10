@@ -5,6 +5,7 @@ package common
 
 import (
 	"archive/zip"
+	"context"
 	"io"
 	"os"
 	"path"
@@ -20,12 +21,12 @@ import (
 type ReadObjectStore interface {
 	// Get returns an io.ReadCloser for data at path, namespaced to the
 	// model.
-	Get(string) (io.ReadCloser, int64, error)
+	Get(context.Context, string) (io.ReadCloser, int64, error)
 }
 
 // ReadCharmFromStorage fetches the charm at the specified path from the store
 // and copies it to a temp directory in dataDir.
-func ReadCharmFromStorage(objectStore ReadObjectStore, dataDir, storagePath string) (string, error) {
+func ReadCharmFromStorage(ctx context.Context, objectStore ReadObjectStore, dataDir, storagePath string) (string, error) {
 	// Ensure the working directory exists.
 	tmpDir := filepath.Join(dataDir, "charm-get-tmp")
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
@@ -33,7 +34,7 @@ func ReadCharmFromStorage(objectStore ReadObjectStore, dataDir, storagePath stri
 	}
 
 	// Use the storage to retrieve and save the charm archive.
-	reader, _, err := objectStore.Get(storagePath)
+	reader, _, err := objectStore.Get(ctx, storagePath)
 	if err != nil {
 		return "", errors.Annotate(err, "cannot get charm from model storage")
 	}

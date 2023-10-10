@@ -545,7 +545,7 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 		return errRet(errors.Annotate(err, "cannot get object store"))
 	}
 
-	archivePath, err = common.ReadCharmFromStorage(store, h.dataDir, ch.StoragePath())
+	archivePath, err = common.ReadCharmFromStorage(r.Context(), store, h.dataDir, ch.StoragePath())
 	if err != nil {
 		return errRet(errors.Annotatef(err, "cannot read charm %q from storage", curl))
 	}
