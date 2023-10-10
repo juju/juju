@@ -515,7 +515,16 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 				Architecture: curl.Architecture,
 				OS:           base.OS,
 				Channel:      base.Channel.String(),
-			}}
+			},
+		}
+	}
+	if params.CharmOrigin.Revision == nil {
+		curl := charm.MustParseURL(params.Charm.URL())
+		rev := curl.Revision
+		if rev == -1 {
+			rev = 0
+		}
+		params.CharmOrigin.Revision = &rev
 	}
 
 	rSt := factory.st.Resources()

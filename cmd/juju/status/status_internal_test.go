@@ -4295,9 +4295,14 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, jc.IsTrue)
 
-	series := charm.MustParseURL(ch.URL()).Series
+	curl := charm.MustParseURL(ch.URL())
+	series := curl.Series
 	if series == "" {
 		series = "quantal"
+	}
+	rev := curl.Revision
+	if rev == -1 {
+		rev = 0
 	}
 	base, err := corebase.GetBaseFromSeries(series)
 	c.Assert(err, jc.ErrorIsNil)
@@ -4305,7 +4310,10 @@ func (as addApplication) step(c *gc.C, ctx *context) {
 		Name:             as.name,
 		Charm:            ch,
 		EndpointBindings: as.binding,
-		CharmOrigin:      &state.CharmOrigin{Platform: &state.Platform{OS: base.OS, Channel: base.Channel.String()}},
+		CharmOrigin: &state.CharmOrigin{
+			Platform: &state.Platform{OS: base.OS, Channel: base.Channel.String()},
+			Revision: &rev,
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	if app.IsPrincipal() {
