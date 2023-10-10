@@ -579,6 +579,7 @@ func writeCharmToTempFile(r io.Reader) (string, error) {
 		return "", errors.Annotate(err, "creating temp file")
 	}
 	defer tempFile.Close()
+
 	if _, err := io.Copy(tempFile, r); err != nil {
 		return "", errors.Annotate(err, "processing upload")
 	}
