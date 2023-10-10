@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/pubsub/controller"
@@ -728,6 +729,50 @@ func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
 	if err := c.checkIsSuperUser(); err != nil {
 		return errors.Trace(err)
 	}
+
+	currentCfg, err := c.state.ControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// TODO(dqlite): move this business logic out of the facade.
+	if newValue, ok := args.Config[corecontroller.CAASImageRepo]; ok {
+		var newCAASImageRepo docker.ImageRepoDetails
+		if v, ok := newValue.(string); ok {
+			newCAASImageRepo, err = docker.NewImageRepoDetails(v)
+			if err != nil {
+				return fmt.Errorf("cannot parse %s: %s%w", corecontroller.CAASImageRepo, err.Error(),
+					errors.Hide(errors.NotValid))
+			}
+		} else {
+			return fmt.Errorf("%s expected a string got %v%w", corecontroller.CAASImageRepo, v,
+				errors.Hide(errors.NotValid))
+		}
+
+		var currentCAASImageRepo docker.ImageRepoDetails
+		if currentValue, ok := currentCfg[corecontroller.CAASImageRepo]; !ok {
+			return fmt.Errorf("cannot change %s as it is not currently set%w", corecontroller.CAASImageRepo,
+				errors.Hide(errors.NotValid))
+		} else if v, ok := currentValue.(string); !ok {
+			return fmt.Errorf("existing %s expected a string", corecontroller.CAASImageRepo)
+		} else {
+			currentCAASImageRepo, err = docker.NewImageRepoDetails(v)
+			if err != nil {
+				return fmt.Errorf("cannot parse existing %s: %w", corecontroller.CAASImageRepo, err)
+			}
+		}
+		// TODO: when podspec is removed, implement changing caas-image-repo.
+		if newCAASImageRepo.Repository != currentCAASImageRepo.Repository {
+			return fmt.Errorf("cannot change %s: repository read-only, only authentication can be updated", corecontroller.CAASImageRepo)
+		}
+		if !newCAASImageRepo.IsPrivate() && currentCAASImageRepo.IsPrivate() {
+			return fmt.Errorf("cannot change %s: unable to remove authentication details", corecontroller.CAASImageRepo)
+		}
+		if newCAASImageRepo.IsPrivate() && !currentCAASImageRepo.IsPrivate() {
+			return fmt.Errorf("cannot change %s: unable to add authentication details", corecontroller.CAASImageRepo)
+		}
+	}
+
 	if err := c.state.UpdateControllerConfig(args.Config, nil); err != nil {
 		return errors.Trace(err)
 	}

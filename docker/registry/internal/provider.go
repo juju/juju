@@ -20,13 +20,13 @@ func NewBase(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (
 func Providers() []func(docker.ImageRepoDetails, http.RoundTripper) (RegistryInternal, error) {
 	return []func(docker.ImageRepoDetails, http.RoundTripper) (RegistryInternal, error){
 		newAzureContainerRegistry,
-		newDockerhub,
 		newGitlabContainerRegistry,
 		newGithubContainerRegistry,
 		newQuayContainerRegistry,
 		newGoogleContainerRegistry,
 		newElasticContainerRegistry,
 		newElasticContainerRegistryPublic,
+		newDockerhub, // DockerHub must be last as it matches on default domain.
 	}
 }
 

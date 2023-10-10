@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
+	watcher "github.com/juju/juju/core/watcher"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -47,4 +48,19 @@ func (m *MockFacade) ControllerConfig() (controller.Config, error) {
 func (mr *MockFacadeMockRecorder) ControllerConfig() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockFacade)(nil).ControllerConfig))
+}
+
+// WatchControllerConfig mocks base method.
+func (m *MockFacade) WatchControllerConfig() (watcher.NotifyWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchControllerConfig")
+	ret0, _ := ret[0].(watcher.NotifyWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchControllerConfig indicates an expected call of WatchControllerConfig.
+func (mr *MockFacadeMockRecorder) WatchControllerConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchControllerConfig", reflect.TypeOf((*MockFacade)(nil).WatchControllerConfig))
 }

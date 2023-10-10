@@ -108,11 +108,11 @@ func (mr *MockRegistryMockRecorder) RefreshAuth() *gomock.Call {
 }
 
 // ShouldRefreshAuth mocks base method.
-func (m *MockRegistry) ShouldRefreshAuth() (bool, *time.Duration) {
+func (m *MockRegistry) ShouldRefreshAuth() (bool, time.Duration) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ShouldRefreshAuth")
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(*time.Duration)
+	ret1, _ := ret[1].(time.Duration)
 	return ret0, ret1
 }
 
@@ -120,6 +120,20 @@ func (m *MockRegistry) ShouldRefreshAuth() (bool, *time.Duration) {
 func (mr *MockRegistryMockRecorder) ShouldRefreshAuth() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShouldRefreshAuth", reflect.TypeOf((*MockRegistry)(nil).ShouldRefreshAuth))
+}
+
+// String mocks base method.
+func (m *MockRegistry) String() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "String")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// String indicates an expected call of String.
+func (mr *MockRegistryMockRecorder) String() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockRegistry)(nil).String))
 }
 
 // Tags mocks base method.
