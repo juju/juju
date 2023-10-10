@@ -4,12 +4,21 @@
 package registry_test
 
 import (
-	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/docker"
+	"github.com/juju/juju/docker/registry"
 )
 
 type registrySuite struct {
-	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&registrySuite{})
+
+func (s *registrySuite) TestErrorsOnDockerDefault(c *gc.C) {
+	reg, err := registry.New(docker.ImageRepoDetails{
+		Repository: "jujusolutions",
+	})
+	c.Assert(err, gc.ErrorMatches, `oci reference "jujusolutions" must have a domain`)
+	c.Assert(reg, gc.IsNil)
+}

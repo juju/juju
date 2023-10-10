@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/docker"
 )
 
@@ -14,9 +16,12 @@ type gitlabContainerRegistry struct {
 	*baseClient
 }
 
-func newGitlabContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
-	return &gitlabContainerRegistry{c}
+func newGitlabContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (RegistryInternal, error) {
+	c, err := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &gitlabContainerRegistry{c}, nil
 }
 
 // Match checks if the repository details matches current provider format.

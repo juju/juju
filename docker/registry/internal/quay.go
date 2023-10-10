@@ -16,9 +16,12 @@ type quayContainerRegistry struct {
 	*baseClient
 }
 
-func newQuayContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
-	return &quayContainerRegistry{c}
+func newQuayContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (RegistryInternal, error) {
+	c, err := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
+	if err != nil {
+		return nil, err
+	}
+	return &quayContainerRegistry{c}, nil
 }
 
 // Match checks if the repository details matches current provider format.

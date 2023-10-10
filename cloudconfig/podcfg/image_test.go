@@ -44,9 +44,9 @@ func (*imageSuite) TestGetJujuOCIImagePath(c *gc.C) {
 
 func (*imageSuite) TestRebuildOldOperatorImagePath(c *gc.C) {
 	ver := version.MustParse("2.6-beta3")
-	path, err := podcfg.RebuildOldOperatorImagePath("jujusolutions/jujud-operator:666", ver)
+	path, err := podcfg.RebuildOldOperatorImagePath("docker.io/jujusolutions/jujud-operator:666", ver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, jc.DeepEquals, "jujusolutions/jujud-operator:2.6-beta3")
+	c.Assert(path, jc.DeepEquals, "docker.io/jujusolutions/jujud-operator:2.6-beta3")
 }
 
 func (*imageSuite) TestImageForBase(c *gc.C) {
@@ -65,13 +65,13 @@ func (*imageSuite) TestImageForBase(c *gc.C) {
 		Track: "20.04", Risk: charm.Stable,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.DeepEquals, `jujusolutions/charm-base:ubuntu-20.04`)
+	c.Assert(path, gc.DeepEquals, `docker.io/jujusolutions/charm-base:ubuntu-20.04`)
 
 	path, err = podcfg.ImageForBase("", charm.Base{Name: "ubuntu", Channel: charm.Channel{
 		Track: "20.04", Risk: charm.Edge,
 	}})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(path, gc.DeepEquals, `jujusolutions/charm-base:ubuntu-20.04-edge`)
+	c.Assert(path, gc.DeepEquals, `docker.io/jujusolutions/charm-base:ubuntu-20.04-edge`)
 }
 
 func (*imageSuite) TestRecoverRepoFromOperatorPath(c *gc.C) {
@@ -83,10 +83,10 @@ func (*imageSuite) TestRecoverRepoFromOperatorPath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(repo, gc.Equals, "testing-repo:8080")
 
-	repo, err = podcfg.RecoverRepoFromOperatorPath("jujusolutions/jujud-operator:2.6-beta3")
+	repo, err = podcfg.RecoverRepoFromOperatorPath("docker.io/jujusolutions/jujud-operator:2.6-beta3")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(repo, gc.Equals, "jujusolutions")
+	c.Assert(repo, gc.Equals, "docker.io/jujusolutions")
 
-	_, err = podcfg.RecoverRepoFromOperatorPath("jujusolutions/nope:2.6-beta3")
-	c.Assert(err, gc.ErrorMatches, `image path "jujusolutions/nope:2.6-beta3" does not match the form somerepo/jujud-operator:\.\*`)
+	_, err = podcfg.RecoverRepoFromOperatorPath("docker.io/jujusolutions/nope:2.6-beta3")
+	c.Assert(err, gc.ErrorMatches, `image path "docker.io/jujusolutions/nope:2.6-beta3" does not match the form somerepo/jujud-operator:\.\*`)
 }

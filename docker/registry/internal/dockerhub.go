@@ -21,14 +21,17 @@ type dockerhub struct {
 	*baseClient
 }
 
-func newDockerhub(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
-	return &dockerhub{c}
+func newDockerhub(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (RegistryInternal, error) {
+	c, err := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &dockerhub{c}, nil
 }
 
 // Match checks if the repository details matches current provider format.
 func (c *dockerhub) Match() bool {
-	return c.repoDetails.ServerAddress == "" || strings.Contains(c.repoDetails.ServerAddress, "docker.io")
+	return strings.Contains(c.repoDetails.ServerAddress, "docker.io")
 }
 
 // DecideBaseURL decides the API url to use.

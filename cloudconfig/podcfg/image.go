@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	JujudOCINamespace = "jujusolutions"
+	JujudOCINamespace = "docker.io/jujusolutions"
 	JujudOCIName      = "jujud-operator"
 	JujudbOCIName     = "juju-db"
 	CharmBaseName     = "charm-base"

@@ -143,7 +143,7 @@ jobs:
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
           cat >$BUILD_TEMP/Dockerfile <<EOL
-            FROM jujusolutions/jujud-operator:${BASE_JUJU_TAG}
+            FROM docker.io/jujusolutions/jujud-operator:${BASE_JUJU_TAG}
           
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
           
@@ -152,12 +152,12 @@ jobs:
           docker build $BUILD_TEMP -t ${DOCKER_REGISTRY}/test-repo/jujud-operator:${BASE_JUJU_TAG}
           docker push ${DOCKER_REGISTRY}/test-repo/jujud-operator:${BASE_JUJU_TAG}
           
-          docker pull jujusolutions/juju-db:${JUJU_DB_TAG}
-          docker tag jujusolutions/juju-db:${JUJU_DB_TAG} ${DOCKER_REGISTRY}/test-repo/juju-db:${JUJU_DB_TAG}
+          docker pull docker.io/jujusolutions/juju-db:${JUJU_DB_TAG}
+          docker tag docker.io/jujusolutions/juju-db:${JUJU_DB_TAG} ${DOCKER_REGISTRY}/test-repo/juju-db:${JUJU_DB_TAG}
           docker push ${DOCKER_REGISTRY}/test-repo/juju-db:${JUJU_DB_TAG}
           
-          docker pull jujusolutions/charm-base:${CHARM_BASE}
-          docker tag jujusolutions/charm-base:${CHARM_BASE} ${DOCKER_REGISTRY}/test-repo/charm-base:${CHARM_BASE}
+          docker pull docker.io/jujusolutions/charm-base:${CHARM_BASE}
+          docker tag docker.io/jujusolutions/charm-base:${CHARM_BASE} ${DOCKER_REGISTRY}/test-repo/charm-base:${CHARM_BASE}
           docker push ${DOCKER_REGISTRY}/test-repo/charm-base:${CHARM_BASE}
 
       - name: Bootstrap Juju - localhost
@@ -234,7 +234,7 @@ jobs:
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
           cat >$BUILD_TEMP/Dockerfile <<EOL
-            FROM jujusolutions/jujud-operator:${UPSTREAM_JUJU_TAG}
+            FROM docker.io/jujusolutions/jujud-operator:${UPSTREAM_JUJU_TAG}
           
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
           
@@ -246,7 +246,7 @@ jobs:
           BUILD_TEMP=$(mktemp -d)
           cp ~/certs/ca.crt $BUILD_TEMP/
           cat >$BUILD_TEMP/Dockerfile <<EOL
-            FROM jujusolutions/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
+            FROM docker.io/jujusolutions/jujud-operator:${CURRENT_STABLE_JUJU_TAG}
           
             COPY ca.crt /usr/local/share/ca-certificates/ca.crt
           
