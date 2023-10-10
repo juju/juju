@@ -13,6 +13,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/docker"
 )
 
 const (
@@ -35,7 +36,11 @@ func (cfg *ControllerPodConfig) dbVersion() (version.Number, error) {
 
 // GetJujuDbOCIImagePath returns the juju-db oci image path.
 func (cfg *ControllerPodConfig) GetJujuDbOCIImagePath() (string, error) {
-	imageRepo := cfg.Controller.CAASImageRepo().Repository
+	details, err := docker.NewImageRepoDetails(cfg.Controller.CAASImageRepo())
+	if err != nil {
+		return "", errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+	}
+	imageRepo := details.Repository
 	if imageRepo == "" {
 		imageRepo = JujudOCINamespace
 	}
@@ -62,16 +67,20 @@ func IsCharmBaseImage(imagePath string) bool {
 func GetJujuOCIImagePath(controllerCfg controller.Config, ver version.Number) (string, error) {
 	// First check the deprecated "caas-operator-image-path" config.
 	imagePath, err := RebuildOldOperatorImagePath(
-		controllerCfg.CAASOperatorImagePath().Repository, ver,
+		controllerCfg.CAASOperatorImagePath(), ver,
 	)
 	if imagePath != "" || err != nil {
 		return imagePath, err
+	}
+	details, err := docker.NewImageRepoDetails(controllerCfg.CAASImageRepo())
+	if err != nil {
+		return "", errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
 	tag := ""
 	if ver != version.Zero {
 		tag = ver.String()
 	}
-	return imageRepoToPath(controllerCfg.CAASImageRepo().Repository, tag)
+	return imageRepoToPath(details.Repository, tag)
 }
 
 // RebuildOldOperatorImagePath returns a updated image path for the specified juju version.

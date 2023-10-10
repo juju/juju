@@ -741,7 +741,7 @@ func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
 
 	// TODO(dqlite): move this business logic out of the facade.
 	if newValue, ok := args.Config[corecontroller.CAASImageRepo]; ok {
-		var newCAASImageRepo *docker.ImageRepoDetails
+		var newCAASImageRepo docker.ImageRepoDetails
 		if v, ok := newValue.(string); ok {
 			newCAASImageRepo, err = docker.NewImageRepoDetails(v)
 			if err != nil {
@@ -753,7 +753,7 @@ func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
 				errors.Hide(errors.NotValid))
 		}
 
-		var currentCAASImageRepo *docker.ImageRepoDetails
+		var currentCAASImageRepo docker.ImageRepoDetails
 		if currentValue, ok := currentCfg[corecontroller.CAASImageRepo]; !ok {
 			return fmt.Errorf("cannot change %s as it is not currently set%w", corecontroller.CAASImageRepo,
 				errors.Hide(errors.NotValid))

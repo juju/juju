@@ -167,7 +167,10 @@ func (w *manager) loop() (err error) {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			repoDetails := controllerConfig.CAASImageRepo()
+			repoDetails, err := docker.NewImageRepoDetails(controllerConfig.CAASImageRepo())
+			if err != nil {
+				return errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+			}
 			if reflect.DeepEqual(repoDetails, lastRepoDetails) {
 				continue
 			}

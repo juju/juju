@@ -40,9 +40,11 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
@@ -309,7 +311,11 @@ func newcontrollerStack(
 	cs.resourceNameVolAgentConf = cs.getResourceName(agentconstants.AgentConfigFilename)
 
 	// Initialize registry.
-	if repoDetails := pcfg.Controller.CAASImageRepo(); !repoDetails.Empty() {
+	repoDetails, err := docker.NewImageRepoDetails(pcfg.Controller.CAASImageRepo())
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+	}
+	if !repoDetails.Empty() {
 		reg, err := registry.New(repoDetails)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1559,7 +1565,10 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	repo := c.pcfg.Controller.CAASOperatorImagePath()
+	repo, err := docker.NewImageRepoDetails(c.pcfg.Controller.CAASImageRepo())
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+	}
 	charmBaseImage, err := podcfg.ImageForBase(repo.Repository, charm.Base{
 		Name: strings.ToLower(os.String()),
 		Channel: charm.Channel{
