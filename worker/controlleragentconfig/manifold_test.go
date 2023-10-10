@@ -4,6 +4,7 @@
 package controlleragentconfig
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/dependency"
@@ -27,11 +28,16 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		Logger: s.logger,
+		Clock:  clock.WallClock,
 	}
 }
 
@@ -52,4 +58,17 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	w, err := Manifold(s.getConfig()).Start(s.getContext())
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
+}
+
+func (s *manifoldSuite) TestOutput(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	man := Manifold(s.getConfig())
+	w, err := man.Start(s.getContext())
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	var watcher ConfigWatcher
+	c.Assert(man.Output(w, &watcher), jc.ErrorIsNil)
+	c.Assert(watcher, gc.NotNil)
 }

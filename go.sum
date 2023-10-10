@@ -922,8 +922,8 @@ github.com/juju/viddy v0.0.0-beta5/go.mod h1:5Yvv+opdIEDt15Tt0++8YvccVykcGJeVXxq
 github.com/juju/webbrowser v0.0.0-20160309143629-54b8c57083b4/go.mod h1:G6PCelgkM6cuvyD10iYJsjLBsSadVXtJ+nBxFAxE2BU=
 github.com/juju/webbrowser v1.0.0 h1:JLdmbFtCGY6Qf2jmS6bVaenJFGIFkdF1/BjUm76af78=
 github.com/juju/webbrowser v1.0.0/go.mod h1:RwVlbBcF91Q4vS+iwlkJ6bZTE3EwlrjbYlM3WMVD6Bc=
-github.com/juju/worker/v3 v3.4.0 h1:dMpZJ0RAOFNYKEvKSNA9U/CkWufP/Z3zK4z7QfYzIDI=
-github.com/juju/worker/v3 v3.4.0/go.mod h1:ieql+6Kl+Z3akRxgVctilGNF1sc/5Xm2a/inVY0pe4I=
+github.com/juju/worker/v3 v3.5.0 h1:pbccjj102IkvdxgCcz0DtQHA5tGZK4PGwm5dUMyRtAc=
+github.com/juju/worker/v3 v3.5.0/go.mod h1:ieql+6Kl+Z3akRxgVctilGNF1sc/5Xm2a/inVY0pe4I=
 github.com/juju/yaml/v2 v2.0.0 h1:94MzcdkHMB4w2AaC6VJ2NQ6YzMhoEFh2OIhMSvyevnc=
 github.com/juju/yaml/v2 v2.0.0/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 github.com/julienschmidt/httprouter v1.1.1-0.20151013225520-77a895ad01eb/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
