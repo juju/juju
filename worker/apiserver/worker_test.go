@@ -45,6 +45,7 @@ type workerFixture struct {
 	dbGetter             stubWatchableDBGetter
 	serviceFactoryGetter stubServiceFactoryGetter
 	tracerGetter         stubTracerGetter
+	objectStoreGetter    stubObjectStoreGetter
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -87,6 +88,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		DBGetter:                          s.dbGetter,
 		ServiceFactoryGetter:              s.serviceFactoryGetter,
 		TracerGetter:                      s.tracerGetter,
+		ObjectStoreGetter:                 s.objectStoreGetter,
 	}
 }
 
@@ -159,6 +161,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.TracerGetter = nil },
 		"nil TracerGetter not valid",
+	}, {
+		func(cfg *apiserver.Config) { cfg.ObjectStoreGetter = nil },
+		"nil ObjectStoreGetter not valid",
 	}}
 	for i, test := range tests {
 		c.Logf("test #%d (%s)", i, test.expect)

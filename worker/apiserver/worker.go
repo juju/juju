@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/objectstore"
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/trace"
 )
@@ -54,6 +55,7 @@ type Config struct {
 	DBGetter             changestream.WatchableDBGetter
 	ServiceFactoryGetter servicefactory.ServiceFactoryGetter
 	TracerGetter         trace.TracerGetter
+	ObjectStoreGetter    objectstore.ObjectStoreGetter
 }
 
 type HTTPClient interface {
@@ -119,6 +121,9 @@ func (config Config) Validate() error {
 	}
 	if config.TracerGetter == nil {
 		return errors.NotValidf("nil TracerGetter")
+	}
+	if config.ObjectStoreGetter == nil {
+		return errors.NotValidf("nil ObjectStoreGetter")
 	}
 	return nil
 }
@@ -186,6 +191,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		DBGetter:                      config.DBGetter,
 		ServiceFactoryGetter:          config.ServiceFactoryGetter,
 		TracerGetter:                  config.TracerGetter,
+		ObjectStoreGetter:             config.ObjectStoreGetter,
 	}
 	return config.NewServer(ctx, serverConfig)
 }

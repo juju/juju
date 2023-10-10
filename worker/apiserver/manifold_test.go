@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/worker/apiserver"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
+	"github.com/juju/juju/worker/objectstore"
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/trace"
 )
@@ -64,6 +65,7 @@ type ManifoldSuite struct {
 	dbGetter             stubWatchableDBGetter
 	serviceFactoryGetter stubServiceFactoryGetter
 	tracerGetter         stubTracerGetter
+	objectStoreGetter    stubObjectStoreGetter
 
 	stub testing.Stub
 }
@@ -102,6 +104,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		CharmhubHTTPClientName:            "charmhub-http-client",
 		ServiceFactoryName:                "service-factory",
 		TraceName:                         "trace",
+		ObjectStoreName:                   "object-store",
 		ChangeStreamName:                  "change-stream",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
@@ -128,6 +131,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"change-stream":        s.dbGetter,
 		"service-factory":      s.serviceFactoryGetter,
 		"trace":                s.tracerGetter,
+		"object-store":         s.objectStoreGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -159,7 +163,7 @@ var expectedInputs = []string{
 	"agent", "authenticator", "clock", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
 	"syslog", "charmhub-http-client", "change-stream", "service-factory",
-	"trace",
+	"trace", "object-store",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -230,6 +234,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		DBGetter:                   s.dbGetter,
 		ServiceFactoryGetter:       s.serviceFactoryGetter,
 		TracerGetter:               s.tracerGetter,
+		ObjectStoreGetter:          s.objectStoreGetter,
 	})
 }
 
@@ -395,4 +400,8 @@ type stubServiceFactoryGetter struct {
 
 type stubTracerGetter struct {
 	trace.TracerGetter
+}
+
+type stubObjectStoreGetter struct {
+	objectstore.ObjectStoreGetter
 }

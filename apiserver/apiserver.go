@@ -56,6 +56,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/objectstore"
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/trace"
 )
@@ -223,6 +224,10 @@ type ServerConfig struct {
 	// TracerGetter returns a tracer for the given namespace, this is used
 	// for opentelmetry tracing.
 	TracerGetter trace.TracerGetter
+
+	// ObjectStoreGetter returns an object store for the given namespace.
+	// This is used for retrieving blobs for charms and agents.
+	ObjectStoreGetter objectstore.ObjectStoreGetter
 }
 
 // Validate validates the API server configuration.
@@ -273,6 +278,9 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.TracerGetter == nil {
 		return errors.NotValidf("missing TracerGetter")
+	}
+	if c.ObjectStoreGetter == nil {
+		return errors.NotValidf("missing ObjectStoreGetter")
 	}
 	return nil
 }

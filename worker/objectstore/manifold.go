@@ -11,6 +11,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
+
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 )
 
 // Logger represents the logging methods called.
@@ -20,6 +22,12 @@ type Logger interface {
 	Infof(message string, args ...any)
 	Debugf(message string, args ...any)
 	Tracef(message string, args ...any)
+}
+
+// ObjectStoreGetter is the interface that is used to get a object store.
+type ObjectStoreGetter interface {
+	// GetObjectStore returns a object store for the given namespace.
+	GetObjectStore(context.Context, string) (coreobjectstore.ObjectStore, error)
 }
 
 // ObjectStoreWorkerFunc is the function signature for creating a new object
