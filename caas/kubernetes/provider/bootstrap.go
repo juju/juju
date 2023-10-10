@@ -43,6 +43,7 @@ import (
 	k8sannotations "github.com/juju/juju/core/annotations"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/docker/registry"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/juju/osenv"
@@ -307,9 +308,26 @@ func newcontrollerStack(
 	cs.resourceNameVolBootstrapParams = cs.getResourceName(cloudconfig.FileNameBootstrapParams)
 	cs.resourceNameVolAgentConf = cs.getResourceName(agentconstants.AgentConfigFilename)
 
-	if cs.dockerAuthSecretData, err = pcfg.Controller.CAASImageRepo().SecretData(); err != nil {
-		return nil, errors.Trace(err)
+	// Initialize registry.
+	if repoDetails := pcfg.Controller.CAASImageRepo(); !repoDetails.Empty() {
+		reg, err := registry.New(repoDetails)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer func() { _ = reg.Close() }()
+		err = reg.RefreshAuth()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		err = reg.Ping()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if cs.dockerAuthSecretData, err = reg.ImageRepoDetails().SecretData(); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
+
 	return cs, nil
 }
 

@@ -482,6 +482,7 @@ var (
 		MigrationMinionWaitMax,
 		ApplicationResourceDownloadLimit,
 		ControllerResourceDownloadLimit,
+		CAASImageRepo,
 	)
 
 	// DefaultAuditLogExcludeMethods is the default list of methods to
@@ -926,27 +927,24 @@ func (c Config) CAASOperatorImagePath() (o docker.ImageRepoDetails) {
 	return o
 }
 
-func validateCAASImageRepo(imageRepo string) (string, error) {
+func validateCAASImageRepo(imageRepo string) error {
 	if imageRepo == "" {
-		return "", nil
+		return nil
 	}
 	imageDetails, err := docker.NewImageRepoDetails(imageRepo)
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if err = imageDetails.Validate(); err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 	r, err := registry.New(*imageDetails)
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 	defer func() { _ = r.Close() }()
 
-	if err = r.Ping(); err != nil {
-		return "", errors.Trace(err)
-	}
-	return r.ImageRepoDetails().Content(), nil
+	return nil
 }
 
 // CAASImageRepo sets the url of the docker repo
@@ -1146,13 +1144,13 @@ func Validate(c Config) error {
 
 	var err error
 	if v, ok := c[CAASOperatorImagePath].(string); ok && v != "" {
-		if c[CAASOperatorImagePath], err = validateCAASImageRepo(v); err != nil {
+		if err = validateCAASImageRepo(v); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
 	if v, ok := c[CAASImageRepo].(string); ok && v != "" {
-		if c[CAASImageRepo], err = validateCAASImageRepo(v); err != nil {
+		if err = validateCAASImageRepo(v); err != nil {
 			return errors.Trace(err)
 		}
 	}
