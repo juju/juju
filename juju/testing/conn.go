@@ -699,8 +699,11 @@ func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm, force bool) (*st
 		if f, err = os.CreateTemp("", name); err != nil {
 			return nil, err
 		}
-		defer os.Remove(f.Name())
-		defer f.Close()
+		defer func() {
+			_ = f.Close()
+			_ = os.Remove(f.Name())
+		}()
+
 		err = ch.ArchiveTo(f)
 		if err != nil {
 			return nil, fmt.Errorf("cannot bundle charm: %v", err)
@@ -713,7 +716,7 @@ func AddCharm(st *state.State, curl *charm.URL, ch charm.Charm, force bool) (*st
 		if f, err = os.Open(ch.Path); err != nil {
 			return nil, fmt.Errorf("cannot read charm bundle: %v", err)
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 	default:
 		return nil, fmt.Errorf("unknown charm type %T", ch)
 	}

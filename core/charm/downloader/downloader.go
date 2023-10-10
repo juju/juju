@@ -145,8 +145,8 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 	if err != nil {
 		return corecharm.Origin{}, errors.Trace(err)
 	}
-	_ = tmpFile.Close()
 	defer func() {
+		_ = tmpFile.Close()
 		if err := os.Remove(tmpFile.Name()); err != nil {
 			d.logger.Warningf("unable to remove temporary charm download path %q", tmpFile.Name())
 		}
