@@ -133,7 +133,26 @@ func fillFromAST(data map[string]*keyInfo, jujuSrcRoot string) {
 	check(err)
 
 	controllerConfigDotGo := pkgs["controller"].Files[filepath.Join(controllerPkgPath, "config.go")]
-	configKeys := controllerConfigDotGo.Decls[3].(*ast.GenDecl)
+	var configKeys *ast.GenDecl
+out:
+	for _, v := range controllerConfigDotGo.Decls {
+		decl, ok := v.(*ast.GenDecl)
+		if !ok {
+			continue
+		}
+		if decl.Doc == nil {
+			continue
+		}
+		for _, comment := range decl.Doc.List {
+			if strings.Contains(comment.Text, "docs:controller-config-keys") {
+				configKeys = decl
+				break out
+			}
+		}
+	}
+	if configKeys == nil {
+		panic("unable to find const block with comment docs:controller-config-keys")
+	}
 
 	comments := map[string]string{}
 	// "keys" which should be ignored

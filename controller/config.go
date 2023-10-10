@@ -33,6 +33,7 @@ const (
 	MongoProfDefault = "default"
 )
 
+// docs:controller-config-keys
 const (
 	// APIPort is the port used for api connections.
 	APIPort = "api-port"
