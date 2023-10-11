@@ -12,6 +12,7 @@ import (
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
+	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
 
 // TestingServiceFactory provides access to the services required by the apiserver.
@@ -60,6 +61,11 @@ func (s *TestingServiceFactory) Credential() *credentialservice.Service {
 
 // Cloud returns the cloud service.
 func (s *TestingServiceFactory) Cloud() *cloudservice.Service {
+	return nil
+}
+
+// Upgrade returns the upgrade service.
+func (s *TestingServiceFactory) Upgrade() *upgradeservice.Service {
 	return nil
 }
 

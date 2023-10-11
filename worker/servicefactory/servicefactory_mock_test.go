@@ -15,6 +15,7 @@ import (
 	service4 "github.com/juju/juju/domain/externalcontroller/service"
 	service5 "github.com/juju/juju/domain/model/service"
 	service6 "github.com/juju/juju/domain/modelmanager/service"
+	service7 "github.com/juju/juju/domain/upgrade/service"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -152,6 +153,20 @@ func (m *MockControllerServiceFactory) ModelManager() *service6.Service {
 func (mr *MockControllerServiceFactoryMockRecorder) ModelManager() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelManager", reflect.TypeOf((*MockControllerServiceFactory)(nil).ModelManager))
+}
+
+// Upgrade mocks base method.
+func (m *MockControllerServiceFactory) Upgrade() *service7.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Upgrade")
+	ret0, _ := ret[0].(*service7.Service)
+	return ret0
+}
+
+// Upgrade indicates an expected call of Upgrade.
+func (mr *MockControllerServiceFactoryMockRecorder) Upgrade() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upgrade", reflect.TypeOf((*MockControllerServiceFactory)(nil).Upgrade))
 }
 
 // MockModelServiceFactory is a mock of ModelServiceFactory interface.
@@ -334,6 +349,20 @@ func (m *MockServiceFactory) TODO() {
 func (mr *MockServiceFactoryMockRecorder) TODO() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TODO", reflect.TypeOf((*MockServiceFactory)(nil).TODO))
+}
+
+// Upgrade mocks base method.
+func (m *MockServiceFactory) Upgrade() *service7.Service {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Upgrade")
+	ret0, _ := ret[0].(*service7.Service)
+	return ret0
+}
+
+// Upgrade indicates an expected call of Upgrade.
+func (mr *MockServiceFactoryMockRecorder) Upgrade() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Upgrade", reflect.TypeOf((*MockServiceFactory)(nil).Upgrade))
 }
 
 // MockServiceFactoryGetter is a mock of ServiceFactoryGetter interface.
