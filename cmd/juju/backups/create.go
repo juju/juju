@@ -14,8 +14,8 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/backups"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/backups"
 )
 
 const (

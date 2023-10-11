@@ -30,7 +30,6 @@ import (
 
 var (
 	MaxClientPingInterval = maxClientPingInterval
-	NewBackups            = &newBackups
 	SetResource           = setResource
 )
 

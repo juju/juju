@@ -18,6 +18,14 @@ import (
 	"github.com/juju/version/v2"
 )
 
+const (
+	// FilenamePrefix is the prefix used for backup archive files.
+	FilenamePrefix = "juju-backup-"
+
+	// FilenameTemplate is used with time.Time.Format to generate a filename.
+	FilenameTemplate = FilenamePrefix + "20060102-150405.tar.gz"
+)
+
 // Paths holds the paths that backups needs.
 type Paths struct {
 	BackupDir string
