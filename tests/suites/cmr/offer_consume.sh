@@ -56,6 +56,8 @@ run_offer_consume() {
 
 	echo "Remove offer"
 	juju remove-relation dummy-sink dummy-offer
+	# wait for the relation to be removed.
+	wait_for null '.applications["dummy-sink"] | .relations'
 	juju remove-saas dummy-offer
 	# wait for saas to be removed.
 	wait_for null '.["application-endpoints"]'
@@ -64,6 +66,7 @@ run_offer_consume() {
 	juju switch "model-offer"
 	wait_for null '.offers."dummy-offer"."total-connected-count"'
 	juju remove-offer "admin/model-offer.dummy-offer" -y
+	wait_for null '.offers'
 
 	echo "Clean up"
 	destroy_model "model-offer"
@@ -117,6 +120,8 @@ run_offer_consume_cross_controller() {
 
 	echo "Remove offer"
 	juju remove-relation dummy-sink dummy-source
+	# wait for the relation to be removed.
+	wait_for null '.applications["dummy-sink"] | .relations'
 	juju remove-saas dummy-source
 	# wait for saas to be removed.
 	wait_for null '.["application-endpoints"]'
@@ -125,6 +130,7 @@ run_offer_consume_cross_controller() {
 	juju switch "${offer_controller}:model-offer"
 	wait_for null '.offers."dummy-offer"."total-connected-count"'
 	juju remove-offer "${offer_controller}:admin/model-offer.dummy-source" -y
+	wait_for null '.offers'
 
 	echo "Clean up"
 	destroy_controller "controller-consume"

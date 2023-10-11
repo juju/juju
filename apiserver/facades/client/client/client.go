@@ -17,6 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/multiwatcher"
 	coreos "github.com/juju/juju/core/os"
@@ -305,13 +306,15 @@ func (c *Client) toolVersionsForCAAS(args params.FindToolsParams, streamsVersion
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	imageRepoDetails := controllerCfg.CAASImageRepo()
+	imageRepoDetails, err := docker.NewImageRepoDetails(controllerCfg.CAASImageRepo())
+	if err != nil {
+		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+	}
 	if imageRepoDetails.Empty() {
-		repoDetails, err := docker.NewImageRepoDetails(podcfg.JujudOCINamespace)
+		imageRepoDetails, err = docker.NewImageRepoDetails(podcfg.JujudOCINamespace)
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		imageRepoDetails = *repoDetails
 	}
 	reg, err := c.registryAPIFunc(imageRepoDetails)
 	if err != nil {

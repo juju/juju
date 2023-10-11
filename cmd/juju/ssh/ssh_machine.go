@@ -77,8 +77,8 @@ func (t *resolvedTarget) isAgent() bool {
 	return targetIsAgent(t.entity)
 }
 
-// SSHPort is the TCP port used for SSH connections.
-const SSHPort = 22
+// sshPort is the TCP port used for SSH connections.
+const sshPort = 22
 
 func (c *sshMachine) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.proxy, "proxy", false, "Proxy through the API server")
@@ -529,7 +529,7 @@ func (c *sshMachine) reachableAddressGetter(entity string) (string, error) {
 		}
 	}
 
-	usable := network.NewMachineHostPorts(SSHPort, addresses...).HostPorts().FilterUnusable()
+	usable := network.NewMachineHostPorts(sshPort, addresses...).HostPorts().FilterUnusable()
 	best, err := c.hostChecker.FindHost(usable, publicKeys)
 	if err != nil {
 		return "", errors.Trace(err)

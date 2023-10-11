@@ -357,6 +357,10 @@ func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag
 		return nil, errors.Annotatef(err, "getting application config")
 	}
 	base := app.Base()
+	imageRepoDetails, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+	}
 	return &params.CAASApplicationProvisioningInfo{
 		Version:              vers,
 		APIAddresses:         addrs,
@@ -366,7 +370,7 @@ func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag
 		Devices:              devices,
 		Constraints:          mergedCons,
 		Base:                 params.Base{Name: base.OS, Channel: base.Channel},
-		ImageRepo:            params.NewDockerImageInfo(docker.ConvertToResourceImageDetails(cfg.CAASImageRepo()), imagePath),
+		ImageRepo:            params.NewDockerImageInfo(docker.ConvertToResourceImageDetails(imageRepoDetails), imagePath),
 		CharmModifiedVersion: app.CharmModifiedVersion(),
 		CharmURL:             *charmURL,
 		Trust:                appConfig.GetBool(coreapplication.TrustConfigOptionName, false),
