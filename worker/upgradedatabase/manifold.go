@@ -29,6 +29,7 @@ type ManifoldConfig struct {
 	ServiceFactoryName string
 	DBAccessorName     string
 	Logger             Logger
+	NewWorker          func(Config) (worker.Worker, error)
 }
 
 // Validate returns an error if the manifold config is not valid.
@@ -87,7 +88,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			return NewUpgradeDatabaseWorker(Config{
+			return cfg.NewWorker(Config{
 				UpgradeCompleteLock: upgradeCompleteLock,
 				Agent:               controllerAgent,
 				UpgradeService:      serviceFactoryGetter.Upgrade(),

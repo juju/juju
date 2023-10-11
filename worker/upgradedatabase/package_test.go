@@ -15,6 +15,10 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination lock_mock_test.go github.com/juju/juju/worker/gate Lock
 //go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
+//go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ControllerServiceFactory
+//go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination database_mock_test.go github.com/juju/juju/core/database DBGetter
+//go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination service_mock_test.go github.com/juju/juju/worker/upgradedatabase UpgradeService
+//go:generate go run go.uber.org/mock/mockgen -package upgradedatabase -destination worker_mock_test.go github.com/juju/worker/v3 Worker
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -23,11 +27,24 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	jujutesting.IsolationSuite
 
+	lock           *MockLock
+	agent          *MockAgent
+	agentConfig    *MockConfig
+	serviceFactory *MockControllerServiceFactory
+	dbGetter       *MockDBGetter
+	upgradeService *MockUpgradeService
+
 	logger Logger
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
+	s.lock = NewMockLock(ctrl)
+	s.agent = NewMockAgent(ctrl)
+	s.agentConfig = NewMockConfig(ctrl)
+	s.serviceFactory = NewMockControllerServiceFactory(ctrl)
+	s.dbGetter = NewMockDBGetter(ctrl)
 
 	s.logger = jujujujutesting.NewCheckLogger(c)
 

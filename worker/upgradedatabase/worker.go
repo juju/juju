@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
+	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/agent"
@@ -98,7 +99,7 @@ type upgradeDBWorker struct {
 }
 
 // NewUpgradeDatabaseWorker returns a new Worker.
-func NewUpgradeDatabaseWorker(config Config) (*upgradeDBWorker, error) {
+func NewUpgradeDatabaseWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}

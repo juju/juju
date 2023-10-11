@@ -18,10 +18,6 @@ import (
 
 type workerSuite struct {
 	baseSuite
-
-	lock     *MockLock
-	agent    *MockAgent
-	agentCfg *MockConfig
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -29,15 +25,15 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) TestNewLockSameVersionUnlocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.agentCfg.EXPECT().UpgradedToVersion().Return(jujuversion.Current)
-	c.Assert(NewLock(s.agentCfg).IsUnlocked(), jc.IsTrue)
+	s.agentConfig.EXPECT().UpgradedToVersion().Return(jujuversion.Current)
+	c.Assert(NewLock(s.agentConfig).IsUnlocked(), jc.IsTrue)
 }
 
 func (s *workerSuite) TestNewLockOldVersionLocked(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.agentCfg.EXPECT().UpgradedToVersion().Return(version.Number{})
-	c.Assert(NewLock(s.agentCfg).IsUnlocked(), jc.IsFalse)
+	s.agentConfig.EXPECT().UpgradedToVersion().Return(version.Number{})
+	c.Assert(NewLock(s.agentConfig).IsUnlocked(), jc.IsFalse)
 }
 
 func (s *workerSuite) TestAlreadyCompleteNoWork(c *gc.C) {
@@ -55,8 +51,8 @@ func (s *workerSuite) TestAlreadyUpgradedNoWork(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.lock.EXPECT().IsUnlocked().Return(false)
-	s.agent.EXPECT().CurrentConfig().Return(s.agentCfg)
-	s.agentCfg.EXPECT().UpgradedToVersion().Return(jujuversion.Current)
+	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig)
+	s.agentConfig.EXPECT().UpgradedToVersion().Return(jujuversion.Current)
 	s.lock.EXPECT().Unlock()
 
 	w, err := NewUpgradeDatabaseWorker(s.getConfig())
@@ -70,15 +66,12 @@ func (s *workerSuite) getConfig() Config {
 		UpgradeCompleteLock: s.lock,
 		Agent:               s.agent,
 		Logger:              s.logger,
+		UpgradeService:      s.upgradeService,
+		DBGetter:            s.dbGetter,
 	}
 }
 
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
-
-	s.lock = NewMockLock(ctrl)
-	s.agent = NewMockAgent(ctrl)
-	s.agentCfg = NewMockConfig(ctrl)
-
 	return ctrl
 }
