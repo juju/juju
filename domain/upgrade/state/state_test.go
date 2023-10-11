@@ -8,7 +8,6 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -16,6 +15,8 @@ import (
 
 	"github.com/juju/juju/core/upgrade"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	domainupgrade "github.com/juju/juju/domain/upgrade"
+	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -24,7 +25,7 @@ type stateSuite struct {
 
 	st *State
 
-	upgradeUUID string
+	upgradeUUID domainupgrade.UUID
 }
 
 var _ = gc.Suite(&stateSuite{})
@@ -40,54 +41,28 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.StartUpgrade(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
+	err = s.st.SetDBUpgradeCompleted(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerDone(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.upgradeUUID = uuid
 }
 
-func (s *stateSuite) getUpgrade(c *gc.C, st *State, upgradeUUID string) (info, []infoControllerNode) {
-	db, err := s.st.DB()
-	c.Assert(err, jc.ErrorIsNil)
-
-	infoQ := `
-SELECT * AS &info.* FROM upgrade_info
-WHERE uuid = $M.info_uuid`
-	infoS, err := sqlair.Prepare(infoQ, info{}, sqlair.M{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	nodeInfosQ := `
-SELECT * AS &infoControllerNode.* FROM upgrade_info_controller_node
-WHERE upgrade_info_uuid = $M.info_uuid`
-	nodeInfosS, err := sqlair.Prepare(nodeInfosQ, infoControllerNode{}, sqlair.M{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	var (
-		info      info
-		nodeInfos []infoControllerNode
-	)
-	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, infoS, sqlair.M{"info_uuid": upgradeUUID}).Get(&info)
-		c.Assert(err, jc.ErrorIsNil)
-		err = tx.Query(ctx, nodeInfosS, sqlair.M{"info_uuid": upgradeUUID}).GetAll(&nodeInfos)
-		c.Assert(err, jc.ErrorIsNil)
-		return nil
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return info, nodeInfos
-}
-
 func (s *stateSuite) TestCreateUpgrade(c *gc.C) {
 	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	upgradeInfo, nodeInfos := s.getUpgrade(c, s.st, uuid)
-	c.Check(upgradeInfo, gc.Equals, info{
-		UUID:            uuid,
+	upgradeInfo, err := s.st.UpgradeInfo(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(upgradeInfo, gc.DeepEquals, upgrade.Info{
+		UUID:            uuid.String(),
 		PreviousVersion: "3.0.0",
 		TargetVersion:   "3.0.1",
-		CreatedAt:       upgradeInfo.CreatedAt,
+		State:           upgrade.Created,
 	})
+
+	nodeInfos := s.getUpgrade(c, s.st, uuid)
 	c.Check(nodeInfos, gc.HasLen, 0)
 }
 
@@ -105,7 +80,7 @@ func (s *stateSuite) TestSetControllerReady(c *gc.C) {
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, nodeInfos := s.getUpgrade(c, s.st, uuid)
+	nodeInfos := s.getUpgrade(c, s.st, uuid)
 	c.Check(nodeInfos, gc.HasLen, 1)
 	c.Check(nodeInfos[0], gc.Equals, infoControllerNode{
 		ControllerNodeID: "0",
@@ -113,10 +88,9 @@ func (s *stateSuite) TestSetControllerReady(c *gc.C) {
 }
 
 func (s *stateSuite) TestSetControllerReadyWithoutUpgrade(c *gc.C) {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
+	uuid := utils.MustNewUUID().String()
 
-	err = s.st.SetControllerReady(context.Background(), uuid.String(), "0")
+	err := s.st.SetControllerReady(context.Background(), domainupgrade.UUID(uuid), "0")
 	c.Assert(err, gc.NotNil)
 	c.Check(database.IsErrConstraintForeignKey(err), jc.IsTrue)
 }
@@ -127,7 +101,7 @@ func (s *stateSuite) TestSetControllerReadyMultipleTimes(c *gc.C) {
 	c.Check(database.IsErrConstraintUnique(err), jc.IsTrue)
 }
 
-func (s *stateSuite) TestAllProvisionedControllerReadyTrue(c *gc.C) {
+func (s *stateSuite) TestAllProvisionedControllersReadyTrue(c *gc.C) {
 	db := s.DB()
 
 	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
@@ -145,7 +119,7 @@ func (s *stateSuite) TestAllProvisionedControllerReadyTrue(c *gc.C) {
 	c.Check(allProvisioned, jc.IsTrue)
 }
 
-func (s *stateSuite) TestAllProvisionedControllerReadyFalse(c *gc.C) {
+func (s *stateSuite) TestAllProvisionedControllersReadyFalse(c *gc.C) {
 	db := s.DB()
 
 	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1), ('2', 2)")
@@ -163,7 +137,49 @@ func (s *stateSuite) TestAllProvisionedControllerReadyFalse(c *gc.C) {
 	c.Check(allProvisioned, jc.IsFalse)
 }
 
-func (s *stateSuite) TestAllProvisionedControllerReadyUnprovisionedController(c *gc.C) {
+func (s *stateSuite) TestAllProvisionedControllersReadyMultipleControllers(c *gc.C) {
+	db := s.DB()
+
+	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('2', 2)")
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.st.SetControllerReady(context.Background(), uuid, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.st.SetControllerReady(context.Background(), uuid, "1")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.st.SetControllerReady(context.Background(), uuid, "2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	allProvisioned, err := s.st.AllProvisionedControllersReady(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(allProvisioned, jc.IsTrue)
+}
+
+func (s *stateSuite) TestAllProvisionedControllersReadyMultipleControllersWithoutAllBeingReady(c *gc.C) {
+	db := s.DB()
+
+	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('2', 2)")
+	c.Assert(err, jc.ErrorIsNil)
+
+	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.st.SetControllerReady(context.Background(), uuid, "0")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.st.SetControllerReady(context.Background(), uuid, "1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	allProvisioned, err := s.st.AllProvisionedControllersReady(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(allProvisioned, jc.IsFalse)
+}
+
+func (s *stateSuite) TestAllProvisionedControllersReadyUnprovisionedController(c *gc.C) {
 	db := s.DB()
 
 	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
@@ -192,12 +208,10 @@ func (s *stateSuite) TestStartUpgrade(c *gc.C) {
 	err = s.st.StartUpgrade(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, _ := s.getUpgrade(c, s.st, uuid)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(info.StartedAt.Valid, jc.IsTrue)
+	s.ensureUpgradeInfoState(c, uuid, upgrade.Started)
 }
 
-func (s *stateSuite) TestStartUpgradeIdempotent(c *gc.C) {
+func (s *stateSuite) TestStartUpgradeCalledMultipleTimes(c *gc.C) {
 	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
@@ -206,20 +220,17 @@ func (s *stateSuite) TestStartUpgradeIdempotent(c *gc.C) {
 	err = s.st.StartUpgrade(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 
-	info, _ := s.getUpgrade(c, s.st, uuid)
-	c.Assert(info.StartedAt.Valid, jc.IsTrue)
-	startedAt := info.StartedAt.String
+	s.ensureUpgradeInfoState(c, uuid, upgrade.Started)
 
 	err = s.st.StartUpgrade(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, upgradeerrors.ErrUpgradeAlreadyStarted)
 
-	info, _ = s.getUpgrade(c, s.st, uuid)
-	c.Check(info.StartedAt.String, gc.Equals, startedAt)
+	s.ensureUpgradeInfoState(c, uuid, upgrade.Started)
 }
 
 func (s *stateSuite) TestStartUpgradeBeforeCreated(c *gc.C) {
 	uuid := utils.MustNewUUID().String()
-	err := s.st.StartUpgrade(context.Background(), uuid)
+	err := s.st.StartUpgrade(context.Background(), domainupgrade.UUID(uuid))
 	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
 
@@ -238,7 +249,7 @@ func (s *stateSuite) TestSetControllerDone(c *gc.C) {
 	err = s.st.SetControllerDone(context.Background(), uuid, "1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, nodeInfos := s.getUpgrade(c, s.st, uuid)
+	nodeInfos := s.getUpgrade(c, s.st, uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(nodeInfos, gc.HasLen, 2)
 	c.Check(nodeInfos[0], gc.Equals, infoControllerNode{ControllerNodeID: "0"})
@@ -260,26 +271,33 @@ func (s *stateSuite) TestSetControllerDoneCompleteUpgrade(c *gc.C) {
 	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.st.ActiveUpgrade(context.Background())
-	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+	// Start the upgrade
+	uuid := s.startUpgrade(c)
 
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
-	c.Assert(err, jc.ErrorIsNil)
+	// Set the nodes to ready.
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "1")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Set the db upgrade completed.
+	err = s.st.SetDBUpgradeCompleted(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Ensure that all the steps have been completed.
 	err = s.st.SetControllerDone(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Check that the upgrade hasn't been completed for just one node.
 	activeUpgrade, err := s.st.ActiveUpgrade(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(activeUpgrade, gc.Not(gc.Equals), "")
+	c.Check(activeUpgrade, gc.Equals, uuid)
 
+	// Set the last node.
 	err = s.st.SetControllerDone(context.Background(), uuid, "1")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// The active upgrade should be done.
 	_, err = s.st.ActiveUpgrade(context.Background())
 	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
 }
@@ -290,8 +308,8 @@ func (s *stateSuite) TestSetControllerDoneCompleteUpgradeEmptyCompletedAt(c *gc.
 	_, err := db.Exec("INSERT INTO controller_node (controller_id, dqlite_node_id) VALUES ('1', 1)")
 	c.Assert(err, jc.ErrorIsNil)
 
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
-	c.Assert(err, jc.ErrorIsNil)
+	uuid := s.startUpgrade(c)
+
 	err = s.st.SetControllerReady(context.Background(), uuid, "0")
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.st.SetControllerReady(context.Background(), uuid, "1")
@@ -306,7 +324,11 @@ WHERE  upgrade_info_uuid = ?
 
 	activeUpgrade, err := s.st.ActiveUpgrade(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(activeUpgrade, gc.Not(gc.Equals), "")
+	c.Assert(activeUpgrade, gc.Equals, uuid)
+
+	// Set the db upgrade completed.
+	err = s.st.SetDBUpgradeCompleted(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.st.SetControllerDone(context.Background(), uuid, "1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -330,27 +352,67 @@ func (s *stateSuite) TestActiveUpgradesSingular(c *gc.C) {
 }
 
 func (s *stateSuite) TestSetDBUpgradeCompleted(c *gc.C) {
-	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.st.SetDBUpgradeCompleted(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.st.SetDBUpgradeCompleted(context.Background(), uuid)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	uuid := s.startUpgrade(c)
 
-	info, _ := s.getUpgrade(c, s.st, uuid)
-	c.Check(info.DBCompletedAt, gc.NotNil)
+	err := s.st.SetDBUpgradeCompleted(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.st.SetDBUpgradeCompleted(context.Background(), uuid)
+	c.Assert(err, gc.ErrorMatches, `expected to set db upgrade completed.*`)
+
+	s.ensureUpgradeInfoState(c, uuid, upgrade.DBCompleted)
 }
 
-func (s *stateSuite) TestSelectUpgradeInfo(c *gc.C) {
+func (s *stateSuite) TestUpgradeInfo(c *gc.C) {
 	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	upgradeInfo, err := s.st.SelectUpgradeInfo(context.Background(), uuid)
+	upgradeInfo, err := s.st.UpgradeInfo(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(upgradeInfo, gc.Equals, upgrade.Info{
-		UUID:            uuid,
+		UUID:            uuid.String(),
 		PreviousVersion: "3.0.0",
 		TargetVersion:   "3.0.1",
-		CreatedAt:       upgradeInfo.CreatedAt,
+		State:           upgrade.Created,
+	})
+}
+
+func (s *stateSuite) ensureUpgradeInfoState(c *gc.C, uuid domainupgrade.UUID, state upgrade.State) {
+	upgradeInfo, err := s.st.UpgradeInfo(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(upgradeInfo.State, gc.Equals, state)
+}
+
+func (s *stateSuite) startUpgrade(c *gc.C) domainupgrade.UUID {
+	_, err := s.st.ActiveUpgrade(context.Background())
+	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+
+	uuid, err := s.st.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.st.StartUpgrade(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return uuid
+}
+
+func (s *stateSuite) getUpgrade(c *gc.C, st *State, upgradeUUID domainupgrade.UUID) []infoControllerNode {
+	db, err := s.st.DB()
+	c.Assert(err, jc.ErrorIsNil)
+
+	nodeInfosQ := `
+SELECT * AS &infoControllerNode.* FROM upgrade_info_controller_node
+WHERE upgrade_info_uuid = $M.info_uuid`
+	nodeInfosS, err := sqlair.Prepare(nodeInfosQ, infoControllerNode{}, sqlair.M{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var (
+		nodeInfos []infoControllerNode
+	)
+	err = db.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, nodeInfosS, sqlair.M{"info_uuid": upgradeUUID}).GetAll(&nodeInfos)
+		c.Assert(err, jc.ErrorIsNil)
+		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	return nodeInfos
 }

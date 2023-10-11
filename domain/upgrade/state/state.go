@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/domain"
+	domainupgrade "github.com/juju/juju/domain/upgrade"
+	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 )
 
 // State is used to access the database.
@@ -32,7 +34,7 @@ func NewState(factory database.TxnRunnerFactory) *State {
 // CreateUpgrade creates an active upgrade to and from specified versions
 // and returns the upgrade's UUID. If an active upgrade already exists,
 // return an AlreadyExists error
-func (st *State) CreateUpgrade(ctx context.Context, previousVersion, targetVersion version.Number) (string, error) {
+func (st *State) CreateUpgrade(ctx context.Context, previousVersion, targetVersion version.Number) (domainupgrade.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -42,17 +44,22 @@ func (st *State) CreateUpgrade(ctx context.Context, previousVersion, targetVersi
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	q := "INSERT INTO upgrade_info (uuid, previous_version, target_version, created_at) VALUES (?, ?, ?, DATETIME('now'))"
+	q := "INSERT INTO upgrade_info (uuid, previous_version, target_version, state_type_id) VALUES (?, ?, ?, ?)"
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, upgradeUUID.String(), previousVersion.String(), targetVersion.String())
+		_, err := tx.ExecContext(ctx, q,
+			upgradeUUID.String(),
+			previousVersion.String(),
+			targetVersion.String(),
+			upgrade.Created,
+		)
 		return errors.Trace(err)
 	})
 
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return upgradeUUID.String(), nil
+	return domainupgrade.UUID(upgradeUUID.String()), nil
 }
 
 // SetControllerReady marks the supplied controllerID as being ready
@@ -60,7 +67,7 @@ func (st *State) CreateUpgrade(ctx context.Context, previousVersion, targetVersi
 // be ready before an upgrade can start
 // A controller node is ready for an upgrade if a row corresponding
 // to the controller is present in upgrade_info_controller_node
-func (st *State) SetControllerReady(ctx context.Context, upgradeUUID, controllerID string) error {
+func (st *State) SetControllerReady(ctx context.Context, upgradeUUID domainupgrade.UUID, controllerID string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -112,8 +119,9 @@ VALUES ($M.uuid, $M.controller_id, $M.info_uuid);
 }
 
 // AllProvisionedControllersReady returns true if and only if all controllers
-// that have been started by the provisioner are ready to start the provided upgrade
-func (st *State) AllProvisionedControllersReady(ctx context.Context, upgradeUUID string) (bool, error) {
+// that have been started by the provisioner are ready to start the provided
+// upgrade
+func (st *State) AllProvisionedControllersReady(ctx context.Context, upgradeUUID domainupgrade.UUID) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -134,15 +142,18 @@ AND    upgrade_node.controller_node_id IS NULL;
 		if err != nil {
 			return errors.Trace(err)
 		}
+		defer rows.Close()
+
 		for rows.Next() {
 			var unreadyControllers int
-			err := rows.Scan(&unreadyControllers)
+			err = rows.Scan(&unreadyControllers)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			allReady = unreadyControllers == 0
 		}
-		return nil
+
+		return rows.Err()
 	})
 	if err != nil {
 		return false, errors.Trace(err)
@@ -150,42 +161,88 @@ AND    upgrade_node.controller_node_id IS NULL;
 	return allReady, nil
 }
 
-// StartUpgrade starts the provided upgrade is it exists
+// StartUpgrade starts the provided upgrade if the upgrade already exists.
+// If it's already started, it becomes a no-op.
 //
 // TODO (jack-w-shaw) Set `statuses`/`statuseshistory` here
 // to status.Busy once the table has been added
-func (st *State) StartUpgrade(ctx context.Context, upgradeUUID string) error {
+func (st *State) StartUpgrade(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	getUpgradeStartedQuery := "SELECT started_at AS &info.* FROM upgrade_info WHERE uuid = $M.info_uuid"
-	getUpgradeStartedStmt, err := sqlair.Prepare(getUpgradeStartedQuery, info{}, sqlair.M{})
+	getUpgradeStartedQuery := `
+SELECT upgrade_state_type.id 
+FROM upgrade_info 
+	LEFT JOIN upgrade_state_type
+		ON upgrade_info.state_type_id = upgrade_state_type.id
+WHERE uuid = ?
+`
+
+	startUpgradeQuery := "UPDATE upgrade_info SET state_type_id = ? WHERE uuid = ? AND state_type_id = ?"
+
+	return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var state int
+		row := tx.QueryRowContext(ctx, getUpgradeStartedQuery, upgradeUUID)
+		if err := row.Scan(&state); err != nil {
+			return errors.Trace(err)
+		}
+
+		// If the upgrade is already started, we don't need to do anything.
+		if err := upgrade.State(state).TransitionTo(upgrade.Started); err != nil {
+			if errors.Is(err, upgrade.ErrAlreadyAtState) {
+				return errors.Annotatef(upgradeerrors.ErrUpgradeAlreadyStarted, "upgrade %q already started", upgradeUUID)
+			}
+			return errors.Trace(err)
+		}
+
+		// Start the upgrade by setting the state to Started.
+		result, err := tx.ExecContext(ctx, startUpgradeQuery, upgrade.Started, upgradeUUID, upgrade.Created)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if num := affected; num != 1 {
+			return errors.Annotatef(upgradeerrors.ErrUpgradeAlreadyStarted, "expected to start upgrade, but %d rows were affected", num)
+		}
+		return nil
+	}))
+}
+
+// SetDBUpgradeCompleted marks the database upgrade as completed
+func (st State) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
+	db, err := st.DB()
 	if err != nil {
-		return errors.Annotatef(err, "preparing %q", getUpgradeStartedQuery)
+		return errors.Trace(err)
 	}
 
-	startUpgradeQuery := "UPDATE upgrade_info SET started_at = DATETIME('now') WHERE uuid = $M.info_uuid"
-	startUpgradeStmt, err := sqlair.Prepare(startUpgradeQuery, sqlair.M{})
+	completeDBUpgradeQuery := `
+UPDATE upgrade_info 
+SET state_type_id = $M.to_state 
+WHERE uuid = $M.info_uuid
+AND state_type_id = $M.from_state;`
+	completedDBUpgradeStmt, err := sqlair.Prepare(completeDBUpgradeQuery, sqlair.M{})
 	if err != nil {
-		return errors.Annotatef(err, "preparing %q", startUpgradeQuery)
+		return errors.Annotatef(err, "preparing %q", completeDBUpgradeQuery)
 	}
 
 	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var node info
-		err := tx.Query(ctx, getUpgradeStartedStmt, sqlair.M{"info_uuid": upgradeUUID}).Get(&node)
-		if err != nil {
+		var outcome sqlair.Outcome
+		if err = tx.Query(ctx, completedDBUpgradeStmt, sqlair.M{
+			"info_uuid":  upgradeUUID,
+			"from_state": upgrade.Started,
+			"to_state":   upgrade.DBCompleted,
+		}).Get(&outcome); err != nil {
 			return errors.Trace(err)
 		}
-		// We use the presence of StartedAt as a flag to indicate whether the upgrade has started.
-		// It's specific value is only for debugging
-		if node.StartedAt.Valid {
-			return nil
-		}
-		err = tx.Query(ctx, startUpgradeStmt, sqlair.M{"info_uuid": upgradeUUID}).Run()
-		if err != nil {
+		if num, err := outcome.Result().RowsAffected(); err != nil {
 			return errors.Trace(err)
+		} else if num != 1 {
+			return errors.Errorf("expected to set db upgrade completed, but %d rows were affected", num)
 		}
 		return nil
 	}))
@@ -197,7 +254,7 @@ func (st *State) StartUpgrade(ctx context.Context, upgradeUUID string) error {
 //
 // TODO (jack-w-shaw) Set `statuses`/`statuseshistory` here
 // to status.Available when we complete an upgrade
-func (st *State) SetControllerDone(ctx context.Context, upgradeUUID, controllerID string) error {
+func (st *State) SetControllerDone(ctx context.Context, upgradeUUID domainupgrade.UUID, controllerID string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -227,8 +284,8 @@ AND     node_upgrade_completed_at IS NULL;
 
 	completeUpgradeQuery := `
 UPDATE upgrade_info
-SET    completed_at = DATETIME("now")
-WHERE  uuid = $M.info_uuid
+SET    state_type_id = $M.to_state
+WHERE  uuid = $M.info_uuid AND state_type_id = $M.from_state
 AND (
     SELECT COUNT(*)
 	FROM   upgrade_info_controller_node
@@ -266,7 +323,12 @@ AND (
 			return errors.Trace(err)
 		}
 
-		err = tx.Query(ctx, completeUpgradeStmt, sqlair.M{"info_uuid": upgradeUUID}).Run()
+		var outcome sqlair.Outcome
+		err = tx.Query(ctx, completeUpgradeStmt, sqlair.M{
+			"info_uuid":  upgradeUUID,
+			"from_state": upgrade.DBCompleted,
+			"to_state":   upgrade.StepsCompleted,
+		}).Get(&outcome)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -278,21 +340,18 @@ AND (
 	return nil
 }
 
-// ActiveUpgrade returns the uuids of the active upgrades, returning
-// a NotFound error if there are none
-func (st *State) ActiveUpgrade(ctx context.Context) (string, error) {
+// ActiveUpgrade returns the uuid of the active upgrade.
+// The active upgrade is any upgrade that is not in the StepsCompleted state.
+func (st *State) ActiveUpgrade(ctx context.Context) (domainupgrade.UUID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	var activeUpgrade string
-	q := "SELECT (uuid) FROM upgrade_info WHERE completed_at IS NULL"
+	var activeUpgrade domainupgrade.UUID
+	q := "SELECT (uuid) FROM upgrade_info WHERE state_type_id < ?"
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, q)
-		if err := row.Err(); err != nil {
-			return errors.Trace(err)
-		}
+		row := tx.QueryRowContext(ctx, q, upgrade.StepsCompleted)
 		if err := row.Scan(&activeUpgrade); err != nil {
 			return errors.Trace(err)
 		}
@@ -301,53 +360,28 @@ func (st *State) ActiveUpgrade(ctx context.Context) (string, error) {
 	return activeUpgrade, errors.Trace(err)
 }
 
-// SetDBUpgradeCompleted marks the database upgrade as completed
-func (st State) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID string) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	completeDBUpgradeQuery := `
-UPDATE upgrade_info 
-SET db_completed_at = DATETIME('now') 
-WHERE uuid = $M.info_uuid
-AND db_completed_at IS NULL;`
-	completedDBUpgradeStmt, err := sqlair.Prepare(completeDBUpgradeQuery, sqlair.M{})
-	if err != nil {
-		return errors.Annotatef(err, "preparing %q", completeDBUpgradeQuery)
-	}
-
-	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var outcome sqlair.Outcome
-		if err = tx.Query(ctx, completedDBUpgradeStmt, sqlair.M{"info_uuid": upgradeUUID}).Get(&outcome); err != nil {
-			return errors.Trace(err)
-		}
-		if num, err := outcome.Result().RowsAffected(); err != nil {
-			return errors.Trace(err)
-		} else if num == 0 {
-			return errors.NotFoundf("current upgrade with ID %q and pending database update", upgradeUUID)
-		}
-		return nil
-	}))
-}
-
-// SelectUpgradeInfo returns the upgrade info for the provided upgradeUUID
-func (st *State) SelectUpgradeInfo(ctx context.Context, upgradeUUID string) (upgrade.Info, error) {
+// UpgradeInfo returns the upgrade info for the provided upgradeUUID
+func (st *State) UpgradeInfo(ctx context.Context, upgradeUUID domainupgrade.UUID) (upgrade.Info, error) {
 	db, err := st.DB()
 	if err != nil {
 		return upgrade.Info{}, errors.Trace(err)
 	}
 
-	getUpgradeQuery := "SELECT * AS &info.* FROM upgrade_info WHERE uuid = $M.info_uuid"
-	getUpgradeStmt, err := sqlair.Prepare(getUpgradeQuery, info{}, sqlair.M{})
-	if err != nil {
-		return upgrade.Info{}, errors.Annotatef(err, "preparing %q", getUpgradeQuery)
-	}
+	getUpgradeQuery := `
+SELECT uuid, previous_version, target_version, upgrade_state_type.id 
+FROM upgrade_info 
+	LEFT JOIN upgrade_state_type
+		ON upgrade_info.state_type_id = upgrade_state_type.id
+WHERE uuid = ?
+	`
 
 	var upgradeInfoRow info
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(tx.Query(ctx, getUpgradeStmt, sqlair.M{"info_uuid": upgradeUUID}).Get(&upgradeInfoRow))
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, getUpgradeQuery, upgradeUUID)
+		if err := row.Scan(&upgradeInfoRow.UUID, &upgradeInfoRow.PreviousVersion, &upgradeInfoRow.TargetVersion, &upgradeInfoRow.State); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
 	})
 	if err != nil {
 		return upgrade.Info{}, errors.Trace(err)

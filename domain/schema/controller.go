@@ -430,18 +430,34 @@ CREATE TABLE model_migration_minion_sync (
 
 func upgradeInfoSchema() schema.Patch {
 	return schema.MakePatch(`
+CREATE TABLE upgrade_state_type (
+    id   INT PRIMARY KEY,
+    type TEXT
+);
+
+CREATE UNIQUE INDEX idx_upgrade_state_type_type
+ON upgrade_state_type (type);
+
+INSERT INTO upgrade_state_type VALUES
+    (0, 'created'),
+    (1, 'started'),
+    (2, 'db-completed'),
+    (3, 'steps-completed');
+
 CREATE TABLE upgrade_info (
     uuid             TEXT PRIMARY KEY,
     previous_version TEXT NOT NULL,
     target_version   TEXT NOT NULL,
-    created_at       TIMESTAMP NOT NULL,
-    started_at       TIMESTAMP,
-    db_completed_at  TIMESTAMP,
-    completed_at     TIMESTAMP
+    state_type_id    INT NOT NULL,
+    CONSTRAINT       fk_upgrade_info_upgrade_state_type
+        FOREIGN KEY       (state_type_id)
+        REFERENCES        upgrade_state_type(id)
 );
 
--- A unique constraint over a contant index ensures only 1 entry matching the condition can exist
-CREATE UNIQUE INDEX idx_singleton_active_upgrade ON upgrade_info ((1)) WHERE completed_at IS NULL;
+-- A unique constraint over a constant index ensures only 1 entry matching the 
+-- condition can exist. This states, that multiple upgrades can exist if they're
+-- not active, but only one active upgrade can exist
+CREATE UNIQUE INDEX idx_singleton_active_upgrade ON upgrade_info ((1)) WHERE state_type_id < 3;
 
 CREATE TABLE upgrade_info_controller_node (
     uuid                      TEXT PRIMARY KEY,
