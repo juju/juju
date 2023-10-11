@@ -9,6 +9,7 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/core/objectstore"
 )
 
 // Logger represents the logging methods called.
@@ -25,7 +26,7 @@ type ManifoldConfig struct {
 	APICallerName string
 
 	// NewClient is used to create a new object store client.
-	NewS3Client func(apiConn api.Connection, logger Logger) (Session, error)
+	NewClient func(apiConn api.Connection, logger Logger) (objectstore.Session, error)
 
 	// Logger is used to write logging statements for the worker.
 	Logger Logger
@@ -35,8 +36,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.APICallerName == "" {
 		return errors.NotValidf("nil APICallerName")
 	}
-	if cfg.NewS3Client == nil {
-		return errors.NotValidf("nil NewS3Client")
+	if cfg.NewClient == nil {
+		return errors.NotValidf("nil NewClient")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -68,7 +69,7 @@ func (config ManifoldConfig) startFunc() dependency.StartFunc {
 			return nil, err
 		}
 
-		session, err := config.NewS3Client(apiConn, config.Logger)
+		session, err := config.NewClient(apiConn, config.Logger)
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +85,7 @@ func outputFunc(in worker.Worker, out any) error {
 	}
 
 	switch outPointer := out.(type) {
-	case *Session:
+	case *objectstore.Session:
 		*outPointer = inWorker.session
 	default:
 		return errors.Errorf("out should be *s3caller.Session; got %T", out)

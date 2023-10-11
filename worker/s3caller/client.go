@@ -18,11 +18,8 @@ import (
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/core/objectstore"
 )
-
-type Session interface {
-	GetObject(ctx context.Context, bucketName, objectName string) (io.ReadCloser, error)
-}
 
 type objectsClient struct {
 	logger Logger
@@ -82,7 +79,7 @@ func (l *awsLogger) Logf(classification logging.Classification, format string, v
 }
 
 // NewS3Client returns a new s3Caller client for accessing the object store.
-func NewS3Client(apiConn api.Connection, logger Logger) (Session, error) {
+func NewS3Client(apiConn api.Connection, logger Logger) (objectstore.Session, error) {
 	// We use api.Connection address because we assume this address is
 	// correct and reachable.
 	currentAPIAddress := apiConn.Addr()

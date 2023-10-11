@@ -136,7 +136,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		// S3-compatible API.
 		s3CallerName: s3caller.Manifold(s3caller.ManifoldConfig{
 			APICallerName: apiCallerName,
-			NewS3Client:   s3caller.NewS3Client,
+			NewClient:     s3caller.NewS3Client,
 			Logger:        loggo.GetLogger("juju.worker.s3caller"),
 		}),
 

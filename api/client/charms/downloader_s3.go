@@ -11,13 +11,13 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/downloader"
-	"github.com/juju/juju/worker/s3caller"
 )
 
 // NewS3CharmDownloader returns a new charm downloader that wraps a s3Caller
 // client for the provided endpoint.
-func NewS3CharmDownloader(objectStoreClient s3caller.Session, apiCaller base.APICaller) *downloader.Downloader {
+func NewS3CharmDownloader(objectStoreClient objectstore.Session, apiCaller base.APICaller) *downloader.Downloader {
 	dlr := &downloader.Downloader{
 		OpenBlob: func(req downloader.Request) (io.ReadCloser, error) {
 			streamer := NewS3CharmOpener(objectStoreClient, apiCaller)
@@ -38,7 +38,7 @@ type S3CharmOpener interface {
 
 type s3charmOpener struct {
 	ctx               context.Context
-	objectStoreCaller s3caller.Session
+	objectStoreCaller objectstore.Session
 	apiCaller         base.APICaller
 }
 
@@ -64,7 +64,7 @@ func (s *s3charmOpener) OpenCharm(req downloader.Request) (io.ReadCloser, error)
 }
 
 // NewS3CharmOpener returns a charm opener for the specified s3Caller.
-func NewS3CharmOpener(objectStoreCaller s3caller.Session, apiCaller base.APICaller) S3CharmOpener {
+func NewS3CharmOpener(objectStoreCaller objectstore.Session, apiCaller base.APICaller) S3CharmOpener {
 	return &s3charmOpener{
 		ctx:               context.Background(),
 		objectStoreCaller: objectStoreCaller,
