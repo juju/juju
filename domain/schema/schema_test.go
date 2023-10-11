@@ -88,6 +88,7 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		// Upgrade info
 		"upgrade_info",
 		"upgrade_info_controller_node",
+		"upgrade_state_type",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }
