@@ -6,12 +6,12 @@ package filenotifywatcher
 import (
 	"path/filepath"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 	"gopkg.in/tomb.v2"
-	"k8s.io/utils/inotify"
 )
 
 const (
@@ -33,7 +33,7 @@ type INotifyWatcher interface {
 	Watch(path string) error
 
 	// Events returns the next event.
-	Events() <-chan *inotify.Event
+	Events() <-chan fsnotify.Event
 
 	// Errors returns the next error.
 	Errors() <-chan error
@@ -165,17 +165,16 @@ func (w *Watcher) loop() error {
 				continue
 			}
 			// If the event is not a create or delete event, ignore it.
-			if maskType(event.Mask) == unknown {
+			opType := parseOpType(event.Op)
+			if opType == unknown {
 				continue
 			}
-
-			created := event.Mask&inotify.InCreate != 0
 
 			if w.logger.IsTraceEnabled() {
 				w.logger.Tracef("dispatch event for fileName %q: %v", w.fileName, event)
 			}
 
-			w.changes <- created
+			w.changes <- opType == created
 
 		case err := <-w.watcher.Errors():
 			w.logger.Errorf("error watching fileName %q with %v", w.fileName, err)
@@ -183,22 +182,22 @@ func (w *Watcher) loop() error {
 	}
 }
 
-// eventType normalizes the inotify event type, to known types.
-type eventType int
+// opType normalizes the fsnotify op type, to known types.
+type opType int
 
 const (
-	unknown eventType = iota
+	unknown opType = iota
 	created
 	deleted
 )
 
-// makeType returns the event type for the given mask.
+// parseOpType returns the op type for the given op.
 // It expects that created and deleted can never be set at the same time.
-func maskType(m uint32) eventType {
-	if m&inotify.InCreate != 0 {
+func parseOpType(m fsnotify.Op) opType {
+	if m.Has(fsnotify.Create) {
 		return created
 	}
-	if m&inotify.InDelete != 0 {
+	if m.Has(fsnotify.Remove) {
 		return deleted
 	}
 	return unknown

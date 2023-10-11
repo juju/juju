@@ -6,14 +6,16 @@
 
 package filenotifywatcher
 
-import "k8s.io/utils/inotify"
+import (
+	"github.com/fsnotify/fsnotify"
+)
 
 type watcher struct {
-	watcher *inotify.Watcher
+	watcher *fsnotify.Watcher
 }
 
 func newWatcher() (INotifyWatcher, error) {
-	w, err := inotify.NewWatcher()
+	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
@@ -23,15 +25,15 @@ func newWatcher() (INotifyWatcher, error) {
 }
 
 func (w *watcher) Watch(path string) error {
-	return w.watcher.Watch(path)
+	return w.watcher.Add(path)
 }
 
-func (w *watcher) Events() <-chan *inotify.Event {
-	return w.watcher.Event
+func (w *watcher) Events() <-chan fsnotify.Event {
+	return w.watcher.Events
 }
 
 func (w *watcher) Errors() <-chan error {
-	return w.watcher.Error
+	return w.watcher.Errors
 }
 
 func (w *watcher) Close() error {
