@@ -15,12 +15,14 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreupgrade "github.com/juju/juju/core/upgrade"
+	"github.com/juju/juju/core/watcher/watchertest"
 )
 
 type serviceSuite struct {
 	baseServiceSuite
 
-	state *MockState
+	state          *MockState
+	watcherFactory *MockWatcherFactory
 
 	srv *Service
 }
@@ -29,8 +31,11 @@ var _ = gc.Suite(&serviceSuite{})
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
 	s.state = NewMockState(ctrl)
-	s.srv = NewService(s.state, nil)
+	s.watcherFactory = NewMockWatcherFactory(ctrl)
+
+	s.srv = NewService(s.state, s.watcherFactory)
 	return ctrl
 }
 
@@ -135,4 +140,16 @@ func (s *serviceSuite) TestUpgradeInfo(c *gc.C) {
 
 	_, err := s.srv.UpgradeInfo(context.Background(), s.upgradeUUID)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestWatchForUpgradeStarted(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	nw := watchertest.NewMockNotifyWatcher(nil)
+
+	s.watcherFactory.EXPECT().NewValuePredicateWatcher(gomock.Any(), s.upgradeUUID.String(), gomock.Any(), gomock.Any()).Return(nw, nil)
+
+	watcher, err := s.srv.WatchForUpgradeStarted(context.Background(), s.upgradeUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(watcher, gc.NotNil)
 }

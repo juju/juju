@@ -11,6 +11,7 @@ import (
 	changestream "github.com/juju/juju/core/changestream"
 	upgrade "github.com/juju/juju/core/upgrade"
 	watcher "github.com/juju/juju/core/watcher"
+	eventsource "github.com/juju/juju/core/watcher/eventsource"
 	upgrade0 "github.com/juju/juju/domain/upgrade"
 	version "github.com/juju/version/v2"
 	gomock "go.uber.org/mock/gomock"
@@ -178,17 +179,17 @@ func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 	return m.recorder
 }
 
-// NewNamespaceWatcher mocks base method.
-func (m *MockWatcherFactory) NewNamespaceWatcher(arg0 string, arg1 changestream.ChangeType, arg2 string) (watcher.Watcher[[]string], error) {
+// NewValuePredicateWatcher mocks base method.
+func (m *MockWatcherFactory) NewValuePredicateWatcher(arg0, arg1 string, arg2 changestream.ChangeType, arg3 eventsource.Predicate) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewNamespaceWatcher", arg0, arg1, arg2)
-	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret := m.ctrl.Call(m, "NewValuePredicateWatcher", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewNamespaceWatcher indicates an expected call of NewNamespaceWatcher.
-func (mr *MockWatcherFactoryMockRecorder) NewNamespaceWatcher(arg0, arg1, arg2 interface{}) *gomock.Call {
+// NewValuePredicateWatcher indicates an expected call of NewValuePredicateWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewValuePredicateWatcher(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNamespaceWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewNamespaceWatcher), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewValuePredicateWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewValuePredicateWatcher), arg0, arg1, arg2, arg3)
 }

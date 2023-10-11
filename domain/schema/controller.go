@@ -7,6 +7,21 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
+type tableNamespaceID int
+
+const (
+	tableExternalController tableNamespaceID = iota + 1
+	tableControllerNode
+	tableControllerConfig
+	tableModelMigrationStatus
+	tableModelMigrationMinionSync
+	tableUpgradeInfo
+	tableCloud
+	tableCloudCredential
+	tableAutocertCache
+	tableUpgradeInfoControllerNode
+)
+
 // ControllerDDL is used to create the controller database schema at bootstrap.
 func ControllerDDL(nodeID uint64) *schema.Schema {
 	patches := []func() schema.Patch{
@@ -14,14 +29,14 @@ func ControllerDDL(nodeID uint64) *schema.Schema {
 		changeLogSchema,
 		changeLogControllerNamespaces,
 		cloudSchema,
-		changeLogTriggersForTable("cloud", "uuid", 7),
-		changeLogTriggersForTable("cloud_credential", "uuid", 8),
+		changeLogTriggersForTable("cloud", "uuid", tableCloud),
+		changeLogTriggersForTable("cloud_credential", "uuid", tableCloudCredential),
 		externalControllerSchema,
-		changeLogTriggersForTable("external_controller", "uuid", 1),
+		changeLogTriggersForTable("external_controller", "uuid", tableExternalController),
 		modelListSchema,
 		modelMetadataSchema,
 		controllerConfigSchema,
-		changeLogTriggersForTable("controller_config", "key", 3),
+		changeLogTriggersForTable("controller_config", "key", tableControllerConfig),
 		// These are broken up for 2 reasons:
 		// 1. Bind variables do not work for multiple statements in one string.
 		// 2. We want to insert the initial node before creating the change_log
@@ -29,12 +44,13 @@ func ControllerDDL(nodeID uint64) *schema.Schema {
 		//    from what is a bootstrap activity.
 		controllerNodeTable,
 		controllerNodeEntry(nodeID),
-		changeLogTriggersForTable("controller_node", "controller_id", 2),
+		changeLogTriggersForTable("controller_node", "controller_id", tableControllerNode),
 		modelMigrationSchema,
-		changeLogTriggersForTable("model_migration_status", "uuid", 4),
-		changeLogTriggersForTable("model_migration_minion_sync", "uuid", 5),
+		changeLogTriggersForTable("model_migration_status", "uuid", tableModelMigrationStatus),
+		changeLogTriggersForTable("model_migration_minion_sync", "uuid", tableModelMigrationMinionSync),
 		upgradeInfoSchema,
-		changeLogTriggersForTable("upgrade_info", "uuid", 6),
+		changeLogTriggersForTable("upgrade_info", "uuid", tableUpgradeInfo),
+		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
 		modelDefaults,
 		autocertCacheSchema,
 	}
@@ -99,6 +115,8 @@ ON lease_pin (lease_uuid);`)
 }
 
 func changeLogControllerNamespaces() schema.Patch {
+	// Note: These should match exactly the values of the tableNamespaceID
+	// constants above.
 	return schema.MakePatch(`
 INSERT INTO change_log_namespace VALUES
     (1, 'external_controller', 'external controller changes based on the UUID'),
@@ -109,7 +127,8 @@ INSERT INTO change_log_namespace VALUES
     (6, 'upgrade_info', 'upgrade info changes based on the UUID'),
     (7, 'cloud', 'cloud changes based on the UUID'),
     (8, 'cloud_credential', 'cloud credential changes based on the UUID'),
-    (9, 'autocert_cache', 'autocert cache changes based on the UUID')
+    (9, 'autocert_cache', 'autocert cache changes based on the UUID'),
+    (10, 'upgrade_info_controller_node', 'upgrade info controller node changes based on the UUID')
 `)
 }
 
