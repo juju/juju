@@ -3034,7 +3034,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
 func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisionsToPrune(c *gc.C) {
 	w, uri := s.setupWatcher(c, true)
 	wc := testing.NewStringsWatcherC(c, w)
-	defer testing.AssertStop(c, w)
+	defer workertest.CleanKill(c, w)
 
 	err := s.State.SaveSecretConsumer(uri, names.NewApplicationTag("foo"), &secrets.SecretConsumerMetadata{
 		CurrentRevision: 1,

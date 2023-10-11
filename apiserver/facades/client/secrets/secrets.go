@@ -428,7 +428,7 @@ func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.Up
 		if len(pruneArg.Revisions) == 0 {
 			return nil
 		}
-		pruneResult, err := s.RemoveSecrets(params.DeleteSecretArgs{Args: []params.DeleteSecretArg{pruneArg}})
+		pruneResult, err := s.RemoveSecrets(context.TODO(), params.DeleteSecretArgs{Args: []params.DeleteSecretArg{pruneArg}})
 		if err != nil {
 			// We don't want to fail the update if we can't prune the unused secret revisions because they will be picked up later
 			// when the secret has any new obsolute revisions.

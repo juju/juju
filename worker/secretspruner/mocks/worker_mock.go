@@ -129,10 +129,10 @@ func (mr *MockSecretsFacadeMockRecorder) DeleteRevisions(arg0 interface{}, arg1 
 }
 
 // WatchRevisionsToPrune mocks base method.
-func (m *MockSecretsFacade) WatchRevisionsToPrune() (watcher.StringsWatcher, error) {
+func (m *MockSecretsFacade) WatchRevisionsToPrune() (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchRevisionsToPrune")
-	ret0, _ := ret[0].(watcher.StringsWatcher)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

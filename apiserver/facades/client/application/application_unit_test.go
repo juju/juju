@@ -1469,8 +1469,8 @@ func (s *ApplicationSuite) TestApplicationDeployPlacement(c *gc.C) {
 	c.Assert(s.deployParams["my-app"].Placement, gc.DeepEquals, placement)
 }
 
-func validCharmOriginForTest() *params.CharmOrigin {
-	return &params.CharmOrigin{Source: "charm-hub"}
+func validCharmOriginForTest(revision *int) *params.CharmOrigin {
+	return &params.CharmOrigin{Source: "charm-hub", Revision: revision}
 }
 
 func (s *ApplicationSuite) TestApplicationDeployWithPlacementLockedError(c *gc.C) {
@@ -1489,17 +1489,17 @@ func (s *ApplicationSuite) TestApplicationDeployWithPlacementLockedError(c *gc.C
 	args := []params.ApplicationDeploy{{
 		ApplicationName: "machine-placement",
 		CharmURL:        curl,
-		CharmOrigin:     validCharmOriginForTest(),
+		CharmOrigin:     validCharmOriginForTest(nil),
 		Placement:       []*instance.Placement{{Scope: "#", Directive: "0"}},
 	}, {
 		ApplicationName: "container-placement",
 		CharmURL:        curl,
-		CharmOrigin:     validCharmOriginForTest(),
+		CharmOrigin:     validCharmOriginForTest(nil),
 		Placement:       []*instance.Placement{{Scope: "lxd", Directive: "0"}},
 	}, {
 		ApplicationName: "container-placement-locked-parent",
 		CharmURL:        curl,
-		CharmOrigin:     validCharmOriginForTest(),
+		CharmOrigin:     validCharmOriginForTest(nil),
 		Placement:       []*instance.Placement{{Scope: "#", Directive: "0/lxd/0"}},
 	}}
 	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
@@ -1543,15 +1543,14 @@ func (s *ApplicationSuite) TestApplicationDeploymentRemovesPendingResourcesOnFai
 	resourcesManager.EXPECT().RemovePendingAppResources("my-app", resources).Return(nil)
 	s.backend.EXPECT().Resources().Return(resourcesManager)
 
-	co := validCharmOriginForTest()
-	co.Revision = 8
+	rev := 8
 	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			// CharmURL is missing & revision included to ensure deployApplication
 			// fails sufficiently far through execution so that we can assert pending
 			// app resources are removed
 			ApplicationName: "my-app",
-			CharmOrigin:     co,
+			CharmOrigin:     validCharmOriginForTest(&rev),
 			Resources:       resources,
 		}},
 	})

@@ -4,6 +4,7 @@
 package usersecrets
 
 import (
+	stdcontext "context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -32,8 +33,12 @@ func NewUserSecretsManager(context facade.Context) (*UserSecretsManager, error) 
 		return nil, errors.Trace(err)
 	}
 
+	serviceFactory := context.ServiceFactory()
 	backendConfigGetter := func() (*provider.ModelBackendConfigInfo, error) {
-		return secrets.AdminBackendConfigInfo(secrets.SecretsModel(model))
+		return secrets.AdminBackendConfigInfo(
+			stdcontext.Background(), secrets.SecretsModel(model),
+			serviceFactory.Cloud(), serviceFactory.Credential(),
+		)
 	}
 
 	return &UserSecretsManager{

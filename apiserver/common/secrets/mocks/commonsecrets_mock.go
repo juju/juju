@@ -301,10 +301,10 @@ func (mr *MockSecretsRemoveStateMockRecorder) GetSecret(arg0 interface{}) *gomoc
 }
 
 // GetSecretRevision mocks base method.
-func (m *MockSecretsRemoveState) GetSecretRevision(arg0 *secrets0.URI, arg1 int) (*secrets0.SecretRevisionMetadata, error) {
+func (m *MockSecretsRemoveState) GetSecretRevision(arg0 *secrets.URI, arg1 int) (*secrets.SecretRevisionMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetSecretRevision", arg0, arg1)
-	ret0, _ := ret[0].(*secrets0.SecretRevisionMetadata)
+	ret0, _ := ret[0].(*secrets.SecretRevisionMetadata)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
