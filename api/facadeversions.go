@@ -112,6 +112,7 @@ var FacadeVersions = map[string][]int{
 	"Secrets":                      {1, 2},
 	"SecretsManager":               {1, 2},
 	"SecretsDrain":                 {1},
+	"UserSecretsManager":           {1},
 	"Singular":                     {2},
 	"Spaces":                       {6},
 	"SSHClient":                    {4},

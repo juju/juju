@@ -1809,6 +1809,7 @@ func (e *exporter) secrets() error {
 			Description:     md.Description,
 			Label:           md.Label,
 			RotatePolicy:    md.RotatePolicy.String(),
+			AutoPrune:       md.AutoPrune,
 			Owner:           owner,
 			Created:         md.CreateTime,
 			Updated:         md.UpdateTime,
@@ -2063,7 +2064,11 @@ func (e *exporter) getCharmOrigin(doc applicationDoc, defaultArch string) (descr
 	origin := doc.CharmOrigin
 
 	// If the channel is empty, then we fall back to the Revision.
-	var revision int
+	// Set default revision to -1. This is because a revision of 0 is
+	// a valid revision for local charms which we need to be able to
+	// from. On import, in the -1 case we grab the revision by parsing
+	// the charm url.
+	revision := -1
 	if rev := origin.Revision; rev != nil {
 		revision = *rev
 	}

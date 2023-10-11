@@ -8,6 +8,8 @@ import (
 	_ "crypto/sha256"
 	_ "crypto/sha512"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
@@ -58,5 +60,9 @@ func ExtractRegistryURL(imagePath string) (string, error) {
 	if err != nil {
 		return "", errors.Annotate(err, "extracting registry from path")
 	}
-	return reference.Domain(imageNamed), nil
+	domain := reference.Domain(imageNamed)
+	if domain == "docker.io" && !strings.HasPrefix(strings.ToLower(imagePath), "docker.io") {
+		return "", fmt.Errorf("oci reference %q must have a domain", imagePath)
+	}
+	return domain, nil
 }

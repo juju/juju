@@ -1375,6 +1375,17 @@ func (i *importer) makeCharmOrigin(a description.Application) (*CharmOrigin, err
 
 	co := a.CharmOrigin()
 	rev := co.Revision()
+	// If revision is empty we export revision -1. In this case
+	// parse the revision from the url
+	// NOTE: We use <= 0 because some old versions of juju default
+	// revision to 0 when it's empty
+	if rev <= 0 {
+		curl, err := charm.ParseURL(a.CharmURL())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		rev = curl.Revision
+	}
 
 	var channel *Channel
 	// Only charmhub charms will have a channel. Local charms

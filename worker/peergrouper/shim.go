@@ -61,13 +61,6 @@ func (*cloudServiceShim) Life() state.Life {
 	return state.Alive
 }
 
-func (*cloudServiceShim) Status() (status.StatusInfo, error) {
-	// We don't record the status of a cloud service entity.
-	return status.StatusInfo{
-		Status: status.Active,
-	}, nil
-}
-
 func (*cloudServiceShim) SetStatus(status.StatusInfo) error {
 	// We don't record the status of a cloud service entity.
 	return nil

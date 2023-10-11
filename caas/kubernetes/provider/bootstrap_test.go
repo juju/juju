@@ -643,7 +643,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "charm",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "jujusolutions/charm-base:ubuntu-22.04",
+			Image:           "docker.io/jujusolutions/charm-base:ubuntu-22.04",
 			WorkingDir:      "/var/lib/juju",
 			Command:         []string{"/charm/bin/pebble"},
 			Args:            []string{"run", "--http", ":38812", "--verbose"},

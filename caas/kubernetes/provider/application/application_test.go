@@ -154,7 +154,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			}},
 		},
 	}
-	pullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username", "password", "nginx-image:latest")
+	pullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username", "password", "docker.io/library/nginx:latest")
 	nginxPullSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "gitlab-nginx-secret",
@@ -318,7 +318,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 				"gitlab": {
 					Name: "gitlab",
 					Image: coreresources.DockerImageDetails{
-						RegistryPath: "gitlab-image:latest",
+						RegistryPath: "docker.io/library/gitlab:latest",
 					},
 					Mounts: []caas.MountConfig{
 						{
@@ -330,7 +330,7 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 				"nginx": {
 					Name: "nginx",
 					Image: coreresources.DockerImageDetails{
-						RegistryPath: "nginx-image:latest",
+						RegistryPath: "docker.io/library/nginx:latest",
 						ImageRepoDetails: coreresources.ImageRepoDetails{
 							BasicAuthConfig: coreresources.BasicAuthConfig{
 								Username: "username",
@@ -588,7 +588,7 @@ func getPodSpec() corev1.PodSpec {
 		}, {
 			Name:            "gitlab",
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			Image:           "gitlab-image:latest",
+			Image:           "docker.io/library/gitlab:latest",
 			Command:         []string{"/charm/bin/pebble"},
 			Args:            []string{"run", "--create-dirs", "--hold", "--http", ":38813", "--verbose"},
 			Env: []corev1.EnvVar{
@@ -651,7 +651,7 @@ func getPodSpec() corev1.PodSpec {
 		}, {
 			Name:            "nginx",
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			Image:           "nginx-image:latest",
+			Image:           "docker.io/library/nginx:latest",
 			Command:         []string{"/charm/bin/pebble"},
 			Args:            []string{"run", "--create-dirs", "--hold", "--http", ":38814", "--verbose"},
 			Env: []corev1.EnvVar{
@@ -2882,7 +2882,7 @@ func (s *applicationSuite) TestPullSecretUpdate(c *gc.C) {
 		metav1.CreateOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	pullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username-old", "password-old", "nginx-image:latest")
+	pullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username-old", "password-old", "docker.io/library/nginx:latest")
 	nginxPullSecret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "gitlab-nginx-secret",
@@ -2910,7 +2910,7 @@ func (s *applicationSuite) TestPullSecretUpdate(c *gc.C) {
 	secret, err := s.client.CoreV1().Secrets(s.namespace).Get(context.TODO(), "gitlab-nginx-secret", metav1.GetOptions{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(secret, gc.NotNil)
-	newPullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username", "password", "nginx-image:latest")
+	newPullSecretConfig, _ := k8sutils.CreateDockerConfigJSON("username", "password", "docker.io/library/nginx:latest")
 	newNginxPullSecret := nginxPullSecret
 	newNginxPullSecret.Data = map[string][]byte{
 		corev1.DockerConfigJsonKey: newPullSecretConfig,

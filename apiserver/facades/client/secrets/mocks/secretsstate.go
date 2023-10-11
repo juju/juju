@@ -147,6 +147,21 @@ func (mr *MockSecretsStateMockRecorder) ListSecrets(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockSecretsState)(nil).ListSecrets), arg0)
 }
 
+// ListUnusedSecretRevisions mocks base method.
+func (m *MockSecretsState) ListUnusedSecretRevisions(arg0 *secrets.URI) ([]int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListUnusedSecretRevisions", arg0)
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListUnusedSecretRevisions indicates an expected call of ListUnusedSecretRevisions.
+func (mr *MockSecretsStateMockRecorder) ListUnusedSecretRevisions(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUnusedSecretRevisions", reflect.TypeOf((*MockSecretsState)(nil).ListUnusedSecretRevisions), arg0)
+}
+
 // UpdateSecret mocks base method.
 func (m *MockSecretsState) UpdateSecret(arg0 *secrets.URI, arg1 state.UpdateSecretParams) (*secrets.SecretMetadata, error) {
 	m.ctrl.T.Helper()

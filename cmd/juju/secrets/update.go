@@ -10,6 +10,7 @@ import (
 
 	apisecrets "github.com/juju/juju/api/client/secrets"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/secrets"
 )
@@ -21,7 +22,7 @@ type updateSecretCommand struct {
 	secretsAPIFunc func() (UpdateSecretsAPI, error)
 
 	secretURI *secrets.URI
-	autoPrune bool
+	autoPrune common.AutoBoolValue
 }
 
 // UpdateSecretsAPI is the secrets client API.
@@ -100,10 +101,7 @@ func (c *updateSecretCommand) Init(args []string) error {
 
 func (c *updateSecretCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SecretUpsertContentCommand.SetFlags(f)
-	f.BoolVar(
-		&c.autoPrune, "auto-prune", false,
-		"used to allow Juju to automatically remove revisions which are no longer being tracked by any observers",
-	)
+	f.Var(&c.autoPrune, "auto-prune", "used to allow Juju to automatically remove revisions which are no longer being tracked by any observers")
 }
 
 // Run implements cmd.Command.
@@ -112,6 +110,6 @@ func (c *updateSecretCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer secretsAPI.Close()
-	return secretsAPI.UpdateSecret(c.secretURI, &c.autoPrune, c.Label, c.Description, c.Data)
+	defer func() { _ = secretsAPI.Close() }()
+	return secretsAPI.UpdateSecret(c.secretURI, c.autoPrune.Get(), c.Label, c.Description, c.Data)
 }

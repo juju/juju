@@ -68,22 +68,26 @@ type elasticContainerRegistry struct {
 	ECRClientFunc func(ctx context.Context, accessKeyID, secretAccessKey, region string) (ECRInterface, error)
 }
 
-func newElasticContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
+func newElasticContainerRegistry(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (RegistryInternal, error) {
 	return newElasticContainerRegistryForTest(repoDetails, transport, getECRClient)
 }
 
 func newElasticContainerRegistryForTest(
 	repoDetails docker.ImageRepoDetails, transport http.RoundTripper,
 	ECRClientFunc func(ctx context.Context, accessKeyID, secretAccessKey, region string) (ECRInterface, error),
-) RegistryInternal {
-	c := newBase(repoDetails, transport, normalizeRepoDetailsElasticContainerRegistry)
-	return &elasticContainerRegistry{baseClient: c, ECRClientFunc: ECRClientFunc}
+) (RegistryInternal, error) {
+	c, err := newBase(repoDetails, transport, normalizeRepoDetailsElasticContainerRegistry)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &elasticContainerRegistry{baseClient: c, ECRClientFunc: ECRClientFunc}, nil
 }
 
-func normalizeRepoDetailsElasticContainerRegistry(repoDetails *docker.ImageRepoDetails) {
+func normalizeRepoDetailsElasticContainerRegistry(repoDetails *docker.ImageRepoDetails) error {
 	if repoDetails.ServerAddress == "" {
 		repoDetails.ServerAddress = repoDetails.Repository
 	}
+	return nil
 }
 
 // Match checks if the repository details matches current provider format.
@@ -199,9 +203,12 @@ type elasticContainerRegistryPublic struct {
 	*baseClient
 }
 
-func newElasticContainerRegistryPublic(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) RegistryInternal {
-	c := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
-	return &elasticContainerRegistryPublic{c}
+func newElasticContainerRegistryPublic(repoDetails docker.ImageRepoDetails, transport http.RoundTripper) (RegistryInternal, error) {
+	c, err := newBase(repoDetails, transport, normalizeRepoDetailsCommon)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &elasticContainerRegistryPublic{c}, nil
 }
 
 // Match checks if the repository details matches current provider format.

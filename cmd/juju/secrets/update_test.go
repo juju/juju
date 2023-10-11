@@ -76,6 +76,32 @@ func (s *updateSuite) TestUpdateFromArg(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *updateSuite) TestUpdateAutoPruneFalse(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	s.secretsAPI.EXPECT().UpdateSecret(uri, ptr(false), "", "", map[string]string{}).Return(nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
+		s.store, s.secretsAPI), uri.String(), "--auto-prune=false",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *updateSuite) TestUpdateAutoPruneNil(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	s.secretsAPI.EXPECT().UpdateSecret(uri, nil, "", "this is a secret.", map[string]string{}).Return(nil)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	_, err := cmdtesting.RunCommand(c, secrets.NewUpdateCommandForTest(
+		s.store, s.secretsAPI), uri.String(), "--info", "this is a secret.",
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *updateSuite) TestUpdateFromFile(c *gc.C) {
 	defer s.setup(c).Finish()
 

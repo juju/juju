@@ -23,6 +23,7 @@ func (s *DockerConfigSuite) TestExtractRegistryURL(c *gc.C) {
 	for _, registryTest := range []struct {
 		registryPath string
 		expectedURL  string
+		err          string
 	}{{
 		registryPath: "registry.staging.charmstore.com/me/awesomeimage@sha256:5e2c71d050bec85c258a31aa4507ca8adb3b2f5158a4dc919a39118b8879a5ce",
 		expectedURL:  "registry.staging.charmstore.com",
@@ -34,10 +35,15 @@ func (s *DockerConfigSuite) TestExtractRegistryURL(c *gc.C) {
 		expectedURL:  "docker.io",
 	}, {
 		registryPath: "me/mygitlab:latest",
-		expectedURL:  "docker.io",
+		expectedURL:  "",
+		err:          `oci reference "me/mygitlab:latest" must have a domain`,
 	}} {
 		result, err := utils.ExtractRegistryURL(registryTest.registryPath)
-		c.Assert(err, jc.ErrorIsNil)
+		if registryTest.err != "" {
+			c.Assert(err, gc.ErrorMatches, registryTest.err)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+		}
 		c.Assert(result, gc.Equals, registryTest.expectedURL)
 	}
 }

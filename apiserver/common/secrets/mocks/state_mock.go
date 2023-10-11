@@ -178,6 +178,21 @@ func (mr *MockSecretsStoreMockRecorder) ListSecrets(arg0 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSecrets", reflect.TypeOf((*MockSecretsStore)(nil).ListSecrets), arg0)
 }
 
+// ListUnusedSecretRevisions mocks base method.
+func (m *MockSecretsStore) ListUnusedSecretRevisions(arg0 *secrets.URI) ([]int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListUnusedSecretRevisions", arg0)
+	ret0, _ := ret[0].([]int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListUnusedSecretRevisions indicates an expected call of ListUnusedSecretRevisions.
+func (mr *MockSecretsStoreMockRecorder) ListUnusedSecretRevisions(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUnusedSecretRevisions", reflect.TypeOf((*MockSecretsStore)(nil).ListUnusedSecretRevisions), arg0)
+}
+
 // UpdateSecret mocks base method.
 func (m *MockSecretsStore) UpdateSecret(arg0 *secrets.URI, arg1 state.UpdateSecretParams) (*secrets.SecretMetadata, error) {
 	m.ctrl.T.Helper()
@@ -206,6 +221,21 @@ func (m *MockSecretsStore) WatchObsolete(arg0 []names.Tag) (state.StringsWatcher
 func (mr *MockSecretsStoreMockRecorder) WatchObsolete(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchObsolete", reflect.TypeOf((*MockSecretsStore)(nil).WatchObsolete), arg0)
+}
+
+// WatchRevisionsToPrune mocks base method.
+func (m *MockSecretsStore) WatchRevisionsToPrune(arg0 []names.Tag) (state.StringsWatcher, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchRevisionsToPrune", arg0)
+	ret0, _ := ret[0].(state.StringsWatcher)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// WatchRevisionsToPrune indicates an expected call of WatchRevisionsToPrune.
+func (mr *MockSecretsStoreMockRecorder) WatchRevisionsToPrune(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRevisionsToPrune", reflect.TypeOf((*MockSecretsStore)(nil).WatchRevisionsToPrune), arg0)
 }
 
 // MockSecretBackendsStorage is a mock of SecretBackendsStorage interface.

@@ -20,6 +20,7 @@ type SecretsState interface {
 	DeleteSecret(*secrets.URI, ...int) ([]secrets.ValueRef, error)
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
+	ListUnusedSecretRevisions(uri *secrets.URI) ([]int, error)
 }
 
 // SecretsConsumer instances provide secret consumer apis.

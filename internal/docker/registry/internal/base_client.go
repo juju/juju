@@ -49,8 +49,8 @@ type baseClient struct {
 
 func newBase(
 	repoDetails docker.ImageRepoDetails, transport http.RoundTripper,
-	normalizeRepoDetails func(repoDetails *docker.ImageRepoDetails),
-) *baseClient {
+	normalizeRepoDetails func(repoDetails *docker.ImageRepoDetails) error,
+) (*baseClient, error) {
 	c := &baseClient{
 		baseURL:     &url.URL{},
 		repoDetails: &repoDetails,
@@ -59,22 +59,29 @@ func newBase(
 			Timeout:   defaultTimeout,
 		},
 	}
-	normalizeRepoDetails(c.repoDetails)
-	return c
+	err := normalizeRepoDetails(c.repoDetails)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return c, nil
 }
 
 // normalizeRepoDetailsCommon pre-processes ImageRepoDetails before Match().
-func normalizeRepoDetailsCommon(repoDetails *docker.ImageRepoDetails) {
+func normalizeRepoDetailsCommon(repoDetails *docker.ImageRepoDetails) error {
 	if repoDetails.ServerAddress != "" {
-		return
+		return nil
 	}
 	// We have validated the repository in top level.
 	// It should not raise errors here.
 	named, _ := reference.ParseNormalizedNamed(repoDetails.Repository)
 	domain := reference.Domain(named)
+	if domain == "docker.io" && !strings.HasPrefix(strings.ToLower(repoDetails.Repository), "docker.io") {
+		return fmt.Errorf("oci reference %q must have a domain", repoDetails.Repository)
+	}
 	if domain != "" {
 		repoDetails.ServerAddress = domain
 	}
+	return nil
 }
 
 // ShouldRefreshAuth checks if the repoDetails should be refreshed.
