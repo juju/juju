@@ -4,6 +4,8 @@
 package domain
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -59,6 +61,72 @@ func (s *watcherSuite) TestNewUUIDsWatcherSuccess(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *watcherSuite) TestNewNamespaceWatcherSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSourceWithSub()
+
+	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			CREATE TABLE some_namespace (
+				uuid TEXT PRIMARY KEY
+			);
+		`)
+		return err
+	})
+
+	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {
+		return &watchableDB{
+			TxnRunner:   s.TxnRunner(),
+			EventSource: s.events,
+		}, nil
+	}, nil)
+
+	w, err := factory.NewNamespaceWatcher("some-namespace", changestream.All, "SELECT uuid from some_namespace")
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-w.Changes():
+	case <-time.After(jujutesting.ShortWait):
+		c.Fatal("timed out waiting for change event")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *watcherSuite) TestNewNamespacePredicateWatcherSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSourceWithSub()
+
+	s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			CREATE TABLE some_namespace (
+				uuid TEXT PRIMARY KEY
+			);
+		`)
+		return err
+	})
+
+	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {
+		return &watchableDB{
+			TxnRunner:   s.TxnRunner(),
+			EventSource: s.events,
+		}, nil
+	}, nil)
+
+	w, err := factory.NewNamespacePredicateWatcher("some-namespace", changestream.All, "SELECT uuid from some_namespace", func(ctx context.Context, tr database.TxnRunner, ce []changestream.ChangeEvent) (bool, error) {
+		return true, nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-w.Changes():
+	case <-time.After(jujutesting.ShortWait):
+		c.Fatal("timed out waiting for change event")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *watcherSuite) TestNewValueWatcherSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectSourceWithSub()
@@ -71,6 +139,31 @@ func (s *watcherSuite) TestNewValueWatcherSuccess(c *gc.C) {
 	}, nil)
 
 	w, err := factory.NewValueWatcher("some-namespace", "some-id-from-namespace", changestream.All)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-w.Changes():
+	case <-time.After(jujutesting.ShortWait):
+		c.Fatal("timed out waiting for change event")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *watcherSuite) TestNewValuePredicateWatcherSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSourceWithSub()
+
+	factory := NewWatcherFactory(func() (changestream.WatchableDB, error) {
+		return &watchableDB{
+			TxnRunner:   s.TxnRunner(),
+			EventSource: s.events,
+		}, nil
+	}, nil)
+
+	w, err := factory.NewValuePredicateWatcher("some-namespace", "some-id-from-namespace", changestream.All, func(ctx context.Context, tr database.TxnRunner, ce []changestream.ChangeEvent) (bool, error) {
+		return true, nil
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

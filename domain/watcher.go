@@ -52,6 +52,20 @@ func (f *WatcherFactory) NewNamespaceWatcher(
 	return eventsource.NewNamespaceWatcher(base, namespace, changeMask, initialStateQuery), nil
 }
 
+// NewNamespacePredicateWatcher returns a new namespace watcher
+// for events based on the input change mask and predicate.
+func (f *WatcherFactory) NewNamespacePredicateWatcher(
+	namespace string, changeMask changestream.ChangeType, initialStateQuery string,
+	predicate eventsource.Predicate,
+) (watcher.StringsWatcher, error) {
+	base, err := f.newBaseWatcher()
+	if err != nil {
+		return nil, errors.Annotate(err, "creating base watcher")
+	}
+
+	return eventsource.NewNamespacePredicateWatcher(base, namespace, changeMask, initialStateQuery, predicate), nil
+}
+
 // NewValueWatcher returns a watcher for a particular change value
 // in a namespace, based on the input change mask.
 func (f *WatcherFactory) NewValueWatcher(
@@ -63,6 +77,21 @@ func (f *WatcherFactory) NewValueWatcher(
 	}
 
 	return eventsource.NewValueWatcher(base, namespace, changeValue, changeMask), nil
+}
+
+// NewValuePredicateWatcher returns a watcher for a particular change value
+// in a namespace, based on the input change mask and predicate.
+func (f *WatcherFactory) NewValuePredicateWatcher(
+	namespace, changeValue string,
+	changeMask changestream.ChangeType,
+	predicate eventsource.Predicate,
+) (watcher.NotifyWatcher, error) {
+	base, err := f.newBaseWatcher()
+	if err != nil {
+		return nil, errors.Annotate(err, "creating base watcher")
+	}
+
+	return eventsource.NewValuePredicateWatcher(base, namespace, changeValue, changeMask, predicate), nil
 }
 
 func (f *WatcherFactory) newBaseWatcher() (*eventsource.BaseWatcher, error) {
