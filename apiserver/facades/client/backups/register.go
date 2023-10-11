@@ -6,8 +6,6 @@ package backups
 import (
 	"reflect"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -20,13 +18,7 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacade provides the required signature for facade registration.
 func newFacade(ctx facade.Context) (*API, error) {
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return NewAPI(
-		&stateShim{State: st, Model: model},
 		ctx.ServiceFactory().ControllerConfig(),
 		ctx.Auth(),
 		ctx.MachineTag(),
