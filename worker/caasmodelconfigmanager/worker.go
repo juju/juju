@@ -4,6 +4,7 @@
 package caasmodelconfigmanager
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/juju/clock"
@@ -16,8 +17,14 @@ import (
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/controller/caasmodelconfigmanager"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/docker/registry"
+)
+
+const (
+	retryDuration   = 1 * time.Second
+	refreshDuration = 30 * time.Second
 )
 
 // Logger represents the methods used by the worker to log details.
@@ -34,6 +41,7 @@ type Logger interface {
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/worker/caasmodelconfigmanager Facade
 type Facade interface {
 	ControllerConfig() (controller.Config, error)
+	WatchControllerConfig() (watcher.NotifyWatcher, error)
 }
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/broker_mock.go github.com/juju/juju/worker/caasmodelconfigmanager CAASBroker
@@ -85,10 +93,6 @@ type manager struct {
 	clock  clock.Clock
 
 	registryFunc func(docker.ImageRepoDetails) (registry.Registry, error)
-	reg          registry.Registry
-
-	nextTickDuration *time.Duration
-	ticker           clock.Timer
 }
 
 // NewFacade returns a facade for caasapplicationprovisioner worker to use.
@@ -129,78 +133,105 @@ func (w *manager) Wait() error {
 }
 
 func (w *manager) loop() (err error) {
+	watcher, err := w.config.Facade.WatchControllerConfig()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = w.catacomb.Add(watcher)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var (
+		refresh         <-chan struct{}
+		timeout         <-chan time.Time
+		deadline        time.Time
+		reg             registry.Registry
+		lastRepoDetails docker.ImageRepoDetails
+	)
+	first := false
+	signal := make(chan struct{})
+	close(signal)
 	defer func() {
-		if w.ticker != nil && !w.ticker.Stop() {
-			select {
-			case <-w.ticker.Chan():
-			default:
-			}
+		if reg != nil {
+			_ = reg.Close()
 		}
 	}()
-	controllerConfig, err := w.config.Facade.ControllerConfig()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	repoDetails := controllerConfig.CAASImageRepo()
-	if !repoDetails.IsPrivate() {
-		// No ops for public registry config.
-		return nil
-	}
-	w.reg, err = w.registryFunc(repoDetails)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err = w.reg.Ping(); err != nil {
-		return errors.Trace(err)
-	}
-	if err := w.ensureImageRepoSecret(true); err != nil {
-		return errors.Trace(err)
-	}
 
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case <-w.getTickerChan():
-			if err := w.ensureImageRepoSecret(false); err != nil {
+		case <-watcher.Changes():
+			controllerConfig, err := w.config.Facade.ControllerConfig()
+			if err != nil {
 				return errors.Trace(err)
 			}
-		}
-	}
-}
-
-func (w *manager) getTickerChan() <-chan time.Time {
-	d := w.getTickerDuration()
-	if w.ticker == nil {
-		w.ticker = w.clock.NewTimer(d)
-	} else {
-		if !w.ticker.Stop() {
-			select {
-			case <-w.ticker.Chan():
-			default:
+			repoDetails, err := docker.NewImageRepoDetails(controllerConfig.CAASImageRepo())
+			if err != nil {
+				return errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+			}
+			if reflect.DeepEqual(repoDetails, lastRepoDetails) {
+				continue
+			}
+			lastRepoDetails = repoDetails
+			if !repoDetails.IsPrivate() {
+				timeout = nil
+				refresh = nil
+				continue
+			}
+			if reg != nil {
+				_ = reg.Close()
+			}
+			reg, err = w.registryFunc(repoDetails)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if err = reg.Ping(); err != nil {
+				return errors.Trace(err)
+			}
+			first = true
+			refresh = signal
+		case <-timeout:
+			timeout = nil
+			if refresh == nil {
+				refresh = signal
+			}
+		case <-refresh:
+			refresh = nil
+			next, err := w.ensureImageRepoSecret(reg, first)
+			if err != nil {
+				w.logger.Errorf("failed to update repository secret: %s", err.Error())
+				next = retryDuration
+			} else {
+				first = false
+			}
+			if nextDeadline := w.clock.Now().Add(next); timeout == nil || nextDeadline.Before(deadline) {
+				deadline = nextDeadline
+				timeout = w.clock.After(next)
 			}
 		}
-		w.ticker.Reset(d)
 	}
-	return w.ticker.Chan()
 }
 
-func (w *manager) getTickerDuration() time.Duration {
-	if w.nextTickDuration != nil {
-		return *w.nextTickDuration
+func (w *manager) ensureImageRepoSecret(reg registry.Registry, force bool) (time.Duration, error) {
+	shouldRefresh, nextRefresh := reg.ShouldRefreshAuth()
+	if nextRefresh == time.Duration(0) {
+		nextRefresh = refreshDuration
 	}
-	return 30 * time.Second
-}
+	if !shouldRefresh && !force {
+		return nextRefresh, nil
+	}
 
-func (w *manager) ensureImageRepoSecret(isFirstCall bool) error {
-	var shouldRefresh bool
-	if shouldRefresh, w.nextTickDuration = w.reg.ShouldRefreshAuth(); !shouldRefresh && !isFirstCall {
-		return nil
+	w.logger.Debugf("refreshing auth token for %q", w.name)
+	if err := reg.RefreshAuth(); err != nil {
+		return time.Duration(0), errors.Annotatef(err, "refreshing registry auth token for %q", w.name)
 	}
-	if err := w.reg.RefreshAuth(); err != nil {
-		return errors.Annotatef(err, "refreshing registry auth token for %q", w.name)
+
+	w.logger.Debugf("applying refreshed auth token for %q", w.name)
+	err := w.config.Broker.EnsureImageRepoSecret(reg.ImageRepoDetails())
+	if err != nil {
+		return time.Duration(0), errors.Annotatef(err, "ensuring image repository secret for %q", w.name)
 	}
-	w.logger.Debugf("auth token for %q has been refreshed, applying to the secret now", w.name)
-	err := w.config.Broker.EnsureImageRepoSecret(w.reg.ImageRepoDetails())
-	return errors.Annotatef(err, "ensuring image repository secret for %q", w.name)
+	return nextRefresh, nil
 }

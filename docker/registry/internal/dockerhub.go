@@ -29,6 +29,10 @@ func newDockerhub(repoDetails docker.ImageRepoDetails, transport http.RoundTripp
 	return &dockerhub{c}, nil
 }
 
+func (c *dockerhub) String() string {
+	return "docker.io"
+}
+
 // Match checks if the repository details matches current provider format.
 func (c *dockerhub) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "docker.io")

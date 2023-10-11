@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -1018,6 +1019,54 @@ func (s *controllerSuite) TestConfigSetPublishesEvent(c *gc.C) {
 	}
 
 	c.Assert(config.Features().SortedValues(), jc.DeepEquals, []string{"bar", "foo"})
+}
+
+func (s *controllerSuite) TestConfigSetCAASImageRepo(c *gc.C) {
+	config, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(config.CAASImageRepo(), gc.Equals, "")
+
+	err = s.controller.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
+		"caas-image-repo": "juju-repo.local",
+	}})
+	c.Assert(err, gc.ErrorMatches, `cannot change caas-image-repo as it is not currently set`)
+
+	err = s.State.UpdateControllerConfig(map[string]interface{}{
+		"caas-image-repo": "jujusolutions",
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.controller.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
+		"caas-image-repo": "juju-repo.local",
+	}})
+	c.Assert(err, gc.ErrorMatches, `cannot change caas-image-repo: repository read-only, only authentication can be updated`)
+
+	err = s.controller.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
+		"caas-image-repo": `{"repository":"jujusolutions","username":"foo","password":"bar"}`,
+	}})
+	c.Assert(err, gc.ErrorMatches, `cannot change caas-image-repo: unable to add authentication details`)
+
+	err = s.State.UpdateControllerConfig(map[string]interface{}{
+		"caas-image-repo": `{"repository":"jujusolutions","username":"bar","password":"foo"}`,
+	}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.controller.ConfigSet(params.ControllerConfigSet{Config: map[string]interface{}{
+		"caas-image-repo": `{"repository":"jujusolutions","username":"foo","password":"bar"}`,
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err = s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	repoDetails, err := docker.NewImageRepoDetails(config.CAASImageRepo())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(repoDetails, gc.DeepEquals, docker.ImageRepoDetails{
+		Repository: "jujusolutions",
+		BasicAuthConfig: docker.BasicAuthConfig{
+			Username: "foo",
+			Password: "bar",
+		},
+	})
 }
 
 func (s *controllerSuite) TestMongoVersion(c *gc.C) {

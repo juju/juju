@@ -25,6 +25,10 @@ func newGithubContainerRegistry(repoDetails docker.ImageRepoDetails, transport h
 	return &githubContainerRegistry{c}, nil
 }
 
+func (c *githubContainerRegistry) String() string {
+	return "ghcr.io"
+}
+
 // Match checks if the repository details matches current provider format.
 func (c *githubContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "ghcr.io")
