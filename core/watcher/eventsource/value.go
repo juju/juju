@@ -4,6 +4,9 @@
 package eventsource
 
 import (
+	"context"
+
+	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
@@ -20,6 +23,8 @@ type ValueWatcher struct {
 	namespace   string
 	changeValue string
 	changeMask  changestream.ChangeType
+
+	predicate Predicate
 }
 
 // NewValueWatcher returns a new watcher that receives changes from the input
@@ -32,6 +37,24 @@ func NewValueWatcher(base *BaseWatcher, namespace, changeValue string, changeMas
 		namespace:   namespace,
 		changeValue: changeValue,
 		changeMask:  changeMask,
+		predicate:   defaultPredicate,
+	}
+
+	w.tomb.Go(w.loop)
+	return w
+}
+
+// NewValuePredicateWatcher returns a new watcher that receives changes from
+// the input base watcher's db/queue when predicate accepts the change-log
+// events occur for a specific changeValue from the input namespace.
+func NewValuePredicateWatcher(base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType, predicate Predicate) *ValueWatcher {
+	w := &ValueWatcher{
+		BaseWatcher: base,
+		out:         make(chan struct{}),
+		namespace:   namespace,
+		changeValue: changeValue,
+		changeMask:  changeMask,
+		predicate:   predicate,
 	}
 
 	w.tomb.Go(w.loop)
@@ -52,9 +75,7 @@ func (w *ValueWatcher) loop() error {
 	})
 	subscription, err := w.watchableDB.Subscribe(opt)
 	if err != nil {
-		// TODO(wallyworld) - remove when we have dqlite watchers on k8s
-		w.logger.Warningf("error subscribing to entity %q in namespace %q: %v", w.changeValue, w.namespace, err)
-		subscription = noopSubscription{}
+		return errors.Annotatef(err, "subscribing to namespace %q", w.namespace)
 	}
 	defer subscription.Unsubscribe()
 
@@ -69,16 +90,29 @@ func (w *ValueWatcher) loop() error {
 
 	w.drainInitialEvent(in)
 
+	// Cache the context so we don't have to call it on every iteration.
+	ctx := w.tomb.Context(context.Background())
+
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-subscription.Done():
 			return ErrSubscriptionClosed
-		case _, ok := <-in:
+		case changes, ok := <-in:
 			if !ok {
 				w.logger.Debugf("change channel closed for %q; terminating watcher for %q", w.namespace, w.changeValue)
 				return nil
+			}
+
+			// Check with the predicate to determine if we should send a
+			// notification.
+			allow, err := w.predicate(ctx, w.watchableDB, changes)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			if !allow {
+				continue
 			}
 
 			// We have changes. Tick over to dispatch mode.
