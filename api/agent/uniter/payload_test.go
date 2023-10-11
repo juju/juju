@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
@@ -402,7 +404,7 @@ func (s *stubFacade) BestFacadeVersion(_ string) int {
 	return 1
 }
 
-func (s *stubFacade) APICall(objType string, version int, id, request string, args, response interface{}) error {
+func (s *stubFacade) APICall(ctx context.Context, objType string, version int, id, request string, args, response interface{}) error {
 	s.stub.AddCall(request, args, response)
 	resp := s.nextResponse()
 	if err := s.stub.NextErr(); err != nil {

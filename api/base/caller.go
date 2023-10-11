@@ -26,7 +26,7 @@ type APICaller interface {
 	// APICall makes a call to the API server with the given object type,
 	// id, request and parameters. The response is filled in with the
 	// call's result if the call is successful.
-	APICall(objType string, version int, id, request string, params, response interface{}) error
+	APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error
 
 	// BestFacadeVersion returns the newest version of 'objType' that this
 	// client can use with the current API server.
@@ -139,8 +139,10 @@ var _ FacadeCaller = facadeCaller{}
 // also known to the client. (id is always passed as the empty string.)
 func (fc facadeCaller) FacadeCall(request string, params, response interface{}) error {
 	return fc.caller.APICall(
+		context.TODO(),
 		fc.facadeName, fc.bestVersion, "",
-		request, params, response)
+		request, params, response,
+	)
 }
 
 // Name returns the facade name.

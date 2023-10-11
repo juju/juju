@@ -23,7 +23,7 @@ import (
 // which calls the function. The other methods are just stubs.
 type APICallerFunc func(objType string, version int, id, request string, params, response interface{}) error
 
-func (f APICallerFunc) APICall(objType string, version int, id, request string, params, response interface{}) error {
+func (f APICallerFunc) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {
 	return f(objType, version, id, request, params, response)
 }
 
@@ -84,7 +84,7 @@ type CallChecker struct {
 type APICall struct {
 	// If Check is non-nil, all other fields will be ignored and Check
 	// will be called to check the call.
-	Check func(objType string, version int, id, request string, params, response interface{}) error
+	Check func(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error
 
 	// Facade holds the expected call facade. If it's empty,
 	// any facade will be accepted.
@@ -170,9 +170,9 @@ type notifyingAPICaller struct {
 	called chan<- struct{}
 }
 
-func (c notifyingAPICaller) APICall(objType string, version int, id, request string, params, response interface{}) error {
+func (c notifyingAPICaller) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {
 	c.called <- struct{}{}
-	return c.APICaller.APICall(objType, version, id, request, params, response)
+	return c.APICaller.APICall(ctx, objType, version, id, request, params, response)
 }
 
 // NotifyingAPICaller returns an APICaller implementation which sends a

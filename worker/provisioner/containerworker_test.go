@@ -224,11 +224,11 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 
 	fExp := s.caller.EXPECT()
 	fExp.BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
-	fExp.APICall("NotifyWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
-	fExp.APICall("StringsWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
+	fExp.APICall(gomock.Any(), "NotifyWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
+	fExp.APICall(gomock.Any(), "StringsWatcher", 0, gomock.Any(), gomock.Any(), nil, gomock.Any()).Return(nil).AnyTimes()
 
 	notifySource := params.NotifyWatchResult{NotifyWatcherId: "who-cares"}
-	fExp.APICall("Provisioner", 0, "", "WatchForModelConfigChanges", nil, gomock.Any()).SetArg(5, notifySource).Return(nil).AnyTimes()
+	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "WatchForModelConfigChanges", nil, gomock.Any()).SetArg(6, notifySource).Return(nil).AnyTimes()
 
 	modelCfgSource := params.ModelConfigResult{
 		Config: map[string]interface{}{
@@ -238,32 +238,32 @@ func (s *containerWorkerSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 			"secret-backend": "auto",
 		},
 	}
-	fExp.APICall("Provisioner", 0, "", "ModelConfig", nil, gomock.Any()).SetArg(5, modelCfgSource).Return(nil).AnyTimes()
+	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "ModelConfig", nil, gomock.Any()).SetArg(6, modelCfgSource).Return(nil).AnyTimes()
 
 	addrSource := params.StringsResult{Result: []string{"0.0.0.0"}}
-	fExp.APICall("Provisioner", 0, "", "StateAddresses", nil, gomock.Any()).SetArg(5, addrSource).Return(nil).AnyTimes()
-	fExp.APICall("Provisioner", 0, "", "APIAddresses", nil, gomock.Any()).SetArg(5, addrSource).Return(nil).AnyTimes()
+	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "StateAddresses", nil, gomock.Any()).SetArg(6, addrSource).Return(nil).AnyTimes()
+	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "APIAddresses", nil, gomock.Any()).SetArg(6, addrSource).Return(nil).AnyTimes()
 
 	certSource := params.BytesResult{Result: []byte(coretesting.CACert)}
-	fExp.APICall("Provisioner", 0, "", "CACert", nil, gomock.Any()).SetArg(5, certSource).Return(nil).AnyTimes()
+	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "CACert", nil, gomock.Any()).SetArg(6, certSource).Return(nil).AnyTimes()
 
 	uuidSource := params.StringResult{Result: s.modelUUID.String()}
-	fExp.APICall("Provisioner", 0, "", "ModelUUID", nil, gomock.Any()).SetArg(5, uuidSource).Return(nil).AnyTimes()
+	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "ModelUUID", nil, gomock.Any()).SetArg(6, uuidSource).Return(nil).AnyTimes()
 
 	lifeSource := params.LifeResults{Results: []params.LifeResult{{Life: life.Alive}}}
-	fExp.APICall("Provisioner", 0, "", "Life", gomock.Any(), gomock.Any()).SetArg(5, lifeSource).Return(nil).AnyTimes()
+	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "Life", gomock.Any(), gomock.Any()).SetArg(6, lifeSource).Return(nil).AnyTimes()
 
 	watchSource := params.StringsWatchResults{Results: []params.StringsWatchResult{{
 		StringsWatcherId: "whatever",
 		Changes:          []string{},
 	}}}
-	fExp.APICall("Provisioner", 0, "", "WatchContainers", gomock.Any(), gomock.Any()).SetArg(5, watchSource).Return(nil).AnyTimes()
-	fExp.APICall("Provisioner", 0, "", "WatchContainersCharmProfiles", gomock.Any(), gomock.Any()).SetArg(5, watchSource).Return(nil).AnyTimes()
+	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "WatchContainers", gomock.Any(), gomock.Any()).SetArg(6, watchSource).Return(nil).AnyTimes()
+	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "WatchContainersCharmProfiles", gomock.Any(), gomock.Any()).SetArg(6, watchSource).Return(nil).AnyTimes()
 
 	controllerCfgSource := params.ControllerConfigResult{
 		Config: map[string]interface{}{"controller-uuid": s.controllerUUID.String()},
 	}
-	fExp.APICall("Provisioner", 0, "", "ControllerConfig", nil, gomock.Any()).SetArg(5, controllerCfgSource).Return(nil).AnyTimes()
+	fExp.APICall(gomock.Any(), "Provisioner", 0, "", "ControllerConfig", nil, gomock.Any()).SetArg(6, controllerCfgSource).Return(nil).AnyTimes()
 }
 
 // notify returns a suite behaviour that will cause the container watcher
@@ -291,8 +291,9 @@ func (s *containerWorkerSuite) expectContainerManagerConfig(cType instance.Conta
 		ManagerConfig: map[string]string{"model-uuid": s.modelUUID.String()},
 	}
 	s.caller.EXPECT().APICall(
+		gomock.Any(),
 		"Provisioner", 0, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
-	).SetArg(5, resultSource).MinTimes(1)
+	).SetArg(6, resultSource).MinTimes(1)
 
 	s.machine.EXPECT().AvailabilityZone().Return("az1", nil)
 }

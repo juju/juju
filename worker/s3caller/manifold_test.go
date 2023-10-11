@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/core/objectstore"
 )
 
 type manifoldSuite struct {
@@ -24,15 +25,11 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
 	cfg = s.getConfig()
-	cfg.APIConfigWatcherName = ""
-	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
-
-	cfg = s.getConfig()
 	cfg.APICallerName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.NewS3Client = nil
+	cfg.NewClient = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -42,9 +39,8 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
-		APIConfigWatcherName: "api-config-watcher",
-		APICallerName:        "api-caller",
-		NewS3Client: func(api.Connection, Logger) (Session, error) {
+		APICallerName: "api-caller",
+		NewClient: func(api.Connection, Logger) (objectstore.Session, error) {
 			return s.session, nil
 		},
 		Logger: s.logger,

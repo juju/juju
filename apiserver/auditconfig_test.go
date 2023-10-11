@@ -64,7 +64,7 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 		ClientVersion: jujuversion.Current.String(),
 	}
 	loginTime := s.Clock.Now()
-	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	// Nothing's logged at this point because there haven't been any
@@ -78,7 +78,7 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 		}},
 	}
 	addMachinesTime := s.Clock.Now()
-	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
+	err = conn.APICall(context.Background(), "MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	log.CheckCallNames(c, "AddConversation", "AddRequest", "AddResponse")
@@ -143,7 +143,7 @@ func (s *auditConfigSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) 
 		CLIArgs:       "hey you guys",
 		ClientVersion: jujuversion.Current.String(),
 	}
-	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	// No error yet since logging the conversation is deferred until
 	// something happens.
 	c.Assert(err, jc.ErrorIsNil)
@@ -154,7 +154,7 @@ func (s *auditConfigSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) 
 			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
-	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
+	err = conn.APICall(context.Background(), "MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, gc.ErrorMatches, "bad news bears")
 }
 
@@ -181,7 +181,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 		CLIArgs:       "hey you guys",
 		ClientVersion: jujuversion.Current.String(),
 	}
-	err := conn.APICall("Admin", 3, "", "Login", request, &result)
+	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	// Nothing's logged at this point because there haven't been any
@@ -194,7 +194,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
-	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
+	err = conn.APICall(context.Background(), "MachineManager", machineManagerFacadeVersion, "", "AddMachines", addReq, &addResults)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Still nothing logged - the AddMachines call has been filtered out.
@@ -204,7 +204,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 	destroyReq := &params.DestroyMachinesParams{
 		MachineTags: []string{addResults.Machines[0].Machine},
 	}
-	err = conn.APICall("MachineManager", machineManagerFacadeVersion, "", "DestroyMachineWithParams", destroyReq, nil)
+	err = conn.APICall(context.Background(), "MachineManager", machineManagerFacadeVersion, "", "DestroyMachineWithParams", destroyReq, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now the conversation and both requests are logged.

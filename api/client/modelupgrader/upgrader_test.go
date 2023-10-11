@@ -4,6 +4,7 @@
 package modelupgrader_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -36,6 +37,7 @@ func (s *UpgradeModelSuite) TestAbortModelUpgrade(c *gc.C) {
 	gomock.InOrder(
 		apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1),
 		apiCaller.EXPECT().APICall(
+			gomock.Any(),
 			"ModelUpgrader", 1, "", "AbortModelUpgrade",
 			params.ModelParam{
 				ModelTag: coretesting.ModelTag.String(),
@@ -56,6 +58,7 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
 	gomock.InOrder(
 		apiCaller.EXPECT().BestFacadeVersion("ModelUpgrader").Return(1),
 		apiCaller.EXPECT().APICall(
+			gomock.Any(),
 			"ModelUpgrader", 1, "", "UpgradeModel",
 			params.UpgradeModelParams{
 				ModelTag:            coretesting.ModelTag.String(),
@@ -63,7 +66,7 @@ func (s *UpgradeModelSuite) TestUpgradeModel(c *gc.C) {
 				IgnoreAgentVersions: true,
 				DryRun:              true,
 			}, &params.UpgradeModelResult{},
-		).DoAndReturn(func(objType string, facadeVersion int, id, request string, args, result interface{}) error {
+		).DoAndReturn(func(ctx context.Context, objType string, facadeVersion int, id, request string, args, result interface{}) error {
 			out := result.(*params.UpgradeModelResult)
 			out.ChosenVersion = version.MustParse("2.9.99")
 			return nil

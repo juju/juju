@@ -5,6 +5,7 @@ package application
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -1275,7 +1276,7 @@ func (f *fakeDeployAPI) BestFacadeVersion(facade string) int {
 	return results[0].(int)
 }
 
-func (f *fakeDeployAPI) APICall(objType string, version int, id, request string, params, response interface{}) error {
+func (f *fakeDeployAPI) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {
 	results := f.MethodCall(f, "APICall", objType, version, id, request, params, response)
 	return jujutesting.TypeAssertError(results[0])
 }

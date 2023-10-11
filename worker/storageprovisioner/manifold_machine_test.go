@@ -4,6 +4,7 @@
 package storageprovisioner_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -111,7 +112,7 @@ func (c *fakeConfig) Tag() names.Tag {
 	return c.tag
 }
 
-func (_ fakeConfig) DataDir() string {
+func (fakeConfig) DataDir() string {
 	return "/path/to/data/dir"
 }
 
@@ -120,7 +121,7 @@ type fakeAPIConn struct {
 	machineJob model.MachineJob
 }
 
-func (f *fakeAPIConn) APICall(objType string, version int, id, request string, args interface{}, response interface{}) error {
+func (f *fakeAPIConn) APICall(ctx context.Context, objType string, version int, id, request string, args interface{}, response interface{}) error {
 	if res, ok := response.(*params.AgentGetEntitiesResults); ok {
 		res.Entities = []params.AgentGetEntitiesResult{
 			{Jobs: []model.MachineJob{f.machineJob}},

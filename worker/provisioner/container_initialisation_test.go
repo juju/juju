@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
-	"github.com/juju/juju/worker/instancemutater/mocks"
 )
 
 type containerSetupSuite struct {
@@ -35,7 +34,7 @@ type containerSetupSuite struct {
 	controllerUUID utils.UUID
 
 	initialiser *testing.MockInitialiser
-	caller      *mocks.MockAPICaller
+	caller      *provisionermocks.MockAPICaller
 	machine     *provisionermocks.MockMachineProvisioner
 	manager     *testing.MockManager
 
@@ -92,6 +91,7 @@ func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
 	defer s.patch(c).Finish()
 
 	s.caller.EXPECT().APICall(
+		gomock.Any(),
 		"Provisioner", 666, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: "lxd"}, gomock.Any()).Return(
 		errors.New("boom"))
 
@@ -140,7 +140,7 @@ func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.initialiser = testing.NewMockInitialiser(ctrl)
-	s.caller = mocks.NewMockAPICaller(ctrl)
+	s.caller = provisionermocks.NewMockAPICaller(ctrl)
 	s.caller.EXPECT().BestFacadeVersion("Provisioner").Return(666)
 	s.machine = provisionermocks.NewMockMachineProvisioner(ctrl)
 	s.manager = testing.NewMockManager(ctrl)
@@ -161,8 +161,9 @@ func (s *containerSetupSuite) expectContainerManagerConfig(cType instance.Contai
 		ManagerConfig: map[string]string{"model-uuid": s.modelUUID.String()},
 	}
 	s.caller.EXPECT().APICall(
+		gomock.Any(),
 		"Provisioner", 666, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
-	).SetArg(5, resultSource).MinTimes(1)
+	).SetArg(6, resultSource).MinTimes(1)
 }
 
 type credentialAPIForTest struct{}

@@ -1164,7 +1164,7 @@ func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
 		Clock:         clock,
 	})
 
-	err := conn.APICall("facade", 1, "id", "method", nil, nil)
+	err := conn.APICall(context.Background(), "facade", 1, "id", "method", nil, nil)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(clock.waits, gc.HasLen, 0)
 }
@@ -1176,7 +1176,7 @@ func (s *apiclientSuite) TestAPICallError(c *gc.C) {
 		Clock:         clock,
 	})
 
-	err := conn.APICall("facade", 1, "id", "method", nil, nil)
+	err := conn.APICall(context.Background(), "facade", 1, "id", "method", nil, nil)
 	c.Check(err.Error(), gc.Equals, "boom")
 	c.Check(err, jc.ErrorIs, errors.BadRequest)
 	c.Check(clock.waits, gc.HasLen, 0)

@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"sort"
 
 	"github.com/juju/juju/api/base"
@@ -59,6 +60,7 @@ func newAllWatcher(objType string, caller base.APICaller, id *string) *AllWatche
 func (watcher *AllWatcher) Next() ([]params.Delta, error) {
 	var info params.AllWatcherNextResults
 	err := watcher.caller.APICall(
+		context.TODO(),
 		watcher.objType,
 		watcher.caller.BestFacadeVersion(watcher.objType),
 		*watcher.id,
@@ -109,6 +111,7 @@ func (o orderedDeltas) Swap(i, j int) {
 // WatchAllModels API calls
 func (watcher *AllWatcher) Stop() error {
 	return watcher.caller.APICall(
+		context.TODO(),
 		watcher.objType,
 		watcher.caller.BestFacadeVersion(watcher.objType),
 		*watcher.id,

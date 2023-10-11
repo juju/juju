@@ -140,7 +140,7 @@ type stubAPICaller struct {
 	*testing.Stub
 }
 
-func (s *stubAPICaller) APICall(objType string, version int, id, request string, params, response interface{}) error {
+func (s *stubAPICaller) APICall(ctx context.Context, objType string, version int, id, request string, params, response interface{}) error {
 	s.MethodCall(s, "APICall", objType, version, id, request, params, response)
 	return s.NextErr()
 }

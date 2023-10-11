@@ -572,8 +572,8 @@ func apiURL(addr, model string) *url.URL {
 }
 
 // ping implements calls the Pinger.ping facade.
-func (c *conn) ping() error {
-	return c.APICall("Pinger", c.pingerFacadeVersion, "", "Ping", nil, nil)
+func (c *conn) ping(ctx context.Context) error {
+	return c.APICall(ctx, "Pinger", c.pingerFacadeVersion, "", "Ping", nil, nil)
 }
 
 // apiPath returns the given API endpoint path relative
@@ -1246,8 +1246,8 @@ func isX509Error(err error) bool {
 // This fills out the rpc.Request on the given facade, version for a given
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
-func (c *conn) APICall(facade string, vers int, id, method string, args, response interface{}) error {
-	err := c.client.Call(context.TODO(), rpc.Request{
+func (c *conn) APICall(ctx context.Context, facade string, vers int, id, method string, args, response interface{}) error {
+	err := c.client.Call(ctx, rpc.Request{
 		Type:    facade,
 		Version: vers,
 		Id:      id,
@@ -1294,7 +1294,7 @@ func (c *conn) IsBroken() bool {
 		return true
 	default:
 	}
-	if err := c.ping(); err != nil {
+	if err := c.ping(context.TODO()); err != nil {
 		logger.Debugf("connection ping failed: %v", err)
 		return true
 	}

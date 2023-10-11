@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"net"
 	"net/url"
 	"os"
@@ -56,7 +57,7 @@ func (c *conn) Login(tag names.Tag, password, nonce string, macaroons []macaroon
 			httpbakery.MacaroonsForURL(c.bakeryClient.Client.Jar, c.cookieURL)...,
 		)
 	}
-	err := c.APICall("Admin", 3, "", "Login", request, &result)
+	err := c.APICall(context.TODO(), "Admin", 3, "", "Login", request, &result)
 	if err != nil {
 		if !params.IsRedirect(err) {
 			return errors.Trace(err)
@@ -88,7 +89,7 @@ func (c *conn) Login(tag names.Tag, password, nonce string, macaroons []macaroon
 		// an error, we'd probably put this information in the Login response,
 		// but we can't do that currently.
 		var resp params.RedirectInfoResult
-		if err := c.APICall("Admin", 3, "", "RedirectInfo", nil, &resp); err != nil {
+		if err := c.APICall(context.TODO(), "Admin", 3, "", "RedirectInfo", nil, &resp); err != nil {
 			return errors.Annotatef(err, "cannot get redirect addresses")
 		}
 		return &RedirectError{
@@ -133,7 +134,7 @@ func (c *conn) Login(tag names.Tag, password, nonce string, macaroons []macaroon
 		// Add the macaroons that have been saved by HandleError to our login request.
 		request.Macaroons = httpbakery.MacaroonsForURL(c.bakeryClient.Client.Jar, c.cookieURL)
 		result = params.LoginResult{} // zero result
-		err = c.APICall("Admin", 3, "", "Login", request, &result)
+		err = c.APICall(context.TODO(), "Admin", 3, "", "Login", request, &result)
 		if err != nil {
 			return errors.Trace(err)
 		}

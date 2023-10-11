@@ -19,12 +19,12 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/observability/probe"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common/reboot"
 	"github.com/juju/juju/worker/fortress"
-	"github.com/juju/juju/worker/s3caller"
 	"github.com/juju/juju/worker/secretexpire"
 	"github.com/juju/juju/worker/secretrotate"
 	uniterapi "github.com/juju/juju/worker/uniter/api"
@@ -128,12 +128,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			var s3Caller s3caller.Session
-			if err := ctx.Get(config.S3CallerName, &s3Caller); err != nil {
+			var objectStoreCaller objectstore.Session
+			if err := ctx.Get(config.S3CallerName, &objectStoreCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			s3Downloader := charms.NewS3CharmDownloader(s3Caller, apiConn)
+			s3Downloader := charms.NewS3CharmDownloader(objectStoreCaller, apiConn)
 
 			jujuSecretsAPI := secretsmanager.NewClient(apiConn)
 			secretRotateWatcherFunc := func(unitTag names.UnitTag, isLeader bool, rotateSecrets chan []string) (worker.Worker, error) {

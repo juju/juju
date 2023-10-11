@@ -4,6 +4,8 @@
 package controller
 
 import (
+	"context"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
 )
@@ -37,6 +39,7 @@ func newSummaryWatcher(objType string, caller base.APICaller, id *string) *Summa
 func (watcher *SummaryWatcher) Next() ([]params.ModelAbstract, error) {
 	var info params.SummaryWatcherNextResults
 	err := watcher.caller.APICall(
+		context.TODO(),
 		watcher.objType,
 		watcher.caller.BestFacadeVersion(watcher.objType),
 		*watcher.id,
@@ -49,6 +52,7 @@ func (watcher *SummaryWatcher) Next() ([]params.ModelAbstract, error) {
 // Stop shutdowns down a summary watcher.
 func (watcher *SummaryWatcher) Stop() error {
 	return watcher.caller.APICall(
+		context.TODO(),
 		watcher.objType,
 		watcher.caller.BestFacadeVersion(watcher.objType),
 		*watcher.id,

@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -132,5 +133,5 @@ func checkConnectionDies(c *gc.C, conn api.Connection) {
 
 func pingConn(conn api.Connection) error {
 	version := conn.BestFacadeVersion("Pinger")
-	return conn.APICall("Pinger", version, "", "Ping", nil, nil)
+	return conn.APICall(context.Background(), "Pinger", version, "", "Ping", nil, nil)
 }
