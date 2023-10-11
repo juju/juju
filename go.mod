@@ -30,6 +30,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/docker/distribution v2.8.2+incompatible
 	github.com/dustin/go-humanize v1.0.1
+	github.com/fsnotify/fsnotify v1.6.0
 	github.com/go-goose/goose/v5 v5.0.0-20230421180421-abaee9096e3a
 	github.com/go-logr/logr v1.2.4
 	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1
@@ -171,7 +172,6 @@ require (
 	github.com/evanphx/json-patch v4.12.0+incompatible // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/flosch/pongo2 v0.0.0-20200913210552-0d938eb266f3 // indirect
-	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/gdamore/tcell/v2 v2.5.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
