@@ -16,9 +16,8 @@ import (
 	"github.com/juju/juju/domain/credential/state"
 )
 
-// InsertInitialControllerCredentials inserts the initial
-// controller credential into the database.
-func InsertInitialControllerCredentials(cloudCredTag names.CloudCredentialTag, credential cloud.Credential) func(context.Context, database.TxnRunner) error {
+// InsertCredential inserts  a cloud credential into dqlite.
+func InsertCredential(cloudCredTag names.CloudCredentialTag, credential cloud.Credential) func(context.Context, database.TxnRunner) error {
 	return func(ctx context.Context, db database.TxnRunner) error {
 		if cloudCredTag.Id() == "" {
 			return nil

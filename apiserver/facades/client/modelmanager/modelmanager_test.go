@@ -216,7 +216,9 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, s.modelExporter, s.ctlrSt,
 		s.cloudService,
-		apiservertesting.ConstCredentialGetter(&cred), &mockModelManagerService{},
+		apiservertesting.ConstCredentialGetter(&cred),
+		&mockModelManagerService{},
+		&mockModelService{},
 		nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
@@ -230,7 +232,9 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 				"k8s-cloud": mockK8sCloud,
 			},
 		},
-		apiservertesting.ConstCredentialGetter(&caasCred), &mockModelManagerService{},
+		apiservertesting.ConstCredentialGetter(&caasCred),
+		&mockModelManagerService{},
+		&mockModelService{},
 		nil, newBroker, common.NewBlockChecker(s.caasSt),
 		s.authoriser, s.st.model, s.callContext,
 	)
@@ -256,7 +260,9 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{"dummy": jujutesting.DefaultCloud},
 		},
-		apiservertesting.ConstCredentialGetter(nil), &mockModelManagerService{},
+		apiservertesting.ConstCredentialGetter(nil),
+		&mockModelManagerService{},
+		&mockModelService{},
 		nil, newBroker, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
@@ -718,7 +724,9 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 		&mockCloudService{
 			clouds: map[string]cloud.Cloud{"dummy": jujutesting.DefaultCloud},
 		},
-		apiservertesting.ConstCredentialGetter(nil), &mockModelManagerService{},
+		apiservertesting.ConstCredentialGetter(nil),
+		&mockModelManagerService{},
+		&mockModelService{},
 		nil, nil, common.NewBlockChecker(s.st),
 		s.authoriser, s.st.model, s.callContext,
 	)
@@ -913,6 +921,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
+		&mockModelService{},
 		toolsFinder,
 		nil,
 		common.NewBlockChecker(st),
@@ -937,6 +946,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
+		&mockModelService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.ControllerModel(c),
 		s.callContext,
@@ -958,6 +968,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
+		&mockModelService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.ControllerModel(c),
 		s.callContext,
 	)
@@ -1168,6 +1179,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
+		&mockModelService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.ControllerModel(c),
 		s.callContext,
@@ -1223,6 +1235,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
+		&mockModelService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.ControllerModel(c),
 		s.callContext,
@@ -1266,6 +1279,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
+		&mockModelService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser, s.ControllerModel(c),
 		s.callContext,
 	)
@@ -1743,6 +1757,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
+		&mockModelService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.ControllerModel(c),
 		s.callContext,

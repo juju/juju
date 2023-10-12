@@ -169,7 +169,6 @@ CREATE TABLE cloud (
     identity_endpoint   TEXT,
     storage_endpoint    TEXT,
     skip_tls_verify     BOOLEAN NOT NULL,
-    is_controller_cloud BOOLEAN NOT NULL,
     CONSTRAINT  chk_name_empty CHECK (name != ""),
     CONSTRAINT          fk_cloud_type
         FOREIGN KEY       (cloud_type_id)
@@ -318,21 +317,50 @@ CREATE TABLE model_list (
 
 func modelMetadataSchema() schema.Patch {
 	return schema.MakePatch(`
-CREATE TABLE model_metadata (
-    model_uuid TEXT PRIMARY KEY,
-    cloud_uuid TEXT,
-    cloud_credential_uuid TEXT,
+CREATE TABLE model_type (
+    id INT PRIMARY KEY,
+    type TEXT NOT NULL
+);
 
-    CONSTRAINT fk_model_metadata_model
-        FOREIGN KEY (model_uuid)
-        REFERENCES model_list(uuid),
-    CONSTRAINT fk_model_metadata_cloud
-        FOREIGN KEY (cloud_uuid)
-        REFERENCES cloud(uuid),
-    CONSTRAINT fk_model_metadata_cloud_credential
-        FOREIGN KEY (cloud_credential_uuid)
-        REFERENCES cloud_credential(uuid)
-);`)
+CREATE UNIQUE INDEX idx_model_type_type
+ON model_type (type);
+
+INSERT INTO model_type VALUES
+    (0, 'iaas'),
+    (1, 'caas');
+
+CREATE TABLE model_metadata (
+    model_uuid            TEXT PRIMARY KEY,
+    cloud_uuid            TEXT NOT NULL,
+    cloud_region_uuid     TEXT,
+    cloud_credential_uuid TEXT,
+    model_type_id         INT,
+    name                  TEXT NOT NULL,
+    owner_uuid            TEXT NOT NULL,
+
+    CONSTRAINT            fk_model_metadata_model
+        FOREIGN KEY           (model_uuid)
+        REFERENCES            model_list(uuid),
+    CONSTRAINT            fk_model_metadata_cloud
+        FOREIGN KEY           (cloud_uuid)
+        REFERENCES            cloud(uuid),
+    CONSTRAINT            fk_model_metadata_cloud_region
+        FOREIGN KEY           (cloud_region_uuid)
+        REFERENCES            cloud_region(uuid),
+    CONSTRAINT            fk_model_metadata_cloud_credential
+        FOREIGN KEY           (cloud_credential_uuid)
+        REFERENCES            cloud_credential(uuid),
+    CONSTRAINT            fk_model_metadata_model_type_id
+        FOREIGN KEY           (model_type_id)
+        REFERENCES            model_type(id)
+--    CONSTRAINT            fk_model_metadata_XXXX
+--        FOREIGN KEY           (owner_uuid)
+--        REFERENCES            XXXX(uuid)
+);
+
+CREATE UNIQUE INDEX idx_model_metadata_name_owner
+ON model_metadata (name, owner_uuid);
+`)
 }
 
 func controllerConfigSchema() schema.Patch {

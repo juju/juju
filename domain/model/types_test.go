@@ -4,9 +4,13 @@
 package model
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/domain/credential"
 )
 
 type typesSuite struct {
@@ -43,6 +47,122 @@ func (s *typesSuite) TestUUIDValidate(c *gc.C) {
 		}
 
 		c.Check(err, gc.ErrorMatches, *test.err)
+	}
+}
+
+func (s *typesSuite) TestModelCreationArgsValidation(c *gc.C) {
+	tests := []struct {
+		Args    ModelCreationArgs
+		ErrTest error
+	}{
+		{
+			Args: ModelCreationArgs{
+				Cloud:       "my-cloud",
+				CloudRegion: "my-region",
+				Name:        "",
+				Owner:       "wallyworld-ipv6",
+				Type:        TypeCAAS,
+			},
+			ErrTest: errors.NotValid,
+		},
+		{
+			Args: ModelCreationArgs{
+				Cloud:       "my-cloud",
+				CloudRegion: "my-region",
+				Name:        "my-awesome-model",
+				Owner:       "",
+				Type:        TypeCAAS,
+			},
+			ErrTest: errors.NotValid,
+		},
+		{
+			Args: ModelCreationArgs{
+				Cloud:       "my-cloud",
+				CloudRegion: "my-region",
+				Name:        "my-awesome-model",
+				Owner:       "wallyworld-ipv6",
+				Type:        Type("ipv6-only"),
+			},
+			ErrTest: errors.NotSupported,
+		},
+		{
+			Args: ModelCreationArgs{
+				Cloud:       "",
+				CloudRegion: "my-region",
+				Name:        "my-awesome-model",
+				Owner:       "wallyworld-ipv6",
+				Type:        TypeIAAS,
+			},
+			ErrTest: errors.NotValid,
+		},
+		{
+			Args: ModelCreationArgs{
+				Cloud:       "my-cloud",
+				CloudRegion: "",
+				Name:        "my-awesome-model",
+				Owner:       "wallyworld-ipv6",
+				Type:        TypeIAAS,
+			},
+			ErrTest: nil,
+		},
+		{
+			Args: ModelCreationArgs{
+				Cloud:       "my-cloud",
+				CloudRegion: "my-region",
+				Credential: credential.ID{
+					Owner: "wallyworld",
+				},
+				Name:  "my-awesome-model",
+				Owner: "wallyworld-ipv6",
+				Type:  TypeIAAS,
+			},
+			ErrTest: errors.NotValid,
+		},
+		{
+			Args: ModelCreationArgs{
+				Cloud:       "my-cloud",
+				CloudRegion: "my-region",
+				Name:        "my-awesome-model",
+				Owner:       "wallyworld-ipv6",
+				Type:        TypeIAAS,
+			},
+			ErrTest: nil,
+		},
+		{
+			Args: ModelCreationArgs{
+				Cloud:       "my-cloud",
+				CloudRegion: "my-region",
+				Credential: credential.ID{
+					Cloud: "cloud",
+					Owner: "wallyworld",
+					Name:  "mycred",
+				},
+				Name:  "my-awesome-model",
+				Owner: "wallyworld-ipv6",
+				Type:  TypeIAAS,
+			},
+			ErrTest: nil,
+		},
+	}
+
+	for _, test := range tests {
+		err := test.Args.Validate()
+		if test.ErrTest == nil {
+			c.Assert(err, jc.ErrorIsNil)
+		} else {
+			c.Assert(err, jc.ErrorIs, test.ErrTest)
+		}
+	}
+}
+
+func (s *typesSuite) TestValidModelTypes(c *gc.C) {
+	validTypes := []Type{
+		TypeCAAS,
+		TypeIAAS,
+	}
+
+	for _, vt := range validTypes {
+		c.Assert(vt.IsValid(), jc.IsTrue)
 	}
 }
 

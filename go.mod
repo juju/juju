@@ -97,7 +97,6 @@ require (
 	github.com/moby/sys/mountinfo v0.6.2
 	github.com/oracle/oci-go-sdk/v65 v65.49.0
 	github.com/packethost/packngo v0.28.1
-	github.com/pkg/errors v0.9.1
 	github.com/pkg/sftp v1.13.5
 	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/client_model v0.2.0
@@ -265,6 +264,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pkg/term v1.1.0 // indirect
 	github.com/pkg/xattr v0.4.9 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect

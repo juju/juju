@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/model"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -51,7 +52,11 @@ type newCaasBrokerFunc func(_ context.Context, args environs.OpenParams) (caas.B
 // state.
 type ModelManagerService interface {
 	Create(context.Context, model.UUID) error
-	Delete(context.Context, model.UUID) error
+}
+
+// ModelService defines a interface for interacting with the underlying state.
+type ModelService interface {
+	DeleteModel(context.Context, model.UUID) error
 }
 
 type ModelExporter interface {
@@ -69,6 +74,7 @@ type CloudService interface {
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	modelManagerService ModelManagerService
+	modelService        ModelService
 	state               common.ModelManagerBackend
 	modelExporter       ModelExporter
 	ctlrState           common.ModelManagerBackend
@@ -93,6 +99,7 @@ func NewModelManagerAPI(
 	cloudService CloudService,
 	credentialService common.CredentialService,
 	modelManagerService ModelManagerService,
+	modelService ModelService,
 	toolsFinder common.ToolsFinder,
 	getBroker newCaasBrokerFunc,
 	blockChecker common.BlockCheckerInterface,
@@ -130,6 +137,7 @@ func NewModelManagerAPI(
 		isAdmin:             isAdmin,
 		model:               m,
 		callContext:         callCtx,
+		modelService:        modelService,
 	}, nil
 }
 
@@ -860,8 +868,8 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		// cause too much fallout. If we're unable to delete the model from the
 		// database, then we won't be able to create a new model with the same
 		// model uuid as there is a UNIQUE constraint on the model uuid column.
-		err = m.modelManagerService.Delete(ctx, model.UUID(stModel.UUID()))
-		if err != nil && errors.Is(err, errors.NotFound) {
+		err = m.modelService.DeleteModel(ctx, model.UUID(stModel.UUID()))
+		if err != nil && errors.Is(err, modelerrors.NotFound) {
 			return nil
 		}
 		return errors.Trace(err)
