@@ -63,11 +63,11 @@ func (s *workerSuite) TestAlreadyUpgradedNoWork(c *gc.C) {
 
 func (s *workerSuite) getConfig() Config {
 	return Config{
-		UpgradeCompleteLock: s.lock,
-		Agent:               s.agent,
-		Logger:              s.logger,
-		UpgradeService:      s.upgradeService,
-		DBGetter:            s.dbGetter,
+		DBUpgradeCompleteLock: s.lock,
+		Agent:                 s.agent,
+		Logger:                s.logger,
+		UpgradeService:        s.upgradeService,
+		DBGetter:              s.dbGetter,
 	}
 }
 

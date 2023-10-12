@@ -108,17 +108,17 @@ func (mr *MockUpgradeServiceMockRecorder) StartUpgrade(arg0, arg1 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUpgrade", reflect.TypeOf((*MockUpgradeService)(nil).StartUpgrade), arg0, arg1)
 }
 
-// WatchForUpgradeStarted mocks base method.
-func (m *MockUpgradeService) WatchForUpgradeStarted(arg0 context.Context, arg1 upgrade.UUID) (watcher.Watcher[struct{}], error) {
+// WatchForUpgradeReady mocks base method.
+func (m *MockUpgradeService) WatchForUpgradeReady(arg0 context.Context, arg1 upgrade.UUID) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchForUpgradeStarted", arg0, arg1)
+	ret := m.ctrl.Call(m, "WatchForUpgradeReady", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// WatchForUpgradeStarted indicates an expected call of WatchForUpgradeStarted.
-func (mr *MockUpgradeServiceMockRecorder) WatchForUpgradeStarted(arg0, arg1 interface{}) *gomock.Call {
+// WatchForUpgradeReady indicates an expected call of WatchForUpgradeReady.
+func (mr *MockUpgradeServiceMockRecorder) WatchForUpgradeReady(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchForUpgradeStarted", reflect.TypeOf((*MockUpgradeService)(nil).WatchForUpgradeStarted), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchForUpgradeReady", reflect.TypeOf((*MockUpgradeService)(nil).WatchForUpgradeReady), arg0, arg1)
 }

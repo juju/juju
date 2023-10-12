@@ -63,9 +63,9 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			cfg.DBAccessorName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
-			// Get the completed lock.
-			var upgradeCompleteLock gate.Lock
-			if err := context.Get(cfg.UpgradeDBGateName, &upgradeCompleteLock); err != nil {
+			// Get the db completed lock.
+			var dbUpgradeCompleteLock gate.Lock
+			if err := context.Get(cfg.UpgradeDBGateName, &dbUpgradeCompleteLock); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -89,11 +89,11 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			}
 
 			return cfg.NewWorker(Config{
-				UpgradeCompleteLock: upgradeCompleteLock,
-				Agent:               controllerAgent,
-				UpgradeService:      serviceFactoryGetter.Upgrade(),
-				DBGetter:            dbGetter,
-				Logger:              cfg.Logger,
+				DBUpgradeCompleteLock: dbUpgradeCompleteLock,
+				Agent:                 controllerAgent,
+				UpgradeService:        serviceFactoryGetter.Upgrade(),
+				DBGetter:              dbGetter,
+				Logger:                cfg.Logger,
 			})
 		},
 	}

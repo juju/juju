@@ -118,17 +118,18 @@ func (s *Service) ActiveUpgrade(ctx context.Context) (domainupgrade.UUID, error)
 	return activeUpgrade, domain.CoerceError(err)
 }
 
-// WatchForUpgradeStarted creates a watcher which notifies when all controller
+// WatchForUpgradeReady creates a watcher which notifies when all controller
 // nodes have been registered, meaning the upgrade is ready to start.
-func (s *Service) WatchForUpgradeStarted(ctx context.Context, upgradeUUID domainupgrade.UUID) (watcher.NotifyWatcher, error) {
+func (s *Service) WatchForUpgradeReady(ctx context.Context, upgradeUUID domainupgrade.UUID) (watcher.NotifyWatcher, error) {
 	if err := upgradeUUID.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	mask := changestream.Create | changestream.Update
-	return s.watcherFactory.NewValuePredicateWatcher("upgrade_info_controller_node", upgradeUUID.String(), mask, func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
+	predicate := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
 		return s.st.AllProvisionedControllersReady(ctx, upgradeUUID)
-	})
+	}
+	return s.watcherFactory.NewValuePredicateWatcher("upgrade_info_controller_node", upgradeUUID.String(), mask, predicate)
 }
 
 // UpgradeInfo returns the upgrade info for the supplied upgradeUUID

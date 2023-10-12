@@ -36,9 +36,9 @@ type UpgradeService interface {
 	SetControllerDone(ctx context.Context, upgradeUUID domainupgrade.UUID, controllerID string) error
 	// SetDBUpgradeCompleted marks the upgrade as completed in the database
 	SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainupgrade.UUID) error
-	// WatchForUpgradeStarted creates a watcher which notifies when all controller
+	// WatchForUpgradeReady creates a watcher which notifies when all controller
 	// nodes have been registered, meaning the upgrade is ready to start.
-	WatchForUpgradeStarted(ctx context.Context, upgradeUUID domainupgrade.UUID) (watcher.NotifyWatcher, error)
+	WatchForUpgradeReady(ctx context.Context, upgradeUUID domainupgrade.UUID) (watcher.NotifyWatcher, error)
 }
 
 // NewLock returns a new gate.Lock that is unlocked if the agent has not the same version as juju
@@ -58,9 +58,9 @@ func NewLock(agentConfig agent.Config) gate.Lock {
 
 // Config holds the configuration for the worker.
 type Config struct {
-	// UpgradeComplete is a lock used to synchronise workers that must start
-	// after database upgrades are verified as completed.
-	UpgradeCompleteLock gate.Lock
+	// DBUpgradeCompleteLock is a lock used to synchronise workers that must
+	// start after database upgrades are verified as completed.
+	DBUpgradeCompleteLock gate.Lock
 
 	// Agent is the running machine agent.
 	Agent agent.Agent
@@ -77,8 +77,8 @@ type Config struct {
 
 // Validate validates the worker configuration.
 func (c Config) Validate() error {
-	if c.UpgradeCompleteLock == nil {
-		return errors.NotValidf("nil UpgradeCompleteLock")
+	if c.DBUpgradeCompleteLock == nil {
+		return errors.NotValidf("nil DBUpgradeCompleteLock")
 	}
 	if c.Agent == nil {
 		return errors.NotValidf("nil Agent")
@@ -154,7 +154,7 @@ func (w *upgradeDBWorker) loop() error {
 // does not need to run any upgrade logic.
 func (w *upgradeDBWorker) upgradeDone() bool {
 	// If we are already unlocked, there is nothing to do.
-	if w.cfg.UpgradeCompleteLock.IsUnlocked() {
+	if w.cfg.DBUpgradeCompleteLock.IsUnlocked() {
 		return true
 	}
 
@@ -163,7 +163,7 @@ func (w *upgradeDBWorker) upgradeDone() bool {
 	w.toVersion = jujuversion.Current
 	if w.fromVersion == w.toVersion {
 		w.cfg.Logger.Infof("database upgrade for %v already completed", w.toVersion)
-		w.cfg.UpgradeCompleteLock.Unlock()
+		w.cfg.DBUpgradeCompleteLock.Unlock()
 		return true
 	}
 
@@ -175,7 +175,7 @@ func (w *upgradeDBWorker) runUpgrade() error {
 
 	// This dummy worker, so we can just Unlock...
 	w.cfg.Logger.Infof("database upgrade already completed")
-	w.cfg.UpgradeCompleteLock.Unlock()
+	w.cfg.DBUpgradeCompleteLock.Unlock()
 
 	return nil
 }
