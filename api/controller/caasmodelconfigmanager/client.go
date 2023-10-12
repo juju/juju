@@ -8,6 +8,9 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/rpc/params"
 )
 
 // Client allows access to the CAAS model config manager API endpoint.
@@ -27,4 +30,16 @@ func NewClient(caller base.APICaller) (*Client, error) {
 		facade:              facadeCaller,
 		ControllerConfigAPI: common.NewControllerConfig(facadeCaller),
 	}, nil
+}
+
+// WatchControllerConfig provides a watcher for changes on controller config.
+func (c *Client) WatchControllerConfig() (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResult
+	if err := c.facade.FacadeCall("WatchControllerConfig", nil, &result); err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result), nil
 }

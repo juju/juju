@@ -33,6 +33,10 @@ func normalizeRepoDetailsAzure(repoDetails *docker.ImageRepoDetails) error {
 	return nil
 }
 
+func (c *azureContainerRegistry) String() string {
+	return "azurecr.io"
+}
+
 // Match checks if the repository details matches current provider format.
 func (c *azureContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")

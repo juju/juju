@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/feature"
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/storage"
@@ -1592,6 +1593,21 @@ func (c *bootstrapCommand) bootstrapConfigs(
 	bootstrapConfig, err := bootstrap.NewConfig(bootstrapConfigAttrs)
 	if err != nil {
 		return bootstrapConfigs{}, errors.Annotate(err, "constructing bootstrap config")
+	}
+
+	// Pre-process controller attributes.
+	if _, ok := controllerConfigAttrs[controller.CAASOperatorImagePath]; ok {
+		return bootstrapConfigs{}, fmt.Errorf("%q is no longer supported controller configuration",
+			controller.CAASOperatorImagePath)
+	}
+	if v, ok := controllerConfigAttrs[controller.CAASImageRepo]; ok {
+		if v, ok := v.(string); ok {
+			repoDetails, err := docker.LoadImageRepoDetails(v)
+			if err != nil {
+				return bootstrapConfigs{}, errors.Annotatef(err, "processing %s", controller.CAASImageRepo)
+			}
+			controllerConfigAttrs[controller.CAASImageRepo] = repoDetails.Content()
+		}
 	}
 
 	controllerConfig, err := controller.NewConfig(

@@ -90,6 +90,10 @@ func normalizeRepoDetailsElasticContainerRegistry(repoDetails *docker.ImageRepoD
 	return nil
 }
 
+func (c *elasticContainerRegistry) String() string {
+	return "*.dkr.ecr.*.amazonaws.com"
+}
+
 // Match checks if the repository details matches current provider format.
 func (c *elasticContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "amazonaws.com")
@@ -127,16 +131,15 @@ func (c *elasticContainerRegistry) refreshTokenForElasticContainerRegistry(image
 }
 
 // ShouldRefreshAuth checks if the repoDetails should be refreshed.
-func (c *elasticContainerRegistry) ShouldRefreshAuth() (bool, *time.Duration) {
+func (c *elasticContainerRegistry) ShouldRefreshAuth() (bool, time.Duration) {
 	if c.repoDetails.Auth.Empty() || c.repoDetails.Auth.ExpiresAt == nil {
-		return true, nil
+		return true, time.Duration(0)
 	}
 	d := time.Until(*c.repoDetails.Auth.ExpiresAt)
 	if d <= advanceExpiry {
-		return true, nil
+		return true, time.Duration(0)
 	}
-	nextCheckDuration := d - advanceExpiry
-	return false, &nextCheckDuration
+	return false, d - advanceExpiry
 }
 
 // RefreshAuth refreshes the repoDetails.
@@ -150,13 +153,23 @@ func (c *elasticContainerRegistry) elasticContainerRegistryTransport(
 	if repoDetails.BasicAuthConfig.Empty() {
 		return nil, errors.NewNotValid(nil, "empty credential for elastic container registry")
 	}
-	if err := c.refreshTokenForElasticContainerRegistry(repoDetails); err != nil {
-		return nil, errors.Trace(err)
+	if repoDetails.Region == "" {
+		return nil, errors.NewNotValid(nil, "region is required")
 	}
-	if repoDetails.Auth.Empty() {
-		return nil, errors.NewNotValid(nil, "empty identity token for elastic container registry")
+	if repoDetails.Username == "" || repoDetails.Password == "" {
+		return nil, errors.NewNotValid(nil,
+			fmt.Sprintf("username and password are required for registry %q", repoDetails.Repository),
+		)
 	}
-	return newBasicTransport(transport, "", "", repoDetails.Auth.Value), nil
+	return dynamicTransportFunc(func() (http.RoundTripper, error) {
+		if err := c.refreshTokenForElasticContainerRegistry(repoDetails); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if repoDetails.Auth.Empty() {
+			return nil, errors.NewNotValid(nil, "empty identity token for elastic container registry")
+		}
+		return newBasicTransport(transport, "", "", repoDetails.Auth.Value), nil
+	}), nil
 }
 
 func (c *elasticContainerRegistry) WrapTransport(...TransportWrapper) (err error) {
@@ -209,6 +222,10 @@ func newElasticContainerRegistryPublic(repoDetails docker.ImageRepoDetails, tran
 		return nil, errors.Trace(err)
 	}
 	return &elasticContainerRegistryPublic{c}, nil
+}
+
+func (c *elasticContainerRegistryPublic) String() string {
+	return "public.ecr.aws"
 }
 
 // Match checks if the repository details matches current provider format.

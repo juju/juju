@@ -26,13 +26,14 @@ func newFacade(ctx facade.Context) (*Facade, error) {
 	}
 
 	serviceFactory := ctx.ServiceFactory()
-
 	return &Facade{
-		auth: authorizer,
+		auth:            authorizer,
+		watcherRegistry: ctx.WatcherRegistry(),
 		controllerConfigAPI: common.NewControllerConfigAPI(
 			ctx.State(),
 			serviceFactory.ControllerConfig(),
 			serviceFactory.ExternalController(),
 		),
+		controllerConfigService: serviceFactory.ControllerConfig(),
 	}, nil
 }

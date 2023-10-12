@@ -14,12 +14,13 @@ import (
 
 // Registry provides APIs to interact with the OCI provider client.
 type Registry interface {
+	String() string
 	Tags(string) (tools.Versions, error)
 	GetArchitecture(imageName, tag string) (string, error)
 	Close() error
 	Ping() error
 	ImageRepoDetails() docker.ImageRepoDetails
-	ShouldRefreshAuth() (bool, *time.Duration)
+	ShouldRefreshAuth() (bool, time.Duration)
 	RefreshAuth() error
 }
 

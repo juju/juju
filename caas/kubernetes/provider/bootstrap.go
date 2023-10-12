@@ -40,12 +40,15 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/internal/docker"
+	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/service/pebble/plan"
 	"github.com/juju/juju/juju/osenv"
@@ -310,9 +313,30 @@ func newcontrollerStack(
 	cs.resourceNameVolBootstrapParams = cs.getResourceName(cloudconfig.FileNameBootstrapParams)
 	cs.resourceNameVolAgentConf = cs.getResourceName(agentconstants.AgentConfigFilename)
 
-	if cs.dockerAuthSecretData, err = pcfg.Controller.CAASImageRepo().SecretData(); err != nil {
-		return nil, errors.Trace(err)
+	// Initialize registry.
+	repoDetails, err := docker.NewImageRepoDetails(pcfg.Controller.CAASImageRepo())
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
 	}
+	if !repoDetails.Empty() {
+		reg, err := registry.New(repoDetails)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		defer func() { _ = reg.Close() }()
+		err = reg.RefreshAuth()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		err = reg.Ping()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if cs.dockerAuthSecretData, err = reg.ImageRepoDetails().SecretData(); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	return cs, nil
 }
 
@@ -1610,7 +1634,10 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	repo := c.pcfg.Controller.CAASOperatorImagePath()
+	repo, err := docker.NewImageRepoDetails(c.pcfg.Controller.CAASImageRepo())
+	if err != nil {
+		return nil, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+	}
 	charmBaseImage, err := podcfg.ImageForBase(repo.Repository, charm.Base{
 		Name: strings.ToLower(os.String()),
 		Channel: charm.Channel{

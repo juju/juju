@@ -96,7 +96,10 @@ func NewcontrollerStackForTest(
 	pcfg *podcfg.ControllerPodConfig,
 ) (ControllerStackerForTest, error) {
 	cs, err := newcontrollerStack(ctx, stackName, storageClass, broker, pcfg)
-	return cs.(*controllerStack), err
+	if err != nil {
+		return nil, err
+	}
+	return cs.(*controllerStack), nil
 }
 
 func NewProvider() caas.ContainerEnvironProvider {

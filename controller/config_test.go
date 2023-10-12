@@ -7,8 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -19,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/docker/registry/mocks"
 	"github.com/juju/juju/testing"
@@ -168,48 +167,6 @@ var newConfigTests = []struct {
 		controller.ModelLogsSize: "0",
 	},
 	expectError: "model logs size less than 1 MB not valid",
-}, {
-	about: "invalid CAAS docker image repo",
-	config: controller.Config{
-		controller.CAASImageRepo: "foo?bar",
-	},
-	expectError: `docker image path "foo\?bar": invalid reference format`,
-}, {
-	about: "empty CAAS docker image repo",
-	config: controller.Config{
-		controller.CAASImageRepo: `{"foo": "bar"}`,
-	},
-	expectError: `empty repository not valid`,
-}, {
-	about: "invalid CAAS operator docker image repo - leading colon",
-	config: controller.Config{
-		controller.CAASImageRepo: ":foo",
-	},
-	expectError: `docker image path ":foo": invalid reference format`,
-}, {
-	about: "invalid CAAS docker image repo - trailing colon",
-	config: controller.Config{
-		controller.CAASImageRepo: `{"foo":""}`,
-	},
-	expectError: `empty repository not valid`,
-}, {
-	about: "invalid CAAS docker image repo - extra colon",
-	config: controller.Config{
-		controller.CAASImageRepo: "foo::bar",
-	},
-	expectError: `docker image path "foo::bar": invalid reference format`,
-}, {
-	about: "invalid CAAS docker image repo - leading /",
-	config: controller.Config{
-		controller.CAASImageRepo: "/foo",
-	},
-	expectError: `docker image path "/foo": invalid reference format`,
-}, {
-	about: "invalid CAAS docker image repo - extra /",
-	config: controller.Config{
-		controller.CAASImageRepo: "foo//bar",
-	},
-	expectError: `docker image path "foo//bar": invalid reference format`,
 }, {
 	about: "negative controller-api-port",
 	config: controller.Config{
@@ -680,42 +637,9 @@ func (s *ConfigSuite) TestConfigNoSpacesNilSpaceConfigPreserved(c *gc.C) {
 func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+
+	// Ensure no requests are made from controller config code.
 	mockRoundTripper := mocks.NewMockRoundTripper(ctrl)
-	gomock.InOrder(
-		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://index.docker.io/v2`)
-				resps := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(nil),
-				}
-				return resps, nil
-			},
-		),
-		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://registry.foo.com/v2`)
-				resps := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(nil),
-				}
-				return resps, nil
-			},
-		),
-		mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
-			func(req *http.Request) (*http.Response, error) {
-				c.Assert(req.Method, gc.Equals, `GET`)
-				c.Assert(req.URL.String(), gc.Equals, `https://ghcr.io/v2/`)
-				resps := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(nil),
-				}
-				return resps, nil
-			},
-		),
-	)
 	s.PatchValue(&registry.DefaultTransport, mockRoundTripper)
 
 	type tc struct {
@@ -750,7 +674,9 @@ func (s *ConfigSuite) TestCAASImageRepo(c *gc.C) {
 			},
 		)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(cfg.CAASImageRepo().Repository, gc.Equals, imageRepo.expected)
+		imageRepoDetails, err := docker.NewImageRepoDetails(cfg.CAASImageRepo())
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(imageRepoDetails.Repository, gc.Equals, imageRepo.expected)
 	}
 }
 

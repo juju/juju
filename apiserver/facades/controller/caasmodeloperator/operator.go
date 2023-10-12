@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloudconfig/podcfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -122,7 +123,12 @@ func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOp
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	imageInfo := params.NewDockerImageInfo(docker.ConvertToResourceImageDetails(controllerConf.CAASImageRepo()), registryPath)
+
+	imageRepoDetails, err := docker.NewImageRepoDetails(controllerConf.CAASImageRepo())
+	if err != nil {
+		return result, errors.Annotatef(err, "parsing %s", controller.CAASImageRepo)
+	}
+	imageInfo := params.NewDockerImageInfo(docker.ConvertToResourceImageDetails(imageRepoDetails), registryPath)
 	a.logger.Tracef("image info %v", imageInfo)
 
 	result = params.ModelOperatorInfo{

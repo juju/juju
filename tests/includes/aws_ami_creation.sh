@@ -1,15 +1,32 @@
 launch_and_wait_ec2() {
-	local instance_name instance_id_result
+	local instance_name instance_id_result instance_type
 
 	instance_name=${1}
 	instance_image_id=${2}
 	subnet_id=${3}
 	instance_id_result=${4}
 
+	arch="amd64"
+	if [[ -n ${MODEL_ARCH} ]]; then
+		arch="${MODEL_ARCH}"
+	fi
+	case "${arch}" in
+	"amd64")
+		instance_type="t3.medium"
+		;;
+	"arm64")
+		instance_type="m6g.large"
+		;;
+	*)
+		echo "Unrecognised arch ${arch}"
+		exit
+		;;
+	esac
+
 	tags="ResourceType=instance,Tags=[{Key=Name,Value=${instance_name}}]"
 	instance_id=$(aws ec2 run-instances --image-id "${instance_image_id}" \
 		--count 1 \
-		--instance-type t2.medium \
+		--instance-type ${instance_type} \
 		--associate-public-ip-address \
 		--tag-specifications "${tags}" \
 		--subnet-id "${subnet_id}" \
