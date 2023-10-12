@@ -4,9 +4,10 @@ import (
 	"context"
 	"io"
 
+	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/errors"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/state/storage"
 )
 
@@ -51,15 +52,19 @@ type stateObjectStoreResult struct {
 
 type stateObjectStore struct {
 	*baseObjectStore
-	session  MongoSession
+
+	tracer  coretrace.Tracer
+	session MongoSession
+
 	requests chan stateObjectStoreRequest
 }
 
 // NewObjectStoreWorker returns a new object store worker based on the state
 // storage.
-func NewStateObjectStore(ctx context.Context, namespace string, mongoSession MongoSession, logger Logger) (TrackedObjectStore, error) {
+func NewStateObjectStore(ctx context.Context, namespace string, tracer coretrace.Tracer, mongoSession MongoSession, logger Logger) (TrackedObjectStore, error) {
 	s := &stateObjectStore{
 		session:  mongoSession,
+		tracer:   tracer,
 		requests: make(chan stateObjectStoreRequest),
 	}
 
@@ -70,7 +75,15 @@ func NewStateObjectStore(ctx context.Context, namespace string, mongoSession Mon
 
 // Get returns an io.ReadCloser for data at path, namespaced to the
 // model.
-func (t *stateObjectStore) Get(ctx context.Context, path string) (io.ReadCloser, int64, error) {
+func (t *stateObjectStore) Get(ctx context.Context, path string) (_ io.ReadCloser, _ int64, err error) {
+	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, t.tracer), coretrace.NameFromFunc(),
+		coretrace.WithAttributes(coretrace.StringAttr("path", path)),
+	)
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	done := make(chan stateObjectStoreResult)
 
 	select {
@@ -111,6 +124,8 @@ func (t *stateObjectStore) loop() error {
 			return tomb.ErrDying
 
 		case req := <-t.requests:
+			t.logger.Debugf("Requesting object: %v", req.path)
+
 			reader, size, err := store.Get(req.path)
 			if err != nil {
 				// We got a not found error, we try and be resilient and

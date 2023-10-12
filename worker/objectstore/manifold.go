@@ -11,11 +11,13 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/state"
+	"github.com/juju/juju/worker/trace"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	coretrace "github.com/juju/juju/core/trace"
 )
 
 // Logger represents the logging methods called.
@@ -25,6 +27,8 @@ type Logger interface {
 	Infof(message string, args ...any)
 	Debugf(message string, args ...any)
 	Tracef(message string, args ...any)
+
+	IsTraceEnabled() bool
 }
 
 // ObjectStoreGetter is the interface that is used to get a object store.
@@ -41,11 +45,13 @@ type MongoSession interface {
 
 // ObjectStoreWorkerFunc is the function signature for creating a new object
 // store worker.
-type ObjectStoreWorkerFunc func(context.Context, string, MongoSession, Logger) (TrackedObjectStore, error)
+type ObjectStoreWorkerFunc func(context.Context, string, coretrace.Tracer, MongoSession, Logger) (TrackedObjectStore, error)
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
-	AgentName            string
+	AgentName string
+	TraceName string
+
 	Clock                clock.Clock
 	Logger               Logger
 	NewObjectStoreWorker ObjectStoreWorkerFunc
@@ -60,6 +66,9 @@ type ManifoldConfig struct {
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
+	}
+	if cfg.TraceName == "" {
+		return errors.NotValidf("empty TraceName")
 	}
 	if cfg.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -78,6 +87,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
+			config.TraceName,
 			config.StateName,
 		},
 		Output: output,
@@ -89,6 +99,11 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			var a agent.Agent
 			if err := context.Get(config.AgentName, &a); err != nil {
 				return nil, err
+			}
+
+			var tracerGetter trace.TracerGetter
+			if err := context.Get(config.TraceName, &tracerGetter); err != nil {
+				return nil, errors.Trace(err)
 			}
 
 			var stTracker state.StateTracker
@@ -104,6 +119,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			w, err := NewWorker(WorkerConfig{
+				TracerGetter:         tracerGetter,
 				Clock:                config.Clock,
 				Logger:               config.Logger,
 				NewObjectStoreWorker: config.NewObjectStoreWorker,

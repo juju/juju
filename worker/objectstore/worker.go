@@ -13,7 +13,9 @@ import (
 	"github.com/juju/worker/v3/catacomb"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/trace"
 )
 
 const (
@@ -31,6 +33,7 @@ type TrackedObjectStore interface {
 // WorkerConfig encapsulates the configuration options for the
 // objectStore worker.
 type WorkerConfig struct {
+	TracerGetter         trace.TracerGetter
 	Clock                clock.Clock
 	Logger               Logger
 	NewObjectStoreWorker ObjectStoreWorkerFunc
@@ -43,6 +46,9 @@ type WorkerConfig struct {
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
+	if c.TracerGetter == nil {
+		return errors.NotValidf("nil TracerGetter")
+	}
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
@@ -233,6 +239,12 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 		ctx, cancel := w.scopedContext()
 		defer cancel()
 
+		tracer, err := w.cfg.TracerGetter.GetTracer(ctx, coretrace.Namespace("objectstore", namespace))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		// This is only here until we have a better backing store.
 		state, err := w.cfg.StatePool.Get(namespace)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -241,6 +253,7 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 		return w.cfg.NewObjectStoreWorker(
 			ctx,
 			namespace,
+			tracer,
 			state,
 			w.cfg.Logger,
 		)
