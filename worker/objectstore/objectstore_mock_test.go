@@ -63,6 +63,20 @@ func (mr *MockTrackedObjectStoreMockRecorder) Kill() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockTrackedObjectStore)(nil).Kill))
 }
 
+// Put mocks base method.
+func (m *MockTrackedObjectStore) Put(arg0 context.Context, arg1 string, arg2 io.Reader, arg3 int64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Put indicates an expected call of Put.
+func (mr *MockTrackedObjectStoreMockRecorder) Put(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockTrackedObjectStore)(nil).Put), arg0, arg1, arg2, arg3)
+}
+
 // Wait mocks base method.
 func (m *MockTrackedObjectStore) Wait() error {
 	m.ctrl.T.Helper()

@@ -937,6 +937,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"service-factory",
 		"state",
 		"state-config-watcher",
+		"trace",
 	},
 
 	"query-logger": {
@@ -1464,6 +1465,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"service-factory",
 		"state",
 		"state-config-watcher",
+		"trace",
 	},
 
 	"query-logger": {

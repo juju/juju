@@ -17,7 +17,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
-	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/testing"
 )
 
@@ -166,7 +165,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
 		Clock:  s.clock,
 		Logger: s.logger,
-		NewObjectStoreWorker: func(context.Context, string, coretrace.Tracer, MongoSession, Logger) (TrackedObjectStore, error) {
+		NewObjectStoreWorker: func(context.Context, string, MongoSession, Logger) (TrackedObjectStore, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedObjectStore, nil
 		},

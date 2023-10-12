@@ -17,7 +17,6 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
-	coretrace "github.com/juju/juju/core/trace"
 )
 
 // Logger represents the logging methods called.
@@ -45,7 +44,7 @@ type MongoSession interface {
 
 // ObjectStoreWorkerFunc is the function signature for creating a new object
 // store worker.
-type ObjectStoreWorkerFunc func(context.Context, string, coretrace.Tracer, MongoSession, Logger) (TrackedObjectStore, error)
+type ObjectStoreWorkerFunc func(context.Context, string, MongoSession, Logger) (TrackedObjectStore, error)
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {

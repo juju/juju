@@ -5,6 +5,7 @@ package objectstore
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/juju/clock"
@@ -250,13 +251,20 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 			return nil, errors.Trace(err)
 		}
 
-		return w.cfg.NewObjectStoreWorker(
+		objectStore, err := w.cfg.NewObjectStoreWorker(
 			ctx,
 			namespace,
-			tracer,
 			state,
 			w.cfg.Logger,
 		)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		return &tracedWorker{
+			TrackedObjectStore: objectStore,
+			tracer:             tracer,
+		}, nil
 	})
 	if errors.Is(err, errors.AlreadyExists) {
 		return nil
@@ -278,4 +286,41 @@ func (w *objectStoreWorker) reportInternalState(state string) {
 	case w.internalStates <- state:
 	default:
 	}
+}
+
+// tracedWorker is a wrapper around a ObjectStore that adds tracing, without
+// exposing the underlying ObjectStore.
+type tracedWorker struct {
+	TrackedObjectStore
+	tracer coretrace.Tracer
+}
+
+// Get returns an io.ReadCloser for data at path, namespaced to the
+// model.
+func (t *tracedWorker) Get(ctx context.Context, path string) (_ io.ReadCloser, _ int64, err error) {
+	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, t.tracer), coretrace.NameFromFunc(),
+		coretrace.WithAttributes(coretrace.StringAttr("objectstore.path", path)),
+	)
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	return t.TrackedObjectStore.Get(ctx, path)
+}
+
+// Put stores data from reader at path, namespaced to the model.
+func (t *tracedWorker) Put(ctx context.Context, path string, r io.Reader, length int64) (err error) {
+	ctx, span := coretrace.Start(coretrace.WithTracer(ctx, t.tracer), coretrace.NameFromFunc(),
+		coretrace.WithAttributes(
+			coretrace.StringAttr("objectstore.path", path),
+			coretrace.Int64Attr("objectstore.size", length),
+		),
+	)
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	return t.TrackedObjectStore.Put(ctx, path, r, length)
 }
