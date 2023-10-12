@@ -42,4 +42,7 @@ type ReadObjectStore interface {
 type WriteObjectStore interface {
 	// Put stores data from reader at path, namespaced to the model.
 	Put(ctx context.Context, path string, r io.Reader, length int64) error
+
+	// Remove removes data at path, namespaced to the model.
+	Remove(ctx context.Context, path string) error
 }

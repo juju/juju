@@ -31,7 +31,7 @@ type CharmDownloaderAPI struct {
 	clock              clock.Clock
 	charmhubHTTPClient http.HTTPClient
 
-	newStorage    func(modelUUID string) services.Storage
+	objectStore   services.Storage
 	newDownloader func(services.CharmDownloaderConfig) (Downloader, error)
 
 	mu         sync.Mutex
@@ -48,7 +48,7 @@ func newAPI(
 	modelBackend ModelBackend,
 	clk clock.Clock,
 	httpClient http.HTTPClient,
-	newStorage func(string) services.Storage,
+	objectStore services.Storage,
 	newDownloader func(services.CharmDownloaderConfig) (Downloader, error),
 	logger loggo.Logger,
 ) *CharmDownloaderAPI {
@@ -59,7 +59,7 @@ func newAPI(
 		modelBackend:       modelBackend,
 		clock:              clk,
 		charmhubHTTPClient: httpClient,
-		newStorage:         newStorage,
+		objectStore:        objectStore,
 		newDownloader:      newDownloader,
 		logger:             logger,
 	}
@@ -99,12 +99,12 @@ func (a *CharmDownloaderAPI) DownloadApplicationCharms(ctx context.Context, args
 			res.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		res.Results[i].Error = apiservererrors.ServerError(a.downloadApplicationCharm(app))
+		res.Results[i].Error = apiservererrors.ServerError(a.downloadApplicationCharm(ctx, app))
 	}
 	return res, nil
 }
 
-func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTag) error {
+func (a *CharmDownloaderAPI) downloadApplicationCharm(ctx context.Context, appTag names.ApplicationTag) error {
 	app, err := a.stateBackend.Application(appTag.Name)
 	if err != nil {
 		return errors.Trace(err)
@@ -140,7 +140,7 @@ func (a *CharmDownloaderAPI) downloadApplicationCharm(appTag names.ApplicationTa
 	}
 
 	a.logger.Infof("downloading charm %q", pendingCharmURL)
-	downloadedOrigin, err := downloader.DownloadAndStore(pendingCharmURL, *resolvedOrigin, force)
+	downloadedOrigin, err := downloader.DownloadAndStore(ctx, pendingCharmURL, *resolvedOrigin, force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot download and store charm %q", pendingCharmURL)
 	}
@@ -158,7 +158,7 @@ func (a *CharmDownloaderAPI) getDownloader() (Downloader, error) {
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
 		Logger:             a.logger,
 		CharmhubHTTPClient: a.charmhubHTTPClient,
-		StorageFactory:     a.newStorage,
+		ObjectStorage:      a.objectStore,
 		StateBackend:       a.stateBackend,
 		ModelBackend:       a.modelBackend,
 	})

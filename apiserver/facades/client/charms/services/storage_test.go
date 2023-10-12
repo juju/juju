@@ -4,6 +4,7 @@
 package services_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -71,9 +72,9 @@ func (s *storageTestSuite) TestStoreBlobFails(c *gc.C) {
 	}
 
 	s.stateBackend.EXPECT().ModelUUID().Return("the-model-uuid")
-	s.storageBackend.EXPECT().Put(expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return(errors.New("failed"))
+	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return(errors.New("failed"))
 
-	err := s.storage.Store(curl, dlCharm)
+	err := s.storage.Store(context.Background(), curl, dlCharm)
 	c.Assert(err, gc.ErrorMatches, "cannot add charm to storage.*")
 }
 
@@ -90,7 +91,7 @@ func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 	}
 
 	s.stateBackend.EXPECT().ModelUUID().Return("the-model-uuid")
-	s.storageBackend.EXPECT().Put(expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return(nil)
+	s.storageBackend.EXPECT().Put(gomock.Any(), expStoreCharmPath, gomock.AssignableToTypeOf(dlCharm.CharmData), int64(7337)).Return(nil)
 	s.stateBackend.EXPECT().UpdateUploadedCharm(state.CharmInfo{
 		StoragePath: expStoreCharmPath,
 		ID:          curl,
@@ -100,9 +101,9 @@ func (s *storageTestSuite) TestStoreBlobAlreadyStored(c *gc.C) {
 
 	// As the blob is already uploaded (to another path), we need to remove
 	// the duplicate we just uploaded from the store.
-	s.storageBackend.EXPECT().Remove(expStoreCharmPath).Return(nil)
+	s.storageBackend.EXPECT().Remove(context.Background(), expStoreCharmPath).Return(nil)
 
-	err := s.storage.Store(curl, dlCharm)
+	err := s.storage.Store(context.Background(), curl, dlCharm)
 	c.Assert(err, jc.ErrorIsNil) // charm already uploaded by someone; no error
 }
 
@@ -117,11 +118,9 @@ func (s *storageTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.storage = services.NewCharmStorage(services.CharmStorageConfig{
-		Logger:       loggo.GetLogger("test"),
-		StateBackend: s.stateBackend,
-		StorageFactory: func(_ string) services.Storage {
-			return s.storageBackend
-		},
+		Logger:        loggo.GetLogger("test"),
+		StateBackend:  s.stateBackend,
+		ObjectStorage: s.storageBackend,
 	})
 	s.storage.SetUUIDGenerator(func() (utils.UUID, error) {
 		return s.uuid, nil

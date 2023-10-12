@@ -70,6 +70,13 @@ func (t *stateObjectStore) Put(ctx context.Context, path string, r io.Reader, si
 	return store.Put(path, r, size)
 }
 
+// Remove removes data at path, namespaced to the model.
+func (t *stateObjectStore) Remove(ctx context.Context, path string) error {
+	session := t.session.MongoSession()
+	store := storage.NewStorage(t.namespace, session)
+	return store.Remove(path)
+}
+
 func (t *stateObjectStore) loop() error {
 	<-t.tomb.Dying()
 	return tomb.ErrDying

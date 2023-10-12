@@ -1120,13 +1120,18 @@ func (srv *Server) serveConn(
 		logger.Infof("failed to get tracer for model %q: %v", resolvedModelUUID, err)
 		tracer = coretrace.NoopTracer{}
 	}
+	objectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, resolvedModelUUID)
+	if err != nil {
+		return errors.Annotatef(err, "getting object store for model %q", resolvedModelUUID)
+	}
+
 	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(resolvedModelUUID)
 
 	var handler *apiHandler
 	st, err := statePool.Get(resolvedModelUUID)
 	if err == nil {
 		defer st.Release()
-		handler, err = newAPIHandler(srv, st.State, conn, serviceFactory, tracer, modelUUID, connectionID, host)
+		handler, err = newAPIHandler(srv, st.State, conn, serviceFactory, tracer, objectStore, modelUUID, connectionID, host)
 	}
 	if errors.Is(err, errors.NotFound) {
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelUUID)

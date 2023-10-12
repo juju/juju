@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/servicefactory"
@@ -68,6 +69,7 @@ type Context interface {
 	LeadershipContext
 	ControllerDBGetter
 	ServiceFactory
+	ObjectStoreFactory
 	Logger
 
 	// Cancel channel represents an indication from the API server that
@@ -166,6 +168,12 @@ type ControllerDBGetter interface {
 type ServiceFactory interface {
 	// ServiceFactory returns the services factory for the current model.
 	ServiceFactory() servicefactory.ServiceFactory
+}
+
+// ObjectStoreFactory defines an interface for accessing the object store.
+type ObjectStoreFactory interface {
+	// ObjectStore returns the object store for the current model.
+	ObjectStore() objectstore.ObjectStore
 }
 
 // Logger defines an interface for getting the apiserver logger instance.

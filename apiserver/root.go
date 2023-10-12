@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher/registry"
@@ -50,6 +51,7 @@ type apiHandler struct {
 	rpcConn         *rpc.Conn
 	serviceFactory  servicefactory.ServiceFactory
 	tracer          trace.Tracer
+	objectStore     objectstore.ObjectStore
 	watcherRegistry facade.WatcherRegistry
 	shared          *sharedServerContext
 
@@ -92,6 +94,7 @@ func newAPIHandler(
 	rpcConn *rpc.Conn,
 	serviceFactory servicefactory.ServiceFactory,
 	tracer trace.Tracer,
+	objectStore objectstore.ObjectStore,
 	modelUUID string,
 	connectionID uint64,
 	serverHost string,
@@ -120,6 +123,7 @@ func newAPIHandler(
 		state:           st,
 		serviceFactory:  serviceFactory,
 		tracer:          tracer,
+		objectStore:     objectStore,
 		model:           m,
 		resources:       common.NewResources(),
 		watcherRegistry: registry,
@@ -172,6 +176,11 @@ func (r *apiHandler) ServiceFactory() servicefactory.ServiceFactory {
 // Tracer returns the tracer for opentelemetry.
 func (r *apiHandler) Tracer() trace.Tracer {
 	return r.tracer
+}
+
+// ObjectStore returns the object store.
+func (r *apiHandler) ObjectStore() objectstore.ObjectStore {
+	return r.objectStore
 }
 
 // SharedContext returns the server shared context.
@@ -342,6 +351,8 @@ type apiRootHandler interface {
 	ServiceFactory() servicefactory.ServiceFactory
 	// Tracer returns the tracer for opentelemetry.
 	Tracer() trace.Tracer
+	// ObjectStore returns the object store.
+	ObjectStore() objectstore.ObjectStore
 	// SharedContext returns the server shared context.
 	SharedContext() *sharedServerContext
 	// Resources returns the common resources.
@@ -361,6 +372,7 @@ type apiRoot struct {
 	state           *state.State
 	serviceFactory  servicefactory.ServiceFactory
 	tracer          trace.Tracer
+	objectStore     objectstore.ObjectStore
 	shared          *sharedServerContext
 	facades         *facade.Registry
 	watcherRegistry facade.WatcherRegistry
@@ -386,6 +398,7 @@ func newAPIRoot(
 		state:           root.State(),
 		serviceFactory:  root.ServiceFactory(),
 		tracer:          root.Tracer(),
+		objectStore:     root.ObjectStore(),
 		shared:          root.SharedContext(),
 		facades:         facades,
 		resources:       root.Resources(),
@@ -790,6 +803,11 @@ func (ctx *facadeContext) ServiceFactory() servicefactory.ServiceFactory {
 // Tracer returns the tracer for the current model.
 func (ctx *facadeContext) Tracer() trace.Tracer {
 	return ctx.r.tracer
+}
+
+// ObjectStore returns the object store for the current model.
+func (ctx *facadeContext) ObjectStore() objectstore.ObjectStore {
+	return ctx.r.objectStore
 }
 
 // MachineTag returns the current machine tag.

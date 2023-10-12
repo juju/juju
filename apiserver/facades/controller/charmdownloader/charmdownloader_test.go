@@ -103,7 +103,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeploy(c *gc.C) {
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
+	s.downloader.EXPECT().DownloadAndStore(gomock.Any(), charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
 
 	got, err := s.api.DownloadApplicationCharms(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -150,7 +150,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsDeployMultiAppOneCha
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(appOne, nil)
 	s.stateBackend.EXPECT().Application("another-ufo").Return(appTwo, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil).AnyTimes()
+	s.downloader.EXPECT().DownloadAndStore(gomock.Any(), charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil).AnyTimes()
 
 	got, err := s.api.DownloadApplicationCharms(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -193,7 +193,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsRefresh(c *gc.C) {
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
+	s.downloader.EXPECT().DownloadAndStore(gomock.Any(), charmURL, resolvedOrigin, false).Return(downloadedOrigin, nil)
 
 	got, err := s.api.DownloadApplicationCharms(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -228,7 +228,7 @@ func (s *charmDownloaderSuite) TestDownloadApplicationCharmsSetStatusIfDownloadF
 
 	s.authChecker.EXPECT().AuthController().Return(true)
 	s.stateBackend.EXPECT().Application("ufo").Return(app, nil)
-	s.downloader.EXPECT().DownloadAndStore(charmURL, resolvedOrigin, false).Return(corecharm.Origin{}, errors.NotFoundf("charm"))
+	s.downloader.EXPECT().DownloadAndStore(gomock.Any(), charmURL, resolvedOrigin, false).Return(corecharm.Origin{}, errors.NotFoundf("charm"))
 
 	got, err := s.api.DownloadApplicationCharms(context.Background(), params.Entities{
 		Entities: []params.Entity{

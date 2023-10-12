@@ -197,13 +197,11 @@ func populateStoreControllerCharm(st *state.State, charmPath string, channel cha
 		return nil, nil, errors.Annotatef(err, "resolving %q", controllerCharmURL)
 	}
 
-	storageFactory := func(modelUUID string) services.Storage {
-		return statestorage.NewStorage(model.UUID(), st.MongoSession())
-	}
+	objectStorage := statestorage.NewStorage(model.UUID(), st.MongoSession())
 	charmDownloader, err := newCharmDownloader(services.CharmDownloaderConfig{
 		Logger:             logger,
 		CharmhubHTTPClient: charmhubHTTPClient,
-		StorageFactory:     storageFactory,
+		ObjectStorage:      objectStorage,
 		StateBackend:       stateBackend,
 		ModelBackend:       model,
 	})

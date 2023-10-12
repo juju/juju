@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 )
@@ -39,6 +40,7 @@ type Context struct {
 	CharmhubHTTPClient_ facade.HTTPClient
 	ServiceFactory_     servicefactory.ServiceFactory
 	ControllerDB_       changestream.WatchableDB
+	ObjectStore_        objectstore.ObjectStore
 	Logger_             loggo.Logger
 
 	MachineTag_ names.Tag
@@ -86,6 +88,12 @@ func (context Context) Resources() facade.Resources {
 // is closed.
 func (context Context) WatcherRegistry() facade.WatcherRegistry {
 	return context.WatcherRegistry_
+}
+
+// ObjectStore is part of the facade.Context interface.
+// It returns the object store for this context.
+func (context Context) ObjectStore() objectstore.ObjectStore {
+	return context.ObjectStore_
 }
 
 // State is part of the facade.Context interface.
