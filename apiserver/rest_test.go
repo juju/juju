@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	apitesting "github.com/juju/juju/apiserver/testing"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -125,9 +126,12 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	mysqlCh, err := s.State.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name:        "mysql",
-		Charm:       mysqlCh,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
+		Name:  "mysql",
+		Charm: mysqlCh,
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "local",
+			Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: corearch.DefaultArchitecture},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -145,10 +149,12 @@ func (s *restSuite) TestGetRemoteApplicationIcon(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{
-		Name:        "dummy",
-		Charm:       dummyCh,
-		CharmOrigin: &state.CharmOrigin{Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"}},
-	})
+		Name:  "dummy",
+		Charm: dummyCh,
+		CharmOrigin: &state.CharmOrigin{
+			Source:   "local",
+			Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: corearch.DefaultArchitecture},
+		}})
 	c.Assert(err, jc.ErrorIsNil)
 	offer2, err := offers.AddOffer(crossmodel.AddApplicationOfferArgs{
 		OfferName:       "notfound-remote-app-offer",

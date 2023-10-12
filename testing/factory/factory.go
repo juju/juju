@@ -504,18 +504,25 @@ func (factory *Factory) MakeApplicationReturningPassword(c *gc.C, params *Applic
 		c.Assert(err, jc.ErrorIsNil)
 		var channel *state.Channel
 		var source string
+		var revision *int
 		// local charms cannot have a channel
 		if charm.CharmHub.Matches(curl.Schema) {
 			channel = &state.Channel{Risk: "stable"}
 			source = "charm-hub"
+			revision = &curl.Revision
 		} else if charm.Local.Matches(curl.Schema) {
 			source = "local"
 		}
+		architecture := params.Charm.URL().Architecture
+		if architecture == "" {
+			architecture = arch.AMD64
+		}
 		params.CharmOrigin = &state.CharmOrigin{
-			Channel: channel,
-			Source:  source,
+			Channel:  channel,
+			Source:   source,
+			Revision: revision,
 			Platform: &state.Platform{
-				Architecture: params.Charm.URL().Architecture,
+				Architecture: architecture,
 				OS:           base.OS,
 				Channel:      base.Channel.String(),
 			}}

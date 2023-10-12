@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
+	corearch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/constraints"
@@ -852,10 +853,15 @@ func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Ch
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: name, Charm: ch,
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-hub",
+			Source:   "charm-hub",
+			Revision: intPtr(ch.Revision()),
+			Channel: &state.Channel{
+				Risk: "stable",
+			},
 			Platform: &state.Platform{
-				OS:      base.OS,
-				Channel: base.Channel.String(),
+				OS:           base.OS,
+				Channel:      base.Channel.String(),
+				Architecture: corearch.DefaultArchitecture,
 			}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -880,7 +886,11 @@ func (s *JujuConnSuite) AddTestingApplicationWithArch(c *gc.C, name string, ch *
 		Name:  name,
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-hub",
+			Source:   "charm-hub",
+			Revision: intPtr(ch.Revision()),
+			Channel: &state.Channel{
+				Risk: "stable",
+			},
 			Platform: &state.Platform{
 				Architecture: arch,
 				OS:           base.OS,
@@ -899,15 +909,24 @@ func (s *JujuConnSuite) AddTestingApplicationWithStorage(c *gc.C, name string, c
 		Name:  name,
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-hub",
+			Source:   "charm-hub",
+			Revision: intPtr(ch.Revision()),
+			Channel: &state.Channel{
+				Risk: "stable",
+			},
 			Platform: &state.Platform{
-				OS:      base.OS,
-				Channel: base.Channel.String(),
+				OS:           base.OS,
+				Channel:      base.Channel.String(),
+				Architecture: corearch.DefaultArchitecture,
 			}},
 		Storage: storage,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return app
+}
+
+func intPtr(val int) *int {
+	return &val
 }
 
 func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, ch *state.Charm, bindings map[string]string) *state.Application {
@@ -917,10 +936,15 @@ func (s *JujuConnSuite) AddTestingApplicationWithBindings(c *gc.C, name string, 
 		Name:  name,
 		Charm: ch,
 		CharmOrigin: &state.CharmOrigin{
-			Source: "charm-hub",
+			Source:   "charm-hub",
+			Revision: intPtr(ch.Revision()),
+			Channel: &state.Channel{
+				Risk: "stable",
+			},
 			Platform: &state.Platform{
-				OS:      base.OS,
-				Channel: base.Channel.String(),
+				OS:           base.OS,
+				Channel:      base.Channel.String(),
+				Architecture: corearch.DefaultArchitecture,
 			}},
 		EndpointBindings: bindings,
 	})

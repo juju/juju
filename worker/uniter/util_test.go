@@ -1019,6 +1019,22 @@ func (s addAction) step(c *gc.C, ctx *testContext) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func intPtr(val int) *int {
+	return &val
+}
+
+func defaultCharmOrigin(curl *corecharm.URL) *state.CharmOrigin {
+	return &state.CharmOrigin{
+		Source:   "",
+		Type:     "charm",
+		ID:       "test",
+		Hash:     "test",
+		Revision: intPtr(curl.Revision),
+		Channel:  nil,
+		Platform: nil,
+	}
+}
+
 type upgradeCharm struct {
 	revision int
 	forced   bool
@@ -1029,8 +1045,9 @@ func (s upgradeCharm) step(c *gc.C, ctx *testContext) {
 	sch, err := ctx.st.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := state.SetCharmConfig{
-		Charm:      sch,
-		ForceUnits: s.forced,
+		Charm:       sch,
+		CharmOrigin: defaultCharmOrigin(curl),
+		ForceUnits:  s.forced,
 	}
 	// Make sure we upload the charm before changing it in the DB.
 	serveCharm{}.step(c, ctx)

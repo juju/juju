@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
+	corearch "github.com/juju/juju/core/arch"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
@@ -235,7 +236,11 @@ var getTests = []struct {
 	},
 	origin: &state.CharmOrigin{
 		Source:   "charm-hub",
-		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+		Revision: intPtr(7),
+		Channel: &state.Channel{
+			Risk: "stable",
+		},
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: corearch.DefaultArchitecture},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{
@@ -294,7 +299,11 @@ var getTests = []struct {
 	},
 	origin: &state.CharmOrigin{
 		Source:   "charm-hub",
-		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+		Revision: intPtr(7),
+		Channel: &state.Channel{
+			Risk: "stable",
+		},
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: corearch.DefaultArchitecture},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{
@@ -349,7 +358,11 @@ var getTests = []struct {
 	charm: "logging",
 	origin: &state.CharmOrigin{
 		Source:   "charm-hub",
-		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+		Revision: intPtr(7),
+		Channel: &state.Channel{
+			Risk: "stable",
+		},
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: corearch.DefaultArchitecture},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
@@ -374,12 +387,13 @@ var getTests = []struct {
 	about: "charmhub subordinate application",
 	charm: "logging",
 	origin: &state.CharmOrigin{
-		Source: "charm-hub",
+		Source:   "charm-hub",
+		Revision: intPtr(7),
 		Channel: &state.Channel{
 			Risk:   "stable",
 			Branch: "foo",
 		},
-		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable"},
+		Platform: &state.Platform{OS: "ubuntu", Channel: "22.04/stable", Architecture: corearch.DefaultArchitecture},
 	},
 	expect: params.ApplicationGetResults{
 		CharmConfig: map[string]interface{}{},
@@ -402,6 +416,10 @@ var getTests = []struct {
 		Channel: "stable/foo",
 	},
 }}
+
+func intPtr(val int) *int {
+	return &val
+}
 
 func (s *getSuite) TestApplicationGet(c *gc.C) {
 	for i, t := range getTests {
