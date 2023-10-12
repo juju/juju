@@ -4,14 +4,42 @@
 package upgradedatabase
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
-	"gopkg.in/tomb.v2"
+	"github.com/juju/worker/v3"
+	"github.com/juju/worker/v3/catacomb"
 
 	"github.com/juju/juju/agent"
+	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/watcher"
+	domainupgrade "github.com/juju/juju/domain/upgrade"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 )
+
+// UpgradeService is the interface for the upgrade service.
+type UpgradeService interface {
+	// CreateUpgrade creates an upgrade to and from specified versions
+	// If an upgrade is already running/pending, return an AlreadyExists err
+	CreateUpgrade(ctx context.Context, previousVersion, targetVersion version.Number) (domainupgrade.UUID, error)
+	// SetControllerReady marks the supplied controllerID as being ready
+	// to start its upgrade. All provisioned controllers need to be ready
+	// before an upgrade can start
+	SetControllerReady(ctx context.Context, upgradeUUID domainupgrade.UUID, controllerID string) error
+	// StartUpgrade starts the current upgrade if it exists
+	StartUpgrade(ctx context.Context, upgradeUUID domainupgrade.UUID) error
+	// SetControllerDone marks the supplied controllerID as having
+	// completed its upgrades. When SetControllerDone is called by the
+	// last provisioned controller, the upgrade will be archived.
+	SetControllerDone(ctx context.Context, upgradeUUID domainupgrade.UUID, controllerID string) error
+	// SetDBUpgradeCompleted marks the upgrade as completed in the database
+	SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainupgrade.UUID) error
+	// WatchForUpgradeReady creates a watcher which notifies when all controller
+	// nodes have been registered, meaning the upgrade is ready to start.
+	WatchForUpgradeReady(ctx context.Context, upgradeUUID domainupgrade.UUID) (watcher.NotifyWatcher, error)
+}
 
 // NewLock returns a new gate.Lock that is unlocked if the agent has not the same version as juju
 func NewLock(agentConfig agent.Config) gate.Lock {
@@ -28,24 +56,20 @@ func NewLock(agentConfig agent.Config) gate.Lock {
 	return lock
 }
 
-type Worker struct {
-	tomb            tomb.Tomb
-	upgradeComplete gate.Lock
-
-	agent  agent.Agent
-	logger Logger
-
-	fromVersion version.Number
-	toVersion   version.Number
-}
-
+// Config holds the configuration for the worker.
 type Config struct {
-	// UpgradeComplete is a lock used to synchronise workers that must start
-	// after database upgrades are verified as completed.
-	UpgradeComplete gate.Lock
+	// DBUpgradeCompleteLock is a lock used to synchronise workers that must
+	// start after database upgrades are verified as completed.
+	DBUpgradeCompleteLock gate.Lock
 
 	// Agent is the running machine agent.
 	Agent agent.Agent
+
+	// UpgradeService is the upgrade service used to drive the upgrade.
+	UpgradeService UpgradeService
+
+	// DBGetter is the database getter used to get the database for each model.
+	DBGetter coredatabase.DBGetter
 
 	// Logger is the logger for this worker.
 	Logger Logger
@@ -53,8 +77,8 @@ type Config struct {
 
 // Validate validates the worker configuration.
 func (c Config) Validate() error {
-	if c.UpgradeComplete == nil {
-		return errors.NotValidf("nil UpgradeComplete lock")
+	if c.DBUpgradeCompleteLock == nil {
+		return errors.NotValidf("nil DBUpgradeCompleteLock")
 	}
 	if c.Agent == nil {
 		return errors.NotValidf("nil Agent")
@@ -65,24 +89,47 @@ func (c Config) Validate() error {
 	return nil
 }
 
+type upgradeDBWorker struct {
+	catacomb catacomb.Catacomb
+
+	cfg Config
+
+	fromVersion version.Number
+	toVersion   version.Number
+}
+
 // NewUpgradeDatabaseWorker returns a new Worker.
-func NewUpgradeDatabaseWorker(config Config) (*Worker, error) {
+func NewUpgradeDatabaseWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	w := &Worker{
-		upgradeComplete: config.UpgradeComplete,
-		agent:           config.Agent,
-		logger:          config.Logger,
+	w := &upgradeDBWorker{
+		cfg: config,
 	}
 
-	w.tomb.Go(w.loop)
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return w, nil
 }
 
+// Kill implements worker.Worker.Kill.
+func (w *upgradeDBWorker) Kill() {
+	w.catacomb.Kill(nil)
+}
+
+// Wait implements worker.Worker.Wait.
+func (w *upgradeDBWorker) Wait() error {
+	return w.catacomb.Wait()
+}
+
 // loop implements Worker main loop.
-func (w *Worker) loop() error {
+func (w *upgradeDBWorker) loop() error {
 	if w.upgradeDone() {
 		return nil
 	}
@@ -97,48 +144,38 @@ func (w *Worker) loop() error {
 
 	for {
 		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
 		}
 	}
 }
 
 // upgradeDone returns true if this worker
 // does not need to run any upgrade logic.
-func (w *Worker) upgradeDone() bool {
+func (w *upgradeDBWorker) upgradeDone() bool {
 	// If we are already unlocked, there is nothing to do.
-	if w.upgradeComplete.IsUnlocked() {
+	if w.cfg.DBUpgradeCompleteLock.IsUnlocked() {
 		return true
 	}
 
 	// If we are already on the current version, there is nothing to do.
-	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
+	w.fromVersion = w.cfg.Agent.CurrentConfig().UpgradedToVersion()
 	w.toVersion = jujuversion.Current
 	if w.fromVersion == w.toVersion {
-		w.logger.Infof("database upgrade for %v already completed", w.toVersion)
-		w.upgradeComplete.Unlock()
+		w.cfg.Logger.Infof("database upgrade for %v already completed", w.toVersion)
+		w.cfg.DBUpgradeCompleteLock.Unlock()
 		return true
 	}
 
 	return false
 }
 
-func (w *Worker) runUpgrade() error {
-	w.logger.Infof("running database upgrade database")
+func (w *upgradeDBWorker) runUpgrade() error {
+	w.cfg.Logger.Infof("running database upgrade database")
 
 	// This dummy worker, so we can just Unlock...
-	w.logger.Infof("database upgrade already completed")
-	w.upgradeComplete.Unlock()
+	w.cfg.Logger.Infof("database upgrade already completed")
+	w.cfg.DBUpgradeCompleteLock.Unlock()
 
 	return nil
-}
-
-// Kill implements worker.Worker.Kill.
-func (w *Worker) Kill() {
-	w.tomb.Kill(nil)
-}
-
-// Wait implements worker.Worker.Wait.
-func (w *Worker) Wait() error {
-	return w.tomb.Wait()
 }

@@ -67,7 +67,7 @@ CREATE TABLE change_log_witness (
 // changeLogTriggersForTable is a helper function to generate the necessary
 // triggers for a table to have it's crud operations tracked in the schemas
 // change_log table.
-func changeLogTriggersForTable(table, primaryKey string, namespaceId int) func() schema.Patch {
+func changeLogTriggersForTable(table, columnName string, namespaceID tableNamespaceID) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
 CREATE TRIGGER trg_log_%[1]s_insert
@@ -87,6 +87,6 @@ AFTER DELETE ON %[1]s FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[3]s, DATETIME('now'));
-END;`[1:], table, namespaceId, primaryKey))
+END;`[1:], table, namespaceID, columnName))
 	}
 }

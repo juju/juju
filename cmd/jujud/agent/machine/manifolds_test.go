@@ -1042,7 +1042,12 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 
 	"upgrade-database-runner": {
 		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
 		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state-config-watcher",
 		"upgrade-database-gate",
 	},
@@ -1474,7 +1479,12 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 
 	"upgrade-database-runner": {
 		"agent",
+		"change-stream",
+		"db-accessor",
+		"file-notify-watcher",
 		"is-controller-flag",
+		"query-logger",
+		"service-factory",
 		"state-config-watcher",
 		"upgrade-database-gate",
 	},

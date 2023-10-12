@@ -11,8 +11,10 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	"github.com/juju/juju/internal/database"
@@ -32,9 +34,9 @@ type State interface {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewNamespaceWatcher returns a new namespace watcher
-	// for events based on the input change mask.
-	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
+	// NewValuePredicateWatcher returns a new namespace watcher
+	// for events based on the input change mask and predicate.
+	NewValuePredicateWatcher(string, string, changestream.ChangeType, eventsource.Predicate) (watcher.NotifyWatcher, error)
 }
 
 // Service provides the API for working with upgrade info
@@ -117,12 +119,17 @@ func (s *Service) ActiveUpgrade(ctx context.Context) (domainupgrade.UUID, error)
 }
 
 // WatchForUpgradeReady creates a watcher which notifies when all controller
-// nodes have been registered, meaning the upgrade is ready to start
+// nodes have been registered, meaning the upgrade is ready to start.
 func (s *Service) WatchForUpgradeReady(ctx context.Context, upgradeUUID domainupgrade.UUID) (watcher.NotifyWatcher, error) {
 	if err := upgradeUUID.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewUpgradeReadyWatcher(ctx, s.st, s.watcherFactory, upgradeUUID)
+
+	mask := changestream.Create | changestream.Update
+	predicate := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
+		return s.st.AllProvisionedControllersReady(ctx, upgradeUUID)
+	}
+	return s.watcherFactory.NewValuePredicateWatcher("upgrade_info_controller_node", upgradeUUID.String(), mask, predicate)
 }
 
 // UpgradeInfo returns the upgrade info for the supplied upgradeUUID

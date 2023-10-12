@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/credential/state"
-	"github.com/juju/juju/state/watcher/watchertest"
 )
 
 type serviceSuite struct {
@@ -110,7 +110,7 @@ func (s *serviceSuite) TestAllCloudCredentials(c *gc.C) {
 func (s *serviceSuite) TestWatchCredential(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	nw := watchertest.NewNotifyWatcher(nil)
+	nw := watchertest.NewMockNotifyWatcher(nil)
 
 	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
 	s.state.EXPECT().WatchCredential(gomock.Any(), gomock.Any(), "foo", "cirrus", "fred").Return(nw, nil)

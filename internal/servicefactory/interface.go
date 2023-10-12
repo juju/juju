@@ -12,6 +12,7 @@ import (
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
+	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
 
 // ControllerServiceFactory provides access to the services required by the
@@ -33,6 +34,8 @@ type ControllerServiceFactory interface {
 	AutocertCache() *autocertcacheservice.Service
 	// Cloud returns the cloud service.
 	Cloud() *cloudservice.Service
+	// Upgrade returns the upgrade service.
+	Upgrade() *upgradeservice.Service
 }
 
 // ModelServiceFactory provides access to the services required by the
