@@ -132,6 +132,24 @@ func (s *Service) WatchForUpgradeReady(ctx context.Context, upgradeUUID domainup
 	return s.watcherFactory.NewValuePredicateWatcher("upgrade_info_controller_node", upgradeUUID.String(), mask, predicate)
 }
 
+// WatchForUpgradeState creates a watcher which notifies when the upgrade
+// has reached the given state.
+func (s *Service) WatchForUpgradeState(ctx context.Context, upgradeUUID domainupgrade.UUID, state upgrade.State) (watcher.NotifyWatcher, error) {
+	if err := upgradeUUID.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	mask := changestream.Create | changestream.Update
+	predicate := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) (bool, error) {
+		info, err := s.st.UpgradeInfo(ctx, upgradeUUID)
+		if err != nil {
+			return false, errors.Trace(err)
+		}
+		return info.State == state, nil
+	}
+	return s.watcherFactory.NewValuePredicateWatcher("upgrade_info", upgradeUUID.String(), mask, predicate)
+}
+
 // UpgradeInfo returns the upgrade info for the supplied upgradeUUID
 func (s *Service) UpgradeInfo(ctx context.Context, upgradeUUID domainupgrade.UUID) (upgrade.Info, error) {
 	if err := upgradeUUID.Validate(); err != nil {

@@ -6,6 +6,7 @@ package upgradedatabase
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dependencytesting "github.com/juju/worker/v3/dependency/testing"
@@ -88,6 +89,9 @@ func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := s.baseSuite.setupMocks(c)
 
 	s.worker = NewMockWorker(ctrl)
+
+	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig).AnyTimes()
+	s.agentConfig.EXPECT().UpgradedToVersion().Return(version.MustParse("1.0.0")).AnyTimes()
 
 	s.serviceFactory.EXPECT().Upgrade().Return(&upgradeservice.Service{}).AnyTimes()
 

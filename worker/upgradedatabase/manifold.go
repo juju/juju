@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/servicefactory"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 )
 
@@ -88,11 +89,17 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			// Work out where we're upgrading from and, where we want to upgrade to.
+			fromVersion := controllerAgent.CurrentConfig().UpgradedToVersion()
+			toVersion := jujuversion.Current
+
 			return cfg.NewWorker(Config{
 				DBUpgradeCompleteLock: dbUpgradeCompleteLock,
 				Agent:                 controllerAgent,
 				UpgradeService:        serviceFactoryGetter.Upgrade(),
 				DBGetter:              dbGetter,
+				FromVersion:           fromVersion,
+				ToVersion:             toVersion,
 				Logger:                cfg.Logger,
 			})
 		},

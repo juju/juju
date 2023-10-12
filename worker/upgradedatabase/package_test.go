@@ -44,6 +44,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.agent = NewMockAgent(ctrl)
 	s.agentConfig = NewMockConfig(ctrl)
 	s.serviceFactory = NewMockControllerServiceFactory(ctrl)
+	s.upgradeService = NewMockUpgradeService(ctrl)
 	s.dbGetter = NewMockDBGetter(ctrl)
 
 	s.logger = jujujujutesting.NewCheckLogger(c)
