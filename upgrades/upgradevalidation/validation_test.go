@@ -154,6 +154,7 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *g
 			"impish",
 			"kinetic",
 			"lunar",
+			"mantic",
 			"precise",
 			"quantal",
 			"raring",
