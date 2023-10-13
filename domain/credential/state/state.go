@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -66,23 +67,25 @@ AND    cloud_credential.cloud_uuid = (
 }
 
 // UpsertCloudCredential adds or updates a cloud credential with the given name, cloud and owner.
-func (st *State) UpsertCloudCredential(ctx context.Context, name, cloudName, owner string, credential cloud.Credential) error {
+// If the credential exists already, the existing Invalid value is returned.
+func (st *State) UpsertCloudCredential(ctx context.Context, name, cloudName, owner string, credential cloud.Credential) (*bool, error) {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	q := `
-SELECT  cloud_credential.uuid AS &M.uuid
+SELECT  cloud_credential.uuid AS &M.uuid, cloud_credential.invalid AS &M.invalid
 FROM    cloud_credential
         JOIN cloud ON cloud_credential.cloud_uuid = cloud.uuid
 WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_name AND cloud_credential.owner_uuid = $M.owner
 `
 	stmt, err := sqlair.Prepare(q, sqlair.M{})
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
+	var existingInvalid *bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Get the credential UUID - either existing or make a new one.
 		// TODO(wallyworld) - implement owner as a FK when users are modelled.
@@ -91,6 +94,10 @@ WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_nam
 		err = tx.Query(ctx, stmt, credentialKeyMap(name, cloudName, owner)).Get(result)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Trace(err)
+		}
+		invalid, ok := result["invalid"].(bool)
+		if ok {
+			existingInvalid = &invalid
 		}
 		credentialUUID, ok := result["uuid"].(string)
 		if !ok {
@@ -113,7 +120,7 @@ WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_nam
 		return nil
 	})
 
-	return errors.Trace(err)
+	return existingInvalid, errors.Trace(err)
 }
 
 // CreateCredential saves the specified credential.
@@ -506,4 +513,75 @@ func (st *State) WatchCredential(
 	}
 	result, err := getWatcher("cloud_credential", uuid, changestream.All)
 	return result, errors.Annotatef(err, "watching credential")
+}
+
+// GetCloud returns the cloud with the specified name.
+func (st *State) GetCloud(ctx context.Context, name string) (cloud.Cloud, error) {
+	db, err := st.DB()
+	if err != nil {
+		return cloud.Cloud{}, errors.Trace(err)
+	}
+
+	var result []cloud.Cloud
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var err error
+		result, err = dbcloud.LoadClouds(ctx, tx, name)
+		return errors.Trace(err)
+	})
+	if len(result) == 0 {
+		return cloud.Cloud{}, fmt.Errorf("cloud %q %w", name, errors.NotFound)
+	}
+	return result[0], errors.Trace(err)
+}
+
+// ModelsForCloudCredential returns a map of uuid->name for models which use the credential.
+func (st *State) ModelsForCloudCredential(ctx context.Context, id credential.ID) (map[string]string, error) {
+	if err := id.Validate(); err != nil {
+		return nil, errors.Annotate(err, "invalid credential querying models")
+	}
+
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	query := `
+SELECT mm.model_uuid AS &M.model_uuid, mm.name AS &M.name
+FROM   model_metadata mm
+JOIN cloud_credential cc ON cc.uuid = mm.cloud_credential_uuid
+JOIN cloud ON cloud.uuid = cc.cloud_uuid
+`
+
+	types := []any{
+		sqlair.M{},
+	}
+	condition, args := database.SqlairClauseAnd(map[string]any{
+		"cc.name":       id.Name,
+		"cloud.name":    id.Cloud,
+		"cc.owner_uuid": id.Owner,
+	})
+	query = query + "WHERE " + condition
+
+	stmt, err := sqlair.Prepare(query, types...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var info []sqlair.M
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, args).GetAll(&info)
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(info) == 0 {
+		return nil, nil
+	}
+	result := make(map[string]string)
+	for _, m := range info {
+		name, _ := m["name"].(string)
+		uuid, _ := m["model_uuid"].(string)
+		result[uuid] = name
+	}
+	return result, nil
 }

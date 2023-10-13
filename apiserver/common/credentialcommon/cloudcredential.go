@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -21,7 +21,7 @@ type StateBackend interface {
 
 // CredentialService exposes State methods needed by credential manager.
 type CredentialService interface {
-	common.CredentialService
+	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
 	InvalidateCredential(ctx context.Context, tag names.CloudCredentialTag, reason string) error
 }
 

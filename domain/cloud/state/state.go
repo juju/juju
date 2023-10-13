@@ -41,7 +41,7 @@ func (st *State) ListClouds(ctx context.Context, name string) ([]cloud.Cloud, er
 	var result []cloud.Cloud
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		var err error
-		result, err = loadClouds(ctx, tx, name)
+		result, err = LoadClouds(ctx, tx, name)
 		return errors.Trace(err)
 	})
 	return result, errors.Trace(err)
@@ -293,7 +293,8 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 	})
 }
 
-func loadClouds(ctx context.Context, tx *sql.Tx, name string) ([]cloud.Cloud, error) {
+// LoadClouds fetches the cloud with the given name, or all clouds if name is empty.
+func LoadClouds(ctx context.Context, tx *sql.Tx, name string) ([]cloud.Cloud, error) {
 	// First load the basic cloud info and auth types.
 	// TODO: needs controller cloud
 	q := `

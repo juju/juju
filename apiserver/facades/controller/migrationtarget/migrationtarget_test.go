@@ -19,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	credentialmocks "github.com/juju/juju/apiserver/common/credentialcommon/mocks"
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
@@ -47,7 +48,7 @@ type Suite struct {
 	controllerConfigService   *MockControllerConfigService
 	externalControllerService *MockExternalControllerService
 	cloudService              *commonmocks.MockCloudService
-	credentialService         *commonmocks.MockCredentialService
+	credentialService         *credentialmocks.MockCredentialService
 
 	facadeContext facadetest.Context
 	callContext   environscontext.ProviderCallContext
@@ -508,7 +509,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
 		Endpoint:  "10.0.0.1",
 	}, nil).AnyTimes()
-	s.credentialService = commonmocks.NewMockCredentialService(ctrl)
+	s.credentialService = credentialmocks.NewMockCredentialService(ctrl)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,

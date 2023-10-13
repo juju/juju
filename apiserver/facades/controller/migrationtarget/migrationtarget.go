@@ -59,7 +59,7 @@ type API struct {
 	modelImporter             ModelImporter
 	externalControllerService ExternalControllerService
 	cloudService              common.CloudService
-	credentialService         common.CredentialService
+	credentialService         credentialcommon.CredentialService
 	pool                      *state.StatePool
 	authorizer                facade.Authorizer
 	presence                  facade.Presence
@@ -80,7 +80,7 @@ func NewAPI(
 	controllerConfigService ControllerConfigService,
 	externalControllerService ExternalControllerService,
 	cloudService common.CloudService,
-	credentialService common.CredentialService,
+	credentialService credentialcommon.CredentialService,
 	getEnviron stateenvirons.NewEnvironFunc,
 	getCAASBroker stateenvirons.NewCAASBrokerFunc,
 ) (*API, error) {
