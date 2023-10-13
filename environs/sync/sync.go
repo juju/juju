@@ -305,8 +305,11 @@ func buildAgentTarball(
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	defer os.Remove(f.Name())
+	defer func() {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+	}()
+
 	toolsVersion, forceVersion, official, sha256Hash, err := envtools.BundleTools(build, f, getForceVersion)
 	if err != nil {
 		return nil, err
