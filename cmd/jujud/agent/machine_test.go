@@ -127,7 +127,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	// Most of these tests normally finish sub-second on a fast machine.
 	// If any given test hits a minute, we have almost certainly become
 	// wedged, so dump the logs.
-	coretesting.DumpTestLogsAfter(time.Minute, c, s)
+	//coretesting.DumpTestLogsAfter(time.Minute, c, s)
 }
 
 func bootstrapRaft(c *gc.C, dataDir string) {
@@ -281,7 +281,7 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 		buff := bytes.Buffer{}
 		err = pprof.Lookup("goroutine").WriteTo(&buff, 1)
 		c.Check(err, jc.ErrorIsNil)
-		c.Logf("\nagent didn't stop, here's what it was doing\n\n%s", buff)
+		c.Logf("\nagent didn't stop, here's what it was doing\n\n%s", buff.String())
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
 	err = m.Refresh()

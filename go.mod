@@ -112,7 +112,7 @@ require (
 	golang.org/x/sys v0.13.0
 	golang.org/x/tools v0.14.0
 	google.golang.org/api v0.126.0
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
+	gopkg.in/check.v1 v1.0.0
 	gopkg.in/httprequest.v1 v1.2.1
 	gopkg.in/ini.v1 v1.66.6
 	gopkg.in/juju/environschema.v1 v1.0.1-0.20201027142642-c89a4490670a
@@ -222,7 +222,7 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/fastuuid v1.2.0 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/rs/xid v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
@@ -268,3 +268,5 @@ replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
 replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0.0.0-20141228071148-145fabdb1ab7
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
+
+replace gopkg.in/check.v1 v1.0.0 => github.com/hpidcock/check v0.0.0-20231013101159-db2238706e86

@@ -767,7 +767,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationCo
 	// TODO(jam): 2019-10-23 This is currently wrong. We are currently pruning
 	//  all application settings on every hook invocation. We should only
 	//  invalidate it when we run a relation-changed hook for the app
-	c.ExpectFailure("application settings should be properly cached")
+	//c.ExpectFailure("application settings should be properly cached")
 	c.Assert(cachedApp, jc.DeepEquals, params.Settings{"frob": "bar"})
 	c.Assert(found, jc.IsTrue)
 }

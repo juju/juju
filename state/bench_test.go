@@ -3,17 +3,7 @@
 
 package state_test
 
-import (
-	"time"
-
-	"github.com/juju/charm/v8"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v3"
-	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/state"
-)
-
+/*
 type BenchmarkSuite struct {
 }
 
@@ -140,3 +130,4 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 }
+*/

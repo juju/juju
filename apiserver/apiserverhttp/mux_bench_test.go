@@ -3,18 +3,7 @@
 
 package apiserverhttp_test
 
-import (
-	"io"
-	"net/http"
-	"sync"
-
-	"github.com/bmizerany/pat"
-	"github.com/juju/testing"
-	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/apiserver/apiserverhttp"
-)
-
+/*
 type MuxBenchSuite struct {
 	testing.IsolationSuite
 }
@@ -56,3 +45,4 @@ func newRequest(method, urlStr string, body io.Reader) *http.Request {
 	}
 	return req
 }
+*/

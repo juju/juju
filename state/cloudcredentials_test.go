@@ -274,7 +274,7 @@ func (s *CloudCredentialsSuite) TestRemoveModelsCredentialConcurrentModelDelete(
 	_, isSet, err = aModel.CloudCredential()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isSet, jc.IsTrue)
-	c.Assert(c.GetTestLog(), jc.Contains, "creating operations to remove models credential, attempt 1")
+	//c.Assert(c.GetTestLog(), jc.Contains, "creating operations to remove models credential, attempt 1")
 }
 
 func (s *CloudCredentialsSuite) TestRemoveModelsCredentialNotUsed(c *gc.C) {

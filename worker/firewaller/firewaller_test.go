@@ -128,7 +128,7 @@ func (s *firewallerBaseSuite) assertIngressRules(c *gc.C, inst instances.Instanc
 		got.Sort()
 		expected.Sort()
 		if reflect.DeepEqual(got, expected) {
-			c.Succeed()
+			//c.Succeed()
 			return
 		}
 		if time.Since(start) > coretesting.LongWait {
@@ -154,7 +154,7 @@ func (s *firewallerBaseSuite) assertEnvironPorts(c *gc.C, expected firewall.Ingr
 		got.Sort()
 		expected.Sort()
 		if reflect.DeepEqual(got, expected) {
-			c.Succeed()
+			//c.Succeed()
 			return
 		}
 		if time.Since(start) > coretesting.LongWait {

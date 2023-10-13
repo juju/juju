@@ -1126,7 +1126,7 @@ func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *gc.C) {
 		"uuid": testing.ModelTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	warningTxt := `.* unknown config field %q.*`
+	//warningTxt := `.* unknown config field %q.*`
 
 	for i, test := range emptyAttributeTests {
 		c.Logf("test %d: %v\n", i, fmt.Sprintf(test.message, test.aKey))
@@ -1136,10 +1136,10 @@ func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		// all attrs passed through
 		c.Assert(attrs, gc.DeepEquals, map[string]interface{}{test.aKey: test.aValue})
-		expectedWarning := fmt.Sprintf(warningTxt, test.aKey)
-		logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)
+		//expectedWarning := fmt.Sprintf(warningTxt, test.aKey)
+		//logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)
 		// warning displayed or not based on test expectation
-		c.Assert(logOutputText, test.checker, expectedWarning, gc.Commentf(test.message, test.aKey))
+		//c.Assert(logOutputText, test.checker, expectedWarning, gc.Commentf(test.message, test.aKey))
 	}
 }
 

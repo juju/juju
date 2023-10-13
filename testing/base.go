@@ -9,7 +9,6 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/featureflag"
@@ -266,19 +265,19 @@ type TestCleanup interface {
 
 // DumpTestLogsAfter will write the test logs to stdout if the timeout
 // is reached.
-func DumpTestLogsAfter(timeout time.Duration, c *gc.C, cleaner TestCleanup) {
-	done := make(chan interface{})
-	go func() {
-		select {
-		case <-time.After(timeout):
-			fmt.Printf(c.GetTestLog())
-		case <-done:
-		}
-	}()
-	cleaner.AddCleanup(func(_ *gc.C) {
-		close(done)
-	})
-}
+// func DumpTestLogsAfter(timeout time.Duration, c *gc.C, cleaner TestCleanup) {
+// 	done := make(chan interface{})
+// 	go func() {
+// 		select {
+// 		case <-time.After(timeout):
+// 			fmt.Printf(c.GetTestLog())
+// 		case <-done:
+// 		}
+// 	}()
+// 	cleaner.AddCleanup(func(_ *gc.C) {
+// 		close(done)
+// 	})
+// }
 
 type PackageManagerStruct struct {
 	PackageManager    string
