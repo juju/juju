@@ -153,3 +153,15 @@ func (s *serviceSuite) TestWatchForUpgradeReady(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(watcher, gc.NotNil)
 }
+
+func (s *serviceSuite) TestWatchForUpgradeState(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	nw := watchertest.NewMockNotifyWatcher(nil)
+
+	s.watcherFactory.EXPECT().NewValuePredicateWatcher(gomock.Any(), s.upgradeUUID.String(), gomock.Any(), gomock.Any()).Return(nw, nil)
+
+	watcher, err := s.srv.WatchForUpgradeState(context.Background(), s.upgradeUUID, coreupgrade.Started)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(watcher, gc.NotNil)
+}
