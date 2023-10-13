@@ -25,6 +25,9 @@ type Model interface {
 	Name() string
 	Type() state.ModelType
 	State() *state.State
+
+	ModelConfig() (*config.Config, error)
+	WatchForModelConfigChanges() state.NotifyWatcher
 }
 
 type StatePool interface {
@@ -50,6 +53,8 @@ type SecretsState interface {
 type SecretsMetaState interface {
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
+
+	ChangeSecretBackend(state.ChangeSecretBackendParams) error
 }
 
 // SecretsRemoveState instances provide secret removal apis.
