@@ -61,11 +61,16 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 	if err != nil {
 		return err
 	}
+	defer func() {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+	}()
+
 	_, err = io.Copy(f, zr)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(f.Name())
+
 	gzipSHA256 := fmt.Sprintf("%x", sha256hash.Sum(nil))
 	if tools.SHA256 != gzipSHA256 {
 		return fmt.Errorf("tarball sha256 mismatch, expected %s, got %s", tools.SHA256, gzipSHA256)
