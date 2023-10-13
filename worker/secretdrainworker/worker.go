@@ -10,7 +10,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/api/agent/secretsdrain"
+	"github.com/juju/juju/api/common/secretsdrain"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	jujusecrets "github.com/juju/juju/secrets"

@@ -312,7 +312,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		secretDrainWorker: ifNotMigrating(secretdrainworker.Manifold(secretdrainworker.ManifoldConfig{
 			APICallerName:         apiCallerName,
 			Logger:                loggo.GetLogger("juju.worker.secretdrainworker"),
-			NewSecretsDrainFacade: secretdrainworker.NewSecretsDrainFacade,
+			NewSecretsDrainFacade: secretdrainworker.NewSecretsDrainFacadeForAgent,
 			NewWorker:             secretdrainworker.NewWorker,
 			NewBackendsClient:     secretdrainworker.NewBackendsClient,
 		})),

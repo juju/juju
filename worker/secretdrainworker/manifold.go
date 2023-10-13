@@ -8,9 +8,10 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/api/agent/secretsdrain"
+	agentsecretsdrain "github.com/juju/juju/api/agent/secretsdrain"
 	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/controller/usersecretsdrain"
 	jujusecrets "github.com/juju/juju/secrets"
 )
 
@@ -24,9 +25,14 @@ type ManifoldConfig struct {
 	NewBackendsClient     func(jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error)
 }
 
-// NewSecretsDrainFacade returns a new SecretsDrainFacade.
-func NewSecretsDrainFacade(caller base.APICaller) SecretsDrainFacade {
-	return secretsdrain.NewClient(caller)
+// NewSecretsDrainFacadeForAgent returns a new SecretsDrainFacade for draining charm owned secrets from agents.
+func NewSecretsDrainFacadeForAgent(caller base.APICaller) SecretsDrainFacade {
+	return agentsecretsdrain.NewClient(caller)
+}
+
+// NewUserSecretsDrainFacade returns a new SecretsDrainFacade for draining user secrets from controller.
+func NewUserSecretsDrainFacade(caller base.APICaller) SecretsDrainFacade {
+	return usersecretsdrain.NewClient(caller)
 }
 
 // NewBackendsClient returns a new secret backends client.
