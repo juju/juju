@@ -252,6 +252,7 @@ const (
 	Jammy   SeriesName = "jammy"
 	Kinetic SeriesName = "kinetic"
 	Lunar   SeriesName = "lunar"
+	Mantic  SeriesName = "mantic"
 )
 
 var ubuntuSeries = map[SeriesName]seriesVersion{
@@ -358,6 +359,10 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 	Lunar: {
 		WorkloadType: ControllerWorkloadType,
 		Version:      "23.04",
+	},
+	Mantic: {
+		WorkloadType: ControllerWorkloadType,
+		Version:      "23.10",
 	},
 }
 
