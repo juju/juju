@@ -286,8 +286,8 @@ func ensureFstabEntry(etcDir, devicePath, UUID, mountPoint, entry string) error 
 		return errors.Trace(err)
 	}
 	defer func() {
-		newFsTab.Close()
-		os.Remove(newFsTab.Name())
+		_ = newFsTab.Close()
+		_ = os.Remove(newFsTab.Name())
 	}()
 	if err := os.Chmod(newFsTab.Name(), 0644); err != nil {
 		return errors.Trace(err)
@@ -403,8 +403,8 @@ func removeFstabEntry(etcDir string, mountPoint string) error {
 		return errors.Trace(err)
 	}
 	defer func() {
-		newFsTab.Close()
-		os.Remove(newFsTab.Name())
+		_ = newFsTab.Close()
+		_ = os.Remove(newFsTab.Name())
 	}()
 	if err := os.Chmod(newFsTab.Name(), 0644); err != nil {
 		return errors.Trace(err)

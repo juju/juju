@@ -20,8 +20,19 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Uniter", 18, func(ctx facade.Context) (facade.Facade, error) {
+		return newUniterAPIv18(ctx)
+	}, reflect.TypeOf((*UniterAPIv18)(nil)))
+	registry.MustRegister("Uniter", 19, func(ctx facade.Context) (facade.Facade, error) {
 		return newUniterAPI(ctx)
 	}, reflect.TypeOf((*UniterAPI)(nil)))
+}
+
+func newUniterAPIv18(context facade.Context) (*UniterAPIv18, error) {
+	api, err := newUniterAPI(context)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &UniterAPIv18{*api}, nil
 }
 
 // newUniterAPI creates a new instance of the core Uniter API.
