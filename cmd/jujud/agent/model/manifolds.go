@@ -64,6 +64,7 @@ import (
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/pruner"
 	"github.com/juju/juju/worker/remoterelations"
+	"github.com/juju/juju/worker/secretdrainworker"
 	"github.com/juju/juju/worker/secretspruner"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
@@ -335,6 +336,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:               config.LoggingContext.GetLogger("juju.worker.secretspruner"),
 			NewUserSecretsFacade: secretspruner.NewUserSecretsFacade,
 			NewWorker:            secretspruner.NewWorker,
+		})),
+		// The userSecretDrainWorker is the worker that drains the user secrets from the inactive backend to the current active backend.
+		userSecretDrainWorker: ifNotMigrating(secretdrainworker.Manifold(secretdrainworker.ManifoldConfig{
+			APICallerName:         apiCallerName,
+			Logger:                loggo.GetLogger("juju.worker.usersecretsdrainworker"),
+			NewSecretsDrainFacade: secretdrainworker.NewUserSecretsDrainFacade,
+			NewWorker:             secretdrainworker.NewWorker,
+			NewBackendsClient:     secretdrainworker.NewBackendsClient,
 		})),
 	}
 	return result
@@ -738,7 +747,8 @@ const (
 	caasStorageProvisionerName     = "caas-storage-provisioner"
 	caasBrokerTrackerName          = "caas-broker-tracker"
 
-	secretsPrunerName = "secrets-pruner"
+	secretsPrunerName     = "secrets-pruner"
+	userSecretDrainWorker = "user-secret-drain-worker"
 
 	validCredentialFlagName = "valid-credential-flag"
 )
