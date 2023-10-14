@@ -149,9 +149,9 @@ ifeq ($(COVERAGE_CHECK), 1)
 endif
 
 # Enable verbose testing for reporting.
-ifeq ($(VERBOSE_CHECK), 1)
-	CHECK_ARGS = -v
-endif
+#ifeq ($(VERBOSE_CHECK), 1)
+#	CHECK_ARGS = -v
+#endif
 
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
