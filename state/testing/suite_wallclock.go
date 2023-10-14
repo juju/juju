@@ -16,8 +16,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-var _ = gc.Suite(&StateWithWallClockSuite{})
-
 // StateWithWallClockSuite provides setup and teardown for tests that require a
 // state.State. This should be deprecated in favour of StateSuite, and tests
 // updated to use the testing clock StateSuite provides.

@@ -51,7 +51,7 @@ func (libvirtInternalSuite) TestWriteDomainXMLSucceeds(c *gc.C) {
 
 	got, err := writeDomainXML(d, p)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(got, gc.Matches, `/tmp/check-.*/\d+/host00.xml`)
+	c.Assert(got, gc.Matches, `/tmp/.*/\d+/host00.xml`)
 }
 
 func (libvirtInternalSuite) TestWriteDomainXMLMissingValidSystemDisk(c *gc.C) {

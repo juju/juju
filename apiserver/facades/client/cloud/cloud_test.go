@@ -61,6 +61,14 @@ func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
 	return ctrl
 }
 
+func (s *cloudSuite) TearDownTest(c *gc.C) {
+	s.backend = nil
+	s.pool = nil
+	s.authorizer = nil
+	s.ctrlBackend = nil
+	s.api = nil
+}
+
 var _ = gc.Suite(&cloudSuite{})
 
 func newModelBackend(c *gc.C, aCloud jujucloud.Cloud, uuid string) *mockModelBackend {
@@ -958,7 +966,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetErrorLegacy(c *gc.C) {
 
 func (s *cloudSuite) TestUpdateCredentialsModelGetErrorForce(c *gc.C) {
 	adminTag := names.NewUserTag("admin")
-	defer s.setup(c, adminTag)
+	defer s.setup(c, adminTag).Finish()
 
 	_, tag := cloudCredentialTag(credParams{"three", "julia", "meep", jujucloud.EmptyAuthType,
 		map[string]string{}}, c)
@@ -995,7 +1003,7 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetErrorForce(c *gc.C) {
 
 func (s *cloudSuite) TestUpdateCredentialsModelFailedValidation(c *gc.C) {
 	adminTag := names.NewUserTag("admin")
-	defer s.setup(c, adminTag)
+	defer s.setup(c, adminTag).Finish()
 
 	_, tag := cloudCredentialTag(credParams{"three", "julia", "meep", jujucloud.EmptyAuthType,
 		map[string]string{}}, c)
@@ -1004,6 +1012,17 @@ func (s *cloudSuite) TestUpdateCredentialsModelFailedValidation(c *gc.C) {
 	backend.CredentialModels(tag).Return(map[string]string{
 		coretesting.ModelTag.Id(): "testModel1",
 	}, nil)
+
+	aCloud := jujucloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
+		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+	}
+
+	pool := s.pool.EXPECT()
+	pool.GetModelCallContext(coretesting.ModelTag.Id()).Return(newModelBackend(c, aCloud,
+		coretesting.ModelTag.Id()), context.NewEmptyCloudCallContext(), nil)
 
 	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
 		Force: false,

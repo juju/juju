@@ -38,6 +38,11 @@ func (s *NewExecutorSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 }
 
+func (s *NewExecutorSuite) TearDownTest(c *gc.C) {
+	s.IsolationSuite.TearDownTest(c)
+	s.mockStateRW = nil
+}
+
 func (s *NewExecutorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 	s.mockStateRW = mocks.NewMockUnitStateReadWriter(ctlr)
@@ -59,7 +64,8 @@ func (s *NewExecutorSuite) expectStateNil() {
 }
 
 func (s *NewExecutorSuite) TestNewExecutorInvalidStateRead(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 	initialState := operation.State{Step: operation.Queued}
 	s.expectState(c, initialState)
 	cfg := operation.ExecutorConfig{
@@ -74,7 +80,8 @@ func (s *NewExecutorSuite) TestNewExecutorInvalidStateRead(c *gc.C) {
 }
 
 func (s *NewExecutorSuite) TestNewExecutorNoInitialState(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 	s.expectStateNil()
 	initialState := operation.State{Step: operation.Queued}
 	cfg := operation.ExecutorConfig{
@@ -93,7 +100,8 @@ func (s *NewExecutorSuite) TestNewExecutorValidFile(c *gc.C) {
 	// that "hook" will have to become "last-hook" to enable action execution
 	// during hook error states. If you do this, please leave at least one test
 	// with this form of the yaml in place.
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 	s.mockStateRW.EXPECT().State().Return(params.UnitStateResult{UniterState: "started: true\nop: continue\nopstep: pending\n"}, nil)
 	cfg := operation.ExecutorConfig{
 		StateReadWriter: s.mockStateRW,
@@ -121,6 +129,11 @@ func (s *ExecutorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctlr := gomock.NewController(c)
 	s.mockStateRW = mocks.NewMockUnitStateReadWriter(ctlr)
 	return ctlr
+}
+
+func (s *ExecutorSuite) TearDownTest(c *gc.C) {
+	s.IsolationSuite.TearDownTest(c)
+	s.mockStateRW = nil
 }
 
 func (s *ExecutorSuite) expectSetState(c *gc.C, st operation.State) {
@@ -205,7 +218,8 @@ func justInstalledState() operation.State {
 }
 
 func (s *ExecutorSuite) TestSucceedNoStateChanges(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 	initialState := justInstalledState()
 	executor := s.newExecutor(c, &initialState)
 
@@ -228,7 +242,8 @@ func (s *ExecutorSuite) TestSucceedNoStateChanges(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestSucceedWithStateChanges(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	prepareOp := s.expectConfigChangedPendingOp(c)
 	executeOp := s.expectConfigChangedDoneOp(c)
@@ -256,7 +271,8 @@ func (s *ExecutorSuite) TestSucceedWithStateChanges(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestSucceedWithRemoteStateChanges(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	initialState := justInstalledState()
 	executor := s.newExecutor(c, &initialState)
@@ -294,7 +310,8 @@ func (s *ExecutorSuite) TestSucceedWithRemoteStateChanges(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestErrSkipExecute(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	prepareOp := s.expectConfigChangedPendingOp(c)
 	commitOp := s.expectStartQueuedOp(c)
@@ -318,7 +335,8 @@ func (s *ExecutorSuite) TestErrSkipExecute(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestValidateStateChange(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	initialState := justInstalledState()
 	executor := s.newExecutor(c, &initialState)
@@ -338,7 +356,8 @@ func (s *ExecutorSuite) TestValidateStateChange(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestFailPrepareNoStateChange(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	initialState := justInstalledState()
 	executor := s.newExecutor(c, &initialState)
@@ -357,7 +376,8 @@ func (s *ExecutorSuite) TestFailPrepareNoStateChange(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestFailPrepareWithStateChange(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 	prepareOp := s.expectStartPendingOp(c)
 
 	initialState := justInstalledState()
@@ -377,7 +397,8 @@ func (s *ExecutorSuite) TestFailPrepareWithStateChange(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestFailExecuteNoStateChange(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	initialState := justInstalledState()
 	executor := s.newExecutor(c, &initialState)
@@ -398,7 +419,8 @@ func (s *ExecutorSuite) TestFailExecuteNoStateChange(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestFailExecuteWithStateChange(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 	executeOp := s.expectStartPendingOp(c)
 
 	initialState := justInstalledState()
@@ -420,7 +442,8 @@ func (s *ExecutorSuite) TestFailExecuteWithStateChange(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestFailCommitNoStateChange(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	initialState := justInstalledState()
 	executor := s.newExecutor(c, &initialState)
@@ -443,7 +466,8 @@ func (s *ExecutorSuite) TestFailCommitNoStateChange(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestFailCommitWithStateChange(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	initialState := justInstalledState()
 	commitOp := s.expectStartPendingOp(c)
@@ -483,6 +507,12 @@ func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func(string) (func(), err
 }
 
 func (s *ExecutorSuite) TestLockSucceedsStepsCalled(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockStateRW.EXPECT().SetState(gomock.Any()).Return(nil)
+	s.mockStateRW.EXPECT().State().Return(params.UnitStateResult{}, nil)
+
 	op := &mockOperation{
 		needsLock: true,
 		prepare:   newStep(nil, nil),
@@ -506,6 +536,12 @@ func (s *ExecutorSuite) TestLockSucceedsStepsCalled(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestLockFailsOpsStepsNotCalled(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockStateRW.EXPECT().SetState(gomock.Any()).Return(nil)
+	s.mockStateRW.EXPECT().State().Return(params.UnitStateResult{}, nil)
+
 	prepare := newStep(nil, nil)
 	execute := newStep(nil, nil)
 	commit := newStep(nil, nil)
@@ -521,7 +557,7 @@ func (s *ExecutorSuite) TestLockFailsOpsStepsNotCalled(c *gc.C) {
 	executor := s.initLockTest(c, lockFunc)
 
 	err := executor.Run(op, nil)
-	c.Assert(err, gc.ErrorMatches, "could not acquire lock: wat")
+	c.Assert(err, gc.ErrorMatches, `acquiring \"mock operation\" lock for test: wat`)
 
 	c.Assert(mockLock.calledLock, jc.IsFalse)
 	c.Assert(mockLock.calledUnlock, jc.IsFalse)
@@ -547,6 +583,12 @@ func (s *ExecutorSuite) testLockUnlocksOnError(c *gc.C, op *mockOperation) (erro
 }
 
 func (s *ExecutorSuite) TestLockUnlocksOnError_Prepare(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockStateRW.EXPECT().SetState(gomock.Any()).Return(nil)
+	s.mockStateRW.EXPECT().State().Return(params.UnitStateResult{}, nil)
+
 	op := &mockOperation{
 		needsLock: true,
 		prepare:   newStep(nil, errors.New("kerblooie")),
@@ -555,7 +597,7 @@ func (s *ExecutorSuite) TestLockUnlocksOnError_Prepare(c *gc.C) {
 	}
 
 	err, mockLock := s.testLockUnlocksOnError(c, op)
-	c.Assert(err, gc.ErrorMatches, `preparing operation "mock operation": kerblooie`)
+	c.Assert(err, gc.ErrorMatches, `preparing operation "mock operation" for test: kerblooie`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "kerblooie")
 
 	expectedStepsOnUnlock := []bool{true, false, false}
@@ -563,6 +605,12 @@ func (s *ExecutorSuite) TestLockUnlocksOnError_Prepare(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestLockUnlocksOnError_Execute(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockStateRW.EXPECT().SetState(gomock.Any()).Return(nil)
+	s.mockStateRW.EXPECT().State().Return(params.UnitStateResult{}, nil)
+
 	op := &mockOperation{
 		needsLock: true,
 		prepare:   newStep(nil, nil),
@@ -571,7 +619,7 @@ func (s *ExecutorSuite) TestLockUnlocksOnError_Execute(c *gc.C) {
 	}
 
 	err, mockLock := s.testLockUnlocksOnError(c, op)
-	c.Assert(err, gc.ErrorMatches, `executing operation "mock operation": you asked for it`)
+	c.Assert(err, gc.ErrorMatches, `executing operation "mock operation" for test: you asked for it`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "you asked for it")
 
 	expectedStepsOnUnlock := []bool{true, true, false}
@@ -579,6 +627,12 @@ func (s *ExecutorSuite) TestLockUnlocksOnError_Execute(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestLockUnlocksOnError_Commit(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.mockStateRW.EXPECT().SetState(gomock.Any()).Return(nil)
+	s.mockStateRW.EXPECT().State().Return(params.UnitStateResult{}, nil)
+
 	op := &mockOperation{
 		needsLock: true,
 		prepare:   newStep(nil, nil),
@@ -587,7 +641,7 @@ func (s *ExecutorSuite) TestLockUnlocksOnError_Commit(c *gc.C) {
 	}
 
 	err, mockLock := s.testLockUnlocksOnError(c, op)
-	c.Assert(err, gc.ErrorMatches, `committing operation "mock operation": well, shit`)
+	c.Assert(err, gc.ErrorMatches, `committing operation "mock operation" for test: well, shit`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "well, shit")
 
 	expectedStepsOnUnlock := []bool{true, true, true}

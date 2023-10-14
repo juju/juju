@@ -32,8 +32,8 @@ type ManifoldSuite struct {
 
 var _ = gc.Suite(&ManifoldSuite{})
 
-func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
-	s.IsolationSuite.SetUpSuite(c)
+func (s *ManifoldSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 	s.fakeAgent = &fakeAgent{tag: fakeTag}
 	s.fakeCaller = &fakeCaller{}
 
@@ -54,7 +54,7 @@ func (s *ManifoldSuite) SetUpSuite(c *gc.C) {
 		return func(wc machineactions.WorkerConfig) (worker.Worker, error) {
 			c.Assert(wc.Facade, gc.Equals, s.fakeFacade)
 			c.Assert(wc.MachineTag, gc.Equals, fakeTag)
-			c.Assert(wc.HandleAction, gc.Equals, fakeHandleAction)
+			c.Assert(wc.HandleAction, gc.NotNil)
 			return w, err
 		}
 	}
@@ -121,7 +121,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 
 	w, err := manifold.Start(s.context)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(w, gc.Equals, fakeWorker)
+	c.Assert(w, gc.Equals, worker.Worker(fakeWorker))
 }
 
 func (s *ManifoldSuite) TestInvalidTag(c *gc.C) {

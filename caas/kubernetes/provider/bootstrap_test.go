@@ -82,7 +82,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.controllerCfg["juju-db-snap-channel"] = "4.4/stable"
 	s.controllerCfg[controller.CAASImageRepo] = `
 {
-    "serveraddress": "quay.io",
+    "serveraddress": "public.ecr.aws",
     "auth": "xxxxx==",
     "repository": "test-account"
 }`[1:]

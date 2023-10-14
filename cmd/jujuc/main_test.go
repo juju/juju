@@ -13,7 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	stdtesting "testing"
+	"testing"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/gnuflag"
@@ -23,15 +23,11 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/sockets"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-func TestPackage(t *stdtesting.T) {
-	// TODO(waigani) 2014-03-19 bug 1294458
-	// Refactor to use base suites
-
-	coretesting.MgoSSLTestPackage(t)
+func TestPackage(t *testing.T) {
+	gc.TestingT(t)
 }
 
 type MainSuite struct{}
@@ -42,7 +38,7 @@ var flagRunMain = flag.Bool("run-main", false, "Run the application's main funct
 
 // Reentrancy point for testing (something as close as possible to) the jujud
 // tool itself.
-func TestRunMain(t *stdtesting.T) {
+func TestRunMain(t *testing.T) {
 	if *flagRunMain {
 		os.Exit(Main(flag.Args()))
 	}

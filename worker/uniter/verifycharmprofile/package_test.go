@@ -4,11 +4,11 @@
 package verifycharmprofile_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestPackage(t *testing.T) {
+	gc.TestingT(t)
 }

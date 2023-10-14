@@ -301,17 +301,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Env.base = s.Common
 }
 
-func (s *BaseSuite) TestingCert(c *gc.C) (lxd.Certificate, string) {
-	cert := lxd.Certificate{
-		Name:    "juju",
-		CertPEM: []byte(testing.CACert),
-		KeyPEM:  []byte(testing.CAKey),
-	}
-	fingerprint, err := cert.Fingerprint()
-	c.Assert(err, jc.ErrorIsNil)
-	return cert, fingerprint
-}
-
 func (s *BaseSuite) CheckNoAPI(c *gc.C) {
 	s.Stub.CheckCalls(c, nil)
 }

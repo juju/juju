@@ -24,8 +24,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-var _ = gc.Suite(&StateSuite{})
-
 // StateSuite provides setup and teardown for tests that require a
 // state.State.
 type StateSuite struct {

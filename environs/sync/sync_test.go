@@ -391,7 +391,6 @@ type badBuildSuite struct {
 	jujutesting.LoggingSuite
 	jujutesting.CleanupSuite
 	envtesting.ToolsFixture
-	jujutesting.PatchExecHelper
 }
 
 var badGo = `
@@ -463,7 +462,7 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 }
 
 func (s *badBuildSuite) patchExecCommand(c *gc.C) {
-	execCommand := s.GetExecCommand(jujutesting.PatchExecConfig{
+	execCommand := jujutesting.ExecCommand(jujutesting.PatchExecConfig{
 		Stdout: coretesting.CurrentVersion().String(),
 		Args:   make(chan []string, 2),
 	})

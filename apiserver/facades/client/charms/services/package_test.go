@@ -4,13 +4,13 @@
 package services_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/interface_mocks.go github.com/juju/juju/apiserver/facades/client/charms/services StateBackend,ModelBackend,Storage,UploadedCharm
 
-func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestAll(t *testing.T) {
+	gc.TestingT(t)
 }

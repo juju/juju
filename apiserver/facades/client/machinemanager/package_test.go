@@ -6,7 +6,7 @@ package machinemanager_test
 import (
 	"testing"
 
-	coretesting "github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/apiserver/facades/client/machinemanager Leadership
@@ -19,6 +19,5 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/environ_mock.go github.com/juju/juju/environs Environ
 
 func TestPackage(t *testing.T) {
-	// TODO(wallyworld) - needed until instance config tests converted to gomock
-	coretesting.MgoTestPackage(t)
+	gc.TestingT(t)
 }

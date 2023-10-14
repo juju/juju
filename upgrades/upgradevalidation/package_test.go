@@ -4,16 +4,16 @@
 package upgradevalidation
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/upgrades/upgradevalidation StatePool,State,Model
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/lxd_mock.go github.com/juju/juju/provider/lxd ServerFactory,Server
 
-func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestAll(t *testing.T) {
+	gc.TestingT(t)
 }
 
 var (

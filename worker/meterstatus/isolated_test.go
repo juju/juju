@@ -150,10 +150,6 @@ func (s *IsolatedWorkerSuite) SetUpTest(c *gc.C) {
 	s.worker = wrk
 }
 
-func (s *IsolatedWorkerSuite) TearDownTest(c *gc.C) {
-	workertest.CleanKill(c, s.worker)
-}
-
 func (s *IsolatedWorkerSuite) TestTriggering(c *gc.C) {
 	assertSignal(c, s.triggersCreated)
 
@@ -166,6 +162,8 @@ func (s *IsolatedWorkerSuite) TestTriggering(c *gc.C) {
 	assertSignal(c, s.hookRan)
 
 	s.stub.CheckCallNames(c, "RunHook", "RunHook")
+
+	workertest.CleanKill(c, s.worker)
 }
 
 // TestMissingHookError tests that errors caused by missing hooks do not stop the worker.
@@ -177,6 +175,8 @@ func (s *IsolatedWorkerSuite) TestMissingHookError(c *gc.C) {
 	assertSignal(c, s.hookRan)
 
 	s.stub.CheckCallNames(c, "RunHook")
+
+	workertest.CleanKill(c, s.worker)
 }
 
 // TestRandomHookError tests that errors returned by hooks do not stop the worker.
@@ -188,4 +188,6 @@ func (s *IsolatedWorkerSuite) TestRandomHookError(c *gc.C) {
 	assertSignal(c, s.hookRan)
 
 	s.stub.CheckCallNames(c, "RunHook")
+
+	workertest.CleanKill(c, s.worker)
 }

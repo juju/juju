@@ -4,11 +4,11 @@
 package sockets_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	coretesting "github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
-func Test(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+func Test(t *testing.T) {
+	gc.TestingT(t)
 }

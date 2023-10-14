@@ -117,7 +117,8 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 }
 
 func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
-	defer s.setup(c).Finish()
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
 
 	apiParams := make([]params.AddMachineParams, 2)
 	for i := range apiParams {
@@ -168,7 +169,8 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 }
 
 func (s *AddMachineManagerSuite) TestAddMachinesStateError(c *gc.C) {
-	defer s.setup(c).Finish()
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
 
 	s.st.EXPECT().AddOneMachine(gomock.Any()).Return(&state.Machine{}, errors.New("boom"))
 
@@ -1269,6 +1271,13 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewEmptyCloudCallContext()
 }
 
+func (s *UpgradeSeriesPrepareMachineManagerSuite) TearDownTest(c *gc.C) {
+	s.authorizer = nil
+	s.st = nil
+	s.api = nil
+	s.callContext = nil
+}
+
 func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -1346,7 +1355,8 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepare(c *gc
 }
 
 func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareMachineNotFound(c *gc.C) {
-	defer s.setup(c).Finish()
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
 
 	s.st.EXPECT().Machine("76").Return(nil, errors.NotFoundf("machine 76"))
 
@@ -1363,6 +1373,9 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareMachin
 }
 
 func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNotMachineTag(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
 	unitTag := names.NewUnitTag("mysql/0")
 	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateChannelArg{
@@ -1407,6 +1420,11 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPreparePermis
 }
 
 func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareNoSeries(c *gc.C) {
+	ctrl := s.setup(c)
+	defer ctrl.Finish()
+
+	s.st.EXPECT().Machine("0").Return(nil, nil).Times(1)
+
 	result, err := s.api.UpgradeSeriesPrepare(
 		params.UpdateChannelArg{
 			Entity: params.Entity{Tag: names.NewMachineTag("0").String()},

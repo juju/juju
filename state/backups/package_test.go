@@ -4,14 +4,11 @@
 package backups_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
-func Test(t *stdtesting.T) {
-	if os.HostOS() == os.Ubuntu {
-		testing.MgoTestPackage(t)
-	}
+func Test(t *testing.T) {
+	gc.TestingT(t)
 }

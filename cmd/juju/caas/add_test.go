@@ -83,6 +83,38 @@ users:
     token: xfdfsdfsdsd
 `
 
+var noCurrentContextKubeConfigStr = `
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://1.1.1.1:8888
+    certificate-authority-data: QQ==
+  name: the-cluster
+- cluster:
+    server: https://1.1.1.1:8888
+    certificate-authority-data: QQ==
+  name: myk8s
+contexts:
+- context:
+    cluster: the-cluster
+    user: the-user
+  name: the-context
+- context:
+    cluster: myk8s
+    user: test-user
+  name: myk8s-ctx
+preferences: {}
+users:
+- name: the-user
+  user:
+    password: thepassword
+    username: theuser
+- name: test-user
+  user:
+    token: xfdfsdfsdsd
+`
+
 var invalidTLSKubeConfigStr = `
 apiVersion: v1
 kind: Config
@@ -334,6 +366,18 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 	s.cloudMetadataStore.Call("WritePersonalCloudMetadata", s.initialCloudMap).Returns(nil)
 }
 
+func (s *addCAASSuite) TearDownTest(c *gc.C) {
+	s.IsolationSuite.TearDownTest(c)
+
+	s.dir = ""
+	s.publicCloudMap = nil
+	s.initialCloudMap = nil
+	s.fakeCloudAPI = nil
+	s.fakeK8sClusterMetadataChecker = nil
+	s.cloudMetadataStore = nil
+	s.credentialStoreAPI = nil
+}
+
 func (s *addCAASSuite) writeTempKubeConfig(c *gc.C) {
 	fullpath := filepath.Join(s.dir, "empty-config")
 	err := ioutil.WriteFile(fullpath, []byte(""), 0644)
@@ -482,8 +526,15 @@ func (s *addCAASSuite) TestAddExtraArg(c *gc.C) {
 }
 
 func (s *addCAASSuite) TestEmptyKubeConfigFileWithoutStdin(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
 	command := s.makeCommand(c, true, true, true)
-	_, err := s.runCommand(c, nil, command, "k8sname", "--client")
+
+	err := SetKubeConfigData(noCurrentContextKubeConfigStr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.runCommand(c, nil, command, "k8sname", "--client")
 	c.Assert(err, gc.ErrorMatches, `kubernetes context "" not found`)
 }
 
@@ -717,6 +768,25 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
 }
 
 func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	s.credentialStoreAPI.EXPECT().UpdateCredential(
+		"myk8s", jujucloud.CloudCredential{
+			AuthCredentials: map[string]jujucloud.Credential{
+				"myk8s": jujucloud.NewNamedCredential(
+					"myk8s",
+					jujucloud.AuthType("oauth2"),
+					map[string]string{
+						"Token":   "xfdfsdfsdsd",
+						"rbac-id": "9baa5e46",
+					},
+					false,
+				),
+			},
+		},
+	).Times(1).Return(nil)
+
 	err := SetKubeConfigData(kubeConfigStr)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -756,14 +826,14 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				Type:             "kubernetes",
 				Description:      "",
 				HostCloudRegion:  "gce/us-east1",
-				AuthTypes:        cloud.AuthTypes{"certificate"},
-				Endpoint:         "fakeendpoint2",
+				AuthTypes:        cloud.AuthTypes{"certificate", "clientcertificate", "oauth2", "oauth2withcert", "userpass"},
+				Endpoint:         "https://1.1.1.1:8888",
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
-				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "fakeendpoint2"}},
+				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"}},
 				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
 				RegionConfig:     cloud.RegionConfig(nil),
-				CACertificates:   []string{"fakecadata2"},
+				CACertificates:   []string{"A"},
 			},
 		},
 	)

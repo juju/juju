@@ -34,7 +34,6 @@ type buildSuite struct {
 	restore  func()
 	cwd      string
 	filePath string
-	exttest.PatchExecHelper
 }
 
 var _ = gc.Suite(&buildSuite{})
@@ -161,7 +160,7 @@ func (b *buildSuite) TestGetVersionFromJujud(c *gc.C) {
 	}
 
 	argsCh := make(chan []string, 1)
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := exttest.ExecCommand(exttest.PatchExecConfig{
 		Stderr: "hey, here's some logging you should ignore",
 		Stdout: ver.String(),
 		Args:   argsCh,
@@ -184,7 +183,7 @@ func (b *buildSuite) TestGetVersionFromJujud(c *gc.C) {
 
 func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *gc.C) {
 	argsCh := make(chan []string, 1)
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := exttest.ExecCommand(exttest.PatchExecConfig{
 		Stderr: "hey, here's some logging",
 		Stdout: "oops, not a valid version",
 		Args:   argsCh,
@@ -206,7 +205,7 @@ func (b *buildSuite) TestGetVersionFromJujudWithParseError(c *gc.C) {
 
 func (b *buildSuite) TestGetVersionFromJujudWithRunError(c *gc.C) {
 	argsCh := make(chan []string, 1)
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := exttest.ExecCommand(exttest.PatchExecConfig{
 		Stderr:   "the stderr",
 		Stdout:   "the stdout",
 		ExitCode: 1,
@@ -384,7 +383,7 @@ func (b *buildSuite) patchExecCommand(c *gc.C, release, arch string) {
 		Release: release,
 		Arch:    arch,
 	}
-	execCommand := b.GetExecCommand(exttest.PatchExecConfig{
+	execCommand := exttest.ExecCommand(exttest.PatchExecConfig{
 		Stdout: ver.String(),
 		Args:   make(chan []string, 2),
 	})

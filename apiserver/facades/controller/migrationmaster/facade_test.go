@@ -71,6 +71,18 @@ func (s *Suite) SetUpTest(c *gc.C) {
 	s.cloudSpec = environscloudspec.CloudSpec{Type: "lxd"}
 }
 
+func (s *Suite) TearDownTest(c *gc.C) {
+	s.BaseSuite.TearDownTest(c)
+
+	s.controllerUUID = ""
+	s.modelUUID = ""
+	s.model = nil
+	s.resources = nil
+	s.controllerBackend = nil
+	s.backend = nil
+	s.precheckBackend = nil
+}
+
 func (s *Suite) TestNotController(c *gc.C) {
 	s.authorizer.Controller = false
 
@@ -160,7 +172,8 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 }
 
 func (s *Suite) TestModelInfo(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	exp := s.backend.EXPECT()
 	exp.ModelUUID().Return("model-uuid")
@@ -178,7 +191,8 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 }
 
 func (s *Suite) TestSourceControllerInfo(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	exp := s.backend.EXPECT()
 	exp.AllLocalRelatedModels().Return([]string{"related-model-uuid"}, nil)
@@ -222,7 +236,8 @@ func (s *Suite) TestSetPhase(c *gc.C) {
 }
 
 func (s *Suite) TestSetPhaseNoMigration(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	s.backend.EXPECT().LatestMigration().Return(nil, errors.New("boom"))
 
@@ -231,6 +246,11 @@ func (s *Suite) TestSetPhaseNoMigration(c *gc.C) {
 }
 
 func (s *Suite) TestSetPhaseBadPhase(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	s.backend.EXPECT().LatestMigration().Return(nil, nil)
+
 	err := s.mustMakeAPI(c).SetPhase(params.SetMigrationPhaseArgs{Phase: "wat"})
 	c.Assert(err, gc.ErrorMatches, `invalid phase: "wat"`)
 }
@@ -262,7 +282,8 @@ func (s *Suite) TestSetStatusMessage(c *gc.C) {
 }
 
 func (s *Suite) TestSetStatusMessageNoMigration(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	s.backend.EXPECT().LatestMigration().Return(nil, errors.New("boom"))
 
@@ -284,7 +305,8 @@ func (s *Suite) TestSetStatusMessageError(c *gc.C) {
 }
 
 func (s *Suite) TestPrechecksModelError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	s.precheckBackend.EXPECT().Model().Return(nil, errors.New("boom"))
 
@@ -313,7 +335,8 @@ func (s *Suite) TestExportCAAS(c *gc.C) {
 }
 
 func (s *Suite) assertExport(c *gc.C, modelType string) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	app := s.model.AddApplication(description.ApplicationArgs{
 		Tag:      names.NewApplicationTag("foo"),

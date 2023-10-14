@@ -31,7 +31,6 @@ import (
 
 type initialiserTestSuite struct {
 	coretesting.BaseSuite
-	testing.PatchExecHelper
 }
 
 // patchDF100GB ensures that df always returns 100GB.
@@ -259,7 +258,7 @@ func (s *InitialiserSuite) TestLXDAlreadyInitialized(c *gc.C) {
 	PatchHostSeries(s, "trusty")
 
 	ci := s.containerInitialiser(nil, true)
-	ci.getExecCommand = s.PatchExecHelper.GetExecCommand(testing.PatchExecConfig{
+	ci.getExecCommand = testing.ExecCommand(testing.PatchExecConfig{
 		Stderr: `LXD init cannot be used at this time.
 However if all you want to do is reconfigure the network,
 you can still do so by running "sudo dpkg-reconfigure -p medium lxd"
@@ -574,7 +573,6 @@ func (s *InitialiserSuite) TestBridgeConfigurationWithNewSubnet(c *gc.C) {
 
 type ConfigureInitialiserSuite struct {
 	initialiserTestSuite
-	testing.PatchExecHelper
 }
 
 var _ = gc.Suite(&ConfigureInitialiserSuite{})

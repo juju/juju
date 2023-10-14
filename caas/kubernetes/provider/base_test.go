@@ -526,6 +526,56 @@ func (s *fakeClientSuite) SetUpTest(c *gc.C) {
 	s.setupBroker(c, newK8sClientFunc, newK8sRestFunc, randomPrefixFunc, nil)
 }
 
+func (s *fakeClientSuite) TearDownTest(c *gc.C) {
+	s.IsolationSuite.TearDownTest(c)
+
+	s.clientset = nil
+	s.k8sClient = nil
+	s.mockCoreV1 = nil
+	s.mockRestClient = nil
+	s.mockNamespaces = nil
+	s.mockApps = nil
+	s.mockNetworkingV1beta1 = nil
+	s.mockNetworkingV1 = nil
+	s.mockSecrets = nil
+	s.mockDeployments = nil
+	s.mockStatefulSets = nil
+	s.mockDaemonSets = nil
+	s.mockPods = nil
+	s.mockServices = nil
+	s.mockConfigMaps = nil
+	s.mockPersistentVolumes = nil
+	s.mockPersistentVolumeClaims = nil
+	s.mockStorage = nil
+	s.mockStorageClass = nil
+	s.mockIngressClasses = nil
+	s.mockIngressV1Beta1 = nil
+	s.mockIngressV1 = nil
+	s.mockNodes = nil
+	s.mockEvents = nil
+
+	s.mockApiextensionsClient = nil
+	s.mockApiextensionsV1Beta1 = nil
+	s.mockApiextensionsV1 = nil
+	s.mockCustomResourceDefinitionV1Beta1 = nil
+	s.mockCustomResourceDefinitionV1 = nil
+
+	s.mockMutatingWebhookConfigurationV1 = nil
+	s.mockValidatingWebhookConfigurationV1 = nil
+	s.mockMutatingWebhookConfigurationV1Beta1 = nil
+	s.mockValidatingWebhookConfigurationV1Beta1 = nil
+
+	s.mockDynamicClient = nil
+
+	s.mockServiceAccounts = nil
+	s.mockRoles = nil
+	s.mockClusterRoles = nil
+	s.mockRoleBindings = nil
+	s.mockClusterRoleBindings = nil
+
+	s.mockDiscovery = nil
+}
+
 func (s *fakeClientSuite) getNamespace() string {
 	if s.broker != nil {
 		return s.broker.GetCurrentNamespace()

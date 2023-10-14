@@ -340,7 +340,7 @@ clouds:
 	// Just check a snippet of the output to make sure it looks ok.
 	// local clouds are last.
 	// homestack should abut localhost and hence come last in the output.
-	c.Assert(out, jc.Contains, `homestack  1        london     openstack  0            local     Openstack Cloud`)
+	c.Assert(out, gc.Matches, `.*homestack\s*1\s*london\s*openstack\s*0\s*local\s*Openstack Cloud.*`)
 }
 
 func (s *listSuite) TestListPublicAndPersonalSameName(c *gc.C) {
@@ -379,7 +379,7 @@ func (s *listSuite) TestListJSON(c *gc.C) {
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*{"aws":{"defined":"public","type":"ec2","description":"Amazon Web Services","auth-types":\["access-key"\].*`)
+	c.Assert(out, gc.Matches, `.*"aws":{"defined":"public","type":"ec2","description":"Amazon Web Services","auth-types":\["access-key"\].*`)
 }
 
 func (s *listSuite) TestListPreservesRegionOrder(c *gc.C) {

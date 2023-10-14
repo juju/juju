@@ -39,6 +39,7 @@ exit $EXIT_CODE
 var fakecommands = []string{"sleep", "tmux"}
 
 func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: Currently debug does not work on windows")
 	}

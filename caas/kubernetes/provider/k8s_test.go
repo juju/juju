@@ -874,6 +874,7 @@ func (s *K8sBrokerSuite) assertFileSetToVolume(c *gc.C, fs specs.FileSet, result
 
 func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	s.clock = testclock.NewClock(time.Time{})
 
@@ -905,7 +906,7 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 	})
 
 	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).Times(2).
+		s.mockNamespaces.EXPECT().Get(gomock.Any(), "test", v1.GetOptions{}).Times(1).
 			Return(nsInput, nil),
 	)
 
@@ -917,6 +918,7 @@ func (s *K8sBrokerSuite) TestNoNamespaceBroker(c *gc.C) {
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
 	randomPrefixFunc := func() (string, error) {
@@ -945,6 +947,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDMigrated(
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrated(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
 	randomPrefixFunc := func() (string, error) {
@@ -966,6 +969,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNotMigrat
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceNotCreatedYet(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
 	randomPrefixFunc := func() (string, error) {
@@ -981,6 +985,7 @@ func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpace
 
 func (s *K8sBrokerSuite) TestEnsureNamespaceAnnotationForControllerUUIDNameSpaceExists(c *gc.C) {
 	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
 	newK8sClientFunc, newK8sRestFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
 	randomPrefixFunc := func() (string, error) {
@@ -1932,7 +1937,7 @@ func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *gc.C) {
 
 	imageRepo := docker.ImageRepoDetails{
 		Repository:    "test-account",
-		ServerAddress: "quay.io",
+		ServerAddress: "public.ecr.aws",
 		BasicAuthConfig: docker.BasicAuthConfig{
 			Auth: docker.NewToken("xxxxx=="),
 		},

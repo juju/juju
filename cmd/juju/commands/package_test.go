@@ -4,7 +4,10 @@
 package commands_test
 
 import (
+	"os"
 	stdtesting "testing"
+
+	jujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/testing"
 )
@@ -30,4 +33,9 @@ import (
 
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
+}
+
+func TestMain(m *stdtesting.M) {
+	jujutesting.ExecHelperProcess()
+	os.Exit(m.Run())
 }

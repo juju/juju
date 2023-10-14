@@ -52,7 +52,9 @@ func (s *ListenerSuite) NewRunListener(c *gc.C, operator bool) *uniter.RunListen
 	return listener
 }
 
-func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c *gc.C) {
+// TestRunListener is TestNewRunListenerOnExistingSocketRemovesItAndSucceeds but with a shorter
+// name for unix abstract domain socket and testing.T temp dir.
+func (s *ListenerSuite) TestRunListener(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("bug 1403084: Current named pipes implementation does not support this")
 	}

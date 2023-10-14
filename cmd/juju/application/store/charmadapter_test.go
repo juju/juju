@@ -28,8 +28,16 @@ type resolveSuite struct {
 
 var _ = gc.Suite(&resolveSuite{})
 
+func (s *resolveSuite) TearDownTest(c *gc.C) {
+	s.charmsAPI = nil
+	s.charmRepo = nil
+	s.downloadClient = nil
+	s.bundle = nil
+}
+
 func (s *resolveSuite) TestResolveCharm(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	curl, err := charm.ParseURL("cs:testme-3")
 	c.Assert(err, jc.ErrorIsNil)
@@ -52,7 +60,8 @@ func (s *resolveSuite) TestResolveCharm(c *gc.C) {
 }
 
 func (s *resolveSuite) TestResolveCharmWithAPIError(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	curl, err := charm.ParseURL("testme")
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,7 +81,8 @@ func (s *resolveSuite) TestResolveCharmWithAPIError(c *gc.C) {
 }
 
 func (s *resolveSuite) TestResolveCharmWithFallback(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	curl, err := charm.ParseURL("cs:testme-3")
 	c.Assert(err, jc.ErrorIsNil)
@@ -95,6 +105,9 @@ func (s *resolveSuite) TestResolveCharmWithFallback(c *gc.C) {
 }
 
 func (s *resolveSuite) TestResolveCharmNotCSCharm(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	curl, err := charm.ParseURL("local:bionic/testme-3")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -102,18 +115,25 @@ func (s *resolveSuite) TestResolveCharmNotCSCharm(c *gc.C) {
 		Source: commoncharm.OriginLocal,
 		Risk:   "beta",
 	}
+	retVal := []apicharm.ResolvedCharm{{
+		URL:             curl,
+		Origin:          origin,
+		SupportedSeries: []string{"bionic", "focal"},
+	}}
+	s.charmsAPI.EXPECT().ResolveCharms(gomock.Any()).Return(retVal, nil)
 	charmAdapter := store.NewCharmAdaptor(s.charmsAPI, func() (store.CharmrepoForDeploy, error) {
 		return s.charmRepo, nil
 	}, func() (store.DownloadBundleClient, error) {
 		return s.downloadClient, nil
 	})
 	_, obtainedOrigin, _, err := charmAdapter.ResolveCharm(curl, origin, false)
-	c.Assert(err, gc.NotNil)
-	c.Assert(obtainedOrigin.Risk, gc.Equals, string(csparams.NoChannel))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedOrigin.Risk, gc.Equals, string(csparams.BetaChannel))
 }
 
 func (s *resolveSuite) TestResolveCharmFailWithFallbackSuccess(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	curl, err := charm.ParseURL("cs:testme-3")
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +155,8 @@ func (s *resolveSuite) TestResolveCharmFailWithFallbackSuccess(c *gc.C) {
 }
 
 func (s *resolveSuite) TestResolveCharmFailResolveWithChannelWithFallback(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	curl, err := charm.ParseURL("cs:testme-3")
 	c.Assert(err, jc.ErrorIsNil)
@@ -156,7 +177,8 @@ func (s *resolveSuite) TestResolveCharmFailResolveWithChannelWithFallback(c *gc.
 }
 
 func (s *resolveSuite) TestResolveBundle(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	curl, err := charm.ParseURL("cs:testme-3")
 	c.Assert(err, jc.ErrorIsNil)
@@ -179,7 +201,8 @@ func (s *resolveSuite) TestResolveBundle(c *gc.C) {
 }
 
 func (s *resolveSuite) TestResolveBundleWithFallback(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	curl, err := charm.ParseURL("cs:testme-3")
 	c.Assert(err, jc.ErrorIsNil)
@@ -202,7 +225,8 @@ func (s *resolveSuite) TestResolveBundleWithFallback(c *gc.C) {
 }
 
 func (s *resolveSuite) TestResolveNotBundle(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	curl, err := charm.ParseURL("cs:testme-3")
 	c.Assert(err, jc.ErrorIsNil)
@@ -223,7 +247,8 @@ func (s *resolveSuite) TestResolveNotBundle(c *gc.C) {
 }
 
 func (s *resolveSuite) TestResolveNotBundleWithFallback(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 	curl, err := charm.ParseURL("cs:testme-3")
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectCharmFallbackResolutionCall(curl, csparams.EdgeChannel, csparams.EdgeChannel, nil)
@@ -243,7 +268,8 @@ func (s *resolveSuite) TestResolveNotBundleWithFallback(c *gc.C) {
 }
 
 func (s *resolveSuite) TestCharmStoreGetBundle(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	curl, err := charm.ParseURL("cs:testme-1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -266,7 +292,8 @@ func (s *resolveSuite) TestCharmStoreGetBundle(c *gc.C) {
 }
 
 func (s *resolveSuite) TestCharmHubGetBundle(c *gc.C) {
-	defer s.setupMocks(c).Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
 
 	curl, err := charm.ParseURL("ch:testme-1")
 	c.Assert(err, jc.ErrorIsNil)

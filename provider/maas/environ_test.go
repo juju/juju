@@ -25,7 +25,6 @@ import (
 type environSuite struct {
 	coretesting.BaseSuite
 	envtesting.ToolsFixture
-	restoreTimeouts func()
 }
 
 var _ = gc.Suite(&environSuite{})
@@ -56,7 +55,6 @@ func (s *environSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *environSuite) TearDownSuite(c *gc.C) {
-	s.restoreTimeouts()
 	s.BaseSuite.TearDownSuite(c)
 }
 
