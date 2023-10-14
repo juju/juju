@@ -763,13 +763,13 @@ func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationCo
 	wrongCache, member := s.getCache(1, "r")
 	c.Assert(wrongCache, gc.IsNil)
 	c.Assert(member, jc.IsFalse)
-	cachedApp, found := s.getAppCache(1, "r")
+	//cachedApp, found := s.getAppCache(1, "r")
 	// TODO(jam): 2019-10-23 This is currently wrong. We are currently pruning
 	//  all application settings on every hook invocation. We should only
 	//  invalidate it when we run a relation-changed hook for the app
 	return //c.ExpectFailure("application settings should be properly cached")
-	c.Assert(cachedApp, jc.DeepEquals, params.Settings{"frob": "bar"})
-	c.Assert(found, jc.IsTrue)
+	//c.Assert(cachedApp, jc.DeepEquals, params.Settings{"frob": "bar"})
+	//c.Assert(found, jc.IsTrue)
 }
 
 func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationContextAndCachesApplication(c *gc.C) {
