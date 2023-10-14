@@ -118,9 +118,9 @@ func (s *storageTestSuite) setupMocks(c *gc.C) *gomock.Controller {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.storage = services.NewCharmStorage(services.CharmStorageConfig{
-		Logger:        loggo.GetLogger("test"),
-		StateBackend:  s.stateBackend,
-		ObjectStorage: s.storageBackend,
+		Logger:       loggo.GetLogger("test"),
+		StateBackend: s.stateBackend,
+		ObjectStore:  s.storageBackend,
 	})
 	s.storage.SetUUIDGenerator(func() (utils.UUID, error) {
 		return s.uuid, nil

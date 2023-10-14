@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
 )
 
 type FailableHandlerFunc func(http.ResponseWriter, *http.Request) error
@@ -264,6 +263,13 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		}
 	}
 
+	// Attempt to get the object store early, so we're not unnecessarily
+	// creating a parsing/reading if we can't get the object store.
+	objectStore, err := h.objectStoreGetter.GetObjectStore(r.Context(), st.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	charmFileName, err := writeCharmToTempFile(r.Body)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -325,7 +331,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
 
-	err = RepackageAndUploadCharm(st, archive, curl)
+	err = RepackageAndUploadCharm(r.Context(), objectStore, st, archive, curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -422,7 +428,7 @@ func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 // RepackageAndUploadCharm expands the given charm archive to a
 // temporary directory, repackages it with the given curl's revision,
 // then uploads it to storage, and finally updates the state.
-func RepackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
+func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
 	// Create a temp dir to contain the extracted charm dir.
 	tempDir, err := os.MkdirTemp("", "charm-download")
 	if err != nil {
@@ -470,12 +476,10 @@ func RepackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl 
 	charmStorage := services.NewCharmStorage(services.CharmStorageConfig{
 		Logger:       logger,
 		StateBackend: storageStateShim{st},
-		StorageFactory: func(modelUUID string) services.Storage {
-			return storage.NewStorage(modelUUID, st.MongoSession())
-		},
+		ObjectStore:  objectStore,
 	})
 
-	return charmStorage.Store(curl.String(), downloader.DownloadedCharm{
+	return charmStorage.Store(ctx, curl.String(), downloader.DownloadedCharm{
 		Charm:        archive,
 		CharmData:    &repackagedArchive,
 		CharmVersion: version,

@@ -8,15 +8,15 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/worker/common"
-	"github.com/juju/juju/worker/state"
-	"github.com/juju/juju/worker/trace"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
+	"github.com/juju/juju/agent"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/worker/common"
+	"github.com/juju/juju/worker/state"
+	"github.com/juju/juju/worker/trace"
 )
 
 // Logger represents the logging methods called.

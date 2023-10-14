@@ -23,7 +23,7 @@ type CharmStorageConfig struct {
 	Logger loggo.Logger
 
 	// A factory for accessing model-scoped storage for charm blobs.
-	ObjectStorage Storage
+	ObjectStore Storage
 
 	StateBackend StateBackend
 }
@@ -32,7 +32,7 @@ type CharmStorageConfig struct {
 type CharmStorage struct {
 	logger        loggo.Logger
 	stateBackend  StateBackend
-	objectStorage Storage
+	objectStore   Storage
 	uuidGenerator func() (utils.UUID, error)
 }
 
@@ -41,7 +41,7 @@ func NewCharmStorage(cfg CharmStorageConfig) *CharmStorage {
 	return &CharmStorage{
 		logger:        cfg.Logger.Child("charmstorage"),
 		stateBackend:  cfg.StateBackend,
-		objectStorage: cfg.ObjectStorage,
+		objectStore:   cfg.ObjectStore,
 		uuidGenerator: utils.NewUUID,
 	}
 }
@@ -69,7 +69,7 @@ func (s *CharmStorage) Store(ctx context.Context, charmURL string, downloadedCha
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")
 	}
-	if err := s.objectStorage.Put(ctx, storagePath, downloadedCharm.CharmData, downloadedCharm.Size); err != nil {
+	if err := s.objectStore.Put(ctx, storagePath, downloadedCharm.CharmData, downloadedCharm.Size); err != nil {
 		return errors.Annotate(err, "cannot add charm to storage")
 	}
 
@@ -87,7 +87,7 @@ func (s *CharmStorage) Store(ctx context.Context, charmURL string, downloadedCha
 		alreadyUploaded := err == stateerrors.ErrCharmRevisionAlreadyModified ||
 			errors.Cause(err) == stateerrors.ErrCharmRevisionAlreadyModified ||
 			stateerrors.IsCharmAlreadyUploadedError(err)
-		if err := s.objectStorage.Remove(ctx, storagePath); err != nil {
+		if err := s.objectStore.Remove(ctx, storagePath); err != nil {
 			if alreadyUploaded {
 				s.logger.Errorf("cannot remove duplicated charm archive from storage: %v", err)
 			} else {

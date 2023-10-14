@@ -22,9 +22,9 @@ type CharmDownloaderConfig struct {
 	// An HTTP client that is injected when making Charmhub API calls.
 	CharmhubHTTPClient charmhub.HTTPClient
 
-	// ObjectStorage provides access to the object store for a
+	// ObjectStore provides access to the object store for a
 	// given model.
-	ObjectStorage Storage
+	ObjectStore Storage
 
 	StateBackend StateBackend
 	ModelBackend ModelBackend
@@ -34,9 +34,9 @@ type CharmDownloaderConfig struct {
 // charmdownloader.Downloader instance.
 func NewCharmDownloader(cfg CharmDownloaderConfig) (*charmdownloader.Downloader, error) {
 	storage := NewCharmStorage(CharmStorageConfig{
-		Logger:        cfg.Logger.Child("charmstorage"),
-		StateBackend:  cfg.StateBackend,
-		ObjectStorage: cfg.ObjectStorage,
+		Logger:       cfg.Logger.Child("charmstorage"),
+		StateBackend: cfg.StateBackend,
+		ObjectStore:  cfg.ObjectStore,
 	})
 
 	repoFactory := repoFactoryShim{
