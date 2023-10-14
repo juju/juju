@@ -42,13 +42,15 @@ type RemoteProReqRelation struct {
 	ru0, ru1               *state.Unit
 }
 
-type networkInfoSuite struct {
+// networkInfoSuiteB is networkInfoSuite>B< to avoid collision with the
+// other networkInfoSuite in this package<_test>.
+type networkInfoSuiteB struct {
 	testing.JujuConnSuite
 }
 
-var _ = gc.Suite(&networkInfoSuite{})
+var _ = gc.Suite(&networkInfoSuiteB{})
 
-func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
+func (s *networkInfoSuiteB) TestNetworksForRelation(c *gc.C) {
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)
 	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -73,7 +75,7 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
 
-func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machine, addresses ...string) {
+func (s *networkInfoSuiteB) addDevicesWithAddresses(c *gc.C, machine *state.Machine, addresses ...string) {
 	for _, address := range addresses {
 		name := fmt.Sprintf("e%x", rand.Int31())
 		deviceArgs := state.LinkLayerDeviceArgs{
@@ -98,7 +100,7 @@ func (s *networkInfoSuite) addDevicesWithAddresses(c *gc.C, machine *state.Machi
 	}
 }
 
-func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
+func (s *networkInfoSuiteB) TestProcessAPIRequestForBinding(c *gc.C) {
 	// Add subnets for the addresses that the machine will have.
 	// We are testing a space-less deployment here.
 	_, err := s.State.AddSubnet(network.SubnetInfo{
@@ -156,7 +158,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestForBinding(c *gc.C) {
 	c.Check(ingress[0], gc.Equals, "100.2.3.4")
 }
 
-func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C) {
+func (s *networkInfoSuiteB) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C) {
 	// Add a single subnet in the alpha space.
 	_, err := s.State.AddSubnet(network.SubnetInfo{
 		CIDR:    "10.2.0.0/16",
@@ -218,7 +220,7 @@ func (s *networkInfoSuite) TestProcessAPIRequestBridgeWithSameIPOverNIC(c *gc.C)
 	c.Check(info[0].InterfaceName, gc.Equals, "br-eth0")
 }
 
-func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(c *gc.C) {
+func (s *networkInfoSuiteB) TestAPIRequestForRelationIAASHostNameIngressNoEgress(c *gc.C) {
 	prr := s.newProReqRelation(c, charm.ScopeGlobal)
 	err := prr.pu0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -270,7 +272,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationIAASHostNameIngressNoEgress(
 	c.Check(addrs[0].Address, gc.Equals, ip)
 }
 
-func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.C) {
+func (s *networkInfoSuiteB) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer func() { _ = st.Close() }()
@@ -318,7 +320,7 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 	c.Check(ingress[0], gc.Equals, host)
 }
 
-func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
+func (s *networkInfoSuiteB) TestNetworksForRelationWithSpaces(c *gc.C) {
 	_ = s.setupSpace(c, "space-1", "1.2.0.0/16")
 	_ = s.setupSpace(c, "space-2", "2.2.0.0/16")
 	spaceID3 := s.setupSpace(c, "space-3", "10.2.0.0/16")
@@ -368,7 +370,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	c.Assert(egress, gc.DeepEquals, []string{"10.2.3.4/32"})
 }
 
-func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
+func (s *networkInfoSuiteB) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	prr := s.newRemoteProReqRelation(c)
 	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -393,7 +395,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
-func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *gc.C) {
+func (s *networkInfoSuiteB) TestNetworksForRelationRemoteRelationNoPublicAddr(c *gc.C) {
 	prr := s.newRemoteProReqRelation(c)
 	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -417,7 +419,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
-func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAddress(c *gc.C) {
+func (s *networkInfoSuiteB) TestNetworksForRelationRemoteRelationDelayedPublicAddress(c *gc.C) {
 	prr := s.newRemoteProReqRelation(c)
 	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -452,7 +454,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
-func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAddress(c *gc.C) {
+func (s *networkInfoSuiteB) TestNetworksForRelationRemoteRelationDelayedPrivateAddress(c *gc.C) {
 	prr := s.newRemoteProReqRelation(c)
 	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -500,7 +502,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPrivateAd
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
 }
 
-func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
+func (s *networkInfoSuiteB) TestNetworksForRelationCAASModel(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer func() { _ = st.Close() }()
@@ -545,7 +547,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
 }
 
-func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.C) {
+func (s *networkInfoSuiteB) TestNetworksForRelationCAASModelInvalidBinding(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer func() { _ = st.Close() }()
@@ -566,7 +568,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 	c.Assert(err, gc.ErrorMatches, `undefined for unit charm: endpoint "unknown" not valid`)
 }
 
-func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c *gc.C) {
+func (s *networkInfoSuiteB) TestNetworksForRelationCAASModelCrossModelNoPrivate(c *gc.C) {
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 	st := s.Factory.MakeCAASModel(c, nil)
 	defer func() { _ = st.Close() }()
@@ -656,7 +658,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 	c.Assert(egress, gc.DeepEquals, []string{"2.3.4.5/32"})
 }
 
-func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
+func (s *networkInfoSuiteB) TestMachineNetworkInfos(c *gc.C) {
 	spaceIDDefault := s.setupSpace(c, "default", "10.0.0.0/24")
 	spaceIDPublic := s.setupSpace(c, "public", "10.10.0.0/24")
 	_ = s.setupSpace(c, "private", "10.20.0.0/24")
@@ -723,7 +725,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfos(c *gc.C) {
 
 // TODO (manadart 2020-02-21): This test can be removed after universal subnet
 // discovery is implemented.
-func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
+func (s *networkInfoSuiteB) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	app := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 
 	unit, err := app.AddUnit(state.AddUnitParams{})
@@ -763,7 +765,7 @@ func (s *networkInfoSuite) TestMachineNetworkInfosAlphaNoSubnets(c *gc.C) {
 	c.Check(resEmpty[0].AddressCIDR(), gc.Equals, "10.20.0.0/24")
 }
 
-func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) string {
+func (s *networkInfoSuiteB) setupSpace(c *gc.C, spaceName, cidr string) string {
 	space, err := s.State.AddSpace(spaceName, network.Id(spaceName), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -778,7 +780,7 @@ func (s *networkInfoSuite) setupSpace(c *gc.C, spaceName, cidr string) string {
 
 // createNICAndBridgeWithIP creates a network interface and a bridge on the
 // machine, and assigns the requested CIDRAddress to the bridge.
-func (s *networkInfoSuite) createNICAndBridgeWithIP(
+func (s *networkInfoSuiteB) createNICAndBridgeWithIP(
 	c *gc.C, machine *state.Machine, deviceName, bridgeName, cidrAddress string,
 ) {
 	s.createNICWithIP(c, machine, network.BridgeDevice, bridgeName, cidrAddress)
@@ -794,7 +796,7 @@ func (s *networkInfoSuite) createNICAndBridgeWithIP(
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *networkInfoSuite) createNICWithIP(
+func (s *networkInfoSuiteB) createNICWithIP(
 	c *gc.C, machine *state.Machine, deviceType network.LinkLayerDeviceType, deviceName, cidrAddress string,
 ) {
 	err := machine.SetLinkLayerDevices(
@@ -816,7 +818,7 @@ func (s *networkInfoSuite) createNICWithIP(
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *networkInfoSuite) newNetworkInfo(
+func (s *networkInfoSuiteB) newNetworkInfo(
 	c *gc.C, tag names.UnitTag, retryFactory func() retry.CallArgs, lookupHost func(string) ([]string, error),
 ) uniter.NetworkInfo {
 	// Allow the caller to supply nil if this is not important.
@@ -836,7 +838,7 @@ func (s *networkInfoSuite) newNetworkInfo(
 	return ni
 }
 
-func (s *networkInfoSuite) newProReqRelationWithBindings(
+func (s *networkInfoSuiteB) newProReqRelationWithBindings(
 	c *gc.C, scope charm.RelationScope, pBindings, rBindings map[string]string,
 ) *ProReqRelation {
 	papp := s.AddTestingApplicationWithBindings(c, "mysql", s.AddTestingCharm(c, "mysql"), pBindings)
@@ -849,7 +851,7 @@ func (s *networkInfoSuite) newProReqRelationWithBindings(
 	return newProReqRelationForApps(c, s.State, papp, rapp)
 }
 
-func (s *networkInfoSuite) newProReqRelation(c *gc.C, scope charm.RelationScope) *ProReqRelation {
+func (s *networkInfoSuiteB) newProReqRelation(c *gc.C, scope charm.RelationScope) *ProReqRelation {
 	pApp := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 
 	var rApp *state.Application
@@ -862,7 +864,7 @@ func (s *networkInfoSuite) newProReqRelation(c *gc.C, scope charm.RelationScope)
 	return newProReqRelationForApps(c, s.State, pApp, rApp)
 }
 
-func (s *networkInfoSuite) newRemoteProReqRelation(c *gc.C) *RemoteProReqRelation {
+func (s *networkInfoSuiteB) newRemoteProReqRelation(c *gc.C) *RemoteProReqRelation {
 	papp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
 		SourceModel: coretesting.ModelTag,

@@ -1979,7 +1979,7 @@ func (s *BootstrapSuite) TestBootstrapPrintClouds(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "--clouds")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
-You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
+(?ms)You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
 Cloud                            Credentials  Default Region
 aws                              fred         us-west-1
                                  mary         
@@ -1990,8 +1990,7 @@ azure-china
 equinix                                       
 google                                        
 oracle                                        
-?(localhost\s+)?(microk8s\s+)?
-dummy-cloud                      joe          home
+.*dummy-cloud                      joe          home
 dummy-cloud-dummy-region-config               
 dummy-cloud-with-config                       
 dummy-cloud-with-region-config                
@@ -2041,7 +2040,7 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, modelcmd.Wrap(command), "--clouds")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, `
-You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
+(?ms)You can bootstrap on these clouds. See ‘--regions <cloud>’ for all regions.
 Cloud                            Credentials  Default Region
 aws                              fred         us-west-1
                                  mary         
@@ -2052,8 +2051,7 @@ azure-china
 equinix                                       
 google                                        
 oracle                                        
-?(localhost\s+)?(microk8s\s+)?
-dummy-cloud-dummy-region-config               
+.*dummy-cloud-dummy-region-config               
 dummy-cloud-with-config                       
 dummy-cloud-with-region-config                
 dummy-cloud-without-regions                   

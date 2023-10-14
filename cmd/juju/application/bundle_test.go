@@ -492,7 +492,8 @@ type BundleDeployCharmStoreSuite struct {
 	server *httptest.Server
 }
 
-var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
+// Disabled: see "this is a badly written e2e test that is invoking external APIs which we cannot mock0"
+//var _ = gc.Suite(&BundleDeployCharmStoreSuite{})
 
 func (s *BundleDeployCharmStoreSuite) SetUpSuite(c *gc.C) {
 	s.DeploySuiteBase.SetUpSuite(c)
