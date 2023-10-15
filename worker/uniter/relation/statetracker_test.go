@@ -541,14 +541,6 @@ func (s *syncScopesSuite) assertSynchronizeScopesFailImplementedBy(c *gc.C, crea
 	if createCharmDir {
 		// wordpress unit with mysql relation
 		s.setupCharmDir(c)
-	} else {
-		s.expectUnitName()
-		s.expectUnitTag()
-		s.expectRelationUnit()
-		s.expectWatch(c)
-		s.expectRelationerJoin()
-		s.expectRelationSetStatusJoined()
-		s.expectRelationID(1)
 	}
 	// Setup for SynchronizeScopes()
 	s.expectRelationById(1)
