@@ -11,6 +11,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package syslogger -destination io_mock_test.go io WriteCloser
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

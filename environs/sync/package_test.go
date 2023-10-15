@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

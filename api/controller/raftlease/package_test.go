@@ -13,6 +13,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/remote_mock.go github.com/juju/juju/api/controller/raftlease Remote,RaftLeaseApplier
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

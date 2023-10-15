@@ -10,6 +10,6 @@ import (
 )
 
 // TestAll is the main test function for this package
-func TestAll(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

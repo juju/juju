@@ -9,6 +9,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-func TestPackage(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }

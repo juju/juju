@@ -17,7 +17,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/environs_mock.go github.com/juju/juju/environs BootstrapEnviron
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/common_mock.go github.com/juju/juju/apiserver/common BlockCheckerInterface
 
-func TestAll(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

@@ -18,6 +18,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/write_mock.go io Writer
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/charm/v8 Charm
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

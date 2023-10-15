@@ -51,16 +51,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 	s.manifold = collect.Manifold(s.manifoldConfig)
 
-	// handwritten for short length due to abstract domain sockets using this path for their name (which have a limit).
-	dataDir, err := os.MkdirTemp("", "testjujumetricscollect")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Cleanup(func() {
-		_ = os.RemoveAll(dataDir)
-	})
-	s.dataDir = dataDir
-
+	s.dataDir = c.MkDir()
 	// create unit agent base dir so that hooks can run.
-	err = os.MkdirAll(filepath.Join(s.dataDir, "agents", "unit-u-0"), 0777)
+	err := os.MkdirAll(filepath.Join(s.dataDir, "agents", "unit-u-0"), 0777)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.resources = dt.StubResources{

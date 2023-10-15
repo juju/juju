@@ -19,7 +19,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/state NotifyWatcher,StringsWatcher
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

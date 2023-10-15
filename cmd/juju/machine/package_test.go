@@ -15,7 +15,7 @@ import (
 
 // None of the tests in this package require mongo.
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

@@ -20,7 +20,7 @@ import (
 	coretools "github.com/juju/juju/tools"
 )
 
-func TestPackage(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	//TODO(bogdanteleaga): Fix this on windows
 	if runtime.GOOS == "windows" {
 		t.Skip("bug 1403084: Currently does not work under windows")

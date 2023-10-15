@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

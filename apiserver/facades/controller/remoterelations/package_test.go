@@ -11,6 +11,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/remoterelations_mocks.go github.com/juju/juju/apiserver/facades/controller/remoterelations RemoteRelationsState,ControllerConfigAPI
 
-func TestAll(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

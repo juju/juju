@@ -13,6 +13,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package refresher -destination store_mock_test.go github.com/juju/juju/cmd/juju/application/store MacaroonGetter,CharmAdder
 //go:generate go run go.uber.org/mock/mockgen -package refresher -destination charm_mock_test.go github.com/juju/charm/v8 Charm
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

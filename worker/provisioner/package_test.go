@@ -13,6 +13,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/provisioner.go github.com/juju/juju/worker/provisioner ContainerMachine,ContainerMachineGetter,TaskAPI
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/dependency.go github.com/juju/worker/v3/dependency Context
 
-func TestPackage(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }

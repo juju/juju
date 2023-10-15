@@ -11,6 +11,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/interface_mocks.go github.com/juju/juju/apiserver/facades/client/charms/services StateBackend,ModelBackend,Storage,UploadedCharm
 
-func TestAll(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

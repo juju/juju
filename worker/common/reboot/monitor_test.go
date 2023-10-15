@@ -77,6 +77,6 @@ func (s *monitorSuite) TestQueryMonitorForDifferentEntities(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rebootDetected, jc.IsFalse, gc.Commentf("got unexpected reboot notification"))
 }
-func TestAll(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

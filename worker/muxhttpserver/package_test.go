@@ -12,7 +12,9 @@ import (
 	pki_test "github.com/juju/juju/pki/test"
 )
 
-func TestSuite(t *testing.T) { gc.TestingT(t) }
+func Test(t *testing.T) {
+	gc.TestingT(t)
+}
 
 func init() {
 	// Use full strength key profile

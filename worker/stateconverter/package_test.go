@@ -16,7 +16,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/dependency_mock.go github.com/juju/worker/v3/dependency Context
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/agent_mock.go github.com/juju/juju/agent Agent,Config
 
-func TestAll(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

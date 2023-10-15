@@ -26,6 +26,6 @@ func init() {
 	gc.Suite(&ControllerSuite{})
 }
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	coretesting.MgoSSLTestPackage(t)
 }

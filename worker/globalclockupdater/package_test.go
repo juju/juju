@@ -13,6 +13,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package globalclockupdater -destination raftlease_test.go github.com/juju/juju/core/raftlease NotifyTarget,ReadOnlyClock,FSMResponse
 //go:generate go run go.uber.org/mock/mockgen -package globalclockupdater -destination rafterror_test.go github.com/hashicorp/raft ApplyFuture
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

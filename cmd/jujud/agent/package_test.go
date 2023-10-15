@@ -11,7 +11,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/machine_mock.go github.com/juju/juju/cmd/jujud/agent CommandRunner
 
-func TestPackage(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	// TODO(waigani) 2014-03-19 bug 1294458
 	// Refactor to use base suites
 	coretesting.MgoSSLTestPackage(t)

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func TestAll(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 

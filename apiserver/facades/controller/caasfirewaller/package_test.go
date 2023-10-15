@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func TestAll(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

@@ -86,6 +86,7 @@ require (
 	github.com/juju/utils/v3 v3.0.0
 	github.com/juju/version/v2 v2.0.0
 	github.com/juju/webbrowser v1.0.0
+	github.com/juju/worker v0.0.0-20191018043616-19a698a7150f
 	github.com/juju/worker/v3 v3.4.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/kr/pretty v0.3.1
@@ -248,6 +249,7 @@ require (
 	gopkg.in/errgo.v1 v1.0.1 // indirect
 	gopkg.in/gobwas/glob.v0 v0.2.3 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
+	gopkg.in/juju/worker.v1 v1.0.0-20191018043616-19a698a7150f // indirect
 	gopkg.in/macaroon-bakery.v3 v3.0.0 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	k8s.io/kube-openapi v0.0.0-20211115234752-e816edb12b65 // indirect
@@ -269,7 +271,7 @@ replace github.com/dustin/go-humanize v1.0.0 => github.com/dustin/go-humanize v0
 
 replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-20200518034108-40b112c917c5
 
-replace gopkg.in/check.v1 v1.0.0 => github.com/hpidcock/check v0.0.0-20231013101159-db2238706e86
+replace gopkg.in/check.v1 v1.0.0 => github.com/hpidcock/check v0.0.0-20231015015034-be8e3209a8bd
 
 replace github.com/juju/mgo/v2 => github.com/hpidcock/mgo/v2 v2.0.0-20231014074227-11c2b814e5a5
 

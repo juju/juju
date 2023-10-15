@@ -14,6 +14,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/mocks_cred_api.go github.com/juju/juju/worker/common CredentialAPI
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/mocks_instancepoller.go github.com/juju/juju/worker/instancepoller Environ,Machine
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

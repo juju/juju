@@ -10,6 +10,6 @@ import (
 )
 
 // TestPackage integrates the tests into gotest.
-func TestPackage(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }

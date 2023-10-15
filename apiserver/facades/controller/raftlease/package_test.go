@@ -11,6 +11,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package raftlease -destination raft_mock_test.go github.com/juju/juju/apiserver/facade RaftContext,Authorizer,Context
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

@@ -36,7 +36,7 @@ const (
 	invalidApplicationId  = "something-strange-"
 )
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

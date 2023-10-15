@@ -11,6 +11,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/firewaller_mocks.go github.com/juju/juju/apiserver/facades/controller/firewaller State,ControllerConfigAPI
 
-func TestAll(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }

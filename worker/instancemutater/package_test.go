@@ -14,6 +14,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/namestag_mock.go github.com/juju/names/v4 Tag
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/machinemutater_mock.go github.com/juju/juju/api/agent/instancemutater MutaterMachine
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

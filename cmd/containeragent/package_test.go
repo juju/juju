@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func TestAll(t *testing.T) {
+func Test(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("containeragent only runs on Linux")
 	}

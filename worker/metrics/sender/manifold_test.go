@@ -14,9 +14,9 @@ import (
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 	dt "github.com/juju/worker/v3/dependency/testing"
+	"github.com/juju/worker/workertest"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/httprequest.v1"
 
@@ -59,7 +59,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	// handwritten for short length due to abstract domain sockets using this path for their name (which have a limit).
 	dataDir, err := os.MkdirTemp("", "testjujumetricscollect")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Cleanup(func() {
+	s.AddCleanup(func(c *gc.C) {
 		_ = os.RemoveAll(dataDir)
 	})
 
@@ -101,18 +101,9 @@ func (s *ManifoldSuite) TestStartMissingAgent(c *gc.C) {
 }
 
 func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
-	s.setupWorkerTest(c)
-}
-
-func (s *ManifoldSuite) setupWorkerTest(c *gc.C) worker.Worker {
 	worker, err := s.manifold.Start(s.resources.Context())
 	c.Check(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) {
-		worker.Kill()
-		err := worker.Wait()
-		c.Check(err, jc.ErrorIsNil)
-	})
-	return worker
+	workertest.CleanKill(c, worker)
 }
 
 type mockListener struct {

@@ -25,7 +25,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/spacesapi_mock.go github.com/juju/juju/cmd/juju/space SpaceAPI,SubnetAPI,API
 
-func TestPackage(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 

@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	if runtime.GOOS != "linux" {
 		t.Skip("introspection socket only runs on Linux")
 	}

@@ -14,7 +14,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package lxd -destination package_mock_test.go github.com/juju/juju/provider/lxd Server,ServerFactory,InterfaceAddress,CertificateReadWriter,CertificateGenerator,LXCConfigReader
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

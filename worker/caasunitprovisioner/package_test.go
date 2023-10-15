@@ -11,6 +11,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package caasunitprovisioner -destination package_mock_test.go github.com/juju/juju/worker/caasunitprovisioner ProvisioningStatusSetter
 
-func TestPackage(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }

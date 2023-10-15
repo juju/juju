@@ -10,7 +10,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
-func TestAll(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

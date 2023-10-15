@@ -18,7 +18,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

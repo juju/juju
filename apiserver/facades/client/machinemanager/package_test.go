@@ -18,6 +18,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/volume_access_mock.go github.com/juju/juju/apiserver/common/storagecommon VolumeAccess
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/environ_mock.go github.com/juju/juju/environs Environ
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

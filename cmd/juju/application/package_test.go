@@ -12,6 +12,6 @@ import (
 
 // TODO(wallyworld) - convert tests moved across from commands package to not require mongo
 
-func TestPackage(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }

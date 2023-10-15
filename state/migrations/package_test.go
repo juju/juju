@@ -17,6 +17,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package migrations -destination description_mock_test.go github.com/juju/description/v3 ExternalController,OfferConnection,RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
 //go:generate go run go.uber.org/mock/mockgen -package migrations -destination firewallrules_mock_test.go github.com/juju/juju/state/migrations MigrationFirewallRule,FirewallRuleSource,FirewallRulesModel
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

@@ -12,6 +12,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/http_mock.go github.com/juju/juju/api/http HTTPClient
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/httpdoer_mock.go github.com/juju/juju/api/http HTTPDoer
 
-func TestAll(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

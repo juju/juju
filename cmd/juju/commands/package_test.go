@@ -31,7 +31,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/jujuclient_mock.go github.com/juju/juju/jujuclient ClientStore,CookieJar
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/sshclient_mock.go github.com/juju/juju/cmd/juju/commands SSHClientAPI
 
-func TestPackage(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 

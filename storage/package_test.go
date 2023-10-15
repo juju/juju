@@ -9,6 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }

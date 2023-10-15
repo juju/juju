@@ -12,7 +12,7 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
-func TestAll(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

@@ -11,6 +11,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package charmhub -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/charmhub Backend,ClientFactory,Client
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }

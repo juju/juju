@@ -14,7 +14,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package raftlease -destination writer_mock_test.go io Writer
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 

@@ -15,6 +15,6 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/storage.go github.com/juju/juju/state/binarystorage StorageCloser
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/environs.go github.com/juju/juju/environs EnvironConfigGetter,BootstrapEnviron
 
-func TestAll(t *stdtesting.T) {
+func Test(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }

@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-func TestAll(t *testing.T) {
+func Test(t *testing.T) {
 	coretesting.MgoTestPackage(t)
 }
 

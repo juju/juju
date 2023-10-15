@@ -28,7 +28,7 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package state -destination migration_description_mock_test.go github.com/juju/description/v3 ApplicationOffer,ExternalController,FirewallRule,RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/operation_mock.go github.com/juju/juju/state ModelOperation
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	if !runStateTests {
 		t.Skip("skipping state tests since the skip_state_tests build tag was set")
 	}

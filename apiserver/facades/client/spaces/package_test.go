@@ -20,7 +20,7 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,RemoveSpace,Constraints,MovingSubnet,MovingSubnetBacking,MoveSubnetsOp,Address,Unit,ReloadSpaces,ReloadSpacesState,ReloadSpacesEnviron,EnvironSpaces,AuthorizerState,Bindings
 
-func TestPackage(t *testing.T) {
+func Test(t *testing.T) {
 	gc.TestingT(t)
 }
 
