@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -168,9 +167,6 @@ func (s *DeploySuiteBase) runDeployWithOutput(c *gc.C, args ...string) (string, 
 }
 
 func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "darwin" {
-		c.Skip("Mongo failures on macOS")
-	}
 	s.RepoSuite.SetUpTest(c)
 	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil

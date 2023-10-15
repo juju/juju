@@ -5,7 +5,6 @@ package application
 
 import (
 	"fmt"
-	"runtime"
 
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -26,9 +25,6 @@ type RemoveApplicationSuite struct {
 var _ = gc.Suite(&RemoveApplicationSuite{})
 
 func (s *RemoveApplicationSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "darwin" {
-		c.Skip("Mongo failures on macOS")
-	}
 	s.RepoSuite.SetUpTest(c)
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)

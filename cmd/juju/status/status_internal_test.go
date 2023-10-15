@@ -72,9 +72,6 @@ func (s *StatusSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *StatusSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "darwin" {
-		c.Skip("Mongo failures on macOS")
-	}
 	s.ConfigAttrs = map[string]interface{}{
 		"agent-version": currentVersion.String(),
 	}

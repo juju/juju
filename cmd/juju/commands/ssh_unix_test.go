@@ -10,7 +10,6 @@ package commands
 import (
 	"fmt"
 	"reflect"
-	"runtime"
 
 	"github.com/juju/cmd/v3/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -187,13 +186,6 @@ var sshTests = []struct {
 			argsMatch:       `ubuntu@0.private`,
 		},
 	},
-}
-
-func (s *SSHSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "darwin" {
-		c.Skip("Mongo failures on macOS")
-	}
-	s.SSHMachineSuite.SetUpTest(c)
 }
 
 func (s *SSHSuite) TestSSHCommand(c *gc.C) {

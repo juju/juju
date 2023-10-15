@@ -11,7 +11,6 @@ import (
 	"io"
 	"io/ioutil"
 	"path"
-	"runtime"
 	"strings"
 
 	"github.com/juju/cmd/v3"
@@ -84,9 +83,6 @@ type UpgradeJujuSuite struct {
 }
 
 func (s *UpgradeJujuSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "darwin" {
-		c.Skip("Mongo failures on macOS")
-	}
 	s.UpgradeBaseSuite.SetUpTest(c)
 	err := s.ControllerStore.UpdateModel(jujutesting.ControllerName, "admin/dummy-model", jujuclient.ModelDetails{
 		ModelType: model.IAAS,
@@ -1298,9 +1294,6 @@ type UpgradeCAASModelSuite struct {
 }
 
 func (s *UpgradeCAASModelSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "darwin" {
-		c.Skip("Mongo failures on macOS")
-	}
 	s.UpgradeBaseSuite.SetUpTest(c)
 	err := s.ControllerStore.UpdateModel(jujutesting.ControllerName, "admin/dummy-model", jujuclient.ModelDetails{
 		ModelType: model.CAAS,
