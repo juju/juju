@@ -433,10 +433,10 @@ github.com/hashicorp/serf v0.8.2/go.mod h1:6hOLApaqBFA1NXqRQAsxw9QxuDEvNxSQRwA/J
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/hpidcock/check v0.0.0-20231015015034-be8e3209a8bd h1:YWnsQmIM8ypvSR4ScXTA0+gw8zUzMK5ZmXOm5H2rruM=
 github.com/hpidcock/check v0.0.0-20231015015034-be8e3209a8bd/go.mod h1:lTt2iHeyuS3H3ZmMS+qaNkYRxNF7KfN+h4FFUhqVOKM=
-github.com/hpidcock/mgo/v2 v2.0.0-20231014074227-11c2b814e5a5 h1:zz8HyZO+3i1xxd+gqMG5wUR5VNoMUPwM++YMVO5OcQs=
-github.com/hpidcock/mgo/v2 v2.0.0-20231014074227-11c2b814e5a5/go.mod h1:Z2QbXIrR9JuJcSyankQOw31tINNA5p3qevW73oDoHsM=
-github.com/hpidcock/testing v0.0.0-20231014054306-a2f771b4c6f2 h1:uW8CUwhp9Ny0T/ipccGEA2G9rFzQdpyZJVteBh3yhc4=
-github.com/hpidcock/testing v0.0.0-20231014054306-a2f771b4c6f2/go.mod h1:1XQGptw6JWFvRWb3ewilUdTBG0oGcoI2kdX9Z1VEzhU=
+github.com/hpidcock/mgo/v2 v2.0.0-20231015052538-571b962865b3 h1:QJqPrc8lUwiohrUEUk/FTckNHI3UfqMlvSiIUgTm9tc=
+github.com/hpidcock/mgo/v2 v2.0.0-20231015052538-571b962865b3/go.mod h1:Z2QbXIrR9JuJcSyankQOw31tINNA5p3qevW73oDoHsM=
+github.com/hpidcock/testing v0.0.0-20231015050404-4747a430bce1 h1:v9GTESXIHj7Ynrpqw7dmE99bxFHQ9TU4ifc39QvGsWY=
+github.com/hpidcock/testing v0.0.0-20231015050404-4747a430bce1/go.mod h1:1XQGptw6JWFvRWb3ewilUdTBG0oGcoI2kdX9Z1VEzhU=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/ianlancetaylor/demangle v0.0.0-20200824232613-28f6c0f3b639/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/im7mortal/kmutex v1.0.1 h1:zAACzjwD+OEknDqnLdvRa/BhzFM872EBwKijviGLc9Q=

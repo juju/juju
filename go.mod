@@ -273,6 +273,6 @@ replace github.com/hashicorp/raft-boltdb => github.com/juju/raft-boltdb v0.0.0-2
 
 replace gopkg.in/check.v1 v1.0.0 => github.com/hpidcock/check v0.0.0-20231015015034-be8e3209a8bd
 
-replace github.com/juju/mgo/v2 => github.com/hpidcock/mgo/v2 v2.0.0-20231014074227-11c2b814e5a5
+replace github.com/juju/mgo/v2 => github.com/hpidcock/mgo/v2 v2.0.0-20231015052538-571b962865b3
 
-replace github.com/juju/testing => github.com/hpidcock/testing v0.0.0-20231014054306-a2f771b4c6f2
+replace github.com/juju/testing => github.com/hpidcock/testing v0.0.0-20231015050404-4747a430bce1
