@@ -12,7 +12,7 @@ import (
 	cloud0 "github.com/juju/juju/cloud"
 	permission "github.com/juju/juju/core/permission"
 	watcher "github.com/juju/juju/core/watcher"
-	service "github.com/juju/juju/domain/credential/service"
+	credential "github.com/juju/juju/domain/credential"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -196,19 +196,19 @@ func (m *MockCredentialService) EXPECT() *MockCredentialServiceMockRecorder {
 	return m.recorder
 }
 
-// AllCloudCredentials mocks base method.
-func (m *MockCredentialService) AllCloudCredentials(arg0 context.Context, arg1 string) ([]service.CloudCredential, error) {
+// AllCloudCredentialsForOwner mocks base method.
+func (m *MockCredentialService) AllCloudCredentialsForOwner(arg0 context.Context, arg1 string) ([]credential.CloudCredential, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllCloudCredentials", arg0, arg1)
-	ret0, _ := ret[0].([]service.CloudCredential)
+	ret := m.ctrl.Call(m, "AllCloudCredentialsForOwner", arg0, arg1)
+	ret0, _ := ret[0].([]credential.CloudCredential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AllCloudCredentials indicates an expected call of AllCloudCredentials.
-func (mr *MockCredentialServiceMockRecorder) AllCloudCredentials(arg0, arg1 interface{}) *gomock.Call {
+// AllCloudCredentialsForOwner indicates an expected call of AllCloudCredentialsForOwner.
+func (mr *MockCredentialServiceMockRecorder) AllCloudCredentialsForOwner(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllCloudCredentials", reflect.TypeOf((*MockCredentialService)(nil).AllCloudCredentials), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllCloudCredentialsForOwner", reflect.TypeOf((*MockCredentialService)(nil).AllCloudCredentialsForOwner), arg0, arg1)
 }
 
 // CloudCredential mocks base method.
@@ -226,19 +226,19 @@ func (mr *MockCredentialServiceMockRecorder) CloudCredential(arg0, arg1 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredential", reflect.TypeOf((*MockCredentialService)(nil).CloudCredential), arg0, arg1)
 }
 
-// CloudCredentials mocks base method.
-func (m *MockCredentialService) CloudCredentials(arg0 context.Context, arg1, arg2 string) (map[string]cloud0.Credential, error) {
+// CloudCredentialsForOwner mocks base method.
+func (m *MockCredentialService) CloudCredentialsForOwner(arg0 context.Context, arg1, arg2 string) (map[string]cloud0.Credential, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudCredentials", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CloudCredentialsForOwner", arg0, arg1, arg2)
 	ret0, _ := ret[0].(map[string]cloud0.Credential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CloudCredentials indicates an expected call of CloudCredentials.
-func (mr *MockCredentialServiceMockRecorder) CloudCredentials(arg0, arg1, arg2 interface{}) *gomock.Call {
+// CloudCredentialsForOwner indicates an expected call of CloudCredentialsForOwner.
+func (mr *MockCredentialServiceMockRecorder) CloudCredentialsForOwner(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredentials", reflect.TypeOf((*MockCredentialService)(nil).CloudCredentials), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredentialsForOwner", reflect.TypeOf((*MockCredentialService)(nil).CloudCredentialsForOwner), arg0, arg1, arg2)
 }
 
 // RemoveCloudCredential mocks base method.

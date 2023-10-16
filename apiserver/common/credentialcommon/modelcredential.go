@@ -10,16 +10,43 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
+
+// CredentialValidationContext provides access to artefacts needed to
+// validate a credential for a given model.
+type CredentialValidationContext struct {
+	ControllerUUID string
+
+	Context        context.ProviderCallContext
+	Config         *config.Config
+	MachineService MachineService
+
+	ModelType model.Type
+	Cloud     cloud.Cloud
+	Region    string
+}
+
+// CredentialValidator instances check that a given credential is
+// valid for any models which want to use it.
+type CredentialValidator interface {
+	Validate(
+		ctx CredentialValidationContext,
+		credentialID credential.ID,
+		credential *cloud.Credential,
+		checkCloudInstances bool,
+	) ([]error, error)
+}
 
 // ValidateExistingModelCredential checks if the cloud credential that a given model uses is valid for it.
 func ValidateExistingModelCredential(
@@ -27,7 +54,7 @@ func ValidateExistingModelCredential(
 	model Model,
 	backend MachineService,
 	credentialTag names.CloudCredentialTag,
-	credentialService common.CredentialService,
+	credentialService CredentialService,
 	cld cloud.Cloud, checkCloudInstances bool,
 ) (params.ErrorResults, error) {
 	if credentialTag.IsZero() {

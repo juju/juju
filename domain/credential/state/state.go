@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
+	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -66,23 +68,27 @@ AND    cloud_credential.cloud_uuid = (
 }
 
 // UpsertCloudCredential adds or updates a cloud credential with the given name, cloud and owner.
-func (st *State) UpsertCloudCredential(ctx context.Context, name, cloudName, owner string, credential cloud.Credential) error {
+// If the credential exists already, the existing credential's Invalid value is returned.
+// TODO(wallyworld) - introduce a bespoke domain type
+// TODO - because the values for Invalid and InvalidReason attributes are not included in the update.
+func (st *State) UpsertCloudCredential(ctx context.Context, name, cloudName, owner string, credential cloud.Credential) (*bool, error) {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	q := `
-SELECT  cloud_credential.uuid AS &M.uuid
+SELECT  cloud_credential.uuid AS &M.uuid, cloud_credential.invalid AS &M.invalid
 FROM    cloud_credential
         JOIN cloud ON cloud_credential.cloud_uuid = cloud.uuid
 WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_name AND cloud_credential.owner_uuid = $M.owner
 `
 	stmt, err := sqlair.Prepare(q, sqlair.M{})
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
+	var existingInvalid *bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Get the credential UUID - either existing or make a new one.
 		// TODO(wallyworld) - implement owner as a FK when users are modelled.
@@ -91,6 +97,10 @@ WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_nam
 		err = tx.Query(ctx, stmt, credentialKeyMap(name, cloudName, owner)).Get(result)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Trace(err)
+		}
+		invalid, ok := result["invalid"].(bool)
+		if ok {
+			existingInvalid = &invalid
 		}
 		credentialUUID, ok := result["uuid"].(string)
 		if !ok {
@@ -113,7 +123,7 @@ WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_nam
 		return nil
 	})
 
-	return errors.Trace(err)
+	return existingInvalid, errors.Trace(err)
 }
 
 // CreateCredential saves the specified credential.
@@ -315,15 +325,15 @@ AND    cloud_credential.cloud_uuid = (
 	return errors.Trace(err)
 }
 
-// CloudCredentials returns the user's cloud credentials for a given cloud,
+// CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 // keyed by credential name.
-func (st *State) CloudCredentials(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error) {
+func (st *State) CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var creds []CloudCredential
+	var creds []credential.CloudCredential
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		creds, err = st.loadCloudCredentials(ctx, tx, "", cloudName, owner)
@@ -346,7 +356,7 @@ func (st *State) CloudCredential(ctx context.Context, name, cloudName, owner str
 		return cloud.Credential{}, errors.Trace(err)
 	}
 
-	var creds []CloudCredential
+	var creds []credential.CloudCredential
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		creds, err = st.loadCloudCredentials(ctx, tx, name, cloudName, owner)
@@ -366,7 +376,7 @@ func (st *State) CloudCredential(ctx context.Context, name, cloudName, owner str
 
 type credentialAttrs map[string]string
 
-func (st *State) loadCloudCredentials(ctx context.Context, tx *sqlair.TX, name, cloudName, owner string) ([]CloudCredential, error) {
+func (st *State) loadCloudCredentials(ctx context.Context, tx *sqlair.TX, name, cloudName, owner string) ([]credential.CloudCredential, error) {
 	credQuery := `
 SELECT (cc.uuid, cc.name,
        cc.revoked, cc.invalid, 
@@ -415,21 +425,15 @@ FROM   cloud_credential cc
 	return dbRows.toCloudCredentials(dbAuthTypes, dbclouds, keyValues)
 }
 
-// CloudCredential represents a credential and the cloud it belongs to.
-type CloudCredential struct {
-	Credential cloud.Credential
-	CloudName  string
-}
-
-// AllCloudCredentials returns all cloud credentials stored on the controller
+// AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given user.
-func (st *State) AllCloudCredentials(ctx context.Context, owner string) ([]CloudCredential, error) {
+func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner string) ([]credential.CloudCredential, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var result []CloudCredential
+	var result []credential.CloudCredential
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		result, err = st.loadCloudCredentials(ctx, tx, "", "", owner)
@@ -506,4 +510,53 @@ func (st *State) WatchCredential(
 	}
 	result, err := getWatcher("cloud_credential", uuid, changestream.All)
 	return result, errors.Annotatef(err, "watching credential")
+}
+
+// ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
+func (st *State) ModelsUsingCloudCredential(ctx context.Context, id credential.ID) (map[model.UUID]string, error) {
+	if err := id.Validate(); err != nil {
+		return nil, errors.Annotate(err, "invalid credential querying models")
+	}
+
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	query := `
+SELECT mm.model_uuid AS &M.model_uuid, mm.name AS &M.name
+FROM   model_metadata mm
+JOIN cloud_credential cc ON cc.uuid = mm.cloud_credential_uuid
+JOIN cloud ON cloud.uuid = cc.cloud_uuid
+`
+
+	types := []any{
+		sqlair.M{},
+	}
+	condition, args := database.SqlairClauseAnd(map[string]any{
+		"cc.name":       id.Name,
+		"cloud.name":    id.Cloud,
+		"cc.owner_uuid": id.Owner,
+	})
+	query = query + "WHERE " + condition
+
+	stmt, err := sqlair.Prepare(query, types...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var info []sqlair.M
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, args).GetAll(&info)
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make(map[model.UUID]string)
+	for _, m := range info {
+		name, _ := m["name"].(string)
+		uuid, _ := m["model_uuid"].(string)
+		result[model.UUID(uuid)] = name
+	}
+	return result, nil
 }

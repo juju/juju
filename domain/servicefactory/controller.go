@@ -113,6 +113,7 @@ func (s *ControllerFactory) Credential() *credentialservice.Service {
 			s.controllerDB,
 			s.logger.Child("credential"),
 		),
+		s.logger,
 	)
 }
 

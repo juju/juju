@@ -22,7 +22,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain/credential/service"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
@@ -74,7 +74,7 @@ var (
 )
 
 // CredentialCallContextGetter returns the artefacts for a specified model, used to make credential api calls.
-type CredentialCallContextGetter func(modelUUID string) (credentialcommon.Model, credentialcommon.MachineService, envcontext.ProviderCallContext, error)
+type CredentialCallContextGetter func(modelUUID string) (*cloud.Cloud, credentialcommon.Model, credentialcommon.MachineService, envcontext.ProviderCallContext, error)
 
 // ValidateCredentialFunc checks if a new cloud credential could be valid for a given model.
 type ValidateCredentialFunc func(
@@ -389,7 +389,7 @@ func (api *CloudAPI) UserCredentials(ctx context.Context, args params.UserClouds
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		cloudCredentials, err := api.credentialService.CloudCredentials(ctx, userTag.Id(), cloudTag.Id())
+		cloudCredentials, err := api.credentialService.CloudCredentialsForOwner(ctx, userTag.Id(), cloudTag.Id())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -513,12 +513,6 @@ func (api *CloudAPI) commonUpdateCredentials(ctx context.Context, update bool, f
 			}
 		}
 
-		cld, err := api.cloudService.Get(ctx, tag.Cloud().Id())
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
 		var modelsErred bool
 		if len(models) > 0 {
 			var modelsResult []params.UpdateCredentialModelResult
@@ -527,7 +521,7 @@ func (api *CloudAPI) commonUpdateCredentials(ctx context.Context, update bool, f
 					ModelUUID: uuid,
 					ModelName: name,
 				}
-				model.Errors = api.validateCredentialForModel(uuid, *cld, tag, &in)
+				model.Errors = api.validateCredentialForModel(uuid, tag, &in)
 				modelsResult = append(modelsResult, model)
 				if len(model.Errors) > 0 {
 					modelsErred = true
@@ -592,10 +586,10 @@ func (api *CloudAPI) credentialModels(tag names.CloudCredentialTag) (map[string]
 	return models, nil
 }
 
-func (api *CloudAPI) validateCredentialForModel(modelUUID string, cld cloud.Cloud, tag names.CloudCredentialTag, credential *cloud.Credential) []params.ErrorResult {
+func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.CloudCredentialTag, credential *cloud.Credential) []params.ErrorResult {
 	var result []params.ErrorResult
 
-	model, machineService, callContext, err := api.credentialCallContextGetter(modelUUID)
+	cld, model, machineService, callContext, err := api.credentialCallContextGetter(modelUUID)
 	if err != nil {
 		return append(result, params.ErrorResult{Error: apiservererrors.ServerError(err)})
 	}
@@ -606,7 +600,7 @@ func (api *CloudAPI) validateCredentialForModel(modelUUID string, cld cloud.Clou
 		machineService,
 		tag,
 		credential,
-		cld,
+		*cld,
 		false,
 	)
 	if err != nil {
@@ -752,7 +746,7 @@ func (api *CloudAPI) Credential(ctx context.Context, args params.Entities) (para
 			schemaCache[cloudName] = schema
 			return schema, nil
 		}
-		cloudCredentials, err := api.credentialService.CloudCredentials(ctx, credentialTag.Owner().Id(), credentialTag.Cloud().Id())
+		cloudCredentials, err := api.credentialService.CloudCredentialsForOwner(ctx, credentialTag.Owner().Id(), credentialTag.Cloud().Id())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -910,7 +904,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 	}
 
 	// Helper to parse cloud.CloudCredential into an expected result item.
-	toParam := func(tag names.CloudCredentialTag, credential service.CloudCredential, includeSecrets bool) params.CredentialContentResult {
+	toParam := func(tag names.CloudCredentialTag, credential credential.CloudCredential, includeSecrets bool) params.CredentialContentResult {
 		schemas, err := credentialSchemas(credential.CloudName)
 		if err != nil {
 			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
@@ -956,14 +950,14 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 
 	var result []params.CredentialContentResult
 	if len(args.Credentials) == 0 {
-		credentials, err := api.credentialService.AllCloudCredentials(ctx, api.apiUser.Id())
+		credentials, err := api.credentialService.AllCloudCredentialsForOwner(ctx, api.apiUser.Id())
 		if err != nil {
 			return params.CredentialContentResults{}, errors.Trace(err)
 		}
 		result = make([]params.CredentialContentResult, len(credentials))
-		for i, credential := range credentials {
-			tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", credential.CloudName, api.apiUser.Id(), credential.Credential.Label))
-			result[i] = toParam(tag, credential, args.IncludeSecrets)
+		for i, cred := range credentials {
+			tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", cred.CloudName, api.apiUser.Id(), cred.Credential.Label))
+			result[i] = toParam(tag, cred, args.IncludeSecrets)
 		}
 	} else {
 		// Helper to construct credential tag from cloud and name.
@@ -983,14 +977,14 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 				continue
 			}
 			tag := names.NewCloudCredentialTag(id)
-			credential, err := api.credentialService.CloudCredential(ctx, tag)
+			cred, err := api.credentialService.CloudCredential(ctx, tag)
 			if err != nil {
 				result[i] = params.CredentialContentResult{
 					Error: apiservererrors.ServerError(err),
 				}
 				continue
 			}
-			result[i] = toParam(tag, service.CloudCredential{Credential: credential, CloudName: tag.Cloud().Id()}, args.IncludeSecrets)
+			result[i] = toParam(tag, credential.CloudCredential{Credential: cred, CloudName: tag.Cloud().Id()}, args.IncludeSecrets)
 		}
 	}
 	return params.CredentialContentResults{Results: result}, nil

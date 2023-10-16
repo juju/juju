@@ -10,7 +10,6 @@ import (
 
 	credentialcommon "github.com/juju/juju/apiserver/common/credentialcommon"
 	cloud "github.com/juju/juju/cloud"
-	watcher "github.com/juju/juju/core/watcher"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v4"
@@ -185,19 +184,4 @@ func (m *MockCredentialService) InvalidateCredential(arg0 context.Context, arg1 
 func (mr *MockCredentialServiceMockRecorder) InvalidateCredential(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvalidateCredential", reflect.TypeOf((*MockCredentialService)(nil).InvalidateCredential), arg0, arg1, arg2)
-}
-
-// WatchCredential mocks base method.
-func (m *MockCredentialService) WatchCredential(arg0 context.Context, arg1 names.CloudCredentialTag) (watcher.Watcher[struct{}], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchCredential", arg0, arg1)
-	ret0, _ := ret[0].(watcher.Watcher[struct{}])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchCredential indicates an expected call of WatchCredential.
-func (mr *MockCredentialServiceMockRecorder) WatchCredential(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchCredential", reflect.TypeOf((*MockCredentialService)(nil).WatchCredential), arg0, arg1)
 }

@@ -54,7 +54,7 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 		false)
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
-	err = credSt.UpsertCloudCredential(
+	_, err = credSt.UpsertCloudCredential(
 		context.Background(),
 		"foobar",
 		"my-cloud",
@@ -202,7 +202,7 @@ func (m *modelSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 		false)
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
-	err = credSt.UpsertCloudCredential(
+	_, err = credSt.UpsertCloudCredential(
 		context.Background(),
 		"foobar",
 		"my-cloud2",

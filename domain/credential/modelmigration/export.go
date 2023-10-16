@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/cloud"
@@ -15,6 +16,8 @@ import (
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/credential/state"
 )
+
+var logger = loggo.GetLogger("juju.migration.credentials")
 
 // RegisterExport registers the export operations with the given coordinator.
 func RegisterExport(coordinator Coordinator) {
@@ -40,7 +43,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	// We must not use a watcher during migration, so it's safe to pass a
 	// nil watcher factory.
 	e.service = service.NewService(
-		state.NewState(scope.ControllerDB()), nil)
+		state.NewState(scope.ControllerDB()), nil, logger)
 	return nil
 }
 
