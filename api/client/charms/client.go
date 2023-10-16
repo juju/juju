@@ -215,8 +215,11 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm, force bool, agen
 		if archive, err = os.CreateTemp("", "charm"); err != nil {
 			return nil, errors.Annotate(err, "cannot create temp file")
 		}
-		defer os.Remove(archive.Name())
-		defer archive.Close()
+		defer func() {
+			_ = archive.Close()
+			_ = os.Remove(archive.Name())
+		}()
+
 		if err := ch.ArchiveTo(archive); err != nil {
 			return nil, errors.Annotate(err, "cannot repackage charm")
 		}

@@ -1657,9 +1657,7 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		CharmModifiedVersion: 0,
 		InitialScale:         1,
 		Constraints:          c.pcfg.Bootstrap.BootstrapMachineConstraints,
-		// TODO(wallyworld) - use pebble to manage the controller workloads
-		//Containers:           containers,
-		ExistingContainers: []string{apiServerContainerName},
+		ExistingContainers:   []string{apiServerContainerName},
 		// TODO(wallyworld) - use storage so the volumes don't need to be manually set up
 		//Filesystems: nil,
 		Rootless: true,
@@ -1678,6 +1676,11 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		),
 		SubPath: constants.ControllerUnitAgentConfigFilename,
 	}
+	dataDirMount := core.VolumeMount{
+		Name:      storageName,
+		MountPath: c.pcfg.DataDir,
+	}
+
 	for i, ct := range spec.InitContainers {
 		if ct.Name != constants.ApplicationInitContainer {
 			continue
@@ -1691,14 +1694,23 @@ func (c *controllerStack) buildContainerSpecForCommands(setupCmd, machineCmd str
 		if ct.Name != constants.ApplicationCharmContainer {
 			continue
 		}
-		ct.VolumeMounts = append(ct.VolumeMounts, agentConfigMount)
+
+		// Replace the /var/lib/juju mount
+		for j, mount := range ct.VolumeMounts {
+			if mount.MountPath == c.pcfg.DataDir {
+				ct.VolumeMounts = append(ct.VolumeMounts[:j], ct.VolumeMounts[j+1:]...)
+				break
+			}
+		}
+		ct.VolumeMounts = append(ct.VolumeMounts, agentConfigMount, dataDirMount)
+
 		// Remove probes to prevent controller death.
 		ct.LivenessProbe = nil
 		ct.ReadinessProbe = nil
 		ct.StartupProbe = nil
-		for i, env := range ct.Env {
+		for j, env := range ct.Env {
 			if env.Name == constants.EnvAgentHTTPProbePort {
-				ct.Env = append(ct.Env[:i], ct.Env[i+1:]...)
+				ct.Env = append(ct.Env[:j], ct.Env[j+1:]...)
 				break
 			}
 		}

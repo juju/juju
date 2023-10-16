@@ -159,8 +159,9 @@ func (f *fileStorageWriter) Put(name string, r io.Reader, length int64) error {
 	if err != nil {
 		return err
 	}
+	defer func() { _ = file.Close() }()
+
 	_, err = io.CopyN(file, r, length)
-	file.Close()
 	if err != nil {
 		os.Remove(file.Name())
 		return err

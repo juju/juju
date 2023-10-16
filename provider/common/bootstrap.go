@@ -604,8 +604,8 @@ func hostBootstrapSSHOptions(
 		return nil, cleanup, errors.Trace(err)
 	}
 	cleanup = func() {
-		f.Close()
-		os.RemoveAll(f.Name())
+		_ = f.Close()
+		_ = os.RemoveAll(f.Name())
 	}
 	w := bufio.NewWriter(f)
 	for _, pubKey := range pubKeys {

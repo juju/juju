@@ -483,12 +483,22 @@ func (api *OffersAPI) getConsumeDetails(ctx context.Context, user names.UserTag,
 		if !isAdmin {
 			appOffer := names.NewApplicationOfferTag(offer.OfferUUID)
 			err := api.Authorizer.EntityHasPermission(user, permission.ConsumeAccess, appOffer)
-			if err != nil {
+			if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 				results[i].Error = apiservererrors.ServerError(err)
 				continue
 			}
+			if err != nil {
+				// This logic is purely for JaaS.
+				// Jaas has already checked permissions of args.UserTag in their side, so we don't need to check it again.
+				// But as a TODO, we need to set the ConsumeOfferMacaroon's expiry time to 0 to force go to
+				// discharge flow once they got the macaroon.
+				err := api.checkControllerAdmin()
+				if err != nil {
+					results[i].Error = apiservererrors.ServerError(err)
+					continue
+				}
+			}
 		}
-
 		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(api.ctx, offerDetails, user.Id(), urls.BakeryVersion)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
