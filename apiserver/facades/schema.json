@@ -13424,18 +13424,6 @@
                     },
                     "description": "AddCredentials adds new credentials.\nIn contrast to UpdateCredentials() below, the new credentials can be\nfor a cloud that the controller does not manage (this is required\nfor CAAS models)"
                 },
-                "CheckCredentialsModels": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/TaggedCredentials"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/UpdateCredentialResults"
-                        }
-                    },
-                    "description": "CheckCredentialsModels validates supplied cloud credentials' content against\nmodels that currently use these credentials.\nIf there are any models that are using a credential and these models or their\ncloud instances are not going to be accessible with corresponding credential,\nthere will be detailed validation errors per model.\nThere's no Juju API client which uses this, but JAAS does,"
-                },
                 "Cloud": {
                     "type": "object",
                     "properties": {

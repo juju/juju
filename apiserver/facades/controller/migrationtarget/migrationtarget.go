@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	credentialservice "github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/migration"
@@ -55,16 +56,17 @@ type ControllerConfigService interface {
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state                     *state.State
-	modelImporter             ModelImporter
-	externalControllerService ExternalControllerService
-	cloudService              common.CloudService
-	credentialService         credentialcommon.CredentialService
-	pool                      *state.StatePool
-	authorizer                facade.Authorizer
-	presence                  facade.Presence
-	getEnviron                stateenvirons.NewEnvironFunc
-	getCAASBroker             stateenvirons.NewCAASBrokerFunc
+	state                       *state.State
+	modelImporter               ModelImporter
+	externalControllerService   ExternalControllerService
+	cloudService                common.CloudService
+	credentialService           credentialcommon.CredentialService
+	credentialCallContextGetter credentialservice.ValidationContextGetter
+	pool                        *state.StatePool
+	authorizer                  facade.Authorizer
+	presence                    facade.Presence
+	getEnviron                  stateenvirons.NewEnvironFunc
+	getCAASBroker               stateenvirons.NewCAASBrokerFunc
 }
 
 // APIV1 implements the V1 version of the API facade.
@@ -81,6 +83,7 @@ func NewAPI(
 	externalControllerService ExternalControllerService,
 	cloudService common.CloudService,
 	credentialService credentialcommon.CredentialService,
+	credentialCallContextGetter credentialservice.ValidationContextGetter,
 	getEnviron stateenvirons.NewEnvironFunc,
 	getCAASBroker stateenvirons.NewCAASBrokerFunc,
 ) (*API, error) {
@@ -94,16 +97,17 @@ func NewAPI(
 	)
 
 	return &API{
-		state:                     st,
-		modelImporter:             modelImporter,
-		pool:                      pool,
-		externalControllerService: externalControllerService,
-		cloudService:              cloudService,
-		credentialService:         credentialService,
-		authorizer:                authorizer,
-		presence:                  ctx.Presence(),
-		getEnviron:                getEnviron,
-		getCAASBroker:             getCAASBroker,
+		state:                       st,
+		modelImporter:               modelImporter,
+		pool:                        pool,
+		externalControllerService:   externalControllerService,
+		cloudService:                cloudService,
+		credentialService:           credentialService,
+		credentialCallContextGetter: credentialCallContextGetter,
+		authorizer:                  authorizer,
+		presence:                    ctx.Presence(),
+		getEnviron:                  getEnviron,
+		getCAASBroker:               getCAASBroker,
 	}, nil
 }
 
@@ -378,19 +382,28 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 	}
 
 	credentialTag, isSet := model.CloudCredentialTag()
-	if !isSet {
+	if !isSet || credentialTag.IsZero() {
 		return params.ErrorResults{}, nil
 	}
 
-	return credentialcommon.ValidateExistingModelCredential(
-		environscontext.CallContext(st.State),
-		model,
-		credentialcommon.NewMachineService(st.State),
-		credentialTag,
+	var result params.ErrorResults
+	modelErrors, err := credentialcommon.ValidateExistingModelCredential(
+		ctx,
 		api.credentialService,
-		*cloud,
+		api.credentialCallContextGetter,
+		model.UUID(),
+		credentialTag,
 		cloud.Type != "manual",
 	)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	result.Results = make([]params.ErrorResult, len(modelErrors))
+	for i, err := range modelErrors {
+		result.Results[i].Error = apiservererrors.ServerError(err)
+	}
+	return result, nil
 }
 
 // CACert returns the certificate used to validate the state connection.

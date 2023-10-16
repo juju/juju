@@ -83,20 +83,6 @@ func (st *State) CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([
 	return results, nil
 }
 
-// CredentialModels returns all models that use given cloud credential.
-func (st *State) CredentialModels(tag names.CloudCredentialTag) (map[string]string, error) {
-	models, err := st.modelsWithCredential(tag)
-	if err != nil {
-		return nil, err
-	}
-
-	results := make(map[string]string, len(models))
-	for _, model := range models {
-		results[model.UUID] = model.Name
-	}
-	return results, nil
-}
-
 // RemoveModelsCredential clears out given credential reference from all models that have it.
 func (st *State) RemoveModelsCredential(tag names.CloudCredentialTag) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {

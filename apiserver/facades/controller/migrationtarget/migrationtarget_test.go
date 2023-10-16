@@ -19,7 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
-	credentialmocks "github.com/juju/juju/apiserver/common/credentialcommon/mocks"
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	commonmocks "github.com/juju/juju/apiserver/common/mocks"
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/controller/migrationtarget"
@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/domain/model"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
@@ -48,7 +49,7 @@ type Suite struct {
 	controllerConfigService   *MockControllerConfigService
 	externalControllerService *MockExternalControllerService
 	cloudService              *commonmocks.MockCloudService
-	credentialService         *credentialmocks.MockCredentialService
+	credentialService         *credentialcommon.MockCredentialService
 
 	facadeContext facadetest.Context
 	callContext   environscontext.ProviderCallContext
@@ -492,7 +493,7 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 		context.Background(),
 		params.ModelArgs{ModelTag: model.ModelTag().String()})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{})
+	c.Assert(results.Results, gc.HasLen, 0)
 }
 
 func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
@@ -509,7 +510,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
 		Endpoint:  "10.0.0.1",
 	}, nil).AnyTimes()
-	s.credentialService = credentialmocks.NewMockCredentialService(ctrl)
+	s.credentialService = credentialcommon.NewMockCredentialService(ctrl)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
@@ -535,6 +536,9 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 		s.externalControllerService,
 		s.cloudService,
 		s.credentialService,
+		func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
+			return credentialcommon.CredentialValidationContext{}, nil
+		},
 		environFunc,
 		brokerFunc,
 	)

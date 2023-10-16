@@ -8,9 +8,12 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -41,13 +44,54 @@ func newFacade(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
+	credentialCallContextGetter := func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
+		modelState, err := ctx.StatePool().Get(string(modelUUID))
+		if err != nil {
+			return credentialcommon.CredentialValidationContext{}, err
+		}
+		defer modelState.Release()
+
+		m, err := modelState.Model()
+		if err != nil {
+			return credentialcommon.CredentialValidationContext{}, err
+		}
+		cfg, err := m.Config()
+		if err != nil {
+			return credentialcommon.CredentialValidationContext{}, err
+		}
+
+		callCtx := envcontext.CallContext(modelState.State)
+		cld, err := ctx.ServiceFactory().Cloud().Get(callCtx, m.CloudName())
+		if err != nil {
+			return credentialcommon.CredentialValidationContext{}, err
+		}
+
+		ctx := credentialcommon.CredentialValidationContext{
+			ControllerUUID: m.ControllerUUID(),
+			Context:        callCtx,
+			Config:         cfg,
+			MachineService: credentialcommon.NewMachineService(modelState.State),
+			ModelType:      model.Type(m.Type()),
+			Cloud:          *cld,
+			Region:         m.CloudRegion(),
+		}
+		return ctx, err
+	}
+
+	credentialService := ctx.ServiceFactory().Credential()
+	// TODO(wallyworld) - service factory in tests returns a nil service.
+	if credentialService != nil {
+		credentialService = credentialService.WithValidationContextGetter(credentialCallContextGetter)
+
+	}
 	return NewAPI(
 		ctx,
 		auth,
 		ctx.ServiceFactory().ControllerConfig(),
 		ctx.ServiceFactory().ExternalController(),
 		ctx.ServiceFactory().Cloud(),
-		ctx.ServiceFactory().Credential(),
+		credentialService,
+		credentialCallContextGetter,
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New))
 }
