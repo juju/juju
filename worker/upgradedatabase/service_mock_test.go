@@ -97,6 +97,20 @@ func (mr *MockUpgradeServiceMockRecorder) SetDBUpgradeCompleted(arg0, arg1 inter
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDBUpgradeCompleted", reflect.TypeOf((*MockUpgradeService)(nil).SetDBUpgradeCompleted), arg0, arg1)
 }
 
+// SetDBUpgradeFailed mocks base method.
+func (m *MockUpgradeService) SetDBUpgradeFailed(arg0 context.Context, arg1 upgrade0.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetDBUpgradeFailed", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetDBUpgradeFailed indicates an expected call of SetDBUpgradeFailed.
+func (mr *MockUpgradeServiceMockRecorder) SetDBUpgradeFailed(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDBUpgradeFailed", reflect.TypeOf((*MockUpgradeService)(nil).SetDBUpgradeFailed), arg0, arg1)
+}
+
 // StartUpgrade mocks base method.
 func (m *MockUpgradeService) StartUpgrade(arg0 context.Context, arg1 upgrade0.UUID) error {
 	m.ctrl.T.Helper()

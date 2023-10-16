@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	"github.com/canonical/sqlair"
@@ -48,7 +47,6 @@ type DqliteSuite struct {
 	db        *sql.DB
 	trackedDB coredatabase.TxnRunner
 
-	mutex      sync.Mutex
 	references map[string]*sql.DB
 }
 
@@ -106,12 +104,10 @@ func (s *DqliteSuite) SetUpTest(c *gc.C) {
 // with the ControllerSuite
 func (s *DqliteSuite) TearDownTest(c *gc.C) {
 	// Ensure we clean up any databases that were opened during the tests.
-	s.mutex.Lock()
 	for _, db := range s.references {
 		err := db.Close()
 		c.Check(err, jc.ErrorIsNil)
 	}
-	defer s.mutex.Unlock()
 
 	if s.dqlite != nil {
 		err := s.dqlite.Close()
@@ -196,9 +192,6 @@ func (s *DqliteSuite) TxnRunnerFactory() func() (coredatabase.TxnRunner, error) 
 }
 
 func (s *DqliteSuite) cleanupDB(c *gc.C, namespace string, db *sql.DB) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	if s.references == nil {
 		s.references = make(map[string]*sql.DB)
 	}

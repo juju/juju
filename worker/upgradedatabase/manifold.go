@@ -4,6 +4,7 @@
 package upgradedatabase
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -30,6 +31,7 @@ type ManifoldConfig struct {
 	ServiceFactoryName string
 	DBAccessorName     string
 	Logger             Logger
+	Clock              clock.Clock
 	NewWorker          func(Config) (worker.Worker, error)
 }
 
@@ -49,6 +51,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -106,6 +111,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				FromVersion:           fromVersion,
 				ToVersion:             toVersion,
 				Logger:                cfg.Logger,
+				Clock:                 cfg.Clock,
 			})
 		},
 	}

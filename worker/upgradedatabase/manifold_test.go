@@ -4,6 +4,7 @@
 package upgradedatabase
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -53,6 +54,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig() ManifoldConfig {
@@ -62,6 +67,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		ServiceFactoryName: "service-factory",
 		DBAccessorName:     "db-accessor",
 		Logger:             s.logger,
+		Clock:              clock.WallClock,
 		NewWorker:          func(Config) (worker.Worker, error) { return s.worker, nil },
 	}
 }

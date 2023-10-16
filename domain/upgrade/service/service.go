@@ -29,6 +29,7 @@ type State interface {
 	SetControllerDone(context.Context, domainupgrade.UUID, string) error
 	ActiveUpgrade(context.Context) (domainupgrade.UUID, error)
 	SetDBUpgradeCompleted(context.Context, domainupgrade.UUID) error
+	SetDBUpgradeFailed(context.Context, domainupgrade.UUID) error
 	UpgradeInfo(context.Context, domainupgrade.UUID) (upgrade.Info, error)
 }
 
@@ -105,6 +106,15 @@ func (s *Service) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainu
 		return errors.Trace(err)
 	}
 	err := s.st.SetDBUpgradeCompleted(ctx, upgradeUUID)
+	return domain.CoerceError(err)
+}
+
+// SetDBUpgradeFailed marks the upgrade as completed in the database
+func (s *Service) SetDBUpgradeFailed(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
+	if err := upgradeUUID.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	err := s.st.SetDBUpgradeFailed(ctx, upgradeUUID)
 	return domain.CoerceError(err)
 }
 

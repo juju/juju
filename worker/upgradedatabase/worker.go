@@ -5,7 +5,9 @@ package upgradedatabase
 
 import (
 	"context"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/version/v2"
@@ -25,6 +27,12 @@ import (
 	"github.com/juju/juju/worker/gate"
 )
 
+const (
+	// defaultUpgradeTimeout is the default timeout for the upgrade to complete.
+	// 20 minutes should be enough for the db upgrade to complete.
+	defaultUpgradeTimeout = 20 * time.Minute
+)
+
 // UpgradeService is the interface for the upgrade service.
 type UpgradeService interface {
 	// CreateUpgrade creates an upgrade to and from specified versions
@@ -38,6 +46,8 @@ type UpgradeService interface {
 	StartUpgrade(ctx context.Context, upgradeUUID domainupgrade.UUID) error
 	// SetDBUpgradeCompleted marks the upgrade as completed in the database
 	SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainupgrade.UUID) error
+	// SetDBUpgradeFailed marks the upgrade as failed in the database
+	SetDBUpgradeFailed(ctx context.Context, upgradeUUID domainupgrade.UUID) error
 	// ActiveUpgrade returns the uuid of the current active upgrade.
 	// If there are no active upgrades, return a NotFound error
 	ActiveUpgrade(ctx context.Context) (domainupgrade.UUID, error)
@@ -109,8 +119,8 @@ type Config struct {
 	FromVersion version.Number
 	ToVersion   version.Number
 
-	// Logger is the logger for this worker.
 	Logger Logger
+	Clock  clock.Clock
 }
 
 // Validate validates the worker configuration.
@@ -123,6 +133,9 @@ func (c Config) Validate() error {
 	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	if c.FromVersion == version.Zero {
 		return errors.NotValidf("invalid FromVersion")
@@ -153,6 +166,7 @@ type upgradeDBWorker struct {
 	upgradeService        UpgradeService
 
 	logger Logger
+	clock  clock.Clock
 }
 
 // NewUpgradeDatabaseWorker returns a new Worker.
@@ -176,6 +190,7 @@ func NewUpgradeDatabaseWorker(config Config) (worker.Worker, error) {
 		upgradeService:        config.UpgradeService,
 
 		logger: config.Logger,
+		clock:  config.Clock,
 	}
 
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -249,13 +264,18 @@ func (w *upgradeDBWorker) watchUpgrade() error {
 		return errors.Trace(err)
 	}
 
-	watcher, err := w.upgradeService.WatchForUpgradeState(ctx, modelUUID, upgrade.DBCompleted)
+	completedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, modelUUID, upgrade.DBCompleted)
 	if err != nil {
-		return errors.Annotate(err, "cannot watch upgrade")
+		return errors.Annotate(err, "cannot watch completed upgrade")
 	}
 
-	if err := w.catacomb.Add(watcher); err != nil {
+	if err := w.catacomb.Add(completedWatcher); err != nil {
 		return errors.Trace(err)
+	}
+
+	failedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, modelUUID, upgrade.Error)
+	if err != nil {
+		return errors.Annotate(err, "cannot watch failed upgrade")
 	}
 
 	for {
@@ -263,11 +283,17 @@ func (w *upgradeDBWorker) watchUpgrade() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case <-watcher.Changes():
+		case <-completedWatcher.Changes():
 			// The upgrade is complete, so we can unlock the lock.
 			w.logger.Infof("database upgrade complete")
 			w.dbUpgradeCompleteLock.Unlock()
 			return dependency.ErrUninstall
+
+		case <-failedWatcher.Changes():
+			// If the upgrade failed, we can't do anything about it, so we'll
+			// just bounce and hope we get a better result next time.
+			w.logger.Errorf("database upgrade failed, check logs for details")
+			return dependency.ErrBounce
 		}
 	}
 }
@@ -310,6 +336,13 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
+
+		case <-w.clock.After(defaultUpgradeTimeout):
+			if err := w.upgradeService.SetDBUpgradeFailed(ctx, upgradeUUID); err != nil {
+				return errors.Annotatef(err, "unable to set db upgrade failed")
+			}
+
+			return errors.Errorf("timed out waiting for upgrade from: %v to: %v", w.fromVersion, w.toVersion)
 
 		case <-watcher.Changes():
 			if err := w.upgradeService.StartUpgrade(ctx, upgradeUUID); err != nil {

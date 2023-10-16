@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	names "github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -85,7 +86,7 @@ func (s *workerSuite) TestLockIsUnlockedIfMatchingVersions(c *gc.C) {
 	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
 }
 
-func (s *workerSuite) TestWatchUpgradeInsteadOfPerforming(c *gc.C) {
+func (s *workerSuite) TestWatchUpgradeCompleted(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Ensure that the update hasn't already happened.
@@ -95,18 +96,23 @@ func (s *workerSuite) TestWatchUpgradeInsteadOfPerforming(c *gc.C) {
 
 	ch := make(chan struct{})
 
-	watcher := watchertest.NewMockNotifyWatcher(ch)
-	defer workertest.DirtyKill(c, watcher)
+	completedWatcher := watchertest.NewMockNotifyWatcher(ch)
+	defer workertest.DirtyKill(c, completedWatcher)
+
+	failedWatcher := watchertest.NewMockNotifyWatcher(make(chan struct{}))
+	defer workertest.DirtyKill(c, failedWatcher)
 
 	// Walk through the upgrade process:
 	//  - Create Upgrade, but it's already started.
 	//  - Get the active upgrade.
-	//  - Watch for the upgrade to complete.
+	//  - Watch for the upgrade to be completed.
+	//  - Watch for the upgrade to be failed, but do not act upon it.
 
 	srv := s.upgradeService.EXPECT()
 	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
-	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.DBCompleted).Return(watcher, nil)
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.DBCompleted).Return(completedWatcher, nil)
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
 
 	// We expect the lock to be unlocked when the upgrade completes.
 	s.lock.EXPECT().Unlock()
@@ -122,6 +128,48 @@ func (s *workerSuite) TestWatchUpgradeInsteadOfPerforming(c *gc.C) {
 
 	err = workertest.CheckKill(c, w)
 	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
+}
+
+func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that the update hasn't already happened.
+	s.lock.EXPECT().IsUnlocked().Return(false)
+
+	cfg := s.getConfig()
+
+	completedWatcher := watchertest.NewMockNotifyWatcher(make(chan struct{}))
+	defer workertest.DirtyKill(c, completedWatcher)
+
+	ch := make(chan struct{})
+
+	failedWatcher := watchertest.NewMockNotifyWatcher(ch)
+	defer workertest.DirtyKill(c, failedWatcher)
+
+	// Walk through the upgrade process:
+	//  - Create Upgrade, but it's already started.
+	//  - Get the active upgrade.
+	//  - Watch for the upgrade to be completed.
+	//  - Watch for the upgrade to be failed, but do not act upon it.
+	//  - Ensure that we _don't_ unlock the lock.
+
+	srv := s.upgradeService.EXPECT()
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
+	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.DBCompleted).Return(completedWatcher, nil)
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
+
+	w, err := NewUpgradeDatabaseWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to enqueue change")
+	}
+
+	err = workertest.CheckKill(c, w)
+	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
 }
 
 func (s *workerSuite) TestWatchUpgradeError(c *gc.C) {
@@ -380,6 +428,7 @@ func (s *workerSuite) getConfig() Config {
 		DBUpgradeCompleteLock: s.lock,
 		Agent:                 s.agent,
 		Logger:                s.logger,
+		Clock:                 clock.WallClock,
 		UpgradeService:        s.upgradeService,
 		ControllerNodeService: s.controllerNodeService,
 		ModelManagerService:   s.modelManagerService,
