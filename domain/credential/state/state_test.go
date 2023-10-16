@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/domain/model"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
@@ -323,7 +324,7 @@ func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
 
 	out, err := st.AllCloudCredentials(context.Background(), "bob")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(out, jc.DeepEquals, []CloudCredential{
+	c.Assert(out, jc.DeepEquals, []credential.CloudCredential{
 		{Credential: one, CloudName: "cirrus"},
 		{Credential: two, CloudName: "stratus"},
 	})
@@ -433,11 +434,11 @@ func (s *credentialSuite) TestGetCloud(c *gc.C) {
 	c.Assert(cld, jc.DeepEquals, expected)
 }
 
-func (s *credentialSuite) TestNoModelsForCloudCredential(c *gc.C) {
+func (s *credentialSuite) TestNoModelsUsingCloudCredential(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	ctx := context.Background()
-	result, err := st.ModelsForCloudCredential(ctx, credential.ID{
+	result, err := st.ModelsUsingCloudCredential(ctx, credential.ID{
 		Cloud: "cirrus",
 		Owner: "bob",
 		Name:  "foobar",
@@ -446,23 +447,23 @@ func (s *credentialSuite) TestNoModelsForCloudCredential(c *gc.C) {
 	c.Assert(result, gc.HasLen, 0)
 }
 
-func (s *credentialSuite) TestModelsForCloudCredentialInValidID(c *gc.C) {
+func (s *credentialSuite) TestModelsUsingCloudCredentialInValidID(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	_, err := st.ModelsForCloudCredential(context.Background(), credential.ID{
+	_, err := st.ModelsUsingCloudCredential(context.Background(), credential.ID{
 		Cloud: "cirrus",
 		Name:  "foobar",
 	})
 	c.Assert(err, gc.ErrorMatches, `invalid credential querying models: not valid owner cannot be empty`)
 }
 
-func (s *credentialSuite) TestModelsForCloudCredential(c *gc.C) {
+func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	one := s.createCloudCredential(c, st, "foobar", "cirrus", "bob")
 	c.Assert(one.Invalid, jc.IsFalse)
 
-	modelUUID := utils.MustNewUUID().String()
+	modelUUID := model.UUID(utils.MustNewUUID().String())
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, fmt.Sprintf(`
 		INSERT INTO model_list (uuid) VALUES(%q)`, modelUUID))
@@ -487,13 +488,13 @@ func (s *credentialSuite) TestModelsForCloudCredential(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := st.ModelsForCloudCredential(context.Background(), credential.ID{
+	result, err := st.ModelsUsingCloudCredential(context.Background(), credential.ID{
 		Cloud: "cirrus",
 		Owner: "bob",
 		Name:  "foobar",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, map[string]string{
+	c.Assert(result, jc.DeepEquals, map[model.UUID]string{
 		modelUUID: "mymodel",
 	})
 }

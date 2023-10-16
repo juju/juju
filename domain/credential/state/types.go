@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
+	"github.com/juju/juju/domain/credential"
 )
 
 // These structs represent the persistent cloud credential entity schema in the database.
@@ -64,18 +65,18 @@ type credentialAttribute struct {
 
 type Credentials []Credential
 
-func (rows Credentials) toCloudCredentials(authTypes []dbcloud.AuthType, clouds []dbcloud.Cloud, keyValues []credentialAttribute) ([]CloudCredential, error) {
+func (rows Credentials) toCloudCredentials(authTypes []dbcloud.AuthType, clouds []dbcloud.Cloud, keyValues []credentialAttribute) ([]credential.CloudCredential, error) {
 	if n := len(rows); n != len(authTypes) || n != len(keyValues) || n != len(clouds) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch")
 	}
 
-	var result []CloudCredential
+	var result []credential.CloudCredential
 	recordResult := func(row *Credential, authType, cloudName string, attrs credentialAttrs) {
 		cred := cloud.NewNamedCredential(row.Name, cloud.AuthType(authType), attrs, row.Revoked)
 		cred.Invalid = row.Invalid
 		cred.InvalidReason = row.InvalidReason
-		result = append(result, CloudCredential{Credential: cred, CloudName: cloudName})
+		result = append(result, credential.CloudCredential{Credential: cred, CloudName: cloudName})
 	}
 
 	var (

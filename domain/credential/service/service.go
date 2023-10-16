@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/credential"
 	credentialerrors "github.com/juju/juju/domain/credential/errors"
-	credentialstate "github.com/juju/juju/domain/credential/state"
+	"github.com/juju/juju/domain/model"
 )
 
 // WatcherFactory instances return a watcher for a specified credential UUID,
@@ -31,7 +31,7 @@ type WatcherFactory interface {
 // State describes retrieval and persistence methods for credentials.
 type State interface {
 	// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud, owner.
-	// If the credential already exists, the old value of Invalid is returned.
+	// If the credential already exists, the previous value of Invalid is returned.
 	UpsertCloudCredential(ctx context.Context, name, cloudName, owner string, credential cloud.Credential) (*bool, error)
 
 	// InvalidateCloudCredential marks the cloud credential for the given name, cloud, owner as invalid.
@@ -46,7 +46,7 @@ type State interface {
 
 	// AllCloudCredentials returns all cloud credentials stored on the controller
 	// for a given user.
-	AllCloudCredentials(ctx context.Context, owner string) ([]credentialstate.CloudCredential, error)
+	AllCloudCredentials(ctx context.Context, owner string) ([]credential.CloudCredential, error)
 
 	// RemoveCloudCredential removes a cloud credential with the given name, cloud, owner.
 	RemoveCloudCredential(ctx context.Context, name, cloudName, owner string) error
@@ -58,15 +58,15 @@ type State interface {
 		name, cloudName, owner string,
 	) (watcher.NotifyWatcher, error)
 
-	// ModelsForCloudCredential returns a map of uuid->name for models which use the credential.
-	ModelsForCloudCredential(ctx context.Context, id credential.ID) (map[string]string, error)
+	// ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
+	ModelsUsingCloudCredential(ctx context.Context, id credential.ID) (map[model.UUID]string, error)
 
 	// GetCloud returns the cloud with the specified name.
 	GetCloud(ctx context.Context, name string) (cloud.Cloud, error)
 }
 
 // ValidationContextGetter returns the artefacts for a specified model, used to make credential validation calls.
-type ValidationContextGetter func(modelUUID string) (credentialcommon.CredentialValidationContext, error)
+type ValidationContextGetter func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error)
 
 // Logger facilitates emitting log messages.
 type Logger interface {
@@ -143,12 +143,6 @@ func (s *Service) WithLegacyRemover(remover func(tag names.CloudCredentialTag) e
 	return s
 }
 
-// CloudCredential represents a credential and the cloud it belongs to.
-type CloudCredential struct {
-	Credential cloud.Credential
-	CloudName  string
-}
-
 // CloudCredential returns the cloud credential for the given tag.
 func (s *Service) CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error) {
 	return s.st.CloudCredential(ctx, tag.Name(), tag.Cloud().Id(), tag.Owner().Id())
@@ -156,14 +150,14 @@ func (s *Service) CloudCredential(ctx context.Context, tag names.CloudCredential
 
 // AllCloudCredentials returns all cloud credentials stored on the controller
 // for a given user.
-func (s *Service) AllCloudCredentials(ctx context.Context, user string) ([]CloudCredential, error) {
+func (s *Service) AllCloudCredentials(ctx context.Context, user string) ([]credential.CloudCredential, error) {
 	creds, err := s.st.AllCloudCredentials(ctx, user)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]CloudCredential, len(creds))
+	result := make([]credential.CloudCredential, len(creds))
 	for i, c := range creds {
-		result[i] = CloudCredential{Credential: c.Credential, CloudName: c.CloudName}
+		result[i] = credential.CloudCredential{Credential: c.Credential, CloudName: c.CloudName}
 	}
 	return result, nil
 }
@@ -198,15 +192,15 @@ func (s *Service) WatchCredential(ctx context.Context, tag names.CloudCredential
 	return nil, errors.NotYetAvailablef("credential watcher")
 }
 
-func (s *Service) credentialModels(ctx context.Context, id credential.ID) (map[string]string, error) {
-	models, err := s.st.ModelsForCloudCredential(ctx, id)
+func (s *Service) modelsUsingCredential(ctx context.Context, id credential.ID) (map[model.UUID]string, error) {
+	models, err := s.st.ModelsUsingCloudCredential(ctx, id)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
 	return models, nil
 }
 
-func (s *Service) validateCredentialForModel(modelUUID string, cld cloud.Cloud, id credential.ID, cred *cloud.Credential) []error {
+func (s *Service) validateCredentialForModel(modelUUID model.UUID, cld cloud.Cloud, id credential.ID, cred *cloud.Credential) []error {
 	ctx, err := s.validationContextGetter(modelUUID)
 	if err != nil {
 		return []error{errors.Trace(err)}
@@ -226,7 +220,7 @@ func (s *Service) validateCredentialForModel(modelUUID string, cld cloud.Cloud, 
 // errors encountered validating the credential.
 type UpdateCredentialModelResult struct {
 	// ModelUUID contains model's UUID.
-	ModelUUID string
+	ModelUUID model.UUID
 
 	// ModelName contains model name.
 	ModelName string
@@ -245,8 +239,8 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID
 		return nil, errors.New("cannot validate credential with nil context getter")
 	}
 
-	models, err := s.credentialModels(ctx, id)
-	if err != nil && !force {
+	models, err := s.modelsUsingCredential(ctx, id)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -259,24 +253,22 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID
 		modelsErred  bool
 		modelsResult []UpdateCredentialModelResult
 	)
-	if len(models) > 0 {
-		for uuid, name := range models {
-			result := UpdateCredentialModelResult{
-				ModelUUID: uuid,
-				ModelName: name,
-			}
-			result.Errors = s.validateCredentialForModel(uuid, modelCloud, id, &cred)
-			modelsResult = append(modelsResult, result)
-			if len(result.Errors) > 0 {
-				modelsErred = true
-			}
+	for uuid, name := range models {
+		result := UpdateCredentialModelResult{
+			ModelUUID: uuid,
+			ModelName: name,
 		}
-		// Since we get a map above, for consistency ensure that models are added
-		// sorted by model uuid.
-		sort.Slice(modelsResult, func(i, j int) bool {
-			return modelsResult[i].ModelUUID < modelsResult[j].ModelUUID
-		})
+		result.Errors = s.validateCredentialForModel(uuid, modelCloud, id, &cred)
+		modelsResult = append(modelsResult, result)
+		if len(result.Errors) > 0 {
+			modelsErred = true
+		}
 	}
+	// Since we get a map above, for consistency ensure that models are added
+	// sorted by model uuid.
+	sort.Slice(modelsResult, func(i, j int) bool {
+		return modelsResult[i].ModelUUID < modelsResult[j].ModelUUID
+	})
 
 	if modelsErred && !force {
 		return modelsResult, credentialerrors.CredentialValidation
@@ -317,13 +309,9 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID
 // TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
 // but before validation can complete.
 func (s *Service) CheckAndRevokeCredential(ctx context.Context, id credential.ID, force bool) error {
-	models, err := s.credentialModels(ctx, id)
+	models, err := s.modelsUsingCredential(ctx, id)
 	if err != nil {
-		if !force {
-			// Could not determine if credential has models - do not continue revoking this credential...
-			return errors.Trace(err)
-		}
-		s.logger.Warningf("could not get models that use credential %v: %v", id, err)
+		return errors.Trace(err)
 	}
 	if len(models) != 0 {
 		opMessage := "cannot be deleted as"
@@ -364,11 +352,11 @@ func plural(length int) string {
 	return "s"
 }
 
-func modelsPretty(in map[string]string) string {
+func modelsPretty(in map[model.UUID]string) string {
 	// map keys are notoriously randomly ordered
 	uuids := []string{}
 	for uuid := range in {
-		uuids = append(uuids, uuid)
+		uuids = append(uuids, string(uuid))
 	}
 	sort.Strings(uuids)
 

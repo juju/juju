@@ -10,5 +10,5 @@ import (
 const (
 	// CredentialValidation describes an error that occurs when a credential
 	// cannot be validated for one or more models.
-	CredentialValidation = errors.ConstError("cannot update credential due to model validation issues")
+	CredentialValidation = errors.ConstError("credential is not valid for one or more models")
 )

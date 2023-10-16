@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/cloud"
 )
 
 // ID represents the id of a cloud credential.
@@ -74,4 +76,10 @@ func (i ID) Validate() error {
 		return fmt.Errorf("%w owner cannot be empty", errors.NotValid)
 	}
 	return nil
+}
+
+// CloudCredential represents a credential and the cloud it belongs to.
+type CloudCredential struct {
+	Credential cloud.Credential
+	CloudName  string
 }

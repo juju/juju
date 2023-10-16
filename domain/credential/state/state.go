@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/domain"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -330,7 +331,7 @@ func (st *State) CloudCredentials(ctx context.Context, owner, cloudName string) 
 		return nil, errors.Trace(err)
 	}
 
-	var creds []CloudCredential
+	var creds []credential.CloudCredential
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		creds, err = st.loadCloudCredentials(ctx, tx, "", cloudName, owner)
@@ -353,7 +354,7 @@ func (st *State) CloudCredential(ctx context.Context, name, cloudName, owner str
 		return cloud.Credential{}, errors.Trace(err)
 	}
 
-	var creds []CloudCredential
+	var creds []credential.CloudCredential
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		creds, err = st.loadCloudCredentials(ctx, tx, name, cloudName, owner)
@@ -373,7 +374,7 @@ func (st *State) CloudCredential(ctx context.Context, name, cloudName, owner str
 
 type credentialAttrs map[string]string
 
-func (st *State) loadCloudCredentials(ctx context.Context, tx *sqlair.TX, name, cloudName, owner string) ([]CloudCredential, error) {
+func (st *State) loadCloudCredentials(ctx context.Context, tx *sqlair.TX, name, cloudName, owner string) ([]credential.CloudCredential, error) {
 	credQuery := `
 SELECT (cc.uuid, cc.name,
        cc.revoked, cc.invalid, 
@@ -422,21 +423,15 @@ FROM   cloud_credential cc
 	return dbRows.toCloudCredentials(dbAuthTypes, dbclouds, keyValues)
 }
 
-// CloudCredential represents a credential and the cloud it belongs to.
-type CloudCredential struct {
-	Credential cloud.Credential
-	CloudName  string
-}
-
 // AllCloudCredentials returns all cloud credentials stored on the controller
 // for a given user.
-func (st *State) AllCloudCredentials(ctx context.Context, owner string) ([]CloudCredential, error) {
+func (st *State) AllCloudCredentials(ctx context.Context, owner string) ([]credential.CloudCredential, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var result []CloudCredential
+	var result []credential.CloudCredential
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		result, err = st.loadCloudCredentials(ctx, tx, "", "", owner)
@@ -534,8 +529,8 @@ func (st *State) GetCloud(ctx context.Context, name string) (cloud.Cloud, error)
 	return result[0], errors.Trace(err)
 }
 
-// ModelsForCloudCredential returns a map of uuid->name for models which use the credential.
-func (st *State) ModelsForCloudCredential(ctx context.Context, id credential.ID) (map[string]string, error) {
+// ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
+func (st *State) ModelsUsingCloudCredential(ctx context.Context, id credential.ID) (map[model.UUID]string, error) {
 	if err := id.Validate(); err != nil {
 		return nil, errors.Annotate(err, "invalid credential querying models")
 	}
@@ -577,11 +572,11 @@ JOIN cloud ON cloud.uuid = cc.cloud_uuid
 	if len(info) == 0 {
 		return nil, nil
 	}
-	result := make(map[string]string)
+	result := make(map[model.UUID]string)
 	for _, m := range info {
 		name, _ := m["name"].(string)
 		uuid, _ := m["model_uuid"].(string)
-		result[uuid] = name
+		result[model.UUID(uuid)] = name
 	}
 	return result, nil
 }

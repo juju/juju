@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/credential"
-	"github.com/juju/juju/domain/credential/state"
+	"github.com/juju/juju/domain/model"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -111,11 +111,11 @@ func (s *serviceSuite) TestAllCloudCredentials(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false)
-	s.state.EXPECT().AllCloudCredentials(gomock.Any(), "fred").Return([]state.CloudCredential{{CloudName: "cirrus", Credential: cred}}, nil)
+	s.state.EXPECT().AllCloudCredentials(gomock.Any(), "fred").Return([]credential.CloudCredential{{CloudName: "cirrus", Credential: cred}}, nil)
 
 	result, err := s.service().AllCloudCredentials(context.Background(), "fred")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []CloudCredential{{CloudName: "cirrus", Credential: cred}})
+	c.Assert(result, jc.DeepEquals, []credential.CloudCredential{{CloudName: "cirrus", Credential: cred}})
 }
 
 func (s *serviceSuite) TestWatchCredential(c *gc.C) {
@@ -143,13 +143,13 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(nil, errors.NotFound)
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(nil, errors.NotFound)
 	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
 
 	var legacyUpdated bool
 	service := s.service().
-		WithValidationContextGetter(func(modelUUID string) (credentialcommon.CredentialValidationContext, error) {
+		WithValidationContextGetter(func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
 			return credentialcommon.CredentialValidationContext{}, errors.NotImplemented
 		}).
 		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
@@ -174,11 +174,11 @@ func (s *serviceSuite) TestUpdateCredentialsModelsError(c *gc.C) {
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(nil, errors.New("cannot get models"))
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(nil, errors.New("cannot get models"))
 
 	var legacyUpdated bool
 	service := s.service().
-		WithValidationContextGetter(func(modelUUID string) (credentialcommon.CredentialValidationContext, error) {
+		WithValidationContextGetter(func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
 			return credentialcommon.CredentialValidationContext{}, errors.NotImplemented
 		}).
 		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
@@ -191,37 +191,6 @@ func (s *serviceSuite) TestUpdateCredentialsModelsError(c *gc.C) {
 	c.Assert(legacyUpdated, jc.IsFalse)
 }
 
-func (s *serviceSuite) TestUpdateCredentialsModelsErrorForce(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	cred := cloud.Credential{}
-	id := credential.ID{
-		Cloud: "cirrus",
-		Owner: "bob",
-		Name:  "foobar",
-	}
-
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(nil, errors.New("cannot get models"))
-	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
-	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
-
-	var legacyUpdated bool
-	service := s.service().
-		WithValidationContextGetter(func(modelUUID string) (credentialcommon.CredentialValidationContext, error) {
-			return credentialcommon.CredentialValidationContext{}, errors.NotImplemented
-		}).
-		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
-			c.Assert(tag, jc.DeepEquals, names.NewCloudCredentialTag("cirrus/bob/foobar"))
-			legacyUpdated = true
-			return nil
-		})
-
-	results, err := service.CheckAndUpdateCredential(context.Background(), id, cred, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 0)
-	c.Assert(legacyUpdated, jc.IsTrue)
-}
-
 func (s *serviceSuite) TestUpdateCredentialsModelsFailedContext(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -232,8 +201,8 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContext(c *gc.C) {
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(map[string]string{
-		jujutesting.ModelTag.Id(): "mymodel",
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
+		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
 	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
 
@@ -241,7 +210,7 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContext(c *gc.C) {
 
 	var legacyUpdated bool
 	service := s.service().
-		WithValidationContextGetter(func(modelUUID string) (credentialcommon.CredentialValidationContext, error) {
+		WithValidationContextGetter(func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
 			return credentialcommon.CredentialValidationContext{}, contextError
 		}).
 		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
@@ -251,13 +220,13 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContext(c *gc.C) {
 		})
 
 	results, err := service.CheckAndUpdateCredential(context.Background(), id, cred, false)
-	c.Assert(err, gc.ErrorMatches, "cannot update credential due to model validation issues")
+	c.Assert(err, gc.ErrorMatches, "credential is not valid for one or more models")
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0].Errors, gc.HasLen, 1)
 	c.Assert(results[0].Errors[0], gc.ErrorMatches, "failed context")
 	results[0].Errors = nil
 	c.Assert(results, jc.DeepEquals, []UpdateCredentialModelResult{{
-		ModelUUID: jujutesting.ModelTag.Id(), ModelName: "mymodel",
+		ModelUUID: model.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel",
 	}})
 	c.Assert(legacyUpdated, jc.IsFalse)
 }
@@ -272,8 +241,8 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContextForce(c *gc.C) {
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(map[string]string{
-		jujutesting.ModelTag.Id(): "mymodel",
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
+		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
 	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
@@ -282,7 +251,7 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContextForce(c *gc.C) {
 
 	var legacyUpdated bool
 	service := s.service().
-		WithValidationContextGetter(func(modelUUID string) (credentialcommon.CredentialValidationContext, error) {
+		WithValidationContextGetter(func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
 			return credentialcommon.CredentialValidationContext{}, contextError
 		}).
 		WithLegacyUpdater(func(tag names.CloudCredentialTag) error {
@@ -298,7 +267,7 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContextForce(c *gc.C) {
 	c.Assert(results[0].Errors[0], gc.ErrorMatches, "failed context")
 	results[0].Errors = nil
 	c.Assert(results, jc.DeepEquals, []UpdateCredentialModelResult{{
-		ModelUUID: jujutesting.ModelTag.Id(), ModelName: "mymodel",
+		ModelUUID: model.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel",
 	}})
 	c.Assert(legacyUpdated, jc.IsTrue)
 }
@@ -313,8 +282,8 @@ func (s *serviceSuite) TestUpdateCredentialsModels(c *gc.C) {
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(map[string]string{
-		jujutesting.ModelTag.Id(): "mymodel",
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
+		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
 	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
@@ -322,7 +291,7 @@ func (s *serviceSuite) TestUpdateCredentialsModels(c *gc.C) {
 
 	var legacyUpdated bool
 	service := s.service().
-		WithValidationContextGetter(func(modelUUID string) (credentialcommon.CredentialValidationContext, error) {
+		WithValidationContextGetter(func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
 			return credentialcommon.CredentialValidationContext{}, nil
 		}).
 		WithCredentialValidator(s.validator).
@@ -335,7 +304,7 @@ func (s *serviceSuite) TestUpdateCredentialsModels(c *gc.C) {
 	results, err := service.CheckAndUpdateCredential(context.Background(), id, cred, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []UpdateCredentialModelResult{{
-		ModelUUID: jujutesting.ModelTag.Id(), ModelName: "mymodel",
+		ModelUUID: model.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel",
 	}})
 	c.Assert(legacyUpdated, jc.IsTrue)
 }
@@ -350,8 +319,8 @@ func (s *serviceSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) 
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(map[string]string{
-		jujutesting.ModelTag.Id(): "mymodel",
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
+		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
 	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
@@ -361,7 +330,7 @@ func (s *serviceSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) 
 
 	var legacyUpdated bool
 	service := s.service().
-		WithValidationContextGetter(func(modelUUID string) (credentialcommon.CredentialValidationContext, error) {
+		WithValidationContextGetter(func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
 			return credentialcommon.CredentialValidationContext{}, nil
 		}).
 		WithCredentialValidator(s.validator).
@@ -374,7 +343,7 @@ func (s *serviceSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) 
 	results, err := service.CheckAndUpdateCredential(context.Background(), id, cred, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []UpdateCredentialModelResult{{
-		ModelUUID: jujutesting.ModelTag.Id(), ModelName: "mymodel", Errors: []error{validationError},
+		ModelUUID: model.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel", Errors: []error{validationError},
 	}})
 	c.Assert(legacyUpdated, jc.IsTrue)
 }
@@ -389,8 +358,8 @@ func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) 
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(map[string]string{
-		jujutesting.ModelTag.Id():              "mymodel",
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
+		model.UUID(jujutesting.ModelTag.Id()):  "mymodel",
 		"deadbeef-1bad-500d-9000-4b1d0d06f666": "anothermodel",
 	}, nil)
 	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
@@ -412,7 +381,7 @@ func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) 
 
 	var legacyUpdated bool
 	service := s.service().
-		WithValidationContextGetter(func(modelUUID string) (credentialcommon.CredentialValidationContext, error) {
+		WithValidationContextGetter(func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
 			return credentialcommon.CredentialValidationContext{}, nil
 		}).
 		WithCredentialValidator(s.validator).
@@ -423,7 +392,7 @@ func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) 
 		})
 
 	results, err := service.CheckAndUpdateCredential(context.Background(), id, cred, false)
-	c.Assert(err, gc.ErrorMatches, "cannot update credential due to model validation issues")
+	c.Assert(err, gc.ErrorMatches, "credential is not valid for one or more models")
 	c.Assert(results, gc.HasLen, 2)
 	gotErrors := 0
 	for i := 0; i < 2; i++ {
@@ -437,7 +406,7 @@ func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) 
 	}
 	c.Assert(gotErrors, gc.Equals, 1)
 	c.Assert(results, jc.DeepEquals, []UpdateCredentialModelResult{{
-		ModelUUID: jujutesting.ModelTag.Id(), ModelName: "mymodel",
+		ModelUUID: model.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel",
 	}, {
 		ModelUUID: "deadbeef-1bad-500d-9000-4b1d0d06f666", ModelName: "anothermodel",
 	}})
@@ -454,8 +423,8 @@ func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *g
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(map[string]string{
-		jujutesting.ModelTag.Id():              "mymodel",
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
+		model.UUID(jujutesting.ModelTag.Id()):  "mymodel",
 		"deadbeef-1bad-500d-9000-4b1d0d06f666": "anothermodel",
 	}, nil)
 	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
@@ -478,7 +447,7 @@ func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *g
 
 	var legacyUpdated bool
 	service := s.service().
-		WithValidationContextGetter(func(modelUUID string) (credentialcommon.CredentialValidationContext, error) {
+		WithValidationContextGetter(func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
 			return credentialcommon.CredentialValidationContext{}, nil
 		}).
 		WithCredentialValidator(s.validator).
@@ -503,7 +472,7 @@ func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *g
 	}
 	c.Assert(gotErrors, gc.Equals, 1)
 	c.Assert(results, jc.DeepEquals, []UpdateCredentialModelResult{{
-		ModelUUID: jujutesting.ModelTag.Id(), ModelName: "mymodel",
+		ModelUUID: model.UUID(jujutesting.ModelTag.Id()), ModelName: "mymodel",
 	}, {
 		ModelUUID: "deadbeef-1bad-500d-9000-4b1d0d06f666", ModelName: "anothermodel",
 	}})
@@ -519,7 +488,7 @@ func (s *serviceSuite) TestRevokeCredentialsModelsError(c *gc.C) {
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(nil, errors.New("cannot get models"))
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(nil, errors.New("cannot get models"))
 
 	var legacyUpdated bool
 	service := s.service().
@@ -532,31 +501,6 @@ func (s *serviceSuite) TestRevokeCredentialsModelsError(c *gc.C) {
 	c.Assert(legacyUpdated, jc.IsFalse)
 }
 
-func (s *serviceSuite) TestRevokeCredentialsModelsErrorForce(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	id := credential.ID{
-		Cloud: "cirrus",
-		Owner: "bob",
-		Name:  "foobar",
-	}
-
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(nil, errors.New("cannot get models"))
-	s.state.EXPECT().RemoveCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner).Return(nil)
-
-	var legacyUpdated bool
-	service := s.service().
-		WithLegacyRemover(func(tag names.CloudCredentialTag) error {
-			c.Assert(tag, jc.DeepEquals, names.NewCloudCredentialTag("cirrus/bob/foobar"))
-			legacyUpdated = true
-			return nil
-		})
-
-	err := service.CheckAndRevokeCredential(context.Background(), id, true)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(legacyUpdated, jc.IsTrue)
-}
-
 func (s *serviceSuite) TestRevokeCredentialsHasModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -566,8 +510,8 @@ func (s *serviceSuite) TestRevokeCredentialsHasModel(c *gc.C) {
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(map[string]string{
-		jujutesting.ModelTag.Id(): "mymodel",
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
+		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
 
 	var legacyUpdated bool
@@ -592,8 +536,8 @@ func (s *serviceSuite) TestRevokeCredentialsHasModels(c *gc.C) {
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(map[string]string{
-		jujutesting.ModelTag.Id():              "mymodel",
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
+		model.UUID(jujutesting.ModelTag.Id()):  "mymodel",
 		"deadbeef-1bad-500d-9000-4b1d0d06f666": "anothermodel",
 	}, nil)
 
@@ -619,8 +563,8 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelForce(c *gc.C) {
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(map[string]string{
-		jujutesting.ModelTag.Id(): "mymodel",
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
+		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
 	s.state.EXPECT().RemoveCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner).Return(nil)
 
@@ -648,8 +592,8 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelsForce(c *gc.C) {
 		Name:  "foobar",
 	}
 
-	s.state.EXPECT().ModelsForCloudCredential(gomock.Any(), id).Return(map[string]string{
-		jujutesting.ModelTag.Id():              "mymodel",
+	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
+		model.UUID(jujutesting.ModelTag.Id()):  "mymodel",
 		"deadbeef-1bad-500d-9000-4b1d0d06f666": "anothermodel",
 	}, nil)
 	s.state.EXPECT().RemoveCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner).Return(nil)

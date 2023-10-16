@@ -12,7 +12,7 @@ import (
 	changestream "github.com/juju/juju/core/changestream"
 	watcher "github.com/juju/juju/core/watcher"
 	credential "github.com/juju/juju/domain/credential"
-	state "github.com/juju/juju/domain/credential/state"
+	model "github.com/juju/juju/domain/model"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -40,10 +40,10 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AllCloudCredentials mocks base method.
-func (m *MockState) AllCloudCredentials(arg0 context.Context, arg1 string) ([]state.CloudCredential, error) {
+func (m *MockState) AllCloudCredentials(arg0 context.Context, arg1 string) ([]credential.CloudCredential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllCloudCredentials", arg0, arg1)
-	ret0, _ := ret[0].([]state.CloudCredential)
+	ret0, _ := ret[0].([]credential.CloudCredential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -113,19 +113,19 @@ func (mr *MockStateMockRecorder) InvalidateCloudCredential(arg0, arg1, arg2, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvalidateCloudCredential", reflect.TypeOf((*MockState)(nil).InvalidateCloudCredential), arg0, arg1, arg2, arg3, arg4)
 }
 
-// ModelsForCloudCredential mocks base method.
-func (m *MockState) ModelsForCloudCredential(arg0 context.Context, arg1 credential.ID) (map[string]string, error) {
+// ModelsUsingCloudCredential mocks base method.
+func (m *MockState) ModelsUsingCloudCredential(arg0 context.Context, arg1 credential.ID) (map[model.UUID]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelsForCloudCredential", arg0, arg1)
-	ret0, _ := ret[0].(map[string]string)
+	ret := m.ctrl.Call(m, "ModelsUsingCloudCredential", arg0, arg1)
+	ret0, _ := ret[0].(map[model.UUID]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ModelsForCloudCredential indicates an expected call of ModelsForCloudCredential.
-func (mr *MockStateMockRecorder) ModelsForCloudCredential(arg0, arg1 interface{}) *gomock.Call {
+// ModelsUsingCloudCredential indicates an expected call of ModelsUsingCloudCredential.
+func (mr *MockStateMockRecorder) ModelsUsingCloudCredential(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelsForCloudCredential", reflect.TypeOf((*MockState)(nil).ModelsForCloudCredential), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelsUsingCloudCredential", reflect.TypeOf((*MockState)(nil).ModelsUsingCloudCredential), arg0, arg1)
 }
 
 // RemoveCloudCredential mocks base method.

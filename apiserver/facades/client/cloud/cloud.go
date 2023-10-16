@@ -22,7 +22,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain/credential/service"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
@@ -910,7 +910,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 	}
 
 	// Helper to parse cloud.CloudCredential into an expected result item.
-	toParam := func(tag names.CloudCredentialTag, credential service.CloudCredential, includeSecrets bool) params.CredentialContentResult {
+	toParam := func(tag names.CloudCredentialTag, credential credential.CloudCredential, includeSecrets bool) params.CredentialContentResult {
 		schemas, err := credentialSchemas(credential.CloudName)
 		if err != nil {
 			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
@@ -961,9 +961,9 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 			return params.CredentialContentResults{}, errors.Trace(err)
 		}
 		result = make([]params.CredentialContentResult, len(credentials))
-		for i, credential := range credentials {
-			tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", credential.CloudName, api.apiUser.Id(), credential.Credential.Label))
-			result[i] = toParam(tag, credential, args.IncludeSecrets)
+		for i, cred := range credentials {
+			tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", cred.CloudName, api.apiUser.Id(), cred.Credential.Label))
+			result[i] = toParam(tag, cred, args.IncludeSecrets)
 		}
 	} else {
 		// Helper to construct credential tag from cloud and name.
@@ -983,14 +983,14 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 				continue
 			}
 			tag := names.NewCloudCredentialTag(id)
-			credential, err := api.credentialService.CloudCredential(ctx, tag)
+			cred, err := api.credentialService.CloudCredential(ctx, tag)
 			if err != nil {
 				result[i] = params.CredentialContentResult{
 					Error: apiservererrors.ServerError(err),
 				}
 				continue
 			}
-			result[i] = toParam(tag, service.CloudCredential{Credential: credential, CloudName: tag.Cloud().Id()}, args.IncludeSecrets)
+			result[i] = toParam(tag, credential.CloudCredential{Credential: cred, CloudName: tag.Cloud().Id()}, args.IncludeSecrets)
 		}
 	}
 	return params.CredentialContentResults{Results: result}, nil

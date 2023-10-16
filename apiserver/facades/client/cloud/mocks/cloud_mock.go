@@ -12,7 +12,7 @@ import (
 	cloud0 "github.com/juju/juju/cloud"
 	permission "github.com/juju/juju/core/permission"
 	watcher "github.com/juju/juju/core/watcher"
-	service "github.com/juju/juju/domain/credential/service"
+	credential "github.com/juju/juju/domain/credential"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -197,10 +197,10 @@ func (m *MockCredentialService) EXPECT() *MockCredentialServiceMockRecorder {
 }
 
 // AllCloudCredentials mocks base method.
-func (m *MockCredentialService) AllCloudCredentials(arg0 context.Context, arg1 string) ([]service.CloudCredential, error) {
+func (m *MockCredentialService) AllCloudCredentials(arg0 context.Context, arg1 string) ([]credential.CloudCredential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllCloudCredentials", arg0, arg1)
-	ret0, _ := ret[0].([]service.CloudCredential)
+	ret0, _ := ret[0].([]credential.CloudCredential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

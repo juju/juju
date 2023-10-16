@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher"
-	credentialservice "github.com/juju/juju/domain/credential/service"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/state"
 )
 
@@ -49,7 +49,7 @@ type ModelCredentialService interface {
 // CredentialService provides access to the credential domain service.
 type CredentialService interface {
 	CloudCredential(ctx stdcontext.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
-	AllCloudCredentials(ctx stdcontext.Context, user string) ([]credentialservice.CloudCredential, error)
+	AllCloudCredentials(ctx stdcontext.Context, user string) ([]credential.CloudCredential, error)
 	CloudCredentials(ctx stdcontext.Context, user, cloudName string) (map[string]cloud.Credential, error)
 	UpdateCloudCredential(ctx stdcontext.Context, tag names.CloudCredentialTag, cred cloud.Credential) error
 	RemoveCloudCredential(ctx stdcontext.Context, tag names.CloudCredentialTag) error

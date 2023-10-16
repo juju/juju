@@ -25,7 +25,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
-	credentialservice "github.com/juju/juju/domain/credential/service"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs/context"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -1735,7 +1735,7 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *gc.C) {
 		}}, c)
 
 	credentialTwo.Invalid = true
-	creds := []credentialservice.CloudCredential{
+	creds := []credential.CloudCredential{
 		{Credential: credentialOne, CloudName: "meep"},
 		{Credential: credentialTwo, CloudName: "meep"},
 	}
