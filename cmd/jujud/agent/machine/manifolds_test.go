@@ -72,6 +72,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"change-stream",
 			"charmhub-http-client",
 			"clock",
+			"control-socket",
 			"controller-port",
 			"db-accessor",
 			"deployer",
@@ -152,6 +153,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"change-stream",
 			"charmhub-http-client",
 			"clock",
+			"control-socket",
 			"controller-port",
 			"db-accessor",
 			"external-controller-updater",
@@ -230,6 +232,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"change-stream",
 		"charmhub-http-client",
 		"clock",
+		"control-socket",
 		"controller-port",
 		"db-accessor",
 		"deployer",
@@ -305,6 +308,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"query-logger",
 		"change-stream",
 		"file-notify-watcher",
+		"control-socket",
 	)
 
 	// Explicitly guarded by ifPrimaryController.
@@ -539,6 +543,13 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 	"charmhub-http-client": {},
 
 	"clock": {},
+
+	"control-socket": {
+		"agent",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+	},
 
 	"controller-port": {
 		"agent",
@@ -1131,6 +1142,13 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 	"charmhub-http-client": {},
 
 	"clock": {},
+
+	"control-socket": {
+		"agent",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+	},
 
 	"controller-port": {
 		"agent",
