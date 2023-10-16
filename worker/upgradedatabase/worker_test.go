@@ -4,6 +4,7 @@
 package upgradedatabase
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,6 +23,7 @@ import (
 	upgrade "github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher/watchertest"
 	model "github.com/juju/juju/domain/model"
+	"github.com/juju/juju/domain/schema"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	databasetesting "github.com/juju/juju/internal/database/testing"
@@ -201,6 +203,64 @@ func (s *workerSuite) TestUpgradeController(c *gc.C) {
 	}
 }
 
+func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that the update hasn't already happened.
+	s.lock.EXPECT().IsUnlocked().Return(false)
+
+	cfg := s.getConfig()
+
+	ch := make(chan struct{})
+
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	defer workertest.CheckKill(c, watcher)
+
+	// Walk through the upgrade process:
+	//  - Create Upgrade.
+	//  - Set the controller ready for upgrade.
+	//  - Wait for the upgrade to be ready. This means, all the controller nodes
+	//    are synced and ready to be upgraded.
+	//  - Start the upgrade, we're the leader.
+	//  - Upgrade the controller db.
+	//  - Set the db upgrade complete.
+	//  - Unlock the lock.
+
+	s.expectStartUpgrade(cfg.FromVersion, cfg.ToVersion, watcher)
+
+	// Controller upgrade.
+	//  - Upgrade the controller db and re-run the upgrades to ensure that they
+	//    don't break in the worker.
+
+	schema := schema.ControllerDDL(0)
+	_, err := schema.Ensure(context.Background(), s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.expectControllerDBUpgrade()
+
+	// Model upgrade (there are no models).
+	s.expectModelList([]model.UUID{})
+
+	s.expectDBCompleted()
+	done := s.expectUnlock()
+
+	w, err := NewUpgradeDatabaseWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CheckKill(c, w)
+
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to enqueue change")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for unlock")
+	}
+}
+
 func (s *workerSuite) TestUpgradeModels(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -234,6 +294,66 @@ func (s *workerSuite) TestUpgradeModels(c *gc.C) {
 	modelUUID := model.UUID(utils.MustNewUUID().String())
 	s.expectModelList([]model.UUID{modelUUID})
 	s.expectModelDBUpgrade(c, modelUUID)
+
+	s.expectDBCompleted()
+	done := s.expectUnlock()
+
+	w, err := NewUpgradeDatabaseWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CheckKill(c, w)
+
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to enqueue change")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for unlock")
+	}
+}
+
+func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that the update hasn't already happened.
+	s.lock.EXPECT().IsUnlocked().Return(false)
+
+	cfg := s.getConfig()
+
+	ch := make(chan struct{})
+
+	watcher := watchertest.NewMockNotifyWatcher(ch)
+	defer workertest.CheckKill(c, watcher)
+
+	// Walk through the upgrade process:
+	//  - Create Upgrade.
+	//  - Set the controller ready for upgrade.
+	//  - Wait for the upgrade to be ready. This means, all the controller nodes
+	//    are synced and ready to be upgraded.
+	//  - Start the upgrade, we're the leader.
+	//  - Upgrade the controller db.
+	//  - Upgrade all the model dbs.
+	//  - Set the db upgrade complete.
+	//  - Unlock the lock.
+
+	s.expectStartUpgrade(cfg.FromVersion, cfg.ToVersion, watcher)
+
+	// Controller upgrade.
+	s.expectControllerDBUpgrade()
+
+	// Model upgrade.
+	modelUUID := model.UUID(utils.MustNewUUID().String())
+	s.expectModelList([]model.UUID{modelUUID})
+	txnRunner := s.expectModelDBUpgrade(c, modelUUID)
+
+	// Run the upgrade steps on the existing model, to ensure it doesn't break
+	// in the worker.
+	schema := schema.ModelDDL()
+	_, err := schema.Ensure(context.Background(), txnRunner)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectDBCompleted()
 	done := s.expectUnlock()
@@ -300,9 +420,10 @@ func (s *workerSuite) expectModelList(models []model.UUID) {
 	s.modelManagerService.EXPECT().ModelList(gomock.Any()).Return(models, nil)
 }
 
-func (s *workerSuite) expectModelDBUpgrade(c *gc.C, modelUUID model.UUID) {
+func (s *workerSuite) expectModelDBUpgrade(c *gc.C, modelUUID model.UUID) coredatabase.TxnRunner {
 	txnRunner, _ := s.OpenDB(c)
 	s.dbGetter.EXPECT().GetDB(modelUUID.String()).Return(txnRunner, nil)
+	return txnRunner
 }
 
 func (s *workerSuite) expectUnlock() chan struct{} {
