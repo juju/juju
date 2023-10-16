@@ -463,8 +463,7 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 	one := s.createCloudCredential(c, st, "foobar", "cirrus", "bob")
 	c.Assert(one.Invalid, jc.IsFalse)
 
-	modelUUID := model.UUID(utils.MustNewUUID().String())
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	insertOne := func(ctx context.Context, tx *sql.Tx, modelUUID, name string) error {
 		_, err := tx.ExecContext(ctx, fmt.Sprintf(`
 		INSERT INTO model_list (uuid) VALUES(%q)`, modelUUID))
 		if err != nil {
@@ -472,9 +471,9 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 		}
 		result, err := tx.ExecContext(ctx, fmt.Sprintf(`
 		INSERT INTO model_metadata (model_uuid, name, owner_uuid, model_type_id, cloud_uuid, cloud_credential_uuid)
-		SELECT %q, "mymodel", "admin", 0,
+		SELECT %q, %q, "admin", 0,
 			(SELECT uuid FROM cloud WHERE cloud.name="cirrus"),
-			(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")`, modelUUID),
+			(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")`, modelUUID, name),
 		)
 		if err != nil {
 			return err
@@ -484,6 +483,18 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 			return err
 		}
 		c.Assert(numRows, gc.Equals, int64(1))
+		return nil
+	}
+
+	modelUUID := utils.MustNewUUID().String()
+	modelUUID2 := utils.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertOne(ctx, tx, modelUUID, "mymodel"); err != nil {
+			return err
+		}
+		if err := insertOne(ctx, tx, modelUUID2, "mymodel2"); err != nil {
+			return err
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -495,6 +506,7 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, map[model.UUID]string{
-		modelUUID: "mymodel",
+		model.UUID(modelUUID):  "mymodel",
+		model.UUID(modelUUID2): "mymodel2",
 	})
 }
