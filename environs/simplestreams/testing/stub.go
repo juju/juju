@@ -16,7 +16,6 @@ type StubDataSource struct {
 	FetchFunc            func(path string) (io.ReadCloser, string, error)
 	URLFunc              func(path string) (string, error)
 	PublicSigningKeyFunc func() string
-	SetAllowRetryFunc    func(allow bool)
 	PriorityFunc         func() int
 	RequireSignedFunc    func() bool
 }
@@ -29,7 +28,6 @@ func NewStubDataSource() *StubDataSource {
 		PublicSigningKeyFunc: func() string {
 			return ""
 		},
-		SetAllowRetryFunc: func(allow bool) {},
 		PriorityFunc: func() int {
 			return 0
 		},
@@ -68,12 +66,6 @@ func (s *StubDataSource) URL(path string) (string, error) {
 func (s *StubDataSource) PublicSigningKey() string {
 	s.MethodCall(s, "PublicSigningKey")
 	return s.PublicSigningKeyFunc()
-}
-
-// Description implements simplestreams.DataSource.
-func (s *StubDataSource) SetAllowRetry(allow bool) {
-	s.MethodCall(s, "SetAllowRetry", allow)
-	s.SetAllowRetryFunc(allow)
 }
 
 // Description implements simplestreams.DataSource.

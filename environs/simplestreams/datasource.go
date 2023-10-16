@@ -36,10 +36,6 @@ type DataSource interface {
 	// PublicSigningKey returns the public key used to validate signed metadata.
 	PublicSigningKey() string
 
-	// SetAllowRetry sets the flag which determines if the datasource will retry fetching the metadata
-	// if it is not immediately available.
-	SetAllowRetry(allow bool)
-
 	// Priority is an importance factor for Data Source. Higher number means higher priority.
 	// This is will allow to sort data sources in order of importance.
 	Priority() int
@@ -206,11 +202,6 @@ func (h *urlDataSource) URL(path string) (string, error) {
 // PublicSigningKey is defined in simplestreams.DataSource.
 func (u *urlDataSource) PublicSigningKey() string {
 	return u.publicSigningKey
-}
-
-// SetAllowRetry is defined in simplestreams.DataSource.
-func (h *urlDataSource) SetAllowRetry(allow bool) {
-	// This is a NOOP for url datasources.
 }
 
 // Priority is defined in simplestreams.DataSource.
