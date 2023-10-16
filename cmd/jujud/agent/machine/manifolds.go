@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/presence"
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
@@ -54,6 +55,7 @@ import (
 	"github.com/juju/juju/worker/common"
 	lxdbroker "github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/controlleragentconfig"
+	"github.com/juju/juju/worker/controlsocket"
 	"github.com/juju/juju/worker/credentialvalidator"
 	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/deployer"
@@ -791,6 +793,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				Logger:        loggo.GetLogger("juju.worker.secretbackendsrotate"),
 			},
 		))),
+
+		// The controlsocket worker runs on the controller machine.
+		controlSocketName: ifController(controlsocket.Manifold(controlsocket.ManifoldConfig{
+			StateName:  stateName,
+			Logger:     loggo.GetLogger("juju.worker.controlsocket"),
+			NewWorker:  controlsocket.NewWorker,
+			SocketName: paths.ControlSocket(paths.OSUnixLike),
+		})),
 	}
 
 	return manifolds
@@ -1154,4 +1164,6 @@ const (
 	brokerTrackerName = "broker-tracker"
 
 	charmhubHTTPClientName = "charmhub-http-client"
+
+	controlSocketName = "control-socket"
 )

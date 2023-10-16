@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
@@ -1196,31 +1197,49 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
-	s.assertConsumeDetailsWithPermission(c, false)
+	s.assertConsumeDetailsWithPermission(c,
+		func(authorizer *apiservertesting.FakeAuthorizer, apiUser names.UserTag) string {
+			authorizer.HasConsumeTag = apiUser
+			authorizer.Tag = apiUser
+			return ""
+		},
+	)
 }
 
-func (s *consumeSuite) TestConsumeDetailsSpecifiedUser(c *gc.C) {
-	s.assertConsumeDetailsWithPermission(c, true)
+func (s *consumeSuite) TestConsumeDetailsSpecifiedUserHasPermission(c *gc.C) {
+	s.assertConsumeDetailsWithPermission(c,
+		func(authorizer *apiservertesting.FakeAuthorizer, apiUser names.UserTag) string {
+			authorizer.HasConsumeTag = apiUser
+			controllerAdmin := names.NewUserTag("superuser-joe")
+			authorizer.Tag = controllerAdmin
+			return apiUser.String()
+		},
+	)
 }
 
-func (s *consumeSuite) assertConsumeDetailsWithPermission(c *gc.C, specifiedUser bool) {
+func (s *consumeSuite) TestConsumeDetailsSpecifiedUserHasNoPermissionButSuperUserLoggedIn(c *gc.C) {
+	s.assertConsumeDetailsWithPermission(c,
+		func(authorizer *apiservertesting.FakeAuthorizer, apiUser names.UserTag) string {
+			controllerAdmin := names.NewUserTag("superuser-joe")
+			authorizer.Tag = controllerAdmin
+			return apiUser.String()
+		},
+	)
+}
+
+func (s *consumeSuite) assertConsumeDetailsWithPermission(
+	c *gc.C, configAuthorizer func(*apiservertesting.FakeAuthorizer, names.UserTag) string,
+) {
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
-	s.authorizer.HasConsumeTag = apiUser
+
+	userTag := configAuthorizer(s.authorizer, apiUser)
 	offer := names.NewApplicationOfferTag("hosted-mysql")
 	err := st.CreateOfferAccess(offer, apiUser, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
-	userTag := ""
-	if specifiedUser {
-		controllerAdmin := names.NewUserTag("superuser-joe")
-		s.authorizer.Tag = controllerAdmin
-		userTag = apiUser.String()
-	} else {
-		s.authorizer.Tag = apiUser
-	}
 	results, err := s.api.GetConsumeDetails(
 		context.Background(),
 		params.ConsumeOfferDetailsArg{

@@ -37,10 +37,11 @@ func ReadCharmFromStorage(store storage.Storage, dataDir, storagePath string) (s
 	if err != nil {
 		return "", errors.Annotate(err, "cannot create charm archive file")
 	}
+	defer charmFile.Close()
+
 	if _, err = io.Copy(charmFile, reader); err != nil {
 		return "", errors.Annotate(err, "error processing charm archive download")
 	}
-	charmFile.Close()
 	return charmFile.Name(), nil
 }
 

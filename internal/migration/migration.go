@@ -252,6 +252,7 @@ func streamThroughTempFile(r io.Reader) (_ io.ReadSeeker, cleanup func(), err er
 	}
 	defer func() {
 		if err != nil {
+			_ = tempFile.Close()
 			_ = os.Remove(tempFile.Name())
 		}
 	}()
