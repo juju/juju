@@ -89,15 +89,20 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			currentConfig := controllerAgent.CurrentConfig()
+
 			// Work out where we're upgrading from and, where we want to upgrade to.
-			fromVersion := controllerAgent.CurrentConfig().UpgradedToVersion()
+			fromVersion := currentConfig.UpgradedToVersion()
 			toVersion := jujuversion.Current
 
 			return cfg.NewWorker(Config{
 				DBUpgradeCompleteLock: dbUpgradeCompleteLock,
 				Agent:                 controllerAgent,
+				ControllerNodeService: serviceFactoryGetter.ControllerNode(),
+				ModelManagerService:   serviceFactoryGetter.ModelManager(),
 				UpgradeService:        serviceFactoryGetter.Upgrade(),
 				DBGetter:              dbGetter,
+				Tag:                   currentConfig.Tag(),
 				FromVersion:           fromVersion,
 				ToVersion:             toVersion,
 				Logger:                cfg.Logger,

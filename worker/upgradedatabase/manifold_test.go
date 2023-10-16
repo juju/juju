@@ -5,6 +5,7 @@ package upgradedatabase
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
@@ -14,6 +15,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	controllernodeservice "github.com/juju/juju/domain/controllernode/service"
+	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
 
@@ -41,6 +44,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 	cfg = s.getConfig()
 	cfg.ServiceFactoryName = ""
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig()
+	cfg.DBAccessorName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -91,9 +98,12 @@ func (s *manifoldSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.worker = NewMockWorker(ctrl)
 
 	s.agent.EXPECT().CurrentConfig().Return(s.agentConfig).AnyTimes()
+	s.agentConfig.EXPECT().Tag().Return(names.NewMachineTag("0")).AnyTimes()
 	s.agentConfig.EXPECT().UpgradedToVersion().Return(version.MustParse("1.0.0")).AnyTimes()
 
 	s.serviceFactory.EXPECT().Upgrade().Return(&upgradeservice.Service{}).AnyTimes()
+	s.serviceFactory.EXPECT().ModelManager().Return(&modelmanagerservice.Service{}).AnyTimes()
+	s.serviceFactory.EXPECT().ControllerNode().Return(&controllernodeservice.Service{}).AnyTimes()
 
 	return ctrl
 }

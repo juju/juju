@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	names "github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
@@ -150,9 +151,12 @@ func (s *workerSuite) getConfig() Config {
 		Agent:                 s.agent,
 		Logger:                s.logger,
 		UpgradeService:        s.upgradeService,
+		ControllerNodeService: s.controllerNodeService,
+		ModelManagerService:   s.modelManagerService,
 		DBGetter:              s.dbGetter,
 		FromVersion:           version.MustParse("3.0.0"),
 		ToVersion:             version.MustParse("6.6.6"),
+		Tag:                   names.NewMachineTag("0"),
 	}
 }
 
