@@ -31,22 +31,22 @@ type WatcherFactory interface {
 // State describes retrieval and persistence methods for credentials.
 type State interface {
 	// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud, owner.
-	// If the credential already exists, the previous value of Invalid is returned.
+	// If the credential already exists, the existing credential's value of Invalid is returned.
 	UpsertCloudCredential(ctx context.Context, name, cloudName, owner string, credential cloud.Credential) (*bool, error)
 
 	// InvalidateCloudCredential marks the cloud credential for the given name, cloud, owner as invalid.
 	InvalidateCloudCredential(ctx context.Context, name, cloudName, owner, reason string) error
 
-	// CloudCredentials returns the user's cloud credentials for a given cloud,
+	// CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 	// keyed by credential name.
-	CloudCredentials(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error)
+	CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error)
 
 	// CloudCredential returns the cloud credential for the given name, cloud, owner.
 	CloudCredential(ctx context.Context, name, cloudName, owner string) (cloud.Credential, error)
 
-	// AllCloudCredentials returns all cloud credentials stored on the controller
-	// for a given user.
-	AllCloudCredentials(ctx context.Context, owner string) ([]credential.CloudCredential, error)
+	// AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
+	// for a given owner.
+	AllCloudCredentialsForOwner(ctx context.Context, owner string) ([]credential.CloudCredential, error)
 
 	// RemoveCloudCredential removes a cloud credential with the given name, cloud, owner.
 	RemoveCloudCredential(ctx context.Context, name, cloudName, owner string) error
@@ -60,9 +60,6 @@ type State interface {
 
 	// ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
 	ModelsUsingCloudCredential(ctx context.Context, id credential.ID) (map[model.UUID]string, error)
-
-	// GetCloud returns the cloud with the specified name.
-	GetCloud(ctx context.Context, name string) (cloud.Cloud, error)
 }
 
 // ValidationContextGetter returns the artefacts for a specified model, used to make credential validation calls.
@@ -70,7 +67,7 @@ type ValidationContextGetter func(modelUUID model.UUID) (credentialcommon.Creden
 
 // Logger facilitates emitting log messages.
 type Logger interface {
-	Warningf(string, ...interface{})
+	Debugf(string, ...interface{})
 }
 
 // Service provides the API for working with external controllers.
@@ -115,6 +112,7 @@ func (noopValidator) Validate(
 
 // WithValidationContextGetter configures the service to use the specified function
 // to get a context used to validate a credential for a specified model.
+// TODO(wallyworld) - remove when models are out of mongo
 func (s *Service) WithValidationContextGetter(validationContextGetter ValidationContextGetter) *Service {
 	s.validationContextGetter = validationContextGetter
 	return s
@@ -148,10 +146,10 @@ func (s *Service) CloudCredential(ctx context.Context, tag names.CloudCredential
 	return s.st.CloudCredential(ctx, tag.Name(), tag.Cloud().Id(), tag.Owner().Id())
 }
 
-// AllCloudCredentials returns all cloud credentials stored on the controller
-// for a given user.
-func (s *Service) AllCloudCredentials(ctx context.Context, user string) ([]credential.CloudCredential, error) {
-	creds, err := s.st.AllCloudCredentials(ctx, user)
+// AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
+// for a given owner.
+func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string) ([]credential.CloudCredential, error) {
+	creds, err := s.st.AllCloudCredentialsForOwner(ctx, owner)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -162,10 +160,10 @@ func (s *Service) AllCloudCredentials(ctx context.Context, user string) ([]crede
 	return result, nil
 }
 
-// CloudCredentials returns the user's cloud credentials for a given cloud,
+// CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 // keyed by credential name.
-func (s *Service) CloudCredentials(ctx context.Context, user, cloudName string) (map[string]cloud.Credential, error) {
-	return s.st.CloudCredentials(ctx, user, cloudName)
+func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error) {
+	return s.st.CloudCredentialsForOwner(ctx, owner, cloudName)
 }
 
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
@@ -200,19 +198,20 @@ func (s *Service) modelsUsingCredential(ctx context.Context, id credential.ID) (
 	return models, nil
 }
 
-func (s *Service) validateCredentialForModel(modelUUID model.UUID, cld cloud.Cloud, id credential.ID, cred *cloud.Credential) []error {
+func (s *Service) validateCredentialForModel(modelUUID model.UUID, id credential.ID, cred *cloud.Credential) ([]error, error) {
+	if s.validator == nil || s.validationContextGetter == nil {
+		return nil, errors.Errorf("missing validation helpers")
+	}
 	ctx, err := s.validationContextGetter(modelUUID)
 	if err != nil {
-		return []error{errors.Trace(err)}
+		return []error{errors.Trace(err)}, nil
 	}
-	ctx.Cloud = cld
-	validator := s.validator
 
-	modelErrors, err := validator.Validate(ctx, id, cred, false)
+	modelErrors, err := s.validator.Validate(ctx, id, cred, false)
 	if err != nil {
-		return []error{errors.Trace(err)}
+		return []error{errors.Trace(err)}, nil
 	}
-	return modelErrors
+	return modelErrors, nil
 }
 
 // UpdateCredentialModelResult holds details of a model
@@ -232,6 +231,9 @@ type UpdateCredentialModelResult struct {
 // CheckAndUpdateCredential updates the credential after first checking that any models which use the credential
 // can still access the cloud resources. If force is true, update the credential even if there are issues
 // validating the credential.
+// TODO(wallyworld) - the validation getter can be set during service construction once dqlite is used everywhere.
+// Note - it is expected that `WithValidationContextGetter` is called to set up the service to have a non-nil
+// validationContextGetter prior to calling this function, or else an error will be returned.
 // TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
 // but before validation can complete.
 func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID, cred cloud.Credential, force bool) ([]UpdateCredentialModelResult, error) {
@@ -240,11 +242,6 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID
 	}
 
 	models, err := s.modelsUsingCredential(ctx, id)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	modelCloud, err := s.st.GetCloud(ctx, id.Cloud)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -258,7 +255,10 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID
 			ModelUUID: uuid,
 			ModelName: name,
 		}
-		result.Errors = s.validateCredentialForModel(uuid, modelCloud, id, &cred)
+		result.Errors, err = s.validateCredentialForModel(uuid, id, &cred)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		modelsResult = append(modelsResult, result)
 		if len(result.Errors) > 0 {
 			modelsErred = true
@@ -271,27 +271,27 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID
 	})
 
 	if modelsErred && !force {
-		return modelsResult, credentialerrors.CredentialValidation
+		return modelsResult, credentialerrors.CredentialModelValidation
 	}
 
 	existingInvalid, err := s.st.UpsertCloudCredential(ctx, id.Name, id.Cloud, id.Owner, cred)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
-			err = errors.Errorf(
-				"cannot update credential %q: controller does not manage cloud %q",
-				id.Name, id.Cloud)
+			err = fmt.Errorf("%w %q for credential %q", credentialerrors.UnknownCloud, id.Name, id.Cloud)
 		}
 		return nil, errors.Trace(err)
 	}
-	if s.legacyUpdater == nil {
+	if s.legacyUpdater == nil || cred.Invalid {
 		return modelsResult, nil
 	}
+
+	// Credential is valid - revoke the suspended status of any relevant models.
 
 	// TODO(wallyworld) - we still manage models in mongo.
 	// This can be removed after models are in dqlite.
 	// Existing credential will become valid after this call, and
 	// the model status of all models that use it will be reverted.
-	if existingInvalid != nil && *existingInvalid != cred.Invalid && !cred.Invalid {
+	if existingInvalid != nil && *existingInvalid {
 		tag, err := id.Tag()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -318,7 +318,7 @@ func (s *Service) CheckAndRevokeCredential(ctx context.Context, id credential.ID
 		if force {
 			opMessage = "will be deleted but"
 		}
-		s.logger.Warningf("credential %v %v it is used by model%v",
+		s.logger.Debugf("credential %v %v it is used by model%v",
 			id,
 			opMessage,
 			modelsPretty(models),
@@ -333,7 +333,6 @@ func (s *Service) CheckAndRevokeCredential(ctx context.Context, id credential.ID
 		return errors.Trace(err)
 	} else {
 		// If credential was successfully removed, we also want to clear all references to it from the models.
-		// lp#1841885
 		tag, err := id.Tag()
 		if err != nil {
 			return errors.Trace(err)

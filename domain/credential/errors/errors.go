@@ -8,7 +8,11 @@ import (
 )
 
 const (
-	// CredentialValidation describes an error that occurs when a credential
+	// CredentialModelValidation describes an error that occurs when a credential
 	// cannot be validated for one or more models.
-	CredentialValidation = errors.ConstError("credential is not valid for one or more models")
+	CredentialModelValidation = errors.ConstError("credential is not valid for one or more models")
+
+	// UnknownCloud describes an error that occurs when a credential for cloud
+	// not known to the controller is updated.
+	UnknownCloud = errors.ConstError("unknown cloud")
 )

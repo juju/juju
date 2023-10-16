@@ -68,7 +68,9 @@ AND    cloud_credential.cloud_uuid = (
 }
 
 // UpsertCloudCredential adds or updates a cloud credential with the given name, cloud and owner.
-// If the credential exists already, the existing Invalid value is returned.
+// If the credential exists already, the existing credential's Invalid value is returned.
+// TODO(wallyworld) - introduce a bespoke domain type
+// TODO - because the values for Invalid and InvalidReason attributes are not included in the update.
 func (st *State) UpsertCloudCredential(ctx context.Context, name, cloudName, owner string, credential cloud.Credential) (*bool, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -323,9 +325,9 @@ AND    cloud_credential.cloud_uuid = (
 	return errors.Trace(err)
 }
 
-// CloudCredentials returns the user's cloud credentials for a given cloud,
+// CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 // keyed by credential name.
-func (st *State) CloudCredentials(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error) {
+func (st *State) CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -423,9 +425,9 @@ FROM   cloud_credential cc
 	return dbRows.toCloudCredentials(dbAuthTypes, dbclouds, keyValues)
 }
 
-// AllCloudCredentials returns all cloud credentials stored on the controller
+// AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given user.
-func (st *State) AllCloudCredentials(ctx context.Context, owner string) ([]credential.CloudCredential, error) {
+func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner string) ([]credential.CloudCredential, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -510,25 +512,6 @@ func (st *State) WatchCredential(
 	return result, errors.Annotatef(err, "watching credential")
 }
 
-// GetCloud returns the cloud with the specified name.
-func (st *State) GetCloud(ctx context.Context, name string) (cloud.Cloud, error) {
-	db, err := st.DB()
-	if err != nil {
-		return cloud.Cloud{}, errors.Trace(err)
-	}
-
-	var result []cloud.Cloud
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		var err error
-		result, err = dbcloud.LoadClouds(ctx, tx, name)
-		return errors.Trace(err)
-	})
-	if len(result) == 0 {
-		return cloud.Cloud{}, fmt.Errorf("cloud %q %w", name, errors.NotFound)
-	}
-	return result[0], errors.Trace(err)
-}
-
 // ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
 func (st *State) ModelsUsingCloudCredential(ctx context.Context, id credential.ID) (map[model.UUID]string, error) {
 	if err := id.Validate(); err != nil {
@@ -568,9 +551,6 @@ JOIN cloud ON cloud.uuid = cc.cloud_uuid
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-	if len(info) == 0 {
-		return nil, nil
 	}
 	result := make(map[model.UUID]string)
 	for _, m := range info {

@@ -74,7 +74,7 @@ var (
 )
 
 // CredentialCallContextGetter returns the artefacts for a specified model, used to make credential api calls.
-type CredentialCallContextGetter func(modelUUID string) (credentialcommon.Model, credentialcommon.MachineService, envcontext.ProviderCallContext, error)
+type CredentialCallContextGetter func(modelUUID string) (*cloud.Cloud, credentialcommon.Model, credentialcommon.MachineService, envcontext.ProviderCallContext, error)
 
 // ValidateCredentialFunc checks if a new cloud credential could be valid for a given model.
 type ValidateCredentialFunc func(
@@ -389,7 +389,7 @@ func (api *CloudAPI) UserCredentials(ctx context.Context, args params.UserClouds
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		cloudCredentials, err := api.credentialService.CloudCredentials(ctx, userTag.Id(), cloudTag.Id())
+		cloudCredentials, err := api.credentialService.CloudCredentialsForOwner(ctx, userTag.Id(), cloudTag.Id())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -513,12 +513,6 @@ func (api *CloudAPI) commonUpdateCredentials(ctx context.Context, update bool, f
 			}
 		}
 
-		cld, err := api.cloudService.Get(ctx, tag.Cloud().Id())
-		if err != nil {
-			results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
 		var modelsErred bool
 		if len(models) > 0 {
 			var modelsResult []params.UpdateCredentialModelResult
@@ -527,7 +521,7 @@ func (api *CloudAPI) commonUpdateCredentials(ctx context.Context, update bool, f
 					ModelUUID: uuid,
 					ModelName: name,
 				}
-				model.Errors = api.validateCredentialForModel(uuid, *cld, tag, &in)
+				model.Errors = api.validateCredentialForModel(uuid, tag, &in)
 				modelsResult = append(modelsResult, model)
 				if len(model.Errors) > 0 {
 					modelsErred = true
@@ -592,10 +586,10 @@ func (api *CloudAPI) credentialModels(tag names.CloudCredentialTag) (map[string]
 	return models, nil
 }
 
-func (api *CloudAPI) validateCredentialForModel(modelUUID string, cld cloud.Cloud, tag names.CloudCredentialTag, credential *cloud.Credential) []params.ErrorResult {
+func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.CloudCredentialTag, credential *cloud.Credential) []params.ErrorResult {
 	var result []params.ErrorResult
 
-	model, machineService, callContext, err := api.credentialCallContextGetter(modelUUID)
+	cld, model, machineService, callContext, err := api.credentialCallContextGetter(modelUUID)
 	if err != nil {
 		return append(result, params.ErrorResult{Error: apiservererrors.ServerError(err)})
 	}
@@ -606,7 +600,7 @@ func (api *CloudAPI) validateCredentialForModel(modelUUID string, cld cloud.Clou
 		machineService,
 		tag,
 		credential,
-		cld,
+		*cld,
 		false,
 	)
 	if err != nil {
@@ -752,7 +746,7 @@ func (api *CloudAPI) Credential(ctx context.Context, args params.Entities) (para
 			schemaCache[cloudName] = schema
 			return schema, nil
 		}
-		cloudCredentials, err := api.credentialService.CloudCredentials(ctx, credentialTag.Owner().Id(), credentialTag.Cloud().Id())
+		cloudCredentials, err := api.credentialService.CloudCredentialsForOwner(ctx, credentialTag.Owner().Id(), credentialTag.Cloud().Id())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -956,7 +950,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 
 	var result []params.CredentialContentResult
 	if len(args.Credentials) == 0 {
-		credentials, err := api.credentialService.AllCloudCredentials(ctx, api.apiUser.Id())
+		credentials, err := api.credentialService.AllCloudCredentialsForOwner(ctx, api.apiUser.Id())
 		if err != nil {
 			return params.CredentialContentResults{}, errors.Trace(err)
 		}

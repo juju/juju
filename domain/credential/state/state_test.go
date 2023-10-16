@@ -161,7 +161,7 @@ func (s *credentialSuite) TestUpdateCloudCredentialInvalidAuthType(c *gc.C) {
 func (s *credentialSuite) TestCloudCredentialsEmpty(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	creds, err := st.CloudCredentials(context.Background(), "bob", "dummy")
+	creds, err := st.CloudCredentialsForOwner(context.Background(), "bob", "dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(creds, gc.HasLen, 0)
 }
@@ -190,7 +190,7 @@ func (s *credentialSuite) TestCloudCredentials(c *gc.C) {
 	cred2.Label = "bobcred2"
 
 	for _, userName := range []string{"bob", "bob"} {
-		creds, err := st.CloudCredentials(ctx, userName, "stratus")
+		creds, err := st.CloudCredentialsForOwner(ctx, userName, "stratus")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(creds, jc.DeepEquals, map[string]cloud.Credential{
 			"stratus/bob/bobcred1": cred1,
@@ -289,7 +289,7 @@ func (s *credentialSuite) TestRemoveCredentials(c *gc.C) {
 func (s *credentialSuite) TestAllCloudCredentialsNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	out, err := st.AllCloudCredentials(context.Background(), "bob")
+	out, err := st.AllCloudCredentialsForOwner(context.Background(), "bob")
 	c.Assert(err, gc.ErrorMatches, "cloud credentials for \"bob\" not found")
 	c.Assert(out, gc.IsNil)
 }
@@ -322,7 +322,7 @@ func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
 	// Added to make sure it is not returned.
 	s.createCloudCredential(c, st, "foobar", "cumulus", "mary")
 
-	out, err := st.AllCloudCredentials(context.Background(), "bob")
+	out, err := st.AllCloudCredentialsForOwner(context.Background(), "bob")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(out, jc.DeepEquals, []credential.CloudCredential{
 		{Credential: one, CloudName: "cirrus"},
@@ -416,22 +416,6 @@ func (s *credentialSuite) TestWatchCredential(c *gc.C) {
 	wc.AssertOneChange()
 
 	workertest.CleanKill(c, w)
-}
-
-func (s *credentialSuite) TestGetCloud(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	s.createCloudCredential(c, st, "foobar", "cirrus", "bob")
-
-	cld, err := st.GetCloud(context.Background(), "cirrus")
-	c.Assert(err, jc.ErrorIsNil)
-
-	expected := cloud.Cloud{
-		Name:      "cirrus",
-		Type:      "ec2",
-		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-	}
-	c.Assert(cld, jc.DeepEquals, expected)
 }
 
 func (s *credentialSuite) TestNoModelsUsingCloudCredential(c *gc.C) {

@@ -62,12 +62,12 @@ func (s *serviceSuite) TestCloudCredentials(c *gc.C) {
 
 	one := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false)
 	two := cloud.NewNamedCredential("foobar", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false)
-	s.state.EXPECT().CloudCredentials(gomock.Any(), "fred", "cirrus").Return(map[string]cloud.Credential{
+	s.state.EXPECT().CloudCredentialsForOwner(gomock.Any(), "fred", "cirrus").Return(map[string]cloud.Credential{
 		"foo":    one,
 		"foobar": two,
 	}, nil)
 
-	creds, err := s.service().CloudCredentials(context.Background(), "fred", "cirrus")
+	creds, err := s.service().CloudCredentialsForOwner(context.Background(), "fred", "cirrus")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(creds, jc.DeepEquals, map[string]cloud.Credential{
 		"foo":    one,
@@ -111,9 +111,9 @@ func (s *serviceSuite) TestAllCloudCredentials(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false)
-	s.state.EXPECT().AllCloudCredentials(gomock.Any(), "fred").Return([]credential.CloudCredential{{CloudName: "cirrus", Credential: cred}}, nil)
+	s.state.EXPECT().AllCloudCredentialsForOwner(gomock.Any(), "fred").Return([]credential.CloudCredential{{CloudName: "cirrus", Credential: cred}}, nil)
 
-	result, err := s.service().AllCloudCredentials(context.Background(), "fred")
+	result, err := s.service().AllCloudCredentialsForOwner(context.Background(), "fred")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []credential.CloudCredential{{CloudName: "cirrus", Credential: cred}})
 }
@@ -144,7 +144,6 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
 	}
 
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(nil, errors.NotFound)
-	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
 
 	var legacyUpdated bool
@@ -204,7 +203,6 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContext(c *gc.C) {
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
 		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
-	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
 
 	contextError := errors.New("failed context")
 
@@ -244,7 +242,6 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContextForce(c *gc.C) {
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
 		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
-	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
 
 	contextError := errors.New("failed context")
@@ -285,7 +282,6 @@ func (s *serviceSuite) TestUpdateCredentialsModels(c *gc.C) {
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
 		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
-	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
 	s.validator.EXPECT().Validate(gomock.Any(), id, &cred, false).Return(nil, nil)
 
@@ -322,7 +318,6 @@ func (s *serviceSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) 
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
 		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
-	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
 
 	validationError := errors.New("cred error")
@@ -362,7 +357,6 @@ func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidation(c *gc.C) 
 		model.UUID(jujutesting.ModelTag.Id()):  "mymodel",
 		"deadbeef-1bad-500d-9000-4b1d0d06f666": "anothermodel",
 	}, nil)
-	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
 
 	validationError := errors.New("cred error")
 	calls := 0
@@ -427,7 +421,6 @@ func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *g
 		model.UUID(jujutesting.ModelTag.Id()):  "mymodel",
 		"deadbeef-1bad-500d-9000-4b1d0d06f666": "anothermodel",
 	}, nil)
-	s.state.EXPECT().GetCloud(gomock.Any(), "cirrus").Return(cloud.Cloud{Name: "cirrus"}, nil)
 	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
 
 	validationError := errors.New("cred error")
@@ -579,8 +572,6 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelForce(c *gc.C) {
 	err := service.CheckAndRevokeCredential(context.Background(), id, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(legacyUpdated, jc.IsTrue)
-	c.Assert(c.GetTestLog(), jc.Contains,
-		" WARNING test credential cirrus/bob/foobar will be deleted but it is used by model deadbeef-0bad-400d-8000-4b1d0d06f00d")
 }
 
 func (s *serviceSuite) TestRevokeCredentialsHasModelsForce(c *gc.C) {
@@ -609,8 +600,4 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelsForce(c *gc.C) {
 	err := service.CheckAndRevokeCredential(context.Background(), id, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(legacyUpdated, jc.IsTrue)
-	c.Assert(c.GetTestLog(), jc.Contains,
-		` WARNING test credential cirrus/bob/foobar will be deleted but it is used by models:
-- deadbeef-0bad-400d-8000-4b1d0d06f00d
-- deadbeef-1bad-500d-9000-4b1d0d06f666`)
 }

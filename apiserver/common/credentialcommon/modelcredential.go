@@ -45,7 +45,7 @@ type CredentialValidator interface {
 		credentialID credential.ID,
 		credential *cloud.Credential,
 		checkCloudInstances bool,
-	) (machineErrors []error, err error)
+	) ([]error, error)
 }
 
 // ValidateExistingModelCredential checks if the cloud credential that a given model uses is valid for it.

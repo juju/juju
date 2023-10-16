@@ -4,12 +4,14 @@
 package cloud
 
 import (
+	stdcontext "context"
 	"reflect"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/cloud"
 	envcontext "github.com/juju/juju/environs/context"
 )
 
@@ -22,18 +24,22 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacadeV7 is used for API registration.
 func newFacadeV7(context facade.Context) (*CloudAPI, error) {
-	credentialCallContextGetter := func(modelUUID string) (credentialcommon.Model, credentialcommon.MachineService, envcontext.ProviderCallContext, error) {
+	credentialCallContextGetter := func(modelUUID string) (*cloud.Cloud, credentialcommon.Model, credentialcommon.MachineService, envcontext.ProviderCallContext, error) {
 		modelState, err := context.StatePool().Get(modelUUID)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		defer modelState.Release()
 
 		model, err := modelState.Model()
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
-		return model, credentialcommon.NewMachineService(modelState.State), envcontext.CallContext(modelState.State), err
+		cld, err := context.ServiceFactory().Cloud().Get(stdcontext.Background(), model.CloudName())
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		return cld, model, credentialcommon.NewMachineService(modelState.State), envcontext.CallContext(modelState.State), err
 	}
 	systemState, err := context.StatePool().SystemState()
 	if err != nil {
