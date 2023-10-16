@@ -87,6 +87,10 @@ type Tracer interface {
 // create a Span and it is then up to the operation the Span represents to
 // properly end the Span when the operation itself ends.
 type Span interface {
+	// Scope returns the scope of the span. This is useful for identifying
+	// the trace and span ID.
+	Scope() Scope
+
 	// AddEvent will record an event for this span. This is a manual mechanism
 	// for recording an event, it is useful to log information about what
 	// happened during the lifetime of a span.
@@ -105,6 +109,14 @@ type Span interface {
 	// is called. Therefore, updates to the Span are not allowed after this
 	// method has been called.
 	End(...Attribute)
+}
+
+// Scope is the scope of the span.
+type Scope interface {
+	// TraceID returns the trace ID of the span.
+	TraceID() string
+	// SpanID returns the span ID of the span.
+	SpanID() string
 }
 
 // Name is the name of the span.

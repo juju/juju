@@ -72,6 +72,11 @@ func (NoopTracer) Enabled() bool {
 // NoopSpan is a span that does nothing.
 type NoopSpan struct{}
 
+// Scope returns the scope of the span.
+func (NoopSpan) Scope() Scope {
+	return NoopScope{}
+}
+
 // AddEvent will record an event for this span. This is a manual mechanism
 // for recording an event, it is useful to log information about what
 // happened during the lifetime of a span.
@@ -90,3 +95,16 @@ func (NoopSpan) RecordError(error, ...Attribute) {}
 // is called. Therefore, updates to the Span are not allowed after this
 // method has been called.
 func (NoopSpan) End(...Attribute) {}
+
+// NoopScope is a scope that does nothing.
+type NoopScope struct{}
+
+// TraceID returns the trace ID of the span.
+func (NoopScope) TraceID() string {
+	return ""
+}
+
+// SpanID returns the span ID of the span.
+func (NoopScope) SpanID() string {
+	return ""
+}

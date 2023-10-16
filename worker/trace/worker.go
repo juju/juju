@@ -297,9 +297,7 @@ func NewNoopWorker() *noopWorker {
 	// Set this up, so we only ever hand out a singular tracer and span per
 	// worker.
 	w := &noopWorker{
-		tracer: noopTracer{
-			span: noopSpan{},
-		},
+		tracer: coretrace.NoopTracer{},
 	}
 
 	w.tomb.Go(func() error {
@@ -325,24 +323,6 @@ func (w *noopWorker) Kill() {
 func (w *noopWorker) Wait() error {
 	return w.tomb.Wait()
 }
-
-type noopTracer struct {
-	span coretrace.Span
-}
-
-func (t noopTracer) Start(ctx context.Context, name string, opts ...coretrace.Option) (context.Context, coretrace.Span) {
-	return ctx, t.span
-}
-
-func (t noopTracer) Enabled() bool {
-	return false
-}
-
-type noopSpan struct{}
-
-func (noopSpan) AddEvent(string, ...coretrace.Attribute)   {}
-func (noopSpan) RecordError(error, ...coretrace.Attribute) {}
-func (noopSpan) End(...coretrace.Attribute)                {}
 
 type loggoSink struct {
 	Logger        Logger

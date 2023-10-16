@@ -153,6 +153,7 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 	managed := &managedSpan{
 		span:               span,
 		cancel:             cancel,
+		scope:              managedScope{span: span},
 		stackTracesEnabled: t.requiresStackTrace(o.StackTrace()),
 	}
 	return coretrace.WithSpan(ctx, &limitedSpan{
@@ -239,7 +240,13 @@ func newResource(serviceName string) *resource.Resource {
 type managedSpan struct {
 	span               trace.Span
 	cancel             context.CancelFunc
+	scope              coretrace.Scope
 	stackTracesEnabled bool
+}
+
+// Scope returns the scope of the span.
+func (s *managedSpan) Scope() coretrace.Scope {
+	return s.scope
 }
 
 // AddEvent will record an event for this span. This is a manual mechanism
@@ -266,6 +273,10 @@ func (s *managedSpan) RecordError(err error, attrs ...coretrace.Attribute) {
 	s.span.SetStatus(codes.Error, err.Error())
 }
 
+// End completes the Span. The Span is considered complete and ready to be
+// delivered through the rest of the telemetry pipeline after this method
+// is called. Therefore, updates to the Span are not allowed after this
+// method has been called.
 func (s *managedSpan) End(attrs ...coretrace.Attribute) {
 	defer s.cancel()
 
@@ -273,12 +284,18 @@ func (s *managedSpan) End(attrs ...coretrace.Attribute) {
 	s.span.End(trace.WithStackTrace(s.stackTracesEnabled))
 }
 
-func attributes(attrs []coretrace.Attribute) []attribute.KeyValue {
-	kv := make([]attribute.KeyValue, len(attrs))
-	for _, attr := range attrs {
-		kv = append(kv, attribute.String(attr.Key(), attr.Value()))
-	}
-	return kv
+type managedScope struct {
+	span trace.Span
+}
+
+// TraceID returns the trace ID of the span.
+func (s managedScope) TraceID() string {
+	return s.span.SpanContext().TraceID().String()
+}
+
+// SpanID returns the span ID of the span.
+func (s managedScope) SpanID() string {
+	return s.span.SpanContext().SpanID().String()
 }
 
 // limitedSpan prevents you shooting yourself in the foot by ending a span that
@@ -290,4 +307,12 @@ type limitedSpan struct {
 
 func (s *limitedSpan) End(attrs ...coretrace.Attribute) {
 	s.logger.Warningf("attempted to end a span that you don't own")
+}
+
+func attributes(attrs []coretrace.Attribute) []attribute.KeyValue {
+	kv := make([]attribute.KeyValue, len(attrs))
+	for _, attr := range attrs {
+		kv = append(kv, attribute.String(attr.Key(), attr.Value()))
+	}
+	return kv
 }
