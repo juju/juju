@@ -31,7 +31,8 @@ type baseSuite struct {
 	agent          *MockAgent
 	agentConfig    *MockConfig
 	serviceFactory *MockControllerServiceFactory
-	dbGetter       *MockDBGetter
+
+	dbGetter *MockDBGetter
 
 	upgradeService        *MockUpgradeService
 	controllerNodeService *MockControllerNodeService
@@ -47,6 +48,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.agent = NewMockAgent(ctrl)
 	s.agentConfig = NewMockConfig(ctrl)
 	s.serviceFactory = NewMockControllerServiceFactory(ctrl)
+
 	s.dbGetter = NewMockDBGetter(ctrl)
 
 	s.upgradeService = NewMockUpgradeService(ctrl)
