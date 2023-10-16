@@ -48,7 +48,7 @@ func (s *stateSuite) TestCurateNodes(c *gc.C) {
 	c.Check(ids.Contains("3"), jc.IsTrue)
 }
 
-func (s *stateSuite) TestUpdateUpdateDqliteNode(c *gc.C) {
+func (s *stateSuite) TestUpdateDqliteNode(c *gc.C) {
 	// This value would cause a driver error to be emitted if we
 	// tried to pass it directly as a uint64 query parameter.
 	nodeID := uint64(15237855465837235027)
@@ -69,6 +69,29 @@ func (s *stateSuite) TestUpdateUpdateDqliteNode(c *gc.C) {
 
 	c.Check(id, gc.Equals, nodeID)
 	c.Check(addr, gc.Equals, "192.168.5.60")
+}
+
+func (s *stateSuite) TestDqliteNode(c *gc.C) {
+	// This value would cause a driver error to be emitted if we
+	// tried to pass it directly as a uint64 query parameter.
+	nodeID := uint64(15237855465837235027)
+
+	st := NewState(s.TxnRunnerFactory())
+	err := st.UpdateDqliteNode(
+		context.Background(), "0", nodeID, "192.168.5.60")
+	c.Assert(err, jc.ErrorIsNil)
+
+	id, addr, err := st.DqliteNode(context.Background(), "0")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(id, gc.Equals, nodeID)
+	c.Check(addr, gc.Equals, "192.168.5.60")
+}
+
+func (s *stateSuite) TestDqliteNodeNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, _, err := st.DqliteNode(context.Background(), "1")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *stateSuite) TestSelectModelUUID(c *gc.C) {
