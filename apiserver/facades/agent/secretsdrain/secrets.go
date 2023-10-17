@@ -122,7 +122,7 @@ func (s *SecretsDrainAPI) WatchSecretBackendChanged(ctx context.Context) (params
 			Error: apiservererrors.ServerError(err),
 		}, nil
 	}
-	id, _, err := internal.EnsureRegisterWatcher[struct{}](s.watcherRegistry, w)
+	id, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, s.watcherRegistry, w)
 	if err != nil {
 		return params.NotifyWatchResult{
 			Error: apiservererrors.ServerError(err),

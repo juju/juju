@@ -606,7 +606,7 @@ type srvNotifyWatcher struct {
 // entity being watched since the most recent call to Next
 // or the Watch call that created the NotifyWatcher.
 func (w *srvNotifyWatcher) Next(ctx context.Context) error {
-	_, err := internal.FirstResult[struct{}](w.watcher)
+	_, err := internal.FirstResult[struct{}](ctx, w.watcher)
 	return errors.Trace(err)
 }
 
@@ -644,7 +644,7 @@ func newStringsWatcher(context facade.Context) (facade.Facade, error) {
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvStringsWatcher.
 func (w *srvStringsWatcher) Next(ctx context.Context) (params.StringsWatchResult, error) {
-	changes, err := internal.FirstResult[[]string](w.watcher)
+	changes, err := internal.FirstResult[[]string](ctx, w.watcher)
 	if err != nil {
 		return params.StringsWatchResult{}, errors.Trace(err)
 	}
@@ -686,7 +686,7 @@ func newRelationUnitsWatcher(context facade.Context) (facade.Facade, error) {
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvRelationUnitsWatcher.
 func (w *srvRelationUnitsWatcher) Next(ctx context.Context) (params.RelationUnitsWatchResult, error) {
-	changes, err := internal.FirstResult[params.RelationUnitsChange](w.watcher)
+	changes, err := internal.FirstResult[params.RelationUnitsChange](ctx, w.watcher)
 	if err != nil {
 		return params.RelationUnitsWatchResult{}, errors.Trace(err)
 	}
@@ -728,7 +728,7 @@ func newRemoteRelationWatcher(context facade.Context) (facade.Facade, error) {
 }
 
 func (w *srvRemoteRelationWatcher) Next(ctx context.Context) (params.RemoteRelationWatchResult, error) {
-	changes, err := internal.FirstResult[params.RelationUnitsChange](w.watcher)
+	changes, err := internal.FirstResult[params.RelationUnitsChange](ctx, w.watcher)
 	if err != nil {
 		return params.RemoteRelationWatchResult{}, errors.Trace(err)
 	}
@@ -782,7 +782,7 @@ func newRelationStatusWatcher(context facade.Context) (facade.Facade, error) {
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvRelationStatusWatcher.
 func (w *srvRelationStatusWatcher) Next(ctx context.Context) (params.RelationLifeSuspendedStatusWatchResult, error) {
-	changes, err := internal.FirstResult[[]string](w.watcher)
+	changes, err := internal.FirstResult[[]string](ctx, w.watcher)
 	if err != nil {
 		return params.RelationLifeSuspendedStatusWatchResult{}, errors.Trace(err)
 	}
@@ -838,7 +838,7 @@ func newOfferStatusWatcher(context facade.Context) (facade.Facade, error) {
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvOfferStatusWatcher.
 func (w *srvOfferStatusWatcher) Next(ctx context.Context) (params.OfferStatusWatchResult, error) {
-	_, err := internal.FirstResult[struct{}](w.watcher)
+	_, err := internal.FirstResult[struct{}](ctx, w.watcher)
 	if err != nil {
 		return params.OfferStatusWatchResult{}, errors.Trace(err)
 	}
@@ -924,7 +924,7 @@ func newMachineStorageIdsWatcher(
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvMachineStorageIdsWatcher.
 func (w *srvMachineStorageIdsWatcher) Next(ctx context.Context) (params.MachineStorageIdsWatchResult, error) {
-	stringChanges, err := internal.FirstResult[[]string](w.watcher)
+	stringChanges, err := internal.FirstResult[[]string](ctx, w.watcher)
 	if err != nil {
 		return params.MachineStorageIdsWatchResult{}, errors.Trace(err)
 	}
@@ -985,7 +985,7 @@ func newEntitiesWatcher(context facade.Context) (facade.Facade, error) {
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvEntitiesWatcher.
 func (w *srvEntitiesWatcher) Next(ctx context.Context) (params.EntitiesWatchResult, error) {
-	changes, err := internal.FirstResult[[]string](w.watcher)
+	changes, err := internal.FirstResult[[]string](ctx, w.watcher)
 	if err != nil {
 		return params.EntitiesWatchResult{}, errors.Trace(err)
 	}
@@ -1060,7 +1060,7 @@ type srvMigrationStatusWatcher struct {
 // associated model changes. The current details for the active
 // migration are returned.
 func (w *srvMigrationStatusWatcher) Next(ctx context.Context) (params.MigrationStatus, error) {
-	_, err := internal.FirstResult[struct{}](w.watcher)
+	_, err := internal.FirstResult[struct{}](ctx, w.watcher)
 	if err != nil {
 		return params.MigrationStatus{}, errors.Trace(err)
 	}
@@ -1188,7 +1188,7 @@ type SrvModelSummaryWatcher struct {
 // and subsequent calls will return just those model summaries that have
 // changed.
 func (w *SrvModelSummaryWatcher) Next(ctx context.Context) (params.SummaryWatcherNextResults, error) {
-	changes, err := internal.FirstResult[[]corewatcher.ModelSummary](w.watcher)
+	changes, err := internal.FirstResult[[]corewatcher.ModelSummary](ctx, w.watcher)
 	if err != nil {
 		return params.SummaryWatcherNextResults{}, errors.Trace(err)
 	}
@@ -1278,7 +1278,7 @@ func newSecretsTriggerWatcher(context facade.Context) (facade.Facade, error) {
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvSecretRotationWatcher.
 func (w *srvSecretTriggerWatcher) Next(ctx context.Context) (params.SecretTriggerWatchResult, error) {
-	changes, err := internal.FirstResult[[]corewatcher.SecretTriggerChange](w.watcher)
+	changes, err := internal.FirstResult[[]corewatcher.SecretTriggerChange](ctx, w.watcher)
 	if err != nil {
 		return params.SecretTriggerWatchResult{}, errors.Trace(err)
 	}
@@ -1331,7 +1331,7 @@ func newSecretBackendsRotateWatcher(context facade.Context) (facade.Facade, erro
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvSecretRotationWatcher.
 func (w *srvSecretBackendsRotateWatcher) Next(ctx context.Context) (params.SecretBackendRotateWatchResult, error) {
-	changes, err := internal.FirstResult[[]corewatcher.SecretBackendRotateChange](w.watcher)
+	changes, err := internal.FirstResult[[]corewatcher.SecretBackendRotateChange](ctx, w.watcher)
 	if err != nil {
 		return params.SecretBackendRotateWatchResult{}, errors.Trace(err)
 	}
@@ -1390,7 +1390,7 @@ func newSecretsRevisionWatcher(context facade.Context) (facade.Facade, error) {
 // collection being watched since the most recent call to Next
 // or the Watch call that created the srvSecretRotationWatcher.
 func (w *srvSecretsRevisionWatcher) Next(ctx context.Context) (params.SecretRevisionWatchResult, error) {
-	changes, err := internal.FirstResult[[]string](w.watcher)
+	changes, err := internal.FirstResult[[]string](ctx, w.watcher)
 	if err != nil {
 		return params.SecretRevisionWatchResult{}, errors.Trace(err)
 	}
