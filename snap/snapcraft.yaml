@@ -181,7 +181,7 @@ parts:
       - musl
       - musl-compat
     source: https://github.com/libuv/libuv.git
-    source-tag: v1.44.2
+    source-tag: v1.46.0
     source-type: git
     source-depth: 1
     plugin: autotools
@@ -222,7 +222,7 @@ parts:
       - musl
       - musl-compat
     source: https://github.com/sqlite/sqlite.git
-    source-tag: version-3.40.0
+    source-tag: version-3.43.1
     source-type: git
     source-depth: 1
     plugin: autotools
@@ -294,7 +294,7 @@ parts:
       - libuv
       - liblz4
     source: https://github.com/canonical/raft.git
-    source-tag: v0.17.1
+    source-tag: v0.18.0
     source-type: git
     source-depth: 1
     plugin: autotools
@@ -340,7 +340,7 @@ parts:
       - libraft
       - libsqlite3
     source: https://github.com/canonical/dqlite.git
-    source-tag: v1.14.0
+    source-tag: v1.16.0
     source-type: git
     source-depth: 1
     plugin: autotools
