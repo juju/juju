@@ -15,9 +15,7 @@ func ValidatorsForModelMigrationSource(
 ) []Validator {
 	return []Validator{
 		getCheckUpgradeSeriesLockForModel(false),
-		checkNoWinMachinesForModel,
 		checkForDeprecatedUbuntuSeriesForModel,
 		getCheckForLXDVersion(cloudspec),
-		checkForCharmStoreCharms,
 	}
 }

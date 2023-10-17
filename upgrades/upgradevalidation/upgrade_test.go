@@ -4,7 +4,6 @@
 package upgradevalidation_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
@@ -72,11 +71,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	}, nil)
 	// - check mongo version;
 	statePool.EXPECT().MongoVersion().Return("4.4", nil)
-	// - check if the model has win machines;
-	ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
-	// - check no charm store charms
-	ctrlState.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
@@ -85,11 +80,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	//  - check if model migration is ongoing;
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeNone)
-	// - check if the model has win machines;
-	state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
-	// - check no charm store charms
-	state1.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
@@ -128,8 +119,6 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 
 	// - check no upgrade series in process.
 	state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
-	// - check if the model has win machines.
-	state.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	state.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)

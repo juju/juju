@@ -18,12 +18,10 @@ func TestAll(t *stdtesting.T) {
 
 var (
 	CheckForDeprecatedUbuntuSeriesForModel      = checkForDeprecatedUbuntuSeriesForModel
-	CheckNoWinMachinesForModel                  = checkNoWinMachinesForModel
 	GetCheckUpgradeSeriesLockForModel           = getCheckUpgradeSeriesLockForModel
 	GetCheckTargetVersionForModel               = getCheckTargetVersionForModel
 	CheckModelMigrationModeForControllerUpgrade = checkModelMigrationModeForControllerUpgrade
 	CheckMongoStatusForControllerUpgrade        = checkMongoStatusForControllerUpgrade
 	CheckMongoVersionForControllerModel         = checkMongoVersionForControllerModel
 	GetCheckForLXDVersion                       = getCheckForLXDVersion
-	CheckForCharmStoreCharms                    = checkForCharmStoreCharms
 )
