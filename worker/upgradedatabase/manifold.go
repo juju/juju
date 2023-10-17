@@ -22,6 +22,7 @@ type Logger interface {
 	Warningf(string, ...any)
 	Infof(string, ...any)
 	Debugf(string, ...any)
+	Tracef(string, ...any)
 }
 
 // ManifoldConfig defines the configuration on which this manifold depends.

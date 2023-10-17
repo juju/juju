@@ -28,7 +28,7 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestServiceCreate(c *gc.C) {
+func (s *serviceSuite) TestCreate(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -39,7 +39,7 @@ func (s *serviceSuite) TestServiceCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestServiceCreateError(c *gc.C) {
+func (s *serviceSuite) TestCreateError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -51,7 +51,7 @@ func (s *serviceSuite) TestServiceCreateError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `creating model ".*": boom`)
 }
 
-func (s *serviceSuite) TestServiceCreateDuplicateError(c *gc.C) {
+func (s *serviceSuite) TestCreateDuplicateError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -66,7 +66,7 @@ func (s *serviceSuite) TestServiceCreateDuplicateError(c *gc.C) {
 	c.Assert(errors.Cause(err), jc.ErrorIs, domain.ErrDuplicate)
 }
 
-func (s *serviceSuite) TestServiceCreateInvalidUUID(c *gc.C) {
+func (s *serviceSuite) TestCreateInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(s.state, s.dbDeleter)
@@ -74,7 +74,7 @@ func (s *serviceSuite) TestServiceCreateInvalidUUID(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "validating model uuid.*")
 }
 
-func (s *serviceSuite) TestServiceList(c *gc.C) {
+func (s *serviceSuite) TestModelList(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -87,7 +87,7 @@ func (s *serviceSuite) TestServiceList(c *gc.C) {
 	c.Check(uuids, gc.DeepEquals, []model.UUID{uuid})
 }
 
-func (s *serviceSuite) TestServiceDelete(c *gc.C) {
+func (s *serviceSuite) TestDelete(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -100,7 +100,7 @@ func (s *serviceSuite) TestServiceDelete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestServiceDeleteStateError(c *gc.C) {
+func (s *serviceSuite) TestDeleteStateError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -112,7 +112,7 @@ func (s *serviceSuite) TestServiceDeleteStateError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `deleting model ".*": boom`)
 }
 
-func (s *serviceSuite) TestServiceDeleteNoRecordsError(c *gc.C) {
+func (s *serviceSuite) TestDeleteNoRecordsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -124,7 +124,7 @@ func (s *serviceSuite) TestServiceDeleteNoRecordsError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("no records should be idempotent"))
 }
 
-func (s *serviceSuite) TestServiceDeleteStateSqliteError(c *gc.C) {
+func (s *serviceSuite) TestDeleteStateSqliteError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -139,7 +139,7 @@ func (s *serviceSuite) TestServiceDeleteStateSqliteError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `deleting model ".*": access permission denied`)
 }
 
-func (s *serviceSuite) TestServiceDeleteManagerError(c *gc.C) {
+func (s *serviceSuite) TestDeleteManagerError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := modeltesting.GenModelUUID(c)
@@ -152,7 +152,7 @@ func (s *serviceSuite) TestServiceDeleteManagerError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `stopping model ".*": boom`)
 }
 
-func (s *serviceSuite) TestServiceDeleteInvalidUUID(c *gc.C) {
+func (s *serviceSuite) TestDeleteInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	svc := NewService(s.state, s.dbDeleter)

@@ -222,9 +222,10 @@ func (w *upgradeDBWorker) loop() error {
 		if errors.Is(err, upgradeerrors.ErrUpgradeAlreadyStarted) {
 			// We're already running the upgrade, so we can just watch the
 			// upgrade and wait for it to complete.
+			w.logger.Tracef("upgrade already started, watching upgrade")
 			return w.watchUpgrade()
 		}
-		return errors.Annotatef(err, "cannot create upgrade from: %v to: %v", w.fromVersion, w.toVersion)
+		return errors.Annotatef(err, "create upgrade from: %v to: %v", w.fromVersion, w.toVersion)
 	}
 
 	return w.runUpgrade(upgradeUUID)
@@ -253,7 +254,7 @@ func (w *upgradeDBWorker) watchUpgrade() error {
 
 	completedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, modelUUID, upgrade.DBCompleted)
 	if err != nil {
-		return errors.Annotate(err, "cannot watch completed upgrade")
+		return errors.Annotate(err, "watch completed upgrade")
 	}
 
 	if err := w.catacomb.Add(completedWatcher); err != nil {
@@ -262,7 +263,7 @@ func (w *upgradeDBWorker) watchUpgrade() error {
 
 	failedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, modelUUID, upgrade.Error)
 	if err != nil {
-		return errors.Annotate(err, "cannot watch failed upgrade")
+		return errors.Annotate(err, "watch failed upgrade")
 	}
 
 	for {
@@ -309,7 +310,7 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 	defer cancel()
 
 	if err := w.upgradeService.SetControllerReady(ctx, upgradeUUID, w.controllerID); err != nil {
-		return errors.Annotatef(err, "unable to set controller ready")
+		return errors.Annotatef(err, "set controller ready")
 	}
 
 	// Watch for the upgrade to be ready. This should ensure that all
@@ -326,14 +327,14 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 
 		case <-w.clock.After(defaultUpgradeTimeout):
 			if err := w.upgradeService.SetDBUpgradeFailed(ctx, upgradeUUID); err != nil {
-				return errors.Annotatef(err, "unable to set db upgrade failed")
+				return errors.Annotatef(err, "set db upgrade failed")
 			}
 
 			return errors.Errorf("timed out waiting for upgrade from: %v to: %v", w.fromVersion, w.toVersion)
 
 		case <-watcher.Changes():
 			if err := w.upgradeService.StartUpgrade(ctx, upgradeUUID); err != nil {
-				return errors.Annotatef(err, "unable to start upgrade")
+				return errors.Annotatef(err, "start upgrade")
 			}
 
 			// Upgrade the controller database first.
@@ -346,7 +347,7 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 			}
 
 			if err := w.upgradeService.SetDBUpgradeCompleted(ctx, upgradeUUID); err != nil {
-				return errors.Annotatef(err, "unable to set db upgrade completed")
+				return errors.Annotatef(err, "set db upgrade completed")
 			}
 
 			w.logger.Infof("database upgrade already completed")
