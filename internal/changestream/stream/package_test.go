@@ -10,7 +10,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/domain/schema"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
+	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package stream -destination stream_mock_test.go github.com/juju/juju/internal/changestream/stream FileNotifier
@@ -23,13 +25,22 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	domaintesting.ControllerSuite
+	databasetesting.DqliteSuite
 
 	clock        *MockClock
 	timer        *MockTimer
 	logger       *MockLogger
 	metrics      *MockMetricsCollector
 	FileNotifier *MockFileNotifier
+}
+
+// SetUpTest is responsible for setting up a testing database suite initialised
+// with the controller schema.
+func (s *baseSuite) SetUpTest(c *gc.C) {
+	s.DqliteSuite.SetUpTest(c)
+	s.DqliteSuite.ApplyDDL(c, &domaintesting.SchemaApplier{
+		Schema: schema.ControllerDDL(),
+	})
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {

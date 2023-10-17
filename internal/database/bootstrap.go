@@ -142,6 +142,12 @@ func BootstrapDqlite(
 
 	// Insert the controller node ID.
 	if err := InsertControllerNodeID(ctx, runner, dqlite.ID()); err != nil {
+		// If the controller node ID already exists, we assume that
+		// the database has already been bootstrapped. Mask the unique
+		// constraint error with a more user-friendly error.
+		if IsErrConstraintUnique(err) {
+			return errors.AlreadyExistsf("controller node ID")
+		}
 		return errors.Annotatef(err, "inserting controller node ID")
 	}
 
