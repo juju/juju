@@ -13,6 +13,7 @@ import (
 	permission "github.com/juju/juju/core/permission"
 	watcher "github.com/juju/juju/core/watcher"
 	credential "github.com/juju/juju/domain/credential"
+	service "github.com/juju/juju/domain/credential/service"
 	names "github.com/juju/names/v4"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -115,35 +116,6 @@ func (m *MockModelCredentialService) EXPECT() *MockModelCredentialServiceMockRec
 	return m.recorder
 }
 
-// CloudCredentialUpdated mocks base method.
-func (m *MockModelCredentialService) CloudCredentialUpdated(arg0 names.CloudCredentialTag) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudCredentialUpdated", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CloudCredentialUpdated indicates an expected call of CloudCredentialUpdated.
-func (mr *MockModelCredentialServiceMockRecorder) CloudCredentialUpdated(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredentialUpdated", reflect.TypeOf((*MockModelCredentialService)(nil).CloudCredentialUpdated), arg0)
-}
-
-// CredentialModels mocks base method.
-func (m *MockModelCredentialService) CredentialModels(arg0 names.CloudCredentialTag) (map[string]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CredentialModels", arg0)
-	ret0, _ := ret[0].(map[string]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CredentialModels indicates an expected call of CredentialModels.
-func (mr *MockModelCredentialServiceMockRecorder) CredentialModels(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CredentialModels", reflect.TypeOf((*MockModelCredentialService)(nil).CredentialModels), arg0)
-}
-
 // CredentialModelsAndOwnerAccess mocks base method.
 func (m *MockModelCredentialService) CredentialModelsAndOwnerAccess(arg0 names.CloudCredentialTag) ([]cloud0.CredentialOwnerModelAccess, error) {
 	m.ctrl.T.Helper()
@@ -157,20 +129,6 @@ func (m *MockModelCredentialService) CredentialModelsAndOwnerAccess(arg0 names.C
 func (mr *MockModelCredentialServiceMockRecorder) CredentialModelsAndOwnerAccess(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CredentialModelsAndOwnerAccess", reflect.TypeOf((*MockModelCredentialService)(nil).CredentialModelsAndOwnerAccess), arg0)
-}
-
-// RemoveModelsCredential mocks base method.
-func (m *MockModelCredentialService) RemoveModelsCredential(arg0 names.CloudCredentialTag) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveModelsCredential", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveModelsCredential indicates an expected call of RemoveModelsCredential.
-func (mr *MockModelCredentialServiceMockRecorder) RemoveModelsCredential(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveModelsCredential", reflect.TypeOf((*MockModelCredentialService)(nil).RemoveModelsCredential), arg0)
 }
 
 // MockCredentialService is a mock of CredentialService interface.
@@ -209,6 +167,35 @@ func (m *MockCredentialService) AllCloudCredentialsForOwner(arg0 context.Context
 func (mr *MockCredentialServiceMockRecorder) AllCloudCredentialsForOwner(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllCloudCredentialsForOwner", reflect.TypeOf((*MockCredentialService)(nil).AllCloudCredentialsForOwner), arg0, arg1)
+}
+
+// CheckAndRevokeCredential mocks base method.
+func (m *MockCredentialService) CheckAndRevokeCredential(arg0 context.Context, arg1 credential.ID, arg2 bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckAndRevokeCredential", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CheckAndRevokeCredential indicates an expected call of CheckAndRevokeCredential.
+func (mr *MockCredentialServiceMockRecorder) CheckAndRevokeCredential(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAndRevokeCredential", reflect.TypeOf((*MockCredentialService)(nil).CheckAndRevokeCredential), arg0, arg1, arg2)
+}
+
+// CheckAndUpdateCredential mocks base method.
+func (m *MockCredentialService) CheckAndUpdateCredential(arg0 context.Context, arg1 credential.ID, arg2 cloud0.Credential, arg3 bool) ([]service.UpdateCredentialModelResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckAndUpdateCredential", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]service.UpdateCredentialModelResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckAndUpdateCredential indicates an expected call of CheckAndUpdateCredential.
+func (mr *MockCredentialServiceMockRecorder) CheckAndUpdateCredential(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAndUpdateCredential", reflect.TypeOf((*MockCredentialService)(nil).CheckAndUpdateCredential), arg0, arg1, arg2, arg3)
 }
 
 // CloudCredential mocks base method.

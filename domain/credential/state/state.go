@@ -356,6 +356,10 @@ func (st *State) CloudCredential(ctx context.Context, name, cloudName, owner str
 		return cloud.Credential{}, errors.Trace(err)
 	}
 
+	if name == "" || cloudName == "" || owner == "" {
+		return cloud.Credential{}, fmt.Errorf("empty credential ID %w", errors.NotValid)
+	}
+
 	var creds []credential.CloudCredential
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
@@ -391,20 +395,22 @@ FROM   cloud_credential cc
        LEFT JOIN cloud_credential_attributes cc_attr ON cc_attr.cloud_credential_uuid = cc.uuid
 `
 
+	condition, args := database.SqlairClauseAnd(map[string]any{
+		"cc.name":       name,
+		"cloud.name":    cloudName,
+		"cc.owner_uuid": owner,
+	})
 	types := []any{
 		Credential{},
 		dbcloud.AuthType{},
 		dbcloud.Cloud{},
 		credentialAttribute{},
 	}
-	condition, args := database.SqlairClauseAnd(map[string]any{
-		"cc.name":       name,
-		"cloud.name":    cloudName,
-		"cc.owner_uuid": owner,
-	})
+	var queryArgs []any
 	if len(args) > 0 {
 		credQuery = credQuery + "WHERE " + condition
 		types = append(types, sqlair.M{})
+		queryArgs = []any{args}
 	}
 
 	credStmt, err := sqlair.Prepare(credQuery, types...)
@@ -418,7 +424,7 @@ FROM   cloud_credential cc
 		dbclouds    []dbcloud.Cloud
 		keyValues   []credentialAttribute
 	)
-	err = tx.Query(ctx, credStmt, args).GetAll(&dbRows, &dbAuthTypes, &dbclouds, &keyValues)
+	err = tx.Query(ctx, credStmt, queryArgs...).GetAll(&dbRows, &dbAuthTypes, &dbclouds, &keyValues)
 	if err != nil {
 		return nil, errors.Annotate(err, "loading cloud credentials")
 	}

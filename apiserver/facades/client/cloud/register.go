@@ -4,14 +4,13 @@
 package cloud
 
 import (
-	stdcontext "context"
 	"reflect"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/domain/model"
 	envcontext "github.com/juju/juju/environs/context"
 )
 
@@ -24,29 +23,57 @@ func Register(registry facade.FacadeRegistry) {
 
 // newFacadeV7 is used for API registration.
 func newFacadeV7(context facade.Context) (*CloudAPI, error) {
-	credentialCallContextGetter := func(modelUUID string) (*cloud.Cloud, credentialcommon.Model, credentialcommon.MachineService, envcontext.ProviderCallContext, error) {
-		modelState, err := context.StatePool().Get(modelUUID)
-		if err != nil {
-			return nil, nil, nil, nil, err
-		}
-		defer modelState.Release()
-
-		model, err := modelState.Model()
-		if err != nil {
-			return nil, nil, nil, nil, err
-		}
-		cld, err := context.ServiceFactory().Cloud().Get(stdcontext.Background(), model.CloudName())
-		if err != nil {
-			return nil, nil, nil, nil, err
-		}
-		return cld, model, credentialcommon.NewMachineService(modelState.State), envcontext.CallContext(modelState.State), err
-	}
+	serviceFactory := context.ServiceFactory()
 	systemState, err := context.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudPermissionService := systemState
+	credentialService := serviceFactory.Credential().
+		WithLegacyUpdater(systemState.CloudCredentialUpdated).
+		WithLegacyRemover(systemState.RemoveModelsCredential)
 
+	credentialCallContextGetter := func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
+		modelState, err := context.StatePool().Get(string(modelUUID))
+		if err != nil {
+			return credentialcommon.CredentialValidationContext{}, err
+		}
+		defer modelState.Release()
+
+		m, err := modelState.Model()
+		if err != nil {
+			return credentialcommon.CredentialValidationContext{}, err
+		}
+		cfg, err := m.Config()
+		if err != nil {
+			return credentialcommon.CredentialValidationContext{}, err
+		}
+
+		// TODO(wallyworld) - we don't want to get the tag here but fixing it needs a big refactor in another PR.
+		// For now we need to update both dqlite and mongo.
+		tag, _ := m.CloudCredentialTag()
+		credentialInvalidator := envcontext.NewCredentialInvalidator(
+			tag, credentialService.InvalidateCredential, modelState.State.InvalidateModelCredential)
+
+		callCtx := envcontext.CallContext(credentialInvalidator)
+		cld, err := context.ServiceFactory().Cloud().Get(callCtx, m.CloudName())
+		if err != nil {
+			return credentialcommon.CredentialValidationContext{}, err
+		}
+
+		ctx := credentialcommon.CredentialValidationContext{
+			ControllerUUID: m.ControllerUUID(),
+			Context:        callCtx,
+			Config:         cfg,
+			MachineService: credentialcommon.NewMachineService(modelState.State),
+			ModelType:      model.Type(m.Type()),
+			Cloud:          *cld,
+			Region:         m.CloudRegion(),
+		}
+		return ctx, err
+	}
+
+	credentialService = credentialService.WithValidationContextGetter(credentialCallContextGetter)
+	cloudPermissionService := systemState
 	userService := stateShim{context.State()}
 	modelCredentialService := context.State()
 
@@ -55,18 +82,14 @@ func newFacadeV7(context facade.Context) (*CloudAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	serviceFactory := context.ServiceFactory()
-
 	return NewCloudAPI(
 		systemState.ControllerTag(),
 		controllerInfo.CloudName,
-		credentialCallContextGetter,
-		credentialcommon.ValidateNewModelCredential,
 		userService,
 		modelCredentialService,
 		serviceFactory.Cloud(),
 		cloudPermissionService,
-		serviceFactory.Credential(),
+		credentialService,
 		context.Auth(), context.Logger().Child("cloud"),
 	)
 }

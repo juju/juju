@@ -7,26 +7,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/state"
 )
-
-// Model defines model methods needed for the check.
-type Model interface {
-	// ControllerUUID returns the controller UUID for the model.
-	ControllerUUID() string
-
-	// CloudRegion returns the name of the cloud region to which the model is deployed.
-	CloudRegion() string
-
-	// Config returns the config for the model.
-	Config() (*config.Config, error)
-
-	// Type returns the type of the model.
-	Type() state.ModelType
-}
 
 // MachineService provides access to all machines.
 type MachineService interface {

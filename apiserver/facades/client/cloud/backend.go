@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/credential"
+	credentialservice "github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/state"
 )
 
@@ -40,10 +41,7 @@ type UserService interface {
 
 // ModelCredentialService provides access to model credential info.
 type ModelCredentialService interface {
-	CloudCredentialUpdated(tag names.CloudCredentialTag) error
 	CredentialModelsAndOwnerAccess(tag names.CloudCredentialTag) ([]cloud.CredentialOwnerModelAccess, error)
-	CredentialModels(tag names.CloudCredentialTag) (map[string]string, error)
-	RemoveModelsCredential(tag names.CloudCredentialTag) error
 }
 
 // CredentialService provides access to the credential domain service.
@@ -54,6 +52,8 @@ type CredentialService interface {
 	UpdateCloudCredential(ctx stdcontext.Context, tag names.CloudCredentialTag, cred cloud.Credential) error
 	RemoveCloudCredential(ctx stdcontext.Context, tag names.CloudCredentialTag) error
 	WatchCredential(ctx stdcontext.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error)
+	CheckAndUpdateCredential(ctx stdcontext.Context, id credential.ID, cred cloud.Credential, force bool) ([]credentialservice.UpdateCredentialModelResult, error)
+	CheckAndRevokeCredential(ctx stdcontext.Context, id credential.ID, force bool) error
 }
 
 type User interface {

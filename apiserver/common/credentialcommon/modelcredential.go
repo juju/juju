@@ -5,12 +5,11 @@ package credentialcommon
 
 import (
 	stdcontext "context"
+	"fmt"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/domain/credential"
@@ -19,8 +18,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // CredentialValidationContext provides access to artefacts needed to
@@ -48,98 +45,74 @@ type CredentialValidator interface {
 	) ([]error, error)
 }
 
-// ValidateExistingModelCredential checks if the cloud credential that a given model uses is valid for it.
-func ValidateExistingModelCredential(
-	callCtx context.ProviderCallContext,
-	model Model,
-	backend MachineService,
-	credentialTag names.CloudCredentialTag,
-	credentialService CredentialService,
-	cld cloud.Cloud, checkCloudInstances bool,
-) (params.ErrorResults, error) {
-	if credentialTag.IsZero() {
-		return params.ErrorResults{}, nil
-	}
+type defaultCredentialValidator struct{}
 
-	storedCredential, err := credentialService.CloudCredential(callCtx, credentialTag)
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-
-	if storedCredential.Invalid {
-		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Label)
-	}
-	credential := cloud.NewCredential(storedCredential.AuthType(), storedCredential.Attributes())
-	return ValidateNewModelCredential(callCtx, model, backend, credentialTag, &credential, cld, checkCloudInstances)
+// NewCredentialValidator returns the credential validator used in production.
+func NewCredentialValidator() CredentialValidator {
+	return defaultCredentialValidator{}
 }
 
-// ValidateNewModelCredential checks if a new cloud credential could be valid for a given model.
-func ValidateNewModelCredential(
-	callCtx context.ProviderCallContext,
-	model Model,
-	backend MachineService,
-	credentialTag names.CloudCredentialTag,
-	credential *cloud.Credential,
-	cld cloud.Cloud,
+// Validate checks if a new cloud credential could be valid for a model whose
+// details are defined in the context.
+func (v defaultCredentialValidator) Validate(
+	ctx CredentialValidationContext,
+	id credential.ID,
+	cred *cloud.Credential,
 	checkCloudInstances bool,
-) (params.ErrorResults, error) {
-	openParams, err := buildOpenParams(model, cld, credentialTag, credential)
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+) (machineErrors []error, err error) {
+	if err := id.Validate(); err != nil {
+		return nil, fmt.Errorf("credential %w", err)
 	}
-	switch model.Type() {
-	case state.ModelTypeCAAS:
-		return checkCAASModelCredential(callCtx, openParams)
-	case state.ModelTypeIAAS:
-		return checkIAASModelCredential(callCtx, openParams, backend, checkCloudInstances)
+
+	openParams, err := v.buildOpenParams(ctx, id, cred)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	switch ctx.ModelType {
+	case model.TypeCAAS:
+		return checkCAASModelCredential(ctx.Context, openParams)
+	case model.TypeIAAS:
+		return checkIAASModelCredential(ctx, openParams, checkCloudInstances)
 	default:
-		return params.ErrorResults{}, errors.NotSupportedf("model type %q", model.Type())
+		return nil, errors.NotSupportedf("model type %q", ctx.ModelType)
 	}
 }
 
-func checkCAASModelCredential(ctx stdcontext.Context, brokerParams environs.OpenParams) (params.ErrorResults, error) {
+func checkCAASModelCredential(ctx stdcontext.Context, brokerParams environs.OpenParams) ([]error, error) {
 	broker, err := newCAASBroker(ctx, brokerParams)
 	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	if err = broker.CheckCloudCredentials(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return params.ErrorResults{}, nil
+	return nil, nil
 }
 
-func checkIAASModelCredential(callCtx context.ProviderCallContext, openParams environs.OpenParams, backend MachineService, checkCloudInstances bool) (params.ErrorResults, error) {
-	env, err := newEnv(callCtx, openParams)
+func checkIAASModelCredential(ctx CredentialValidationContext, openParams environs.OpenParams, checkCloudInstances bool) ([]error, error) {
+	env, err := newEnv(ctx.Context, openParams)
 	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	// We only check persisted machines vs known cloud instances.
 	// In the future, this check may be extended to other cloud resources,
 	// entities and operation-level authorisations such as interfaces,
 	// ability to CRUD storage, etc.
-	return checkMachineInstances(callCtx, backend, env, checkCloudInstances)
+	return checkMachineInstances(ctx, env, checkCloudInstances)
 }
 
 // checkMachineInstances compares model machines from state with
 // the ones reported by the provider using supplied credential.
 // This only makes sense for non-k8s providers.
-func checkMachineInstances(callCtx context.ProviderCallContext, backend MachineService, provider CloudProvider, checkCloudInstances bool) (params.ErrorResults, error) {
-	fail := func(original error) (params.ErrorResults, error) {
-		return params.ErrorResults{}, original
-	}
-
+func checkMachineInstances(ctx CredentialValidationContext, provider CloudProvider, checkCloudInstances bool) ([]error, error) {
 	// Get machines from state
-	machines, err := backend.AllMachines()
+	machines, err := ctx.MachineService.AllMachines()
 	if err != nil {
-		return fail(errors.Trace(err))
+		return nil, errors.Trace(err)
 	}
 
-	var results []params.ErrorResult
-
-	serverError := func(received error) params.ErrorResult {
-		return params.ErrorResult{Error: apiservererrors.ServerError(received)}
-	}
+	var results []error
 
 	machinesByInstance := make(map[string]string)
 	for _, machine := range machines {
@@ -149,7 +122,7 @@ func checkMachineInstances(callCtx context.ProviderCallContext, backend MachineS
 			continue
 		}
 		if manual, err := machine.IsManual(); err != nil {
-			return fail(errors.Trace(err))
+			return nil, errors.Trace(err)
 		} else if manual {
 			continue
 		}
@@ -159,7 +132,7 @@ func checkMachineInstances(callCtx context.ProviderCallContext, backend MachineS
 			// to know about it.
 			continue
 		} else if err != nil {
-			results = append(results, serverError(errors.Annotatef(err, "getting instance id for machine %s", machine.Id())))
+			results = append(results, errors.Annotatef(err, "getting instance id for machine %s", machine.Id()))
 			continue
 		}
 		machinesByInstance[string(instanceId)] = machine.Id()
@@ -167,9 +140,9 @@ func checkMachineInstances(callCtx context.ProviderCallContext, backend MachineS
 
 	// Check that we can see all machines' instances regardless of their state as perceived by the cloud, i.e.
 	// this call will return all non-terminated instances.
-	instances, err := provider.AllInstances(callCtx)
+	instances, err := provider.AllInstances(ctx.Context)
 	if err != nil {
-		return fail(errors.Trace(err))
+		return nil, errors.Trace(err)
 	}
 
 	// From here, there 2 ways of checking whether the credential is valid:
@@ -186,18 +159,18 @@ func checkMachineInstances(callCtx context.ProviderCallContext, backend MachineS
 		instanceIds.Add(id)
 		if checkCloudInstances {
 			if _, found := machinesByInstance[id]; !found {
-				results = append(results, serverError(errors.Errorf("no machine with instance %q", id)))
+				results = append(results, errors.Errorf("no machine with instance %q", id))
 			}
 		}
 	}
 
 	for instanceId, name := range machinesByInstance {
 		if !instanceIds.Contains(instanceId) {
-			results = append(results, serverError(errors.Errorf("couldn't find instance %q for machine %s", instanceId, name)))
+			results = append(results, errors.Errorf("couldn't find instance %q for machine %s", instanceId, name))
 		}
 	}
 
-	return params.ErrorResults{Results: results}, nil
+	return results, nil
 }
 
 var (
@@ -205,45 +178,39 @@ var (
 	newCAASBroker = caas.New
 )
 
-func buildOpenParams(
-	model Model, modelCloud cloud.Cloud,
-	credentialTag names.CloudCredentialTag, credential *cloud.Credential,
+func (v defaultCredentialValidator) buildOpenParams(
+	ctx CredentialValidationContext, credentialID credential.ID, credential *cloud.Credential,
 ) (environs.OpenParams, error) {
 	fail := func(original error) (environs.OpenParams, error) {
 		return environs.OpenParams{}, original
 	}
 
-	err := validateCloudCredential(modelCloud, credentialTag)
+	err := v.validateCloudCredential(ctx.Cloud, credentialID)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
 
-	tempCloudSpec, err := environscloudspec.MakeCloudSpec(modelCloud, model.CloudRegion(), credential)
-	if err != nil {
-		return fail(errors.Trace(err))
-	}
-
-	cfg, err := model.Config()
+	tempCloudSpec, err := environscloudspec.MakeCloudSpec(ctx.Cloud, ctx.Region, credential)
 	if err != nil {
 		return fail(errors.Trace(err))
 	}
 
 	return environs.OpenParams{
-		ControllerUUID: model.ControllerUUID(),
+		ControllerUUID: ctx.ControllerUUID,
 		Cloud:          tempCloudSpec,
-		Config:         cfg,
+		Config:         ctx.Config,
 	}, nil
 }
 
 // validateCloudCredential validates the given cloud credential
 // name against the provided cloud definition and credentials.
-func validateCloudCredential(
+func (v defaultCredentialValidator) validateCloudCredential(
 	cld cloud.Cloud,
-	cloudCredential names.CloudCredentialTag,
+	credentialID credential.ID,
 ) error {
-	if cloudCredential != (names.CloudCredentialTag{}) {
-		if cloudCredential.Cloud().Id() != cld.Name {
-			return errors.NotValidf("credential %q", cloudCredential.Id())
+	if !credentialID.IsZero() {
+		if credentialID.Cloud != cld.Name {
+			return errors.NotValidf("credential %q", credentialID)
 		}
 		return nil
 	}

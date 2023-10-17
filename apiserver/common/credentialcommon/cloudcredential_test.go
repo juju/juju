@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
-	"github.com/juju/juju/apiserver/common/credentialcommon/mocks"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -34,7 +33,7 @@ func (s *CredentialSuite) SetUpTest(c *gc.C) {
 
 func (s *CredentialSuite) TestInvalidateModelCredential(c *gc.C) {
 	ctrl := gomock.NewController(c)
-	credentialService := mocks.NewMockCredentialService(ctrl)
+	credentialService := credentialcommon.NewMockCredentialService(ctrl)
 	api := credentialcommon.NewCredentialManagerAPI(s.backend, credentialService)
 
 	credentialService.EXPECT().InvalidateCredential(gomock.Any(), s.backend.tag, "not again")
@@ -49,7 +48,7 @@ func (s *CredentialSuite) TestInvalidateModelCredential(c *gc.C) {
 
 func (s *CredentialSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	ctrl := gomock.NewController(c)
-	credentialService := mocks.NewMockCredentialService(ctrl)
+	credentialService := credentialcommon.NewMockCredentialService(ctrl)
 	api := credentialcommon.NewCredentialManagerAPI(s.backend, credentialService)
 
 	expected := errors.New("boom")

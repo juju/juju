@@ -92,22 +92,8 @@ func NewService(st State, watcherFactory WatcherFactory, logger Logger) *Service
 		st:             st,
 		watcherFactory: watcherFactory,
 		logger:         logger,
-		validator:      noopValidator{},
+		validator:      credentialcommon.NewCredentialValidator(),
 	}
-}
-
-// noopValidator always validates any credential.
-// TODO(wallyworld) - this is a placeholder.
-type noopValidator struct {
-}
-
-func (noopValidator) Validate(
-	_ credentialcommon.CredentialValidationContext,
-	_ credential.ID,
-	_ *cloud.Credential,
-	_ bool,
-) (machineErrors []error, err error) {
-	return nil, nil
 }
 
 // WithValidationContextGetter configures the service to use the specified function
