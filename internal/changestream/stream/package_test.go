@@ -86,3 +86,14 @@ func (s *baseSuite) expectFileNotifyWatcher() chan bool {
 	s.FileNotifier.EXPECT().Changes().Return(ch, nil).MinTimes(1)
 	return ch
 }
+
+func (s *baseSuite) expectMetrics() {
+	s.metrics.EXPECT().ChangesRequestDurationObserve(gomock.Any()).AnyTimes()
+	s.metrics.EXPECT().ChangesCountObserve(gomock.Any()).AnyTimes()
+	s.metrics.EXPECT().WatermarkInsertsInc().AnyTimes()
+	s.metrics.EXPECT().WatermarkRetriesInc().AnyTimes()
+}
+
+func (s *baseSuite) expectClock() {
+	s.clock.EXPECT().Now().AnyTimes()
+}
