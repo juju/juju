@@ -4,7 +4,7 @@
 package verifycharmprofile
 
 import (
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
@@ -50,7 +50,7 @@ func (r *verifyCharmProfileResolver) NextOp(
 	if err != nil {
 		return nil, err
 	}
-	curl, err := corecharm.ParseURL(remoteState.CharmURL)
+	curl, err := jujucharm.ParseURL(remoteState.CharmURL)
 	if err != nil {
 		return nil, err
 	}

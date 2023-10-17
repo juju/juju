@@ -6,7 +6,7 @@ package uniter
 import (
 	"fmt"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/errors"
 
@@ -176,7 +176,7 @@ func (s *uniterResolver) NextOp(
 			// if a wrench existed.
 			if localState.CharmURL != "" && logger.IsTraceEnabled() {
 				// If it's set, the charm url will parse.
-				curl := corecharm.MustParseURL(localState.CharmURL)
+				curl := jujucharm.MustParseURL(localState.CharmURL)
 				if curl != nil && wrench.IsActive("hooks", fmt.Sprintf("%s-%s-error", curl.Name, localState.Hook.Kind)) {
 					s.config.Logger.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
 					return nil, errors.Errorf("commit hook %q failed due to a wrench in the works", localState.Hook.Kind)
