@@ -143,6 +143,7 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *gc.C) {
 	}
 	perm, err := authInfo.Delegator.SubjectPermissions(badUser, modelTag)
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
+	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
 	c.Assert(perm, gc.Equals, permission.NoAccess)
 
 	badUser = jwt.TokenEntity{
