@@ -19,12 +19,19 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/schema"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
+)
+
+const (
+	// ErrWatcherClosedAbruptly is returned when the watcher is closed
+	// before the first event is received, but didn't return an error.
+	ErrWatcherClosedAbruptly = errors.ConstError("watcher closed abruptly")
 )
 
 const (
@@ -257,13 +264,17 @@ func (w *upgradeDBWorker) watchUpgrade() error {
 		return errors.Annotate(err, "watch completed upgrade")
 	}
 
-	if err := w.catacomb.Add(completedWatcher); err != nil {
+	if err := w.addWatcher(ctx, completedWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
 	failedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, modelUUID, upgrade.Error)
 	if err != nil {
 		return errors.Annotate(err, "watch failed upgrade")
+	}
+
+	if err := w.addWatcher(ctx, failedWatcher); err != nil {
+		return errors.Trace(err)
 	}
 
 	for {
@@ -317,6 +328,10 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 	// controllers are sync'd and waiting for the leader to start the upgrade.
 	watcher, err := w.upgradeService.WatchForUpgradeReady(ctx, upgradeUUID)
 	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := w.addWatcher(ctx, watcher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -409,4 +424,19 @@ func (w *upgradeDBWorker) upgradeModel(ctx context.Context, modelUUID model.UUID
 
 func (w *upgradeDBWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
+func (w *upgradeDBWorker) addWatcher(ctx context.Context, watcher eventsource.Watcher[struct{}]) error {
+	if err := w.catacomb.Add(watcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Consume the initial events from the watchers. The notify watcher will
+	// dispatch an initial event when it is created, so we need to consume
+	// that event before we can start watching.
+	if _, err := eventsource.ConsumeInitialEvent[struct{}](ctx, watcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }

@@ -48,22 +48,6 @@ func (mr *MockStateMockRecorder) CurateNodes(arg0, arg1, arg2 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CurateNodes", reflect.TypeOf((*MockState)(nil).CurateNodes), arg0, arg1, arg2)
 }
 
-// DqliteNode mocks base method.
-func (m *MockState) DqliteNode(arg0 context.Context, arg1 string) (uint64, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DqliteNode", arg0, arg1)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// DqliteNode indicates an expected call of DqliteNode.
-func (mr *MockStateMockRecorder) DqliteNode(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DqliteNode", reflect.TypeOf((*MockState)(nil).DqliteNode), arg0, arg1)
-}
-
 // SelectModelUUID mocks base method.
 func (m *MockState) SelectModelUUID(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()

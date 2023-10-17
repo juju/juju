@@ -22,6 +22,7 @@ import (
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/testing"
 	upgrade "github.com/juju/juju/core/upgrade"
+	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	model "github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/schema"
@@ -94,12 +95,13 @@ func (s *workerSuite) TestWatchUpgradeCompleted(c *gc.C) {
 
 	cfg := s.getConfig()
 
-	ch := make(chan struct{})
+	chCompleted := make(chan struct{})
+	chFailed := make(chan struct{})
 
-	completedWatcher := watchertest.NewMockNotifyWatcher(ch)
+	completedWatcher := watchertest.NewMockNotifyWatcher(chCompleted)
 	defer workertest.DirtyKill(c, completedWatcher)
 
-	failedWatcher := watchertest.NewMockNotifyWatcher(make(chan struct{}))
+	failedWatcher := watchertest.NewMockNotifyWatcher(chFailed)
 	defer workertest.DirtyKill(c, failedWatcher)
 
 	// Walk through the upgrade process:
@@ -114,16 +116,26 @@ func (s *workerSuite) TestWatchUpgradeCompleted(c *gc.C) {
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.DBCompleted).Return(completedWatcher, nil)
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
 
+	done := make(chan struct{})
+
 	// We expect the lock to be unlocked when the upgrade completes.
-	s.lock.EXPECT().Unlock()
+	s.lock.EXPECT().Unlock().DoAndReturn(func() {
+		defer close(done)
+	})
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Dispatch the initial event.
+	s.dispatchChange(c, chCompleted)
+	s.dispatchChange(c, chFailed)
+
+	s.dispatchChange(c, chCompleted)
+
 	select {
-	case ch <- struct{}{}:
-	case <-time.After(testing.ShortWait):
-		c.Fatalf("timed out waiting to enqueue change")
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for unlock")
 	}
 
 	err = workertest.CheckKill(c, w)
@@ -138,12 +150,13 @@ func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
 
 	cfg := s.getConfig()
 
-	completedWatcher := watchertest.NewMockNotifyWatcher(make(chan struct{}))
+	chCompleted := make(chan struct{})
+	chFailed := make(chan struct{})
+
+	completedWatcher := watchertest.NewMockNotifyWatcher(chCompleted)
 	defer workertest.DirtyKill(c, completedWatcher)
 
-	ch := make(chan struct{})
-
-	failedWatcher := watchertest.NewMockNotifyWatcher(ch)
+	failedWatcher := watchertest.NewMockNotifyWatcher(chFailed)
 	defer workertest.DirtyKill(c, failedWatcher)
 
 	// Walk through the upgrade process:
@@ -153,20 +166,34 @@ func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
 	//  - Watch for the upgrade to be failed, but do not act upon it.
 	//  - Ensure that we _don't_ unlock the lock.
 
+	sync := make(chan struct{})
+
 	srv := s.upgradeService.EXPECT()
 	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.DBCompleted).Return(completedWatcher, nil)
-	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID, state upgrade.State) (watcher.Watcher[struct{}], error) {
+		defer close(sync)
+		return failedWatcher, nil
+	})
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Dispatch the initial event.
+	s.dispatchChange(c, chCompleted)
+	s.dispatchChange(c, chFailed)
+
 	select {
-	case ch <- struct{}{}:
-	case <-time.After(testing.ShortWait):
-		c.Fatalf("timed out waiting to enqueue change")
+	case <-sync:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for watcher to respond")
 	}
+
+	s.dispatchChange(c, chFailed)
+
+	// Wait for the events to be consumed.
+	<-time.After(time.Second)
 
 	err = workertest.CheckKill(c, w)
 	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
@@ -238,11 +265,9 @@ func (s *workerSuite) TestUpgradeController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CheckKill(c, w)
 
-	select {
-	case ch <- struct{}{}:
-	case <-time.After(testing.ShortWait):
-		c.Fatalf("timed out waiting to enqueue change")
-	}
+	// Dispatch the initial event.
+	s.dispatchChange(c, ch)
+	s.dispatchChange(c, ch)
 
 	select {
 	case <-done:
@@ -296,11 +321,9 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CheckKill(c, w)
 
-	select {
-	case ch <- struct{}{}:
-	case <-time.After(testing.ShortWait):
-		c.Fatalf("timed out waiting to enqueue change")
-	}
+	// Dispatch the initial event.
+	s.dispatchChange(c, ch)
+	s.dispatchChange(c, ch)
 
 	select {
 	case <-done:
@@ -350,11 +373,9 @@ func (s *workerSuite) TestUpgradeModels(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CheckKill(c, w)
 
-	select {
-	case ch <- struct{}{}:
-	case <-time.After(testing.ShortWait):
-		c.Fatalf("timed out waiting to enqueue change")
-	}
+	// Dispatch the initial event.
+	s.dispatchChange(c, ch)
+	s.dispatchChange(c, ch)
 
 	select {
 	case <-done:
@@ -410,11 +431,9 @@ func (s *workerSuite) TestUpgradeModelsThatIsAlreadyUpgraded(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CheckKill(c, w)
 
-	select {
-	case ch <- struct{}{}:
-	case <-time.After(testing.ShortWait):
-		c.Fatalf("timed out waiting to enqueue change")
-	}
+	// Dispatch the initial event.
+	s.dispatchChange(c, ch)
+	s.dispatchChange(c, ch)
 
 	select {
 	case <-done:
@@ -479,4 +498,13 @@ func (s *workerSuite) expectUnlock() chan struct{} {
 		close(done)
 	})
 	return done
+}
+
+func (s *workerSuite) dispatchChange(c *gc.C, ch chan struct{}) {
+	// Send initial event.
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to enqueue change")
+	}
 }
