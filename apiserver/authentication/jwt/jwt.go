@@ -125,7 +125,11 @@ func (p *PermissionDelegator) SubjectPermissions(
 	// We need to make very sure that the entity the request pertains to
 	// is the same entity this function was seeded with.
 	if tokenEntity.Tag().String() != e.Tag().String() {
-		return permission.NoAccess, fmt.Errorf("%w to use token permissions for one entity on another", apiservererrors.ErrPerm)
+		err = fmt.Errorf(
+			"%w to use token permissions for one entity on another",
+			apiservererrors.ErrPerm,
+		)
+		return permission.NoAccess, errors.WithType(err, authentication.ErrorEntityMissingPermission)
 	}
 	return PermissionFromToken(p.Token, subject)
 }
