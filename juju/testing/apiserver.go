@@ -4,10 +4,12 @@
 package testing
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"database/sql"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -44,6 +46,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/trace"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
@@ -621,6 +624,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		DBGetter:                   stubDBGetter{},
 		ServiceFactoryGetter:       nil,
 		TracerGetter:               &stubTracerGetter{},
+		ObjectStoreGetter:          &stubObjectStoreGetter{},
 		StatePool:                  &state.StatePool{},
 		Mux:                        &apiserverhttp.Mux{},
 		LocalMacaroonAuthenticator: &mockAuthenticator{},
@@ -643,6 +647,26 @@ type stubTracerGetter struct{}
 
 func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.TracerNamespace) (trace.Tracer, error) {
 	return trace.NoopTracer{}, nil
+}
+
+type stubObjectStoreGetter struct{}
+
+func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
+	return &stubObjectStore{}, nil
+}
+
+type stubObjectStore struct{}
+
+func (s *stubObjectStore) Get(context.Context, string) (io.ReadCloser, int64, error) {
+	return io.NopCloser(bytes.NewBufferString("")), 0, nil
+}
+
+func (s *stubObjectStore) Put(ctx context.Context, path string, r io.Reader, length int64) error {
+	return nil
+}
+
+func (s *stubObjectStore) Remove(ctx context.Context, path string) error {
+	return nil
 }
 
 type stubWatchableDB struct {
