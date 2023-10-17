@@ -218,7 +218,7 @@ func (w *upgradeDBWorker) loop() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	w.logger.Infof("creating upgrade from: %v to: %v", w.fromVersion, w.toVersion)
+	w.logger.Debugf("attempting to create upgrade from: %v to: %v", w.fromVersion, w.toVersion)
 
 	// Create an upgrade for this controller. If another controller has already
 	// created the upgrade, we will get an ErrUpgradeAlreadyStarted error. The
@@ -246,7 +246,7 @@ func (w *upgradeDBWorker) watchUpgrade() error {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	modelUUID, err := w.upgradeService.ActiveUpgrade(ctx)
+	upgradeUUID, err := w.upgradeService.ActiveUpgrade(ctx)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			// This currently no active upgrade, so we can't watch anything.
@@ -259,7 +259,7 @@ func (w *upgradeDBWorker) watchUpgrade() error {
 		return errors.Trace(err)
 	}
 
-	completedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, modelUUID, upgrade.DBCompleted)
+	completedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, upgradeUUID, upgrade.DBCompleted)
 	if err != nil {
 		return errors.Annotate(err, "watch completed upgrade")
 	}
@@ -268,7 +268,7 @@ func (w *upgradeDBWorker) watchUpgrade() error {
 		return errors.Trace(err)
 	}
 
-	failedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, modelUUID, upgrade.Error)
+	failedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, upgradeUUID, upgrade.Error)
 	if err != nil {
 		return errors.Annotate(err, "watch failed upgrade")
 	}
@@ -277,6 +277,13 @@ func (w *upgradeDBWorker) watchUpgrade() error {
 		return errors.Trace(err)
 	}
 
+	// Mark this controller as ready to start the upgrade. We do this after
+	// we've added the watchers, so that we don't miss any events.
+	if err := w.upgradeService.SetControllerReady(ctx, upgradeUUID, w.controllerID); err != nil {
+		return errors.Annotatef(err, "set controller ready")
+	}
+	w.logger.Infof("marking the controller ready for upgrade")
+
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -284,7 +291,7 @@ func (w *upgradeDBWorker) watchUpgrade() error {
 
 		case <-completedWatcher.Changes():
 			// The upgrade is complete, so we can unlock the lock.
-			w.logger.Infof("database upgrade complete")
+			w.logger.Infof("database upgrade completed")
 			w.dbUpgradeCompleteLock.Unlock()
 			return dependency.ErrUninstall
 
@@ -315,14 +322,10 @@ func (w *upgradeDBWorker) upgradeDone() bool {
 }
 
 func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
-	w.logger.Infof("running database upgrade from: %v to: %v", w.fromVersion, w.toVersion)
+	w.logger.Infof("leading the database upgrade from: %v to: %v", w.fromVersion, w.toVersion)
 
 	ctx, cancel := w.scopedContext()
 	defer cancel()
-
-	if err := w.upgradeService.SetControllerReady(ctx, upgradeUUID, w.controllerID); err != nil {
-		return errors.Annotatef(err, "set controller ready")
-	}
 
 	// Watch for the upgrade to be ready. This should ensure that all
 	// controllers are sync'd and waiting for the leader to start the upgrade.
@@ -334,6 +337,13 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 	if err := w.addWatcher(ctx, watcher); err != nil {
 		return errors.Trace(err)
 	}
+
+	// Ensure we mark this controller as ready to start the upgrade. We do this
+	// after we've added the watcher, so that we don't miss any events.
+	if err := w.upgradeService.SetControllerReady(ctx, upgradeUUID, w.controllerID); err != nil {
+		return errors.Annotatef(err, "set controller ready")
+	}
+	w.logger.Infof("marking the controller ready for upgrade")
 
 	for {
 		select {
@@ -348,6 +358,8 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 			return errors.Errorf("timed out waiting for upgrade from: %v to: %v", w.fromVersion, w.toVersion)
 
 		case <-watcher.Changes():
+			w.logger.Infof("database upgrade starting")
+
 			if err := w.upgradeService.StartUpgrade(ctx, upgradeUUID); err != nil {
 				return errors.Annotatef(err, "start upgrade")
 			}
@@ -365,7 +377,7 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 				return errors.Annotatef(err, "set db upgrade completed")
 			}
 
-			w.logger.Infof("database upgrade already completed")
+			w.logger.Infof("database upgrade completed")
 			w.dbUpgradeCompleteLock.Unlock()
 
 			return nil

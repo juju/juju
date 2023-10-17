@@ -113,6 +113,8 @@ func (s *workerSuite) TestWatchUpgradeCompleted(c *gc.C) {
 	srv := s.upgradeService.EXPECT()
 	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
+	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(nil)
+
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.DBCompleted).Return(completedWatcher, nil)
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
 
@@ -171,6 +173,8 @@ func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
 	srv := s.upgradeService.EXPECT()
 	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
+	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(nil)
+
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.DBCompleted).Return(completedWatcher, nil)
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID, state upgrade.State) (watcher.Watcher[struct{}], error) {
 		defer close(sync)
