@@ -461,7 +461,24 @@ func (s *WorkerSuite) TestAddMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cachedMachine, gc.NotNil)
 
-	s.checkSuperfluousChanges(c, changes, change)
+	// We don't know how many events we will get because `MakeMachine`
+	// above runs multiple operations but is not transactional.
+	// Drain the events for a short time then assert that the machine
+	// appears as though provisioned.
+	done := time.After(testing.ShortWait)
+loop:
+	for {
+		select {
+		case change = <-changes:
+		case <-done:
+			break loop
+		}
+	}
+
+	obtained, ok = change.(cache.MachineChange)
+	c.Assert(ok, jc.IsTrue)
+	c.Check(obtained.Id, gc.Equals, machine.Id())
+	c.Check(obtained.InstanceId, gc.Not(gc.Equals), "")
 }
 
 func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
