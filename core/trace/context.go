@@ -12,6 +12,9 @@ type contextKey string
 const (
 	traceContextKey contextKey = "trace"
 	spanContextKey  contextKey = "span"
+
+	traceIDContextKey contextKey = "traceID"
+	spanIDContextKey  contextKey = "spanID"
 )
 
 // TracerFromContext returns a tracer from the context. If no tracer is found,
@@ -56,6 +59,20 @@ func WithSpan(ctx context.Context, span Span) context.Context {
 		span = NoopSpan{}
 	}
 	return context.WithValue(ctx, spanContextKey, span)
+}
+
+// WithTraceScope returns a new context with the given trace scope (traceID and
+// spanID).
+func WithTraceScope(ctx context.Context, traceID, spanID string) context.Context {
+	ctx = context.WithValue(ctx, spanIDContextKey, spanID)
+	return context.WithValue(ctx, traceIDContextKey, traceID)
+}
+
+// ScopeFromContext returns the traceID and spanID from the context.
+func ScopeFromContext(ctx context.Context) (string, string) {
+	traceID, _ := ctx.Value(traceIDContextKey).(string)
+	spanID, _ := ctx.Value(spanIDContextKey).(string)
+	return traceID, spanID
 }
 
 // NoopTracer is a tracer that does nothing.

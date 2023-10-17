@@ -18,6 +18,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client provides access to an agent's view of the state.
 type Client struct {
 	facade base.FacadeCaller
@@ -28,12 +35,13 @@ type Client struct {
 
 // NewClient returns a version of the state that provides functionality
 // required by agent code.
-func NewClient(caller base.APICaller) (*Client, error) {
+func NewClient(caller base.APICaller, options ...Option) (*Client, error) {
 	modelTag, isModel := caller.ModelTag()
 	if !isModel {
 		return nil, errors.New("expected model specific API connection")
 	}
-	facadeCaller := base.NewFacadeCaller(caller, "Agent")
+
+	facadeCaller := base.NewFacadeCaller(caller, "Agent", options...)
 	return &Client{
 		facade:              facadeCaller,
 		ModelWatcher:        common.NewModelWatcher(facadeCaller),

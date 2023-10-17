@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
+	"go.opentelemetry.io/otel/trace"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -124,6 +125,79 @@ func (s *tracerSuite) TestTracerRecordError(c *gc.C) {
 	defer span.End()
 
 	span.RecordError(errors.Errorf("boom"))
+}
+
+func (s *tracerSuite) TestBuildRequestContextWithBackgroundContext(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
+
+	w := s.newTracer(c)
+	defer workertest.CleanKill(c, w)
+
+	ctx := w.(*tracer).buildRequestContext(context.Background())
+	c.Check(ctx, gc.NotNil)
+
+	traceID, spanID := coretrace.ScopeFromContext(ctx)
+	c.Check(traceID, gc.Equals, "")
+	c.Check(spanID, gc.Equals, "")
+}
+
+func (s *tracerSuite) TestBuildRequestContextWithBrokenTraceID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
+
+	w := s.newTracer(c)
+	defer workertest.CleanKill(c, w)
+
+	ctx := coretrace.WithTraceScope(context.Background(), "foo", "bar")
+
+	ctx = w.(*tracer).buildRequestContext(ctx)
+	c.Check(ctx, gc.NotNil)
+
+	traceID, spanID := coretrace.ScopeFromContext(ctx)
+	c.Check(traceID, gc.Equals, "")
+	c.Check(spanID, gc.Equals, "")
+}
+
+func (s *tracerSuite) TestBuildRequestContextWithBrokenSpanID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
+
+	w := s.newTracer(c)
+	defer workertest.CleanKill(c, w)
+
+	ctx := coretrace.WithTraceScope(context.Background(), "80f198ee56343ba864fe8b2a57d3eff7", "bar")
+
+	ctx = w.(*tracer).buildRequestContext(ctx)
+	c.Check(ctx, gc.NotNil)
+
+	traceID, spanID := coretrace.ScopeFromContext(ctx)
+	c.Check(traceID, gc.Equals, "")
+	c.Check(spanID, gc.Equals, "")
+}
+
+func (s *tracerSuite) TestBuildRequestContext(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClient()
+
+	w := s.newTracer(c)
+	defer workertest.CleanKill(c, w)
+
+	ctx := coretrace.WithTraceScope(context.Background(), "80f198ee56343ba864fe8b2a57d3eff7", "ff00000000000000")
+
+	ctx = w.(*tracer).buildRequestContext(ctx)
+	c.Check(ctx, gc.NotNil)
+
+	traceID, spanID := coretrace.ScopeFromContext(ctx)
+	c.Check(traceID, gc.Equals, "")
+	c.Check(spanID, gc.Equals, "")
+
+	span := trace.SpanContextFromContext(ctx)
+	c.Check(span.IsRemote(), jc.IsTrue)
 }
 
 func (s *tracerSuite) newTracer(c *gc.C) TrackedTracer {

@@ -157,14 +157,19 @@ func NewFacadeCallerForVersion(caller APICaller, facadeName string, version int,
 	}
 
 	return fc
-
 }
 
 // FacadeCall will place a request against the API using the requested
 // Facade and the best version that the API server supports that is
 // also known to the client. (id is always passed as the empty string.)
 func (fc facadeCaller) FacadeCall(request string, params, response interface{}) (err error) {
-	ctx, span := coretrace.Start(context.TODO(), coretrace.NameFromFunc(), coretrace.WithAttributes(
+	// context.TODO() is used here because the context isn't currently passed
+	// in via the FacadeCall. Once that's done, we can use the context that's
+	// passed in.
+	ctx := coretrace.WithTracer(context.TODO(), fc.tracer)
+
+	// The following trace is used to track the call to the facade.
+	ctx, span := coretrace.Start(ctx, coretrace.NameFromFunc(), coretrace.WithAttributes(
 		coretrace.StringAttr("call.facade", fc.facadeName),
 		coretrace.IntAttr("call.version", fc.bestVersion),
 		coretrace.StringAttr("call.request", request),

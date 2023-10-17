@@ -550,6 +550,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:      agentName,
 			APICallerName:  apiCallerName,
 			CentralHubName: centralHubName,
+			TraceName:      traceName,
 			Logger:         loggo.GetLogger("juju.worker.agentconfigupdater"),
 		})),
 

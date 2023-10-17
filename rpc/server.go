@@ -604,6 +604,11 @@ func (conn *Conn) runRequest(
 	ctx, cancel := context.WithCancel(conn.context)
 	defer cancel()
 
+	// If the request is a client request, then we need to
+	// record the traceID and spanID from the request. If it's empty, we
+	// don't care, a new one will be curated for us.
+	ctx = trace.WithTraceScope(ctx, req.hdr.TraceID, req.hdr.SpanID)
+
 	ctx, span := conn.root.StartTrace(ctx)
 	defer span.End(
 		trace.StringAttr("request.type", req.hdr.Request.Type),

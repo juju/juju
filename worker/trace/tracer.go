@@ -132,6 +132,7 @@ func (t *tracer) Start(ctx context.Context, name string, opts ...coretrace.Optio
 		cancel context.CancelFunc
 		span   trace.Span
 	)
+	ctx = t.buildRequestContext(ctx)
 	ctx, cancel = t.scopedContext(ctx)
 
 	// Grab any attributes from the options and add them to the span.
@@ -204,6 +205,41 @@ func (t *tracer) loop() error {
 func (w *tracer) scopedContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(ctx)
 	return w.tomb.Context(ctx), cancel
+}
+
+// buildRequestContext returns a context that may contain a remote span context.
+func (t *tracer) buildRequestContext(ctx context.Context) context.Context {
+	traceID, spanID := coretrace.ScopeFromContext(ctx)
+	if traceID == "" || spanID == "" {
+		return ctx
+	}
+	traceHex, err := trace.TraceIDFromHex(traceID)
+	if err != nil {
+		// There is clearly something wrong with the trace ID, so we
+		// should remove it from all future requests. That way we don't attempt
+		// to parse it again.
+		return coretrace.WithTraceScope(ctx, "", "")
+	}
+	spanHex, err := trace.SpanIDFromHex(spanID)
+	if err != nil {
+		// There is clearly something wrong with the span ID, so we
+		// should remove it from all future requests. That way we don't attempt
+		// to parse it again.
+		return coretrace.WithTraceScope(ctx, "", "")
+	}
+
+	// It might be wise to encode more additional information into the context.
+	sc := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    traceHex,
+		SpanID:     spanHex,
+		TraceFlags: trace.FlagsSampled,
+	})
+
+	// We have a remote span context, so we should use it. We should then remove
+	// the traceID and spanID from the context so that we don't attempt to parse
+	// them again.
+	ctx = coretrace.WithTraceScope(ctx, "", "")
+	return trace.ContextWithRemoteSpanContext(ctx, sc)
 }
 
 // NewClient returns a new tracing client.
