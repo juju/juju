@@ -16,6 +16,7 @@ import (
 
 	coreupgrade "github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher/watchertest"
+	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 )
 
 type serviceSuite struct {
@@ -56,7 +57,7 @@ func (s *serviceSuite) TestCreateUpgradeAlreadyExists(c *gc.C) {
 	s.state.EXPECT().CreateUpgrade(gomock.Any(), version.MustParse("3.0.0"), version.MustParse("3.0.1")).Return(s.upgradeUUID, ucErr)
 
 	_, err := s.srv.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
-	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
+	c.Assert(err, jc.ErrorIs, upgradeerrors.ErrUpgradeAlreadyStarted)
 }
 
 func (s *serviceSuite) TestCreateUpgradeInvalidVersions(c *gc.C) {

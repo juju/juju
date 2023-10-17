@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
+	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -59,7 +60,7 @@ func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVers
 	}
 	upgradeUUID, err := s.st.CreateUpgrade(ctx, previousVersion, targetVersion)
 	if database.IsErrConstraintUnique(err) {
-		return "", errors.AlreadyExistsf("active upgrade")
+		return "", upgradeerrors.ErrUpgradeAlreadyStarted
 	}
 	return upgradeUUID, domain.CoerceError(err)
 }
