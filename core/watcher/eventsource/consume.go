@@ -38,7 +38,7 @@ func ConsumeInitialEvent[T any](ctx context.Context, w Watcher[T]) (T, error) {
 	case <-ctx.Done():
 		// The context is done waiting for any changes, clean kill the worker
 		// and return the context error.
-		_ = cleanKill(w, defaultWorkerStoppingTimeout)
+		_ = killAndWait(w, defaultWorkerStoppingTimeout)
 		return *new(T), errors.Trace(ctx.Err())
 
 	case changes, ok := <-w.Changes():
@@ -48,7 +48,7 @@ func ConsumeInitialEvent[T any](ctx context.Context, w Watcher[T]) (T, error) {
 
 		// The changes channel has already closed, we can't do anything, but
 		// kill the worker and wait for the error.
-		err := cleanKill(w, defaultWorkerStoppingTimeout)
+		err := killAndWait(w, defaultWorkerStoppingTimeout)
 		if err != nil {
 			return changes, errors.Trace(err)
 		}
@@ -56,7 +56,7 @@ func ConsumeInitialEvent[T any](ctx context.Context, w Watcher[T]) (T, error) {
 	}
 }
 
-func cleanKill[T any](w Watcher[T], timeout time.Duration) error {
+func killAndWait[T any](w Watcher[T], timeout time.Duration) error {
 	w.Kill()
 
 	done := make(chan struct{})
