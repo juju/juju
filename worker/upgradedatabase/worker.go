@@ -381,8 +381,8 @@ func (w *upgradeDBWorker) upgradeController(ctx context.Context) error {
 		return errors.Annotatef(err, "controller db")
 	}
 
-	schema := schema.ControllerDDL()
-	changeSet, err := schema.Ensure(ctx, db)
+	ddl := schema.ControllerDDL()
+	changeSet, err := ddl.Ensure(ctx, db)
 	if err != nil {
 		return errors.Annotatef(err, "applying controller schema")
 	}
@@ -413,8 +413,8 @@ func (w *upgradeDBWorker) upgradeModel(ctx context.Context, modelUUID model.UUID
 		return errors.Annotatef(err, "model db %s", modelUUID)
 	}
 
-	schema := schema.ModelDDL()
-	changeSet, err := schema.Ensure(ctx, db)
+	ddl := schema.ModelDDL()
+	changeSet, err := ddl.Ensure(ctx, db)
 	if err != nil {
 		return errors.Annotatef(err, "applying model schema %s", modelUUID)
 	}
