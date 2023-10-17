@@ -402,21 +402,31 @@ func (c *statusCommand) runStatus(ctx *cmd.Context) error {
 	return nil
 }
 
-// statusArgsWithoutWatchFlag returns all args cut off '--watch' flag of status commands
-// and the value of '--watch' flag
-func (c *statusCommand) statusArgsWithoutWatchFlag(args []string) []string {
+// statusCommandForViddy returns the full juju command including all args
+// except the '--watch' flag.
+func (c *statusCommand) statusCommandForViddy(args []string) []string {
 	var jujuStatusArgsWithoutWatchFlag []string
 
 	for i := range args {
+		// In order to support gnu flags, we must first check if the
+		// watch flag is using gnu style. In that case, we must remove
+		// the entire arg, since it's one entire string (e.g.
+		// --watch=1s).
+		if strings.HasPrefix(args[i], "--watch=") {
+			jujuStatusArgsWithoutWatchFlag = append(args[:i], args[i+1:]...)
+			break
+		}
+		// If the flag is not using gnu style, we must remove both the
+		// flag and the argument (e.g --watch 1s)
 		if args[i] == "--watch" {
 			jujuStatusArgsWithoutWatchFlag = append(args[:i], args[i+2:]...)
-			if !c.noColor {
-				jujuStatusArgsWithoutWatchFlag = append(jujuStatusArgsWithoutWatchFlag, "--color")
-			}
 			break
 		}
 	}
 
+	if !c.noColor {
+		jujuStatusArgsWithoutWatchFlag = append(jujuStatusArgsWithoutWatchFlag, "--color")
+	}
 	return jujuStatusArgsWithoutWatchFlag
 }
 
@@ -424,7 +434,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	defer c.close()
 
 	if c.watch != 0 {
-		jujuStatusArgs := c.statusArgsWithoutWatchFlag(os.Args)
+		jujuStatusArgs := c.statusCommandForViddy(os.Args)
 
 		viddyArgs := append([]string{"--no-title", "--interval", c.watch.String()}, jujuStatusArgs...)
 
