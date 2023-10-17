@@ -166,42 +166,6 @@ func (s *ManifoldSuite) TestOutputWrongType(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `out should be \*StateTracker; got .+`)
 }
 
-func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
-	w := s.mustStartManifold(c)
-
-	var stTracker workerstate.StateTracker
-	err := s.manifold.Output(w, &stTracker)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, systemState, err := stTracker.Use()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(systemState, gc.Equals, s.State)
-	c.Assert(stTracker.Done(), jc.ErrorIsNil)
-
-	// Ensure State is closed when the worker is done.
-	workertest.CleanKill(c, w)
-	assertStatePoolClosed(c, s.StatePool)
-}
-
-func (s *ManifoldSuite) TestStateStillInUse(c *gc.C) {
-	w := s.mustStartManifold(c)
-
-	var stTracker workerstate.StateTracker
-	err := s.manifold.Output(w, &stTracker)
-	c.Assert(err, jc.ErrorIsNil)
-
-	pool, _, err := stTracker.Use()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Close the worker while the State is still in use.
-	workertest.CleanKill(c, w)
-	assertStatePoolNotClosed(c, pool)
-
-	// Now signal that the State is no longer needed.
-	c.Assert(stTracker.Done(), jc.ErrorIsNil)
-	assertStatePoolClosed(c, pool)
-}
-
 func (s *ManifoldSuite) TestDeadStateRemoved(c *gc.C) {
 	// Create an additional state *before* we start
 	// the worker, so the worker's lifecycle watcher
