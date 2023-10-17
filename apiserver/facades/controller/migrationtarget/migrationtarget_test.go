@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
@@ -50,6 +51,7 @@ type Suite struct {
 	externalControllerService *MockExternalControllerService
 	cloudService              *commonmocks.MockCloudService
 	credentialService         *credentialcommon.MockCredentialService
+	credentialValidator       *MockCredentialValidator
 
 	facadeContext facadetest.Context
 	callContext   environscontext.ProviderCallContext
@@ -465,6 +467,11 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	tag := names.NewCloudCredentialTag(
 		fmt.Sprintf("manual/%s/dummy-credential", owner.Name()))
 	s.credentialService.EXPECT().CloudCredential(gomock.Any(), tag).Return(cred, nil)
+	s.credentialValidator.EXPECT().Validate(gomock.Any(), credential.ID{
+		Cloud: "manual",
+		Owner: owner.Name(),
+		Name:  "dummy-credential",
+	}, &cred, false)
 
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		CloudName:       "manual",
@@ -511,6 +518,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 		Endpoint:  "10.0.0.1",
 	}, nil).AnyTimes()
 	s.credentialService = credentialcommon.NewMockCredentialService(ctrl)
+	s.credentialValidator = NewMockCredentialValidator(ctrl)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:      s.Owner,
@@ -536,6 +544,7 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 		s.externalControllerService,
 		s.cloudService,
 		s.credentialService,
+		s.credentialValidator,
 		func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
 			return credentialcommon.CredentialValidationContext{}, nil
 		},

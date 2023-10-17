@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/crossmodel"
@@ -21,7 +22,9 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/credential"
 	credentialservice "github.com/juju/juju/domain/credential/service"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/migration"
@@ -61,6 +64,7 @@ type API struct {
 	externalControllerService   ExternalControllerService
 	cloudService                common.CloudService
 	credentialService           credentialcommon.CredentialService
+	credentialValidator         credentialcommon.CredentialValidator
 	credentialCallContextGetter credentialservice.ValidationContextGetter
 	pool                        *state.StatePool
 	authorizer                  facade.Authorizer
@@ -83,6 +87,7 @@ func NewAPI(
 	externalControllerService ExternalControllerService,
 	cloudService common.CloudService,
 	credentialService credentialcommon.CredentialService,
+	validator credentialcommon.CredentialValidator,
 	credentialCallContextGetter credentialservice.ValidationContextGetter,
 	getEnviron stateenvirons.NewEnvironFunc,
 	getCAASBroker stateenvirons.NewCAASBrokerFunc,
@@ -103,6 +108,7 @@ func NewAPI(
 		externalControllerService:   externalControllerService,
 		cloudService:                cloudService,
 		credentialService:           credentialService,
+		credentialValidator:         validator,
 		credentialCallContextGetter: credentialCallContextGetter,
 		authorizer:                  authorizer,
 		presence:                    ctx.Presence(),
@@ -372,29 +378,36 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 	defer st.Release()
 
 	// We don't want to check existing cloud instances for "manual" clouds.
-	model, err := st.Model()
+	m, err := st.Model()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	cloud, err := api.cloudService.Get(ctx, model.CloudName())
+	cloud, err := api.cloudService.Get(ctx, m.CloudName())
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	credentialTag, isSet := model.CloudCredentialTag()
+	credentialTag, isSet := m.CloudCredentialTag()
 	if !isSet || credentialTag.IsZero() {
 		return params.ErrorResults{}, nil
 	}
 
+	storedCredential, err := api.credentialService.CloudCredential(ctx, credentialTag)
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	if storedCredential.Invalid {
+		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Label)
+	}
+
+	callCtx, err := api.credentialCallContextGetter(model.UUID(m.UUID()))
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+	cred := jujucloud.NewCredential(storedCredential.AuthType(), storedCredential.Attributes())
+
 	var result params.ErrorResults
-	modelErrors, err := credentialcommon.ValidateExistingModelCredential(
-		ctx,
-		api.credentialService,
-		api.credentialCallContextGetter,
-		model.UUID(),
-		credentialTag,
-		cloud.Type != "manual",
-	)
+	modelErrors, err := api.credentialValidator.Validate(callCtx, credential.IdFromTag(credentialTag), &cred, cloud.Type != "manual")
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

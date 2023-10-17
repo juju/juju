@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -44,35 +43,6 @@ type CredentialValidator interface {
 		credential *cloud.Credential,
 		checkCloudInstances bool,
 	) ([]error, error)
-}
-
-// ValidateExistingModelCredential checks if the cloud credential that a given model uses is valid for it.
-func ValidateExistingModelCredential(
-	ctx stdcontext.Context,
-	credentialService CredentialService,
-	credentialCallContextGetter func(modelUUID model.UUID) (CredentialValidationContext, error),
-	modelUUID string,
-	credentialTag names.CloudCredentialTag,
-	checkCloudInstances bool,
-) (machineErrors []error, _ error) {
-	if credentialTag.IsZero() {
-		return nil, nil
-	}
-
-	storedCredential, err := credentialService.CloudCredential(ctx, credentialTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if storedCredential.Invalid {
-		return nil, errors.NotValidf("credential %q", storedCredential.Label)
-	}
-
-	callCtx, err := credentialCallContextGetter(model.UUID(modelUUID))
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cred := cloud.NewCredential(storedCredential.AuthType(), storedCredential.Attributes())
-	return NewCredentialValidator().Validate(callCtx, credential.IdFromTag(credentialTag), &cred, checkCloudInstances)
 }
 
 type defaultCredentialValidator struct{}

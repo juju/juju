@@ -5,6 +5,7 @@ package modelmigration
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
@@ -49,10 +50,16 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 
 // Execute the export, adding the credentials to the model.
 func (e *exportOperation) Execute(ctx context.Context, model description.Model) error {
-	// TODO(wallyworld) - implement once we have a functional model db.
+	// TODO(wallyworld) - implement properly once we have a functional model db.
 	//if credsTag, credsSet := dbModel.CloudCredentialTag(); credsSet && !cfg.SkipCredentials {
 	//}
-	var tag names.CloudCredentialTag
+	credInfo := model.CloudCredential()
+	if credInfo == nil || credInfo.Name() == "" {
+		// Not set.
+		return nil
+	}
+	tag := names.NewCloudCredentialTag(
+		fmt.Sprintf("%s/%s/%s", credInfo.Cloud(), credInfo.Owner(), credInfo.Name()))
 	cred, err := e.service.CloudCredential(ctx, tag)
 	if err != nil {
 		return errors.Trace(err)

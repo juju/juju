@@ -91,6 +91,7 @@ func newFacade(ctx facade.Context) (*API, error) {
 		ctx.ServiceFactory().ExternalController(),
 		ctx.ServiceFactory().Cloud(),
 		credentialService,
+		credentialcommon.NewCredentialValidator(),
 		credentialCallContextGetter,
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New))

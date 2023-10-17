@@ -42,17 +42,18 @@ func (s *exportSuite) TestExport(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
+	dst.SetCloudCredential(description.CloudCredentialArgs{
+		Owner: names.NewUserTag("fred"),
+		Cloud: names.NewCloudTag("cirrus"),
+		Name:  "foo",
+	})
 
-	// TODO(wallyworld) - tag not used yet.
-	var tag names.CloudCredentialTag
+	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"foo": "bar"}, false)
 	s.service.EXPECT().CloudCredential(gomock.Any(), tag).
 		Times(1).
 		Return(cred, nil)
 
-	// Assert that the destination description model has no
-	// credentials before the migration:
-	c.Assert(dst.CloudCredential(), gc.IsNil)
 	op := s.newExportOperation()
 	err := op.Execute(context.Background(), dst)
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,8 +66,13 @@ func (s *exportSuite) TestExportNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	dst := description.NewModel(description.ModelArgs{})
+	dst.SetCloudCredential(description.CloudCredentialArgs{
+		Owner: names.NewUserTag("fred"),
+		Cloud: names.NewCloudTag("cirrus"),
+		Name:  "foo",
+	})
 
-	var tag names.CloudCredentialTag
+	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
 	s.service.EXPECT().CloudCredential(gomock.Any(), tag).
 		Times(1).
 		Return(cloud.Credential{}, errors.NotFound)

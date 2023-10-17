@@ -5,10 +5,8 @@ package credentialcommon
 
 import (
 	stdcontext "context"
-	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -18,7 +16,6 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/domain/credential"
-	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
@@ -290,44 +287,6 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialUnknownModelType(c 
 	c.Assert(results, gc.HasLen, 0)
 }
 
-func (s *ModelCredentialSuite) TestValidateExistingModelCredentialUnsetCloudCredential(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	s.ensureEnvForIAASModel()
-	_, err := ValidateExistingModelCredential(
-		stdcontext.Background(),
-		nil,
-		nil,
-		jujutesting.ModelTag.Id(),
-		names.CloudCredentialTag{},
-		false)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *ModelCredentialSuite) TestValidateExistingModelCredentialInvalidCredential(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	cred := cloud.NewEmptyCredential()
-	cred.Label = "cred"
-	cred.Invalid = true
-	tag := names.NewCloudCredentialTag("dummy/fred/default")
-
-	credentialService := NewMockCredentialService(ctrl)
-	credentialService.EXPECT().CloudCredential(gomock.Any(), tag).Return(cred, nil)
-
-	results, err := ValidateExistingModelCredential(
-		stdcontext.Background(),
-		credentialService,
-		nil,
-		jujutesting.ModelTag.Id(),
-		tag,
-		false)
-	c.Assert(err, gc.ErrorMatches, `credential "cred" not valid`)
-	c.Assert(results, gc.HasLen, 0)
-}
-
 func (s *ModelCredentialSuite) TestOpeningProviderFails(c *gc.C) {
 	s.PatchValue(&newEnv, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
 		return nil, errors.New("explosive")
@@ -367,35 +326,6 @@ func (s *ModelCredentialSuite) TestValidateModelCredentialCloudMismatch(c *gc.C)
 		},
 		&testCredential, false)
 	c.Assert(err, gc.ErrorMatches, `credential "other/bob/default" not valid`)
-}
-
-func (s *ModelCredentialSuite) TestValidateExistingModelCredentialForIAASModel(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.machineService.EXPECT().AllMachines().Return([]Machine{}, nil)
-	cred := cloud.NewEmptyCredential()
-	cred.Label = "cred"
-	tag := names.NewCloudCredentialTag("dummy/fred/default")
-
-	credentialService := NewMockCredentialService(ctrl)
-	credentialService.EXPECT().CloudCredential(gomock.Any(), tag).Return(cred, nil)
-
-	s.ensureEnvForIAASModel()
-	results, err := ValidateExistingModelCredential(
-		stdcontext.Background(),
-		credentialService,
-		func(modelUUID model.UUID) (CredentialValidationContext, error) {
-			if string(modelUUID) != jujutesting.ModelTag.Id() {
-				return CredentialValidationContext{}, fmt.Errorf("unexpected model %q", modelUUID)
-			}
-			return s.context, nil
-		},
-		jujutesting.ModelTag.Id(),
-		tag,
-		false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 0)
 }
 
 func (s *ModelCredentialSuite) TestOpeningCAASBrokerFails(c *gc.C) {
@@ -443,33 +373,6 @@ func (s *ModelCredentialSuite) TestValidateNewModelCredentialForCAASModel(c *gc.
 			Name:  "default",
 		},
 		&testCredential, false)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, 0)
-}
-
-func (s *ModelCredentialSuite) TestValidateExistingModelCredentialForCAASSuccess(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.context.ModelType = "caas"
-	tag := names.NewCloudCredentialTag("dummy/fred/default")
-
-	credentialService := NewMockCredentialService(ctrl)
-	credentialService.EXPECT().CloudCredential(gomock.Any(), tag).Return(cloud.Credential{}, nil)
-
-	s.ensureEnvForCAASModel()
-	results, err := ValidateExistingModelCredential(
-		stdcontext.Background(),
-		credentialService,
-		func(modelUUID model.UUID) (CredentialValidationContext, error) {
-			if string(modelUUID) != jujutesting.ModelTag.Id() {
-				return CredentialValidationContext{}, fmt.Errorf("unexpected model %q", modelUUID)
-			}
-			return s.context, nil
-		},
-		jujutesting.ModelTag.Id(),
-		tag,
-		false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 0)
 }

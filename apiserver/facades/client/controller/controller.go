@@ -131,6 +131,7 @@ func NewControllerAPI(
 		logger:                  logger,
 		controllerConfigService: controllerConfigService,
 		credentialService:       credentialService,
+		cloudService:            cloudService,
 	}, nil
 }
 

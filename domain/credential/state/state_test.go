@@ -330,6 +330,12 @@ func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
 	})
 }
 
+func (s *credentialSuite) TestCloudCredentialEmptyID(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	_, err := st.CloudCredential(context.Background(), "", "", "")
+	c.Assert(err, gc.ErrorMatches, "empty credential ID not valid")
+}
+
 func (s *credentialSuite) TestInvalidateCloudCredential(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
