@@ -280,7 +280,7 @@ func (s *workerSuite) TestUpgradeControllerThatIsAlreadyUpgraded(c *gc.C) {
 	//  - Upgrade the controller db and re-run the upgrades to ensure that they
 	//    don't break in the worker.
 
-	schema := schema.ControllerDDL(0)
+	schema := schema.ControllerDDL()
 	_, err := schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -430,7 +430,6 @@ func (s *workerSuite) getConfig() Config {
 		Logger:                s.logger,
 		Clock:                 clock.WallClock,
 		UpgradeService:        s.upgradeService,
-		ControllerNodeService: s.controllerNodeService,
 		ModelManagerService:   s.modelManagerService,
 		DBGetter:              s.dbGetter,
 		FromVersion:           version.MustParse("3.0.0"),
@@ -461,7 +460,6 @@ func (s *workerSuite) expectDBCompleted() {
 }
 
 func (s *workerSuite) expectControllerDBUpgrade() {
-	s.controllerNodeService.EXPECT().DqliteNode(gomock.Any(), "0").Return(uint64(0), "192.168.0.1", nil)
 	s.dbGetter.EXPECT().GetDB(coredatabase.ControllerNS).Return(s.TxnRunner(), nil)
 }
 

@@ -23,14 +23,14 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) TestCurateNodes(c *gc.C) {
 	db := s.DB()
 
-	_, err := db.Exec("INSERT INTO controller_node (controller_id) VALUES ('1')")
+	_, err := db.ExecContext(context.Background(), "INSERT INTO controller_node (controller_id) VALUES ('1')")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = NewState(s.TxnRunnerFactory()).CurateNodes(
 		context.Background(), []string{"2", "3"}, []string{"1"})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rows, err := db.Query("SELECT controller_id FROM controller_node")
+	rows, err := db.QueryContext(context.Background(), "SELECT controller_id FROM controller_node")
 	c.Assert(err, jc.ErrorIsNil)
 
 	ids := set.NewStrings()
@@ -57,7 +57,7 @@ func (s *stateSuite) TestUpdateDqliteNode(c *gc.C) {
 		context.Background(), "0", nodeID, "192.168.5.60")
 	c.Assert(err, jc.ErrorIsNil)
 
-	row := s.DB().QueryRow("SELECT dqlite_node_id, bind_address FROM controller_node WHERE controller_id = '0'")
+	row := s.DB().QueryRowContext(context.Background(), "SELECT dqlite_node_id, bind_address FROM controller_node WHERE controller_id = '0'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 
 	var (
@@ -69,29 +69,6 @@ func (s *stateSuite) TestUpdateDqliteNode(c *gc.C) {
 
 	c.Check(id, gc.Equals, nodeID)
 	c.Check(addr, gc.Equals, "192.168.5.60")
-}
-
-func (s *stateSuite) TestDqliteNode(c *gc.C) {
-	// This value would cause a driver error to be emitted if we
-	// tried to pass it directly as a uint64 query parameter.
-	nodeID := uint64(15237855465837235027)
-
-	st := NewState(s.TxnRunnerFactory())
-	err := st.UpdateDqliteNode(
-		context.Background(), "0", nodeID, "192.168.5.60")
-	c.Assert(err, jc.ErrorIsNil)
-
-	id, addr, err := st.DqliteNode(context.Background(), "0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(id, gc.Equals, nodeID)
-	c.Check(addr, gc.Equals, "192.168.5.60")
-}
-
-func (s *stateSuite) TestDqliteNodeNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	_, _, err := st.DqliteNode(context.Background(), "1")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *stateSuite) TestSelectModelUUID(c *gc.C) {

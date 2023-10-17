@@ -136,8 +136,13 @@ func BootstrapDqlite(
 
 	runner := &txnRunner{db: db}
 
-	if err := NewDBMigration(runner, logger, schema.ControllerDDL(dqlite.ID())).Apply(ctx); err != nil {
+	if err := NewDBMigration(runner, logger, schema.ControllerDDL()).Apply(ctx); err != nil {
 		return errors.Annotate(err, "creating controller database schema")
+	}
+
+	// Insert the controller node ID.
+	if err := InsertControllerNodeID(ctx, runner, dqlite.ID()); err != nil {
+		return errors.Annotatef(err, "inserting controller node ID")
 	}
 
 	for i, op := range ops {
@@ -147,4 +152,31 @@ func BootstrapDqlite(
 	}
 
 	return nil
+}
+
+// InsertControllerNodeID inserts the node ID of the controller node
+// into the controller_node table.
+func InsertControllerNodeID(ctx context.Context, runner coredatabase.TxnRunner, nodeID uint64) error {
+	q := `
+-- TODO (manadart 2023-06-06): At the time of writing, 
+-- we have not yet modelled machines. 
+-- Accordingly, the controller ID remains the ID of the machine, 
+-- but it should probably become a UUID once machines have one.
+-- While HA is not supported in K8s, this doesn't matter.
+INSERT INTO controller_node (controller_id, dqlite_node_id, bind_address)
+VALUES ('0', ?, '127.0.0.1');`
+	return runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		result, err := tx.ExecContext(ctx, q, nodeID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if affected != 1 {
+			return errors.Errorf("expected 1 row affected, got %d", affected)
+		}
+		return nil
+	})
 }

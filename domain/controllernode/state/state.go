@@ -85,37 +85,6 @@ AND    (dqlite_node_id != ? OR bind_address != ?)`
 	}))
 }
 
-// DqliteNode returns the Dqlite node ID and bind address for the input
-// controller ID.
-func (st *State) DqliteNode(ctx context.Context, controllerID string) (uint64, string, error) {
-	db, err := st.DB()
-	if err != nil {
-		return 0, "", errors.Trace(err)
-	}
-
-	q := `
-SELECT dqlite_node_id, bind_address 
-FROM  controller_node
-WHERE controller_id = ?
-`
-	var nodeID uint64
-	var addr string
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, q, controllerID)
-		if err := row.Scan(&nodeID, &addr); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return errors.NotFoundf("controller node %q", controllerID)
-			}
-			return errors.Trace(err)
-		}
-		return errors.Trace(row.Err())
-	})
-	if err != nil {
-		return 0, "", errors.Trace(err)
-	}
-	return nodeID, addr, nil
-}
-
 // SelectModelUUID simply selects the input model UUID from the
 // model_list table, thereby verifying whether it exists.
 func (st *State) SelectModelUUID(ctx context.Context, modelUUID string) (string, error) {

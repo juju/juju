@@ -14,7 +14,6 @@ import (
 type State interface {
 	CurateNodes(context.Context, []string, []string) error
 	UpdateDqliteNode(context.Context, string, uint64, string) error
-	DqliteNode(context.Context, string) (uint64, string, error)
 	SelectModelUUID(context.Context, string) (string, error)
 }
 
@@ -40,13 +39,6 @@ func (s *Service) CurateNodes(ctx context.Context, toAdd, toRemove []string) err
 func (s *Service) UpdateDqliteNode(ctx context.Context, controllerID string, nodeID uint64, addr string) error {
 	err := s.st.UpdateDqliteNode(ctx, controllerID, nodeID, addr)
 	return errors.Annotatef(err, "updating Dqlite node details for %q", controllerID)
-}
-
-// DqliteNode returns the Dqlite node ID and bind address for the input
-// controller ID.
-func (s *Service) DqliteNode(ctx context.Context, controllerID string) (uint64, string, error) {
-	nodeID, addr, err := s.st.DqliteNode(ctx, controllerID)
-	return nodeID, addr, errors.Annotatef(err, "retrieving Dqlite node details for %q", controllerID)
 }
 
 // IsModelKnownToController returns true if the input

@@ -59,13 +59,6 @@ type UpgradeService interface {
 	WatchForUpgradeState(ctx context.Context, upgradeUUID domainupgrade.UUID, state upgrade.State) (watcher.NotifyWatcher, error)
 }
 
-// ControllerNodeService is the interface for the controller node service.
-type ControllerNodeService interface {
-	// DqliteNode returns the Dqlite node ID and bind address for the input
-	// controller ID.
-	DqliteNode(ctx context.Context, controllerID string) (uint64, string, error)
-}
-
 // ModelManagerService is the interface for the model manager service.
 type ModelManagerService interface {
 	// ModelList returns a list of all model UUIDs.
@@ -97,10 +90,6 @@ type Config struct {
 
 	// Agent is the running machine agent.
 	Agent agent.Agent
-
-	// ControllerNodeService is the controller node service used to identify
-	// the controller node.
-	ControllerNodeService ControllerNodeService
 
 	// ModelManagerService is the model manager service used to identify
 	// the model uuids required to upgrade.
@@ -161,9 +150,8 @@ type upgradeDBWorker struct {
 
 	dbGetter coredatabase.DBGetter
 
-	controllerNodeService ControllerNodeService
-	modelManagerService   ModelManagerService
-	upgradeService        UpgradeService
+	modelManagerService ModelManagerService
+	upgradeService      UpgradeService
 
 	logger Logger
 	clock  clock.Clock
@@ -185,9 +173,8 @@ func NewUpgradeDatabaseWorker(config Config) (worker.Worker, error) {
 
 		dbGetter: config.DBGetter,
 
-		controllerNodeService: config.ControllerNodeService,
-		modelManagerService:   config.ModelManagerService,
-		upgradeService:        config.UpgradeService,
+		modelManagerService: config.ModelManagerService,
+		upgradeService:      config.UpgradeService,
 
 		logger: config.Logger,
 		clock:  config.Clock,
@@ -373,17 +360,12 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 func (w *upgradeDBWorker) upgradeController(ctx context.Context) error {
 	w.logger.Infof("upgrading controller database from: %v to: %v", w.fromVersion, w.toVersion)
 
-	nodeID, _, err := w.controllerNodeService.DqliteNode(ctx, w.controllerID)
-	if err != nil {
-		return errors.Annotatef(err, "getting dqlite node id")
-	}
-
 	db, err := w.dbGetter.GetDB(coredatabase.ControllerNS)
 	if err != nil {
 		return errors.Annotatef(err, "controller db")
 	}
 
-	schema := schema.ControllerDDL(nodeID)
+	schema := schema.ControllerDDL()
 	changeSet, err := schema.Ensure(ctx, db)
 	if err != nil {
 		return errors.Annotatef(err, "applying controller schema")

@@ -96,8 +96,13 @@ func (s *integrationSuite) SetUpTest(c *gc.C) {
 	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, true)
 	c.Assert(err, jc.ErrorIsNil)
 
+	runner := &txnRunner{db: db}
+
 	err = database.NewDBMigration(
-		&txnRunner{db}, logger, schema.ControllerDDL(s.DBApp().ID())).Apply(context.Background())
+		runner, logger, schema.ControllerDDL()).Apply(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = database.InsertControllerNodeID(context.Background(), runner, s.DBApp().ID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := dbaccessor.NewWorker(dbaccessor.WorkerConfig{

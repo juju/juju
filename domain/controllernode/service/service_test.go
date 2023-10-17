@@ -39,17 +39,6 @@ func (s *serviceSuite) TestUpdateDqliteNode(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestDqliteNode(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().DqliteNode(gomock.Any(), "0").Return(uint64(12345), "192.168.5.60", nil)
-
-	nodeID, addr, err := NewService(s.state).DqliteNode(context.Background(), "0")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(nodeID, gc.Equals, uint64(12345))
-	c.Check(addr, gc.Equals, "192.168.5.60")
-}
-
 func (s *serviceSuite) TestIsModelKnownToController(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
