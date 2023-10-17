@@ -460,6 +460,8 @@ func (s *WorkerSuite) TestAddMachine(c *gc.C) {
 	cachedMachine, err := mod.Machine(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cachedMachine, gc.NotNil)
+
+	s.checkSuperfluousChanges(c, changes, change)
 }
 
 func (s *WorkerSuite) TestRemoveMachine(c *gc.C) {
