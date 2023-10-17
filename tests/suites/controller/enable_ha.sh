@@ -81,7 +81,7 @@ wait_for_ha() {
 		sleep "${SHORT_TIMEOUT}"
 		attempt=$((attempt + 1))
 
-		# Wait for roughly 16 minutes for a enable-ha. In the field it's know
+		# Wait for roughly 16 minutes for a enable-ha. In the field it's known
 		# that enable-ha can take this long.
 		if [[ ${attempt} -gt 100 ]]; then
 			echo "enable-ha failed waiting for machines to start"
@@ -95,6 +95,20 @@ wait_for_ha() {
 
 		sleep "${SHORT_TIMEOUT}"
 	fi
+}
+
+wait_for_controller_leader() {
+	# Since the institution of Dqlite for leases, we need to wait until the
+	# backstop workflow has run before we are functional with a single
+	# controller.
+	# A proxy for this is leadership determination. The command below will
+	# sometimes block for extended periods, other times we will be told that
+	# leadership can not be determined, so there is no fixed number of attempts
+	# that we can rely on.
+	# shellcheck disable=SC2143
+	until [[ "$(juju exec -m controller --unit controller/leader uptime | grep load)" ]]; do
+		echo "[+] waiting for controller leadership"
+	done
 }
 
 run_enable_ha() {
@@ -129,6 +143,8 @@ run_enable_ha() {
 
 	# Ensure that we have no ha enabled machines.
 	juju show-controller --format=json | jq -r '.[] | .["controller-machines"] |  reduce(.[] | select(.["instance-id"] == null)) as $i (0;.+=1)' | grep 0
+
+	wait_for_controller_leader
 
 	destroy_model "enable-ha"
 }
