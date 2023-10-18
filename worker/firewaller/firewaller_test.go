@@ -1038,18 +1038,16 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 			c.Check(version, gc.Equals, 0)
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "WatchEgressAddressesForRelations")
-			expected := params.RemoteEntityArgs{
-				Args: []params.RemoteEntityArg{{
-					Token: relToken,
-				}},
-			}
-			// Extract macaroons so we can compare them separately
-			// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
-			rArgs := arg.(params.RemoteEntityArgs)
-			newMacs := rArgs.Args[0].Macaroons
-			rArgs.Args[0].Macaroons = nil
-			apitesting.MacaroonEquals(c, newMacs[0], mac)
-			c.Check(arg, gc.DeepEquals, expected)
+
+			rArgs := arg.(params.RemoteEntityArgs).Args
+			c.Assert(rArgs, gc.HasLen, 1)
+			c.Check(rArgs[0].Token, gc.Equals, relToken)
+
+			macs := rArgs[0].Macaroons
+			c.Assert(macs, gc.HasLen, 1)
+			c.Assert(macs[0], gc.NotNil)
+			apitesting.MacaroonEquals(c, macs[0], mac)
+
 			c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
 			*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
 				Results: []params.StringsWatchResult{{StringsWatcherId: "1"}},
