@@ -69,6 +69,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/lease"
 	wmultiwatcher "github.com/juju/juju/worker/multiwatcher"
+	workerobjectstore "github.com/juju/juju/worker/objectstore"
 )
 
 const AdminSecret = "dummy-secret"
@@ -311,6 +312,9 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c)
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
+	cfg.ObjectStoreGetter = &stubObjectStoreGetter{
+		statePool: s.controller.StatePool(),
+	}
 
 	cfg.UpgradeComplete = func() bool {
 		return !s.WithUpgrading
@@ -649,10 +653,24 @@ func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.Tracer
 	return trace.NoopTracer{}, nil
 }
 
-type stubObjectStoreGetter struct{}
+type stubObjectStoreGetter struct {
+	statePool *state.StatePool
+}
 
 func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
-	return &stubObjectStore{}, nil
+	// If no statePool is provided, then fallback to a stub implementation.
+	if s.statePool == nil {
+		return &stubObjectStore{}, nil
+	}
+
+	// If a statePool is provided, use the actual object store logic to
+	// serve the files.
+	state, err := s.statePool.Get(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return workerobjectstore.NewStateObjectStore(ctx, namespace, state, loggo.GetLogger("juju.worker.objectstore"))
 }
 
 type stubObjectStore struct{}

@@ -827,9 +827,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		controllerTag: systemState.ControllerTag(),
 	}
 	migrateCharmsHandler := &charmsHandler{
-		ctxt:          httpCtxt,
-		dataDir:       srv.dataDir,
-		stateAuthFunc: httpCtxt.stateForMigrationImporting,
+		ctxt:              httpCtxt,
+		dataDir:           srv.dataDir,
+		stateAuthFunc:     httpCtxt.stateForMigrationImporting,
+		objectStoreGetter: srv.shared.objectStoreGetter,
+		logger:            logger.Child("charms-handler"),
 	}
 	migrateCharmsHTTPHandler := &CharmsHTTPHandler{
 		PostHandler: migrateCharmsHandler.ServePost,

@@ -7,13 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/trace"
-	state "github.com/juju/juju/state"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/dependency"
 	dependencytesting "github.com/juju/worker/v3/dependency/testing"
 	"github.com/juju/worker/v3/workertest"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/state"
 )
 
 type manifoldSuite struct {

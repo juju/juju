@@ -216,7 +216,7 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 	c.Log(curl.String())
 	s.storage.EXPECT().PrepareToStoreCharm(curl.String()).Return(nil)
 	s.storage.EXPECT().Store(gomock.Any(), curl.String(), gomock.AssignableToTypeOf(downloader.DownloadedCharm{})).DoAndReturn(
-		func(_ string, dc downloader.DownloadedCharm) error {
+		func(_ context.Context, _ string, dc downloader.DownloadedCharm) error {
 			c.Assert(dc.Size, gc.Equals, int64(10))
 
 			contents, err := io.ReadAll(dc.CharmData)
