@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretdrainworker
+package secretsdrainworker
 
 import (
 	"context"
@@ -58,7 +58,7 @@ func (config Config) Validate() error {
 	return nil
 }
 
-// NewWorker returns a secretdrainworker Worker backed by config, or an error.
+// NewWorker returns a secretsdrainworker Worker backed by config, or an error.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
@@ -119,6 +119,7 @@ func (w *Worker) loop() (err error) {
 			}
 			w.config.Logger.Debugf("got %d secrets to drain", len(secrets))
 			backends, err := w.config.SecretsBackendGetter()
+			w.config.Logger.Warningf("SecretsBackendGetter %#v, %#v", backends, err)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -132,6 +133,9 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujusecrets.BackendsClient) (err error) {
+	defer func() {
+		w.config.Logger.Warningf("drain %s: %#v", md.Metadata.URI, err)
+	}()
 	var args []secretsdrain.ChangeSecretBackendArg
 	var cleanUpInExternalBackendFuncs []func() error
 	for _, revisionMeta := range md.Revisions {

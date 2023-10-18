@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretdrainworker_test
+package secretsdrainworker_test
 
 import (
 	"time"
@@ -20,8 +20,8 @@ import (
 	jujusecrets "github.com/juju/juju/secrets"
 	"github.com/juju/juju/secrets/provider"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/secretdrainworker"
-	"github.com/juju/juju/worker/secretdrainworker/mocks"
+	"github.com/juju/juju/worker/secretsdrainworker"
+	"github.com/juju/juju/worker/secretsdrainworker/mocks"
 )
 
 type workerSuite struct {
@@ -48,7 +48,7 @@ func (s *workerSuite) getWorkerNewer(c *gc.C, calls ...*gomock.Call) (func(strin
 	s.facade.EXPECT().WatchSecretBackendChanged().Return(watchertest.NewMockNotifyWatcher(s.notifyBackendChangedCh), nil)
 
 	start := func(expectedErr string) {
-		w, err := secretdrainworker.NewWorker(secretdrainworker.Config{
+		w, err := secretsdrainworker.NewWorker(secretsdrainworker.Config{
 			Logger:             s.logger,
 			SecretsDrainFacade: s.facade,
 			SecretsBackendGetter: func() (jujusecrets.BackendsClient, error) {

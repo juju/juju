@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretdrainworker
+package secretsdrainworker
 
 import (
 	"github.com/juju/errors"
@@ -15,14 +15,14 @@ import (
 	jujusecrets "github.com/juju/juju/secrets"
 )
 
-// ManifoldConfig describes the resources used by the secretdrainworker worker.
+// ManifoldConfig describes the resources used by the secretsdrainworker worker.
 type ManifoldConfig struct {
 	APICallerName string
 	Logger        Logger
 
 	NewSecretsDrainFacade func(base.APICaller) SecretsDrainFacade
 	NewWorker             func(Config) (worker.Worker, error)
-	NewBackendsClient     func(jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error)
+	NewBackendsClient     func(base.APICaller) (jujusecrets.BackendsClient, error)
 }
 
 // NewSecretsDrainFacadeForAgent returns a new SecretsDrainFacade for draining charm owned secrets from agents.
@@ -35,12 +35,19 @@ func NewUserSecretsDrainFacade(caller base.APICaller) SecretsDrainFacade {
 	return usersecretsdrain.NewClient(caller)
 }
 
-// NewBackendsClient returns a new secret backends client.
-func NewBackendsClient(facade jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error) {
+// NewSecretBackendsClientForAgent returns a new secret backends client for draining charm owned secrets from agents.
+func NewSecretBackendsClientForAgent(caller base.APICaller) (jujusecrets.BackendsClient, error) {
+	facade := secretsmanager.NewClient(caller)
 	return jujusecrets.NewClient(facade)
 }
 
-// Manifold returns a Manifold that encapsulates the secretdrainworker worker.
+// NewUserSecretBackendsClient returns a new secret backends client for draining user secrets from controller.
+func NewUserSecretBackendsClient(caller base.APICaller) (jujusecrets.BackendsClient, error) {
+	facade := usersecretsdrain.NewClient(caller)
+	return jujusecrets.NewClient(facade)
+}
+
+// Manifold returns a Manifold that encapsulates the secretsdrainworker worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
@@ -85,7 +92,7 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		SecretsDrainFacade: cfg.NewSecretsDrainFacade(apiCaller),
 		Logger:             cfg.Logger,
 		SecretsBackendGetter: func() (jujusecrets.BackendsClient, error) {
-			return cfg.NewBackendsClient(secretsmanager.NewClient(apiCaller))
+			return cfg.NewBackendsClient(apiCaller)
 		},
 	})
 	if err != nil {
