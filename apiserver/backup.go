@@ -4,14 +4,11 @@
 package apiserver
 
 import (
-	"encoding/json"
-	"io"
 	"net/http"
 
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	"github.com/juju/juju/rpc/params"
 )
 
 // backupHandler handles backup requests.
@@ -53,47 +50,6 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	default:
 		h.sendError(resp, errors.MethodNotAllowedf("unsupported method: %q", req.Method))
 	}
-}
-
-func (h *backupHandler) read(req *http.Request, expectedType string) ([]byte, error) {
-	defer req.Body.Close()
-
-	ctype := req.Header.Get("Content-Type")
-	if ctype != expectedType {
-		return nil, errors.Errorf("expected Content-Type %q, got %q", expectedType, ctype)
-	}
-
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		return nil, errors.Annotate(err, "while reading request body")
-	}
-
-	return body, nil
-}
-
-func (h *backupHandler) parseGETArgs(req *http.Request) (*params.BackupsDownloadArgs, error) {
-	body, err := h.read(req, params.ContentTypeJSON)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var args params.BackupsDownloadArgs
-	if err := json.Unmarshal(body, &args); err != nil {
-		return nil, errors.Annotate(err, "while de-serializing args")
-	}
-
-	return &args, nil
-}
-
-func (h *backupHandler) sendFile(file io.Reader, checksum string, resp http.ResponseWriter) error {
-	// We don't set the Content-Length header, leaving it at -1.
-	resp.Header().Set("Content-Type", params.ContentTypeRaw)
-	resp.Header().Set("Digest", params.EncodeChecksum(checksum))
-	resp.WriteHeader(http.StatusOK)
-	if _, err := io.Copy(resp, file); err != nil {
-		return errors.Annotate(err, "while streaming archive")
-	}
-	return nil
 }
 
 // sendError sends a JSON-encoded error response.
