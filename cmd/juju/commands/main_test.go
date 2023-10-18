@@ -220,6 +220,11 @@ func (s *MainSuite) TestNoWarn2xFirstRun(c *gc.C) {
 	path := c.MkDir()
 	s.PatchEnvironment("JUJU_HOME", path)
 
+	s.PatchValue(&cloud.FetchAndMaybeUpdatePublicClouds,
+		func(access cloud.PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
+			return nil, "", nil
+		})
+
 	var code int
 	stdout, stderr := jujutesting.CaptureOutput(c, func() {
 		code = jujuMain{
