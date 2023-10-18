@@ -16,7 +16,7 @@ import (
 	"time"
 
 	pebbleclient "github.com/canonical/pebble/client"
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -338,7 +338,7 @@ func (s createCharm) step(c *gc.C, ctx *testContext) {
 	if len(s.badHooks) > 0 {
 		ctx.runner.hooksWithErrors = set.NewStrings(s.badHooks...)
 	}
-	dir, err := corecharm.ReadCharmDir(base)
+	dir, err := jujucharm.ReadCharmDir(base)
 	c.Assert(err, jc.ErrorIsNil)
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, jc.ErrorIsNil)
@@ -346,8 +346,8 @@ func (s createCharm) step(c *gc.C, ctx *testContext) {
 }
 
 type addCharm struct {
-	dir  *corecharm.CharmDir
-	curl *corecharm.URL
+	dir  *jujucharm.CharmDir
+	curl *jujucharm.URL
 }
 
 func (s addCharm) step(c *gc.C, ctx *testContext) {
@@ -827,7 +827,7 @@ func (s waitUnitAgent) step(c *gc.C, ctx *testContext) {
 				c.Logf("want unit charm %q, got nil; still waiting", curl(s.charm))
 				continue
 			}
-			url, err := corecharm.ParseURL(*urlStr)
+			url, err := jujucharm.ParseURL(*urlStr)
 			if err != nil {
 				c.Fatalf("cannot refresh unit: %v", err)
 			}
@@ -1001,7 +1001,7 @@ func (s updateStatusHookTick) step(c *gc.C, ctx *testContext) {
 type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *gc.C, ctx *testContext) {
-	err := ctx.application.UpdateCharmConfig(model.GenerationMaster, corecharm.Settings(s))
+	err := ctx.application.UpdateCharmConfig(model.GenerationMaster, jujucharm.Settings(s))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1059,7 +1059,7 @@ func (s verifyCharm) step(c *gc.C, ctx *testContext) {
 
 	urlStr := ctx.unit.CharmURL()
 	c.Assert(urlStr, gc.NotNil)
-	url, err := corecharm.ParseURL(*urlStr)
+	url, err := jujucharm.ParseURL(*urlStr)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.DeepEquals, curl(checkRevision))
 }
@@ -1385,8 +1385,8 @@ var subordinateDying = custom{func(c *gc.C, ctx *testContext) {
 	c.Assert(ctx.subordinate.Destroy(), gc.IsNil)
 }}
 
-func curl(revision int) *corecharm.URL {
-	return corecharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision)
+func curl(revision int) *jujucharm.URL {
+	return jujucharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision)
 }
 
 type hookLock struct {

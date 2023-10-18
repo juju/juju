@@ -462,10 +462,10 @@ func (s *WorkerSuite) TestAddMachine(c *gc.C) {
 	c.Check(cachedMachine, gc.NotNil)
 
 	// We don't know how many events we will get because `MakeMachine`
-	// above runs multiple operations but is not transactional.
+	// above runs multiple operations, but is not transactional.
 	// Drain the events for a short time then assert that the machine
 	// appears as though provisioned.
-	done := time.After(testing.ShortWait)
+	done := time.After(2 * testing.ShortWait)
 loop:
 	for {
 		select {

@@ -8,7 +8,7 @@ import (
 	"os"
 	"sync"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -620,7 +620,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 }
 
 func (u *Uniter) verifyCharmProfile(url string) error {
-	curl, err := corecharm.ParseURL(url)
+	curl, err := jujucharm.ParseURL(url)
 	if err != nil {
 		return errors.Trace(err)
 	}
