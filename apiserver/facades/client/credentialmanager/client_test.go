@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/credentialmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -117,7 +118,7 @@ type testCredentialService struct {
 	*testing.Stub
 }
 
-func (b *testCredentialService) InvalidateCredential(ctx context.Context, tag names.CloudCredentialTag, reason string) error {
-	b.AddCall("InvalidateCredential", tag, reason)
+func (b *testCredentialService) InvalidateCredential(ctx context.Context, id credential.ID, reason string) error {
+	b.AddCall("InvalidateCredential", id, reason)
 	return b.NextErr()
 }

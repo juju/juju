@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades/upgradevalidation"
@@ -382,7 +383,7 @@ func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 		return errors.New("model is being imported as part of another migration")
 	}
 	if credTag, found := model.CloudCredentialTag(); found {
-		creds, err := ctx.credentialService.CloudCredential(stdCtx, credTag)
+		creds, err := ctx.credentialService.CloudCredential(stdCtx, credential.IdFromTag(credTag))
 		if err != nil {
 			return errors.Trace(err)
 		}

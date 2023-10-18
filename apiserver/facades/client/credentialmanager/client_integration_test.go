@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/credentialmanager"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/juju/testing"
 )
 
@@ -43,12 +44,12 @@ func (s *CredentialManagerIntegrationSuite) TestInvalidateModelCredential(c *gc.
 	c.Assert(set, jc.IsTrue)
 
 	credService := s.ControllerServiceFactory(c).Credential()
-	credential, err := credService.CloudCredential(ctx.Background(), tag)
+	cred, err := credService.CloudCredential(ctx.Background(), credential.IdFromTag(tag))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credential.Invalid, jc.IsFalse)
+	c.Assert(cred.Invalid, jc.IsFalse)
 
 	c.Assert(s.client.InvalidateModelCredential("no reason really"), jc.ErrorIsNil)
-	credential, err = credService.CloudCredential(ctx.Background(), tag)
+	cred, err = credService.CloudCredential(ctx.Background(), credential.IdFromTag(tag))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(credential.Invalid, jc.IsTrue)
+	c.Assert(cred.Invalid, jc.IsTrue)
 }

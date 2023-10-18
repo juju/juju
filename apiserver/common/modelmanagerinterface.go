@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -125,8 +126,8 @@ type Model interface {
 
 // CredentialService provides access to credentials.
 type CredentialService interface {
-	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
-	WatchCredential(ctx context.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error)
+	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
+	WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error)
 }
 
 // CloudService provides access to clouds.

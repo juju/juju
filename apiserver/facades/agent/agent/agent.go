@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -206,7 +207,7 @@ func (api *AgentAPI) WatchCredentials(ctx context.Context, args params.Entities)
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		watch, err := api.credentialService.WatchCredential(ctx, credentialTag)
+		watch, err := api.credentialService.WatchCredential(ctx, credential.IdFromTag(credentialTag))
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue

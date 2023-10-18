@@ -51,7 +51,7 @@ func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	serviceFactory.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialTag, cred)
+	serviceFactory.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialId, cred)
 
 	s.PatchValue(&provider.NewK8sClients, k8stesting.NoopFakeK8sClients)
 

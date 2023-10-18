@@ -49,6 +49,7 @@ import (
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
+	"github.com/juju/juju/domain/credential"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	"github.com/juju/juju/domain/model"
@@ -86,6 +87,9 @@ var (
 
 	// DefaultCredentialTag is the default credential for all models.
 	DefaultCredentialTag = names.NewCloudCredentialTag("dummy/admin/default")
+
+	// DefaultCredentialId is the default credential id for all models.
+	DefaultCredentialId = credential.IdFromTag(DefaultCredentialTag)
 
 	defaultCredential = cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
 		"username": "dummy",
@@ -559,7 +563,11 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), "dummy-credential", "caascloud", "admin", cred)
+		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), credential.ID{
+			Cloud: "caascloud",
+			Owner: "admin",
+			Name:  "dummy-credential",
+		}, cred)
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -577,8 +585,12 @@ func SeedCloudCredentials(c *gc.C, runner database.TxnRunner) {
 	err := cloudbootstrap.InsertCloud(DefaultCloud)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 
-	tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", DefaultCloud.Name, AdminUser.Name(), DefaultCredentialTag.Name()))
-	err = credentialbootstrap.InsertCredential(tag, defaultCredential)(context.Background(), runner)
+	id := credential.ID{
+		Cloud: DefaultCloud.Name,
+		Owner: AdminUser.Name(),
+		Name:  DefaultCredentialId.Name,
+	}
+	err = credentialbootstrap.InsertCredential(id, defaultCredential)(context.Background(), runner)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	cloud "github.com/juju/juju/cloud"
-	names "github.com/juju/names/v4"
+	credential "github.com/juju/juju/domain/credential"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -75,7 +75,7 @@ func (m *MockCredentialService) EXPECT() *MockCredentialServiceMockRecorder {
 }
 
 // CloudCredential mocks base method.
-func (m *MockCredentialService) CloudCredential(arg0 context.Context, arg1 names.CloudCredentialTag) (cloud.Credential, error) {
+func (m *MockCredentialService) CloudCredential(arg0 context.Context, arg1 credential.ID) (cloud.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredential", arg0, arg1)
 	ret0, _ := ret[0].(cloud.Credential)
@@ -90,7 +90,7 @@ func (mr *MockCredentialServiceMockRecorder) CloudCredential(arg0, arg1 interfac
 }
 
 // InvalidateCredential mocks base method.
-func (m *MockCredentialService) InvalidateCredential(arg0 context.Context, arg1 names.CloudCredentialTag, arg2 string) error {
+func (m *MockCredentialService) InvalidateCredential(arg0 context.Context, arg1 credential.ID, arg2 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InvalidateCredential", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

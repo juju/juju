@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
+
+	"github.com/juju/juju/domain/credential"
 )
 
 // ModelCredentialInvalidator defines a point of use interface for invalidating
@@ -21,7 +23,7 @@ type ModelCredentialInvalidator interface {
 // mark a credential as invalid.
 func NewCredentialInvalidator(
 	tag names.CloudCredentialTag,
-	invalidateFunc func(ctx stdcontext.Context, tag names.CloudCredentialTag, reason string) error,
+	invalidateFunc func(ctx stdcontext.Context, id credential.ID, reason string) error,
 	legacyInvalidate func(reason string) error,
 ) ModelCredentialInvalidator {
 	return &legacyCredentialAdaptor{
@@ -37,7 +39,7 @@ func NewCredentialInvalidator(
 // TODO(wallyworld) - the legacy invalidate function needs to be changed to take a context and tag.
 type legacyCredentialAdaptor struct {
 	tag              names.CloudCredentialTag
-	invalidateFunc   func(ctx stdcontext.Context, tag names.CloudCredentialTag, reason string) error
+	invalidateFunc   func(ctx stdcontext.Context, id credential.ID, reason string) error
 	legacyInvalidate func(string) error
 }
 
@@ -49,7 +51,7 @@ func (a *legacyCredentialAdaptor) InvalidateModelCredential(reason string) error
 	if a.invalidateFunc == nil || a.legacyInvalidate == nil {
 		return errors.New("missing validation functions")
 	}
-	if err := a.invalidateFunc(stdcontext.Background(), a.tag, reason); err != nil {
+	if err := a.invalidateFunc(stdcontext.Background(), credential.IdFromTag(a.tag), reason); err != nil {
 		return errors.Annotate(err, "updating credential details")
 	}
 	if err := a.legacyInvalidate(reason); err != nil {

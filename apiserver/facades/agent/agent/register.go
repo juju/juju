@@ -7,11 +7,10 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/names/v4"
-
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/credential"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -22,7 +21,7 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 type CredentialService interface {
-	WatchCredential(ctx context.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error)
+	WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error)
 }
 
 // NewAgentAPIV3 returns an object implementing version 3 of the Agent API

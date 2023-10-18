@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -34,7 +35,7 @@ type Model interface {
 
 // CredentialService provides access to credentials.
 type CredentialService interface {
-	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
+	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
 }
 
 // CloudService provides access to clouds.
@@ -108,14 +109,14 @@ func CloudSpecForModel(
 	if err != nil {
 		return environscloudspec.CloudSpec{}, errors.Trace(err)
 	}
-	var credential cloud.Credential
+	var cred cloud.Credential
 	if ok {
-		credential, err = credentialService.CloudCredential(ctx, tag)
+		cred, err = credentialService.CloudCredential(ctx, credential.IdFromTag(tag))
 		if err != nil {
 			return environscloudspec.CloudSpec{}, errors.Trace(err)
 		}
 	}
-	return environscloudspec.MakeCloudSpec(*cld, regionName, &credential)
+	return environscloudspec.MakeCloudSpec(*cld, regionName, &cred)
 }
 
 // NewEnvironFunc aliases a function that, given a Model,

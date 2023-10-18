@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/domain/credential"
 )
 
 // ConstCredentialGetter returns a CredentialService which serves a fixed credential.
@@ -23,9 +23,9 @@ type credentialGetter struct {
 	cred *cloud.Credential
 }
 
-func (c credentialGetter) CloudCredential(_ context.Context, tag names.CloudCredentialTag) (cloud.Credential, error) {
+func (c credentialGetter) CloudCredential(_ context.Context, id credential.ID) (cloud.Credential, error) {
 	if c.cred == nil {
-		return cloud.Credential{}, errors.NotFoundf("credential %q", tag)
+		return cloud.Credential{}, errors.NotFoundf("credential %q", id)
 	}
 	return *c.cred, nil
 }

@@ -30,7 +30,7 @@ func (s *uniterAPIErrorSuite) SetupTest(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	cred := cloud.NewCredential(cloud.UserPassAuthType, nil)
-	serviceFactory.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialTag, cred)
+	serviceFactory.Credential().UpdateCloudCredential(context.Background(), testing.DefaultCredentialId, cred)
 }
 
 func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {

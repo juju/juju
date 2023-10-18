@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/domain/credential"
 )
 
 type importSuite struct {
@@ -75,9 +76,9 @@ func (s *importSuite) TestImport(c *gc.C) {
 		},
 	)
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"hello": "world"})
-	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
-	s.service.EXPECT().CloudCredential(gomock.All(), tag).Times(1).Return(cloud.Credential{}, errors.NotFound)
-	s.service.EXPECT().UpdateCloudCredential(gomock.Any(), tag, cred).Times(1)
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.service.EXPECT().CloudCredential(gomock.All(), id).Times(1).Return(cloud.Credential{}, errors.NotFound)
+	s.service.EXPECT().UpdateCloudCredential(gomock.Any(), id, cred).Times(1)
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
@@ -99,8 +100,8 @@ func (s *importSuite) TestImportExistingMatches(c *gc.C) {
 		},
 	)
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"hello": "world"})
-	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
-	s.service.EXPECT().CloudCredential(gomock.All(), tag).Times(1).Return(cred, nil)
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.service.EXPECT().CloudCredential(gomock.All(), id).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
@@ -122,8 +123,8 @@ func (s *importSuite) TestImportExistingAuthTypeMisMatch(c *gc.C) {
 		},
 	)
 	cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"hello": "world"})
-	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
-	s.service.EXPECT().CloudCredential(gomock.All(), tag).Times(1).Return(cred, nil)
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.service.EXPECT().CloudCredential(gomock.All(), id).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)
@@ -145,8 +146,8 @@ func (s *importSuite) TestImportExistingAttributesMisMatch(c *gc.C) {
 		},
 	)
 	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{"goodbye": "world"})
-	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
-	s.service.EXPECT().CloudCredential(gomock.All(), tag).Times(1).Return(cred, nil)
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.service.EXPECT().CloudCredential(gomock.All(), id).Times(1).Return(cred, nil)
 
 	op := s.newImportOperation()
 	err := op.Execute(context.Background(), model)

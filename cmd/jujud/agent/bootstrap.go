@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -180,9 +181,9 @@ type credentialGetter struct {
 	cred *jujucloud.Credential
 }
 
-func (c credentialGetter) CloudCredential(_ stdcontext.Context, tag names.CloudCredentialTag) (jujucloud.Credential, error) {
+func (c credentialGetter) CloudCredential(_ stdcontext.Context, id credential.ID) (jujucloud.Credential, error) {
 	if c.cred == nil {
-		return jujucloud.Credential{}, errors.NotFoundf("credential %q", tag)
+		return jujucloud.Credential{}, errors.NotFoundf("credential %q", id)
 	}
 	return *c.cred, nil
 }

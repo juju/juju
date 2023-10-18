@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/credential"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
@@ -39,7 +40,7 @@ type PrecheckBackend interface {
 
 // CredentialService provides access to credentials.
 type CredentialService interface {
-	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
+	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
 }
 
 // Pool defines the interface to a StatePool used by the migration

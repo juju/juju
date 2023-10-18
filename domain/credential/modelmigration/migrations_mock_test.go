@@ -10,7 +10,7 @@ import (
 
 	cloud "github.com/juju/juju/cloud"
 	modelmigration "github.com/juju/juju/core/modelmigration"
-	names "github.com/juju/names/v4"
+	credential "github.com/juju/juju/domain/credential"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -73,7 +73,7 @@ func (m *MockImportService) EXPECT() *MockImportServiceMockRecorder {
 }
 
 // CloudCredential mocks base method.
-func (m *MockImportService) CloudCredential(arg0 context.Context, arg1 names.CloudCredentialTag) (cloud.Credential, error) {
+func (m *MockImportService) CloudCredential(arg0 context.Context, arg1 credential.ID) (cloud.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredential", arg0, arg1)
 	ret0, _ := ret[0].(cloud.Credential)
@@ -88,7 +88,7 @@ func (mr *MockImportServiceMockRecorder) CloudCredential(arg0, arg1 interface{})
 }
 
 // UpdateCloudCredential mocks base method.
-func (m *MockImportService) UpdateCloudCredential(arg0 context.Context, arg1 names.CloudCredentialTag, arg2 cloud.Credential) error {
+func (m *MockImportService) UpdateCloudCredential(arg0 context.Context, arg1 credential.ID, arg2 cloud.Credential) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCloudCredential", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -125,7 +125,7 @@ func (m *MockExportService) EXPECT() *MockExportServiceMockRecorder {
 }
 
 // CloudCredential mocks base method.
-func (m *MockExportService) CloudCredential(arg0 context.Context, arg1 names.CloudCredentialTag) (cloud.Credential, error) {
+func (m *MockExportService) CloudCredential(arg0 context.Context, arg1 credential.ID) (cloud.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredential", arg0, arg1)
 	ret0, _ := ret[0].(cloud.Credential)

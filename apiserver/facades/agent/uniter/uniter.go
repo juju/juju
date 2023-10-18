@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -50,8 +51,8 @@ type CloudService interface {
 
 // CredentialService provides access to credentials.
 type CredentialService interface {
-	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
-	WatchCredential(ctx context.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error)
+	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
+	WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error)
 }
 
 // UniterAPI implements the latest version (v18) of the Uniter API.

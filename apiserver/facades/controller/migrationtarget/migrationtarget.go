@@ -392,7 +392,7 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 		return params.ErrorResults{}, nil
 	}
 
-	storedCredential, err := api.credentialService.CloudCredential(ctx, credentialTag)
+	storedCredential, err := api.credentialService.CloudCredential(ctx, credential.IdFromTag(credentialTag))
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

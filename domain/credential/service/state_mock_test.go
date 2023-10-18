@@ -55,18 +55,18 @@ func (mr *MockStateMockRecorder) AllCloudCredentialsForOwner(arg0, arg1 interfac
 }
 
 // CloudCredential mocks base method.
-func (m *MockState) CloudCredential(arg0 context.Context, arg1, arg2, arg3 string) (cloud.Credential, error) {
+func (m *MockState) CloudCredential(arg0 context.Context, arg1 credential.ID) (cloud.Credential, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CloudCredential", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "CloudCredential", arg0, arg1)
 	ret0, _ := ret[0].(cloud.Credential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CloudCredential indicates an expected call of CloudCredential.
-func (mr *MockStateMockRecorder) CloudCredential(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockStateMockRecorder) CloudCredential(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredential", reflect.TypeOf((*MockState)(nil).CloudCredential), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudCredential", reflect.TypeOf((*MockState)(nil).CloudCredential), arg0, arg1)
 }
 
 // CloudCredentialsForOwner mocks base method.
@@ -85,17 +85,17 @@ func (mr *MockStateMockRecorder) CloudCredentialsForOwner(arg0, arg1, arg2 inter
 }
 
 // InvalidateCloudCredential mocks base method.
-func (m *MockState) InvalidateCloudCredential(arg0 context.Context, arg1, arg2, arg3, arg4 string) error {
+func (m *MockState) InvalidateCloudCredential(arg0 context.Context, arg1 credential.ID, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InvalidateCloudCredential", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "InvalidateCloudCredential", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // InvalidateCloudCredential indicates an expected call of InvalidateCloudCredential.
-func (mr *MockStateMockRecorder) InvalidateCloudCredential(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockStateMockRecorder) InvalidateCloudCredential(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvalidateCloudCredential", reflect.TypeOf((*MockState)(nil).InvalidateCloudCredential), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvalidateCloudCredential", reflect.TypeOf((*MockState)(nil).InvalidateCloudCredential), arg0, arg1, arg2)
 }
 
 // ModelsUsingCloudCredential mocks base method.
@@ -114,47 +114,47 @@ func (mr *MockStateMockRecorder) ModelsUsingCloudCredential(arg0, arg1 interface
 }
 
 // RemoveCloudCredential mocks base method.
-func (m *MockState) RemoveCloudCredential(arg0 context.Context, arg1, arg2, arg3 string) error {
+func (m *MockState) RemoveCloudCredential(arg0 context.Context, arg1 credential.ID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveCloudCredential", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "RemoveCloudCredential", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveCloudCredential indicates an expected call of RemoveCloudCredential.
-func (mr *MockStateMockRecorder) RemoveCloudCredential(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockStateMockRecorder) RemoveCloudCredential(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveCloudCredential", reflect.TypeOf((*MockState)(nil).RemoveCloudCredential), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveCloudCredential", reflect.TypeOf((*MockState)(nil).RemoveCloudCredential), arg0, arg1)
 }
 
 // UpsertCloudCredential mocks base method.
-func (m *MockState) UpsertCloudCredential(arg0 context.Context, arg1, arg2, arg3 string, arg4 cloud.Credential) (*bool, error) {
+func (m *MockState) UpsertCloudCredential(arg0 context.Context, arg1 credential.ID, arg2 cloud.Credential) (*bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpsertCloudCredential", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "UpsertCloudCredential", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpsertCloudCredential indicates an expected call of UpsertCloudCredential.
-func (mr *MockStateMockRecorder) UpsertCloudCredential(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockStateMockRecorder) UpsertCloudCredential(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertCloudCredential", reflect.TypeOf((*MockState)(nil).UpsertCloudCredential), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertCloudCredential", reflect.TypeOf((*MockState)(nil).UpsertCloudCredential), arg0, arg1, arg2)
 }
 
 // WatchCredential mocks base method.
-func (m *MockState) WatchCredential(arg0 context.Context, arg1 func(string, string, changestream.ChangeType) (watcher.Watcher[struct{}], error), arg2, arg3, arg4 string) (watcher.Watcher[struct{}], error) {
+func (m *MockState) WatchCredential(arg0 context.Context, arg1 func(string, string, changestream.ChangeType) (watcher.Watcher[struct{}], error), arg2 credential.ID) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchCredential", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "WatchCredential", arg0, arg1, arg2)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchCredential indicates an expected call of WatchCredential.
-func (mr *MockStateMockRecorder) WatchCredential(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+func (mr *MockStateMockRecorder) WatchCredential(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchCredential", reflect.TypeOf((*MockState)(nil).WatchCredential), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchCredential", reflect.TypeOf((*MockState)(nil).WatchCredential), arg0, arg1, arg2)
 }
 
 // MockWatcherFactory is a mock of WatcherFactory interface.

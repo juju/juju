@@ -234,7 +234,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		false,
 		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
 		cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
-		credbootstrap.InsertCredential(cloudCredTag, cloudCred),
+		credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
 		modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
 	); err != nil {
 		return nil, errors.Trace(err)

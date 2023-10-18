@@ -10,7 +10,7 @@ import (
 
 	cloud "github.com/juju/juju/cloud"
 	watcher "github.com/juju/juju/core/watcher"
-	names "github.com/juju/names/v4"
+	credential "github.com/juju/juju/domain/credential"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -38,7 +38,7 @@ func (m *MockCredentialService) EXPECT() *MockCredentialServiceMockRecorder {
 }
 
 // CloudCredential mocks base method.
-func (m *MockCredentialService) CloudCredential(arg0 context.Context, arg1 names.CloudCredentialTag) (cloud.Credential, error) {
+func (m *MockCredentialService) CloudCredential(arg0 context.Context, arg1 credential.ID) (cloud.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredential", arg0, arg1)
 	ret0, _ := ret[0].(cloud.Credential)
@@ -53,7 +53,7 @@ func (mr *MockCredentialServiceMockRecorder) CloudCredential(arg0, arg1 interfac
 }
 
 // WatchCredential mocks base method.
-func (m *MockCredentialService) WatchCredential(arg0 context.Context, arg1 names.CloudCredentialTag) (watcher.Watcher[struct{}], error) {
+func (m *MockCredentialService) WatchCredential(arg0 context.Context, arg1 credential.ID) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchCredential", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])

@@ -466,12 +466,8 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	cred := cloud.NewCredential(cloud.EmptyAuthType, nil)
 	tag := names.NewCloudCredentialTag(
 		fmt.Sprintf("manual/%s/dummy-credential", owner.Name()))
-	s.credentialService.EXPECT().CloudCredential(gomock.Any(), tag).Return(cred, nil)
-	s.credentialValidator.EXPECT().Validate(gomock.Any(), credential.ID{
-		Cloud: "manual",
-		Owner: owner.Name(),
-		Name:  "dummy-credential",
-	}, &cred, false)
+	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.IdFromTag(tag)).Return(cred, nil)
+	s.credentialValidator.EXPECT().Validate(gomock.Any(), credential.IdFromTag(tag), &cred, false)
 
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		CloudName:       "manual",

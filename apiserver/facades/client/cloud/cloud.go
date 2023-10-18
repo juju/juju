@@ -416,7 +416,7 @@ func (api *CloudAPI) AddCredentials(ctx context.Context, args params.TaggedCrede
 			cloud.AuthType(arg.Credential.AuthType),
 			arg.Credential.Attributes,
 		)
-		if err := api.credentialService.UpdateCloudCredential(ctx, tag, in); err != nil {
+		if err := api.credentialService.UpdateCloudCredential(ctx, credential.IdFromTag(tag), in); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -797,7 +797,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 				continue
 			}
 			tag := names.NewCloudCredentialTag(id)
-			cred, err := api.credentialService.CloudCredential(ctx, tag)
+			cred, err := api.credentialService.CloudCredential(ctx, credential.IdFromTag(tag))
 			if err != nil {
 				result[i] = params.CredentialContentResult{
 					Error: apiservererrors.ServerError(err),
