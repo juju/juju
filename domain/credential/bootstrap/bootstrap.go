@@ -17,7 +17,7 @@ import (
 )
 
 // InsertCredential inserts  a cloud credential into dqlite.
-func InsertCredential(id credential.ID, credential cloud.Credential) func(context.Context, database.TxnRunner) error {
+func InsertCredential(id credential.ID, cred cloud.Credential) func(context.Context, database.TxnRunner) error {
 	return func(ctx context.Context, db database.TxnRunner) error {
 		if id.IsZero() {
 			return nil
@@ -28,7 +28,14 @@ func InsertCredential(id credential.ID, credential cloud.Credential) func(contex
 			return errors.Trace(err)
 		}
 		return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			if err := state.CreateCredential(ctx, tx, credentialUUID.String(), id, credential); err != nil {
+			if err := state.CreateCredential(ctx, tx, credentialUUID.String(), id, credential.CloudCredentialInfo{
+				AuthType:      string(cred.AuthType()),
+				Attributes:    cred.Attributes(),
+				Revoked:       cred.Revoked,
+				Label:         cred.Label,
+				Invalid:       cred.Invalid,
+				InvalidReason: cred.InvalidReason,
+			}); err != nil {
 				return errors.Annotate(err, "creating bootstrap credential")
 			}
 			return nil

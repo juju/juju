@@ -155,10 +155,10 @@ func (m *MockCredentialService) EXPECT() *MockCredentialServiceMockRecorder {
 }
 
 // AllCloudCredentialsForOwner mocks base method.
-func (m *MockCredentialService) AllCloudCredentialsForOwner(arg0 context.Context, arg1 string) ([]credential.CloudCredential, error) {
+func (m *MockCredentialService) AllCloudCredentialsForOwner(arg0 context.Context, arg1 string) (map[credential.ID]cloud0.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllCloudCredentialsForOwner", arg0, arg1)
-	ret0, _ := ret[0].([]credential.CloudCredential)
+	ret0, _ := ret[0].(map[credential.ID]cloud0.Credential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

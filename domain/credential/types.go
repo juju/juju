@@ -8,8 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
-
-	"github.com/juju/juju/cloud"
 )
 
 // ID represents the id of a cloud credential.
@@ -78,8 +76,32 @@ func (i ID) Validate() error {
 	return nil
 }
 
-// CloudCredential represents a credential and the cloud it belongs to.
-type CloudCredential struct {
-	Credential cloud.Credential
-	CloudName  string
+// CloudCredentialInfo represents a credential.
+type CloudCredentialInfo struct {
+	// AuthType is the credential auth type.
+	AuthType string
+
+	// Attributes are the credential attributes.
+	Attributes map[string]string
+
+	// Revoked is true if the credential has been revoked.
+	Revoked bool
+
+	// Label is optionally set to describe the credentials to a user.
+	Label string
+
+	// Invalid is true if the credential is invalid.
+	Invalid bool
+
+	// InvalidReason contains the reason why a credential was flagged as invalid.
+	// It is expected that this string will be empty when a credential is valid.
+	InvalidReason string
+}
+
+// CloudCredentialResult represents a credential and the cloud it belongs to.
+type CloudCredentialResult struct {
+	CloudCredentialInfo
+
+	// CloudName is the cloud the credential belongs to.
+	CloudName string
 }

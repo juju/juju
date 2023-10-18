@@ -544,10 +544,13 @@ func (s *ApiServerSuite) tearDownConn(c *gc.C) {
 }
 
 func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
-	cred := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
-		"username": "dummy",
-		"password": "secret",
-	})
+	cred := credential.CloudCredentialInfo{
+		AuthType: string(cloud.UserPassAuthType),
+		Attributes: map[string]string{
+			"username": "dummy",
+			"password": "secret",
+		},
+	}
 
 	cloudUUID, err := utils.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)

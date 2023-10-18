@@ -47,7 +47,7 @@ type ModelCredentialService interface {
 // CredentialService provides access to the credential domain service.
 type CredentialService interface {
 	CloudCredential(ctx stdcontext.Context, id credential.ID) (cloud.Credential, error)
-	AllCloudCredentialsForOwner(ctx stdcontext.Context, owner string) ([]credential.CloudCredential, error)
+	AllCloudCredentialsForOwner(ctx stdcontext.Context, owner string) (map[credential.ID]cloud.Credential, error)
 	CloudCredentialsForOwner(ctx stdcontext.Context, owner, cloudName string) (map[string]cloud.Credential, error)
 	UpdateCloudCredential(ctx stdcontext.Context, id credential.ID, cred cloud.Credential) error
 	RemoveCloudCredential(ctx stdcontext.Context, id credential.ID) error

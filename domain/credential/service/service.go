@@ -32,21 +32,21 @@ type WatcherFactory interface {
 type State interface {
 	// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud, owner.
 	// If the credential already exists, the existing credential's value of Invalid is returned.
-	UpsertCloudCredential(ctx context.Context, id credential.ID, credential cloud.Credential) (*bool, error)
+	UpsertCloudCredential(ctx context.Context, id credential.ID, credential credential.CloudCredentialInfo) (*bool, error)
 
 	// InvalidateCloudCredential marks the cloud credential for the given name, cloud, owner as invalid.
 	InvalidateCloudCredential(ctx context.Context, id credential.ID, reason string) error
 
 	// CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 	// keyed by credential name.
-	CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error)
+	CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]credential.CloudCredentialResult, error)
 
 	// CloudCredential returns the cloud credential for the given name, cloud, owner.
-	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
+	CloudCredential(ctx context.Context, id credential.ID) (credential.CloudCredentialResult, error)
 
 	// AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 	// for a given owner.
-	AllCloudCredentialsForOwner(ctx context.Context, owner string) ([]credential.CloudCredential, error)
+	AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[credential.ID]credential.CloudCredentialResult, error)
 
 	// RemoveCloudCredential removes a cloud credential with the given name, cloud, owner.
 	RemoveCloudCredential(ctx context.Context, id credential.ID) error
@@ -132,19 +132,26 @@ func (s *Service) CloudCredential(ctx context.Context, id credential.ID) (cloud.
 	if err := id.Validate(); err != nil {
 		return cloud.Credential{}, errors.Annotate(err, "invalid id getting cloud credential")
 	}
-	return s.st.CloudCredential(ctx, id)
+	credInfo, err := s.st.CloudCredential(ctx, id)
+	if err != nil {
+		return cloud.Credential{}, errors.Trace(err)
+	}
+	cred := cloud.NewNamedCredential(credInfo.Label, cloud.AuthType(credInfo.AuthType), credInfo.Attributes, credInfo.Revoked)
+	cred.Invalid = credInfo.Invalid
+	cred.InvalidReason = credInfo.InvalidReason
+	return cred, nil
 }
 
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
-func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string) ([]credential.CloudCredential, error) {
+func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[credential.ID]cloud.Credential, error) {
 	creds, err := s.st.AllCloudCredentialsForOwner(ctx, owner)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]credential.CloudCredential, len(creds))
-	for i, c := range creds {
-		result[i] = credential.CloudCredential{Credential: c.Credential, CloudName: c.CloudName}
+	result := make(map[credential.ID]cloud.Credential)
+	for id, c := range creds {
+		result[id] = cloudCredentialFromCredentialResult(c)
 	}
 	return result, nil
 }
@@ -152,7 +159,33 @@ func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string)
 // CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 // keyed by credential name.
 func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error) {
-	return s.st.CloudCredentialsForOwner(ctx, owner, cloudName)
+	creds, err := s.st.CloudCredentialsForOwner(ctx, owner, cloudName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make(map[string]cloud.Credential)
+	for name, credInfoResult := range creds {
+		result[name] = cloudCredentialFromCredentialResult(credInfoResult)
+	}
+	return result, nil
+}
+
+func cloudCredentialFromCredentialResult(credInfo credential.CloudCredentialResult) cloud.Credential {
+	cred := cloud.NewNamedCredential(credInfo.Label, cloud.AuthType(credInfo.AuthType), credInfo.Attributes, credInfo.Revoked)
+	cred.Invalid = credInfo.Invalid
+	cred.InvalidReason = credInfo.InvalidReason
+	return cred
+}
+
+func credentialInfoFromCloudCredential(cred cloud.Credential) credential.CloudCredentialInfo {
+	return credential.CloudCredentialInfo{
+		AuthType:      string(cred.AuthType()),
+		Attributes:    cred.Attributes(),
+		Revoked:       cred.Revoked,
+		Label:         cred.Label,
+		Invalid:       cred.Invalid,
+		InvalidReason: cred.InvalidReason,
+	}
 }
 
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
@@ -160,7 +193,7 @@ func (s *Service) UpdateCloudCredential(ctx context.Context, id credential.ID, c
 	if err := id.Validate(); err != nil {
 		return errors.Annotatef(err, "invalid id updating cloud credential")
 	}
-	_, err := s.st.UpsertCloudCredential(ctx, id, cred)
+	_, err := s.st.UpsertCloudCredential(ctx, id, credentialInfoFromCloudCredential(cred))
 	return err
 }
 
@@ -279,7 +312,7 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID
 		return modelsResult, credentialerrors.CredentialModelValidation
 	}
 
-	existingInvalid, err := s.st.UpsertCloudCredential(ctx, id, cred)
+	existingInvalid, err := s.st.UpsertCloudCredential(ctx, id, credentialInfoFromCloudCredential(cred))
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			err = fmt.Errorf("%w %q for credential %q", credentialerrors.UnknownCloud, id.Name, id.Cloud)

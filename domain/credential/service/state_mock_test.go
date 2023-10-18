@@ -8,7 +8,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	cloud "github.com/juju/juju/cloud"
 	changestream "github.com/juju/juju/core/changestream"
 	watcher "github.com/juju/juju/core/watcher"
 	credential "github.com/juju/juju/domain/credential"
@@ -40,10 +39,10 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AllCloudCredentialsForOwner mocks base method.
-func (m *MockState) AllCloudCredentialsForOwner(arg0 context.Context, arg1 string) ([]credential.CloudCredential, error) {
+func (m *MockState) AllCloudCredentialsForOwner(arg0 context.Context, arg1 string) (map[credential.ID]credential.CloudCredentialResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllCloudCredentialsForOwner", arg0, arg1)
-	ret0, _ := ret[0].([]credential.CloudCredential)
+	ret0, _ := ret[0].(map[credential.ID]credential.CloudCredentialResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -55,10 +54,10 @@ func (mr *MockStateMockRecorder) AllCloudCredentialsForOwner(arg0, arg1 interfac
 }
 
 // CloudCredential mocks base method.
-func (m *MockState) CloudCredential(arg0 context.Context, arg1 credential.ID) (cloud.Credential, error) {
+func (m *MockState) CloudCredential(arg0 context.Context, arg1 credential.ID) (credential.CloudCredentialResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredential", arg0, arg1)
-	ret0, _ := ret[0].(cloud.Credential)
+	ret0, _ := ret[0].(credential.CloudCredentialResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -70,10 +69,10 @@ func (mr *MockStateMockRecorder) CloudCredential(arg0, arg1 interface{}) *gomock
 }
 
 // CloudCredentialsForOwner mocks base method.
-func (m *MockState) CloudCredentialsForOwner(arg0 context.Context, arg1, arg2 string) (map[string]cloud.Credential, error) {
+func (m *MockState) CloudCredentialsForOwner(arg0 context.Context, arg1, arg2 string) (map[string]credential.CloudCredentialResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredentialsForOwner", arg0, arg1, arg2)
-	ret0, _ := ret[0].(map[string]cloud.Credential)
+	ret0, _ := ret[0].(map[string]credential.CloudCredentialResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -128,7 +127,7 @@ func (mr *MockStateMockRecorder) RemoveCloudCredential(arg0, arg1 interface{}) *
 }
 
 // UpsertCloudCredential mocks base method.
-func (m *MockState) UpsertCloudCredential(arg0 context.Context, arg1 credential.ID, arg2 cloud.Credential) (*bool, error) {
+func (m *MockState) UpsertCloudCredential(arg0 context.Context, arg1 credential.ID, arg2 credential.CloudCredentialInfo) (*bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpsertCloudCredential", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*bool)
