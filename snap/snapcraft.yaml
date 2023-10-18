@@ -72,7 +72,7 @@ parts:
   juju:
     # TODO(hpidcock): move to upstream go plugin when it has the features we need.
     plugin: juju-go
-    go-channel: 1.20/stable
+    go-channel: 1.21/stable
     # The source can be your local tree or github
     # source: https://github.com/juju/juju.git
     # If you pull a remote, set source-depth to 1 to make the fetch shorter

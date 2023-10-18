@@ -71,22 +71,10 @@ func (s *datasourceSuite) TestFetchWithBasePath(c *gc.C) {
 func (s *datasourceSuite) TestFetchWithRetry(c *gc.C) {
 	stor := &fakeStorage{shouldRetry: true}
 	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", stor, "base", simplestreams.DEFAULT_CLOUD_DATA, false)
-	ds.SetAllowRetry(true)
 	_, _, err := ds.Fetch("foo/bar/data.txt")
 	c.Assert(err, gc.ErrorMatches, "an error")
 	c.Assert(stor.getName, gc.Equals, "base/foo/bar/data.txt")
 	c.Assert(stor.invokeCount, gc.Equals, 10)
-}
-
-func (s *datasourceSuite) TestFetchWithNoRetry(c *gc.C) {
-	// NB shouldRetry below is true indicating the fake storage is capable of
-	// retrying, not that it will retry.
-	stor := &fakeStorage{shouldRetry: true}
-	ds := storage.NewStorageSimpleStreamsDataSource("test datasource", stor, "base", simplestreams.DEFAULT_CLOUD_DATA, false)
-	_, _, err := ds.Fetch("foo/bar/data.txt")
-	c.Assert(err, gc.ErrorMatches, "an error")
-	c.Assert(stor.getName, gc.Equals, "base/foo/bar/data.txt")
-	c.Assert(stor.invokeCount, gc.Equals, 1)
 }
 
 func (s *datasourceSuite) TestURL(c *gc.C) {

@@ -50,12 +50,12 @@ that Go versions are not incremented during a release cycle. This means that
 branch may lag by one version or so.  Check the `go.mod` file at the root of
 the project for the targeted version of Go, as this is authoritative.
 
-For example, the following indicates that Go 1.20 is targeted:
+For example, the following indicates that Go 1.21 is targeted:
 
 ```
 module github.com/juju/juju
 
-go 1.20
+go 1.21
 ```
 
 ### Official distribution
@@ -66,7 +66,7 @@ Go can be [installed](https://golang.org/doc/install#install) from the official 
 
 [Snap](https://snapcraft.io/go) may also be used to install Go on Linux.
 
-    snap install go --channel=1.19/stable --classic
+    snap install go --channel=1.21/stable --classic
 
 ## Build Juju and its dependencies
 
