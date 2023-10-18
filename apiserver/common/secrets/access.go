@@ -41,7 +41,6 @@ func CanManage(
 	api SecretsConsumer, leadershipChecker leadership.Checker,
 	authTag names.Tag, uri *coresecrets.URI,
 ) (leadership.Token, error) {
-
 	appName := AuthTagApp(authTag)
 	appTag := names.NewApplicationTag(appName)
 
@@ -58,6 +57,10 @@ func CanManage(
 	case names.ApplicationTag:
 		// TODO(wallyworld) - remove auth tag kind check when podspec charms are gone.
 		if hasRole(api, uri, appTag, coresecrets.RoleManage) {
+			return successfulToken{}, nil
+		}
+	case names.ModelTag:
+		if hasRole(api, uri, authTag, coresecrets.RoleManage) {
 			return successfulToken{}, nil
 		}
 	}
