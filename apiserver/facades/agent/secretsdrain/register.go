@@ -34,8 +34,9 @@ func newSecretsDrainAPI(context facade.Context) (*commonsecrets.SecretsDrainAPI,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	authTag := context.Auth().GetAuthTag()
 	return commonsecrets.NewSecretsDrainAPI(
-		context.Auth().GetAuthTag(),
+		authTag,
 		context.Auth(),
 		context.Resources(),
 		leadershipChecker,

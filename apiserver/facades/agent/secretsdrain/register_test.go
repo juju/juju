@@ -18,7 +18,7 @@ type drainSuite struct {
 
 var _ = gc.Suite(&drainSuite{})
 
-func (s *drainSuite) TestNewSecretManagerAPII(c *gc.C) {
+func (s *drainSuite) TestNewSecretManagerAPIPermissionCheck(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
