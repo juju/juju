@@ -302,6 +302,19 @@ pre_bootstrap() {
 		export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --config caas-image-repo=${OPERATOR_IMAGE_ACCOUNT}"
 	fi
 
+	if [[ ${BOOTSTRAP_PROVIDER:-} == "k8s" ]]; then
+		if [[ -n ${CONTROLLER_CHARM_PATH_CAAS:-} ]]; then
+			export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --controller-charm-path=${CONTROLLER_CHARM_PATH_CAAS}"
+		fi
+		if [[ -n ${CONTROLLER_CHARM_CHANNEL:-} ]]; then
+			export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --controller-charm-channel=${CONTROLLER_CHARM_CHANNEL}"
+		fi
+	else
+		if [[ -n ${CONTROLLER_CHARM_PATH_IAAS:-} ]]; then
+			export BOOTSTRAP_ADDITIONAL_ARGS="${BOOTSTRAP_ADDITIONAL_ARGS:-} --controller-charm-path=${CONTROLLER_CHARM_PATH_IAAS}"
+		fi
+	fi
+
 	echo "====> BOOTSTRAP_ADDITIONAL_ARGS: ${BOOTSTRAP_ADDITIONAL_ARGS}"
 }
 
