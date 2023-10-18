@@ -443,16 +443,6 @@ func (s *credentialSuite) TestNoModelsUsingCloudCredential(c *gc.C) {
 	c.Assert(result, gc.HasLen, 0)
 }
 
-func (s *credentialSuite) TestModelsUsingCloudCredentialInValidID(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
-
-	_, err := st.ModelsUsingCloudCredential(context.Background(), credential.ID{
-		Cloud: "cirrus",
-		Name:  "foobar",
-	})
-	c.Assert(err, gc.ErrorMatches, `invalid credential querying models: not valid owner cannot be empty`)
-}
-
 func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

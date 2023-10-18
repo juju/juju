@@ -57,6 +57,14 @@ func (s *serviceSuite) TestUpdateCloudCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestUpdateCloudCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	err := s.service().UpdateCloudCredential(context.Background(), id, cloud.Credential{})
+	c.Assert(err, gc.ErrorMatches, "invalid id updating cloud credential.*")
+}
+
 func (s *serviceSuite) TestCloudCredentials(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -87,6 +95,14 @@ func (s *serviceSuite) TestCloudCredential(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, cred)
 }
 
+func (s *serviceSuite) TestCloudCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	_, err := s.service().CloudCredential(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, "invalid id getting cloud credential.*")
+}
+
 func (s *serviceSuite) TestRemoveCloudCredential(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -97,6 +113,14 @@ func (s *serviceSuite) TestRemoveCloudCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *serviceSuite) TestRemoveCloudCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	err := s.service().RemoveCloudCredential(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, "invalid id removing cloud credential.*")
+}
+
 func (s *serviceSuite) TestInvalidateCloudCredential(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -105,6 +129,14 @@ func (s *serviceSuite) TestInvalidateCloudCredential(c *gc.C) {
 
 	err := s.service().InvalidateCredential(context.Background(), id, "gone bad")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestInvalidateCloudCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	err := s.service().InvalidateCredential(context.Background(), id, "nope")
+	c.Assert(err, gc.ErrorMatches, "invalid id invalidating cloud credential.*")
 }
 
 func (s *serviceSuite) TestAllCloudCredentials(c *gc.C) {
@@ -129,6 +161,14 @@ func (s *serviceSuite) TestWatchCredential(c *gc.C) {
 	w, err := s.service().WatchCredential(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
+}
+
+func (s *serviceSuite) TestWatchCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	_, err := s.service().WatchCredential(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, "invalid id watching cloud credential.*")
 }
 
 var invalid = true
@@ -161,6 +201,14 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 0)
 	c.Assert(legacyUpdated, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestCheckAndUpdateCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	_, err := s.service().CheckAndUpdateCredential(context.Background(), id, cloud.Credential{}, false)
+	c.Assert(err, gc.ErrorMatches, "invalid id updating cloud credential.*")
 }
 
 func (s *serviceSuite) TestUpdateCredentialsModelsError(c *gc.C) {
@@ -600,4 +648,12 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelsForce(c *gc.C) {
 	err := service.CheckAndRevokeCredential(context.Background(), id, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(legacyUpdated, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestCheckAndRevokeCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	err := s.service().CheckAndRevokeCredential(context.Background(), id, false)
+	c.Assert(err, gc.ErrorMatches, "invalid id revoking cloud credential.*")
 }

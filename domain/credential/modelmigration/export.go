@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/credential/state"
@@ -42,13 +41,10 @@ type exportOperation struct {
 
 // Setup implements Operation.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
-	controllerDBFactory := scope.ControllerDB()
-	controllerDB, err := controllerDBFactory()
+	// We must not use a watcher during migration, so it's safe to pass a
+	// nil watcher factory.
 	e.service = service.NewService(
-		state.NewState(controllerDB), domain.NewWatcherFactory(
-			controllerDB,
-			logger,
-		), logger)
+		state.NewState(scope.ControllerDB()), nil, logger)
 	return nil
 }
 

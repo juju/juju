@@ -70,10 +70,6 @@ AND    cloud_credential.cloud_uuid = (
 // UpsertCloudCredential adds or updates a cloud credential with the given name, cloud and owner.
 // If the credential exists already, the existing credential's Invalid value is returned.
 func (st *State) UpsertCloudCredential(ctx context.Context, id credential.ID, credential cloud.Credential) (*bool, error) {
-	if err := id.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -131,10 +127,6 @@ WHERE   cloud.name = $M.cloud_name AND cloud_credential.name = $M.credential_nam
 // CreateCredential saves the specified credential.
 // Exported for use in the related credential bootstrap package.
 func CreateCredential(ctx context.Context, tx *sqlair.TX, credentialUUID string, id credential.ID, credential cloud.Credential) error {
-	if err := id.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-
 	if err := upsertCredential(ctx, tx, credentialUUID, id, credential); err != nil {
 		return errors.Annotatef(err, "creating credential %s", credentialUUID)
 	}
@@ -294,10 +286,6 @@ WHERE  cloud.name = $Cloud.name
 
 // InvalidateCloudCredential marks a cloud credential with the given name, cloud and owner. as invalid.
 func (st *State) InvalidateCloudCredential(ctx context.Context, id credential.ID, reason string) error {
-	if err := id.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -363,10 +351,6 @@ func (st *State) CloudCredentialsForOwner(ctx context.Context, owner, cloudName 
 
 // CloudCredential returns the cloud credential for the given details.
 func (st *State) CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error) {
-	if err := id.Validate(); err != nil {
-		return cloud.Credential{}, errors.Trace(err)
-	}
-
 	db, err := st.DB()
 	if err != nil {
 		return cloud.Credential{}, errors.Trace(err)
@@ -468,10 +452,6 @@ func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner string) 
 
 // RemoveCloudCredential removes a cloud credential with the given name, cloud and owner..
 func (st *State) RemoveCloudCredential(ctx context.Context, id credential.ID) error {
-	if err := id.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -516,10 +496,6 @@ func (st *State) WatchCredential(
 	getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
 	id credential.ID,
 ) (watcher.NotifyWatcher, error) {
-	if err := id.Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -540,10 +516,6 @@ func (st *State) WatchCredential(
 
 // ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
 func (st *State) ModelsUsingCloudCredential(ctx context.Context, id credential.ID) (map[model.UUID]string, error) {
-	if err := id.Validate(); err != nil {
-		return nil, errors.Annotate(err, "invalid credential querying models")
-	}
-
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)

@@ -130,7 +130,7 @@ func (s *Service) WithLegacyRemover(remover func(tag names.CloudCredentialTag) e
 // CloudCredential returns the cloud credential for the given tag.
 func (s *Service) CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error) {
 	if err := id.Validate(); err != nil {
-		return cloud.Credential{}, errors.Annotate(err, "getting cloud credential")
+		return cloud.Credential{}, errors.Annotate(err, "invalid id getting cloud credential")
 	}
 	return s.st.CloudCredential(ctx, id)
 }
@@ -158,7 +158,7 @@ func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner, cloudName
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
 func (s *Service) UpdateCloudCredential(ctx context.Context, id credential.ID, cred cloud.Credential) error {
 	if err := id.Validate(); err != nil {
-		return errors.Annotatef(err, "updating cloud credential")
+		return errors.Annotatef(err, "invalid id updating cloud credential")
 	}
 	_, err := s.st.UpsertCloudCredential(ctx, id, cred)
 	return err
@@ -166,13 +166,16 @@ func (s *Service) UpdateCloudCredential(ctx context.Context, id credential.ID, c
 
 // RemoveCloudCredential removes a cloud credential with the given tag.
 func (s *Service) RemoveCloudCredential(ctx context.Context, id credential.ID) error {
+	if err := id.Validate(); err != nil {
+		return errors.Annotatef(err, "invalid id removing cloud credential")
+	}
 	return s.st.RemoveCloudCredential(ctx, id)
 }
 
 // InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
 func (s *Service) InvalidateCredential(ctx context.Context, id credential.ID, reason string) error {
 	if err := id.Validate(); err != nil {
-		return errors.Annotatef(err, "invalidating cloud credential")
+		return errors.Annotatef(err, "invalid id invalidating cloud credential")
 	}
 	return s.st.InvalidateCloudCredential(ctx, id, reason)
 }
@@ -180,7 +183,7 @@ func (s *Service) InvalidateCredential(ctx context.Context, id credential.ID, re
 // WatchCredential returns a watcher that observes changes to the specified credential.
 func (s *Service) WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error) {
 	if err := id.Validate(); err != nil {
-		return nil, errors.Annotatef(err, "watching cloud credential")
+		return nil, errors.Annotatef(err, "invalid id watching cloud credential")
 	}
 	if s.watcherFactory != nil {
 		return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, id)
@@ -236,7 +239,7 @@ type UpdateCredentialModelResult struct {
 // but before validation can complete.
 func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID, cred cloud.Credential, force bool) ([]UpdateCredentialModelResult, error) {
 	if err := id.Validate(); err != nil {
-		return nil, errors.Annotatef(err, "updating cloud credential")
+		return nil, errors.Annotatef(err, "invalid id updating cloud credential")
 	}
 
 	if s.validationContextGetter == nil {
@@ -312,7 +315,7 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID
 // but before validation can complete.
 func (s *Service) CheckAndRevokeCredential(ctx context.Context, id credential.ID, force bool) error {
 	if err := id.Validate(); err != nil {
-		return errors.Annotatef(err, "revoking cloud credential")
+		return errors.Annotatef(err, "invalid id revoking cloud credential")
 	}
 
 	models, err := s.modelsUsingCredential(ctx, id)
