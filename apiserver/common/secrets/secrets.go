@@ -18,6 +18,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -317,7 +318,7 @@ func cloudSpecForModel(
 	if !ok {
 		return cloudspec.CloudSpec{}, errors.NotValidf("cloud credential for %s is empty", m.UUID())
 	}
-	cred, err := credentialService.CloudCredential(ctx, tag)
+	cred, err := credentialService.CloudCredential(ctx, credential.IdFromTag(tag))
 	if err != nil {
 		return cloudspec.CloudSpec{}, errors.Trace(err)
 	}

@@ -16,6 +16,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -106,7 +107,7 @@ func (s *CredentialValidatorSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResult{Error: apiservererrors.ServerError(expected)})
 	s.credentialService.CheckCalls(c, []testing.StubCall{
-		{"InvalidateCredential", []interface{}{credentialTag, "not again"}},
+		{"InvalidateCredential", []interface{}{credential.IdFromTag(credentialTag), "not again"}},
 	})
 }
 

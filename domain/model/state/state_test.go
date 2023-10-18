@@ -44,21 +44,22 @@ func (m *modelSuite) SetUpTest(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cred := cloud.NewNamedCredential(
-		"foobar",
-		cloud.AccessKeyAuthType,
-		map[string]string{
+	cred := credential.CloudCredentialInfo{
+		Label:    "foobar",
+		AuthType: string(cloud.AccessKeyAuthType),
+		Attributes: map[string]string{
 			"foo": "foo val",
 			"bar": "bar val",
 		},
-		false)
+	}
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
 	_, err = credSt.UpsertCloudCredential(
-		context.Background(),
-		"foobar",
-		"my-cloud",
-		"wallyworld",
+		context.Background(), credential.ID{
+			Cloud: "my-cloud",
+			Owner: "wallyworld",
+			Name:  "foobar",
+		},
 		cred,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -192,21 +193,22 @@ func (m *modelSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cred := cloud.NewNamedCredential(
-		"foobar",
-		cloud.AccessKeyAuthType,
-		map[string]string{
+	cred := credential.CloudCredentialInfo{
+		Label:    "foobar",
+		AuthType: string(cloud.AccessKeyAuthType),
+		Attributes: map[string]string{
 			"foo": "foo val",
 			"bar": "bar val",
 		},
-		false)
+	}
 
 	credSt := credentialstate.NewState(m.TxnRunnerFactory())
 	_, err = credSt.UpsertCloudCredential(
-		context.Background(),
-		"foobar",
-		"my-cloud2",
-		"wallyworld",
+		context.Background(), credential.ID{
+			Cloud: "my-cloud2",
+			Owner: "wallyworld",
+			Name:  "foobar",
+		},
 		cred,
 	)
 	c.Assert(err, jc.ErrorIsNil)

@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/domain/credential"
 )
 
 type exportSuite struct {
@@ -48,9 +49,9 @@ func (s *exportSuite) TestExport(c *gc.C) {
 		Name:  "foo",
 	})
 
-	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
 	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"foo": "bar"}, false)
-	s.service.EXPECT().CloudCredential(gomock.Any(), tag).
+	s.service.EXPECT().CloudCredential(gomock.Any(), id).
 		Times(1).
 		Return(cred, nil)
 
@@ -72,8 +73,8 @@ func (s *exportSuite) TestExportNotFound(c *gc.C) {
 		Name:  "foo",
 	})
 
-	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
-	s.service.EXPECT().CloudCredential(gomock.Any(), tag).
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.service.EXPECT().CloudCredential(gomock.Any(), id).
 		Times(1).
 		Return(cloud.Credential{}, errors.NotFound)
 

@@ -46,12 +46,12 @@ type ModelCredentialService interface {
 
 // CredentialService provides access to the credential domain service.
 type CredentialService interface {
-	CloudCredential(ctx stdcontext.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
-	AllCloudCredentialsForOwner(ctx stdcontext.Context, owner string) ([]credential.CloudCredential, error)
+	CloudCredential(ctx stdcontext.Context, id credential.ID) (cloud.Credential, error)
+	AllCloudCredentialsForOwner(ctx stdcontext.Context, owner string) (map[credential.ID]cloud.Credential, error)
 	CloudCredentialsForOwner(ctx stdcontext.Context, owner, cloudName string) (map[string]cloud.Credential, error)
-	UpdateCloudCredential(ctx stdcontext.Context, tag names.CloudCredentialTag, cred cloud.Credential) error
-	RemoveCloudCredential(ctx stdcontext.Context, tag names.CloudCredentialTag) error
-	WatchCredential(ctx stdcontext.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error)
+	UpdateCloudCredential(ctx stdcontext.Context, id credential.ID, cred cloud.Credential) error
+	RemoveCloudCredential(ctx stdcontext.Context, id credential.ID) error
+	WatchCredential(ctx stdcontext.Context, id credential.ID) (watcher.NotifyWatcher, error)
 	CheckAndUpdateCredential(ctx stdcontext.Context, id credential.ID, cred cloud.Credential, force bool) ([]credentialservice.UpdateCredentialModelResult, error)
 	CheckAndRevokeCredential(ctx stdcontext.Context, id credential.ID, force bool) error
 }

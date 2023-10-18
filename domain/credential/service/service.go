@@ -32,30 +32,30 @@ type WatcherFactory interface {
 type State interface {
 	// UpsertCloudCredential adds or updates a cloud credential with the given name, cloud, owner.
 	// If the credential already exists, the existing credential's value of Invalid is returned.
-	UpsertCloudCredential(ctx context.Context, name, cloudName, owner string, credential cloud.Credential) (*bool, error)
+	UpsertCloudCredential(ctx context.Context, id credential.ID, credential credential.CloudCredentialInfo) (*bool, error)
 
 	// InvalidateCloudCredential marks the cloud credential for the given name, cloud, owner as invalid.
-	InvalidateCloudCredential(ctx context.Context, name, cloudName, owner, reason string) error
+	InvalidateCloudCredential(ctx context.Context, id credential.ID, reason string) error
 
 	// CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 	// keyed by credential name.
-	CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error)
+	CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]credential.CloudCredentialResult, error)
 
 	// CloudCredential returns the cloud credential for the given name, cloud, owner.
-	CloudCredential(ctx context.Context, name, cloudName, owner string) (cloud.Credential, error)
+	CloudCredential(ctx context.Context, id credential.ID) (credential.CloudCredentialResult, error)
 
 	// AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 	// for a given owner.
-	AllCloudCredentialsForOwner(ctx context.Context, owner string) ([]credential.CloudCredential, error)
+	AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[credential.ID]credential.CloudCredentialResult, error)
 
 	// RemoveCloudCredential removes a cloud credential with the given name, cloud, owner.
-	RemoveCloudCredential(ctx context.Context, name, cloudName, owner string) error
+	RemoveCloudCredential(ctx context.Context, id credential.ID) error
 
 	// WatchCredential returns a new NotifyWatcher watching for changes to the specified credential.
 	WatchCredential(
 		ctx context.Context,
 		getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
-		name, cloudName, owner string,
+		id credential.ID,
 	) (watcher.NotifyWatcher, error)
 
 	// ModelsUsingCloudCredential returns a map of uuid->name for models which use the credential.
@@ -128,20 +128,30 @@ func (s *Service) WithLegacyRemover(remover func(tag names.CloudCredentialTag) e
 }
 
 // CloudCredential returns the cloud credential for the given tag.
-func (s *Service) CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error) {
-	return s.st.CloudCredential(ctx, tag.Name(), tag.Cloud().Id(), tag.Owner().Id())
+func (s *Service) CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error) {
+	if err := id.Validate(); err != nil {
+		return cloud.Credential{}, errors.Annotate(err, "invalid id getting cloud credential")
+	}
+	credInfo, err := s.st.CloudCredential(ctx, id)
+	if err != nil {
+		return cloud.Credential{}, errors.Trace(err)
+	}
+	cred := cloud.NewNamedCredential(credInfo.Label, cloud.AuthType(credInfo.AuthType), credInfo.Attributes, credInfo.Revoked)
+	cred.Invalid = credInfo.Invalid
+	cred.InvalidReason = credInfo.InvalidReason
+	return cred, nil
 }
 
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
-func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string) ([]credential.CloudCredential, error) {
+func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[credential.ID]cloud.Credential, error) {
 	creds, err := s.st.AllCloudCredentialsForOwner(ctx, owner)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]credential.CloudCredential, len(creds))
-	for i, c := range creds {
-		result[i] = credential.CloudCredential{Credential: c.Credential, CloudName: c.CloudName}
+	result := make(map[credential.ID]cloud.Credential)
+	for id, c := range creds {
+		result[id] = cloudCredentialFromCredentialResult(c)
 	}
 	return result, nil
 }
@@ -149,29 +159,67 @@ func (s *Service) AllCloudCredentialsForOwner(ctx context.Context, owner string)
 // CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 // keyed by credential name.
 func (s *Service) CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]cloud.Credential, error) {
-	return s.st.CloudCredentialsForOwner(ctx, owner, cloudName)
+	creds, err := s.st.CloudCredentialsForOwner(ctx, owner, cloudName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make(map[string]cloud.Credential)
+	for name, credInfoResult := range creds {
+		result[name] = cloudCredentialFromCredentialResult(credInfoResult)
+	}
+	return result, nil
+}
+
+func cloudCredentialFromCredentialResult(credInfo credential.CloudCredentialResult) cloud.Credential {
+	cred := cloud.NewNamedCredential(credInfo.Label, cloud.AuthType(credInfo.AuthType), credInfo.Attributes, credInfo.Revoked)
+	cred.Invalid = credInfo.Invalid
+	cred.InvalidReason = credInfo.InvalidReason
+	return cred
+}
+
+func credentialInfoFromCloudCredential(cred cloud.Credential) credential.CloudCredentialInfo {
+	return credential.CloudCredentialInfo{
+		AuthType:      string(cred.AuthType()),
+		Attributes:    cred.Attributes(),
+		Revoked:       cred.Revoked,
+		Label:         cred.Label,
+		Invalid:       cred.Invalid,
+		InvalidReason: cred.InvalidReason,
+	}
 }
 
 // UpdateCloudCredential adds or updates a cloud credential with the given tag.
-func (s *Service) UpdateCloudCredential(ctx context.Context, tag names.CloudCredentialTag, cred cloud.Credential) error {
-	_, err := s.st.UpsertCloudCredential(ctx, tag.Name(), tag.Cloud().Id(), tag.Owner().Id(), cred)
+func (s *Service) UpdateCloudCredential(ctx context.Context, id credential.ID, cred cloud.Credential) error {
+	if err := id.Validate(); err != nil {
+		return errors.Annotatef(err, "invalid id updating cloud credential")
+	}
+	_, err := s.st.UpsertCloudCredential(ctx, id, credentialInfoFromCloudCredential(cred))
 	return err
 }
 
 // RemoveCloudCredential removes a cloud credential with the given tag.
-func (s *Service) RemoveCloudCredential(ctx context.Context, tag names.CloudCredentialTag) error {
-	return s.st.RemoveCloudCredential(ctx, tag.Name(), tag.Cloud().Id(), tag.Owner().Id())
+func (s *Service) RemoveCloudCredential(ctx context.Context, id credential.ID) error {
+	if err := id.Validate(); err != nil {
+		return errors.Annotatef(err, "invalid id removing cloud credential")
+	}
+	return s.st.RemoveCloudCredential(ctx, id)
 }
 
 // InvalidateCredential marks the cloud credential for the given name, cloud, owner as invalid.
-func (s *Service) InvalidateCredential(ctx context.Context, tag names.CloudCredentialTag, reason string) error {
-	return s.st.InvalidateCloudCredential(ctx, tag.Name(), tag.Cloud().Id(), tag.Owner().Id(), reason)
+func (s *Service) InvalidateCredential(ctx context.Context, id credential.ID, reason string) error {
+	if err := id.Validate(); err != nil {
+		return errors.Annotatef(err, "invalid id invalidating cloud credential")
+	}
+	return s.st.InvalidateCloudCredential(ctx, id, reason)
 }
 
 // WatchCredential returns a watcher that observes changes to the specified credential.
-func (s *Service) WatchCredential(ctx context.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error) {
+func (s *Service) WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error) {
+	if err := id.Validate(); err != nil {
+		return nil, errors.Annotatef(err, "invalid id watching cloud credential")
+	}
 	if s.watcherFactory != nil {
-		return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, tag.Name(), tag.Cloud().Id(), tag.Owner().Id())
+		return s.st.WatchCredential(ctx, s.watcherFactory.NewValueWatcher, id)
 	}
 	return nil, errors.NotYetAvailablef("credential watcher")
 }
@@ -223,6 +271,10 @@ type UpdateCredentialModelResult struct {
 // TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
 // but before validation can complete.
 func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID, cred cloud.Credential, force bool) ([]UpdateCredentialModelResult, error) {
+	if err := id.Validate(); err != nil {
+		return nil, errors.Annotatef(err, "invalid id updating cloud credential")
+	}
+
 	if s.validationContextGetter == nil {
 		return nil, errors.New("cannot validate credential with nil context getter")
 	}
@@ -260,7 +312,7 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID
 		return modelsResult, credentialerrors.CredentialModelValidation
 	}
 
-	existingInvalid, err := s.st.UpsertCloudCredential(ctx, id.Name, id.Cloud, id.Owner, cred)
+	existingInvalid, err := s.st.UpsertCloudCredential(ctx, id, credentialInfoFromCloudCredential(cred))
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			err = fmt.Errorf("%w %q for credential %q", credentialerrors.UnknownCloud, id.Name, id.Cloud)
@@ -295,6 +347,10 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID
 // TODO(wallyworld) - we need a strategy to handle changes which occur after the affected models have been read
 // but before validation can complete.
 func (s *Service) CheckAndRevokeCredential(ctx context.Context, id credential.ID, force bool) error {
+	if err := id.Validate(); err != nil {
+		return errors.Annotatef(err, "invalid id revoking cloud credential")
+	}
+
 	models, err := s.modelsUsingCredential(ctx, id)
 	if err != nil {
 		return errors.Trace(err)
@@ -314,7 +370,7 @@ func (s *Service) CheckAndRevokeCredential(ctx context.Context, id credential.ID
 			return errors.Errorf("cannot revoke credential %v: it is still used by %d model%v", id, len(models), plural(len(models)))
 		}
 	}
-	err = s.st.RemoveCloudCredential(ctx, id.Name, id.Cloud, id.Owner)
+	err = s.st.RemoveCloudCredential(ctx, id)
 	if err != nil || s.legacyRemover == nil {
 		return errors.Trace(err)
 	} else {

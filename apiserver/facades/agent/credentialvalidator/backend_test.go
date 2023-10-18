@@ -14,6 +14,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/state"
 )
 
@@ -107,16 +108,16 @@ type testCredentialService struct {
 	*testing.Stub
 }
 
-func (c testCredentialService) InvalidateCredential(ctx context.Context, tag names.CloudCredentialTag, reason string) error {
-	c.AddCall("InvalidateCredential", tag, reason)
+func (c testCredentialService) InvalidateCredential(ctx context.Context, id credential.ID, reason string) error {
+	c.AddCall("InvalidateCredential", id, reason)
 	return c.NextErr()
 }
 
-func (c testCredentialService) CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error) {
+func (c testCredentialService) CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error) {
 	return cloud.NewEmptyCredential(), nil
 }
 
-func (c testCredentialService) WatchCredential(ctx context.Context, tag names.CloudCredentialTag) (watcher.NotifyWatcher, error) {
+func (c testCredentialService) WatchCredential(ctx context.Context, id credential.ID) (watcher.NotifyWatcher, error) {
 	return apiservertesting.NewFakeNotifyWatcher(), nil
 }
 

@@ -5,7 +5,6 @@ package modelmigration
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/credential/state"
 )
@@ -28,7 +28,7 @@ func RegisterExport(coordinator Coordinator) {
 // ExportService provides a subset of the credential domain
 // service methods needed for credential export.
 type ExportService interface {
-	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
+	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
 }
 
 // exportOperation describes a way to execute a migration for
@@ -58,16 +58,19 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 		// Not set.
 		return nil
 	}
-	tag := names.NewCloudCredentialTag(
-		fmt.Sprintf("%s/%s/%s", credInfo.Cloud(), credInfo.Owner(), credInfo.Name()))
-	cred, err := e.service.CloudCredential(ctx, tag)
+	id := credential.ID{
+		Cloud: credInfo.Cloud(),
+		Owner: credInfo.Owner(),
+		Name:  credInfo.Name(),
+	}
+	cred, err := e.service.CloudCredential(ctx, id)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	model.SetCloudCredential(description.CloudCredentialArgs{
-		Owner:      tag.Owner(),
-		Cloud:      tag.Cloud(),
-		Name:       tag.Name(),
+		Owner:      names.NewUserTag(id.Owner),
+		Cloud:      names.NewCloudTag(id.Cloud),
+		Name:       id.Name,
 		AuthType:   string(cred.AuthType()),
 		Attributes: cred.Attributes(),
 	})

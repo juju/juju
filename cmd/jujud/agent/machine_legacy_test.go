@@ -43,6 +43,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
@@ -268,7 +269,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *g
 
 	// invalidate cloud credential for this model
 	serviceFactory := s.ControllerServiceFactory(c)
-	err := serviceFactory.Credential().InvalidateCredential(stdcontext.Background(), testing.DefaultCredentialTag, "coz i can")
+	err := serviceFactory.Credential().InvalidateCredential(stdcontext.Background(), testing.DefaultCredentialId, "coz i can")
 	c.Assert(err, jc.ErrorIsNil)
 
 	tracker := agenttest.NewEngineTracker()
@@ -297,9 +298,13 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 	})
 
 	ctx := stdcontext.Background()
-	credentialTag := names.NewCloudCredentialTag("dummy/admin/another")
+	id := credential.ID{
+		Cloud: "dummy",
+		Owner: "admin",
+		Name:  "another",
+	}
 	serviceFactory := s.ControllerServiceFactory(c)
-	err := serviceFactory.Credential().UpdateCloudCredential(ctx, credentialTag, cloud.NewCredential(cloud.UserPassAuthType, nil))
+	err := serviceFactory.Credential().UpdateCloudCredential(ctx, id, cloud.NewCredential(cloud.UserPassAuthType, nil))
 	c.Assert(err, jc.ErrorIsNil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -312,7 +317,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 			"max-action-results-size": "4M",
 			"logging-config":          "juju=debug;juju.worker.dependency=trace",
 		},
-		CloudCredential: credentialTag,
+		CloudCredential: names.NewCloudCredentialTag("dummy/admin/another"),
 	})
 	defer func() {
 		err := st.Close()
@@ -322,7 +327,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 	uuid := st.ModelUUID()
 
 	// remove cloud credential used by this model but keep model reference to it
-	err = serviceFactory.Credential().RemoveCloudCredential(ctx, credentialTag)
+	err = serviceFactory.Credential().RemoveCloudCredential(ctx, id)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tracker := agenttest.NewEngineTracker()

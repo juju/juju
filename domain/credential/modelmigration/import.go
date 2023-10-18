@@ -5,15 +5,14 @@ package modelmigration
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	"github.com/juju/description/v4"
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/credential/state"
 )
@@ -32,8 +31,8 @@ func RegisterImport(coordinator Coordinator) {
 // ImportService provides a subset of the credential domain
 // service methods needed for credential import.
 type ImportService interface {
-	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
-	UpdateCloudCredential(context.Context, names.CloudCredentialTag, cloud.Credential) error
+	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
+	UpdateCloudCredential(context.Context, credential.ID, cloud.Credential) error
 }
 
 type importOperation struct {
@@ -60,21 +59,22 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 
 	// Need to add credential or make sure an existing credential
 	// matches.
-	// TODO: there really should be a way to create a cloud credential
-	// tag in the names package from the cloud, owner and name.
-	credID := fmt.Sprintf("%s/%s/%s", cred.Cloud(), cred.Owner(), cred.Name())
-	if !names.IsValidCloudCredential(credID) {
-		return errors.NotValidf("cloud credential ID %q", credID)
+	id := credential.ID{
+		Cloud: cred.Cloud(),
+		Owner: cred.Owner(),
+		Name:  cred.Name(),
 	}
-	tag := names.NewCloudCredentialTag(credID)
+	if err := id.Validate(); err != nil {
+		return errors.Trace(err)
+	}
 
-	existing, err := i.service.CloudCredential(ctx, tag)
+	existing, err := i.service.CloudCredential(ctx, id)
 
 	if errors.Is(err, errors.NotFound) {
 		credential := cloud.NewCredential(
 			cloud.AuthType(cred.AuthType()),
 			cred.Attributes())
-		return errors.Trace(i.service.UpdateCloudCredential(ctx, tag, credential))
+		return errors.Trace(i.service.UpdateCloudCredential(ctx, id, credential))
 	} else if err != nil {
 		return errors.Trace(err)
 	}
@@ -86,7 +86,7 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return errors.Errorf("credential attribute mismatch: %v != %v", existing.Attributes(), cred.Attributes())
 	}
 	if existing.Revoked {
-		return errors.Errorf("credential %q is revoked", credID)
+		return errors.Errorf("credential %q is revoked", id)
 	}
 	return nil
 }

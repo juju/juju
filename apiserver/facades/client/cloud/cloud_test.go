@@ -1019,9 +1019,9 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *gc.C) {
 		}})
 
 	credentialTwo.Invalid = true
-	creds := []credential.CloudCredential{
-		{Credential: credentialOne, CloudName: "meep"},
-		{Credential: credentialTwo, CloudName: "meep"},
+	creds := map[credential.ID]jujucloud.Credential{
+		{Cloud: "meep", Owner: "bruce", Name: "one"}: credentialOne,
+		{Cloud: "meep", Owner: "bruce", Name: "two"}: credentialTwo,
 	}
 	cloud := jujucloud.Cloud{
 		Name:      "dummy",

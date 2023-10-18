@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
 )
@@ -30,7 +31,7 @@ type CredentialValidatorV2 interface {
 
 type CredentialService interface {
 	common.CredentialService
-	InvalidateCredential(ctx context.Context, tag names.CloudCredentialTag, reason string) error
+	InvalidateCredential(ctx context.Context, id credential.ID, reason string) error
 }
 
 type CredentialValidatorAPI struct {
@@ -83,7 +84,7 @@ func (api *CredentialValidatorAPI) WatchCredential(ctx context.Context, tag para
 	}
 
 	result := params.NotifyWatchResult{}
-	watch, err := api.credentialService.WatchCredential(ctx, credentialTag)
+	watch, err := api.credentialService.WatchCredential(ctx, credential.IdFromTag(credentialTag))
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -139,7 +140,7 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 	}
 
 	result.Credential = modelCredentialTag
-	credential, err := api.credentialService.CloudCredential(ctx, modelCredentialTag)
+	credential, err := api.credentialService.CloudCredential(ctx, credential.IdFromTag(modelCredentialTag))
 	if err != nil {
 		if !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)

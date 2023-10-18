@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -36,7 +37,7 @@ func (s *CredentialSuite) TestInvalidateModelCredential(c *gc.C) {
 	credentialService := credentialcommon.NewMockCredentialService(ctrl)
 	api := credentialcommon.NewCredentialManagerAPI(s.backend, credentialService)
 
-	credentialService.EXPECT().InvalidateCredential(gomock.Any(), s.backend.tag, "not again")
+	credentialService.EXPECT().InvalidateCredential(gomock.Any(), credential.IdFromTag(s.backend.tag), "not again")
 
 	result, err := api.InvalidateModelCredential(context.Background(), params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -53,7 +54,7 @@ func (s *CredentialSuite) TestInvalidateModelCredentialError(c *gc.C) {
 
 	expected := errors.New("boom")
 	s.backend.SetErrors(expected)
-	credentialService.EXPECT().InvalidateCredential(gomock.Any(), s.backend.tag, "not again")
+	credentialService.EXPECT().InvalidateCredential(gomock.Any(), credential.IdFromTag(s.backend.tag), "not again")
 
 	result, err := api.InvalidateModelCredential(context.Background(), params.InvalidateCredentialArg{"not again"})
 	c.Assert(err, jc.ErrorIsNil)

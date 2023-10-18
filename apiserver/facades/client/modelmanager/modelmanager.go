@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
@@ -335,9 +336,9 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		}
 	}
 
-	var credential *jujucloud.Credential
+	var cred *jujucloud.Credential
 	if cloudCredentialTag != (names.CloudCredentialTag{}) {
-		credentialValue, err := m.credentialService.CloudCredential(ctx, cloudCredentialTag)
+		credentialValue, err := m.credentialService.CloudCredential(ctx, credential.IdFromTag(cloudCredentialTag))
 		if err != nil {
 			return result, errors.Annotate(err, "getting credential")
 		}
@@ -347,10 +348,10 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 			credentialValue.Attributes(),
 			credentialValue.Revoked,
 		)
-		credential = &cloudCredential
+		cred = &cloudCredential
 	}
 
-	cloudSpec, err := environscloudspec.MakeCloudSpec(*cloud, cloudRegionName, credential)
+	cloudSpec, err := environscloudspec.MakeCloudSpec(*cloud, cloudRegionName, cred)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -770,7 +771,7 @@ func (m *ModelManagerAPI) fillInStatusBasedOnCloudCredentialValidity(ctx context
 
 	// TODO(wallyworld) - bulk query
 	for tag := range credentialModels {
-		cred, err := m.credentialService.CloudCredential(ctx, tag)
+		cred, err := m.credentialService.CloudCredential(ctx, credential.IdFromTag(tag))
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -909,11 +910,11 @@ func (m *ModelManagerAPI) ModelInfo(ctx context.Context, args params.Entities) (
 			if err != nil {
 				return params.ModelInfo{}, errors.Trace(err)
 			}
-			credential, err := m.credentialService.CloudCredential(ctx, credentialTag)
+			cred, err := m.credentialService.CloudCredential(ctx, credential.IdFromTag(credentialTag))
 			if err != nil {
 				return params.ModelInfo{}, errors.Trace(err)
 			}
-			valid := !credential.Invalid
+			valid := !cred.Invalid
 			modelInfo.CloudCredentialValidity = &valid
 		}
 		return modelInfo, nil

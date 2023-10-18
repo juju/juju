@@ -18,6 +18,7 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/credential"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/tools"
@@ -804,7 +805,7 @@ type fakeCredentialService struct {
 	credentialsErr error
 }
 
-func (b *fakeCredentialService) CloudCredential(_ context.Context, _ names.CloudCredentialTag) (cloud.Credential, error) {
+func (b *fakeCredentialService) CloudCredential(_ context.Context, _ credential.ID) (cloud.Credential, error) {
 	return b.credential, b.credentialsErr
 }
 

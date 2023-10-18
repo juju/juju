@@ -49,20 +49,52 @@ func (s *serviceSuite) service() *Service {
 func (s *serviceSuite) TestUpdateCloudCredential(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
-	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false)
-	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), "foo", "cirrus", "fred", cred).Return(nil, nil)
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	cred := credential.CloudCredentialInfo{
+		AuthType: string(cloud.UserPassAuthType),
+		Attributes: map[string]string{
+			"hello": "world",
+		},
+		Label: "foo",
+	}
+	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, cred).Return(nil, nil)
 
-	err := s.service().UpdateCloudCredential(context.Background(), tag, cred)
+	err := s.service().UpdateCloudCredential(
+		context.Background(), id,
+		cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestUpdateCloudCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	err := s.service().UpdateCloudCredential(context.Background(), id, cloud.Credential{})
+	c.Assert(err, gc.ErrorMatches, "invalid id updating cloud credential.*")
 }
 
 func (s *serviceSuite) TestCloudCredentials(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	one := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false)
-	two := cloud.NewNamedCredential("foobar", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false)
-	s.state.EXPECT().CloudCredentialsForOwner(gomock.Any(), "fred", "cirrus").Return(map[string]cloud.Credential{
+	one := credential.CloudCredentialResult{
+		CloudCredentialInfo: credential.CloudCredentialInfo{
+			AuthType: string(cloud.UserPassAuthType),
+			Attributes: map[string]string{
+				"hello": "world",
+			},
+			Label: "foo",
+		},
+	}
+	two := credential.CloudCredentialResult{
+		CloudCredentialInfo: credential.CloudCredentialInfo{
+			AuthType: string(cloud.UserPassAuthType),
+			Attributes: map[string]string{
+				"hello": "world",
+			},
+			Label: "foobar",
+		},
+	}
+	s.state.EXPECT().CloudCredentialsForOwner(gomock.Any(), "fred", "cirrus").Return(map[string]credential.CloudCredentialResult{
 		"foo":    one,
 		"foobar": two,
 	}, nil)
@@ -70,52 +102,94 @@ func (s *serviceSuite) TestCloudCredentials(c *gc.C) {
 	creds, err := s.service().CloudCredentialsForOwner(context.Background(), "fred", "cirrus")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(creds, jc.DeepEquals, map[string]cloud.Credential{
-		"foo":    one,
-		"foobar": two,
+		"foo":    cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false),
+		"foobar": cloud.NewNamedCredential("foobar", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false),
 	})
 }
 
 func (s *serviceSuite) TestCloudCredential(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
-	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false)
-	s.state.EXPECT().CloudCredential(gomock.Any(), "foo", "cirrus", "fred").Return(cred, nil)
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	cred := credential.CloudCredentialResult{
+		CloudCredentialInfo: credential.CloudCredentialInfo{
+			AuthType: string(cloud.UserPassAuthType),
+			Attributes: map[string]string{
+				"hello": "world",
+			},
+			Label: "foo",
+		},
+	}
+	s.state.EXPECT().CloudCredential(gomock.Any(), id).Return(cred, nil)
 
-	result, err := s.service().CloudCredential(context.Background(), tag)
+	result, err := s.service().CloudCredential(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, cred)
+	c.Assert(result, jc.DeepEquals, cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false))
+}
+
+func (s *serviceSuite) TestCloudCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	_, err := s.service().CloudCredential(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, "invalid id getting cloud credential.*")
 }
 
 func (s *serviceSuite) TestRemoveCloudCredential(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
-	s.state.EXPECT().RemoveCloudCredential(gomock.Any(), "foo", "cirrus", "fred").Return(nil)
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.state.EXPECT().RemoveCloudCredential(gomock.Any(), id).Return(nil)
 
-	err := s.service().RemoveCloudCredential(context.Background(), tag)
+	err := s.service().RemoveCloudCredential(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestRemoveCloudCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	err := s.service().RemoveCloudCredential(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, "invalid id removing cloud credential.*")
 }
 
 func (s *serviceSuite) TestInvalidateCloudCredential(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
-	s.state.EXPECT().InvalidateCloudCredential(gomock.Any(), "foo", "cirrus", "fred", "gone bad").Return(nil)
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.state.EXPECT().InvalidateCloudCredential(gomock.Any(), id, "gone bad").Return(nil)
 
-	err := s.service().InvalidateCredential(context.Background(), tag, "gone bad")
+	err := s.service().InvalidateCredential(context.Background(), id, "gone bad")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestInvalidateCloudCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	err := s.service().InvalidateCredential(context.Background(), id, "nope")
+	c.Assert(err, gc.ErrorMatches, "invalid id invalidating cloud credential.*")
 }
 
 func (s *serviceSuite) TestAllCloudCredentials(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false)
-	s.state.EXPECT().AllCloudCredentialsForOwner(gomock.Any(), "fred").Return([]credential.CloudCredential{{CloudName: "cirrus", Credential: cred}}, nil)
+	credId := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	credInfoResult := credential.CloudCredentialResult{
+		CloudCredentialInfo: credential.CloudCredentialInfo{
+			Label:      "foo",
+			AuthType:   string(cloud.UserPassAuthType),
+			Attributes: map[string]string{"hello": "world"},
+		},
+		CloudName: "cirrus",
+	}
+	s.state.EXPECT().AllCloudCredentialsForOwner(gomock.Any(), "fred").Return(
+		map[credential.ID]credential.CloudCredentialResult{credId: credInfoResult}, nil)
 
 	result, err := s.service().AllCloudCredentialsForOwner(context.Background(), "fred")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, []credential.CloudCredential{{CloudName: "cirrus", Credential: cred}})
+	cred := cloud.NewNamedCredential("foo", cloud.UserPassAuthType, map[string]string{"hello": "world"}, false)
+	c.Assert(result, jc.DeepEquals, map[credential.ID]cloud.Credential{credId: cred})
 }
 
 func (s *serviceSuite) TestWatchCredential(c *gc.C) {
@@ -123,12 +197,20 @@ func (s *serviceSuite) TestWatchCredential(c *gc.C) {
 
 	nw := watchertest.NewMockNotifyWatcher(nil)
 
-	tag := names.NewCloudCredentialTag("cirrus/fred/foo")
-	s.state.EXPECT().WatchCredential(gomock.Any(), gomock.Any(), "foo", "cirrus", "fred").Return(nw, nil)
+	id := credential.ID{Cloud: "cirrus", Owner: "fred", Name: "foo"}
+	s.state.EXPECT().WatchCredential(gomock.Any(), gomock.Any(), id).Return(nw, nil)
 
-	w, err := s.service().WatchCredential(context.Background(), tag)
+	w, err := s.service().WatchCredential(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
+}
+
+func (s *serviceSuite) TestWatchCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	_, err := s.service().WatchCredential(context.Background(), id)
+	c.Assert(err, gc.ErrorMatches, "invalid id watching cloud credential.*")
 }
 
 var invalid = true
@@ -136,7 +218,7 @@ var invalid = true
 func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cred := cloud.Credential{}
+	cred := credential.CloudCredentialInfo{}
 	id := credential.ID{
 		Cloud: "cirrus",
 		Owner: "bob",
@@ -144,7 +226,7 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
 	}
 
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(nil, errors.NotFound)
-	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
+	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, cred).Return(&invalid, nil)
 
 	var legacyUpdated bool
 	service := s.service().
@@ -157,10 +239,18 @@ func (s *serviceSuite) TestCheckAndUpdateCredentialsNoModelsFound(c *gc.C) {
 			return nil
 		})
 
-	results, err := service.CheckAndUpdateCredential(context.Background(), id, cred, false)
+	results, err := service.CheckAndUpdateCredential(context.Background(), id, cloud.Credential{}, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 0)
 	c.Assert(legacyUpdated, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestCheckAndUpdateCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	_, err := s.service().CheckAndUpdateCredential(context.Background(), id, cloud.Credential{}, false)
+	c.Assert(err, gc.ErrorMatches, "invalid id updating cloud credential.*")
 }
 
 func (s *serviceSuite) TestUpdateCredentialsModelsError(c *gc.C) {
@@ -232,7 +322,6 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContext(c *gc.C) {
 func (s *serviceSuite) TestUpdateCredentialsModelsFailedContextForce(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cred := cloud.Credential{}
 	id := credential.ID{
 		Cloud: "cirrus",
 		Owner: "bob",
@@ -242,7 +331,7 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContextForce(c *gc.C) {
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
 		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
-	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
+	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 
 	contextError := errors.New("failed context")
 
@@ -257,7 +346,7 @@ func (s *serviceSuite) TestUpdateCredentialsModelsFailedContextForce(c *gc.C) {
 			return nil
 		})
 
-	results, err := service.CheckAndUpdateCredential(context.Background(), id, cred, true)
+	results, err := service.CheckAndUpdateCredential(context.Background(), id, cloud.Credential{}, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Assert(results[0].Errors, gc.HasLen, 1)
@@ -282,7 +371,7 @@ func (s *serviceSuite) TestUpdateCredentialsModels(c *gc.C) {
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
 		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
-	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
+	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 	s.validator.EXPECT().Validate(gomock.Any(), id, &cred, false).Return(nil, nil)
 
 	var legacyUpdated bool
@@ -318,7 +407,7 @@ func (s *serviceSuite) TestUpdateCredentialsModelFailedValidationForce(c *gc.C) 
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
 		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
-	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
+	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 
 	validationError := errors.New("cred error")
 	s.validator.EXPECT().Validate(gomock.Any(), id, &cred, false).Return([]error{validationError}, nil)
@@ -421,7 +510,7 @@ func (s *serviceSuite) TestUpdateCredentialsSomeModelsFailedValidationForce(c *g
 		model.UUID(jujutesting.ModelTag.Id()):  "mymodel",
 		"deadbeef-1bad-500d-9000-4b1d0d06f666": "anothermodel",
 	}, nil)
-	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner, cred).Return(&invalid, nil)
+	s.state.EXPECT().UpsertCloudCredential(gomock.Any(), id, credential.CloudCredentialInfo{}).Return(&invalid, nil)
 
 	validationError := errors.New("cred error")
 	calls := 0
@@ -559,7 +648,7 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelForce(c *gc.C) {
 	s.state.EXPECT().ModelsUsingCloudCredential(gomock.Any(), id).Return(map[model.UUID]string{
 		model.UUID(jujutesting.ModelTag.Id()): "mymodel",
 	}, nil)
-	s.state.EXPECT().RemoveCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner).Return(nil)
+	s.state.EXPECT().RemoveCloudCredential(gomock.Any(), id).Return(nil)
 
 	var legacyUpdated bool
 	service := s.service().
@@ -587,7 +676,7 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelsForce(c *gc.C) {
 		model.UUID(jujutesting.ModelTag.Id()):  "mymodel",
 		"deadbeef-1bad-500d-9000-4b1d0d06f666": "anothermodel",
 	}, nil)
-	s.state.EXPECT().RemoveCloudCredential(gomock.Any(), id.Name, id.Cloud, id.Owner).Return(nil)
+	s.state.EXPECT().RemoveCloudCredential(gomock.Any(), id).Return(nil)
 
 	var legacyUpdated bool
 	service := s.service().
@@ -600,4 +689,12 @@ func (s *serviceSuite) TestRevokeCredentialsHasModelsForce(c *gc.C) {
 	err := service.CheckAndRevokeCredential(context.Background(), id, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(legacyUpdated, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestCheckAndRevokeCredentialInvalidID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := credential.ID{Cloud: "cirrus", Owner: "fred"}
+	err := s.service().CheckAndRevokeCredential(context.Background(), id, false)
+	c.Assert(err, gc.ErrorMatches, "invalid id revoking cloud credential.*")
 }

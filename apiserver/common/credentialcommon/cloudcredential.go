@@ -10,6 +10,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -21,8 +22,8 @@ type StateBackend interface {
 
 // CredentialService exposes State methods needed by credential manager.
 type CredentialService interface {
-	CloudCredential(ctx context.Context, tag names.CloudCredentialTag) (cloud.Credential, error)
-	InvalidateCredential(ctx context.Context, tag names.CloudCredentialTag, reason string) error
+	CloudCredential(ctx context.Context, id credential.ID) (cloud.Credential, error)
+	InvalidateCredential(ctx context.Context, id credential.ID, reason string) error
 }
 
 type CredentialManagerAPI struct {
@@ -44,7 +45,7 @@ func (api *CredentialManagerAPI) InvalidateModelCredential(ctx context.Context, 
 	if !ok {
 		return params.ErrorResult{}, nil
 	}
-	err := api.credentialService.InvalidateCredential(ctx, tag, args.Reason)
+	err := api.credentialService.InvalidateCredential(ctx, credential.IdFromTag(tag), args.Reason)
 	if err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}

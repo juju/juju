@@ -6,7 +6,6 @@ package state
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/cloud"
 	dbcloud "github.com/juju/juju/domain/cloud/state"
 	"github.com/juju/juju/domain/credential"
 )
@@ -65,18 +64,25 @@ type credentialAttribute struct {
 
 type Credentials []Credential
 
-func (rows Credentials) toCloudCredentials(authTypes []dbcloud.AuthType, clouds []dbcloud.Cloud, keyValues []credentialAttribute) ([]credential.CloudCredential, error) {
+func (rows Credentials) toCloudCredentials(authTypes []dbcloud.AuthType, clouds []dbcloud.Cloud, keyValues []credentialAttribute) ([]credential.CloudCredentialResult, error) {
 	if n := len(rows); n != len(authTypes) || n != len(keyValues) || n != len(clouds) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch")
 	}
 
-	var result []credential.CloudCredential
+	var result []credential.CloudCredentialResult
 	recordResult := func(row *Credential, authType, cloudName string, attrs credentialAttrs) {
-		cred := cloud.NewNamedCredential(row.Name, cloud.AuthType(authType), attrs, row.Revoked)
-		cred.Invalid = row.Invalid
-		cred.InvalidReason = row.InvalidReason
-		result = append(result, credential.CloudCredential{Credential: cred, CloudName: cloudName})
+		result = append(result, credential.CloudCredentialResult{
+			CloudCredentialInfo: credential.CloudCredentialInfo{
+				AuthType:      authType,
+				Attributes:    attrs,
+				Revoked:       row.Revoked,
+				Label:         row.Name,
+				Invalid:       row.Invalid,
+				InvalidReason: row.InvalidReason,
+			},
+			CloudName: cloudName,
+		})
 	}
 
 	var (

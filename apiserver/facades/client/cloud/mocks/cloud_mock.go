@@ -155,10 +155,10 @@ func (m *MockCredentialService) EXPECT() *MockCredentialServiceMockRecorder {
 }
 
 // AllCloudCredentialsForOwner mocks base method.
-func (m *MockCredentialService) AllCloudCredentialsForOwner(arg0 context.Context, arg1 string) ([]credential.CloudCredential, error) {
+func (m *MockCredentialService) AllCloudCredentialsForOwner(arg0 context.Context, arg1 string) (map[credential.ID]cloud0.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllCloudCredentialsForOwner", arg0, arg1)
-	ret0, _ := ret[0].([]credential.CloudCredential)
+	ret0, _ := ret[0].(map[credential.ID]cloud0.Credential)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -199,7 +199,7 @@ func (mr *MockCredentialServiceMockRecorder) CheckAndUpdateCredential(arg0, arg1
 }
 
 // CloudCredential mocks base method.
-func (m *MockCredentialService) CloudCredential(arg0 context.Context, arg1 names.CloudCredentialTag) (cloud0.Credential, error) {
+func (m *MockCredentialService) CloudCredential(arg0 context.Context, arg1 credential.ID) (cloud0.Credential, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CloudCredential", arg0, arg1)
 	ret0, _ := ret[0].(cloud0.Credential)
@@ -229,7 +229,7 @@ func (mr *MockCredentialServiceMockRecorder) CloudCredentialsForOwner(arg0, arg1
 }
 
 // RemoveCloudCredential mocks base method.
-func (m *MockCredentialService) RemoveCloudCredential(arg0 context.Context, arg1 names.CloudCredentialTag) error {
+func (m *MockCredentialService) RemoveCloudCredential(arg0 context.Context, arg1 credential.ID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveCloudCredential", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -243,7 +243,7 @@ func (mr *MockCredentialServiceMockRecorder) RemoveCloudCredential(arg0, arg1 in
 }
 
 // UpdateCloudCredential mocks base method.
-func (m *MockCredentialService) UpdateCloudCredential(arg0 context.Context, arg1 names.CloudCredentialTag, arg2 cloud0.Credential) error {
+func (m *MockCredentialService) UpdateCloudCredential(arg0 context.Context, arg1 credential.ID, arg2 cloud0.Credential) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCloudCredential", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -257,7 +257,7 @@ func (mr *MockCredentialServiceMockRecorder) UpdateCloudCredential(arg0, arg1, a
 }
 
 // WatchCredential mocks base method.
-func (m *MockCredentialService) WatchCredential(arg0 context.Context, arg1 names.CloudCredentialTag) (watcher.Watcher[struct{}], error) {
+func (m *MockCredentialService) WatchCredential(arg0 context.Context, arg1 credential.ID) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchCredential", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])

@@ -416,7 +416,7 @@ func (api *CloudAPI) AddCredentials(ctx context.Context, args params.TaggedCrede
 			cloud.AuthType(arg.Credential.AuthType),
 			arg.Credential.Attributes,
 		)
-		if err := api.credentialService.UpdateCloudCredential(ctx, tag, in); err != nil {
+		if err := api.credentialService.UpdateCloudCredential(ctx, credential.IdFromTag(tag), in); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -724,12 +724,11 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 	}
 
 	// Helper to parse cloud.CloudCredential into an expected result item.
-	toParam := func(tag names.CloudCredentialTag, credential credential.CloudCredential, includeSecrets bool) params.CredentialContentResult {
-		schemas, err := credentialSchemas(credential.CloudName)
+	toParam := func(id credential.ID, cred cloud.Credential, includeSecrets bool) params.CredentialContentResult {
+		schemas, err := credentialSchemas(id.Cloud)
 		if err != nil {
 			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
 		}
-		cred := credential.Credential
 		attrs := map[string]string{}
 		// Filter out the secrets.
 		if s, ok := schemas[cred.AuthType()]; ok {
@@ -747,7 +746,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 				Name:       cred.Label,
 				AuthType:   string(cred.AuthType()),
 				Attributes: attrs,
-				Cloud:      credential.CloudName,
+				Cloud:      id.Cloud,
 			},
 		}
 		if includeValidity {
@@ -756,7 +755,8 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 		}
 
 		// get models
-		models, err := api.modelCredentialService.CredentialModelsAndOwnerAccess(tag)
+		credTag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", id.Cloud, id.Owner, id.Name))
+		models, err := api.modelCredentialService.CredentialModelsAndOwnerAccess(credTag)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
 		}
@@ -774,37 +774,33 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 		if err != nil {
 			return params.CredentialContentResults{}, errors.Trace(err)
 		}
-		result = make([]params.CredentialContentResult, len(credentials))
-		for i, cred := range credentials {
-			tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/%s/%s", cred.CloudName, api.apiUser.Id(), cred.Credential.Label))
-			result[i] = toParam(tag, cred, args.IncludeSecrets)
+		for id, cred := range credentials {
+			result = append(result, toParam(id, cred, args.IncludeSecrets))
 		}
 	} else {
-		// Helper to construct credential tag from cloud and name.
-		credId := func(cloudName, credentialName string) string {
-			return fmt.Sprintf("%s/%s/%s",
-				cloudName, api.apiUser.Id(), credentialName,
-			)
+		// Helper to construct credential ID from cloud and name.
+		credId := func(cloudName, credentialName string) credential.ID {
+			return credential.ID{
+				Cloud: cloudName, Owner: api.apiUser.Id(), Name: credentialName}
 		}
 
 		result = make([]params.CredentialContentResult, len(args.Credentials))
 		for i, given := range args.Credentials {
 			id := credId(given.CloudName, given.CredentialName)
-			if !names.IsValidCloudCredential(id) {
+			if err := id.Validate(); err != nil {
 				result[i] = params.CredentialContentResult{
 					Error: apiservererrors.ServerError(errors.NotValidf("cloud credential ID %q", id)),
 				}
 				continue
 			}
-			tag := names.NewCloudCredentialTag(id)
-			cred, err := api.credentialService.CloudCredential(ctx, tag)
+			cred, err := api.credentialService.CloudCredential(ctx, id)
 			if err != nil {
 				result[i] = params.CredentialContentResult{
 					Error: apiservererrors.ServerError(err),
 				}
 				continue
 			}
-			result[i] = toParam(tag, credential.CloudCredential{Credential: cred, CloudName: tag.Cloud().Id()}, args.IncludeSecrets)
+			result[i] = toParam(id, cred, args.IncludeSecrets)
 		}
 	}
 	return params.CredentialContentResults{Results: result}, nil

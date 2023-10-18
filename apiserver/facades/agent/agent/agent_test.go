@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/domain/credential"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -279,7 +280,7 @@ func (s *agentSuite) TestWatchCredentials(c *gc.C) {
 	ch <- struct{}{}
 
 	nw := watchertest.NewMockNotifyWatcher(ch)
-	credentialService.EXPECT().WatchCredential(gomock.Any(), tag).Return(nw, nil)
+	credentialService.EXPECT().WatchCredential(gomock.Any(), credential.IdFromTag(tag)).Return(nw, nil)
 	api, err := s.agentAPI(c, authorizer, credentialService)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := api.WatchCredentials(context.Background(), params.Entities{Entities: []params.Entity{{Tag: tag.String()}}})

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/internal/secrets/provider"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/internal/secrets/provider/juju"
@@ -191,7 +192,7 @@ func (s *secretsSuite) assertAdminBackendConfigInfoDefault(
 		tag := names.NewCloudCredentialTag("test/fred/default")
 		model.EXPECT().CloudCredentialTag().Return(tag, true)
 		cred := cloud.NewCredential(cloud.AccessKeyAuthType, map[string]string{"foo": "bar"})
-		credentialService.EXPECT().CloudCredential(gomock.Any(), tag).Return(cred, nil)
+		credentialService.EXPECT().CloudCredential(gomock.Any(), credential.IdFromTag(tag)).Return(cred, nil)
 	}
 
 	backendState.EXPECT().ListSecretBackends().Return([]*coresecrets.SecretBackend{{
