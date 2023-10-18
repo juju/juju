@@ -77,12 +77,6 @@ type ExportConfig struct {
 	SkipExternalControllers  bool
 }
 
-const (
-	// ociProviderType is the provider type for Oracle Cloud Infrastructure.
-	// In case changes are needed, please update the providerType in `juju/provider/oci/init.go`
-	ociProviderType = "oci"
-)
-
 // ExportPartial the current model for the State optionally skipping
 // aspects as defined by the ExportConfig.
 func (st *State) ExportPartial(cfg ExportConfig) (description.Model, error) {
@@ -92,6 +86,31 @@ func (st *State) ExportPartial(cfg ExportConfig) (description.Model, error) {
 // Export the current model for the State.
 func (st *State) Export() (description.Model, error) {
 	return st.exportImpl(ExportConfig{})
+}
+
+// deriveCloudRegion returns the cloud region for the given cloud.
+// If the cloud is not found, an error is returned.
+// Should be removed in 3.3 branch.
+func (st *State) deriveCloudRegion() (string, error) {
+	dbModel, err := st.Model()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	cloud, err := dbModel.Cloud()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if cloud.Type == "oci" {
+		credsTag, _ := dbModel.CloudCredentialTag()
+		creds, err := st.CloudCredential(credsTag)
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+		if creds.Attributes["region"] != "" {
+			return creds.Attributes["region"], nil
+		}
+	}
+	return dbModel.CloudRegion(), nil
 }
 
 func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
@@ -143,22 +162,10 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	// region for all clouds. But for now, we need to handle this situation.
 	//
 	// The workaround is to check the cloud type and if it is OCI, we will use the region from the credentials.
-	cloud, err := dbModel.Cloud()
-	var cloudRegion string
+	cloudRegion, err := st.deriveCloudRegion()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if cloud.Type == ociProviderType {
-		credsTag, _ := dbModel.CloudCredentialTag()
-		creds, err := st.CloudCredential(credsTag)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cloudRegion = creds.Attributes["region"]
-	} else {
-		cloudRegion = dbModel.CloudRegion()
-	}
-
 	args := description.ModelArgs{
 		Type:               string(dbModel.Type()),
 		Cloud:              dbModel.CloudName(),
