@@ -77,6 +77,12 @@ type ExportConfig struct {
 	SkipExternalControllers  bool
 }
 
+const (
+	// ociProviderType is the provider type for Oracle Cloud Infrastructure.
+	// In case changes are needed, please update the providerType in `juju/provider/oci/init.go`
+	ociProviderType = "oci"
+)
+
 // ExportPartial the current model for the State optionally skipping
 // aspects as defined by the ExportConfig.
 func (st *State) ExportPartial(cfg ExportConfig) (description.Model, error) {
@@ -129,10 +135,34 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	// We have a problem, that default cloud region is selected differently based on Cloud type.
+	// For Oracle (OCI) cloud, we define the region in the credentials, but for other clouds, as first
+	// region in the list of regions for the cloud.
+	//
+	// That situation will be changed in Juju 3.3, where we will have a single way of selecting the default
+	// region for all clouds. But for now, we need to handle this situation.
+	//
+	// The workaround is to check the cloud type and if it is OCI, we will use the region from the credentials.
+	cloud, err := dbModel.Cloud()
+	var cloudRegion string
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if cloud.Type == ociProviderType {
+		credsTag, _ := dbModel.CloudCredentialTag()
+		creds, err := st.CloudCredential(credsTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cloudRegion = creds.Attributes["region"]
+	} else {
+		cloudRegion = dbModel.CloudRegion()
+	}
+
 	args := description.ModelArgs{
 		Type:               string(dbModel.Type()),
 		Cloud:              dbModel.CloudName(),
-		CloudRegion:        dbModel.CloudRegion(),
+		CloudRegion:        cloudRegion,
 		Owner:              dbModel.Owner(),
 		Config:             modelConfig.Settings,
 		PasswordHash:       dbModel.doc.PasswordHash,
