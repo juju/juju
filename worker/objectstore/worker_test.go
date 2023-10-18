@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/testing"
 )
 
@@ -184,11 +185,9 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *gc.C) {
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
-		Clock:        s.clock,
-		Logger:       s.logger,
-		TracerGetter: &stubTracerGetter{},
-		StatePool:    s.statePool,
-		NewObjectStoreWorker: func(context.Context, string, MongoSession, Logger) (TrackedObjectStore, error) {
+		Clock:  s.clock,
+		Logger: s.logger,
+		NewObjectStoreWorker: func(t objectstore.Type, ns string, cfg objectstore.Config) (TrackedObjectStore, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedObjectStore, nil
 		},

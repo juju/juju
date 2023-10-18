@@ -1,17 +1,19 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package objectstore
+package state
 
 import (
 	"context"
 	"io"
 
+	"github.com/juju/mgo/v3"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/state/storage"
 )
 
+<<<<<<< HEAD:worker/objectstore/objectstore.go
 type stateObjectStore struct {
 	tomb      tomb.Tomb
 	namespace string
@@ -30,6 +32,47 @@ func NewStateObjectStore(ctx context.Context, namespace string, mongoSession Mon
 	}
 
 	s.tomb.Go(s.loop)
+=======
+// Logger represents the logging methods called.
+type Logger interface {
+	Errorf(message string, args ...any)
+	Warningf(message string, args ...any)
+	Infof(message string, args ...any)
+	Debugf(message string, args ...any)
+	Tracef(message string, args ...any)
+
+	IsTraceEnabled() bool
+}
+
+// MongoSession is the interface that is used to get a mongo session.
+// Deprecated: is only here for backwards compatibility.
+type MongoSession interface {
+	MongoSession() *mgo.Session
+}
+
+type stateObjectStore struct {
+	tomb tomb.Tomb
+
+	namespace string
+
+	session MongoSession
+	logger  Logger
+}
+
+// New returns a new object store worker based on the state
+// storage.
+func New(namespace string, mongoSession MongoSession, logger Logger) (*stateObjectStore, error) {
+	s := &stateObjectStore{
+		session:   mongoSession,
+		namespace: namespace,
+		logger:    logger,
+	}
+
+	s.tomb.Go(func() error {
+		<-s.tomb.Dying()
+		return tomb.ErrDying
+	})
+>>>>>>> 8f855838db (File store backend):internal/objectstore/state/state.go
 
 	return s, nil
 }
@@ -57,6 +100,7 @@ func (t *stateObjectStore) Remove(ctx context.Context, path string) error {
 }
 
 // Kill implements the worker.Worker interface.
+<<<<<<< HEAD:worker/objectstore/objectstore.go
 func (s *stateObjectStore) Kill() {
 	s.tomb.Kill(nil)
 }
@@ -69,4 +113,13 @@ func (s *stateObjectStore) Wait() error {
 func (t *stateObjectStore) loop() error {
 	<-t.tomb.Dying()
 	return tomb.ErrDying
+=======
+func (t *stateObjectStore) Kill() {
+	t.tomb.Kill(nil)
+}
+
+// Wait implements the worker.Worker interface.
+func (t *stateObjectStore) Wait() error {
+	return t.tomb.Wait()
+>>>>>>> 8f855838db (File store backend):internal/objectstore/state/state.go
 }

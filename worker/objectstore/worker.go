@@ -15,6 +15,7 @@ import (
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/worker/trace"
 )
 
@@ -23,31 +24,23 @@ const (
 	stateStarted = "started"
 )
 
-// TrackedObjectStore is a ObjectStore that is also a worker, to ensure the l
-// ifecycle of the objectStore is managed.
-type TrackedObjectStore interface {
-	worker.Worker
-	coreobjectstore.ObjectStore
-}
-
 // WorkerConfig encapsulates the configuration options for the
 // objectStore worker.
 type WorkerConfig struct {
 	TracerGetter         trace.TracerGetter
+	RootDir              string
 	Clock                clock.Clock
 	Logger               Logger
 	NewObjectStoreWorker ObjectStoreWorkerFunc
-
-	// StatePool is only here for backwards compatibility. Once we have
-	// the right abstractions in place, and we have a replacement, we can
-	// remove this.
-	StatePool StatePool
 }
 
 // Validate ensures that the config values are valid.
 func (c *WorkerConfig) Validate() error {
 	if c.TracerGetter == nil {
 		return errors.NotValidf("nil TracerGetter")
+	}
+	if c.RootDir == "" {
+		return errors.NotValidf("empty RootDir")
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("nil Clock")
@@ -57,9 +50,6 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.NewObjectStoreWorker == nil {
 		return errors.NotValidf("nil NewObjectStoreWorker")
-	}
-	if c.StatePool == nil {
-		return errors.NotValidf("nil StatePool")
 	}
 	return nil
 }
@@ -244,17 +234,13 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 			return nil, errors.Trace(err)
 		}
 
-		// This is only here until we have a better backing store.
-		state, err := w.cfg.StatePool.Get(namespace)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
 		objectStore, err := w.cfg.NewObjectStoreWorker(
-			ctx,
+			objectstore.FileType,
 			namespace,
-			state,
-			w.cfg.Logger,
+			objectstore.Config{
+				RootDir: w.cfg.RootDir,
+				Logger:  w.cfg.Logger,
+			},
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
