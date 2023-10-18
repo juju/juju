@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/collections/set"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -54,13 +54,13 @@ func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (char
 	return bundle, nil
 }
 
-func (br *bundleReader) AddCustomBundle(c *gc.C, url *corecharm.URL, customize func(path string)) charm.BundleInfo {
+func (br *bundleReader) AddCustomBundle(c *gc.C, url *jujucharm.URL, customize func(path string)) charm.BundleInfo {
 	base := c.MkDir()
 	dirpath := testcharms.Repo.ClonedDirPath(base, "dummy")
 	if customize != nil {
 		customize(dirpath)
 	}
-	dir, err := corecharm.ReadCharmDir(dirpath)
+	dir, err := jujucharm.ReadCharmDir(dirpath)
 	c.Assert(err, jc.ErrorIsNil)
 	err = dir.SetDiskRevision(url.Revision)
 	c.Assert(err, jc.ErrorIsNil)
@@ -70,12 +70,12 @@ func (br *bundleReader) AddCustomBundle(c *gc.C, url *corecharm.URL, customize f
 	defer func() { _ = file.Close() }()
 	err = dir.ArchiveTo(file)
 	c.Assert(err, jc.ErrorIsNil)
-	bundle, err := corecharm.ReadCharmArchive(bunpath)
+	bundle, err := jujucharm.ReadCharmArchive(bunpath)
 	c.Assert(err, jc.ErrorIsNil)
 	return br.AddBundle(url, bundle)
 }
 
-func (br *bundleReader) AddBundle(url *corecharm.URL, bundle charm.Bundle) charm.BundleInfo {
+func (br *bundleReader) AddBundle(url *jujucharm.URL, bundle charm.Bundle) charm.BundleInfo {
 	if br.bundles == nil {
 		br.bundles = map[string]charm.Bundle{}
 	}
@@ -109,7 +109,7 @@ func (b mockBundle) ExpandTo(dir string) error {
 	return nil
 }
 
-func charmURL(revision int) *corecharm.URL {
-	baseURL := corecharm.MustParseURL("ch:s/c")
+func charmURL(revision int) *jujucharm.URL {
+	baseURL := jujucharm.MustParseURL("ch:s/c")
 	return baseURL.WithRevision(revision)
 }

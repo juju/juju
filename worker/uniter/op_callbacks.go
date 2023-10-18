@@ -6,7 +6,7 @@ package uniter
 import (
 	"fmt"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -133,7 +133,7 @@ func (opc *operationCallbacks) ActionStatus(actionId string) (string, error) {
 
 // GetArchiveInfo is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) GetArchiveInfo(url string) (charm.BundleInfo, error) {
-	charmURL, err := corecharm.ParseURL(url)
+	charmURL, err := jujucharm.ParseURL(url)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

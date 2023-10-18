@@ -10,7 +10,7 @@ import (
 	"strings"
 	"syscall"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -1347,7 +1347,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 
 	// Create the subordinate application.
 	dir := testcharms.Repo.ClonedDir(c.MkDir(), "logging")
-	curl, err := corecharm.ParseURL("ch:quantal/logging")
+	curl, err := jujucharm.ParseURL("ch:quantal/logging")
 	c.Assert(err, jc.ErrorIsNil)
 	curl = curl.WithRevision(dir.Revision())
 	step(c, ctx, addCharm{dir, curl})
