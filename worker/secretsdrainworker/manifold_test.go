@@ -39,7 +39,7 @@ func (s *ManifoldSuite) validConfig() secretsdrainworker.ManifoldConfig {
 			return nil, nil
 		},
 		NewSecretsDrainFacade: func(base.APICaller) secretsdrainworker.SecretsDrainFacade { return nil },
-		NewBackendsClient: func(jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error) {
+		NewBackendsClient: func(base.APICaller) (jujusecrets.BackendsClient, error) {
 			return nil, nil
 		},
 	}
@@ -89,7 +89,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	}
 
 	backendClients := mocks.NewMockBackendsClient(ctrl)
-	s.config.NewBackendsClient = func(jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error) {
+	s.config.NewBackendsClient = func(base.APICaller) (jujusecrets.BackendsClient, error) {
 		return backendClients, nil
 	}
 

@@ -14,7 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/agent/secretsdrain"
+	"github.com/juju/juju/api/common/secretsdrain"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujusecrets "github.com/juju/juju/secrets"
