@@ -45,7 +45,7 @@ import (
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/retrystrategy"
-	"github.com/juju/juju/worker/secretdrainworker"
+	"github.com/juju/juju/worker/secretsdrainworker"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgradesteps"
 )
@@ -309,12 +309,12 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		// The secretDrainWorker is the worker that drains secrets from the inactive backend to the current active backend.
-		secretDrainWorker: ifNotMigrating(secretdrainworker.Manifold(secretdrainworker.ManifoldConfig{
+		secretDrainWorker: ifNotMigrating(secretsdrainworker.Manifold(secretsdrainworker.ManifoldConfig{
 			APICallerName:         apiCallerName,
-			Logger:                loggo.GetLogger("juju.worker.secretdrainworker"),
-			NewSecretsDrainFacade: secretdrainworker.NewSecretsDrainFacadeForAgent,
-			NewWorker:             secretdrainworker.NewWorker,
-			NewBackendsClient:     secretdrainworker.NewBackendsClient,
+			Logger:                loggo.GetLogger("juju.worker.secretsdrainworker"),
+			NewSecretsDrainFacade: secretsdrainworker.NewSecretsDrainFacadeForAgent,
+			NewWorker:             secretsdrainworker.NewWorker,
+			NewBackendsClient:     secretsdrainworker.NewSecretBackendsClientForAgent,
 		})),
 	}
 }

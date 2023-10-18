@@ -64,7 +64,7 @@ import (
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/pruner"
 	"github.com/juju/juju/worker/remoterelations"
-	"github.com/juju/juju/worker/secretdrainworker"
+	"github.com/juju/juju/worker/secretsdrainworker"
 	"github.com/juju/juju/worker/secretspruner"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/statushistorypruner"
@@ -338,12 +338,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            secretspruner.NewWorker,
 		})),
 		// The userSecretDrainWorker is the worker that drains the user secrets from the inactive backend to the current active backend.
-		userSecretDrainWorker: ifNotMigrating(secretdrainworker.Manifold(secretdrainworker.ManifoldConfig{
+		userSecretDrainWorker: ifNotMigrating(secretsdrainworker.Manifold(secretsdrainworker.ManifoldConfig{
 			APICallerName:         apiCallerName,
-			Logger:                loggo.GetLogger("juju.worker.usersecretsdrainworker"),
-			NewSecretsDrainFacade: secretdrainworker.NewUserSecretsDrainFacade,
-			NewWorker:             secretdrainworker.NewWorker,
-			NewBackendsClient:     secretdrainworker.NewBackendsClient,
+			Logger:                config.LoggingContext.GetLogger("juju.worker.usersecretsdrainworker"),
+			NewSecretsDrainFacade: secretsdrainworker.NewUserSecretsDrainFacade,
+			NewWorker:             secretsdrainworker.NewWorker,
+			NewBackendsClient:     secretsdrainworker.NewUserSecretBackendsClient,
 		})),
 	}
 	return result
