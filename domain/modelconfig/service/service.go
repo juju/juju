@@ -7,106 +7,206 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/schema"
 
-	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
 )
 
+// ModelDefaultsProvider is responsible for providing the default config values
+// for a model.
+type ModelDefaultsProvider interface {
+	// ModelDefaults will return the default config values to be used for a model
+	// and its config.
+	ModelDefaults(context.Context) (modeldefaults.Defaults, error)
+}
+
+// Service defines the service for interacting with ModelConfig.
 type Service struct {
-	cloudDefaultsState CloudDefaultsState
-	cloudService       CloudService
-	staticProvider     StaticConfigProvider
+	defaultsProvider ModelDefaultsProvider
+	st               State
 }
 
+// State represents the state entity for accessing and setting per
+// model configuration values.
+type State interface {
+	// ModelConfig returns the currently set config for the model.
+	ModelConfig(context.Context) (map[string]string, error)
+
+	// ModelConfigHasAttributes returns the set of attributes that model config
+	// currently has set out of the list supplied.
+	ModelConfigHasAttributes(context.Context, []string) ([]string, error)
+
+	// SetModelConfig is responsible for setting the current model config and
+	// overwriting all previously set values even if the config supplied is
+	// empty or nil.
+	SetModelConfig(context.Context, map[string]string) error
+
+	// UpdateModelConfig is responsible for both inserting, updating and
+	// removing model config values for the current model.
+	UpdateModelConfig(context.Context, map[string]string, []string) error
+}
+
+// NewService creates a new ModelConfig service.
 func NewService(
-	cloudDefaultsState CloudDefaultsState,
-	cloudService CloudService,
-	staticProvider StaticConfigProvider) *Service {
+	defaultsProvider ModelDefaultsProvider,
+	st State,
+) *Service {
 	return &Service{
-		cloudDefaultsState: cloudDefaultsState,
-		cloudService:       cloudService,
-		staticProvider:     staticProvider,
+		defaultsProvider: defaultsProvider,
+		st:               st,
 	}
 }
 
-// ModelDefaults is responsible for returning the default configuration set
-// for a specific cloud. It combines all the defaults from the provider, cloud
-// and cloud regions.
-func (s *Service) ModelDefaults(ctx context.Context, name string) (config.ModelDefaultAttributes, error) {
-	defaults := make(config.ModelDefaultAttributes)
-	for k, v := range s.staticProvider.ConfigDefaults() {
-		defaults[k] = config.AttributeDefaultValues{Default: v}
-	}
-
-	cloud, err := s.cloudService.Get(ctx, name)
+// ModelConfig returns the current config for the model.
+func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
+	stConfig, err := s.st.ModelConfig(ctx)
 	if err != nil {
-		return defaults, errors.Trace(err)
+		return nil, fmt.Errorf("getting model config from state: %w", err)
 	}
 
-	cloudSchemaSource, err := s.staticProvider.CloudConfig(cloud.Type)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return defaults, errors.Trace(err)
-	} else if !errors.Is(err, errors.NotFound) {
-		fields := schema.FieldMap(cloudSchemaSource.ConfigSchema(), cloudSchemaSource.ConfigDefaults())
-		coercedAttrs, err := fields.Coerce(defaults, nil)
-		if err != nil {
-			return defaults, errors.Trace(err)
-		}
-
-		for k, v := range coercedAttrs.(map[string]interface{}) {
-			defaults[k] = config.AttributeDefaultValues{Default: v}
-		}
-	}
-
-	cloudDefaults, err := s.cloudDefaultsState.CloudDefaults(ctx, name)
-	if err != nil {
-		return defaults, fmt.Errorf("getting cloud %q defaults: %w", name, err)
-	}
-
-	for k, v := range cloudDefaults {
-		ds := defaults[k]
-		ds.Controller = v
-		defaults[k] = ds
-	}
-
-	allRegionDefaults, err := s.cloudDefaultsState.CloudAllRegionDefaults(ctx, name)
-	if err != nil {
-		return defaults, fmt.Errorf("get cloud %q region defaults: %w", name, err)
-	}
-
-	for region, regionDefaults := range allRegionDefaults {
-		for k, v := range regionDefaults {
-			regCfg := config.RegionDefaultValue{Name: region, Value: v}
-			ds := defaults[k]
-			if ds.Regions == nil {
-				ds.Regions = make([]config.RegionDefaultValue, 0, 1)
-			}
-			ds.Regions = append(ds.Regions, regCfg)
-			defaults[k] = ds
-		}
-	}
-
-	return defaults, nil
+	altConfig := transform.Map(stConfig, func(k, v string) (string, any) { return k, v })
+	return config.New(config.NoDefaults, altConfig)
 }
 
-// UpdateModelDefaults will update the defaults values for either a cloud or a
-// cloud region. Not specifying a valid value for either Cloud or Region will
-// result in an error that satisfies NotValid.
-func (s *Service) UpdateModelDefaults(
+// buildUpdatedModelConfig is responsible for taking the currently set
+// ModelConfig and applying in memory update operation.
+func (s *Service) buildUpdatedModelConfig(
 	ctx context.Context,
-	updateAttrs map[string]string,
+	updates map[string]any,
 	removeAttrs []string,
-	spec cloudspec.CloudRegionSpec,
-) error {
-	if spec.Cloud == "" && spec.Region == "" {
-		return fmt.Errorf("%w either cloud or cloud and region need to be supplied", errors.NotValid)
+) (*config.Config, *config.Config, error) {
+	current, err := s.ModelConfig(ctx)
+	if err != nil {
+		return nil, current, errors.Trace(err)
 	}
 
-	if spec.Region == "" {
-		return errors.Trace(s.cloudDefaultsState.UpdateCloudDefaults(ctx, spec.Cloud, updateAttrs, removeAttrs))
-	} else {
-		return errors.Trace(s.cloudDefaultsState.UpdateCloudRegionDefaults(ctx, spec.Cloud, spec.Region, updateAttrs, removeAttrs))
+	newConf, err := current.Remove(removeAttrs)
+	if err != nil {
+		return newConf, current, fmt.Errorf("building new model config with removed attributes: %w", err)
 	}
+
+	newConf, err = newConf.Apply(updates)
+	if err != nil {
+		return newConf, current, fmt.Errorf("building new model config with removed attributes: %w", err)
+	}
+
+	return newConf, current, nil
+}
+
+// reconcileRemovedAttributes will take a set of attributes to remove from the
+// model config and figure out if there exists a model default for the
+// attribute. If a model default exists then a set of updates will be provided
+// to instead change the attribute to the model default. This function will also
+// check that the removed attributes first exist in the model's config otherwise
+// we risk bringing in model defaults that were not previously set for the model
+// config.
+func (s *Service) reconcileRemovedAttributes(
+	ctx context.Context,
+	removeAttrs []string,
+) (map[string]any, error) {
+	updates := map[string]any{}
+	hasAttrs, err := s.st.ModelConfigHasAttributes(ctx, removeAttrs)
+	if err != nil {
+		return updates, fmt.Errorf("determining model config has attributes: %w", err)
+	}
+
+	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
+	if err != nil {
+		return updates, fmt.Errorf("getting model defaults for config attribute removal: %w", err)
+	}
+
+	for _, attr := range hasAttrs {
+		if val := defaults[attr].Value(); val != nil {
+			updates[attr] = val
+		}
+	}
+
+	return updates, nil
+}
+
+// SetModelConfig will remove any existing model config for the model and
+// replace with the new config provided. The new config will also be hydrated
+// with any model default attributes that have not been set on the config.
+func (s *Service) SetModelConfig(
+	ctx context.Context,
+	cfg *config.Config,
+) error {
+	attrs := cfg.AllAttrs()
+	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
+	if err != nil {
+		return fmt.Errorf("getting model defaults: %w", err)
+	}
+
+	for k, v := range defaults {
+		if _, exists := attrs[k]; !exists && v.Value() != nil {
+			attrs[k] = v.Value()
+		}
+	}
+
+	cfg, err = config.New(config.NoDefaults, attrs)
+	if err != nil {
+		return fmt.Errorf("constructing new model config with model defaults: %w", err)
+	}
+
+	_, err = config.ModelValidator().Validate(cfg, nil)
+	if err != nil {
+		return fmt.Errorf("validating model config to set for model: %w", err)
+	}
+
+	rawCfg, err := coerceConfigForStorage(cfg.AllAttrs())
+	if err != nil {
+		return fmt.Errorf("coercing model config for storage: %w", err)
+	}
+
+	return s.st.SetModelConfig(ctx, rawCfg)
+}
+
+// UpdateModelConfig takes a set of updated and removed attributes to apply.
+// Removed attributes are replaced with their model default values should they
+// exist. All model config updates are validated against the currently set
+// model config.
+func (s *Service) UpdateModelConfig(
+	ctx context.Context,
+	updateAttrs map[string]any,
+	removeAttrs []string,
+) error {
+	// noop with no updates to perform.
+	if len(updateAttrs) == 0 && len(removeAttrs) == 0 {
+		return nil
+	}
+
+	updates, err := s.reconcileRemovedAttributes(ctx, removeAttrs)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// It's important here that we apply the user updates over the top of the
+	// calculated ones. This way we always take the user's supplied key value
+	// over defaults.
+	for k, v := range updateAttrs {
+		updates[k] = v
+	}
+
+	newCfg, currCfg, err := s.buildUpdatedModelConfig(ctx, updates, removeAttrs)
+	if err != nil {
+		return fmt.Errorf("making updated model configuration: %w", err)
+	}
+
+	_, err = config.ModelValidator().Validate(newCfg, currCfg)
+	if err != nil {
+		return fmt.Errorf("validating updated model configuration: %w", err)
+	}
+
+	rawCfg, err := coerceConfigForStorage(updateAttrs)
+	if err != nil {
+		return fmt.Errorf("coercing new configuration for persistence: %w", err)
+	}
+
+	err = s.st.UpdateModelConfig(ctx, rawCfg, removeAttrs)
+	if err != nil {
+		return fmt.Errorf("updating model config: %w", err)
+	}
+	return nil
 }

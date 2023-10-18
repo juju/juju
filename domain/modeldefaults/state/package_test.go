@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package service_test
+package state
 
 import (
 	"testing"
@@ -12,3 +12,5 @@ import (
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
+
+// tlm: Tests coming in following PR when integrated back into API

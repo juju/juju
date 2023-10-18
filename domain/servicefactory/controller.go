@@ -4,10 +4,6 @@
 package servicefactory
 
 import (
-	"fmt"
-
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
@@ -25,11 +21,12 @@ import (
 	externalcontrollerstate "github.com/juju/juju/domain/externalcontroller/state"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstate "github.com/juju/juju/domain/model/state"
+	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
+	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	modelmanagerstate "github.com/juju/juju/domain/modelmanager/state"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 	upgradestate "github.com/juju/juju/domain/upgrade/state"
-	"github.com/juju/juju/environs/config"
 )
 
 // Logger defines the logging interface used by the services.
@@ -79,10 +76,17 @@ func (s *ControllerFactory) ControllerNode() *controllernodeservice.Service {
 	)
 }
 
-// Model returns the model service for the model UUID.
+// Model returns the model service.
 func (s *ControllerFactory) Model() *modelservice.Service {
 	return modelservice.NewService(
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+	)
+}
+
+// ModelDefaults returns the model defaults service.
+func (s *ControllerFactory) ModelDefaults() *modeldefaultsservice.Service {
+	return modeldefaultsservice.NewService(
+		modeldefaultsstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }
 
@@ -117,16 +121,10 @@ func (s *ControllerFactory) Credential() *credentialservice.Service {
 	)
 }
 
-// TODO(tlm) - fix me
-func dummyConfigSchemaProvider(ct string) (config.ConfigSchemaSource, error) {
-	return nil, fmt.Errorf("cloud %q schema provider %w", ct, errors.NotFound)
-}
-
 // Cloud returns the cloud service.
 func (s *ControllerFactory) Cloud() *cloudservice.Service {
 	return cloudservice.NewService(
 		cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
-		dummyConfigSchemaProvider,
 	)
 }
 

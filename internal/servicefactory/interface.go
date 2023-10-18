@@ -11,6 +11,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	modelservice "github.com/juju/juju/domain/model/service"
+	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
@@ -41,10 +42,8 @@ type ControllerServiceFactory interface {
 // ModelServiceFactory provides access to the services required by the
 // apiserver for a given model.
 type ModelServiceFactory interface {
-	// TODO we need a method here because if we don't have a type here, then
-	// anything satisfies the ModelFactory. Once we have model methods here, we
-	// can remove this method.
-	TODO()
+	// Config returns the modelconfig service.
+	Config(modelconfigservice.ModelDefaultsProvider) *modelconfigservice.Service
 }
 
 // ServiceFactory provides access to the services required by the apiserver.

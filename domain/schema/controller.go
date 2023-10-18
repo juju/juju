@@ -51,7 +51,6 @@ func ControllerDDL(nodeID uint64) *schema.Schema {
 		upgradeInfoSchema,
 		changeLogTriggersForTable("upgrade_info", "uuid", tableUpgradeInfo),
 		changeLogTriggersForTable("upgrade_info_controller_node", "upgrade_info_uuid", tableUpgradeInfoControllerNode),
-		modelDefaults,
 		autocertCacheSchema,
 	}
 
@@ -521,15 +520,6 @@ CREATE TABLE upgrade_info_controller_node (
 
 CREATE UNIQUE INDEX idx_upgrade_info_controller_node
 ON upgrade_info_controller_node (controller_node_id, upgrade_info_uuid);
-`)
-}
-
-func modelDefaults() schema.Patch {
-	return schema.MakePatch(`
-CREATE TABLE model_defaults (
-    key TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-);
 `)
 }
 

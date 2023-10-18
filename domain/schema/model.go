@@ -11,6 +11,7 @@ import (
 func ModelDDL() *schema.Schema {
 	patches := []func() schema.Patch{
 		changeLogSchema,
+		modelConfig,
 	}
 
 	schema := schema.New()
@@ -18,4 +19,13 @@ func ModelDDL() *schema.Schema {
 		schema.Add(fn())
 	}
 	return schema
+}
+
+func modelConfig() schema.Patch {
+	return schema.MakePatch(`
+CREATE TABLE model_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+`)
 }

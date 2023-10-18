@@ -83,9 +83,6 @@ func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 		"model_migration_user",
 		"model_migration_minion_sync",
 
-		// Model defaults
-		"model_defaults",
-
 		// Upgrade info
 		"upgrade_info",
 		"upgrade_info_controller_node",
@@ -108,6 +105,9 @@ func (s *schemaSuite) TestModelDDLApply(c *gc.C) {
 		"change_log_edit_type",
 		"change_log_namespace",
 		"change_log_witness",
+
+		// Model config
+		"model_config",
 	)
 	c.Assert(readTableNames(c, s.DB()), jc.SameContents, expected.Union(internalTableNames).SortedValues())
 }

@@ -27,7 +27,9 @@ type ProviderRegistry interface {
 	// providers.
 	RegisteredProviders() []string
 
-	// Provider returns the environment provider with the specified name.
+	// Provider returns the environment provider with the specified name. If no
+	// provider has been registered with the supplied name then an error
+	// satisfying errors.NotFound is returned.
 	Provider(providerType string) (EnvironProvider, error)
 }
 
@@ -81,6 +83,7 @@ func (r *globalProviderRegistry) RegisteredProviders() []string {
 	return p
 }
 
+// Provider implements ProviderRegistry.Provider()
 func (r *globalProviderRegistry) Provider(providerType string) (EnvironProvider, error) {
 	if alias, ok := r.aliases[providerType]; ok {
 		providerType = alias
