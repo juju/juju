@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
+	jujustate "github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/trace"
@@ -34,6 +35,15 @@ type Logger interface {
 type ObjectStoreGetter interface {
 	// GetObjectStore returns a object store for the given namespace.
 	GetObjectStore(context.Context, string) (coreobjectstore.ObjectStore, error)
+}
+
+// StatePool is the interface to retrieve the mongo session from.
+// Deprecated: is only here for backwards compatibility.
+type StatePool interface {
+	// Get returns a PooledState for a given model, creating a new State instance
+	// if required.
+	// If the State has been marked for removal, an error is returned.
+	Get(string) (MongoSession, error)
 }
 
 // MongoSession is the interface that is used to get a mongo session.
@@ -126,7 +136,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				// StatePool is only here for backwards compatibility. Once we
 				// have the right abstractions in place, and we have a
 				// replacement, we can remove this.
-				StatePool: statePool,
+				StatePool: shimStatePool{statePool: statePool},
 			})
 			if err != nil {
 				_ = stTracker.Done()
@@ -158,4 +168,15 @@ func output(in worker.Worker, out any) error {
 		return errors.Errorf("expected output of Tracer, got %T", out)
 	}
 	return nil
+}
+
+type shimStatePool struct {
+	statePool *jujustate.StatePool
+}
+
+// Get returns a PooledState for a given model, creating a new State instance
+// if required.
+// If the State has been marked for removal, an error is returned.
+func (s shimStatePool) Get(namespace string) (MongoSession, error) {
+	return s.statePool.Get(namespace)
 }

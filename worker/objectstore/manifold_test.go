@@ -7,6 +7,8 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/trace"
+	state "github.com/juju/juju/state"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/dependency"
 	dependencytesting "github.com/juju/worker/v3/dependency/testing"
@@ -45,6 +47,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		AgentName: "agent",
 		StateName: "state",
+		TraceName: "trace",
 		Clock:     s.clock,
 		Logger:    s.logger,
 		NewObjectStoreWorker: func(context.Context, string, MongoSession, Logger) (TrackedObjectStore, error) {
@@ -56,11 +59,13 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 func (s *manifoldSuite) getContext() dependency.Context {
 	resources := map[string]any{
 		"agent": s.agent,
+		"trace": &stubTracerGetter{},
+		"state": s.stateTracker,
 	}
 	return dependencytesting.StubContext(nil, resources)
 }
 
-var expectedInputs = []string{"agent", "state"}
+var expectedInputs = []string{"agent", "state", "trace"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig()).Inputs, jc.SameContents, expectedInputs)
@@ -69,8 +74,20 @@ func (s *manifoldSuite) TestInputs(c *gc.C) {
 func (s *manifoldSuite) TestStart(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.expectStateTracker()
+
 	w, err := Manifold(s.getConfig()).Start(s.getContext())
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, w)
+}
 
+func (s *manifoldSuite) expectStateTracker() {
+	s.stateTracker.EXPECT().Use().Return(&state.StatePool{}, &state.State{}, nil)
+	s.stateTracker.EXPECT().Done()
+}
+
+type stubTracerGetter struct{}
+
+func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.TracerNamespace) (trace.Tracer, error) {
+	return trace.NoopTracer{}, nil
 }

@@ -54,6 +54,7 @@ func (s *workerSuite) TestGetObjectStore(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 
 	s.ensureStartup(c)
+	s.expectStatePool("foo")
 
 	done := make(chan struct{})
 	s.trackedObjectStore.EXPECT().Kill().AnyTimes()
@@ -68,6 +69,8 @@ func (s *workerSuite) TestGetObjectStore(c *gc.C) {
 	c.Check(objectStore, gc.NotNil)
 
 	close(done)
+
+	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) TestGetObjectStoreIsCached(c *gc.C) {
@@ -80,6 +83,9 @@ func (s *workerSuite) TestGetObjectStoreIsCached(c *gc.C) {
 
 	s.ensureStartup(c)
 
+	// This should only ever be called once, as the object store is cached.
+	s.expectStatePool("foo")
+
 	done := make(chan struct{})
 	s.trackedObjectStore.EXPECT().Kill().AnyTimes()
 	s.trackedObjectStore.EXPECT().Wait().DoAndReturn(func() error {
@@ -89,11 +95,14 @@ func (s *workerSuite) TestGetObjectStoreIsCached(c *gc.C) {
 
 	worker := w.(*objectStoreWorker)
 	for i := 0; i < 10; i++ {
+
 		_, err := worker.GetObjectStore(context.Background(), "foo")
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	close(done)
+
+	workertest.CleanKill(c, w)
 
 	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(1))
 }
@@ -117,11 +126,16 @@ func (s *workerSuite) TestGetObjectStoreIsNotCachedForDifferentNamespaces(c *gc.
 
 	worker := w.(*objectStoreWorker)
 	for i := 0; i < 10; i++ {
-		_, err := worker.GetObjectStore(context.Background(), fmt.Sprintf("anything-%d", i))
+		name := fmt.Sprintf("anything-%d", i)
+		s.expectStatePool(name)
+
+		_, err := worker.GetObjectStore(context.Background(), name)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
 	close(done)
+
+	workertest.CleanKill(c, w)
 
 	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(10))
 }
@@ -150,7 +164,12 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *gc.C) {
 	for i := 0; i < 10; i++ {
 		go func(i int) {
 			defer wg.Done()
-			_, err := worker.GetObjectStore(context.Background(), fmt.Sprintf("anything-%d", i))
+
+			name := fmt.Sprintf("anything-%d", i)
+
+			s.expectStatePool(name)
+
+			_, err := worker.GetObjectStore(context.Background(), name)
 			c.Assert(err, jc.ErrorIsNil)
 		}(i)
 	}
@@ -159,12 +178,16 @@ func (s *workerSuite) TestGetObjectStoreConcurrently(c *gc.C) {
 	c.Assert(atomic.LoadInt64(&s.called), gc.Equals, int64(10))
 
 	close(done)
+
+	workertest.CleanKill(c, w)
 }
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
-		Clock:  s.clock,
-		Logger: s.logger,
+		Clock:        s.clock,
+		Logger:       s.logger,
+		TracerGetter: &stubTracerGetter{},
+		StatePool:    s.statePool,
 		NewObjectStoreWorker: func(context.Context, string, MongoSession, Logger) (TrackedObjectStore, error) {
 			atomic.AddInt64(&s.called, 1)
 			return s.trackedObjectStore, nil
@@ -175,7 +198,9 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 }
 
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
-	s.states = make(chan string)
+	// Ensure we buffer the channel, this is because we might miss the
+	// event if we're too quick at starting up.
+	s.states = make(chan string, 1)
 	atomic.StoreInt64(&s.called, 0)
 
 	ctrl := s.baseSuite.setupMocks(c)
@@ -183,6 +208,10 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.trackedObjectStore = NewMockTrackedObjectStore(ctrl)
 
 	return ctrl
+}
+
+func (s *workerSuite) expectStatePool(namespace string) {
+	s.statePool.EXPECT().Get(namespace).Return(s.mongoSession, nil)
 }
 
 func (s *workerSuite) ensureStartup(c *gc.C) {

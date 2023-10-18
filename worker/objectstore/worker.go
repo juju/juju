@@ -15,7 +15,6 @@ import (
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/trace"
 )
 
@@ -42,7 +41,7 @@ type WorkerConfig struct {
 	// StatePool is only here for backwards compatibility. Once we have
 	// the right abstractions in place, and we have a replacement, we can
 	// remove this.
-	StatePool *state.StatePool
+	StatePool StatePool
 }
 
 // Validate ensures that the config values are valid.
