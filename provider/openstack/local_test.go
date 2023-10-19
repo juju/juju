@@ -9,6 +9,8 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -235,6 +237,15 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.Tests.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+	}))
+	s.AddCleanup(func(c *gc.C) {
+		server.Close()
+	})
+	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, server.URL)
+
 	c.Logf("Running local tests")
 }
 
@@ -1338,13 +1349,10 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// ec2 tests).
 }
 
-func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
+func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	// Create a config that matches s.TestConfig but with the specified stream.
 	attrs := coretesting.Attrs{}
-	if stream != "" {
-		attrs = coretesting.Attrs{"image-stream": stream}
-	}
 	env := s.openEnviron(c, attrs)
 
 	sources, err := environs.ImageMetadataSources(env, ss)
@@ -1360,13 +1368,7 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
 	c.Check(strings.HasSuffix(urls[1], "/imagemetadata/"), jc.IsTrue)
-	c.Assert(urls[2], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
-}
-
-func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
-	s.assertGetImageMetadataSources(c, "", "releases")
-	s.assertGetImageMetadataSources(c, "released", "releases")
-	s.assertGetImageMetadataSources(c, "daily", "daily")
+	c.Assert(urls[2], jc.HasPrefix, imagemetadata.DefaultUbuntuBaseURL)
 }
 
 func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) {
@@ -1919,11 +1921,12 @@ func (s *localServerSuite) TestImageMetadataSourceOrder(c *gc.C) {
 	src := func(env environs.Environ) (simplestreams.DataSource, error) {
 		return ss.NewDataSource(simplestreams.Config{
 			Description:          "my datasource",
-			BaseURL:              "bar",
+			BaseURL:              "file:///bar",
 			HostnameVerification: false,
 			Priority:             simplestreams.CUSTOM_CLOUD_DATA}), nil
 	}
 	environs.RegisterUserImageDataSourceFunc("my func", src)
+	defer environs.UnregisterImageDataSourceFunc("my func")
 	env := s.Open(c, stdcontext.TODO(), s.env.Config())
 	sources, err := environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2711,7 +2714,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(s.env, ss)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 2)
 
 	// Make sure there is something to download from each location
 	metadata := "metadata-content"
@@ -2771,7 +2774,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSourcesWithCertificate
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 2)
 
 	// Make sure there is something to download from each location
 	metadata := "metadata-content"

@@ -10,9 +10,12 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
+	"github.com/juju/retry"
 	"github.com/juju/utils/v3"
 
 	corelogger "github.com/juju/juju/core/logger"
@@ -35,10 +38,6 @@ type DataSource interface {
 
 	// PublicSigningKey returns the public key used to validate signed metadata.
 	PublicSigningKey() string
-
-	// SetAllowRetry sets the flag which determines if the datasource will retry fetching the metadata
-	// if it is not immediately available.
-	SetAllowRetry(allow bool)
 
 	// Priority is an importance factor for Data Source. Higher number means higher priority.
 	// This is will allow to sort data sources in order of importance.
@@ -78,6 +77,7 @@ type urlDataSource struct {
 	priority         int
 	requireSigned    bool
 	httpClient       *jujuhttp.Client
+	clock            clock.Clock
 }
 
 // Config has values to be used in constructing a datasource.
@@ -108,6 +108,9 @@ type Config struct {
 	// of cloud infrastructure components
 	// The contents are Base64 encoded x.509 certs.
 	CACertificates []string
+
+	// Clock is used for retry. Will use clock.WallClock if nil.
+	Clock clock.Clock
 }
 
 // Validate checks that the baseURL is valid and the description is set.
@@ -139,6 +142,10 @@ func NewDataSource(cfg Config) DataSource {
 // NewDataSourceWithClient returns a new DataSource as defines by the given
 // Config, but with the addition of a http.Client.
 func NewDataSourceWithClient(cfg Config, client *jujuhttp.Client) DataSource {
+	clk := cfg.Clock
+	if clk == nil {
+		clk = clock.WallClock
+	}
 	return &urlDataSource{
 		description:      cfg.Description,
 		baseURL:          cfg.BaseURL,
@@ -146,6 +153,7 @@ func NewDataSourceWithClient(cfg Config, client *jujuhttp.Client) DataSource {
 		priority:         cfg.Priority,
 		requireSigned:    cfg.RequireSigned,
 		httpClient:       client,
+		clock:            clk,
 	}
 }
 
@@ -171,31 +179,50 @@ func urlJoin(baseURL, relpath string) string {
 
 // Fetch is defined in simplestreams.DataSource.
 func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
+	var readCloser io.ReadCloser
 	dataURL := urlJoin(h.baseURL, path)
 	// dataURL can be http:// or file://
 	// MakeFileURL will only modify the URL if it's a file URL
 	dataURL = utils.MakeFileURL(dataURL)
-	resp, err := h.httpClient.Get(context.TODO(), dataURL)
+
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			var err error
+			readCloser, err = h.fetch(dataURL)
+			return err
+		},
+		IsFatalError: func(err error) bool {
+			return errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized)
+		},
+		Attempts:    3,
+		Delay:       time.Second,
+		MaxDelay:    time.Second * 5,
+		BackoffFunc: retry.DoubleDelay,
+		Clock:       h.clock,
+	})
+	return readCloser, dataURL, err
+}
+
+func (h *urlDataSource) fetch(path string) (io.ReadCloser, error) {
+	resp, err := h.httpClient.Get(context.TODO(), path)
 	if err != nil {
-		if !errors.Is(err, errors.NotFound) {
-			// Callers of this mask the actual error.  Therefore warn here.
-			// This is called multiple times when a machine is created, we
-			// only need one success for images and one for tools.
-			logger.Warningf("Got error requesting %q: %v", dataURL, err)
-		}
-		return nil, dataURL, errors.NewNotFound(err, fmt.Sprintf("%q", dataURL))
+		// Callers of this mask the actual error.  Therefore warn here.
+		// This is called multiple times when a machine is created, we
+		// only need one success for images and one for tools.
+		logger.Warningf("Got error requesting %q: %v", path, err)
+		return nil, fmt.Errorf("cannot access URL %q: %w", path, err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			return nil, dataURL, errors.NotFoundf("%q", dataURL)
+			return nil, errors.NotFoundf("%q", path)
 		case http.StatusUnauthorized:
-			return nil, dataURL, errors.Unauthorizedf("unauthorised access to URL %q", dataURL)
+			return nil, errors.Unauthorizedf("unauthorised access to URL %q", path)
 		}
-		return nil, dataURL, fmt.Errorf("cannot access URL %q, %q", dataURL, resp.Status)
+		return nil, fmt.Errorf("cannot access URL %q, %q", path, resp.Status)
 	}
-	return resp.Body, dataURL, nil
+	return resp.Body, nil
 }
 
 // URL is defined in simplestreams.DataSource.
@@ -206,11 +233,6 @@ func (h *urlDataSource) URL(path string) (string, error) {
 // PublicSigningKey is defined in simplestreams.DataSource.
 func (u *urlDataSource) PublicSigningKey() string {
 	return u.publicSigningKey
-}
-
-// SetAllowRetry is defined in simplestreams.DataSource.
-func (h *urlDataSource) SetAllowRetry(allow bool) {
-	// This is a NOOP for url datasources.
 }
 
 // Priority is defined in simplestreams.DataSource.

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3"
@@ -64,6 +65,12 @@ func (s *baseSuite) expectClock() {
 	s.clock.EXPECT().After(gomock.Any()).AnyTimes()
 }
 
+func (s *baseSuite) expectWorkerRetry() {
+	s.clock.EXPECT().After(10 * time.Second).AnyTimes().DoAndReturn(func(d time.Duration) <-chan time.Time {
+		return clock.WallClock.After(10 * time.Millisecond)
+	})
+}
+
 func (s *baseSuite) setupTimer(interval time.Duration) chan time.Time {
 	s.timer.EXPECT().Stop().MinTimes(1)
 	s.clock.EXPECT().NewTimer(interval).Return(s.timer)
@@ -100,6 +107,10 @@ func (s *baseSuite) expectNodeStartupAndShutdown() {
 	appExp.ID().Return(uint64(666)).MinTimes(1)
 	appExp.Address().Return("192.168.6.6:17666")
 	appExp.Close().Return(nil)
+
+	// The worker created in openDatabase can retry if the dbApp isn't ready
+	// after it bounces.
+	s.expectWorkerRetry()
 }
 
 func (s *baseSuite) newWorkerWithDB(c *gc.C, db TrackedDB) worker.Worker {

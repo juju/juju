@@ -196,7 +196,7 @@ func MacaroonsEqual(c *gc.C, ms1, ms2 []macaroon.Slice) error {
 func MacaroonEquals(c *gc.C, m1, m2 *macaroon.Macaroon) {
 	c.Assert(m1.Id(), jc.DeepEquals, m2.Id())
 	c.Assert(m1.Signature(), jc.DeepEquals, m2.Signature())
-	c.Assert(m1.Location(), jc.DeepEquals, m2.Location())
+	c.Assert(m1.Location(), gc.Equals, m2.Location())
 }
 
 func NewMacaroon(id string) (*macaroon.Macaroon, error) {

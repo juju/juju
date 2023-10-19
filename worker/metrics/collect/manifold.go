@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -46,8 +46,8 @@ var (
 	errMetricsNotDefined = errors.New("no metrics defined")
 
 	// readCharm function reads the charm directory and extracts declared metrics and the charm url.
-	readCharm = func(unitTag names.UnitTag, paths context.Paths) (string, map[string]corecharm.Metric, error) {
-		ch, err := corecharm.ReadCharm(paths.GetCharmDir())
+	readCharm = func(unitTag names.UnitTag, paths context.Paths) (string, map[string]jujucharm.Metric, error) {
+		ch, err := jujucharm.ReadCharm(paths.GetCharmDir())
 		if err != nil {
 			return "", nil, errors.Annotatef(err, "failed to read charm from: %v", paths.GetCharmDir())
 		}
@@ -55,7 +55,7 @@ var (
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
-		charmMetrics := map[string]corecharm.Metric{}
+		charmMetrics := map[string]jujucharm.Metric{}
 		if ch.Metrics() != nil {
 			charmMetrics = ch.Metrics().Metrics
 		}
@@ -184,7 +184,7 @@ func newCollect(config ManifoldConfig, context dependency.Context) (*collect, er
 		return nil, errors.Trace(err)
 	}
 
-	curl, err := corecharm.ParseURL(charmURL)
+	curl, err := jujucharm.ParseURL(charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
