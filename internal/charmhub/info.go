@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
 )
@@ -52,13 +53,26 @@ func newInfoClient(path path.Path, client RESTClient, logger Logger) *infoClient
 
 // Info requests the information of a given charm. If that charm doesn't exist
 // an error stating that fact will be returned.
-func (c *infoClient) Info(ctx context.Context, name string, options ...InfoOption) (transport.InfoResponse, error) {
+func (c *infoClient) Info(ctx context.Context, name string, options ...InfoOption) (_ transport.InfoResponse, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("charmhub.name", name),
+		trace.StringAttr("charmhub.request", "info"),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	opts := newInfoOptions()
 	for _, option := range options {
 		option(opts)
 	}
 
-	c.logger.Tracef("Info(%s)", name)
+	isTraceEnabled := c.logger.IsTraceEnabled()
+	if isTraceEnabled {
+		c.logger.Tracef("Info(%s)", name)
+	}
+
 	var resp transport.InfoResponse
 	path, err := c.path.Join(name)
 	if err != nil {
@@ -94,7 +108,7 @@ func (c *infoClient) Info(ctx context.Context, name string, options ...InfoOptio
 		return resp, errors.Errorf("unexpected response type %q, expected charm or bundle", resp.Type)
 	}
 
-	if c.logger.IsTraceEnabled() {
+	if isTraceEnabled {
 		c.logger.Tracef("Info() unmarshalled: %s", pretty.Sprint(resp))
 	}
 	return resp, nil

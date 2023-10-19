@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/trace"
 )
 
 // FileSystem defines a file system for modifying files on a users system.
@@ -92,7 +93,16 @@ type ProgressBar interface {
 // TODO (stickupkid): We should either create and remove, or take a file and
 // let the callee remove. The fact that the operations are asymmetrical can lead
 // to unexpected expectations; namely leaking of files.
-func (c *downloadClient) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) error {
+func (c *downloadClient) Download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("charmhub.request", "download"),
+		trace.StringAttr("charmhub.url", resourceURL.String()),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	opts := newDownloadOptions()
 	for _, option := range options {
 		option(opts)

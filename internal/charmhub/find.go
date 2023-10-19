@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
 )
@@ -99,7 +100,16 @@ func newFindClient(path path.Path, client RESTClient, logger Logger) *findClient
 }
 
 // Find searches Charm Hub and provides results matching a string.
-func (c *findClient) Find(ctx context.Context, query string, options ...FindOption) ([]transport.FindResponse, error) {
+func (c *findClient) Find(ctx context.Context, query string, options ...FindOption) (_ []transport.FindResponse, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("charmhub.query", query),
+		trace.StringAttr("charmhub.request", "find"),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
 	opts := newFindOptions()
 	for _, option := range options {
 		option(opts)

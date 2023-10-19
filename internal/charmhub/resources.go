@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 
+	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
 )
@@ -32,8 +33,22 @@ func newResourcesClient(path path.Path, client RESTClient, logger Logger) *resou
 
 // ListResourceRevisions returns a slice of resource revisions for the provided
 // resource of the given charm.
-func (c *resourcesClient) ListResourceRevisions(ctx context.Context, charm, resource string) ([]transport.ResourceRevision, error) {
-	c.logger.Tracef("ListResourceRevisions(%s, %s)", charm, resource)
+func (c *resourcesClient) ListResourceRevisions(ctx context.Context, charm, resource string) (_ []transport.ResourceRevision, err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("charmhub.charm", charm),
+		trace.StringAttr("charmhub.resource", resource),
+		trace.StringAttr("charmhub.request", "list-resource-revisions"),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	isTraceEnabled := c.logger.IsTraceEnabled()
+	if isTraceEnabled {
+		c.logger.Tracef("ListResourceRevisions(%s, %s)", charm, resource)
+	}
+
 	var resp transport.ResourcesResponse
 	path, err := c.path.Join(charm, resource, "revisions")
 	if err != nil {
@@ -46,7 +61,8 @@ func (c *resourcesClient) ListResourceRevisions(ctx context.Context, charm, reso
 	if restResp.StatusCode == http.StatusNotFound {
 		return nil, errors.NotFoundf("%q for %q", charm, resource)
 	}
-	if c.logger.IsTraceEnabled() {
+
+	if isTraceEnabled {
 		c.logger.Tracef("ListResourceRevisions(%s, %s) unmarshalled: %s", charm, resource, pretty.Sprint(resp.Revisions))
 	}
 	return resp.Revisions, nil
