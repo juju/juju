@@ -457,7 +457,7 @@ go-test-alias: musl-install-if-missing dqlite-install-if-missing
 		CGO_LDFLAGS_ALLOW=\""(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"\" \
 		LD_LIBRARY_PATH=\"${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}\" \
 		CGO_ENABLED=\"1\" \
-		go test -v -mod=\"$(JUJU_GOMOD_MODE)\" -tags=\"$(FINAL_BUILD_TAGS)\" -ldflags \"${CGO_LINK_FLAGS}\"\'
+		go test -mod=\"$(JUJU_GOMOD_MODE)\" -tags=\"$(FINAL_BUILD_TAGS)\" -ldflags \"${CGO_LINK_FLAGS}\"\'
 
 .PHONY: install
 install: rebuild-schema go-install
