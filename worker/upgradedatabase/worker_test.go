@@ -107,12 +107,14 @@ func (s *workerSuite) TestWatchUpgradeCompleted(c *gc.C) {
 	// Walk through the upgrade process:
 	//  - Create Upgrade, but it's already started.
 	//  - Get the active upgrade.
+	//  - Get the upgrade info and ensure it's not in an error state.
 	//  - Watch for the upgrade to be completed.
 	//  - Watch for the upgrade to be failed, but do not act upon it.
 
 	srv := s.upgradeService.EXPECT()
 	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
+	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).Return(upgrade.Info{State: upgrade.Created}, nil)
 	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(nil)
 
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.DBCompleted).Return(completedWatcher, nil)
@@ -144,6 +146,192 @@ func (s *workerSuite) TestWatchUpgradeCompleted(c *gc.C) {
 	c.Check(err, jc.ErrorIs, dependency.ErrUninstall)
 }
 
+func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReady(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that the update hasn't already happened.
+	s.lock.EXPECT().IsUnlocked().Return(false)
+
+	cfg := s.getConfig()
+
+	chCompleted := make(chan struct{})
+	chFailed := make(chan struct{})
+
+	completedWatcher := watchertest.NewMockNotifyWatcher(chCompleted)
+	defer workertest.DirtyKill(c, completedWatcher)
+
+	failedWatcher := watchertest.NewMockNotifyWatcher(chFailed)
+	defer workertest.DirtyKill(c, failedWatcher)
+
+	// Walk through the upgrade process:
+	//  - Create Upgrade, but it's already started.
+	//  - Get the active upgrade.
+	//  - Get the upgrade info and ensure it's not in an error state.
+	//  - Set controller ready, but fails.
+	//  - Set upgrade failed, so it causes everyone else to bounce.
+
+	done := make(chan struct{})
+
+	srv := s.upgradeService.EXPECT()
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
+	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
+	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).Return(upgrade.Info{State: upgrade.Created}, nil)
+	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(errors.Errorf("boom"))
+	srv.SetDBUpgradeFailed(gomock.Any(), s.upgradeUUID).DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID) error {
+		defer close(done)
+		return nil
+	})
+
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.DBCompleted).Return(completedWatcher, nil)
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
+
+	w, err := NewUpgradeDatabaseWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Dispatch the initial event.
+	s.dispatchChange(c, chCompleted)
+	s.dispatchChange(c, chFailed)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for unlock")
+	}
+
+	err = workertest.CheckKill(c, w)
+	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
+}
+
+func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReadyError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that the update hasn't already happened.
+	s.lock.EXPECT().IsUnlocked().Return(false)
+
+	cfg := s.getConfig()
+
+	chCompleted := make(chan struct{})
+	chFailed := make(chan struct{})
+
+	completedWatcher := watchertest.NewMockNotifyWatcher(chCompleted)
+	defer workertest.DirtyKill(c, completedWatcher)
+
+	failedWatcher := watchertest.NewMockNotifyWatcher(chFailed)
+	defer workertest.DirtyKill(c, failedWatcher)
+
+	// Walk through the upgrade process:
+	//  - Create Upgrade, but it's already started.
+	//  - Get the active upgrade.
+	//  - Get the upgrade info and ensure it's not in an error state.
+	//  - Set controller ready, but fails.
+	//  - Set upgrade failed also fails, which kills the worker causing manual intervention.
+
+	done := make(chan struct{})
+
+	srv := s.upgradeService.EXPECT()
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
+	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
+	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).Return(upgrade.Info{State: upgrade.Created}, nil)
+	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(errors.Errorf("boom"))
+	srv.SetDBUpgradeFailed(gomock.Any(), s.upgradeUUID).DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID) error {
+		defer close(done)
+		return errors.Errorf("boom")
+	})
+
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.DBCompleted).Return(completedWatcher, nil)
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
+
+	w, err := NewUpgradeDatabaseWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Dispatch the initial event.
+	s.dispatchChange(c, chCompleted)
+	s.dispatchChange(c, chFailed)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for unlock")
+	}
+
+	err = workertest.CheckKill(c, w)
+	c.Check(err, jc.ErrorIs, nil)
+}
+
+func (s *workerSuite) TestWatchUpgradeCompletedNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that the update hasn't already happened.
+	s.lock.EXPECT().IsUnlocked().Return(false)
+
+	cfg := s.getConfig()
+
+	// Walk through the upgrade process:
+	//  - Create Upgrade, but it's already started.
+	//  - Get the active upgrade.
+	//  - Get the upgrade info and returns not found.
+	//  - Cause the worker to bounce.
+
+	done := make(chan struct{})
+
+	srv := s.upgradeService.EXPECT()
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
+	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
+	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID) (upgrade.Info, error) {
+		defer close(done)
+		return upgrade.Info{State: upgrade.Created}, errors.NotFoundf("boom")
+	})
+
+	w, err := NewUpgradeDatabaseWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for unlock")
+	}
+
+	err = workertest.CheckKill(c, w)
+	c.Check(err, jc.ErrorIs, dependency.ErrBounce)
+}
+
+func (s *workerSuite) TestWatchUpgradeCompletedInErrorState(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Ensure that the update hasn't already happened.
+	s.lock.EXPECT().IsUnlocked().Return(false)
+
+	cfg := s.getConfig()
+
+	// Walk through the upgrade process:
+	//  - Create Upgrade, but it's already started.
+	//  - Get the active upgrade.
+	//  - Get the upgrade info and ensure it's not in an error state.
+	//  - Stop the worker, requires manual intervention.
+
+	done := make(chan struct{})
+
+	srv := s.upgradeService.EXPECT()
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
+	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
+	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID) (upgrade.Info, error) {
+		defer close(done)
+		return upgrade.Info{State: upgrade.Error}, nil
+	})
+
+	w, err := NewUpgradeDatabaseWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for unlock")
+	}
+
+	err = workertest.CheckKill(c, w)
+	c.Check(err, jc.ErrorIs, nil)
+}
+
 func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -164,6 +352,7 @@ func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
 	// Walk through the upgrade process:
 	//  - Create Upgrade, but it's already started.
 	//  - Get the active upgrade.
+	//  - Get the upgrade info and ensure it's not in an error state.
 	//  - Watch for the upgrade to be completed.
 	//  - Watch for the upgrade to be failed, but do not act upon it.
 	//  - Ensure that we _don't_ unlock the lock.
@@ -173,6 +362,7 @@ func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
 	srv := s.upgradeService.EXPECT()
 	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
+	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).Return(upgrade.Info{State: upgrade.Created}, nil)
 	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(nil)
 
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.DBCompleted).Return(completedWatcher, nil)
