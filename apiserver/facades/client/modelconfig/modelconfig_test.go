@@ -246,21 +246,14 @@ func (s *modelconfigSuite) TestModelSetCannotChangeBothDefaultSeriesAndDefaultBa
 }
 
 func (s *modelconfigSuite) TestModelSetCannotSetAuthorizedKeys(c *gc.C) {
-	originalFingerprints := `ssh-rsa aaa Juju:juju-client-key
-ssh-ed25519 bbb Juju:foo@bar
-ssh-rsa ccc Juju:juju-system-key`
-	old, err := config.New(config.UseDefaults, dummy.SampleConfig().Merge(coretesting.Attrs{
-		"authorized-keys": originalFingerprints,
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-	s.backend.old = old
+	// Try to set the authorized-keys model config.
 	args := params.ModelSet{
-		Config: map[string]interface{}{"authorized-keys": `ssh-rsa ddd Juju:juju-client-key
-ssh-ed25519 eee Juju:foo@bar
-ssh-rsa fff Juju:juju-system-key`},
+		Config: map[string]interface{}{"authorized-keys": "ssh-rsa new Juju:juju-client-key"},
 	}
-	err = s.api.ModelSet(args)
+	err := s.api.ModelSet(args)
 	c.Assert(err, gc.ErrorMatches, "authorized-keys cannot be set")
+	// Make sure the authorized-keys still contains its original value.
+	s.assertConfigValue(c, "authorized-keys", coretesting.FakeAuthKeys)
 }
 
 func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *gc.C) {
