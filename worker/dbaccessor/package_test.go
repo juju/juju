@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juju/clock"
 	jujutesting "github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -63,6 +64,12 @@ func (s *baseSuite) expectClock() {
 	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
 }
 
+func (s *baseSuite) expectWorkerRetry() {
+	s.clock.EXPECT().After(10 * time.Second).AnyTimes().DoAndReturn(func(d time.Duration) <-chan time.Time {
+		return clock.WallClock.After(10 * time.Millisecond)
+	})
+}
+
 func (s *baseSuite) setupTimer() chan time.Time {
 	s.timer.EXPECT().Stop().MinTimes(1)
 	s.clock.EXPECT().NewTimer(PollInterval).Return(s.timer)
@@ -103,6 +110,10 @@ func (s *baseSuite) expectNodeStartupAndShutdown() {
 	appExp.Client(gomock.Any()).Return(s.client, nil).MinTimes(1)
 	appExp.ID().Return(uint64(666))
 	appExp.Close().Return(nil)
+
+	// The worker created in openDatabase can retry if the dbApp isn't ready
+	// after it bounces.
+	s.expectWorkerRetry()
 }
 
 type dbBaseSuite struct {

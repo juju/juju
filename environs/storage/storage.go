@@ -80,23 +80,13 @@ type storageSimpleStreamsDataSource struct {
 	description   string
 	basePath      string
 	storage       StorageReader
-	allowRetry    bool
 	priority      int
 	requireSigned bool
 }
 
-// TestingGetAllowRetry is used in tests which need to see if allowRetry has been
-// set on a storageSimpleStreamsDataSource.
-func TestingGetAllowRetry(s simplestreams.DataSource) (bool, ok bool) {
-	if storageDataSource, ok := s.(*storageSimpleStreamsDataSource); ok {
-		return storageDataSource.allowRetry, ok
-	}
-	return false, false
-}
-
 // NewStorageSimpleStreamsDataSource returns a new datasource reading from the specified storage.
 func NewStorageSimpleStreamsDataSource(description string, storage StorageReader, basePath string, priority int, requireSigned bool) simplestreams.DataSource {
-	return &storageSimpleStreamsDataSource{description, basePath, storage, false, priority, requireSigned}
+	return &storageSimpleStreamsDataSource{description, basePath, storage, priority, requireSigned}
 }
 
 func (s *storageSimpleStreamsDataSource) relpath(storagePath string) string {
@@ -120,12 +110,7 @@ func (s *storageSimpleStreamsDataSource) Fetch(path string) (io.ReadCloser, stri
 	if err == nil {
 		dataURL = fullURL
 	}
-	// TODO(katco): 2016-08-09: lp:1611427
-	var attempt utils.AttemptStrategy
-	if s.allowRetry {
-		attempt = s.storage.DefaultConsistencyStrategy()
-	}
-	rc, err := GetWithRetry(s.storage, relpath, attempt)
+	rc, err := Get(s.storage, relpath)
 	if err != nil {
 		return nil, dataURL, err
 	}
@@ -140,11 +125,6 @@ func (s *storageSimpleStreamsDataSource) URL(path string) (string, error) {
 // PublicSigningKey is defined in simplestreams.DataSource.
 func (u *storageSimpleStreamsDataSource) PublicSigningKey() string {
 	return ""
-}
-
-// SetAllowRetry is defined in simplestreams.DataSource.
-func (s *storageSimpleStreamsDataSource) SetAllowRetry(allow bool) {
-	s.allowRetry = allow
 }
 
 // Priority is defined in simplestreams.DataSource.
