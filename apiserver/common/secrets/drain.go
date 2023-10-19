@@ -55,9 +55,6 @@ func NewSecretsDrainAPI(
 
 // GetSecretsToDrain returns metadata for the secrets that need to be drained.
 func (s *SecretsDrainAPI) GetSecretsToDrain() (params.ListSecretResults, error) {
-	// TODO: add secret owner arg:
-	// 1. charm owned secret: unitTag or app Tag;
-	// 2. model owned secret: modelTag.
 	modelConfig, err := s.model.ModelConfig()
 	if err != nil {
 		return params.ListSecretResults{}, errors.Trace(err)

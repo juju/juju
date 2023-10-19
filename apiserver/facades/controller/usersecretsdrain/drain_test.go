@@ -10,6 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain"
 	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -21,6 +22,7 @@ import (
 type drainSuite struct {
 	testing.IsolationSuite
 
+	authorizer   *facademocks.MockAuthorizer
 	secretsState *mocks.MockSecretsState
 	facade       *usersecretsdrain.SecretsDrainAPI
 }
@@ -30,6 +32,8 @@ var _ = gc.Suite(&drainSuite{})
 func (s *drainSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
+	s.authorizer.EXPECT().AuthController().Return(true)
 	s.secretsState = mocks.NewMockSecretsState(ctrl)
 
 	backendConfigGetter := func(backendIds []string, wantAll bool) (*provider.ModelBackendConfigInfo, error) {
@@ -71,23 +75,10 @@ func (s *drainSuite) setup(c *gc.C) *gomock.Controller {
 	}
 
 	var err error
-	s.facade, err = usersecretsdrain.NewTestAPI(s.secretsState, backendConfigGetter, drainConfigGetter)
+	s.facade, err = usersecretsdrain.NewTestAPI(s.authorizer, s.secretsState, backendConfigGetter, drainConfigGetter)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
-}
-
-func (s *drainSuite) TestNewSecretsDrainAPI(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	authorizer := mocks.NewMockAuthorizer(ctrl)
-	context := mocks.NewMockContext(ctrl)
-	context.EXPECT().Auth().Return(authorizer).AnyTimes()
-	authorizer.EXPECT().AuthController().Return(false)
-
-	_, err := usersecretsdrain.NewUserSecretsDrainAPI(context)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *drainSuite) TestGetSecretBackendConfigs(c *gc.C) {

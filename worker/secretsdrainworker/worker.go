@@ -119,7 +119,6 @@ func (w *Worker) loop() (err error) {
 			}
 			w.config.Logger.Debugf("got %d secrets to drain", len(secrets))
 			backends, err := w.config.SecretsBackendGetter()
-			w.config.Logger.Warningf("SecretsBackendGetter %#v, %#v", backends, err)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -133,9 +132,6 @@ func (w *Worker) loop() (err error) {
 }
 
 func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujusecrets.BackendsClient) (err error) {
-	defer func() {
-		w.config.Logger.Warningf("drain %s: %#v", md.Metadata.URI, err)
-	}()
 	var args []secretsdrain.ChangeSecretBackendArg
 	var cleanUpInExternalBackendFuncs []func() error
 	for _, revisionMeta := range md.Revisions {
