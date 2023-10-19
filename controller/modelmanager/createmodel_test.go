@@ -91,6 +91,26 @@ func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	c.Assert(validateCall.Args[1], gc.IsNil)
 }
 
+func (s *ModelConfigCreatorSuite) TestCreateModelCheckAuthorizedKeys(c *gc.C) {
+	authorizedKeys := `
+			ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDLNN6YxkRJ8liYGh9qymZi23lDRlFrD3ujGfcgkjqa7vOqBHJaWklaIW4vFX0XkYuhgnDlXREi7RRK+4I0XBD051LxADobguLXyeGoOhSRlLLThYMF7Ui8nNylLxY0MYpKUIE6ejve2DHtrwGXBJBUXGJr8z5gKuIZD9J39B3ld1e7v2fpK3SqQ84H8mSZxPBbZqA0NIoq9wl+ke780fYsDxBpsAJhaZW2SjCqcrmNc3m9HgYwzeHhsXDZN2xonoyK2UVMGCsqR0vTHZNpnhME4FdGsmK6WIRMq+z5Mxrw3rSYIgbWi1uACfSsPeBMXmkWORujZrf1w1OKoy1dKeWp juju-client-key
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCwvae4M/oc+p5d3vj5TBS/4Mx+us5nVuMBgpYCQYq1Bk+QyfyefVfhQwuILAhmzehKnxUse1kGERQ0wNCtn7wU/HhvAuzQBWkxMvShyO9x7GS+4cDEGhkhMGGCu5NvBBCvp24+WdNeqsvoMDRHtBO1kFVc3FQZ01IjR+FTAICW5hE8e7ssCFK+pIDa8TI44rz41grytVJ1iACvaXc7nTyFZg95EXxSurPv0EnO82Gxfdt4bkiSXPXQqNcTLNiJ2oKRyDVYAjZNIr2Yf+UGCK9fy0VAdM7dwVZ9FOQX430blrDpDNo096+FXs2MoRB5SLzueZo2Eurya5OxcYpfIkdrzNpgAUgiL7cVURCh0+xJrIX/Ow9Axle+GvDcWAS9aZsRO+nsJ9Mry0zGWN/2IAEEZY9KVr7YO8xcCJ/yZ2gFXhyRAjD2oNBBrIfwpFNHZ35TbT5znmTX1wrJapLPyXqosGHZed8FkTDIyocCZzDlB0PpuBzUtjWp8gKwrPNsBGzTMvso3Qah3xOiznc7DTBCeSf2mqsX+6iY6p2k4YmF9LST+hepbgF4WW8Y3xgSuJ510TE3wtf/QZXDjQY+r7+yLraHSlE6CzQvL07snDyn4NHqfGw3GMAT71dpoa7WVGWW4HdcpCa8ALCtOx1GpyaydFANwNuwr1wOMQuY/9R5dw== juju-system-key
+`
+	baseConfig, err := config.New(
+		config.UseDefaults,
+		coretesting.FakeConfig().Merge(coretesting.Attrs{
+			"type":            "fake",
+			"restricted":      "area51",
+			"agent-version":   "2.0.0",
+			"authorized-keys": authorizedKeys,
+		}),
+	)
+	c.Check(err, jc.ErrorIsNil)
+	cfg, err := s.newModelConfig(coretesting.Attrs(baseConfig.AllAttrs()))
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(cfg.AuthorizedKeys(), jc.DeepEquals, authorizedKeys)
+}
+
 func (s *ModelConfigCreatorSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 	cfg, err := s.newModelConfig(coretesting.Attrs(
 		s.baseConfig.AllAttrs(),
