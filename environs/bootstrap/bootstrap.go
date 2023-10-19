@@ -987,10 +987,13 @@ func bootstrapImageMetadata(
 	var publicImageMetadata []*imagemetadata.ImageMetadata
 	for _, source := range sources {
 		sourceMetadata, _, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{source}, imageConstraint)
-		if err != nil {
+		if errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized) {
 			logger.Debugf("ignoring image metadata in %s: %v", source.Description(), err)
 			// Just keep looking...
 			continue
+		} else if err != nil {
+			// When we get an actual protocol/unexpected error, we need to stop.
+			return nil, errors.Annotatef(err, "failed looking for image metadata in %s", source.Description())
 		}
 		logger.Debugf("found %d image metadata in %s", len(sourceMetadata), source.Description())
 		publicImageMetadata = append(publicImageMetadata, sourceMetadata...)
@@ -1141,7 +1144,7 @@ func setPrivateMetadataSources(fetcher imagemetadata.SimplestreamsFetcher, metad
 	}
 	existingMetadata, _, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{dataSource}, imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Annotate(err, "cannot read image metadata")
+		return nil, errors.Annotatef(err, "cannot read image metadata in %s", dataSource.Description())
 	}
 
 	// Add an image metadata datasource for constraint validation, etc.
