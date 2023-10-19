@@ -261,7 +261,7 @@ type defaultsCommandAPI interface {
 // Info implements part of the cmd.Command interface.
 func (c *defaultsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Args:     "[[<cloud>/]<region> ]<model-key>[<=value>] ...]",
+		Args:     "[<model-key>[<=value>] ...]",
 		Doc:      modelDefaultsHelpDoc,
 		Name:     "model-defaults",
 		Purpose:  modelDefaultsSummary,
