@@ -4,6 +4,8 @@
 package resources
 
 import (
+	"context"
+
 	charmresource "github.com/juju/charm/v11/resource"
 
 	corecharm "github.com/juju/juju/core/charm"
@@ -12,12 +14,12 @@ import (
 // NewCharmRepository defines methods required by the resources
 // facade specific to an individual repository type.
 type NewCharmRepository interface {
-	ResolveResources(resources []charmresource.Resource, id corecharm.CharmID) ([]charmresource.Resource, error)
+	ResolveResources(ctx context.Context, resources []charmresource.Resource, id corecharm.CharmID) ([]charmresource.Resource, error)
 }
 
 type localClient struct{}
 
-func (lc *localClient) ResolveResources(resources []charmresource.Resource, _ corecharm.CharmID) ([]charmresource.Resource, error) {
+func (lc *localClient) ResolveResources(ctx context.Context, resources []charmresource.Resource, _ corecharm.CharmID) ([]charmresource.Resource, error) {
 	var resolved []charmresource.Resource
 	for _, res := range resources {
 		resolved = append(resolved, charmresource.Resource{

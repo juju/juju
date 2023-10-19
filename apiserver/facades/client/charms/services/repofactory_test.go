@@ -4,6 +4,8 @@
 package services_test
 
 import (
+	"context"
+
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -39,7 +41,7 @@ func (s *repoFactoryTestSuite) TestGetCharmHubRepository(c *gc.C) {
 
 	s.modelBackend.EXPECT().Config().Return(modelCfg, nil)
 
-	repo, err := s.repoFactory.GetCharmRepository(corecharm.CharmHub)
+	repo, err := s.repoFactory.GetCharmRepository(context.Background(), corecharm.CharmHub)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(repo, gc.FitsTypeOf, new(repository.CharmHubRepository), gc.Commentf("expected to get a CharmHubRepository instance"))
 }
@@ -56,11 +58,11 @@ func (s *repoFactoryTestSuite) TestGetCharmRepositoryMemoization(c *gc.C) {
 
 	s.modelBackend.EXPECT().Config().Return(modelCfg, nil)
 
-	repo1, err := s.repoFactory.GetCharmRepository(corecharm.CharmHub)
+	repo1, err := s.repoFactory.GetCharmRepository(context.Background(), corecharm.CharmHub)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(repo1, gc.FitsTypeOf, new(repository.CharmHubRepository), gc.Commentf("expected to get a CharmHubRepository instance"))
 
-	repo2, err := s.repoFactory.GetCharmRepository(corecharm.CharmHub)
+	repo2, err := s.repoFactory.GetCharmRepository(context.Background(), corecharm.CharmHub)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(repo2, gc.FitsTypeOf, new(repository.CharmHubRepository), gc.Commentf("expected to get a CharmHubRepository instance"))
 

@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	url "net/url"
 	reflect "reflect"
 
@@ -37,9 +38,9 @@ func (m *MockCharmRepository) EXPECT() *MockCharmRepositoryMockRecorder {
 }
 
 // DownloadCharm mocks base method.
-func (m *MockCharmRepository) DownloadCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 string) (charm0.CharmArchive, charm0.Origin, error) {
+func (m *MockCharmRepository) DownloadCharm(arg0 context.Context, arg1 *charm.URL, arg2 charm0.Origin, arg3 string) (charm0.CharmArchive, charm0.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "DownloadCharm", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(charm0.CharmArchive)
 	ret1, _ := ret[1].(charm0.Origin)
 	ret2, _ := ret[2].(error)
@@ -47,15 +48,15 @@ func (m *MockCharmRepository) DownloadCharm(arg0 *charm.URL, arg1 charm0.Origin,
 }
 
 // DownloadCharm indicates an expected call of DownloadCharm.
-func (mr *MockCharmRepositoryMockRecorder) DownloadCharm(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockCharmRepositoryMockRecorder) DownloadCharm(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadCharm", reflect.TypeOf((*MockCharmRepository)(nil).DownloadCharm), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadCharm", reflect.TypeOf((*MockCharmRepository)(nil).DownloadCharm), arg0, arg1, arg2, arg3)
 }
 
 // GetDownloadURL mocks base method.
-func (m *MockCharmRepository) GetDownloadURL(arg0 *charm.URL, arg1 charm0.Origin) (*url.URL, charm0.Origin, error) {
+func (m *MockCharmRepository) GetDownloadURL(arg0 context.Context, arg1 *charm.URL, arg2 charm0.Origin) (*url.URL, charm0.Origin, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDownloadURL", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetDownloadURL", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*url.URL)
 	ret1, _ := ret[1].(charm0.Origin)
 	ret2, _ := ret[2].(error)
@@ -63,15 +64,15 @@ func (m *MockCharmRepository) GetDownloadURL(arg0 *charm.URL, arg1 charm0.Origin
 }
 
 // GetDownloadURL indicates an expected call of GetDownloadURL.
-func (mr *MockCharmRepositoryMockRecorder) GetDownloadURL(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockCharmRepositoryMockRecorder) GetDownloadURL(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDownloadURL", reflect.TypeOf((*MockCharmRepository)(nil).GetDownloadURL), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDownloadURL", reflect.TypeOf((*MockCharmRepository)(nil).GetDownloadURL), arg0, arg1, arg2)
 }
 
 // ResolveWithPreferredChannel mocks base method.
-func (m *MockCharmRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 charm0.Origin) (*charm.URL, charm0.Origin, []charm0.Platform, error) {
+func (m *MockCharmRepository) ResolveWithPreferredChannel(arg0 context.Context, arg1 *charm.URL, arg2 charm0.Origin) (*charm.URL, charm0.Origin, []charm0.Platform, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1)
+	ret := m.ctrl.Call(m, "ResolveWithPreferredChannel", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*charm.URL)
 	ret1, _ := ret[1].(charm0.Origin)
 	ret2, _ := ret[2].([]charm0.Platform)
@@ -80,7 +81,7 @@ func (m *MockCharmRepository) ResolveWithPreferredChannel(arg0 *charm.URL, arg1 
 }
 
 // ResolveWithPreferredChannel indicates an expected call of ResolveWithPreferredChannel.
-func (mr *MockCharmRepositoryMockRecorder) ResolveWithPreferredChannel(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockCharmRepositoryMockRecorder) ResolveWithPreferredChannel(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveWithPreferredChannel", reflect.TypeOf((*MockCharmRepository)(nil).ResolveWithPreferredChannel), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveWithPreferredChannel", reflect.TypeOf((*MockCharmRepository)(nil).ResolveWithPreferredChannel), arg0, arg1, arg2)
 }

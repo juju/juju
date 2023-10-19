@@ -666,7 +666,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesValidate(
 		}
 	}
 
-	validations, err := mm.upgradeSeriesAPI.Validate(entities)
+	validations, err := mm.upgradeSeriesAPI.Validate(ctx, entities)
 	if err != nil {
 		return params.UpgradeSeriesUnitsResults{}, apiservererrors.ServerError(err)
 	}
@@ -692,7 +692,7 @@ func (mm *MachineManagerAPI) UpgradeSeriesPrepare(ctx context.Context, arg param
 	if err := mm.check.ChangeAllowed(ctx); err != nil {
 		return params.ErrorResult{}, err
 	}
-	if err := mm.upgradeSeriesAPI.Prepare(arg.Entity.Tag, arg.Channel, arg.Force); err != nil {
+	if err := mm.upgradeSeriesAPI.Prepare(ctx, arg.Entity.Tag, arg.Channel, arg.Force); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil

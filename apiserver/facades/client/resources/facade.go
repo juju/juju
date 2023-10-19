@@ -163,7 +163,7 @@ func (a *API) AddPendingResources(ctx context.Context, args params.AddPendingRes
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
 	}
-	ids, err := a.addPendingResources(applicationID, args.URL, requestedOrigin, args.Resources)
+	ids, err := a.addPendingResources(ctx, applicationID, args.URL, requestedOrigin, args.Resources)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -172,7 +172,7 @@ func (a *API) AddPendingResources(ctx context.Context, args params.AddPendingRes
 	return result, nil
 }
 
-func (a *API) addPendingResources(appName, chRef string, origin corecharm.Origin, apiResources []params.CharmResource) ([]string, error) {
+func (a *API) addPendingResources(ctx context.Context, appName, chRef string, origin corecharm.Origin, apiResources []params.CharmResource) ([]string, error) {
 	var resources []charmresource.Resource
 	for _, apiRes := range apiResources {
 		res, err := apiresources.API2CharmResource(apiRes)
@@ -195,7 +195,7 @@ func (a *API) addPendingResources(appName, chRef string, origin corecharm.Origin
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		resources, err = repository.ResolveResources(resources, id)
+		resources, err = repository.ResolveResources(ctx, resources, id)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

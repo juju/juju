@@ -4,6 +4,8 @@
 package machinemanager_test
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -51,7 +53,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
 	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(corebase.MakeDefaultBase("ubuntu", "20.04"),
 		corebase.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(nil)
-	validator.EXPECT().ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false).Return(nil)
+	validator.EXPECT().ValidateApplications(gomock.Any(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false).Return(nil)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 	validator.EXPECT().ValidateUnits(units).Return(nil)
 
@@ -63,7 +65,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidate(c *gc.C) {
 	}
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
-	result, err := api.Validate(entities)
+	result, err := api.Validate(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []machinemanager.ValidationResult{
 		{UnitNames: []string{"foo/0"}},
@@ -94,7 +96,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateWithValidateBase(c *gc.C) {
 	}
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
-	result, err := api.Validate(entities)
+	result, err := api.Validate(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result[0].Error, gc.ErrorMatches, `boom`)
 }
@@ -117,7 +119,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateApplications(c *gc.C) {
 	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(corebase.MakeDefaultBase("ubuntu", "20.04"),
 		corebase.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(nil)
-	validator.EXPECT().ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false).Return(errors.New("boom"))
+	validator.EXPECT().ValidateApplications(gomock.Any(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false).Return(errors.New("boom"))
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
 	authorizer := mocks.NewMockAuthorizer(ctrl)
@@ -128,7 +130,7 @@ func (s *UpgradeSeriesSuiteValidate) TestValidateApplications(c *gc.C) {
 	}
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
-	result, err := api.Validate(entities)
+	result, err := api.Validate(context.Background(), entities)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result[0].Error, gc.ErrorMatches, `boom`)
 }
@@ -165,13 +167,13 @@ func (s UpgradeSeriesSuitePrepare) TestPrepare(c *gc.C) {
 	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(corebase.MakeDefaultBase("ubuntu", "20.04"),
 		corebase.MakeDefaultBase("ubuntu", "18.04"), "machine-0")
-	validator.EXPECT().ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	validator.EXPECT().ValidateApplications(gomock.Any(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
-	err := api.Prepare("machine-0", "20.04", false)
+	err := api.Prepare(context.Background(), "machine-0", "20.04", false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -202,13 +204,13 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollback(c *gc.C) {
 	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(corebase.MakeDefaultBase("ubuntu", "20.04"),
 		corebase.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(nil)
-	validator.EXPECT().ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	validator.EXPECT().ValidateApplications(gomock.Any(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
-	err := api.Prepare("machine-0", "20.04", false)
+	err := api.Prepare(context.Background(), "machine-0", "20.04", false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
@@ -239,13 +241,13 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareWithRollbackError(c *gc.C) {
 	validator := mocks.NewMockUpgradeBaseValidator(ctrl)
 	validator.EXPECT().ValidateBase(corebase.MakeDefaultBase("ubuntu", "20.04"),
 		corebase.MakeDefaultBase("ubuntu", "18.04"), "machine-0").Return(nil)
-	validator.EXPECT().ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	validator.EXPECT().ValidateApplications(gomock.Any(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	validator.EXPECT().ValidateMachine(machine).Return(nil)
 
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
-	err := api.Prepare("machine-0", "20.04", false)
+	err := api.Prepare(context.Background(), "machine-0", "20.04", false)
 	c.Assert(err, gc.ErrorMatches, `boom occurred while cleaning up from: bad`)
 }
 
@@ -265,7 +267,7 @@ func (s UpgradeSeriesSuitePrepare) TestPrepareValidationFailure(c *gc.C) {
 	authorizer := mocks.NewMockAuthorizer(ctrl)
 
 	api := machinemanager.NewUpgradeSeriesAPI(state, validator, authorizer)
-	err := api.Prepare("machine-0", "20.04", false)
+	err := api.Prepare(context.Background(), "machine-0", "20.04", false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
@@ -293,13 +295,13 @@ func (s ValidatorSuite) TestValidateApplications(c *gc.C) {
 	}
 
 	localValidator := mocks.NewMockUpgradeBaseValidator(ctrl)
-	localValidator.EXPECT().ValidateApplications([]machinemanager.Application{localApp}, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	localValidator.EXPECT().ValidateApplications(gomock.Any(), []machinemanager.Application{localApp}, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	remoteValidator := mocks.NewMockUpgradeBaseValidator(ctrl)
-	remoteValidator.EXPECT().ValidateApplications([]machinemanager.Application{charmhubApp}, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	remoteValidator.EXPECT().ValidateApplications(gomock.Any(), []machinemanager.Application{charmhubApp}, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 
 	validator := machinemanager.NewTestUpgradeSeriesValidator(localValidator, remoteValidator)
 
-	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplications(context.Background(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -312,13 +314,13 @@ func (s ValidatorSuite) TestValidateApplicationsWithNoOrigin(c *gc.C) {
 	applications := []machinemanager.Application{application}
 
 	localValidator := mocks.NewMockUpgradeBaseValidator(ctrl)
-	localValidator.EXPECT().ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	localValidator.EXPECT().ValidateApplications(gomock.Any(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	remoteValidator := mocks.NewMockUpgradeBaseValidator(ctrl)
-	remoteValidator.EXPECT().ValidateApplications([]machinemanager.Application(nil), corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	remoteValidator.EXPECT().ValidateApplications(gomock.Any(), []machinemanager.Application(nil), corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 
 	validator := machinemanager.NewTestUpgradeSeriesValidator(localValidator, remoteValidator)
 
-	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplications(context.Background(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -432,7 +434,7 @@ func (s StateValidatorSuite) TestValidateApplications(c *gc.C) {
 	applications := []machinemanager.Application{application}
 
 	validator := machinemanager.NewTestStateSeriesValidator()
-	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplications(context.Background(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -452,7 +454,7 @@ func (s StateValidatorSuite) TestValidateApplicationsWithNoBases(c *gc.C) {
 	applications := []machinemanager.Application{application}
 
 	validator := machinemanager.NewTestStateSeriesValidator()
-	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplications(context.Background(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `charm "my-charm" does not support any bases. Not valid`)
 }
 
@@ -473,7 +475,7 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc
 	applications := []machinemanager.Application{application}
 
 	validator := machinemanager.NewTestStateSeriesValidator()
-	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplications(context.Background(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `base "ubuntu@20.04" not supported by charm "my-charm", supported bases are: ubuntu@16.04, ubuntu@18.04`)
 }
 
@@ -491,7 +493,7 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeriesWithFo
 	applications := []machinemanager.Application{application}
 
 	validator := machinemanager.NewTestStateSeriesValidator()
-	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
+	err := validator.ValidateApplications(context.Background(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -528,7 +530,7 @@ func (s CharmhubValidatorSuite) TestValidateApplications(c *gc.C) {
 	applications := []machinemanager.Application{application}
 
 	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
-	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplications(context.Background(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -545,7 +547,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithNoRevision(c *gc.C) 
 	applications := []machinemanager.Application{application}
 
 	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
-	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplications(context.Background(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `no revision found for application "foo"`)
 }
 
@@ -574,7 +576,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithClientRefreshError(c
 	applications := []machinemanager.Application{application}
 
 	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
-	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplications(context.Background(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `bad`)
 }
 
@@ -605,7 +607,7 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshError(c *gc.C
 	applications := []machinemanager.Application{application}
 
 	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
-	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
+	err := validator.ValidateApplications(context.Background(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), false)
 	c.Assert(err, gc.ErrorMatches, `unable to locate application with base ubuntu@20.04: bad`)
 }
 
@@ -639,6 +641,6 @@ func (s CharmhubValidatorSuite) TestValidateApplicationsWithRefreshErrorAndForce
 	applications := []machinemanager.Application{application}
 
 	validator := machinemanager.NewTestCharmhubSeriesValidator(client)
-	err := validator.ValidateApplications(applications, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
+	err := validator.ValidateApplications(context.Background(), applications, corebase.MakeDefaultBase("ubuntu", "20.04"), true)
 	c.Assert(err, jc.ErrorIsNil)
 }

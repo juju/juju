@@ -4,6 +4,7 @@
 package services
 
 import (
+	"context"
 	"sync"
 
 	"github.com/juju/errors"
@@ -54,7 +55,7 @@ func NewCharmRepoFactory(cfg CharmRepoFactoryConfig) *CharmRepoFactory {
 
 // GetCharmRepository returns a suitable corecharm.Repository instance for the
 // requested source. Lookups are memoized for future requests.
-func (f *CharmRepoFactory) GetCharmRepository(src corecharm.Source) (corecharm.Repository, error) {
+func (f *CharmRepoFactory) GetCharmRepository(ctx context.Context, src corecharm.Source) (corecharm.Repository, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 

@@ -4,6 +4,8 @@
 package services
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -58,8 +60,8 @@ type repoFactoryShim struct {
 }
 
 // GetCharmRepository implements charmdownloader.RepositoryGetter.
-func (s repoFactoryShim) GetCharmRepository(src corecharm.Source) (charmdownloader.CharmRepository, error) {
-	repo, err := s.factory.GetCharmRepository(src)
+func (s repoFactoryShim) GetCharmRepository(ctx context.Context, src corecharm.Source) (charmdownloader.CharmRepository, error) {
+	repo, err := s.factory.GetCharmRepository(ctx, src)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

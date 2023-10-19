@@ -134,7 +134,7 @@ func (c *BootstrapCommand) deployControllerCharm(ctx context.Context, objectStor
 var (
 	newCharmRepo = func(cfg services.CharmRepoFactoryConfig) (corecharm.Repository, error) {
 		charmRepoFactory := services.NewCharmRepoFactory(cfg)
-		return charmRepoFactory.GetCharmRepository(corecharm.CharmHub)
+		return charmRepoFactory.GetCharmRepository(context.TODO(), corecharm.CharmHub)
 	}
 	newCharmDownloader = func(cfg services.CharmDownloaderConfig) (interfaces.Downloader, error) {
 		return services.NewCharmDownloader(cfg)
@@ -190,7 +190,7 @@ func populateStoreControllerCharm(ctx context.Context, objectStore services.Stor
 	// error response.
 	//
 	// The controller charm doesn't have any series specific code.
-	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(curl, origin)
+	curl, origin, _, err = charmRepo.ResolveWithPreferredChannel(context.TODO(), curl, origin)
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "resolving %q", controllerCharmURL)
 	}

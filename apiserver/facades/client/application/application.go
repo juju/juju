@@ -924,13 +924,13 @@ func (api *APIBase) UpdateApplicationBase(ctx context.Context, args params.Updat
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
 	for i, arg := range args.Args {
-		err := api.updateOneApplicationBase(arg)
+		err := api.updateOneApplicationBase(ctx, arg)
 		results.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return results, nil
 }
 
-func (api *APIBase) updateOneApplicationBase(arg params.UpdateChannelArg) error {
+func (api *APIBase) updateOneApplicationBase(ctx context.Context, arg params.UpdateChannelArg) error {
 	var argBase corebase.Base
 	if arg.Channel != "" {
 		appTag, err := names.ParseTag(arg.Entity.Tag)
@@ -947,7 +947,7 @@ func (api *APIBase) updateOneApplicationBase(arg params.UpdateChannelArg) error 
 			return errors.Trace(err)
 		}
 	}
-	return api.updateBase.UpdateBase(arg.Entity.Tag, argBase, arg.Force)
+	return api.updateBase.UpdateBase(ctx, arg.Entity.Tag, argBase, arg.Force)
 }
 
 // SetCharm sets the charm for a given for the application.
@@ -2932,7 +2932,7 @@ func (api *APIBase) DeployFromRepository(ctx context.Context, args params.Deploy
 
 	results := make([]params.DeployFromRepositoryResult, len(args.Args))
 	for i, entity := range args.Args {
-		info, pending, errs := api.repoDeploy.DeployFromRepository(entity)
+		info, pending, errs := api.repoDeploy.DeployFromRepository(ctx, entity)
 		if len(errs) > 0 {
 			results[i].Errors = apiservererrors.ServerErrors(errs)
 			continue

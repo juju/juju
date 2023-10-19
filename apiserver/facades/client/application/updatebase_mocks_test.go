@@ -717,17 +717,17 @@ func (m *MockUpdateBaseValidator) EXPECT() *MockUpdateBaseValidatorMockRecorder 
 }
 
 // ValidateApplication mocks base method.
-func (m *MockUpdateBaseValidator) ValidateApplication(arg0 Application, arg1 base.Base, arg2 bool) error {
+func (m *MockUpdateBaseValidator) ValidateApplication(arg0 context.Context, arg1 Application, arg2 base.Base, arg3 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateApplication", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ValidateApplication", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ValidateApplication indicates an expected call of ValidateApplication.
-func (mr *MockUpdateBaseValidatorMockRecorder) ValidateApplication(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockUpdateBaseValidatorMockRecorder) ValidateApplication(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateApplication", reflect.TypeOf((*MockUpdateBaseValidator)(nil).ValidateApplication), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateApplication", reflect.TypeOf((*MockUpdateBaseValidator)(nil).ValidateApplication), arg0, arg1, arg2, arg3)
 }
 
 // MockCharmhubClient is a mock of CharmhubClient interface.
