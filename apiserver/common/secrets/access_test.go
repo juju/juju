@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func (s *secretsSuite) TestCanManageOwnerUnit(c *gc.C) {
@@ -61,6 +62,24 @@ func (s *secretsSuite) TestCanManageAppTagLogin(c *gc.C) {
 	secretsConsumer := mocks.NewMockSecretsConsumer(ctrl)
 	leadershipChecker := mocks.NewMockChecker(ctrl)
 	authTag := names.NewApplicationTag("mariadb")
+
+	uri := coresecrets.NewURI()
+	gomock.InOrder(
+		secretsConsumer.EXPECT().SecretAccess(uri, authTag).Return(coresecrets.RoleManage, nil),
+	)
+
+	t, err := secrets.CanManage(secretsConsumer, leadershipChecker, authTag, uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(t.Check(), jc.ErrorIsNil)
+}
+
+func (s *secretsSuite) TestCanManageUserSecrets(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	secretsConsumer := mocks.NewMockSecretsConsumer(ctrl)
+	leadershipChecker := mocks.NewMockChecker(ctrl)
+	authTag := coretesting.ModelTag
 
 	uri := coresecrets.NewURI()
 	gomock.InOrder(

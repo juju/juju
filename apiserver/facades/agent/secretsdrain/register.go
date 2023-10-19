@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/state"
@@ -16,12 +17,12 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SecretsDrain", 1, func(ctx facade.Context) (facade.Facade, error) {
-		return NewSecretManagerAPI(ctx)
-	}, reflect.TypeOf((*SecretsDrainAPI)(nil)))
+		return newSecretsDrainAPI(ctx)
+	}, reflect.TypeOf((*commonsecrets.SecretsDrainAPI)(nil)))
 }
 
-// NewSecretManagerAPI creates a SecretsDrainAPI.
-func NewSecretManagerAPI(context facade.Context) (*SecretsDrainAPI, error) {
+// newSecretsDrainAPI creates a SecretsDrainAPI.
+func newSecretsDrainAPI(context facade.Context) (*commonsecrets.SecretsDrainAPI, error) {
 	if !context.Auth().AuthUnitAgent() && !context.Auth().AuthApplicationAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
@@ -33,12 +34,14 @@ func NewSecretManagerAPI(context facade.Context) (*SecretsDrainAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &SecretsDrainAPI{
-		authTag:           context.Auth().GetAuthTag(),
-		leadershipChecker: leadershipChecker,
-		secretsState:      state.NewSecrets(context.State()),
-		resources:         context.Resources(),
-		secretsConsumer:   context.State(),
-		model:             model,
-	}, nil
+	authTag := context.Auth().GetAuthTag()
+	return commonsecrets.NewSecretsDrainAPI(
+		authTag,
+		context.Auth(),
+		context.Resources(),
+		leadershipChecker,
+		commonsecrets.SecretsModel(model),
+		state.NewSecrets(context.State()),
+		context.State(),
+	)
 }

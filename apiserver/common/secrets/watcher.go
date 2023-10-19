@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretsdrain
+package secrets
 
 import (
 	"github.com/juju/errors"
@@ -77,7 +77,7 @@ func (w *secretBackendModelConfigWatcher) loop() error {
 			if !ok {
 				return errors.Errorf("event watcher closed")
 			}
-			changed, err := w.isSecretBackendChanged()
+			changed, err := w.processModelChange()
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -91,7 +91,7 @@ func (w *secretBackendModelConfigWatcher) loop() error {
 	}
 }
 
-func (w *secretBackendModelConfigWatcher) isSecretBackendChanged() (bool, error) {
+func (w *secretBackendModelConfigWatcher) processModelChange() (bool, error) {
 	modelConfig, err := w.modelConfigGetter.ModelConfig()
 	if err != nil {
 		return false, errors.Trace(err)

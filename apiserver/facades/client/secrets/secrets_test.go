@@ -351,6 +351,15 @@ func (s *SecretsSuite) assertCreateSecrets(c *gc.C, isInternal bool, finalStepFa
 		}
 		return &coresecrets.SecretMetadata{URI: uri}, nil
 	})
+	if !finalStepFailed {
+		s.secretConsumer.EXPECT().GrantSecretAccess(gomock.Any(), gomock.Any()).DoAndReturn(func(arg1 *coresecrets.URI, params state.SecretAccessParams) error {
+			c.Assert(arg1, gc.DeepEquals, uri)
+			c.Assert(params.Scope, gc.Equals, coretesting.ModelTag)
+			c.Assert(params.Subject, gc.Equals, coretesting.ModelTag)
+			c.Assert(params.Role, gc.Equals, coresecrets.RoleManage)
+			return nil
+		})
+	}
 	if finalStepFailed && !isInternal {
 		s.secretsBackend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
 	}

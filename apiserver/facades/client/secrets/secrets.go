@@ -322,6 +322,24 @@ func (s *SecretsAPI) createSecret(backend provider.SecretsBackend, arg params.Cr
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	defer func() {
+		if errOut != nil {
+			// If we failed to create the secret, we should delete the
+			// secret metadata from the state.
+			if _, err2 := s.secretsState.DeleteSecret(uri); err2 != nil {
+				logger.Errorf("failed to cleanup secret %q: %v", uri, err2)
+			}
+		}
+	}()
+	err = s.secretsConsumer.GrantSecretAccess(uri, state.SecretAccessParams{
+		LeaderToken: successfulToken{},
+		Scope:       secretOwner,
+		Subject:     secretOwner,
+		Role:        coresecrets.RoleManage,
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	return md.URI.String(), nil
 }
 

@@ -67,6 +67,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"storage-provisioner",
 		"undertaker",
 		"unit-assigner",
+		"user-secrets-drain-worker",
 		"valid-credential-flag",
 	})
 }
@@ -115,6 +116,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"state-cleaner",
 		"status-history-pruner",
 		"undertaker",
+		"user-secrets-drain-worker",
 		"valid-credential-flag",
 	})
 }
@@ -218,6 +220,17 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag"},
 
 	"secrets-pruner": {
+		"agent",
+		"api-caller",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"user-secrets-drain-worker": {
 		"agent",
 		"api-caller",
 		"environ-upgrade-gate",
@@ -452,6 +465,17 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"secrets-pruner": {
+		"agent",
+		"api-caller",
+		"environ-upgrade-gate",
+		"environ-upgraded-flag",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+	},
+
+	"user-secrets-drain-worker": {
 		"agent",
 		"api-caller",
 		"environ-upgrade-gate",

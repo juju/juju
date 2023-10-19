@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretdrainworker
+package secretsdrainworker
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/catacomb"
 
-	"github.com/juju/juju/api/agent/secretsdrain"
+	"github.com/juju/juju/api/common/secretsdrain"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	jujusecrets "github.com/juju/juju/secrets"
@@ -58,7 +58,7 @@ func (config Config) Validate() error {
 	return nil
 }
 
-// NewWorker returns a secretdrainworker Worker backed by config, or an error.
+// NewWorker returns a secretsdrainworker Worker backed by config, or an error.
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)

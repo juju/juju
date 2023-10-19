@@ -106,6 +106,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/statushistory"
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
+	"github.com/juju/juju/apiserver/facades/controller/usersecretsdrain"
 )
 
 // AllFacades returns a registry containing all known API facades.
@@ -203,6 +204,7 @@ func AllFacades() *facade.Registry {
 	secretsmanager.Register(registry)
 	secretsdrain.Register(registry)
 	usersecrets.Register(registry)
+	usersecretsdrain.Register(registry)
 	sshclient.Register(registry)
 	spaces.Register(registry)
 	statushistory.Register(registry)
