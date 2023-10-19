@@ -409,7 +409,7 @@ race-test:
 ## race-test: Verify Juju code using unit tests with the race detector enabled
 	+make run-tests TEST_ARGS="$(TEST_ARGS) -race"
 
-.PHONY: run-tests run-go-tests
+.PHONY: run-tests run-go-tests go-test-alias
 # Can't make the length of the TMP dir too long or it hits socket name length issues.
 run-tests: musl-install-if-missing dqlite-install-if-missing
 ## run-tests: Run the unit tests
