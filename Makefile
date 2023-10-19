@@ -177,10 +177,10 @@ ifeq ($(VERBOSE_CHECK), 1)
 endif
 
 define link_flags_version
-	-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) \
-	-X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) \
-	-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER) \
-	-X $(PROJECT)/version.GoBuildTags=$(FINAL_BUILD_TAGS)
+-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) \
+-X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) \
+-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER) \
+-X $(PROJECT)/version.GoBuildTags=$(FINAL_BUILD_TAGS)
 endef
 
 # Compile with debug flags if requested.
@@ -446,6 +446,18 @@ run-go-tests: musl-install-if-missing dqlite-install-if-missing
 		LD_LIBRARY_PATH="${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}" \
 		CGO_ENABLED=1 \
 		go test -v -mod=$(JUJU_GOMOD_MODE) -tags=$(FINAL_BUILD_TAGS) $(TEST_ARGS) $(CHECK_ARGS) -ldflags ${CGO_LINK_FLAGS} -test.timeout=$(TEST_TIMEOUT) ${TEST_PACKAGES} -check.v -check.f $(TEST_FILTER)
+
+go-test-alias: musl-install-if-missing dqlite-install-if-missing
+## go-test-alias: Prints out an alias command for easy running of tests.
+	$(eval PPATH := "PATH")
+	@echo alias jt=\'PATH=\"${MUSL_BIN_PATH}:$$${PPATH}\" \
+		CC=\"musl-gcc\" \
+		CGO_CFLAGS=\"-I${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}/include\" \
+		CGO_LDFLAGS=\"-L${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH} -luv -lraft -ldqlite -llz4 -lsqlite3\" \
+		CGO_LDFLAGS_ALLOW=\""(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"\" \
+		LD_LIBRARY_PATH=\"${DQLITE_EXTRACTED_DEPS_ARCHIVE_PATH}\" \
+		CGO_ENABLED=\"1\" \
+		go test -v -mod=\"$(JUJU_GOMOD_MODE)\" -tags=\"$(FINAL_BUILD_TAGS)\" -ldflags \"${CGO_LINK_FLAGS}\"\'
 
 .PHONY: install
 install: rebuild-schema go-install
