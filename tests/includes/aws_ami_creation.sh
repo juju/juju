@@ -71,7 +71,8 @@ create_ami_and_wait_available() {
 	echo "Created instance for ami builder: ${instance_id_ami_builder}"
 
 	# Create the ami from the ec2 instance_id
-	ami_id=$(aws ec2 create-image --instance-id "${instance_id_ami_builder}" --name "test_ami_constraints" --description "Test ami used for constraints tests" --output text)
+	ami_name="ami_name_${instance_id_ami_builder}"
+	ami_id=$(aws ec2 create-image --instance-id "${instance_id_ami_builder}" --name "${ami_name}" --description "Test ami used for constraints tests" --output text)
 
 	aws ec2 wait image-available --image-ids "${ami_id}"
 	echo "${ami_id}" >>"${TEST_DIR}/ec2-amis"
