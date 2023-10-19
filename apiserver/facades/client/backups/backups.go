@@ -6,36 +6,13 @@ package backups
 import (
 	"context"
 
-	"github.com/juju/errors"
-	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	corebackups "github.com/juju/juju/core/backups"
-	corebase "github.com/juju/juju/core/base"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/backups"
 )
-
-// Backend exposes state.State functionality needed by the backups Facade.
-type Backend interface {
-	IsController() bool
-	Machine(id string) (Machine, error)
-	MachineBase(id string) (corebase.Base, error)
-	MongoSession() *mgo.Session
-	ModelTag() names.ModelTag
-	ModelType() state.ModelType
-	ControllerTag() names.ControllerTag
-	ModelConfig(context.Context) (*config.Config, error)
-	ControllerConfig() (controller.Config, error)
-	StateServingInfo() (controller.StateServingInfo, error)
-	ControllerNodes() ([]state.ControllerNode, error)
-}
 
 // ControllerConfigService is an interface that provides the controller config.
 type ControllerConfigService interface {
@@ -45,7 +22,6 @@ type ControllerConfigService interface {
 
 // API provides backup-specific API methods.
 type API struct {
-	backend                 Backend
 	controllerConfigService ControllerConfigService
 	paths                   *corebackups.Paths
 
@@ -55,51 +31,28 @@ type API struct {
 
 // NewAPI creates a new instance of the Backups API facade.
 func NewAPI(
-	backend Backend,
 	controllerConfigService ControllerConfigService,
 	authorizer facade.Authorizer,
 	machineTag names.Tag,
 	dataDir, logDir string,
 ) (*API, error) {
-	err := authorizer.HasPermission(permission.SuperuserAccess, backend.ControllerTag())
-	if err != nil &&
-		!errors.Is(err, authentication.ErrorEntityMissingPermission) &&
-		!errors.Is(err, errors.NotFound) {
-		return nil, errors.Trace(err)
-	}
-	isControllerAdmin := err == nil
+	// TODO (manadart 2023-10-11) Restore this assignment based on super-user
+	// access to the controller when re-implemented for Dqlite.
+	isControllerAdmin := true
 
 	if !authorizer.AuthClient() || !isControllerAdmin {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	// For now, backup operations are only permitted on the controller model.
-	if !backend.IsController() {
-		return nil, errors.New("backups are only supported from the controller model\nUse juju switch to select the controller model")
-	}
-
-	if backend.ModelType() == state.ModelTypeCAAS {
-		return nil, errors.NotSupportedf("backups on kubernetes controllers")
-	}
-
-	modelConfig, err := backend.ModelConfig(context.TODO())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	backupDir := backups.BackupDirToUse(modelConfig.BackupDir())
 	paths := corebackups.Paths{
-		BackupDir: backupDir,
-		DataDir:   dataDir,
-		LogsDir:   logDir,
+		DataDir: dataDir,
+		LogsDir: logDir,
 	}
 
 	b := API{
-		backend:                 backend,
 		controllerConfigService: controllerConfigService,
 		paths:                   &paths,
 		machineID:               machineTag.Id(),
 	}
 	return &b, nil
 }
-
-var newBackups = backups.NewBackups
