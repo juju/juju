@@ -21,12 +21,24 @@ type PreUpgradeStepsFunc func(_ agent.Config, isController bool) error
 // PreUpgradeSteps runs various checks and prepares for performing an upgrade.
 // If any check fails, an error is returned which aborts the upgrade.
 func PreUpgradeSteps(agentConf agent.Config, isController bool) error {
-	// TODO (stickupkid): For CAAS related models, we can skip this. Until
-	// we have a way to determine if a model is CAAS or not, we'll just
-	// run this for all models.
 	if err := CheckFreeDiskSpace(agentConf.DataDir(), MinDiskSpaceMib); err != nil {
 		return errors.Trace(err)
 	}
+	if isController {
+		// Update distro info in case the new Juju controller version
+		// is aware of new supported series. We'll keep going if this
+		// fails, and the user can manually update it if they need to.
+		logger.Infof("updating distro-info")
+		err := updateDistroInfo()
+		return errors.Annotate(err, "failed to update distro-info")
+	}
+	return nil
+}
+
+// PreUpgradeStepsCAAS runs various checks for CAAS and prepares for
+// performing an upgrade. If any check fails, an error is returned which
+// aborts the upgrade.
+func PreUpgradeStepsCAAS(agentConf agent.Config, isController bool) error {
 	if isController {
 		// Update distro info in case the new Juju controller version
 		// is aware of new supported series. We'll keep going if this

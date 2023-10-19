@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	_ "github.com/juju/juju/provider/all" // Import the providers.
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/dbaccessor"
@@ -267,7 +268,13 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		bufferedLogger,
 		dbaccessor.NewTrackedDBWorker,
 		addons.DefaultIntrospectionSocketName,
-		upgrades.PreUpgradeSteps,
+		func(mt state.ModelType) upgrades.PreUpgradeStepsFunc {
+			if mt == state.ModelTypeCAAS {
+				return upgrades.PreUpgradeStepsCAAS
+			}
+			return upgrades.PreUpgradeSteps
+		},
+		upgrades.PerformUpgradeSteps,
 		"",
 	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))

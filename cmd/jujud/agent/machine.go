@@ -93,6 +93,13 @@ import (
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
+type (
+	// The following allows the upgrade steps to be overridden by brittle
+	// integration tests.
+	PreUpgradeStepsFunc func(state.ModelType) upgrades.PreUpgradeStepsFunc
+	UpgradeStepsFunc    = upgrades.UpgradeStepsFunc
+)
+
 var (
 	logger            = loggo.GetLogger("juju.cmd.jujud")
 	jujuExec          = paths.JujuExec(paths.CurrentOS())
@@ -275,7 +282,8 @@ func MachineAgentFactoryFn(
 	bufferedLogger *logsender.BufferedLogWriter,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	newIntrospectionSocketName func(names.Tag) string,
-	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
+	preUpgradeSteps PreUpgradeStepsFunc,
+	upgradeSteps UpgradeStepsFunc,
 	rootDir string,
 ) machineAgentFactoryFnType {
 	return func(agentTag names.Tag, isCaasAgent bool) (*MachineAgent, error) {
@@ -293,6 +301,7 @@ func MachineAgentFactoryFn(
 			newDBWorkerFunc,
 			newIntrospectionSocketName,
 			preUpgradeSteps,
+			upgradeSteps,
 			rootDir,
 			isCaasAgent,
 		)
@@ -308,7 +317,8 @@ func NewMachineAgent(
 	loopDeviceManager looputil.LoopDeviceManager,
 	newDBWorkerFunc dbaccessor.NewDBWorkerFunc,
 	newIntrospectionSocketName func(names.Tag) string,
-	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
+	preUpgradeSteps PreUpgradeStepsFunc,
+	upgradeSteps UpgradeStepsFunc,
 	rootDir string,
 	isCaasAgent bool,
 ) (*MachineAgent, error) {
@@ -333,6 +343,7 @@ func NewMachineAgent(
 		mongoTxnCollector:           mongometrics.NewTxnCollector(),
 		mongoDialCollector:          mongometrics.NewDialCollector(),
 		preUpgradeSteps:             preUpgradeSteps,
+		upgradeSteps:                upgradeSteps,
 		isCaasAgent:                 isCaasAgent,
 		cmdRunner:                   &defaultRunner{},
 	}
@@ -415,7 +426,11 @@ type MachineAgent struct {
 	prometheusRegistry         *prometheus.Registry
 	mongoTxnCollector          *mongometrics.TxnCollector
 	mongoDialCollector         *mongometrics.DialCollector
-	preUpgradeSteps            upgrades.PreUpgradeStepsFunc
+
+	// To allow for testing in legacy tests (brittle integration tests), we
+	// need to override these.
+	preUpgradeSteps PreUpgradeStepsFunc
+	upgradeSteps    UpgradeStepsFunc
 
 	centralHub    *pubsub.StructuredHub
 	pubsubMetrics *centralhub.PubsubMetrics
@@ -607,9 +622,9 @@ func (a *MachineAgent) makeEngineCreator(
 			UpgradeCheckLock:     a.initialUpgradeCheckComplete,
 			NewDBWorkerFunc:      a.newDBWorkerFunc,
 			OpenStatePool:        a.initState,
-			OpenStateForUpgrade:  a.openStateForUpgrade,
 			MachineStartup:       a.machineStartup,
 			PreUpgradeSteps:      a.preUpgradeSteps,
+			UpgradeSteps:         a.upgradeSteps,
 			LogSource:            a.bufferedLogger.Logs(),
 			NewDeployContext:     deployer.NewNestedContext,
 			Clock:                clock.WallClock,
@@ -817,59 +832,6 @@ func (a *MachineAgent) Restart() error {
 	// TODO(bootstrap): revisit here to make it only invoked by IAAS.
 	name := a.CurrentConfig().Value(agent.AgentServiceName)
 	return service.Restart(name)
-}
-
-// openStateForUpgrade exists to be passed into the upgradesteps
-// worker. The upgradesteps worker opens state independently of the
-// state worker so that it isn't affected by the state worker's
-// lifetime. It ensures the MongoDB server is configured and started,
-// and then opens a state connection.
-//
-// TODO(mjs)- review the need for this once the dependency engine is
-// in use. Why can't upgradesteps depend on the main state connection?
-func (a *MachineAgent) openStateForUpgrade() (*state.StatePool, upgradesteps.SystemState, error) {
-	agentConfig := a.CurrentConfig()
-	info, ok := agentConfig.MongoInfo()
-	if !ok {
-		return nil, nil, errors.New("no state info available")
-	}
-	dialOpts, err := mongoDialOptions(
-		mongo.DefaultDialOpts(),
-		agentConfig,
-		a.mongoDialCollector,
-	)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	session, err := mongo.DialWithInfo(*info, dialOpts)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	defer session.Close()
-
-	pool, err := state.OpenStatePool(state.OpenParams{
-		Clock:              clock.WallClock,
-		ControllerTag:      agentConfig.Controller(),
-		ControllerModelTag: agentConfig.Model(),
-		MongoSession:       session,
-		// state.InitDatabase is idempotent and needs to be called just
-		// prior to performing any upgrades since a new Juju binary may
-		// declare new indices or explicit collections.
-		// NB until https://jira.mongodb.org/browse/SERVER-1864 is resolved,
-		// it is not possible to resize capped collections so there's no
-		// point in reading existing controller config from state in order
-		// to pass in the max-txn-log-size value.
-		InitDatabaseFunc:       state.InitDatabase,
-		RunTransactionObserver: a.mongoTxnCollector.AfterRunTransaction,
-	})
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	st, err := pool.SystemState()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return pool, stateShim{st}, nil
 }
 
 // validateMigration is called by the migrationminion to help check

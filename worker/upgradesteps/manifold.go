@@ -4,8 +4,6 @@
 package upgradesteps
 
 import (
-	"context"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
@@ -14,9 +12,7 @@ import (
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/core/upgrade"
-	"github.com/juju/juju/core/watcher"
-	domainupgrade "github.com/juju/juju/domain/upgrade"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/worker/gate"
@@ -33,6 +29,12 @@ type Logger interface {
 	Warningf(string, ...any)
 	Infof(string, ...any)
 	Debugf(string, ...any)
+}
+
+// StatusSetter defines the single method required to set an agent's
+// status.
+type StatusSetter interface {
+	SetStatus(setableStatus status.Status, info string, data map[string]any) error
 }
 
 // ManifoldConfig defines the names of the manifolds on which a
@@ -90,8 +92,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			// Get the agent.
-			var localAgent agent.Agent
-			if err := context.Get(config.AgentName, &localAgent); err != nil {
+			var agent agent.Agent
+			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -107,73 +109,51 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			agentTag := agent.CurrentConfig().Tag()
+			isController, err := apiagent.IsController(apiCaller, agentTag)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			if !isController {
+				// Create a new machine worker. As this is purely a
+				// machine worker, we don't need to worry about the
+				// upgrade service.
+				return NewMachineWorker(
+					upgradeStepsLock,
+					agent,
+					apiCaller,
+					config.PreUpgradeSteps,
+					config.UpgradeSteps,
+					config.Logger,
+				)
+			}
+
 			// Get a component capable of setting machine status
 			// to indicate progress to the user.
 			statusSetter, err := config.NewAgentStatusSetter(apiCaller)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			// Application tag for CAAS operator; controller,
-			// machine or unit tag for agents.
-			agentTag := localAgent.CurrentConfig().Tag()
-			isController, err := apiagent.IsController(apiCaller, agentTag)
-			if err != nil {
+
+			// Service factory is used to get the upgrade service and
+			// then we can locate all the model uuids.
+			var serviceFactoryGetter servicefactory.ControllerServiceFactory
+			if err := context.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
 				return nil, errors.Trace(err)
 			}
 
-			var upgradeService UpgradeService
-			if isController {
-				// Service factory is used to get the upgrade service and
-				// then we can locate all the model uuids.
-				var serviceFactoryGetter servicefactory.ControllerServiceFactory
-				if err := context.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
-					return nil, errors.Trace(err)
-				}
-				upgradeService = serviceFactoryGetter.Upgrade()
-			} else {
-				// Set a default upgrade service that does nothing. This is
-				// to prevent any potential panics.
-				upgradeService = noopUpgradeService{}
-			}
-
-			return NewWorker(
+			return NewControllerWorker(
 				upgradeStepsLock,
-				localAgent,
+				agent,
 				apiCaller,
-				upgradeService,
-				isController,
-				agentTag,
+				serviceFactoryGetter.Upgrade(),
 				config.PreUpgradeSteps,
 				config.UpgradeSteps,
 				statusSetter,
 				config.Logger,
+				config.Clock,
 			)
 		},
 	}
-}
-
-type noopUpgradeService struct{}
-
-// SetControllerDone marks the supplied controllerID as having
-// completed its upgrades. When SetControllerDone is called by the
-// last provisioned controller, the upgrade will be archived.
-func (noopUpgradeService) SetControllerDone(ctx context.Context, upgradeUUID domainupgrade.UUID, controllerID string) error {
-	return errors.NotSupportedf("not running on controller, set controller done")
-}
-
-// ActiveUpgrade returns the uuid of the current active upgrade.
-// If there are no active upgrades, return a NotFound error
-func (noopUpgradeService) ActiveUpgrade(ctx context.Context) (domainupgrade.UUID, error) {
-	return domainupgrade.UUID(""), errors.NotSupportedf("not running on controller, active upgrade")
-}
-
-// UpgradeInfo returns the upgrade info for the given upgrade.
-func (noopUpgradeService) UpgradeInfo(ctx context.Context, upgradeUUID domainupgrade.UUID) (upgrade.Info, error) {
-	return upgrade.Info{}, errors.NotSupportedf("not running on controller, upgrade info")
-}
-
-// WatchForUpgradeState creates a watcher which notifies when the upgrade
-// has reached the given state.
-func (noopUpgradeService) WatchForUpgradeState(ctx context.Context, upgradeUUID domainupgrade.UUID, state upgrade.State) (watcher.NotifyWatcher, error) {
-	return nil, errors.NotSupportedf("not running on controller, watch for upgrade state")
 }
