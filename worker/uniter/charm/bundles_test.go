@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -68,7 +68,7 @@ func (s *BundlesDirSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm) {
-	curl := corecharm.MustParseURL("ch:quantal/dummy-1")
+	curl := jujucharm.MustParseURL("ch:quantal/dummy-1")
 	bun := testcharms.Repo.CharmDir("dummy")
 	sch, err := testing.AddCharm(s.State, curl, bun, false)
 	c.Assert(err, jc.ErrorIsNil)
@@ -153,7 +153,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 }
 
 func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {
-	actual := bun.(*corecharm.CharmArchive)
+	actual := bun.(*jujucharm.CharmArchive)
 	c.Assert(actual.Revision(), gc.Equals, sch.Revision())
 	c.Assert(actual.Meta(), gc.DeepEquals, sch.Meta())
 	c.Assert(actual.Config(), gc.DeepEquals, sch.Config())

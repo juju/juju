@@ -4,6 +4,9 @@
 package provisioner_test
 
 import (
+	"net/http"
+	"net/http/httptest"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -35,9 +38,16 @@ var _ = gc.Suite(&ImageMetadataSuite{})
 func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
 	s.provisionerSuite.SetUpSuite(c)
 
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+	}))
+	s.AddCleanup(func(c *gc.C) {
+		server.Close()
+	})
+
 	// Make sure that there is nothing in data sources.
 	// Each individual tests will decide if it needs metadata there.
-	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:/daily")
+	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, server.URL)
 	s.PatchValue(&imagemetadata.SimplestreamsImagesPublicKey, sstesting.SignedMetadataPublicKey)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	useTestImageData(c, nil)
@@ -151,6 +161,7 @@ func (s *ImageMetadataSuite) assertImageMetadataResults(
 ) {
 	c.Assert(obtained.Results, gc.HasLen, len(expected))
 	for i, one := range obtained.Results {
+		c.Assert(one.Error, gc.IsNil)
 		// We are only concerned with images here
 		c.Assert(one.Result.ImageMetadata, gc.DeepEquals, expected[i])
 	}

@@ -6,6 +6,8 @@ package bootstrap_test
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -574,6 +576,12 @@ func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEn
 // despite image metadata in other data sources compatible with the same configuration as well.
 // Related to bug#1560625.
 func (s *bootstrapSuite) TestBootstrapImageMetadataFromAllSources(c *gc.C) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(404)
+	}))
+	defer server.Close()
+
+	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, server.URL)
 	s.PatchValue(&osseries.HostSeries, func() (string, error) { return "raring", nil })
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 

@@ -16,7 +16,7 @@ import (
 	"time"
 
 	pebbleclient "github.com/canonical/pebble/client"
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -338,7 +338,7 @@ func (s createCharm) step(c *gc.C, ctx *testContext) {
 	if len(s.badHooks) > 0 {
 		ctx.runner.hooksWithErrors = set.NewStrings(s.badHooks...)
 	}
-	dir, err := corecharm.ReadCharmDir(base)
+	dir, err := jujucharm.ReadCharmDir(base)
 	c.Assert(err, jc.ErrorIsNil)
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, jc.ErrorIsNil)
@@ -346,7 +346,7 @@ func (s createCharm) step(c *gc.C, ctx *testContext) {
 }
 
 type addCharm struct {
-	dir  *corecharm.CharmDir
+	dir  *jujucharm.CharmDir
 	curl string
 }
 
@@ -997,7 +997,7 @@ func (s updateStatusHookTick) step(c *gc.C, ctx *testContext) {
 type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *gc.C, ctx *testContext) {
-	err := ctx.application.UpdateCharmConfig(model.GenerationMaster, corecharm.Settings(s))
+	err := ctx.application.UpdateCharmConfig(model.GenerationMaster, jujucharm.Settings(s))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1380,7 +1380,7 @@ var subordinateDying = custom{func(c *gc.C, ctx *testContext) {
 }}
 
 func curl(revision int) string {
-	return corecharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision).String()
+	return jujucharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision).String()
 }
 
 type hookLock struct {
