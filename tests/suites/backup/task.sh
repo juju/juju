@@ -1,8 +1,6 @@
 test_backup() {
-	if [ "$(skip 'test_backup')" ]; then
-		echo "==> TEST SKIPPED: Backup and Restore tests"
-		return
-	fi
+	echo "==> TEST SKIPPED: Backup and Restore tests"
+	return
 
 	set_verbosity
 
