@@ -4,6 +4,7 @@
 package agentconfigupdater_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/loggo"
@@ -20,11 +21,13 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agentconfigupdater"
+	"github.com/juju/juju/worker/trace"
 )
 
 type AgentConfigUpdaterSuite struct {
@@ -41,6 +44,7 @@ func (s *AgentConfigUpdaterSuite) SetUpTest(c *gc.C) {
 		AgentName:      "agent",
 		APICallerName:  "api-caller",
 		CentralHubName: "central-hub",
+		TraceName:      "trace",
 		Logger:         logger,
 	})
 	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
@@ -53,6 +57,7 @@ func (s *AgentConfigUpdaterSuite) TestInputs(c *gc.C) {
 		"agent",
 		"api-caller",
 		"central-hub",
+		"trace",
 	})
 }
 
@@ -112,6 +117,7 @@ func (s *AgentConfigUpdaterSuite) TestEntityLookupFailure(c *gc.C) {
 		"agent":       a,
 		"api-caller":  apiCaller,
 		"central-hub": s.hub,
+		"trace":       coretrace.NoopTracer{},
 	})
 	w, err := s.manifold.Start(context)
 	c.Assert(w, gc.IsNil)
@@ -159,6 +165,7 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 		"agent":       &mockAgent{},
 		"api-caller":  apiCaller,
 		"central-hub": dependency.ErrMissing,
+		"trace":       stubTracerGetter{},
 	})
 	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
@@ -202,6 +209,7 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissingFirstPass(c *gc.C) {
 		"agent":       agent,
 		"api-caller":  apiCaller,
 		"central-hub": dependency.ErrMissing,
+		"trace":       stubTracerGetter{},
 	})
 	worker, err := s.manifold.Start(context)
 	c.Check(worker, gc.IsNil)
@@ -249,6 +257,7 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 		"agent":       a,
 		"api-caller":  apiCaller,
 		"central-hub": s.hub,
+		"trace":       stubTracerGetter{},
 	})
 	return s.manifold.Start(context)
 }
@@ -489,4 +498,12 @@ func (mc *mockConfig) SetOpenTelemetryStackTraces(enabled bool) {
 
 func (mc *mockConfig) LogDir() string {
 	return "log-dir"
+}
+
+type stubTracerGetter struct {
+	trace.TracerGetter
+}
+
+func (s stubTracerGetter) GetTracer(context.Context, coretrace.TracerNamespace) (coretrace.Tracer, error) {
+	return coretrace.NoopTracer{}, nil
 }

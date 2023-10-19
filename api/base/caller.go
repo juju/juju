@@ -13,9 +13,10 @@ import (
 	"github.com/juju/names/v4"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
-)
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/caller_mock.go github.com/juju/juju/api/base APICaller,FacadeCaller
+	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/rpc"
+)
 
 // APICaller is implemented by the client-facing State object.
 // It defines the lowest level of API calls and is used by
@@ -130,16 +131,58 @@ type facadeCaller struct {
 	facadeName  string
 	bestVersion int
 	caller      APICaller
+	tracer      coretrace.Tracer
 }
 
 var _ FacadeCaller = facadeCaller{}
 
+// NewFacadeCaller wraps an APICaller for a given facade name and the
+// best available version.
+func NewFacadeCaller(caller APICaller, facadeName string, options ...Option) FacadeCaller {
+	return NewFacadeCallerForVersion(caller, facadeName, caller.BestFacadeVersion(facadeName), options...)
+}
+
+// NewFacadeCallerForVersion wraps an APICaller for a given facade
+// name and version.
+func NewFacadeCallerForVersion(caller APICaller, facadeName string, version int, options ...Option) FacadeCaller {
+	fc := facadeCaller{
+		facadeName:  facadeName,
+		bestVersion: version,
+		caller:      caller,
+		tracer:      coretrace.NoopTracer{},
+	}
+
+	for _, option := range options {
+		fc = option(fc)
+	}
+
+	return fc
+}
+
 // FacadeCall will place a request against the API using the requested
 // Facade and the best version that the API server supports that is
 // also known to the client. (id is always passed as the empty string.)
-func (fc facadeCaller) FacadeCall(request string, params, response interface{}) error {
+func (fc facadeCaller) FacadeCall(request string, params, response interface{}) (err error) {
+	// context.TODO() is used here because the context isn't currently passed
+	// in via the FacadeCall. Once that's done, we can use the context that's
+	// passed in.
+	ctx := coretrace.WithTracer(context.TODO(), fc.tracer)
+
+	// The following trace is used to track the call to the facade.
+	ctx, span := coretrace.Start(ctx, coretrace.NameFromFunc(), coretrace.WithAttributes(
+		coretrace.StringAttr("call.facade", fc.facadeName),
+		coretrace.IntAttr("call.version", fc.bestVersion),
+		coretrace.StringAttr("call.request", request),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	scope := span.Scope()
+
 	return fc.caller.APICall(
-		context.TODO(),
+		rpc.WithTracing(ctx, scope.TraceID(), scope.SpanID()),
 		fc.facadeName, fc.bestVersion, "",
 		request, params, response,
 	)
@@ -165,18 +208,18 @@ func (fc facadeCaller) RawAPICaller() APICaller {
 	return fc.caller
 }
 
-// NewFacadeCaller wraps an APICaller for a given facade name and the
-// best available version.
-func NewFacadeCaller(caller APICaller, facadeName string) FacadeCaller {
-	return NewFacadeCallerForVersion(caller, facadeName, caller.BestFacadeVersion(facadeName))
+// Tracer returns the tracer to use for the facade caller.
+func (fc facadeCaller) Tracer() coretrace.Tracer {
+	return fc.tracer
 }
 
-// NewFacadeCallerForVersion wraps an APICaller for a given facade
-// name and version.
-func NewFacadeCallerForVersion(caller APICaller, facadeName string, version int) FacadeCaller {
-	return facadeCaller{
-		facadeName:  facadeName,
-		bestVersion: version,
-		caller:      caller,
+// Option is a function that can be used to configure a facade caller.
+type Option func(facadeCaller) facadeCaller
+
+// WithTracer sets the tracer to use for the facade caller.
+func WithTracer(tracer coretrace.Tracer) Option {
+	return func(o facadeCaller) facadeCaller {
+		o.tracer = tracer
+		return o
 	}
 }

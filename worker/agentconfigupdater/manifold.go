@@ -4,6 +4,8 @@
 package agentconfigupdater
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v3"
@@ -13,8 +15,11 @@ import (
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	coreagent "github.com/juju/juju/core/agent"
+	"github.com/juju/juju/core/database"
+	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/mongo"
 	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/trace"
 )
 
 // Logger defines the logging methods used by the worker.
@@ -32,6 +37,7 @@ type ManifoldConfig struct {
 	AgentName      string
 	APICallerName  string
 	CentralHubName string
+	TraceName      string
 	Logger         Logger
 }
 
@@ -45,6 +51,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 			config.CentralHubName,
+			config.TraceName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			// Get the agent.
@@ -73,13 +80,24 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, dependency.ErrUninstall
 			}
 
+			// Get the tracer from the context.
+			var tracerGetter trace.TracerGetter
+			if err := context.Get(config.TraceName, &tracerGetter); err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			tracer, err := tracerGetter.GetTracer(stdcontext.TODO(), coretrace.Namespace("agentconfigupdater", database.ControllerNS))
+			if err != nil {
+				tracer = coretrace.NoopTracer{}
+			}
+
 			// Do the initial state serving info and mongo profile checks
 			// before attempting to get the central hub. The central hub is only
 			// running when the agent is a controller. If the agent isn't a controller
 			// but should be, the agent config will not have any state serving info
 			// but the database will think that we should be. In those situations
 			// we need to update the local config and restart.
-			apiState, err := apiagent.NewClient(apiCaller)
+			apiState, err := apiagent.NewClient(apiCaller, apiagent.WithTracer(tracer))
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

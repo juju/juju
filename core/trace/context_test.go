@@ -54,6 +54,9 @@ func (stubTracer) Enabled() bool {
 
 type stubSpan struct{}
 
+// Scope returns the scope of the span.
+func (stubSpan) Scope() Scope { return nil }
+
 // AddEvent will record an event for this span. This is a manual mechanism
 // for recording an event, it is useful to log information about what
 // happened during the lifetime of a span.
