@@ -9,22 +9,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// stateUpgradeOperations returns an ordered slice of sets of
-// state-based operations needed to upgrade Juju to particular
-// version. The slice is ordered by target version, so that the sets
-// of operations are executed in order from oldest version to most
-// recent.
-//
-// All state-based operations are run before API-based operations
-// (below).
-var stateUpgradeOperations = func() []Operation {
-	steps := []Operation{
-		// Fill in when we have upgrade steps.
-		upgradeToVersion{version.MustParse("6.6.6"), []Step(nil)},
-	}
-	return steps
-}
-
 // upgradeOperations returns an ordered slice of sets of API-based
 // operations needed to upgrade Juju to particular version. As per the
 // state-based operations above, ordering is important.
@@ -41,10 +25,6 @@ type opsIterator struct {
 	to      version.Number
 	allOps  []Operation
 	current int
-}
-
-func newStateUpgradeOpsIterator(from version.Number) *opsIterator {
-	return newOpsIterator(from, jujuversion.Current, stateUpgradeOperations())
 }
 
 func newUpgradeOpsIterator(from version.Number) *opsIterator {

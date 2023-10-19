@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v3/voyeur"
@@ -27,7 +26,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/observability/probe"
 	proxy "github.com/juju/juju/internal/proxy/config"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agent"
@@ -253,15 +251,12 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
-			// Realistically,  operators should not open state for any reason.
-			OpenStateForUpgrade: func() (*state.StatePool, upgradesteps.SystemState, error) {
-				return nil, nil, errors.New("operator cannot open state")
-			},
-			PreUpgradeSteps: config.PreUpgradeSteps,
+			PreUpgradeSteps:      config.PreUpgradeSteps,
 			NewAgentStatusSetter: func(base.APICaller) (upgradesteps.StatusSetter, error) {
 				return &noopStatusSetter{}, nil
 			},
 			Logger: loggo.GetLogger("juju.worker.upgradesteps"),
+			Clock:  config.Clock,
 		})),
 
 		// The migration workers collaborate to run migrations;

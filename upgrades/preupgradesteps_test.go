@@ -24,7 +24,7 @@ var _ = gc.Suite(&preupgradechecksSuite{})
 func (s *preupgradechecksSuite) TestCheckFreeDiskSpace(c *gc.C) {
 	// Expect an impossibly large amount of free disk.
 	s.PatchValue(&upgrades.MinDiskSpaceMib, uint64(humanize.PiByte/humanize.MiByte))
-	err := upgrades.PreUpgradeSteps(&mockAgentConfig{dataDir: "/"}, false, false)
+	err := upgrades.PreUpgradeSteps(&mockAgentConfig{dataDir: "/"}, false)
 	c.Assert(err, gc.ErrorMatches, `not enough free disk space on "/" for upgrade: .* available, require 1073741824MiB`)
 }
 
@@ -36,16 +36,17 @@ func (s *preupgradechecksSuite) TestUpdateDistroInfo(c *gc.C) {
 	}
 
 	commandChan := s.HookCommandOutput(&pkgmgr.CommandOutput, nil, nil)
-	err := upgrades.PreUpgradeSteps(&mockAgentConfig{dataDir: "/"}, true, false)
+	err := upgrades.PreUpgradeSteps(&mockAgentConfig{dataDir: "/"}, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var commands []*exec.Cmd
+loop:
 	for i := 0; i < cap(expectedAptCommandArgs)+1; i++ {
 		select {
 		case cmd := <-commandChan:
 			commands = append(commands, cmd)
 		default:
-			break
+			break loop
 		}
 	}
 	if len(commands) != len(expectedAptCommandArgs) {

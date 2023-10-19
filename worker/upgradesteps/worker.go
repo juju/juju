@@ -4,6 +4,7 @@
 package upgradesteps
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -14,35 +15,38 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3"
-	"gopkg.in/tomb.v2"
+	"github.com/juju/worker/v3/catacomb"
+	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/upgrade"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
+	domainupgrade "github.com/juju/juju/domain/upgrade"
 	"github.com/juju/juju/internal/wrench"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 )
 
 const (
+	// ErrUpgradeStepsInvalidState is returned when the upgrade state is
+	// invalid. We expect it to be in the db completed state, if that's not the
+	// case, we can't proceed.
+	ErrUpgradeStepsInvalidState = errors.ConstError("invalid upgrade state")
+
+	// defaultUpgradeTimeout is the default timeout for the upgrade to complete.
+	// 10 minutes should be enough for the upgrade steps to complete.
+	defaultUpgradeTimeout = 10 * time.Minute
+
 	defaultRetryDelay    = 2 * time.Minute
 	defaultRetryAttempts = 5
 )
 
-// TODO (manadart 2021-05-18): These are exported for tests and in the case of
-// the timeout, for feature tests. That especially should be a dependency of the
-// worker.
-var (
-	PerformUpgrade = upgrades.PerformUpgrade
-
-	// UpgradeStartTimeoutController the maximum time a controller will
-	// wait for other controllers to come up and indicate they are ready
-	// to begin running upgrade steps.
-	UpgradeStartTimeoutController = time.Minute * 15
-)
+type PerformUpgradeFunc func(fromVersion version.Number, targets []upgrades.Target, context upgrades.Context) error
 
 // NewLock creates a gate.Lock to be used to synchronise workers which
 // need to start after upgrades have completed. The returned Lock should
@@ -74,47 +78,49 @@ func NewLock(agentConfig agent.Config) gate.Lock {
 // StatusSetter defines the single method required to set an agent's
 // status.
 type StatusSetter interface {
-	SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error
+	SetStatus(setableStatus status.Status, info string, data map[string]any) error
 }
 
-// SystemState defines the methods needed to query the system state for upgrade info.
-type SystemState interface {
-	EnsureUpgradeInfo(
-		controllerId string, previousVersion, targetVersion version.Number,
-	) (UpgradeInfo, error)
-	ModelType() (state.ModelType, error)
-}
-
-type UpgradeInfo interface {
-	SetControllerDone(controllerId string) error
-	Watch() state.NotifyWatcher
-	Refresh() error
-	AllProvisionedControllersReady() (bool, error)
-	SetStatus(status state.UpgradeStatus) error
-	Status() state.UpgradeStatus
-	Abort() error
+// UpgradeService is the interface for the upgrade service.
+type UpgradeService interface {
+	// SetControllerDone marks the supplied controllerID as having
+	// completed its upgrades. When SetControllerDone is called by the
+	// last provisioned controller, the upgrade will be archived.
+	SetControllerDone(ctx context.Context, upgradeUUID domainupgrade.UUID, controllerID string) error
+	// ActiveUpgrade returns the uuid of the current active upgrade.
+	// If there are no active upgrades, return a NotFound error
+	ActiveUpgrade(ctx context.Context) (domainupgrade.UUID, error)
+	// // UpgradeInfo returns the upgrade info for the supplied upgradeUUID.
+	UpgradeInfo(ctx context.Context, upgradeUUID domainupgrade.UUID) (upgrade.Info, error)
+	// WatchForUpgradeState creates a watcher which notifies when the upgrade
+	// has reached the given state.
+	WatchForUpgradeState(ctx context.Context, upgradeUUID domainupgrade.UUID, state upgrade.State) (watcher.NotifyWatcher, error)
 }
 
 // NewWorker returns a new instance of the upgradeSteps worker. It
 // will run any required steps to upgrade to the currently running
 // Juju version.
 func NewWorker(
-	upgradeComplete gate.Lock,
+	upgradeCompleteLock gate.Lock,
 	agent agent.Agent,
 	apiCaller base.APICaller,
+	upgradeService UpgradeService,
 	isController bool,
-	openState func() (*state.StatePool, SystemState, error),
+	tag names.Tag,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
+	performUpgradeSteps upgrades.UpgradeStepsFunc,
 	entity StatusSetter,
 	logger Logger,
 ) (worker.Worker, error) {
 	return newWorker(
-		upgradeComplete,
+		upgradeCompleteLock,
 		agent,
 		apiCaller,
+		upgradeService,
 		isController,
-		openState,
+		tag,
 		preUpgradeSteps,
+		performUpgradeSteps,
 		entity,
 		logger,
 		defaultRetryDelay,
@@ -123,42 +129,52 @@ func NewWorker(
 }
 
 func newWorker(
-	upgradeComplete gate.Lock,
+	upgradeCompleteLock gate.Lock,
 	agent agent.Agent,
 	apiCaller base.APICaller,
+	upgradeService UpgradeService,
 	isController bool,
-	openState func() (*state.StatePool, SystemState, error),
-	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
+	tag names.Tag,
+	preUpgradeSteps PreUpgradeStepsFunc,
+	performUpgradeSteps UpgradeStepsFunc,
 	entity StatusSetter,
 	logger Logger,
 	retryDelay time.Duration,
 	retryAttempts int,
 ) (*upgradeSteps, error) {
 	w := &upgradeSteps{
-		upgradeComplete: upgradeComplete,
-		agent:           agent,
-		apiCaller:       apiCaller,
-		openState:       openState,
-		preUpgradeSteps: preUpgradeSteps,
-		entity:          entity,
-		tag:             agent.CurrentConfig().Tag(),
-		isController:    isController,
-		logger:          logger,
-		retryDelay:      retryDelay,
-		retryAttempts:   retryAttempts,
+		upgradeCompleteLock: upgradeCompleteLock,
+		agent:               agent,
+		apiCaller:           apiCaller,
+		upgradeService:      upgradeService,
+		preUpgradeSteps:     preUpgradeSteps,
+		performUpgradeSteps: performUpgradeSteps,
+		entity:              entity,
+		tag:                 tag,
+		isController:        isController,
+		logger:              logger,
+		retryDelay:          retryDelay,
+		retryAttempts:       retryAttempts,
 	}
-	w.tomb.Go(w.run)
+	if err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.run,
+	}); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return w, nil
 }
 
 type upgradeSteps struct {
-	tomb            tomb.Tomb
-	upgradeComplete gate.Lock
-	agent           agent.Agent
-	apiCaller       base.APICaller
-	openState       func() (*state.StatePool, SystemState, error)
-	preUpgradeSteps upgrades.PreUpgradeStepsFunc
-	entity          StatusSetter
+	catacomb            catacomb.Catacomb
+	upgradeCompleteLock gate.Lock
+	agent               agent.Agent
+	apiCaller           base.APICaller
+	upgradeService      UpgradeService
+	entity              StatusSetter
+
+	preUpgradeSteps     PreUpgradeStepsFunc
+	performUpgradeSteps UpgradeStepsFunc
 
 	fromVersion version.Number
 	toVersion   version.Number
@@ -166,10 +182,8 @@ type upgradeSteps struct {
 	// If the agent is a machine agent for a controller, flag that state
 	// needs to be opened before running upgrade steps
 	isController bool
-	isCaas       bool
-	systemState  SystemState
-	pool         *state.StatePool
 
+	clock  clock.Clock
 	logger Logger
 
 	retryDelay    time.Duration
@@ -178,12 +192,12 @@ type upgradeSteps struct {
 
 // Kill is part of the worker.Worker interface.
 func (w *upgradeSteps) Kill() {
-	w.tomb.Kill(nil)
+	w.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
 func (w *upgradeSteps) Wait() error {
-	return w.tomb.Wait()
+	return w.catacomb.Wait()
 }
 
 type apiLostDuringUpgrade struct {
@@ -212,7 +226,7 @@ func (w *upgradeSteps) run() error {
 		return nil // Make the worker stop
 	}
 
-	if w.upgradeComplete.IsUnlocked() {
+	if w.upgradeCompleteLock.IsUnlocked() {
 		// Our work is already done (we're probably being restarted
 		// because the API connection has gone down), so do nothing.
 		return nil
@@ -222,31 +236,14 @@ func (w *upgradeSteps) run() error {
 	w.toVersion = jujuversion.Current
 	if w.fromVersion == w.toVersion {
 		w.logger.Infof("upgrade to %v already completed.", w.toVersion)
-		w.upgradeComplete.Unlock()
+		w.upgradeCompleteLock.Unlock()
 		return nil
 	}
 
-	// We need a *state.State for upgrades. We open it independently
-	// of StateWorker, because we have no guarantees about when
-	// and how often StateWorker might run.
-	if w.isController {
-		var err error
-		if w.pool, w.systemState, err = w.openState(); err != nil {
-			return err
-		}
-		if err != nil {
-			return err
-		}
-		defer func() { _ = w.pool.Close() }()
+	ctx, cancel := w.scopedContext()
+	defer cancel()
 
-		modelType, err := w.systemState.ModelType()
-		if err != nil {
-			return err
-		}
-		w.isCaas = modelType == state.ModelTypeCAAS
-	}
-
-	if err := w.runUpgrades(); err != nil {
+	if err := w.runUpgrades(ctx); err != nil {
 		// Only return an error from the worker if the connection to
 		// state went away (possible mongo primary change). Returning
 		// an error when the connection is lost will cause the agent
@@ -259,99 +256,118 @@ func (w *upgradeSteps) run() error {
 			return err
 		}
 		w.reportUpgradeFailure(err, false)
-	} else {
-		// Upgrade succeeded - signal that the upgrade is complete.
-		w.logger.Infof("upgrade to %v completed successfully.", w.toVersion)
-		_ = w.entity.SetStatus(status.Started, "", nil)
-		w.upgradeComplete.Unlock()
 	}
+
+	// Upgrade succeeded - signal that the upgrade is complete.
+	w.logger.Infof("upgrade to %v completed successfully.", w.toVersion)
+	_ = w.entity.SetStatus(status.Started, "", nil)
+	w.upgradeCompleteLock.Unlock()
 	return nil
 }
 
 // runUpgrades runs the upgrade operations for each job type and
 // updates the updatedToVersion on success.
-func (w *upgradeSteps) runUpgrades() error {
-	upgradeInfo, err := w.prepareForUpgrade()
-	if err != nil {
-		return err
-	}
-
-	if wrench.IsActive(w.wrenchKey(), "fail-upgrade") {
-		return errors.New("wrench")
-	}
-
-	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err != nil {
-		return err
-	}
-
-	if err := w.finaliseUpgrade(upgradeInfo); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (w *upgradeSteps) prepareForUpgrade() (UpgradeInfo, error) {
+func (w *upgradeSteps) runUpgrades(ctx context.Context) error {
+	// Every upgrade needs to prepare the environment for the upgrade.
 	w.logger.Infof("checking that upgrade can proceed")
-	if err := w.preUpgradeSteps(w.agent.CurrentConfig(), w.isController, w.isCaas); err != nil {
-		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
+	if err := w.preUpgradeSteps(w.agent.CurrentConfig(), w.isController); err != nil {
+		return errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
 	}
 
-	if w.isController {
-		return w.prepareControllerForUpgrade()
-	}
-	return nil, nil
-}
-
-func (w *upgradeSteps) prepareControllerForUpgrade() (UpgradeInfo, error) {
-	w.logger.Infof("signalling that this controller is ready for upgrade")
-	info, err := w.systemState.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// controllers need to wait for other controllers to be ready
-	// to run the upgrade steps.
-	w.logger.Infof("waiting for other controllers to be ready for upgrade")
-	if err := w.waitForOtherControllers(info); err != nil {
-		if err == tomb.ErrDying {
-			w.logger.Warningf("stopped waiting for other controllers: %v", err)
-			return nil, err
+	// Handle the easy case first. All non-controller agents can just
+	// run the upgrade steps and then return.
+	if !w.isController {
+		w.logger.Infof("running upgrade steps for %q", w.tag)
+		if err := w.agent.ChangeConfig(w.runUpgradeSteps(ctx)); err != nil {
+			return errors.Annotatef(err, "failed to run upgrade steps")
 		}
-		w.logger.Errorf("aborted wait for other controllers: %v", err)
-		return nil, errors.Annotate(err, "aborted wait for other controllers")
 	}
 
-	w.logger.Infof("finished waiting - all controllers are ready to run upgrade steps")
-	return info, nil
-}
+	// This is the controller case. We need to ensure that all other
+	// controllers are ready to run upgrade steps before we proceed.
+	upgradeUUID, err := w.upgradeService.ActiveUpgrade(ctx)
+	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			// If there isn't an active upgrade, there isn't anything we can do
+			// other than bouncing the worker to see if it can pick it up
+			// next time.
+			w.logger.Errorf("no active upgrade located")
+			return dependency.ErrBounce
+		}
+		return errors.Trace(err)
+	}
 
-func (w *upgradeSteps) waitForOtherControllers(info UpgradeInfo) error {
-	watcher := info.Watch()
-	defer func() { _ = watcher.Stop() }()
+	// We should be already in the db completed state. Verify that.
+	info, err := w.upgradeService.UpgradeInfo(ctx, upgradeUUID)
+	if err != nil {
+		if errors.Is(err, errors.NotFound) {
+			// We can't locate the upgrade info, even though we located the
+			// active upgrade. This is a bad state to be in, so we'll bounce
+			// the worker to see if it can pick it up next time.
+			w.logger.Errorf("upgrade %q not found", upgradeUUID)
+			return dependency.ErrBounce
+		}
+		return errors.Trace(err)
+	}
 
-	maxWait := w.getUpgradeStartTimeout()
-	timeout := time.After(maxWait)
+	// We're not in the right state, so we can't proceed.
+	if info.State != upgrade.DBCompleted {
+		w.logger.Errorf("upgrade %q is not in the db completed state %q", upgradeUUID, info.State.String())
+		return ErrUpgradeStepsInvalidState
+	}
+
+	completedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, upgradeUUID, upgrade.StepsCompleted)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := w.addWatcher(ctx, completedWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	failedWatcher, err := w.upgradeService.WatchForUpgradeState(ctx, upgradeUUID, upgrade.Error)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := w.addWatcher(ctx, failedWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Run the upgrade steps in a goroutine so that we can watch for
+	// completion or failure.
+	go func() {
+		w.logger.Infof("running upgrade steps for %q", w.tag)
+		if err := w.agent.ChangeConfig(w.runUpgradeSteps(ctx)); err != nil {
+			w.logger.Errorf("failed to run upgrade steps: %v", err)
+		}
+		if err := w.upgradeService.SetControllerDone(ctx, upgradeUUID, w.tag.Id()); err == nil {
+			w.logger.Infof("upgrade steps completed for %q", w.tag)
+			return
+		}
+
+		// TODO (stickupkid): Set upgrade failed and bounce.
+	}()
+
 	for {
 		select {
-		case <-watcher.Changes():
-			if err := info.Refresh(); err != nil {
-				return errors.Trace(err)
-			}
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
 
-			allReady, err := info.AllProvisionedControllersReady()
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if allReady {
-				return errors.Trace(info.SetStatus(state.UpgradeRunning))
-			}
-		case <-timeout:
-			if err := info.Abort(); err != nil {
-				return errors.Annotate(err, "unable to abort upgrade")
-			}
-			return errors.Errorf("timed out after %s", maxWait)
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
+		case <-completedWatcher.Changes():
+			return nil
+
+		case <-failedWatcher.Changes():
+			// Other controllers have encountered an error, so we can't
+			// proceed.
+			w.logger.Errorf("upgrade failed")
+			return dependency.ErrBounce
+
+		case <-w.clock.After(defaultUpgradeTimeout):
+			// TODO (stickupkid): Set upgrade failed and bounce.
+			return dependency.ErrBounce
 		}
 	}
 }
@@ -362,51 +378,51 @@ func (w *upgradeSteps) waitForOtherControllers(info UpgradeInfo) error {
 //
 // This function conforms to the agent.ConfigMutator type and is
 // designed to be called via an agent's ChangeConfig method.
-func (w *upgradeSteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
-	if err := w.entity.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil); err != nil {
-		return errors.Trace(err)
+func (w *upgradeSteps) runUpgradeSteps(ctx context.Context) func(agentConfig agent.ConfigSetter) error {
+	return func(agentConfig agent.ConfigSetter) error {
+		if err := w.entity.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.toVersion), nil); err != nil {
+			return errors.Trace(err)
+		}
+
+		context := upgrades.NewContext(agentConfig, w.apiCaller)
+		w.logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
+
+		targets := upgradeTargets(w.isController)
+
+		retryStrategy := retry.CallArgs{
+			Clock:    clock.WallClock,
+			Delay:    w.retryDelay,
+			Attempts: w.retryAttempts,
+			IsFatalError: func(err error) bool {
+				// Abort if API connection has gone away!
+				breakable, ok := w.apiCaller.(agenterrors.Breakable)
+				if !ok {
+					return false
+				}
+				return agenterrors.ConnectionIsDead(w.logger, breakable)
+			},
+			NotifyFunc: func(lastErr error, attempt int) {
+				if attempt > 0 && attempt < w.retryAttempts {
+					w.reportUpgradeFailure(lastErr, true)
+				}
+			},
+			Func: func() error {
+				return w.performUpgradeSteps(w.fromVersion, targets, context)
+			},
+			Stop: ctx.Done(),
+		}
+
+		err := retry.Call(retryStrategy)
+		if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+			return retry.LastError(err)
+		}
+		if err != nil {
+			return &apiLostDuringUpgrade{err: err}
+		}
+
+		agentConfig.SetUpgradedToVersion(w.toVersion)
+		return nil
 	}
-
-	stBackend := upgrades.NewStateBackend(w.pool)
-	context := upgrades.NewContext(agentConfig, w.apiCaller, stBackend)
-	w.logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
-
-	targets := upgradeTargets(w.isController)
-
-	retryStrategy := retry.CallArgs{
-		Clock:    clock.WallClock,
-		Delay:    w.retryDelay,
-		Attempts: w.retryAttempts,
-		IsFatalError: func(err error) bool {
-			// Abort if API connection has gone away!
-			breakable, ok := w.apiCaller.(agenterrors.Breakable)
-			if !ok {
-				return false
-			}
-			return agenterrors.ConnectionIsDead(w.logger, breakable)
-		},
-		NotifyFunc: func(lastErr error, attempt int) {
-			if attempt > 0 && attempt < w.retryAttempts {
-				w.reportUpgradeFailure(lastErr, true)
-			}
-		},
-		Func: func() error {
-			err := PerformUpgrade(w.fromVersion, targets, context)
-			return err
-		},
-	}
-
-	err := retry.Call(retryStrategy)
-	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
-		err = retry.LastError(err)
-		return err
-	}
-	if err != nil {
-		return &apiLostDuringUpgrade{err}
-	}
-
-	agentConfig.SetUpgradedToVersion(w.toVersion)
-	return nil
 }
 
 func (w *upgradeSteps) reportUpgradeFailure(err error, willRetry bool) {
@@ -420,27 +436,23 @@ func (w *upgradeSteps) reportUpgradeFailure(err error, willRetry bool) {
 		fmt.Sprintf("upgrade to %v failed (%s): %v", w.toVersion, retryText, err), nil)
 }
 
-func (w *upgradeSteps) finaliseUpgrade(info UpgradeInfo) error {
-	if !w.isController {
-		return nil
+func (w *upgradeSteps) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
+func (w *upgradeSteps) addWatcher(ctx context.Context, watcher eventsource.Watcher[struct{}]) error {
+	if err := w.catacomb.Add(watcher); err != nil {
+		return errors.Trace(err)
 	}
 
-	if err := info.SetControllerDone(w.tag.Id()); err != nil {
-		return errors.Annotate(err, "upgrade done but failed to synchronise")
+	// Consume the initial events from the watchers. The notify watcher will
+	// dispatch an initial event when it is created, so we need to consume
+	// that event before we can start watching.
+	if _, err := eventsource.ConsumeInitialEvent[struct{}](ctx, watcher); err != nil {
+		return errors.Trace(err)
 	}
 
 	return nil
-}
-
-func (w *upgradeSteps) getUpgradeStartTimeout() time.Duration {
-	if wrench.IsActive(w.wrenchKey(), "short-upgrade-timeout") {
-		// This duration is fairly arbitrary. During manual testing it
-		// avoids the normal long wait but still provides a small
-		// window to check the environment status and logs before the
-		// timeout is triggered.
-		return time.Minute
-	}
-	return UpgradeStartTimeoutController
 }
 
 // upgradeTargets determines the upgrade targets corresponding to the

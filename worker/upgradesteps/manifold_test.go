@@ -4,12 +4,12 @@
 package upgradesteps
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/state"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -35,7 +35,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
-	cfg.OpenStateForUpgrade = nil
+	cfg.ServiceFactoryName = ""
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig(c)
@@ -45,6 +45,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig(c)
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
+
+	cfg = s.getConfig(c)
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
 func (s *manifoldSuite) getConfig(c *gc.C) ManifoldConfig {
@@ -52,13 +56,14 @@ func (s *manifoldSuite) getConfig(c *gc.C) ManifoldConfig {
 		AgentName:            "agent",
 		APICallerName:        "api-caller",
 		UpgradeStepsGateName: "upgrade-steps-lock",
-		OpenStateForUpgrade:  func() (*state.StatePool, SystemState, error) { return nil, nil, nil },
-		PreUpgradeSteps:      func(_ agent.Config, isController, isCaas bool) error { return nil },
+		ServiceFactoryName:   "service-factory",
+		PreUpgradeSteps:      func(_ agent.Config, isController bool) error { return nil },
 		Logger:               jujutesting.NewCheckLogger(c),
+		Clock:                clock.WallClock,
 	}
 }
 
-var expectedInputs = []string{"agent", "api-caller", "upgrade-steps-lock"}
+var expectedInputs = []string{"agent", "api-caller", "upgrade-steps-lock", "service-factory"}
 
 func (s *manifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(Manifold(s.getConfig(c)).Inputs, jc.SameContents, expectedInputs)

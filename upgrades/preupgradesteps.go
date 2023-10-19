@@ -16,15 +16,14 @@ import (
 // PreUpgradeStepsFunc is the function type of PreUpgradeSteps. This may be
 // used to provide an alternative to PreUpgradeSteps to the upgrade steps
 // worker.
-type PreUpgradeStepsFunc = func(_ agent.Config, isController, isCaas bool) error
+type PreUpgradeStepsFunc func(_ agent.Config, isController bool) error
 
 // PreUpgradeSteps runs various checks and prepares for performing an upgrade.
 // If any check fails, an error is returned which aborts the upgrade.
-func PreUpgradeSteps(agentConf agent.Config, isController, isCaas bool) error {
-	if isCaas {
-		logger.Debugf("skipping disk space checks for k8s controllers")
-		return nil
-	}
+func PreUpgradeSteps(agentConf agent.Config, isController bool) error {
+	// TODO (stickupkid): For CAAS related models, we can skip this. Until
+	// we have a way to determine if a model is CAAS or not, we'll just
+	// run this for all models.
 	if err := CheckFreeDiskSpace(agentConf.DataDir(), MinDiskSpaceMib); err != nil {
 		return errors.Trace(err)
 	}

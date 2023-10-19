@@ -4,6 +4,9 @@
 package upgradesteps
 
 import (
+	"context"
+
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -11,9 +14,17 @@ import (
 	"github.com/juju/juju/agent"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/upgrade"
+	"github.com/juju/juju/core/watcher"
+	domainupgrade "github.com/juju/juju/domain/upgrade"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/worker/gate"
+)
+
+type (
+	PreUpgradeStepsFunc = upgrades.PreUpgradeStepsFunc
+	UpgradeStepsFunc    = upgrades.UpgradeStepsFunc
 )
 
 // Logger defines the logging methods used by the worker.
@@ -30,10 +41,12 @@ type ManifoldConfig struct {
 	AgentName            string
 	APICallerName        string
 	UpgradeStepsGateName string
-	OpenStateForUpgrade  func() (*state.StatePool, SystemState, error)
+	ServiceFactoryName   string
 	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
+	UpgradeSteps         upgrades.UpgradeStepsFunc
 	NewAgentStatusSetter func(base.APICaller) (StatusSetter, error)
 	Logger               Logger
+	Clock                clock.Clock
 }
 
 // Validate checks that the config is valid.
@@ -47,14 +60,17 @@ func (c ManifoldConfig) Validate() error {
 	if c.UpgradeStepsGateName == "" {
 		return errors.NotValidf("empty UpgradeStepsGateName")
 	}
-	if c.OpenStateForUpgrade == nil {
-		return errors.NotValidf("nil OpenStateForUpgrade")
-	}
 	if c.PreUpgradeSteps == nil {
 		return errors.NotValidf("nil PreUpgradeSteps")
 	}
+	if c.UpgradeSteps == nil {
+		return errors.NotValidf("nil UpgradeSteps")
+	}
 	if c.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -105,16 +121,59 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			var upgradeService UpgradeService
+			if isController {
+				// Service factory is used to get the upgrade service and
+				// then we can locate all the model uuids.
+				var serviceFactoryGetter servicefactory.ControllerServiceFactory
+				if err := context.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
+					return nil, errors.Trace(err)
+				}
+				upgradeService = serviceFactoryGetter.Upgrade()
+			} else {
+				// Set a default upgrade service that does nothing. This is
+				// to prevent any potential panics.
+				upgradeService = noopUpgradeService{}
+			}
+
 			return NewWorker(
 				upgradeStepsLock,
 				localAgent,
 				apiCaller,
+				upgradeService,
 				isController,
-				config.OpenStateForUpgrade,
+				agentTag,
 				config.PreUpgradeSteps,
+				config.UpgradeSteps,
 				statusSetter,
 				config.Logger,
 			)
 		},
 	}
+}
+
+type noopUpgradeService struct{}
+
+// SetControllerDone marks the supplied controllerID as having
+// completed its upgrades. When SetControllerDone is called by the
+// last provisioned controller, the upgrade will be archived.
+func (noopUpgradeService) SetControllerDone(ctx context.Context, upgradeUUID domainupgrade.UUID, controllerID string) error {
+	return errors.NotSupportedf("not running on controller, set controller done")
+}
+
+// ActiveUpgrade returns the uuid of the current active upgrade.
+// If there are no active upgrades, return a NotFound error
+func (noopUpgradeService) ActiveUpgrade(ctx context.Context) (domainupgrade.UUID, error) {
+	return domainupgrade.UUID(""), errors.NotSupportedf("not running on controller, active upgrade")
+}
+
+// UpgradeInfo returns the upgrade info for the given upgrade.
+func (noopUpgradeService) UpgradeInfo(ctx context.Context, upgradeUUID domainupgrade.UUID) (upgrade.Info, error) {
+	return upgrade.Info{}, errors.NotSupportedf("not running on controller, upgrade info")
+}
+
+// WatchForUpgradeState creates a watcher which notifies when the upgrade
+// has reached the given state.
+func (noopUpgradeService) WatchForUpgradeState(ctx context.Context, upgradeUUID domainupgrade.UUID, state upgrade.State) (watcher.NotifyWatcher, error) {
+	return nil, errors.NotSupportedf("not running on controller, watch for upgrade state")
 }
