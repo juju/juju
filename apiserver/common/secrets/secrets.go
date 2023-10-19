@@ -239,7 +239,7 @@ func backendConfigInfo(
 		readFilter.ConsumerTags = append(readFilter.ConsumerTags, authApp)
 	case names.ApplicationTag:
 	case names.ModelTag:
-		// for user secrets.
+		// Model Tag is validate for user secrets.
 	default:
 		return nil, errors.NotSupportedf("login as %q", authTag)
 	}
@@ -482,15 +482,17 @@ func GetSecretMetadata(
 		// Because the ownerTag here is the application tag, but not unit tag.
 		OwnerTags: []names.Tag{ownerTag},
 	}
-	// Unit leaders can also get metadata for secrets owned by the app.
-	// TODO(wallyworld) - temp fix for old podspec charms
-	isLeader, err := IsLeaderUnit(ownerTag, leadershipChecker)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if isLeader {
-		appOwner := names.NewApplicationTag(AuthTagApp(ownerTag))
-		listFilter.OwnerTags = append(listFilter.OwnerTags, appOwner)
+	if ownerTag.Kind() == names.UnitTagKind {
+		// Unit leaders can also get metadata for secrets owned by the app.
+		// TODO(wallyworld) - temp fix for old podspec charms
+		isLeader, err := IsLeaderUnit(ownerTag, leadershipChecker)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		if isLeader {
+			appOwner := names.NewApplicationTag(AuthTagApp(ownerTag))
+			listFilter.OwnerTags = append(listFilter.OwnerTags, appOwner)
+		}
 	}
 
 	secrets, err := secretsState.ListSecrets(listFilter)
