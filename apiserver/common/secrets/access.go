@@ -41,7 +41,6 @@ func CanManage(
 	api SecretsConsumer, leadershipChecker leadership.Checker,
 	authTag names.Tag, uri *coresecrets.URI,
 ) (leadership.Token, error) {
-
 	appName := AuthTagApp(authTag)
 	appTag := names.NewApplicationTag(appName)
 
@@ -54,6 +53,10 @@ func CanManage(
 		if hasRole(api, uri, appTag, coresecrets.RoleManage) {
 			// leader unit can manage app owned secret.
 			return LeadershipToken(authTag, leadershipChecker)
+		}
+	case names.ModelTag:
+		if hasRole(api, uri, authTag, coresecrets.RoleManage) {
+			return successfulToken{}, nil
 		}
 	}
 	return nil, apiservererrors.ErrPerm

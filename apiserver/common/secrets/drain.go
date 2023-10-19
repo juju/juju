@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretsdrain
+package secrets
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
 
-	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
@@ -21,21 +20,41 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// For testing.
-var (
-	GetProvider = secretsprovider.Provider
-)
-
 // SecretsDrainAPI is the implementation for the SecretsDrain facade.
 type SecretsDrainAPI struct {
-	leadershipChecker leadership.Checker
-	secretsState      SecretsState
-	watcherRegistry   facade.WatcherRegistry
-	secretsConsumer   SecretsConsumer
 	authTag           names.Tag
 	logger            loggo.Logger
+	leadershipChecker leadership.Checker
+	watcherRegistry   facade.WatcherRegistry
 
-	model Model
+	model           Model
+	secretsState    SecretsMetaState
+	secretsConsumer SecretsConsumer
+}
+
+// NewSecretsDrainAPI returns a new SecretsDrainAPI.
+func NewSecretsDrainAPI(
+	authTag names.Tag,
+	authorizer facade.Authorizer,
+	logger loggo.Logger,
+	leadershipChecker leadership.Checker,
+	model Model,
+	secretsState SecretsMetaState,
+	secretsConsumer SecretsConsumer,
+	watcherRegistry facade.WatcherRegistry,
+) (*SecretsDrainAPI, error) {
+	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() && !authorizer.AuthController() {
+		return nil, apiservererrors.ErrPerm
+	}
+	return &SecretsDrainAPI{
+		authTag:           authTag,
+		logger:            logger,
+		leadershipChecker: leadershipChecker,
+		model:             model,
+		secretsState:      secretsState,
+		secretsConsumer:   secretsConsumer,
+		watcherRegistry:   watcherRegistry,
+	}, nil
 }
 
 // GetSecretsToDrain returns metadata for the secrets that need to be drained.
@@ -55,7 +74,7 @@ func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.ListSec
 			activeBackend = modelUUID
 		}
 	}
-	return commonsecrets.GetSecretMetadata(
+	return GetSecretMetadata(
 		s.authTag, s.secretsState, s.leadershipChecker,
 		func(md *coresecrets.SecretMetadata, rev *coresecrets.SecretRevisionMetadata) bool {
 			if rev.ValueRef == nil {
@@ -90,7 +109,7 @@ func (s *SecretsDrainAPI) changeSecretBackendForOne(arg params.ChangeSecretBacke
 	if err != nil {
 		return errors.Trace(err)
 	}
-	token, err := commonsecrets.CanManage(s.secretsConsumer, s.leadershipChecker, s.authTag, uri)
+	token, err := CanManage(s.secretsConsumer, s.leadershipChecker, s.authTag, uri)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -9,8 +9,10 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
+	"time"
 
-	"github.com/juju/errors"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -55,11 +57,28 @@ func (s *datasourceSuite) TestURL(c *gc.C) {
 	c.Assert(url, gc.Equals, "foo/bar")
 }
 
+func (s *datasourceSuite) TestRetry(c *gc.C) {
+	handler := &testDataHandler{}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	ds := simplestreams.NewDataSource(simplestreams.Config{
+		Description: "test",
+		BaseURL:     server.URL,
+		Priority:    simplestreams.DEFAULT_CLOUD_DATA,
+		Clock:       testclock.NewDilatedWallClock(10 * time.Millisecond),
+	})
+	_, _, err := ds.Fetch("500")
+	c.Assert(err, gc.NotNil)
+	c.Assert(handler.numReq.Load(), gc.Equals, int64(3))
+}
+
 type testDataHandler struct {
 	supportsGzip bool
+	numReq       atomic.Int64
 }
 
 func (h *testDataHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.numReq.Add(1)
 	var out io.Writer = w
 	switch r.URL.Path {
 	case "/unauth":
@@ -86,6 +105,9 @@ func (h *testDataHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			_, _ = io.WriteString(out, unsignedProduct)
 		}
 		w.WriteHeader(http.StatusOK)
+		return
+	case "/500":
+		http.Error(w, r.URL.Path, 500)
 		return
 	default:
 		http.Error(w, r.URL.Path, 404)
@@ -122,51 +144,50 @@ var unsignedProduct = `
 `
 
 type datasourceHTTPSSuite struct {
-	Server *httptest.Server
+	server *httptest.Server
+	clock  testclock.AdvanceableClock
 }
 
 func (s *datasourceHTTPSSuite) SetUpTest(c *gc.C) {
+	s.clock = testclock.NewDilatedWallClock(10 * time.Millisecond)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) {
 		_ = req.Body.Close()
 		resp.WriteHeader(200)
 		_, _ = resp.Write([]byte("Greetings!\n"))
 	})
-	s.Server = httptest.NewTLSServer(mux)
+	s.server = httptest.NewTLSServer(mux)
 }
 
 func (s *datasourceHTTPSSuite) TearDownTest(c *gc.C) {
-	if s.Server != nil {
-		s.Server.Close()
-		s.Server = nil
+	if s.server != nil {
+		s.server.Close()
+		s.server = nil
 	}
 }
 
 func (s *datasourceHTTPSSuite) TestNormalClientFails(c *gc.C) {
-	ds := testing.VerifyDefaultCloudDataSource("test", s.Server.URL)
+	ds := testing.VerifyDefaultCloudDataSource("test", s.server.URL)
 	url, err := ds.URL("bar")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(url, gc.Equals, s.Server.URL+"/bar")
+	c.Check(url, gc.Equals, s.server.URL+"/bar")
 	reader, _, err := ds.Fetch("bar")
-	// The underlying failure is a x509: certificate signed by unknown authority
-	// However, the urlDataSource abstraction hides that as a simple NotFound
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, gc.ErrorMatches, `.*x509: certificate signed by unknown authority`)
 	c.Check(reader, gc.IsNil)
 }
 
 func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *gc.C) {
 	ds := simplestreams.NewDataSource(simplestreams.Config{
 		Description:          "test",
-		BaseURL:              s.Server.URL,
+		BaseURL:              s.server.URL,
 		HostnameVerification: false,
 		Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+		Clock:                s.clock,
 	})
 	url, err := ds.URL("bar")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(url, gc.Equals, s.Server.URL+"/bar")
+	c.Check(url, gc.Equals, s.server.URL+"/bar")
 	reader, _, err := ds.Fetch("bar")
-	// The underlying failure is a x509: certificate signed by unknown authority
-	// However, the urlDataSource abstraction hides that as a simple NotFound
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = reader.Close() }()
 	byteContent, err := io.ReadAll(reader)
@@ -177,9 +198,10 @@ func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *gc.C) {
 func (s *datasourceHTTPSSuite) TestClientTransportCompression(c *gc.C) {
 	ds := simplestreams.NewDataSource(simplestreams.Config{
 		Description:          "test",
-		BaseURL:              s.Server.URL,
+		BaseURL:              s.server.URL,
 		HostnameVerification: false,
 		Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+		Clock:                s.clock,
 	})
 	httpClient := simplestreams.HttpClient(ds)
 	c.Assert(httpClient, gc.NotNil)

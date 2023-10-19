@@ -14,7 +14,12 @@ import (
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/core/leadership Checker,Token
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/provider_mock.go github.com/juju/juju/internal/secrets/provider SecretBackendProvider,SecretsBackend
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state SecretsStore,SecretBackendsStorage
+//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/statewatcher.go github.com/juju/juju/state NotifyWatcher
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
+
+var (
+	NewSecretBackendModelConfigWatcher = newSecretBackendModelConfigWatcher
+)

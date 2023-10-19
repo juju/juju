@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretsdrain
+package secrets
 
 import (
 	"context"
@@ -82,7 +82,7 @@ func (w *secretBackendModelConfigWatcher) loop() error {
 			if !ok {
 				return errors.Errorf("event watcher closed")
 			}
-			changed, err := w.isSecretBackendChanged(context.TODO())
+			changed, err := w.processModelChange(context.TODO())
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -96,7 +96,7 @@ func (w *secretBackendModelConfigWatcher) loop() error {
 	}
 }
 
-func (w *secretBackendModelConfigWatcher) isSecretBackendChanged(ctx context.Context) (bool, error) {
+func (w *secretBackendModelConfigWatcher) processModelChange(ctx context.Context) (bool, error) {
 	modelConfig, err := w.modelConfigGetter.ModelConfig(ctx)
 	if err != nil {
 		return false, errors.Trace(err)

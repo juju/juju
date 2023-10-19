@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	secrets "github.com/juju/juju/core/secrets"
@@ -95,6 +96,21 @@ func (mr *MockModelMockRecorder) ControllerUUID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerUUID", reflect.TypeOf((*MockModel)(nil).ControllerUUID))
 }
 
+// ModelConfig mocks base method.
+func (m *MockModel) ModelConfig(arg0 context.Context) (*config.Config, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelConfig", arg0)
+	ret0, _ := ret[0].(*config.Config)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModelConfig indicates an expected call of ModelConfig.
+func (mr *MockModelMockRecorder) ModelConfig(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockModel)(nil).ModelConfig), arg0)
+}
+
 // Name mocks base method.
 func (m *MockModel) Name() string {
 	m.ctrl.T.Helper()
@@ -149,6 +165,20 @@ func (m *MockModel) UUID() string {
 func (mr *MockModelMockRecorder) UUID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UUID", reflect.TypeOf((*MockModel)(nil).UUID))
+}
+
+// WatchForModelConfigChanges mocks base method.
+func (m *MockModel) WatchForModelConfigChanges() state.NotifyWatcher {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WatchForModelConfigChanges")
+	ret0, _ := ret[0].(state.NotifyWatcher)
+	return ret0
+}
+
+// WatchForModelConfigChanges indicates an expected call of WatchForModelConfigChanges.
+func (mr *MockModelMockRecorder) WatchForModelConfigChanges() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchForModelConfigChanges", reflect.TypeOf((*MockModel)(nil).WatchForModelConfigChanges))
 }
 
 // MockSecretsConsumer is a mock of SecretsConsumer interface.
@@ -210,6 +240,20 @@ func NewMockSecretsMetaState(ctrl *gomock.Controller) *MockSecretsMetaState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockSecretsMetaState) EXPECT() *MockSecretsMetaStateMockRecorder {
 	return m.recorder
+}
+
+// ChangeSecretBackend mocks base method.
+func (m *MockSecretsMetaState) ChangeSecretBackend(arg0 state.ChangeSecretBackendParams) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChangeSecretBackend", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ChangeSecretBackend indicates an expected call of ChangeSecretBackend.
+func (mr *MockSecretsMetaStateMockRecorder) ChangeSecretBackend(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeSecretBackend", reflect.TypeOf((*MockSecretsMetaState)(nil).ChangeSecretBackend), arg0)
 }
 
 // ListSecretRevisions mocks base method.

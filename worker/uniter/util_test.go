@@ -19,6 +19,7 @@ import (
 
 	pebbleclient "github.com/canonical/pebble/client"
 	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -359,7 +360,7 @@ func (s createCharm) step(c *gc.C, ctx *testContext) {
 	if len(s.badHooks) > 0 {
 		ctx.runner.hooksWithErrors = set.NewStrings(s.badHooks...)
 	}
-	dir, err := corecharm.ReadCharmDir(base)
+	dir, err := jujucharm.ReadCharmDir(base)
 	c.Assert(err, jc.ErrorIsNil)
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, jc.ErrorIsNil)
@@ -367,7 +368,7 @@ func (s createCharm) step(c *gc.C, ctx *testContext) {
 }
 
 type addCharm struct {
-	dir  *corecharm.CharmDir
+	dir  *jujucharm.CharmDir
 	curl string
 }
 
@@ -1878,7 +1879,7 @@ var subordinateDying = custom{func(c *gc.C, ctx *testContext) {
 }}
 
 func curl(revision int) string {
-	return corecharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision).String()
+	return jujucharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision).String()
 }
 
 type hookLock struct {
