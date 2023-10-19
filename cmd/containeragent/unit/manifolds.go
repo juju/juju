@@ -258,9 +258,10 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 				return nil, nil, errors.New("operator cannot open state")
 			},
 			PreUpgradeSteps: config.PreUpgradeSteps,
-			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
+			NewAgentStatusSetter: func(base.APICaller) (upgradesteps.StatusSetter, error) {
 				return &noopStatusSetter{}, nil
 			},
+			Logger: loggo.GetLogger("juju.worker.upgradesteps"),
 		})),
 
 		// The migration workers collaborate to run migrations;

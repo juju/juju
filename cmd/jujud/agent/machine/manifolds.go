@@ -206,7 +206,7 @@ type ManifoldsConfig struct {
 	UpdateLoggerConfig func(string) error
 
 	// NewAgentStatusSetter provides upgradesteps.StatusSetter.
-	NewAgentStatusSetter func(apiConn api.Connection) (upgradesteps.StatusSetter, error)
+	NewAgentStatusSetter func(base.APICaller) (upgradesteps.StatusSetter, error)
 
 	// ControllerLeaseDuration defines for how long this agent will ask
 	// for controller administration rights.
@@ -499,6 +499,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			OpenStateForUpgrade:  config.OpenStateForUpgrade,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
 			NewAgentStatusSetter: config.NewAgentStatusSetter,
+			Logger:               loggo.GetLogger("juju.worker.upgradesteps"),
 		}),
 
 		// The migration workers collaborate to run migrations;

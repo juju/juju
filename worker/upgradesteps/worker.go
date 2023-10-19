@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -17,7 +18,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/state"
@@ -26,7 +27,10 @@ import (
 	"github.com/juju/juju/worker/gate"
 )
 
-var logger = loggo.GetLogger("juju.worker.upgradesteps")
+const (
+	defaultRetryDelay    = 2 * time.Minute
+	defaultRetryAttempts = 5
+)
 
 // TODO (manadart 2021-05-18): These are exported for tests and in the case of
 // the timeout, for feature tests. That especially should be a dependency of the
@@ -57,7 +61,7 @@ func NewLock(agentConfig agent.Config) gate.Lock {
 	upgradedToVersion := agentConfig.UpgradedToVersion().ToPatch()
 	currentVersion := jujuversion.Current.ToPatch()
 	if upgradedToVersion == currentVersion {
-		logger.Infof(
+		loggo.GetLogger("juju.worker.upgradesteps").Infof(
 			"upgrade steps for %v have already been run.",
 			jujuversion.Current,
 		)
@@ -97,23 +101,51 @@ type UpgradeInfo interface {
 func NewWorker(
 	upgradeComplete gate.Lock,
 	agent agent.Agent,
-	apiConn api.Connection,
+	apiCaller base.APICaller,
 	isController bool,
 	openState func() (*state.StatePool, SystemState, error),
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
-	retryStrategy retry.CallArgs,
 	entity StatusSetter,
+	logger Logger,
 ) (worker.Worker, error) {
+	return newWorker(
+		upgradeComplete,
+		agent,
+		apiCaller,
+		isController,
+		openState,
+		preUpgradeSteps,
+		entity,
+		logger,
+		defaultRetryDelay,
+		defaultRetryAttempts,
+	)
+}
+
+func newWorker(
+	upgradeComplete gate.Lock,
+	agent agent.Agent,
+	apiCaller base.APICaller,
+	isController bool,
+	openState func() (*state.StatePool, SystemState, error),
+	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
+	entity StatusSetter,
+	logger Logger,
+	retryDelay time.Duration,
+	retryAttempts int,
+) (*upgradeSteps, error) {
 	w := &upgradeSteps{
 		upgradeComplete: upgradeComplete,
 		agent:           agent,
-		apiConn:         apiConn,
+		apiCaller:       apiCaller,
 		openState:       openState,
 		preUpgradeSteps: preUpgradeSteps,
-		retryStrategy:   retryStrategy,
 		entity:          entity,
 		tag:             agent.CurrentConfig().Tag(),
 		isController:    isController,
+		logger:          logger,
+		retryDelay:      retryDelay,
+		retryAttempts:   retryAttempts,
 	}
 	w.tomb.Go(w.run)
 	return w, nil
@@ -123,11 +155,10 @@ type upgradeSteps struct {
 	tomb            tomb.Tomb
 	upgradeComplete gate.Lock
 	agent           agent.Agent
-	apiConn         api.Connection
+	apiCaller       base.APICaller
 	openState       func() (*state.StatePool, SystemState, error)
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc
 	entity          StatusSetter
-	retryStrategy   retry.CallArgs
 
 	fromVersion version.Number
 	toVersion   version.Number
@@ -138,6 +169,11 @@ type upgradeSteps struct {
 	isCaas       bool
 	systemState  SystemState
 	pool         *state.StatePool
+
+	logger Logger
+
+	retryDelay    time.Duration
+	retryAttempts int
 }
 
 // Kill is part of the worker.Worker interface.
@@ -185,7 +221,7 @@ func (w *upgradeSteps) run() error {
 	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
 	w.toVersion = jujuversion.Current
 	if w.fromVersion == w.toVersion {
-		logger.Infof("upgrade to %v already completed.", w.toVersion)
+		w.logger.Infof("upgrade to %v already completed.", w.toVersion)
 		w.upgradeComplete.Unlock()
 		return nil
 	}
@@ -225,7 +261,7 @@ func (w *upgradeSteps) run() error {
 		w.reportUpgradeFailure(err, false)
 	} else {
 		// Upgrade succeeded - signal that the upgrade is complete.
-		logger.Infof("upgrade to %v completed successfully.", w.toVersion)
+		w.logger.Infof("upgrade to %v completed successfully.", w.toVersion)
 		_ = w.entity.SetStatus(status.Started, "", nil)
 		w.upgradeComplete.Unlock()
 	}
@@ -255,7 +291,7 @@ func (w *upgradeSteps) runUpgrades() error {
 }
 
 func (w *upgradeSteps) prepareForUpgrade() (UpgradeInfo, error) {
-	logger.Infof("checking that upgrade can proceed")
+	w.logger.Infof("checking that upgrade can proceed")
 	if err := w.preUpgradeSteps(w.agent.CurrentConfig(), w.isController, w.isCaas); err != nil {
 		return nil, errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
 	}
@@ -267,7 +303,7 @@ func (w *upgradeSteps) prepareForUpgrade() (UpgradeInfo, error) {
 }
 
 func (w *upgradeSteps) prepareControllerForUpgrade() (UpgradeInfo, error) {
-	logger.Infof("signalling that this controller is ready for upgrade")
+	w.logger.Infof("signalling that this controller is ready for upgrade")
 	info, err := w.systemState.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -275,17 +311,17 @@ func (w *upgradeSteps) prepareControllerForUpgrade() (UpgradeInfo, error) {
 
 	// controllers need to wait for other controllers to be ready
 	// to run the upgrade steps.
-	logger.Infof("waiting for other controllers to be ready for upgrade")
+	w.logger.Infof("waiting for other controllers to be ready for upgrade")
 	if err := w.waitForOtherControllers(info); err != nil {
 		if err == tomb.ErrDying {
-			logger.Warningf("stopped waiting for other controllers: %v", err)
+			w.logger.Warningf("stopped waiting for other controllers: %v", err)
 			return nil, err
 		}
-		logger.Errorf("aborted wait for other controllers: %v", err)
+		w.logger.Errorf("aborted wait for other controllers: %v", err)
 		return nil, errors.Annotate(err, "aborted wait for other controllers")
 	}
 
-	logger.Infof("finished waiting - all controllers are ready to run upgrade steps")
+	w.logger.Infof("finished waiting - all controllers are ready to run upgrade steps")
 	return info, nil
 }
 
@@ -332,29 +368,35 @@ func (w *upgradeSteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	}
 
 	stBackend := upgrades.NewStateBackend(w.pool)
-	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend)
-	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
+	context := upgrades.NewContext(agentConfig, w.apiCaller, stBackend)
+	w.logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
 	targets := upgradeTargets(w.isController)
 
-	retryStrategy := w.retryStrategy
-	retryStrategy.IsFatalError = func(err error) bool {
-		// Abort if API connection has gone away!
-		return agenterrors.ConnectionIsDead(logger, w.apiConn)
-	}
-	retryStrategy.NotifyFunc = func(lastErr error, attempt int) {
-		if retryStrategy.Attempts != 0 && attempt != retryStrategy.Attempts {
-			w.reportUpgradeFailure(lastErr, true)
-		}
-	}
-	retryStrategy.Func = func() error {
-		err := PerformUpgrade(w.fromVersion, targets, context)
-		// w.entity.SetStatus(status.Error, fmt.Sprintf("TEST inner %v", err), nil)
-		return err
+	retryStrategy := retry.CallArgs{
+		Clock:    clock.WallClock,
+		Delay:    w.retryDelay,
+		Attempts: w.retryAttempts,
+		IsFatalError: func(err error) bool {
+			// Abort if API connection has gone away!
+			breakable, ok := w.apiCaller.(agenterrors.Breakable)
+			if !ok {
+				return false
+			}
+			return agenterrors.ConnectionIsDead(w.logger, breakable)
+		},
+		NotifyFunc: func(lastErr error, attempt int) {
+			if attempt > 0 && attempt < w.retryAttempts {
+				w.reportUpgradeFailure(lastErr, true)
+			}
+		},
+		Func: func() error {
+			err := PerformUpgrade(w.fromVersion, targets, context)
+			return err
+		},
 	}
 
 	err := retry.Call(retryStrategy)
-	// w.entity.SetStatus(status.Error, fmt.Sprintf("TEST outer %v", err), nil)
 	if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
 		err = retry.LastError(err)
 		return err
@@ -372,7 +414,7 @@ func (w *upgradeSteps) reportUpgradeFailure(err error, willRetry bool) {
 	if !willRetry {
 		retryText = "giving up"
 	}
-	logger.Errorf("upgrade from %v to %v for %q failed (%s): %v",
+	w.logger.Errorf("upgrade from %v to %v for %q failed (%s): %v",
 		w.fromVersion, w.toVersion, w.tag, retryText, err)
 	_ = w.entity.SetStatus(status.Error,
 		fmt.Sprintf("upgrade to %v failed (%s): %v", w.toVersion, retryText, err), nil)

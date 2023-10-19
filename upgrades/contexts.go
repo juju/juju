@@ -5,7 +5,6 @@ package upgrades
 
 import (
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 )
 
@@ -37,12 +36,12 @@ type Context interface {
 // NewContext returns a new upgrade context.
 func NewContext(
 	agentConfig agent.ConfigSetter,
-	api api.Connection,
+	apiCaller base.APICaller,
 	st StateBackend,
 ) Context {
 	return &upgradeContext{
 		agentConfig: agentConfig,
-		api:         api,
+		apiCaller:   apiCaller,
 		st:          st,
 	}
 }
@@ -50,7 +49,7 @@ func NewContext(
 // upgradeContext is a default Context implementation.
 type upgradeContext struct {
 	agentConfig agent.ConfigSetter
-	api         api.Connection
+	apiCaller   base.APICaller
 	st          StateBackend
 }
 
@@ -58,10 +57,10 @@ type upgradeContext struct {
 //
 // This will panic if called on a Context returned by StateContext.
 func (c *upgradeContext) APIState() base.APICaller {
-	if c.api == nil {
+	if c.apiCaller == nil {
 		panic("API not available from this context")
 	}
-	return c.api
+	return c.apiCaller
 }
 
 // State is defined on the Context interface.
@@ -91,6 +90,6 @@ func (c *upgradeContext) StateContext() Context {
 func (c *upgradeContext) APIContext() Context {
 	return &upgradeContext{
 		agentConfig: c.agentConfig,
-		api:         c.api,
+		apiCaller:   c.apiCaller,
 	}
 }

@@ -620,8 +620,8 @@ func (a *MachineAgent) makeEngineCreator(
 			PubSubReporter:       pubsubReporter,
 			PresenceRecorder:     presenceRecorder,
 			UpdateLoggerConfig:   updateAgentConfLogging,
-			NewAgentStatusSetter: func(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
-				return a.statusSetter(apiConn)
+			NewAgentStatusSetter: func(apiCaller base.APICaller) (upgradesteps.StatusSetter, error) {
+				return a.statusSetter(apiCaller)
 			},
 			ControllerLeaseDuration:           time.Minute,
 			TransactionPruneInterval:          time.Hour,
@@ -777,12 +777,12 @@ func (a *noopStatusSetter) SetStatus(_ status.Status, _ string, _ map[string]int
 	return nil
 }
 
-func (a *MachineAgent) statusSetter(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
+func (a *MachineAgent) statusSetter(apiCaller base.APICaller) (upgradesteps.StatusSetter, error) {
 	if a.isCaasAgent || a.agentTag.Kind() != names.MachineTagKind {
 		// TODO - support set status for controller agents
 		return &noopStatusSetter{}, nil
 	}
-	machinerAPI := apimachiner.NewClient(apiConn)
+	machinerAPI := apimachiner.NewClient(apiCaller)
 	return machinerAPI.Machine(a.Tag().(names.MachineTag))
 }
 

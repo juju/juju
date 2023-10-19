@@ -4,21 +4,25 @@
 package upgradesteps
 
 import (
-	"time"
-
-	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/retry"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent/agent"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/worker/gate"
 )
+
+// Logger defines the logging methods used by the worker.
+type Logger interface {
+	Errorf(string, ...any)
+	Warningf(string, ...any)
+	Infof(string, ...any)
+	Debugf(string, ...any)
+}
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
@@ -28,7 +32,31 @@ type ManifoldConfig struct {
 	UpgradeStepsGateName string
 	OpenStateForUpgrade  func() (*state.StatePool, SystemState, error)
 	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
-	NewAgentStatusSetter func(apiConn api.Connection) (StatusSetter, error)
+	NewAgentStatusSetter func(base.APICaller) (StatusSetter, error)
+	Logger               Logger
+}
+
+// Validate checks that the config is valid.
+func (c ManifoldConfig) Validate() error {
+	if c.AgentName == "" {
+		return errors.NotValidf("empty AgentName")
+	}
+	if c.APICallerName == "" {
+		return errors.NotValidf("empty APICallerName")
+	}
+	if c.UpgradeStepsGateName == "" {
+		return errors.NotValidf("empty UpgradeStepsGateName")
+	}
+	if c.OpenStateForUpgrade == nil {
+		return errors.NotValidf("nil OpenStateForUpgrade")
+	}
+	if c.PreUpgradeSteps == nil {
+		return errors.NotValidf("nil PreUpgradeSteps")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	return nil
 }
 
 // Manifold returns a dependency manifold that runs an upgrader
@@ -41,12 +69,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.UpgradeStepsGateName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
-			// Sanity checks
-			if config.OpenStateForUpgrade == nil {
-				return nil, errors.New("missing OpenStateForUpgrade in config")
-			}
-			if config.PreUpgradeSteps == nil {
-				return nil, errors.New("missing PreUpgradeSteps in config")
+			if err := config.Validate(); err != nil {
+				return nil, errors.Trace(err)
 			}
 
 			// Get the agent.
@@ -56,11 +80,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			// Get API connection.
-			// TODO(fwereade): can we make the worker use an
-			// APICaller instead? should be able to depend on
-			// the Engine to abort us when conn is closed...
-			var apiConn api.Connection
-			if err := context.Get(config.APICallerName, &apiConn); err != nil {
+			var apiCaller base.APICaller
+			if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, errors.Trace(err)
 			}
 
@@ -72,31 +93,27 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			// Get a component capable of setting machine status
 			// to indicate progress to the user.
-			statusSetter, err := config.NewAgentStatusSetter(apiConn)
+			statusSetter, err := config.NewAgentStatusSetter(apiCaller)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			// Application tag for CAAS operator; controller,
 			// machine or unit tag for agents.
 			agentTag := localAgent.CurrentConfig().Tag()
-
-			isController, err := apiagent.IsController(apiConn, agentTag)
+			isController, err := apiagent.IsController(apiCaller, agentTag)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
+
 			return NewWorker(
 				upgradeStepsLock,
 				localAgent,
-				apiConn,
+				apiCaller,
 				isController,
 				config.OpenStateForUpgrade,
 				config.PreUpgradeSteps,
-				retry.CallArgs{
-					Clock:    clock.WallClock,
-					Delay:    2 * time.Minute,
-					Attempts: 5,
-				},
 				statusSetter,
+				config.Logger,
 			)
 		},
 	}
