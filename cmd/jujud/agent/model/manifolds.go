@@ -337,8 +337,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewUserSecretsFacade: secretspruner.NewUserSecretsFacade,
 			NewWorker:            secretspruner.NewWorker,
 		})),
-		// The userSecretDrainWorker is the worker that drains the user secrets from the inactive backend to the current active backend.
-		userSecretDrainWorker: ifNotMigrating(secretsdrainworker.Manifold(secretsdrainworker.ManifoldConfig{
+		// The userSecretsDrainWorker is the worker that drains the user secrets from the inactive backend to the current active backend.
+		userSecretsDrainWorker: ifNotMigrating(secretsdrainworker.Manifold(secretsdrainworker.ManifoldConfig{
 			APICallerName:         apiCallerName,
 			Logger:                config.LoggingContext.GetLogger("juju.worker.usersecretsdrainworker"),
 			NewSecretsDrainFacade: secretsdrainworker.NewUserSecretsDrainFacade,
@@ -747,8 +747,8 @@ const (
 	caasStorageProvisionerName     = "caas-storage-provisioner"
 	caasBrokerTrackerName          = "caas-broker-tracker"
 
-	secretsPrunerName     = "secrets-pruner"
-	userSecretDrainWorker = "user-secret-drain-worker"
+	secretsPrunerName      = "secrets-pruner"
+	userSecretsDrainWorker = "user-secrets-drain-worker"
 
 	validCredentialFlagName = "valid-credential-flag"
 )
