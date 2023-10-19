@@ -162,9 +162,6 @@ func contextMetrics(metrics map[charmmetrics.MetricKey]map[charmmetrics.MetricKe
 }
 
 func (c *refreshClient) refresh(ctx context.Context, ensure func(responses []transport.RefreshResponse) error, req transport.RefreshRequest) (_ []transport.RefreshResponse, err error) {
-	t, _ := trace.TracerFromContext(ctx)
-	loggo.GetLogger("***").Criticalf(">>>>>>>>>> %T", t)
-
 	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
 		trace.StringAttr("charmhub.request", "refresh"),
 		trace.StringAttr("charmhub.names", traceNames(req)),

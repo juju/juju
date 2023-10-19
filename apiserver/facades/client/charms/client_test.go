@@ -369,7 +369,7 @@ func (s *charmsMockSuite) TestAddCharmCharmhub(c *gc.C) {
 	expMeta := new(charm.Meta)
 	expManifest := new(charm.Manifest)
 	expConfig := new(charm.Config)
-	s.repository.EXPECT().GetEssentialMetadata(corecharm.MetadataRequest{
+	s.repository.EXPECT().GetEssentialMetadata(gomock.Any(), corecharm.MetadataRequest{
 		CharmURL: curl,
 		Origin:   requestedOrigin,
 	}).Return([]corecharm.EssentialMetadata{
