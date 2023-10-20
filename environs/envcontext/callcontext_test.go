@@ -20,24 +20,20 @@ type CallContextSuite struct {
 var _ = gc.Suite(&CallContextSuite{})
 
 func (s *CallContextSuite) TestWithoutValidation(c *gc.C) {
-	stdCtx := context.Background()
-	ctx := WithoutCredentialInvalidator(stdCtx)
+	ctx := WithoutCredentialInvalidator(context.Background())
 
-	invalidate := CredentialInvalidatorFromContext(ctx)
-	err := invalidate(context.Background(), "bad")
+	err := ctx.InvalidateCredential("bad")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *CallContextSuite) TestWithValidation(c *gc.C) {
-	stdCtx := context.Background()
 	called := ""
-	ctx := WithCredentialInvalidator(stdCtx, func(_ context.Context, reason string) error {
+	ctx := WithCredentialInvalidator(context.Background(), func(_ context.Context, reason string) error {
 		called = reason
 		return nil
 	})
 
-	invalidate := CredentialInvalidatorFromContext(ctx)
-	err := invalidate(context.Background(), "bad")
+	err := ctx.InvalidateCredential("bad")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, "bad")
 }

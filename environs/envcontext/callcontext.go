@@ -98,12 +98,10 @@ func WithCredentialInvalidator(ctx context.Context, invalidationFunc ModelCreden
 	}
 }
 
-// CredentialInvalidatorFromContext returns a credential invalidation func
-// that may be associated with the context. If none, it returns a no-op function.
-func CredentialInvalidatorFromContext(ctx ProviderCallContext) ModelCredentialInvalidatorFunc {
+// InvalidateCredential invalidates a credential with a reason.
+func (ctx ProviderCallContext) InvalidateCredential(reason string) error {
 	if ctx.invalidator != nil {
-		return ctx.invalidator
+		return ctx.invalidator(ctx, reason)
 	}
-	// No op.
-	return func(context.Context, string) error { return nil }
+	return nil
 }

@@ -75,9 +75,8 @@ func maybeInvalidateCredential(err error, ctx envcontext.ProviderCallContext) bo
 		return false
 	}
 
-	invalidateCredentialFunc := envcontext.CredentialInvalidatorFromContext(ctx)
 	converted := fmt.Errorf("google cloud denied access: %w", common.CredentialNotValidError(err))
-	invalidateErr := invalidateCredentialFunc(ctx, converted.Error())
+	invalidateErr := ctx.InvalidateCredential(converted.Error())
 	if invalidateErr != nil {
 		logger.Warningf("could not invalidate stored google cloud credential on the controller: %v", invalidateErr)
 	}

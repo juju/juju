@@ -42,9 +42,8 @@ var AuthorisationFailureStatusCodes = set.NewInts(
 func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx envcontext.ProviderCallContext) bool {
 	denied := isAuthError(errors.Cause(err))
 	if denied {
-		invalidateCredentialFunc := envcontext.CredentialInvalidatorFromContext(ctx)
 		converted := fmt.Errorf("cloud denied access: %w", CredentialNotValidError(err))
-		invalidateErr := invalidateCredentialFunc(ctx, converted.Error())
+		invalidateErr := ctx.InvalidateCredential(converted.Error())
 		if invalidateErr != nil {
 			logger.Warningf("could not invalidate stored cloud credential on the controller: %v", invalidateErr)
 		}
