@@ -99,8 +99,6 @@ func (w *baseWorker) alreadyUpgraded() bool {
 		return true
 	}
 
-	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
-	w.toVersion = jujuversion.Current
 	if w.fromVersion == w.toVersion {
 		w.logger.Infof("upgrade to %v already completed.", w.toVersion)
 		w.upgradeCompleteLock.Unlock()
@@ -137,9 +135,7 @@ func (w *baseWorker) runUpgradeSteps(ctx context.Context, targets []upgrades.Tar
 				return agenterrors.ConnectionIsDead(w.logger, breakable)
 			},
 			NotifyFunc: func(lastErr error, attempt int) {
-				if attempt > 0 && attempt < 5 {
-					w.reportUpgradeFailure(lastErr, true)
-				}
+				w.reportUpgradeFailure(lastErr, attempt == defaultRetryAttempts)
 			},
 			Func: func() error {
 				return w.performUpgradeSteps(w.fromVersion, targets, context)
@@ -148,7 +144,7 @@ func (w *baseWorker) runUpgradeSteps(ctx context.Context, targets []upgrades.Tar
 		}
 
 		err := retry.Call(retryStrategy)
-		if retry.IsAttemptsExceeded(err) || retry.IsDurationExceeded(err) {
+		if retry.IsAttemptsExceeded(err) {
 			return retry.LastError(err)
 		}
 		if err != nil {

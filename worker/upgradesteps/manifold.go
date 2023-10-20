@@ -62,6 +62,9 @@ func (c ManifoldConfig) Validate() error {
 	if c.UpgradeStepsGateName == "" {
 		return errors.NotValidf("empty UpgradeStepsGateName")
 	}
+	if c.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
+	}
 	if c.PreUpgradeSteps == nil {
 		return errors.NotValidf("nil PreUpgradeSteps")
 	}
@@ -85,6 +88,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 			config.UpgradeStepsGateName,
+			config.ServiceFactoryName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -126,7 +130,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 					config.PreUpgradeSteps,
 					config.UpgradeSteps,
 					config.Logger,
-				)
+				), nil
 			}
 
 			// Get a component capable of setting machine status

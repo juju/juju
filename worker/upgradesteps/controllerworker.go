@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	"github.com/juju/juju/upgrades"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 )
 
@@ -40,7 +41,7 @@ type UpgradeService interface {
 	WatchForUpgradeState(ctx context.Context, upgradeUUID domainupgrade.UUID, state upgrade.State) (watcher.NotifyWatcher, error)
 }
 
-// NewControllerWorker returns a new instance of the upgradeSteps worker. It
+// NewControllerWorker returns a new instance of the controllerWorker worker. It
 // will run any required steps to upgrade to the currently running
 // Juju version.
 func NewControllerWorker(
@@ -54,8 +55,8 @@ func NewControllerWorker(
 	logger Logger,
 	clock clock.Clock,
 ) (worker.Worker, error) {
-	w := &upgradeSteps{
-		baseWorker: &baseWorker{
+	return newControllerWorker(
+		&baseWorker{
 			agent:               agent,
 			apiCaller:           apiCaller,
 			tag:                 agent.CurrentConfig().Tag(),
@@ -63,9 +64,18 @@ func NewControllerWorker(
 			preUpgradeSteps:     preUpgradeSteps,
 			performUpgradeSteps: performUpgradeSteps,
 			statusSetter:        noopStatusSetter{},
+			fromVersion:         agent.CurrentConfig().UpgradedToVersion(),
+			toVersion:           jujuversion.Current,
 			logger:              logger,
 			clock:               clock,
 		},
+		upgradeService,
+	)
+}
+
+func newControllerWorker(base *baseWorker, upgradeService UpgradeService) (*controllerWorker, error) {
+	w := &controllerWorker{
+		baseWorker:     base,
 		upgradeService: upgradeService,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
@@ -77,7 +87,7 @@ func NewControllerWorker(
 	return w, nil
 }
 
-type upgradeSteps struct {
+type controllerWorker struct {
 	*baseWorker
 
 	catacomb       catacomb.Catacomb
@@ -85,16 +95,16 @@ type upgradeSteps struct {
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *upgradeSteps) Kill() {
+func (w *controllerWorker) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *upgradeSteps) Wait() error {
+func (w *controllerWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *upgradeSteps) run() error {
+func (w *controllerWorker) run() error {
 	if w.alreadyUpgraded() {
 		return nil
 	}
@@ -177,11 +187,6 @@ func (w *upgradeSteps) run() error {
 				if isAPILostDuringUpgrade(err) {
 					return errors.Trace(err)
 				}
-
-				// For other errors, the error is not returned because we want
-				// the agent to stay running in an error state waiting
-				// for user intervention.
-				w.reportUpgradeFailure(err, false)
 				return nil
 			}
 
@@ -190,7 +195,7 @@ func (w *upgradeSteps) run() error {
 				// We failed to mark the upgrade as completed, so we can't
 				// proceed. We'll report the error and wait for the user to
 				// intervene.
-				w.reportUpgradeFailure(err, false)
+				w.reportUpgradeFailure(err, true)
 				return nil
 			}
 
@@ -205,11 +210,11 @@ func (w *upgradeSteps) run() error {
 	}
 }
 
-func (w *upgradeSteps) scopedContext() (context.Context, context.CancelFunc) {
+func (w *controllerWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
-func (w *upgradeSteps) addWatcher(ctx context.Context, watcher eventsource.Watcher[struct{}]) error {
+func (w *controllerWorker) addWatcher(ctx context.Context, watcher eventsource.Watcher[struct{}]) error {
 	if err := w.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
@@ -224,7 +229,7 @@ func (w *upgradeSteps) addWatcher(ctx context.Context, watcher eventsource.Watch
 	return nil
 }
 
-func (w *upgradeSteps) abort(err error) error {
+func (w *controllerWorker) abort(err error) error {
 	// TODO (stickupkid): Set the failed error state.
 	w.logger.Errorf("aborting upgrade steps: %v", err)
 	return err

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/upgrades"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 )
 
@@ -28,21 +29,27 @@ func NewMachineWorker(
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	performUpgradeSteps upgrades.UpgradeStepsFunc,
 	logger Logger,
-) (worker.Worker, error) {
+) worker.Worker {
+	return newMachineWorker(&baseWorker{
+		agent:               agent,
+		apiCaller:           apiCaller,
+		tag:                 agent.CurrentConfig().Tag(),
+		upgradeCompleteLock: upgradeCompleteLock,
+		preUpgradeSteps:     preUpgradeSteps,
+		performUpgradeSteps: performUpgradeSteps,
+		statusSetter:        noopStatusSetter{},
+		fromVersion:         agent.CurrentConfig().UpgradedToVersion(),
+		toVersion:           jujuversion.Current,
+		logger:              logger,
+	})
+}
+
+func newMachineWorker(base *baseWorker) *machineWorker {
 	w := &machineWorker{
-		baseWorker: &baseWorker{
-			agent:               agent,
-			apiCaller:           apiCaller,
-			tag:                 agent.CurrentConfig().Tag(),
-			upgradeCompleteLock: upgradeCompleteLock,
-			preUpgradeSteps:     preUpgradeSteps,
-			performUpgradeSteps: performUpgradeSteps,
-			statusSetter:        noopStatusSetter{},
-			logger:              logger,
-		},
+		baseWorker: base,
 	}
 	w.tomb.Go(w.run)
-	return w, nil
+	return w
 }
 
 type machineWorker struct {
@@ -79,11 +86,6 @@ func (w *machineWorker) run() error {
 		if isAPILostDuringUpgrade(err) {
 			return errors.Trace(err)
 		}
-
-		// For other errors, the error is not returned because we want
-		// the agent to stay running in an error state waiting
-		// for user intervention.
-		w.reportUpgradeFailure(err, false)
 
 		// We don't want to retry the upgrade if it failed, so signal
 		// that the upgrade as being blocked.

@@ -4,16 +4,132 @@
 package upgradesteps
 
 import (
+	"context"
+	"errors"
+	time "time"
+
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/upgrades"
 )
 
-// TODO(mjs) - these tests are too tightly coupled to the
-// implementation. They needn't be internal tests.
-
-type UpgradeSuite struct {
-	jujutesting.BaseSuite
+type baseWorkerSuite struct {
+	baseSuite
 }
 
-var _ = gc.Suite(&UpgradeSuite{})
+var _ = gc.Suite(&baseWorkerSuite{})
+
+func (s *baseWorkerSuite) TestAlreadyUpgraded(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("6.6.6"))
+
+	s.lock.EXPECT().IsUnlocked().Return(true)
+
+	upgraded := w.alreadyUpgraded()
+	c.Assert(upgraded, jc.IsTrue)
+}
+
+func (s *baseWorkerSuite) TestAlreadyUpgradedVersionMatching(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("6.6.6"))
+
+	s.lock.EXPECT().IsUnlocked().Return(false)
+	s.lock.EXPECT().Unlock()
+
+	upgraded := w.alreadyUpgraded()
+	c.Assert(upgraded, jc.IsTrue)
+}
+
+func (s *baseWorkerSuite) TestAlreadyUpgradedVersionNotMatching(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	w := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("9.9.9"))
+
+	s.lock.EXPECT().IsUnlocked().Return(false)
+
+	upgraded := w.alreadyUpgraded()
+	c.Assert(upgraded, jc.IsFalse)
+}
+
+func (s *baseWorkerSuite) TestRunUpgradeSteps(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyClock(make(chan time.Time))
+	s.expectStatus(status.Started)
+	s.expectUpgradeVersion(version.MustParse("6.6.6"))
+
+	w := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("6.6.6"))
+	fn := w.runUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
+	err := fn(s.configSetter)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableTrue(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectAnyClock(make(chan time.Time))
+	s.expectStatus(status.Started)
+
+	w := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("6.6.6"))
+	w.apiCaller = &breakableAPICaller{
+		APICaller: s.apiCaller,
+		broken:    true,
+	}
+	w.performUpgradeSteps = func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
+		return errors.New("boom")
+	}
+
+	fn := w.runUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
+	err := fn(s.configSetter)
+	c.Assert(err, gc.ErrorMatches, "API connection lost during upgrade: boom")
+}
+
+func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableFalse(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := make(chan time.Time)
+
+	s.expectAnyClock(ch)
+	s.expectStatus(status.Started)
+
+	// Test are expected to retry if we fail to upgrade.
+	//  - It will retry 5 times.
+	//  - It will set the error status on each attempt.
+
+	go func() {
+		for i := 0; i < defaultRetryAttempts; i++ {
+			ch <- time.Now()
+		}
+	}()
+	for i := 0; i < defaultRetryAttempts; i++ {
+		s.expectStatus(status.Error)
+	}
+
+	w := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("6.6.6"))
+	w.apiCaller = &breakableAPICaller{
+		APICaller: s.apiCaller,
+		broken:    false,
+	}
+	w.performUpgradeSteps = func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
+		return errors.New("boom")
+	}
+
+	fn := w.runUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
+	err := fn(s.configSetter)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
+type breakableAPICaller struct {
+	base.APICaller
+	broken bool
+}
+
+func (b *breakableAPICaller) IsBroken() bool {
+	return b.broken
+}

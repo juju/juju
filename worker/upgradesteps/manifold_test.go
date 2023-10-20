@@ -7,10 +7,12 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	version "github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	jujutesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades"
 )
 
 type manifoldSuite struct {
@@ -58,8 +60,11 @@ func (s *manifoldSuite) getConfig(c *gc.C) ManifoldConfig {
 		UpgradeStepsGateName: "upgrade-steps-lock",
 		ServiceFactoryName:   "service-factory",
 		PreUpgradeSteps:      func(_ agent.Config, isController bool) error { return nil },
-		Logger:               jujutesting.NewCheckLogger(c),
-		Clock:                clock.WallClock,
+		UpgradeSteps: func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
+			return nil
+		},
+		Logger: jujutesting.NewCheckLogger(c),
+		Clock:  clock.WallClock,
 	}
 }
 
