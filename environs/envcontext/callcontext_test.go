@@ -4,7 +4,7 @@
 package envcontext
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -20,24 +20,24 @@ type CallContextSuite struct {
 var _ = gc.Suite(&CallContextSuite{})
 
 func (s *CallContextSuite) TestWithoutValidation(c *gc.C) {
-	stdCtx := stdcontext.Background()
+	stdCtx := context.Background()
 	ctx := WithoutCredentialInvalidator(stdCtx)
 
 	invalidate := CredentialInvalidatorFromContext(ctx)
-	err := invalidate("bad")
+	err := invalidate(context.Background(), "bad")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *CallContextSuite) TestWithValidation(c *gc.C) {
-	stdCtx := stdcontext.Background()
+	stdCtx := context.Background()
 	called := ""
-	ctx := WithCredentialInvalidator(stdCtx, func(reason string) error {
+	ctx := WithCredentialInvalidator(stdCtx, func(_ context.Context, reason string) error {
 		called = reason
 		return nil
 	})
 
 	invalidate := CredentialInvalidatorFromContext(ctx)
-	err := invalidate("bad")
+	err := invalidate(context.Background(), "bad")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, "bad")
 }
@@ -47,7 +47,7 @@ func (s *CallContextSuite) TestNewCredentialInvalidator(c *gc.C) {
 		return credential.ID{Name: "foo"}, nil
 	}
 	called := ""
-	invalidate := func(ctx stdcontext.Context, id credential.ID, reason string) error {
+	invalidate := func(ctx context.Context, id credential.ID, reason string) error {
 		c.Assert(id, jc.DeepEquals, credential.ID{Name: "foo"})
 		called = reason
 		return nil
@@ -58,7 +58,7 @@ func (s *CallContextSuite) TestNewCredentialInvalidator(c *gc.C) {
 		return nil
 	}
 	invalidator := NewCredentialInvalidator(idGetter, invalidate, legacyInvalidate)
-	err := invalidator.InvalidateModelCredential("bad")
+	err := invalidator.InvalidateModelCredential(context.Background(), "bad")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, gc.Equals, "bad")
 	c.Assert(legacyCalled, gc.Equals, "bad")

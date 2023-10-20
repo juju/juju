@@ -57,7 +57,7 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.HostSeries, func() (string, error) { return version.DefaultSupportedLTS(), nil })
-	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		s.invalidCredential = true
 		return nil
 	})

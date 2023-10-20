@@ -76,7 +76,7 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 		Properties: &armcompute.VirtualMachineProperties{
 			ProvisioningState: to.Ptr("Succeeded")},
 	}}
-	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		s.invalidteCredential = true
 		return nil
 	})

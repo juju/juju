@@ -51,7 +51,7 @@ func (s *environUpgradeSuite) SetUpTest(c *gc.C) {
 	s.env = openEnviron(c, s.provider, &s.sender)
 	s.requests = nil
 	s.invalidCredential = false
-	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		s.invalidCredential = true
 		return nil
 	})

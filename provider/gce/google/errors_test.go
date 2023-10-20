@@ -41,7 +41,7 @@ func (s *ErrorSuite) TestNoValidation(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
 		return errors.New("kaboom")
 	})
 	google.HandleCredentialError(s.googleError, ctx)
@@ -50,7 +50,7 @@ func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 
 func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
 		c.Assert(msg, gc.Matches,
 			regexp.QuoteMeta(`google cloud denied access: Get "http://notforreal.com/": 40`)+".*")
 		called = true
@@ -81,7 +81,7 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 
 func (*ErrorSuite) TestNilGoogleError(c *gc.C) {
 	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
 		called = true
 		return nil
 	})
@@ -92,7 +92,7 @@ func (*ErrorSuite) TestNilGoogleError(c *gc.C) {
 
 func (*ErrorSuite) TestAnyOtherError(c *gc.C) {
 	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
 		called = true
 		return nil
 	})

@@ -4,7 +4,7 @@
 package vsphere_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -39,7 +39,7 @@ func (s *ProviderFixture) SetUpTest(c *gc.C) {
 	s.provider = vsphere.NewEnvironProvider(vsphere.EnvironProviderConfig{
 		Dial: newMockDialFunc(&s.dialStub, s.client),
 	})
-	s.callCtx = envcontext.WithoutCredentialInvalidator(stdcontext.Background())
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 type EnvironFixture struct {
@@ -59,7 +59,7 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 		s.imageServer.Close()
 	})
 
-	env, err := s.provider.Open(stdcontext.Background(), environs.OpenParams{
+	env, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url": s.imageServer.URL,
@@ -70,7 +70,7 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 
 	// Make sure we don't fall back to the public image sources.
 	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, "")
-	s.callCtx = envcontext.WithoutCredentialInvalidator(stdcontext.Background())
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
@@ -139,7 +139,7 @@ func AssertInvalidatesCredential(c *gc.C, client *mockClient, f func(envcontext.
 		}{Fault: types.NoPermission{}},
 	}), errors.New("find folder failed"))
 	var called bool
-	ctx := envcontext.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		called = true
 		return nil
 	})

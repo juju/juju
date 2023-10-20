@@ -546,7 +546,7 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 			return service.CredentialValidationContext{}, nil
 		},
 		func() (envcontext.ModelCredentialInvalidatorFunc, error) {
-			return func(reason string) error {
+			return func(_ context.Context, reason string) error {
 				return nil
 			}, nil
 		},

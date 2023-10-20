@@ -56,7 +56,7 @@ func (s *ErrorSuite) TestHasDenialStatusCode(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
 		return errors.New("kaboom")
 	})
 	errorutils.MaybeInvalidateCredential(s.azureError, ctx)
@@ -65,7 +65,7 @@ func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 
 func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
 		c.Assert(msg, gc.Matches, "azure cloud denied access: .*")
 		called = true
 		return nil
@@ -86,7 +86,7 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 
 func (*ErrorSuite) TestNilAzureError(c *gc.C) {
 	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
 		called = true
 		return nil
 	})

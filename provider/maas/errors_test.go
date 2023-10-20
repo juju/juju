@@ -38,7 +38,7 @@ func (s *ErrorSuite) TestNoValidation(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
 		return errors.New("kaboom")
 	})
 	denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, s.maasError, ctx)
@@ -79,7 +79,7 @@ func (s *ErrorSuite) TestGomaasError(c *gc.C) {
 
 func (s *ErrorSuite) checkMaasPermissionHandling(c *gc.C, handled bool) {
 	called := false
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
 		c.Assert(msg, gc.Matches, "cloud denied access:.*")
 		called = true
 		return nil

@@ -105,7 +105,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamNotFound(c *gc.C) {
 func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
 	called := false
-	s.callCtx = envcontext.WithCredentialInvalidator(context.TODO(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.TODO(), func(context.Context, string) error {
 		called = true
 		return nil
 	})
@@ -118,7 +118,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 func (s *imageutilsSuite) TestSeriesImageStreamThrewNonCredentialError(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("308 Permanent Redirect", http.StatusPermanentRedirect))
 	called := false
-	s.callCtx = envcontext.WithCredentialInvalidator(context.TODO(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.TODO(), func(context.Context, string) error {
 		called = true
 		return nil
 	})

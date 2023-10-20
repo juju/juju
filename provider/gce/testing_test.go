@@ -338,7 +338,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
 	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
 
-	s.CallCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
+	s.CallCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		s.InvalidatedCredentials = true
 		return nil
 	})

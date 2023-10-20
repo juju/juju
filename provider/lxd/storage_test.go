@@ -37,7 +37,7 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.provider = provider
 	s.Stub.ResetCalls()
-	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		s.invalidCredential = true
 		return nil
 	})

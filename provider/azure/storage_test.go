@@ -54,7 +54,7 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	env := openEnviron(c, envProvider, &s.sender)
 	s.provider, err = env.StorageProvider("azure")
 	c.Assert(err, jc.ErrorIsNil)
-	s.cloudCallCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
+	s.cloudCallCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		s.invalidCredential = true
 		return nil
 	})

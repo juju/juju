@@ -164,7 +164,7 @@ var maybeConvertCredentialError = func(err error, ctx envcontext.ProviderCallCon
 
 	invalidateCredentialFunc := envcontext.CredentialInvalidatorFromContext(ctx)
 	convert := func(converted error) error {
-		callbackErr := invalidateCredentialFunc(converted.Error())
+		callbackErr := invalidateCredentialFunc(ctx, converted.Error())
 		if callbackErr != nil {
 			// We want to proceed with the actual processing but still keep a log of a problem.
 			logger.Infof("callback to invalidate model credential failed with %v", converted)

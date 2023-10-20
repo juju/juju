@@ -233,7 +233,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		s.invalidatedCredential = true
 		return nil
 	})

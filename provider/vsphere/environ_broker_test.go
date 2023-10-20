@@ -582,7 +582,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceLoginErrorInvalidatesCreds(c
 		String: "You passed an incorrect user name or password, bucko.",
 	}))
 	var passedReason string
-	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(reason string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, reason string) error {
 		passedReason = reason
 		return nil
 	})

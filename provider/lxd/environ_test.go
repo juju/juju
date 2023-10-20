@@ -40,7 +40,7 @@ var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		s.invalidCredential = true
 		return nil
 	})

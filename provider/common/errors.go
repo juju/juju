@@ -44,7 +44,7 @@ func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx env
 	if denied {
 		invalidateCredentialFunc := envcontext.CredentialInvalidatorFromContext(ctx)
 		converted := fmt.Errorf("cloud denied access: %w", CredentialNotValidError(err))
-		invalidateErr := invalidateCredentialFunc(converted.Error())
+		invalidateErr := invalidateCredentialFunc(ctx, converted.Error())
 		if invalidateErr != nil {
 			logger.Warningf("could not invalidate stored cloud credential on the controller: %v", invalidateErr)
 		}

@@ -102,7 +102,7 @@ func (s *environInstSuite) TestInstancesInvalidCredentials(c *gc.C) {
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
 	ids := []instance.Id{"eggs"}
-	_, err := s.Env.Instances(envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
+	_, err := s.Env.Instances(envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		invalidCred = true
 		return nil
 	}), ids)
@@ -147,7 +147,7 @@ func (s *environInstSuite) TestControllerInvalidCredentials(c *gc.C) {
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
 	_, err := s.Env.ControllerInstances(
-		envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
+		envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 			invalidCred = true
 			return nil
 		}), coretesting.ControllerTag.Id())
@@ -197,7 +197,7 @@ func (s *environInstSuite) TestAdoptResourcesInvalidResources(c *gc.C) {
 	// allInstances will ultimately return the error.
 	s.Client.Stub.SetErrors(errTestUnAuth)
 
-	err := s.Env.AdoptResources(envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
+	err := s.Env.AdoptResources(envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
 		invalidCred = true
 		return nil
 	}), "target-uuid", version.MustParse("3.4.5"))
