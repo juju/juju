@@ -76,8 +76,7 @@ type ProvisionerTaskSuite struct {
 	instances      []instances.Instance
 	instanceBroker *testInstanceBroker
 
-	callCtx           context.ProviderCallContext
-	invalidCredential bool
+	callCtx context.ProviderCallContext
 }
 
 var _ = gc.Suite(&ProvisionerTaskSuite{})
@@ -101,10 +100,7 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.callCtx = context.WithCredentialInvalidator(stdcontext.TODO(), func(string) error {
-		s.invalidCredential = true
-		return nil
-	})
+	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.TODO())
 }
 
 func (s *ProvisionerTaskSuite) TestStartStop(c *gc.C) {

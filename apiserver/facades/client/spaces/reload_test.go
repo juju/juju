@@ -16,7 +16,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/context"
 	environmocks "github.com/juju/juju/environs/mocks"
 )
@@ -42,15 +41,10 @@ func (s *ReloadSpacesAPISuite) TestReloadSpaces(c *gc.C) {
 	mockState := NewMockReloadSpacesState(ctrl)
 
 	mockEnvironSpaces := NewMockEnvironSpaces(ctrl)
-	mockEnvironSpaces.EXPECT().ReloadSpaces(gomock.Any(), mockState, mockNetworkEnviron).DoAndReturn(
-		func(ctx envcontext.ProviderCallContext, st ReloadSpacesState, env environs.BootstrapEnviron) error {
-			_, ok := ctx.Value("credential-invalidator").(envcontext.InvalidateModelCredentialFunc)
-			c.Assert(ok, jc.IsTrue)
-			return nil
-		})
+	mockEnvironSpaces.EXPECT().ReloadSpaces(gomock.Any(), mockState, mockNetworkEnviron).Return(nil)
 
 	spacesAPI := NewReloadSpacesAPI(mockState, mockEnvirons, mockEnvironSpaces, apiservertesting.NoopInvalidateModelCredentialFuncGetter, authorizer)
-	err := spacesAPI.ReloadSpaces(stdcontext.Background())
+	err := spacesAPI.ReloadSpaces(envcontext.WithoutCredentialInvalidator(stdcontext.Background()))
 	c.Check(err, jc.ErrorIsNil)
 }
 

@@ -163,13 +163,17 @@ func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
 		}},
 		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Available, "", nilData}},
 	})
-	mockEnviron.CheckCalls(c, []testing.StubCall{
-		{"UpgradeOperations", []interface{}{
-			mockEnviron.callCtxUsed,
+	mockEnviron.Stub.CheckCallNames(c, "UpgradeOperations")
+	// Nil the call context as if fails DeepEquals.
+	call := mockEnviron.Stub.Calls()[0]
+	c.Assert(call.Args, gc.HasLen, 2)
+	call.Args[0] = nil
+	c.Assert(call, jc.DeepEquals, testing.StubCall{
+		"UpgradeOperations", []interface{}{
+			nil,
 			environs.UpgradeOperationsParams{
 				ControllerUUID: coretesting.ControllerTag.Id(),
 			}},
-		},
 	})
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
 	stepsStub.CheckCallNames(c, "step124_0", "step124_1", "step125")
@@ -365,13 +369,10 @@ type mockEnviron struct {
 	environs.Environ
 	testing.Stub
 	ops []environs.UpgradeOperation
-
-	callCtxUsed context.ProviderCallContext
 }
 
 func (e *mockEnviron) UpgradeOperations(ctx context.ProviderCallContext, args environs.UpgradeOperationsParams) []environs.UpgradeOperation {
 	e.MethodCall(e, "UpgradeOperations", ctx, args)
-	e.callCtxUsed = ctx
 	e.PopNoErr()
 	return e.ops
 }

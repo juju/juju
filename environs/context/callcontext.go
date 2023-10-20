@@ -80,32 +80,29 @@ func (a *legacyCredentialAdaptor) InvalidateModelCredential(reason string) error
 // and is used in provider api calls.
 type ProviderCallContext struct {
 	stdcontext.Context
+	invalidationFunc InvalidateModelCredentialFunc
 }
 
 // WithoutCredentialInvalidator returns a ProviderCallContext
 // without any credential invalidation callback.
 func WithoutCredentialInvalidator(ctx stdcontext.Context) ProviderCallContext {
-	return ProviderCallContext{ctx}
+	return ProviderCallContext{Context: ctx}
 }
-
-const (
-	credentialInvalidatorKey = "credential-invalidator"
-)
 
 // WithCredentialInvalidator returns a ProviderCallContext
 // with the specified credential invalidation callback.
 func WithCredentialInvalidator(ctx stdcontext.Context, invalidationFunc InvalidateModelCredentialFunc) ProviderCallContext {
 	return ProviderCallContext{
-		stdcontext.WithValue(ctx, credentialInvalidatorKey, invalidationFunc),
+		Context:          ctx,
+		invalidationFunc: invalidationFunc,
 	}
 }
 
 // CredentialInvalidatorFromContext returns a credential invalidation func
 // that may be associated with the context. If none, it returns a no-op function.
-func CredentialInvalidatorFromContext(ctx stdcontext.Context) InvalidateModelCredentialFunc {
-	invalidateCredential, ok := ctx.Value(credentialInvalidatorKey).(InvalidateModelCredentialFunc)
-	if ok {
-		return invalidateCredential
+func CredentialInvalidatorFromContext(ctx ProviderCallContext) InvalidateModelCredentialFunc {
+	if ctx.invalidationFunc != nil {
+		return ctx.invalidationFunc
 	}
 	// No op.
 	return func(string) error { return nil }
