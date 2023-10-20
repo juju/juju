@@ -57,7 +57,7 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 		})
 	}
 
-	err := BootstrapDqlite(context.Background(), mgr, stubLogger{}, true, check)
+	err := BootstrapDqlite(context.Background(), mgr, stubLogger{}, true, BootstrapControllerConcern(check))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

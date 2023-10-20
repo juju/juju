@@ -847,11 +847,17 @@ func nullContext() environs.BootstrapContext {
 	return environscmd.BootstrapContext(context.Background(), ctx)
 }
 
-func bootstrapDqliteWithDummyCloudType(ctx context.Context, mgr database.BootstrapNodeManager, logger database.Logger, preferLoopback bool, ops ...database.BootstrapOpt) error {
+func bootstrapDqliteWithDummyCloudType(
+	ctx context.Context,
+	mgr database.BootstrapNodeManager,
+	logger database.Logger,
+	preferLoopback bool,
+	concerns ...database.BootstrapConcern,
+) error {
 	// The dummy cloud type needs to be inserted before the other operations.
-	ops = append([]database.BootstrapOpt{
-		jujutesting.InsertDummyCloudType,
-	}, ops...)
+	concerns = append([]database.BootstrapConcern{
+		database.BootstrapControllerConcern(jujutesting.InsertDummyCloudType),
+	}, concerns...)
 
-	return database.BootstrapDqlite(ctx, mgr, logger, preferLoopback, ops...)
+	return database.BootstrapDqlite(ctx, mgr, logger, preferLoopback, concerns...)
 }

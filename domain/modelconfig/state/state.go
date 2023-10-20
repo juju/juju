@@ -116,27 +116,38 @@ func (st *State) SetModelConfig(
 		return errors.Trace(err)
 	}
 
+	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		return SetModelConfig(ctx, conf, tx)
+	})
+}
+
+// SetModelConfig is responsible for overwriting the currently set model config
+// with new values. SetModelConfig will remove all existing model config even
+// when an empty map is supplied.
+func SetModelConfig(
+	ctx context.Context,
+	conf map[string]string,
+	tx *sql.Tx,
+) error {
 	insertBinds, insertVals := database.MapToMultiPlaceholder(conf)
 	insertStmt := fmt.Sprintf(`
 INSERT INTO model_config (key, value) VALUES %s
 `, insertBinds)
 	deleteStmt := "DELETE FROM model_config"
 
-	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, deleteStmt)
-		if err != nil {
-			return fmt.Errorf("deleting model config attributes: %w", err)
-		}
+	_, err := tx.ExecContext(ctx, deleteStmt)
+	if err != nil {
+		return fmt.Errorf("deleting model config attributes: %w", err)
+	}
 
-		if len(insertVals) == 0 {
-			return nil
-		}
-
-		if _, err := tx.ExecContext(ctx, insertStmt, insertVals...); err != nil {
-			return fmt.Errorf("setting model config attributes: %w", err)
-		}
+	if len(insertVals) == 0 {
 		return nil
-	})
+	}
+
+	if _, err := tx.ExecContext(ctx, insertStmt, insertVals...); err != nil {
+		return fmt.Errorf("setting model config attributes: %w", err)
+	}
+	return nil
 }
 
 // UpdateModelConfig is responsible for updating the model's config key and
