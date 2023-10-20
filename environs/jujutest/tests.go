@@ -141,7 +141,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
 	t.BootstrapContext = envtesting.BootstrapContext(ctx, c)
-	t.ProviderCallContext = context.NewCloudCallContext(ctx)
+	t.ProviderCallContext = context.WithoutCredentialInvalidator(ctx)
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {

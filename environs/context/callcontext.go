@@ -7,9 +7,22 @@ import (
 	stdcontext "context"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/domain/credential"
+)
+
+type (
+	// InvalidateModelCredentialFunc records a credential as being invalid.
+	InvalidateModelCredentialFunc func(reason string) error
+
+	// InvalidateModelCredentialFuncGetter returns a function which records a credential as being invalid.
+	InvalidateModelCredentialFuncGetter func() (InvalidateModelCredentialFunc, error)
+
+	// CredentialIDFuncGetter returns a function which returns a credential ID.
+	CredentialIDFuncGetter func() (credential.ID, error)
+
+	// InvalidateCredentialFunc records a credential with the given ID as being invalid.
+	InvalidateCredentialFunc func(ctx stdcontext.Context, id credential.ID, reason string) error
 )
 
 // ModelCredentialInvalidator defines a point of use interface for invalidating
@@ -19,39 +32,42 @@ type ModelCredentialInvalidator interface {
 	InvalidateModelCredential(string) error
 }
 
-// NewCredentialInvalidator returns an instance which is used by providers to
-// mark a credential as invalid.
+// NewCredentialInvalidator creates a credential validator with
+// callbacks which update dqlite and mongo.
 func NewCredentialInvalidator(
-	tag names.CloudCredentialTag,
-	invalidateFunc func(ctx stdcontext.Context, id credential.ID, reason string) error,
-	legacyInvalidate func(reason string) error,
+	idGetter CredentialIDFuncGetter,
+	invalidateFunc InvalidateCredentialFunc,
+	legacyInvalidateFunc InvalidateModelCredentialFunc,
 ) ModelCredentialInvalidator {
 	return &legacyCredentialAdaptor{
-		tag:              tag,
+		idGetter:         idGetter,
 		invalidateFunc:   invalidateFunc,
-		legacyInvalidate: legacyInvalidate,
+		legacyInvalidate: legacyInvalidateFunc,
 	}
 }
 
 // legacyCredentialAdaptor exists as a *short term* solution to the fact that details
 // for credential validity exists in both dqlite (on credential records) and mongo (on models).
 // The provider calls a single InvalidateModelCredential function which updates both places.
-// TODO(wallyworld) - the legacy invalidate function needs to be changed to take a context and tag.
 type legacyCredentialAdaptor struct {
-	tag              names.CloudCredentialTag
+	idGetter         func() (credential.ID, error)
 	invalidateFunc   func(ctx stdcontext.Context, id credential.ID, reason string) error
 	legacyInvalidate func(string) error
 }
 
 // InvalidateModelCredential implements ModelCredentialInvalidator.
 func (a *legacyCredentialAdaptor) InvalidateModelCredential(reason string) error {
-	if a.tag.IsZero() {
-		return errors.New("missing credential tag")
+	credId, err := a.idGetter()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if credId.IsZero() {
+		return nil
 	}
 	if a.invalidateFunc == nil || a.legacyInvalidate == nil {
 		return errors.New("missing validation functions")
 	}
-	if err := a.invalidateFunc(stdcontext.Background(), credential.IdFromTag(a.tag), reason); err != nil {
+	if err := a.invalidateFunc(stdcontext.Background(), credId, reason); err != nil {
 		return errors.Annotate(err, "updating credential details")
 	}
 	if err := a.legacyInvalidate(reason); err != nil {
@@ -60,11 +76,37 @@ func (a *legacyCredentialAdaptor) InvalidateModelCredential(reason string) error
 	return nil
 }
 
-// CallContext creates a CloudCallContext for use when calling environ methods
-// that may require invalidate a cloud credential.
-func CallContext(credential ModelCredentialInvalidator) *CloudCallContext {
-	// TODO(wallyworld) - pass in the stdcontext
-	callCtx := NewCloudCallContext(stdcontext.Background())
-	callCtx.InvalidateCredentialFunc = credential.InvalidateModelCredential
-	return callCtx
+// ProviderCallContext wraps a standard context
+// and is used in provider api calls.
+type ProviderCallContext struct {
+	stdcontext.Context
+}
+
+// WithoutCredentialInvalidator returns a ProviderCallContext
+// without any credential invalidation callback.
+func WithoutCredentialInvalidator(ctx stdcontext.Context) ProviderCallContext {
+	return ProviderCallContext{ctx}
+}
+
+const (
+	credentialInvalidatorKey = "credential-invalidator"
+)
+
+// WithCredentialInvalidator returns a ProviderCallContext
+// with the specified credential invalidation callback.
+func WithCredentialInvalidator(ctx stdcontext.Context, invalidationFunc InvalidateModelCredentialFunc) ProviderCallContext {
+	return ProviderCallContext{
+		stdcontext.WithValue(ctx, credentialInvalidatorKey, invalidationFunc),
+	}
+}
+
+// CredentialInvalidatorFromContext returns a credential invalidation func
+// that may be associated with the context. If none, it returns a no-op function.
+func CredentialInvalidatorFromContext(ctx stdcontext.Context) InvalidateModelCredentialFunc {
+	invalidateCredential, ok := ctx.Value(credentialInvalidatorKey).(InvalidateModelCredentialFunc)
+	if ok {
+		return invalidateCredential
+	}
+	// No op.
+	return func(string) error { return nil }
 }

@@ -4,6 +4,8 @@
 package space
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -11,8 +13,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	instance "github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 )
 
@@ -31,16 +34,16 @@ func (s *spacesSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 		{CIDR: "10.12.24.1/24"},
 	}
 
-	context := NewMockProviderCallContext(ctrl)
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	environ := NewMockNetworkingEnviron(ctrl)
-	environ.EXPECT().SupportsSpaceDiscovery(context).Return(false, nil)
-	environ.EXPECT().Subnets(context, instance.UnknownId, nil).Return(subnets, nil)
+	environ.EXPECT().SupportsSpaceDiscovery(ctx).Return(false, nil)
+	environ.EXPECT().Subnets(ctx, instance.UnknownId, nil).Return(subnets, nil)
 
 	state := NewMockReloadSpacesState(ctrl)
 	state.EXPECT().SaveProviderSubnets(subnets, "")
 
-	err := ReloadSpaces(context, state, environ)
+	err := ReloadSpaces(ctx, state, environ)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -53,16 +56,16 @@ func (s *spacesSuite) TestReloadSpacesUsingSubnetsFailsOnSave(c *gc.C) {
 		{CIDR: "10.12.24.1/24"},
 	}
 
-	context := NewMockProviderCallContext(ctrl)
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	environ := NewMockNetworkingEnviron(ctrl)
-	environ.EXPECT().SupportsSpaceDiscovery(context).Return(false, nil)
-	environ.EXPECT().Subnets(context, instance.UnknownId, nil).Return(subnets, nil)
+	environ.EXPECT().SupportsSpaceDiscovery(ctx).Return(false, nil)
+	environ.EXPECT().Subnets(ctx, instance.UnknownId, nil).Return(subnets, nil)
 
 	state := NewMockReloadSpacesState(ctrl)
 	state.EXPECT().SaveProviderSubnets(subnets, "").Return(errors.New("boom"))
 
-	err := ReloadSpaces(context, state, environ)
+	err := ReloadSpaces(ctx, state, environ)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -70,11 +73,11 @@ func (s *spacesSuite) TestReloadSpacesNotNetworkEnviron(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	context := NewMockProviderCallContext(ctrl)
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	state := NewMockReloadSpacesState(ctrl)
 	environ := NewMockBootstrapEnviron(ctrl)
 
-	err := ReloadSpaces(context, state, environ)
+	err := ReloadSpaces(ctx, state, environ)
 	c.Assert(err, gc.ErrorMatches, "spaces discovery in a non-networking environ not supported")
 }
 

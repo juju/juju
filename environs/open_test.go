@@ -69,7 +69,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, cfg.AgentStream(), cfg.AgentStream())
-	err = bootstrap.Bootstrap(ctx, env, context.NewEmptyCloudCallContext(), bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(ctx, env, context.WithoutCredentialInvalidator(ctx.Context()), bootstrap.BootstrapParams{
 		ControllerConfig:        controllerCfg,
 		AdminSecret:             "admin-secret",
 		CAPrivateKey:            testing.CAKey,
@@ -133,12 +133,13 @@ func (*OpenSuite) TestNew(c *gc.C) {
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.New(stdcontext.TODO(), environs.OpenParams{
+	ctx := stdcontext.TODO()
+	e, err := environs.New(ctx, environs.OpenParams{
 		Cloud:  testing.FakeCloudSpec(),
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = e.ControllerInstances(context.NewEmptyCloudCallContext(), "uuid")
+	_, err = e.ControllerInstances(context.WithoutCredentialInvalidator(ctx), "uuid")
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 }
 
@@ -167,7 +168,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 
-	callCtx := context.NewEmptyCloudCallContext()
+	callCtx := context.WithoutCredentialInvalidator(ctx.Context())
 	err = environs.Destroy("controller-name", e, callCtx, store)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -182,7 +183,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 func (*OpenSuite) TestDestroyNotFound(c *gc.C) {
 	var env destroyControllerEnv
 	store := jujuclient.NewMemStore()
-	err := environs.Destroy("fnord", &env, context.NewEmptyCloudCallContext(), store)
+	err := environs.Destroy("fnord", &env, context.WithoutCredentialInvalidator(stdcontext.TODO()), store)
 	c.Assert(err, jc.ErrorIsNil)
 	env.CheckCallNames(c) // no controller details, no call
 }
