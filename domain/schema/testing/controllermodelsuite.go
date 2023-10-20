@@ -22,7 +22,7 @@ type ControllerModelSuite struct {
 func (s *ControllerModelSuite) ModelTxnRunner(c *gc.C, modelUUID string) coredatabase.TxnRunner {
 	txnRunner, _ := s.DqliteSuite.OpenDBForNamespace(c, modelUUID)
 	s.DqliteSuite.ApplyDDLForRunner(c, &SchemaApplier{
-		schema: schema.ModelDDL(),
+		Schema: schema.ModelDDL(),
 	}, txnRunner)
 	return txnRunner
 }

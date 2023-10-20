@@ -461,6 +461,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ServiceFactoryName: serviceFactoryName,
 			NewWorker:          upgradedatabase.NewUpgradeDatabaseWorker,
 			Logger:             loggo.GetLogger("juju.worker.upgradedatabase"),
+			Clock:              config.Clock,
 		})),
 
 		// The upgrade steps gate is used to coordinate workers which

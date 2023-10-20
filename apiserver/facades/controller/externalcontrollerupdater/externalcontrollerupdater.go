@@ -53,7 +53,7 @@ func (api *ExternalControllerUpdaterAPI) WatchExternalControllers(ctx context.Co
 			}},
 		}, nil
 	}
-	changes, err := internal.FirstResult[[]string](w)
+	changes, err := internal.FirstResult[[]string](ctx, w)
 	if err != nil {
 		return params.StringsWatchResults{
 			Results: []params.StringsWatchResult{{

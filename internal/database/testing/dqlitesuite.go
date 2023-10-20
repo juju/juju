@@ -46,6 +46,8 @@ type DqliteSuite struct {
 	dqlite    *app.App
 	db        *sql.DB
 	trackedDB coredatabase.TxnRunner
+
+	references map[string]*sql.DB
 }
 
 // SetUpTest creates a new sql.DB reference and ensures that the
@@ -101,9 +103,15 @@ func (s *DqliteSuite) SetUpTest(c *gc.C) {
 // TearDownTest is responsible for cleaning up the testing resources created
 // with the ControllerSuite
 func (s *DqliteSuite) TearDownTest(c *gc.C) {
+	// Ensure we clean up any databases that were opened during the tests.
+	for _, db := range s.references {
+		err := db.Close()
+		c.Check(err, jc.ErrorIsNil)
+	}
+
 	if s.dqlite != nil {
 		err := s.dqlite.Close()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Check(err, jc.ErrorIsNil)
 	}
 
 	s.IsolationSuite.TearDownTest(c)
@@ -170,6 +178,9 @@ func (s *DqliteSuite) OpenDBForNamespace(c *gc.C, domain string) (coredatabase.T
 		db: sqlair.NewDB(db),
 	}
 
+	// Ensure we close all databases that are opened during the tests.
+	s.cleanupDB(c, domain, db)
+
 	return trackedDB, trackedDB.db.PlainDB()
 }
 
@@ -178,6 +189,13 @@ func (s *DqliteSuite) TxnRunnerFactory() func() (coredatabase.TxnRunner, error) 
 	return func() (coredatabase.TxnRunner, error) {
 		return s.trackedDB, nil
 	}
+}
+
+func (s *DqliteSuite) cleanupDB(c *gc.C, namespace string, db *sql.DB) {
+	if s.references == nil {
+		s.references = make(map[string]*sql.DB)
+	}
+	s.references[namespace] = db
 }
 
 // FindTCPPort finds an unused TCP port and returns it.

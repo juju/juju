@@ -23,7 +23,7 @@ const (
 )
 
 // ControllerDDL is used to create the controller database schema at bootstrap.
-func ControllerDDL(nodeID uint64) *schema.Schema {
+func ControllerDDL() *schema.Schema {
 	patches := []func() schema.Patch{
 		leaseSchema,
 		changeLogSchema,
@@ -37,13 +37,7 @@ func ControllerDDL(nodeID uint64) *schema.Schema {
 		modelMetadataSchema,
 		controllerConfigSchema,
 		changeLogTriggersForTable("controller_config", "key", tableControllerConfig),
-		// These are broken up for 2 reasons:
-		// 1. Bind variables do not work for multiple statements in one string.
-		// 2. We want to insert the initial node before creating the change_log
-		//    triggers as there is no need to produce a change stream event
-		//    from what is a bootstrap activity.
 		controllerNodeTable,
-		controllerNodeEntry(nodeID),
 		changeLogTriggersForTable("controller_node", "controller_id", tableControllerNode),
 		modelMigrationSchema,
 		changeLogTriggersForTable("model_migration_status", "uuid", tableModelMigrationStatus),
@@ -403,19 +397,6 @@ ON controller_node (dqlite_node_id);
 
 CREATE UNIQUE INDEX idx_controller_node_bind_address
 ON controller_node (bind_address);`)
-}
-
-func controllerNodeEntry(nodeID uint64) func() schema.Patch {
-	return func() schema.Patch {
-		return schema.MakePatch(`
--- TODO (manadart 2023-06-06): At the time of writing, 
--- we have not yet modelled machines. 
--- Accordingly, the controller ID remains the ID of the machine, 
--- but it should probably become a UUID once machines have one.
--- While HA is not supported in K8s, this doesn't matter.
-INSERT INTO controller_node (controller_id, dqlite_node_id, bind_address)
-VALUES ('0', ?, '127.0.0.1');`, nodeID)
-	}
 }
 
 func modelMigrationSchema() schema.Patch {

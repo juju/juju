@@ -13,15 +13,15 @@ import (
 )
 
 type SchemaApplier struct {
-	schema *schema.Schema
+	Schema *schema.Schema
 }
 
 func (s *SchemaApplier) Apply(c *gc.C, ctx context.Context, runner database.TxnRunner) {
-	s.schema.Hook(func(i int) error {
+	s.Schema.Hook(func(i int) error {
 		c.Log("Applying schema change", i)
 		return nil
 	})
-	changeSet, err := s.schema.Ensure(ctx, runner)
+	changeSet, err := s.Schema.Ensure(ctx, runner)
 	c.Assert(err, gc.IsNil)
-	c.Check(changeSet.Post, gc.Equals, s.schema.Len())
+	c.Check(changeSet.Post, gc.Equals, s.Schema.Len())
 }

@@ -26,7 +26,7 @@ var _ = gc.Suite(&schemaSuite{})
 func (s *schemaSuite) TestControllerDDLApply(c *gc.C) {
 	c.Logf("Committing schema DDL")
 
-	schema := ControllerDDL(0x2dc171858c3155be)
+	schema := ControllerDDL()
 	changeSet, err := schema.Ensure(context.Background(), s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(changeSet.Current, gc.Equals, 0)

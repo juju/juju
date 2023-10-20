@@ -37,13 +37,13 @@ func (f *Facade) ControllerConfig(ctx context.Context) (params.ControllerConfigR
 	return f.controllerConfigAPI.ControllerConfig(ctx)
 }
 
-func (f *Facade) WatchControllerConfig() (params.StringsWatchResult, error) {
+func (f *Facade) WatchControllerConfig(ctx context.Context) (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	w, err := f.controllerConfigService.Watch()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	result.StringsWatcherId, result.Changes, err = internal.EnsureRegisterWatcher[[]string](f.watcherRegistry, w)
+	result.StringsWatcherId, result.Changes, err = internal.EnsureRegisterWatcher[[]string](ctx, f.watcherRegistry, w)
 	result.Error = apiservererrors.ServerError(err)
 	return result, nil
 }
