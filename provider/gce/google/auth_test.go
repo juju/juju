@@ -18,7 +18,7 @@ type authSuite struct {
 var _ = gc.Suite(&authSuite{})
 
 func (s *authSuite) TestNewComputeService(c *gc.C) {
-	_, err := newComputeService(context.TODO(), s.Credentials, jujuhttp.NewClient())
+	_, err := newComputeService(context.Background(), s.Credentials, jujuhttp.NewClient())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

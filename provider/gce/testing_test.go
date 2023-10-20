@@ -4,7 +4,7 @@
 package gce
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -314,7 +314,7 @@ type BaseSuite struct {
 	FakeCommon  *fakeCommon
 	FakeEnviron *fakeEnviron
 
-	CallCtx                *context.CloudCallContext
+	CallCtx                envcontext.ProviderCallContext
 	InvalidatedCredentials bool
 }
 
@@ -327,7 +327,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 	// Patch out all expensive external deps.
 	s.Env.gce = s.FakeConn
-	s.PatchValue(&newConnection, func(stdcontext.Context, google.ConnectionConfig, *google.Credentials) (gceConnection, error) {
+	s.PatchValue(&newConnection, func(context.Context, google.ConnectionConfig, *google.Credentials) (gceConnection, error) {
 		return s.FakeConn, nil
 	})
 	s.PatchValue(&bootstrap, s.FakeCommon.Bootstrap)
@@ -338,12 +338,10 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&findInstanceSpec, s.FakeEnviron.FindInstanceSpec)
 	s.PatchValue(&getInstances, s.FakeEnviron.GetInstances)
 
-	s.CallCtx = &context.CloudCallContext{
-		InvalidateCredentialFunc: func(string) error {
-			s.InvalidatedCredentials = true
-			return nil
-		},
-	}
+	s.CallCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
+		s.InvalidatedCredentials = true
+		return nil
+	})
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {
@@ -398,7 +396,7 @@ type fakeCommon struct {
 	AZInstances []common.AvailabilityZoneInstances
 }
 
-func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, callCtx context.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, callCtx envcontext.ProviderCallContext, params environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	fc.addCall("Bootstrap", FakeCallArgs{
 		"ctx":    ctx,
 		"switch": env,
@@ -413,7 +411,7 @@ func (fc *fakeCommon) Bootstrap(ctx environs.BootstrapContext, env environs.Envi
 	return result, fc.err()
 }
 
-func (fc *fakeCommon) Destroy(env environs.Environ, ctx context.ProviderCallContext) error {
+func (fc *fakeCommon) Destroy(env environs.Environ, ctx envcontext.ProviderCallContext) error {
 	fc.addCall("Destroy", FakeCallArgs{
 		"switch": env,
 	})
@@ -429,14 +427,14 @@ type fakeEnviron struct {
 	Spec  *instances.InstanceSpec
 }
 
-func (fe *fakeEnviron) GetInstances(env *environ, ctx context.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
+func (fe *fakeEnviron) GetInstances(env *environ, ctx envcontext.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
 	fe.addCall("GetInstances", FakeCallArgs{
 		"switch": env,
 	})
 	return fe.Insts, fe.err()
 }
 
-func (fe *fakeEnviron) BuildInstanceSpec(env *environ, ctx context.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+func (fe *fakeEnviron) BuildInstanceSpec(env *environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	fe.addCall("BuildInstanceSpec", FakeCallArgs{
 		"switch": env,
 		"args":   args,
@@ -453,7 +451,7 @@ func (fe *fakeEnviron) GetHardwareCharacteristics(env *environ, spec *instances.
 	return fe.Hwc
 }
 
-func (fe *fakeEnviron) NewRawInstance(env *environ, ctx context.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
+func (fe *fakeEnviron) NewRawInstance(env *environ, ctx envcontext.ProviderCallContext, args environs.StartInstanceParams, spec *instances.InstanceSpec) (*google.Instance, error) {
 	fe.addCall("NewRawInstance", FakeCallArgs{
 		"switch": env,
 		"args":   args,

@@ -11,7 +11,7 @@ import (
 	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
 	status "github.com/juju/juju/core/status"
-	context "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
 	params "github.com/juju/juju/rpc/params"
 	gomock "go.uber.org/mock/gomock"
@@ -41,7 +41,7 @@ func (m *MockEnviron) EXPECT() *MockEnvironMockRecorder {
 }
 
 // Instances mocks base method.
-func (m *MockEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
+func (m *MockEnviron) Instances(arg0 envcontext.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -56,7 +56,7 @@ func (mr *MockEnvironMockRecorder) Instances(arg0, arg1 interface{}) *gomock.Cal
 }
 
 // NetworkInterfaces mocks base method.
-func (m *MockEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]network.InterfaceInfos, error) {
+func (m *MockEnviron) NetworkInterfaces(arg0 envcontext.ProviderCallContext, arg1 []instance.Id) ([]network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NetworkInterfaces", arg0, arg1)
 	ret0, _ := ret[0].([]network.InterfaceInfos)

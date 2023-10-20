@@ -4,7 +4,7 @@
 package agentbootstrap_test
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/errors"
 	mgotesting "github.com/juju/mgo/v3/testing"
@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
@@ -197,7 +197,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctlr, err := bootstrap.Initialize(stdcontext.Background())
+	ctlr, err := bootstrap.Initialize(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = ctlr.Close() }()
 
@@ -245,7 +245,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	model, err = st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	newModelCfg, err := model.ModelConfig(stdcontext.Background())
+	newModelCfg, err := model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add in the cloud attributes.
@@ -274,7 +274,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(initialModel.Name(), gc.Equals, "hosted")
 	c.Assert(initialModel.CloudRegion(), gc.Equals, "dummy-region")
 	c.Assert(initialModel.EnvironVersion(), gc.Equals, 123)
-	hostedCfg, err := initialModel.ModelConfig(stdcontext.Background())
+	hostedCfg, err := initialModel.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
 	c.Assert(hasUnexpected, jc.IsFalse)
@@ -402,7 +402,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = bootstrap.Initialize(stdcontext.Background())
+	_, err = bootstrap.Initialize(context.Background())
 
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
@@ -477,7 +477,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	st, err := bootstrap.Initialize(stdcontext.Background())
+	st, err := bootstrap.Initialize(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	_ = st.Close()
 
@@ -496,7 +496,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	st, err = bootstrap.Initialize(stdcontext.Background())
+	st, err = bootstrap.Initialize(context.Background())
 	if err == nil {
 		_ = st.Close()
 	}
@@ -557,7 +557,7 @@ func (p *fakeProvider) Validate(newCfg, oldCfg *config.Config) (*config.Config, 
 	return newCfg, p.NextErr()
 }
 
-func (p *fakeProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (p *fakeProvider) Open(_ context.Context, args environs.OpenParams) (environs.Environ, error) {
 	p.MethodCall(p, "Open", args)
 	p.environ = &fakeEnviron{Stub: &p.Stub, provider: p}
 	return p.environ, p.NextErr()
@@ -574,10 +574,10 @@ type fakeEnviron struct {
 	*jujutesting.Stub
 	provider *fakeProvider
 
-	callCtxUsed context.ProviderCallContext
+	callCtxUsed envcontext.ProviderCallContext
 }
 
-func (e *fakeEnviron) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
+func (e *fakeEnviron) Create(ctx envcontext.ProviderCallContext, args environs.CreateParams) error {
 	e.MethodCall(e, "Create", ctx, args)
 	e.callCtxUsed = ctx
 	return e.NextErr()
@@ -589,7 +589,7 @@ func (e *fakeEnviron) Provider() environs.EnvironProvider {
 	return e.provider
 }
 
-func bootstrapDqliteWithDummyCloudType(ctx stdcontext.Context, mgr database.BootstrapNodeManager, logger database.Logger, preferLoopback bool, ops ...database.BootstrapOpt) error {
+func bootstrapDqliteWithDummyCloudType(ctx context.Context, mgr database.BootstrapNodeManager, logger database.Logger, preferLoopback bool, ops ...database.BootstrapOpt) error {
 	// The dummy cloud type needs to be inserted before the other operations.
 	ops = append([]database.BootstrapOpt{
 		jujujujutesting.InsertDummyCloudType,

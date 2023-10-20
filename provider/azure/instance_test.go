@@ -4,7 +4,7 @@
 package azure_test
 
 import (
-	stdcontext "context"
+	"context"
 	"net/http"
 	"path"
 
@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
@@ -40,7 +40,7 @@ type instanceSuite struct {
 	networkInterfaces []*armnetwork.Interface
 	publicIPAddresses []*armnetwork.PublicIPAddress
 
-	callCtx             *context.CloudCallContext
+	callCtx             envcontext.ProviderCallContext
 	invalidteCredential bool
 }
 
@@ -76,13 +76,10 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 		Properties: &armcompute.VirtualMachineProperties{
 			ProvisioningState: to.Ptr("Succeeded")},
 	}}
-	s.callCtx = &context.CloudCallContext{
-		Context: stdcontext.TODO(),
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidteCredential = true
-			return nil
-		},
-	}
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
+		s.invalidteCredential = true
+		return nil
+	})
 }
 
 func makeDeployment(name string, provisioningState armresources.ProvisioningState) *armresources.DeploymentExtended {

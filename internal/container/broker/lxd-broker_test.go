@@ -4,6 +4,7 @@
 package broker_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/charm/v11"
@@ -24,7 +25,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/broker/mocks"
@@ -123,7 +124,7 @@ func (s *lxdBrokerSuite) TestStartInstanceNoHostArchTools(c *gc.C) {
 	broker, brokerErr := s.newLXDBroker(c)
 	c.Assert(brokerErr, jc.ErrorIsNil)
 
-	_, err := broker.StartInstance(context.NewEmptyCloudCallContext(), environs.StartInstanceParams{
+	_, err := broker.StartInstance(envcontext.WithoutCredentialInvalidator(context.Background()), environs.StartInstanceParams{
 		Tools: coretools.List{{
 			// non-host-arch tools should be filtered out by StartInstance
 			Version: version.MustParseBinary("2.3.4-ubuntu-arm64"),

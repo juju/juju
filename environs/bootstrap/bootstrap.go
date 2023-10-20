@@ -29,7 +29,7 @@ import (
 	corecontext "github.com/juju/juju/core/context"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -239,7 +239,7 @@ func withDefaultCAASControllerConstraints(cons constraints.Value) constraints.Va
 func bootstrapCAAS(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
@@ -302,7 +302,7 @@ func bootstrapCAAS(
 func bootstrapIAAS(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args BootstrapParams,
 	bootstrapParams environs.BootstrapParams,
 ) error {
@@ -666,7 +666,7 @@ func bootstrapIAAS(
 }
 
 func finaliseInstanceRole(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	ir environs.InstanceRole,
 	args environs.BootstrapParams,
 ) (environs.BootstrapParams, error) {
@@ -685,7 +685,7 @@ func finaliseInstanceRole(
 func Bootstrap(
 	ctx environs.BootstrapContext,
 	environ environs.BootstrapEnviron,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args BootstrapParams,
 ) error {
 	if err := args.Validate(); err != nil {

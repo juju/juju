@@ -20,7 +20,7 @@ import (
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/common"
@@ -227,7 +227,7 @@ var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
 
 // CreateVolumes implements storage.VolumeSource.
 func (s *cinderVolumeSource) CreateVolumes(
-	ctx context.ProviderCallContext, args []storage.VolumeParams,
+	ctx envcontext.ProviderCallContext, args []storage.VolumeParams,
 ) ([]storage.CreateVolumesResult, error) {
 	results := make([]storage.CreateVolumesResult, len(args))
 	for i, arg := range args {
@@ -246,7 +246,7 @@ func (s *cinderVolumeSource) CreateVolumes(
 }
 
 func (s *cinderVolumeSource) createVolume(
-	ctx context.ProviderCallContext, arg storage.VolumeParams) (*storage.Volume, error) {
+	ctx envcontext.ProviderCallContext, arg storage.VolumeParams) (*storage.Volume, error) {
 	cinderConfig, err := newCinderConfig(arg.Attributes)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -292,7 +292,7 @@ func (s *cinderVolumeSource) createVolume(
 }
 
 func (s *cinderVolumeSource) availabilityZoneForVolume(
-	ctx context.ProviderCallContext, volName string, attachment *storage.VolumeAttachmentParams,
+	ctx envcontext.ProviderCallContext, volName string, attachment *storage.VolumeAttachmentParams,
 ) (string, error) {
 	// If this volume is being attached to an instance, attempt to provision
 	// the storage in the same availability zone.
@@ -349,7 +349,7 @@ func (s *cinderVolumeSource) availabilityZoneForVolume(
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
-func (s *cinderVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
+func (s *cinderVolumeSource) ListVolumes(ctx envcontext.ProviderCallContext) ([]string, error) {
 	cinderVolumes, err := modelCinderVolumes(s.storageAdapter, s.modelUUID)
 	if err != nil {
 		handleCredentialError(err, ctx)
@@ -396,7 +396,7 @@ func volumeInfoToVolumeIds(volumes []storage.VolumeInfo) []string {
 }
 
 // DescribeVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
+func (s *cinderVolumeSource) DescribeVolumes(ctx envcontext.ProviderCallContext, volumeIds []string) ([]storage.DescribeVolumesResult, error) {
 	// In most cases, it is quicker to get all volumes and loop
 	// locally than to make several round-trips to the provider.
 	cinderVolumes, err := s.storageAdapter.GetVolumesDetail()
@@ -422,16 +422,16 @@ func (s *cinderVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, vo
 }
 
 // DestroyVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DestroyVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
+func (s *cinderVolumeSource) DestroyVolumes(ctx envcontext.ProviderCallContext, volumeIds []string) ([]error, error) {
 	return foreachVolume(ctx, s.storageAdapter, volumeIds, destroyVolume), nil
 }
 
 // ReleaseVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) ReleaseVolumes(ctx context.ProviderCallContext, volumeIds []string) ([]error, error) {
+func (s *cinderVolumeSource) ReleaseVolumes(ctx envcontext.ProviderCallContext, volumeIds []string) ([]error, error) {
 	return foreachVolume(ctx, s.storageAdapter, volumeIds, releaseVolume), nil
 }
 
-func foreachVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStorage, volumeIds []string, f func(context.ProviderCallContext, OpenstackStorage, string) error) []error {
+func foreachVolume(ctx envcontext.ProviderCallContext, storageAdapter OpenstackStorage, volumeIds []string, f func(envcontext.ProviderCallContext, OpenstackStorage, string) error) []error {
 	var wg sync.WaitGroup
 	wg.Add(len(volumeIds))
 	results := make([]error, len(volumeIds))
@@ -445,7 +445,7 @@ func foreachVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 	return results
 }
 
-func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStorage, volumeId string) error {
+func destroyVolume(ctx envcontext.ProviderCallContext, storageAdapter OpenstackStorage, volumeId string) error {
 	logger.Debugf("destroying volume %q", volumeId)
 	// Volumes must not be in-use when destroying. A volume may
 	// still be in-use when the instance it is attached to is
@@ -501,7 +501,7 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 	return nil
 }
 
-func releaseVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStorage, volumeId string) error {
+func releaseVolume(ctx envcontext.ProviderCallContext, storageAdapter OpenstackStorage, volumeId string) error {
 	logger.Debugf("releasing volume %q", volumeId)
 	_, err := waitVolume(storageAdapter, volumeId, func(v *cinder.Volume) (bool, error) {
 		switch v.Status {
@@ -536,7 +536,7 @@ func (s *cinderVolumeSource) ValidateVolumeParams(params storage.VolumeParams) e
 }
 
 // AttachVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) AttachVolumes(ctx context.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
+func (s *cinderVolumeSource) AttachVolumes(ctx envcontext.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]storage.AttachVolumesResult, error) {
 	results := make([]storage.AttachVolumesResult, len(args))
 	for i, arg := range args {
 		attachment, err := s.attachVolume(arg)
@@ -589,7 +589,7 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 }
 
 // ImportVolume is part of the storage.VolumeImporter interface.
-func (s *cinderVolumeSource) ImportVolume(ctx context.ProviderCallContext, volumeId string, resourceTags map[string]string) (storage.VolumeInfo, error) {
+func (s *cinderVolumeSource) ImportVolume(ctx envcontext.ProviderCallContext, volumeId string, resourceTags map[string]string) (storage.VolumeInfo, error) {
 	volume, err := s.storageAdapter.GetVolume(volumeId)
 	if err != nil {
 		handleCredentialError(err, ctx)
@@ -629,11 +629,11 @@ func waitVolume(
 }
 
 // DetachVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) DetachVolumes(ctx context.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]error, error) {
+func (s *cinderVolumeSource) DetachVolumes(ctx envcontext.ProviderCallContext, args []storage.VolumeAttachmentParams) ([]error, error) {
 	return detachVolumes(ctx, s.storageAdapter, args), nil
 }
 
-func detachVolumes(ctx context.ProviderCallContext, storageAdapter OpenstackStorage, args []storage.VolumeAttachmentParams) []error {
+func detachVolumes(ctx envcontext.ProviderCallContext, storageAdapter OpenstackStorage, args []storage.VolumeAttachmentParams) []error {
 	results := make([]error, len(args))
 	for i, arg := range args {
 		if err := detachVolume(

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/provider/common"
 )
@@ -60,7 +60,7 @@ func (p environProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping tests the connection to the cloud, to verify the endpoint is valid.
-func (p environProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
+func (p environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 
@@ -143,7 +143,7 @@ page in the AWS console: %w
 // verify the configured credentials. If verification fails, a user-friendly
 // error will be returned, and the original error will be logged at debug
 // level.
-var verifyCredentials = func(e Client, ctx context.ProviderCallContext) error {
+var verifyCredentials = func(e Client, ctx envcontext.ProviderCallContext) error {
 	_, err := e.DescribeAccountAttributes(ctx, nil)
 	return maybeConvertCredentialError(err, ctx)
 }
@@ -153,7 +153,7 @@ var verifyCredentials = func(e Client, ctx context.ProviderCallContext) error {
 // Authorisation related errors are annotated with an additional
 // user-friendly explanation.
 // All other errors are returned un-wrapped and not annotated.
-var maybeConvertCredentialError = func(err error, ctx context.ProviderCallContext) error {
+var maybeConvertCredentialError = func(err error, ctx envcontext.ProviderCallContext) error {
 	if err == nil {
 		return nil
 	}

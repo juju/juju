@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 type environUpgradeSuite struct {
@@ -99,7 +99,7 @@ func (s *environUpgradeSuite) TestExtraConfigPermissionError(c *gc.C) {
 		environs.UpgradeOperationsParams{
 			ControllerUUID: "foo",
 		})[0].Steps[0]
-	AssertInvalidatesCredential(c, s.client, func(ctx context.ProviderCallContext) error {
+	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
 		return step.Run(ctx)
 	})
 }
@@ -109,7 +109,7 @@ func (s *environUpgradeSuite) TestModelFoldersPermissionError(c *gc.C) {
 		environs.UpgradeOperationsParams{
 			ControllerUUID: "foo",
 		})[0].Steps[1]
-	AssertInvalidatesCredential(c, s.client, func(ctx context.ProviderCallContext) error {
+	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
 		return step.Run(ctx)
 	})
 }

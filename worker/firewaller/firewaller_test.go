@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -138,7 +138,7 @@ func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
 	inst := s.startInstance(c, ctrl, m)
 	inst.EXPECT().IngressRules(gomock.Any(), m.Tag().Id()).Return(nil, nil).AnyTimes()
 
-	s.envFirewaller.EXPECT().IngressRules(gomock.Any()).DoAndReturn(func(ctx context.ProviderCallContext) (firewall.IngressRules, error) {
+	s.envFirewaller.EXPECT().IngressRules(gomock.Any()).DoAndReturn(func(ctx envcontext.ProviderCallContext) (firewall.IngressRules, error) {
 		return s.envPorts, nil
 	}).AnyTimes()
 
@@ -150,13 +150,13 @@ func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
 			return s.modelIngressRules, nil
 		})
 
-		s.envModelFirewaller.EXPECT().ModelIngressRules(gomock.Any()).AnyTimes().DoAndReturn(func(arg0 context.ProviderCallContext) (firewall.IngressRules, error) {
+		s.envModelFirewaller.EXPECT().ModelIngressRules(gomock.Any()).AnyTimes().DoAndReturn(func(arg0 envcontext.ProviderCallContext) (firewall.IngressRules, error) {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			return s.envModelPorts, nil
 		})
 
-		s.envModelFirewaller.EXPECT().OpenModelPorts(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(_ context.ProviderCallContext, rules firewall.IngressRules) error {
+		s.envModelFirewaller.EXPECT().OpenModelPorts(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(_ envcontext.ProviderCallContext, rules firewall.IngressRules) error {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			add, _ := s.envModelPorts.Diff(rules)
@@ -393,7 +393,7 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 		return network.SpaceInfo{}, nil
 	})
 
-	s.envFirewaller.EXPECT().OpenPorts(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.ProviderCallContext, rules firewall.IngressRules) error {
+	s.envFirewaller.EXPECT().OpenPorts(gomock.Any(), gomock.Any()).DoAndReturn(func(_ envcontext.ProviderCallContext, rules firewall.IngressRules) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
@@ -403,7 +403,7 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 		return nil
 	}).AnyTimes()
 
-	s.envFirewaller.EXPECT().ClosePorts(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.ProviderCallContext, rules firewall.IngressRules) error {
+	s.envFirewaller.EXPECT().ClosePorts(gomock.Any(), gomock.Any()).DoAndReturn(func(_ envcontext.ProviderCallContext, rules firewall.IngressRules) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
@@ -471,7 +471,7 @@ func (s *firewallerBaseSuite) startInstance(c *gc.C, ctrl *gomock.Controller, m 
 	inst := mocks.NewMockEnvironInstance(ctrl)
 	s.envInstances.EXPECT().Instances(gomock.Any(), []instance.Id{instId}).Return([]instances.Instance{inst}, nil).AnyTimes()
 
-	inst.EXPECT().OpenPorts(gomock.Any(), m.Tag().Id(), gomock.Any()).DoAndReturn(func(_ context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+	inst.EXPECT().OpenPorts(gomock.Any(), m.Tag().Id(), gomock.Any()).DoAndReturn(func(_ envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
@@ -482,7 +482,7 @@ func (s *firewallerBaseSuite) startInstance(c *gc.C, ctrl *gomock.Controller, m 
 		return nil
 	}).AnyTimes()
 
-	inst.EXPECT().ClosePorts(gomock.Any(), m.Tag().Id(), gomock.Any()).DoAndReturn(func(_ context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+	inst.EXPECT().ClosePorts(gomock.Any(), m.Tag().Id(), gomock.Any()).DoAndReturn(func(_ envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
@@ -1068,7 +1068,7 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	})
 
 	called := make(chan bool)
-	inst.EXPECT().OpenPorts(gomock.Any(), m.Tag().Id(), gomock.Any()).DoAndReturn(func(_ context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+	inst.EXPECT().OpenPorts(gomock.Any(), m.Tag().Id(), gomock.Any()).DoAndReturn(func(_ envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 		defer close(called)
 		return errors.New("open ports is broken")
 	})

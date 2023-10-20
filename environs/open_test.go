@@ -4,7 +4,7 @@
 package environs_test
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -51,7 +51,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, jc.ErrorIsNil)
-	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.TODO(), c)
 	cache := jujuclient.NewMemStore()
 	controllerCfg := testing.FakeControllerConfig()
 	bootstrapEnviron, err := bootstrap.PrepareController(false, ctx, cache, bootstrap.PrepareParams{
@@ -69,7 +69,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	envtesting.UploadFakeTools(c, stor, cfg.AgentStream(), cfg.AgentStream())
-	err = bootstrap.Bootstrap(ctx, env, context.NewEmptyCloudCallContext(), bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(ctx, env, envcontext.WithoutCredentialInvalidator(ctx.Context()), bootstrap.BootstrapParams{
 		ControllerConfig:        controllerCfg,
 		AdminSecret:             "admin-secret",
 		CAPrivateKey:            testing.CAKey,
@@ -85,7 +85,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 
 func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	store := jujuclient.NewMemStore()
-	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.TODO(), c)
 	uuid := utils.MustNewUUID().String()
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": "dummy",
@@ -116,7 +116,7 @@ func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 }
 
 func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
-	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
+	env, err := environs.New(context.TODO(), environs.OpenParams{
 		Cloud: environscloudspec.CloudSpec{
 			Type: "wondercloud",
 		},
@@ -133,12 +133,13 @@ func (*OpenSuite) TestNew(c *gc.C) {
 		},
 	))
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.New(stdcontext.TODO(), environs.OpenParams{
+	ctx := context.TODO()
+	e, err := environs.New(ctx, environs.OpenParams{
 		Cloud:  testing.FakeCloudSpec(),
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = e.ControllerInstances(context.NewEmptyCloudCallContext(), "uuid")
+	_, err = e.ControllerInstances(envcontext.WithoutCredentialInvalidator(ctx), "uuid")
 	c.Assert(err, gc.ErrorMatches, "model is not prepared")
 }
 
@@ -154,7 +155,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
 	controllerCfg := testing.FakeControllerConfig()
-	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.TODO(), c)
 	bootstrapEnviron, err := bootstrap.PrepareController(false, ctx, store, bootstrap.PrepareParams{
 		ControllerConfig: controllerCfg,
 		ControllerName:   "controller-name",
@@ -167,7 +168,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	_, err = store.ControllerByName("controller-name")
 	c.Assert(err, jc.ErrorIsNil)
 
-	callCtx := context.NewEmptyCloudCallContext()
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx.Context())
 	err = environs.Destroy("controller-name", e, callCtx, store)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -182,7 +183,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 func (*OpenSuite) TestDestroyNotFound(c *gc.C) {
 	var env destroyControllerEnv
 	store := jujuclient.NewMemStore()
-	err := environs.Destroy("fnord", &env, context.NewEmptyCloudCallContext(), store)
+	err := environs.Destroy("fnord", &env, envcontext.WithoutCredentialInvalidator(context.TODO()), store)
 	c.Assert(err, jc.ErrorIsNil)
 	env.CheckCallNames(c) // no controller details, no call
 }
@@ -192,7 +193,7 @@ type destroyControllerEnv struct {
 	jujutesting.Stub
 }
 
-func (e *destroyControllerEnv) DestroyController(ctx context.ProviderCallContext, uuid string) error {
+func (e *destroyControllerEnv) DestroyController(ctx envcontext.ProviderCallContext, uuid string) error {
 	e.MethodCall(e, "DestroyController", ctx, uuid)
 	return e.NextErr()
 }

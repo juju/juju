@@ -17,7 +17,6 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facades/client/cloud"
 	"github.com/juju/juju/apiserver/facades/client/cloud/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -42,7 +41,7 @@ type cloudSuite struct {
 	api                    *cloud.CloudAPI
 	authorizer             *apiservertesting.FakeAuthorizer
 
-	credentialValidator credentialcommon.CredentialValidator
+	credentialValidator credentialservice.CredentialValidator
 }
 
 func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {

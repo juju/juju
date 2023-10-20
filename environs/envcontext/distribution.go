@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package context
+package envcontext
 
 import "github.com/juju/juju/core/instance"
 

@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -28,16 +27,15 @@ type newCaasBrokerFunc func(_ stdcontext.Context, args environs.OpenParams) (Bro
 
 // Facade implements the API required by the sshclient worker.
 type Facade struct {
-	backend     Backend
-	authorizer  facade.Authorizer
-	callContext context.ProviderCallContext
+	backend    Backend
+	authorizer facade.Authorizer
 
 	leadershipReader leadership.Reader
 	getBroker        newCaasBrokerFunc
 }
 
 func internalFacade(
-	backend Backend, leadershipReader leadership.Reader, auth facade.Authorizer, callCtx context.ProviderCallContext,
+	backend Backend, leadershipReader leadership.Reader, auth facade.Authorizer,
 	getBroker newCaasBrokerFunc,
 ) (*Facade, error) {
 	if !auth.AuthClient() {
@@ -47,7 +45,6 @@ func internalFacade(
 	return &Facade{
 		backend:          backend,
 		authorizer:       auth,
-		callContext:      callCtx,
 		leadershipReader: leadershipReader,
 		getBroker:        getBroker,
 	}, nil

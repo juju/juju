@@ -4,7 +4,7 @@
 package ec2_test
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/aws/smithy-go"
 	"github.com/juju/errors"
@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
@@ -52,7 +52,7 @@ func (s *ProviderSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ProviderSuite) TestOpen(c *gc.C) {
-	env, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
+	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -72,7 +72,7 @@ func (s *ProviderSuite) TestOpenUnsupportedCredential(c *gc.C) {
 }
 
 func (s *ProviderSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
+	_, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: coretesting.ModelConfig(c),
 	})
@@ -80,13 +80,13 @@ func (s *ProviderSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec,
 }
 
 func (s *ProviderSuite) TestVerifyCredentialsErrs(c *gc.C) {
-	err := ec2.VerifyCredentials(context.NewEmptyCloudCallContext())
+	err := ec2.VerifyCredentials(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 	c.Assert(err, gc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
 }
 
 func (s *ProviderSuite) TestMaybeConvertCredentialErrorIgnoresNil(c *gc.C) {
-	err := ec2.MaybeConvertCredentialError(nil, context.NewEmptyCloudCallContext())
+	err := ec2.MaybeConvertCredentialError(nil, envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -101,7 +101,7 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorConvertsCredentialRelated
 		"SignatureDoesNotMatch",
 	} {
 		err := ec2.MaybeConvertCredentialError(
-			&smithy.GenericAPIError{Code: code}, context.NewEmptyCloudCallContext())
+			&smithy.GenericAPIError{Code: code}, envcontext.WithoutCredentialInvalidator(context.Background()))
 		c.Assert(err, gc.NotNil)
 		c.Assert(err, jc.ErrorIs, common.ErrorCredentialNotValid)
 	}
@@ -113,7 +113,7 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorNotInvalidCredential(c *g
 		"UnauthorizedOperation",
 	} {
 		err := ec2.MaybeConvertCredentialError(
-			&smithy.GenericAPIError{Code: code}, context.NewEmptyCloudCallContext())
+			&smithy.GenericAPIError{Code: code}, envcontext.WithoutCredentialInvalidator(context.Background()))
 		c.Assert(err, gc.NotNil)
 		c.Assert(err, gc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
 	}
@@ -121,7 +121,7 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorNotInvalidCredential(c *g
 
 func (s *ProviderSuite) TestMaybeConvertCredentialErrorHandlesOtherProviderErrors(c *gc.C) {
 	// Any other ec2.Error is returned unwrapped.
-	err := ec2.MaybeConvertCredentialError(&smithy.GenericAPIError{Code: "DryRunOperation"}, context.NewEmptyCloudCallContext())
+	err := ec2.MaybeConvertCredentialError(&smithy.GenericAPIError{Code: "DryRunOperation"}, envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 	c.Assert(err, gc.Not(jc.ErrorIs), common.ErrorCredentialNotValid)
 }
@@ -129,7 +129,7 @@ func (s *ProviderSuite) TestMaybeConvertCredentialErrorHandlesOtherProviderError
 func (s *ProviderSuite) TestConvertedCredentialError(c *gc.C) {
 	// Trace() will keep error type
 	inner := ec2.MaybeConvertCredentialError(
-		&smithy.GenericAPIError{Code: "Blocked"}, context.NewEmptyCloudCallContext())
+		&smithy.GenericAPIError{Code: "Blocked"}, envcontext.WithoutCredentialInvalidator(context.Background()))
 	traced := errors.Trace(inner)
 	c.Assert(traced, gc.NotNil)
 	c.Assert(traced, jc.ErrorIs, common.ErrorCredentialNotValid)
@@ -140,13 +140,13 @@ func (s *ProviderSuite) TestConvertedCredentialError(c *gc.C) {
 	c.Assert(annotated, jc.ErrorIs, common.ErrorCredentialNotValid)
 
 	// Running a CredentialNotValid through conversion call again is a no-op.
-	again := ec2.MaybeConvertCredentialError(inner, context.NewEmptyCloudCallContext())
+	again := ec2.MaybeConvertCredentialError(inner, envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(again, gc.NotNil)
 	c.Assert(again, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(again.Error(), jc.Contains, "\nYour Amazon account is currently blocked.: api error Blocked:")
 
 	// Running an annotated CredentialNotValid through conversion call again is a no-op too.
-	againAnotated := ec2.MaybeConvertCredentialError(annotated, context.NewEmptyCloudCallContext())
+	againAnotated := ec2.MaybeConvertCredentialError(annotated, envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(againAnotated, gc.NotNil)
 	c.Assert(againAnotated, jc.ErrorIs, common.ErrorCredentialNotValid)
 	c.Assert(againAnotated.Error(), jc.Contains, "\nYour Amazon account is currently blocked.: api error Blocked:")

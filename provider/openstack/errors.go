@@ -7,13 +7,13 @@ import (
 	gooseerrors "github.com/go-goose/goose/v5/errors"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/common"
 )
 
 // handleCredentialError wraps the common handler,
 // passing the Openstack-specific auth failure detection.
-func handleCredentialError(err error, ctx context.ProviderCallContext) {
+func handleCredentialError(err error, ctx envcontext.ProviderCallContext) {
 	common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 }
 

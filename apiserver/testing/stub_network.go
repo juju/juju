@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -255,16 +255,6 @@ func ProviderCall(name string, args ...interface{}) StubMethodCall {
 func ZonedEnvironCall(name string, args ...interface{}) StubMethodCall {
 	return StubMethodCall{
 		Receiver: ZonedEnvironInstance,
-		FuncName: name,
-		Args:     args,
-	}
-}
-
-// NetworkingEnvironCall makes it easy to check method calls on
-// NetworkingEnvironInstance.
-func NetworkingEnvironCall(name string, args ...interface{}) StubMethodCall {
-	return StubMethodCall{
-		Receiver: NetworkingEnvironInstance,
 		FuncName: name,
 		Args:     args,
 	}
@@ -686,7 +676,7 @@ type StubZonedEnviron struct {
 
 var _ providercommon.ZonedEnviron = (*StubZonedEnviron)(nil)
 
-func (se *StubZonedEnviron) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
+func (se *StubZonedEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
 	se.MethodCall(se, "AvailabilityZones", ctx)
 	if err := se.NextErr(); err != nil {
 		return nil, err
@@ -710,7 +700,7 @@ type StubNetworkingEnviron struct {
 var _ environs.NetworkingEnviron = (*StubNetworkingEnviron)(nil)
 
 func (se *StubNetworkingEnviron) Subnets(
-	ctx context.ProviderCallContext, instId instance.Id, subIds []network.Id,
+	ctx envcontext.ProviderCallContext, instId instance.Id, subIds []network.Id,
 ) ([]network.SubnetInfo, error) {
 	se.MethodCall(se, "Subnets", ctx, instId, subIds)
 	if err := se.NextErr(); err != nil {
@@ -719,7 +709,7 @@ func (se *StubNetworkingEnviron) Subnets(
 	return ProviderInstance.Subnets, nil
 }
 
-func (se *StubNetworkingEnviron) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
+func (se *StubNetworkingEnviron) SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, error) {
 	se.MethodCall(se, "SupportsSpaces", ctx)
 	if err := se.NextErr(); err != nil {
 		return false, err
@@ -748,7 +738,7 @@ func (se *StubZonedNetworkingEnviron) GoString() string {
 	return "&StubZonedNetworkingEnviron{}"
 }
 
-func (se *StubZonedNetworkingEnviron) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
+func (se *StubZonedNetworkingEnviron) SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, error) {
 	se.MethodCall(se, "SupportsSpaces", ctx)
 	if err := se.NextErr(); err != nil {
 		return false, err
@@ -756,7 +746,7 @@ func (se *StubZonedNetworkingEnviron) SupportsSpaces(ctx context.ProviderCallCon
 	return true, nil
 }
 
-func (se *StubZonedNetworkingEnviron) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
+func (se *StubZonedNetworkingEnviron) SupportsSpaceDiscovery(ctx envcontext.ProviderCallContext) (bool, error) {
 	se.MethodCall(se, "SupportsSpaceDiscovery", ctx)
 	if err := se.NextErr(); err != nil {
 		return false, err
@@ -765,7 +755,7 @@ func (se *StubZonedNetworkingEnviron) SupportsSpaceDiscovery(ctx context.Provide
 }
 
 func (se *StubZonedNetworkingEnviron) Subnets(
-	ctx context.ProviderCallContext, instId instance.Id, subIds []network.Id,
+	ctx envcontext.ProviderCallContext, instId instance.Id, subIds []network.Id,
 ) ([]network.SubnetInfo, error) {
 	se.MethodCall(se, "Subnets", ctx, instId, subIds)
 	if err := se.NextErr(); err != nil {
@@ -774,7 +764,7 @@ func (se *StubZonedNetworkingEnviron) Subnets(
 	return ProviderInstance.Subnets, nil
 }
 
-func (se *StubZonedNetworkingEnviron) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
+func (se *StubZonedNetworkingEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
 	se.MethodCall(se, "AvailabilityZones", ctx)
 	if err := se.NextErr(); err != nil {
 		return nil, err

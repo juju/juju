@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -55,12 +56,16 @@ func instanceTypes(
 		if c.Value != nil {
 			value = *c.Value
 		}
-		itCons := common.NewInstanceTypeConstraints(
+		itCons := newInstanceTypeConstraints(
 			env,
-			mm.callContext,
 			value,
 		)
-		it, err := common.InstanceTypes(itCons)
+		invalidatorFunc, err := mm.credentialInvalidatorGetter()
+		if err != nil {
+			return params.InstanceTypesResults{}, errors.Trace(err)
+		}
+		callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
+		it, err := getInstanceTypes(callCtx, itCons)
 		if err != nil {
 			it = params.InstanceTypesResult{Error: apiservererrors.ServerError(err)}
 		}

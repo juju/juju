@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
-	envcontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/oci"
@@ -32,7 +32,7 @@ var _ = gc.Suite(&storageVolumeSuite{})
 func (s *storageVolumeSuite) SetUpTest(c *gc.C) {
 	s.commonSuite.SetUpTest(c)
 
-	s.environCtx = envcontext.NewEmptyCloudCallContext()
+	s.environCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 	var err error
 	s.provider, err = s.env.StorageProvider(oci.OciStorageProviderType)
 	c.Assert(err, gc.IsNil)

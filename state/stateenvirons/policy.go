@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state"
@@ -113,7 +113,7 @@ func (p *environStatePolicy) ProviderConfigSchemaSource(cloudName string) (confi
 }
 
 // ConstraintsValidator implements state.Policy.
-func (p *environStatePolicy) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+func (p *environStatePolicy) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	checker, err := p.getDeployChecker()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -122,7 +122,7 @@ func (p *environStatePolicy) ConstraintsValidator(ctx context.ProviderCallContex
 }
 
 // InstanceDistributor implements state.Policy.
-func (p *environStatePolicy) InstanceDistributor() (context.Distributor, error) {
+func (p *environStatePolicy) InstanceDistributor() (envcontext.Distributor, error) {
 	if p.credentialService == nil {
 		return nil, errors.NotSupportedf("InstanceDistributor check without credential service")
 	}
@@ -140,7 +140,7 @@ func (p *environStatePolicy) InstanceDistributor() (context.Distributor, error) 
 	if err != nil {
 		return nil, err
 	}
-	if d, ok := env.(context.Distributor); ok {
+	if d, ok := env.(envcontext.Distributor); ok {
 		return d, nil
 	}
 	return nil, errors.NotImplementedf("InstanceDistributor")

@@ -74,7 +74,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"domain/credential",
 		"environs/cloudspec",
 		"environs/config",
-		"environs/context",
+		"environs/envcontext",
 		"environs/tags",
 		"internal/charmhub",
 		"internal/charmhub/path",

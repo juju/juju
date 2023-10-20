@@ -26,7 +26,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
-	environscontext "github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -64,8 +64,9 @@ type API struct {
 	externalControllerService   ExternalControllerService
 	cloudService                common.CloudService
 	credentialService           credentialcommon.CredentialService
-	credentialValidator         credentialcommon.CredentialValidator
+	credentialValidator         credentialservice.CredentialValidator
 	credentialCallContextGetter credentialservice.ValidationContextGetter
+	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
 	pool                        *state.StatePool
 	authorizer                  facade.Authorizer
 	presence                    facade.Presence
@@ -78,7 +79,7 @@ type APIV1 struct {
 	*API
 }
 
-// NewAPI returns a new APIV1. Accepts a NewEnvironFunc and context.ProviderCallContext
+// NewAPI returns a new APIV1. Accepts a NewEnvironFunc and envcontext.ProviderCallContext
 // for testing purposes.
 func NewAPI(
 	ctx facade.Context,
@@ -87,8 +88,9 @@ func NewAPI(
 	externalControllerService ExternalControllerService,
 	cloudService common.CloudService,
 	credentialService credentialcommon.CredentialService,
-	validator credentialcommon.CredentialValidator,
+	validator credentialservice.CredentialValidator,
 	credentialCallContextGetter credentialservice.ValidationContextGetter,
+	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter,
 	getEnviron stateenvirons.NewEnvironFunc,
 	getCAASBroker stateenvirons.NewCAASBrokerFunc,
 ) (*API, error) {
@@ -110,6 +112,7 @@ func NewAPI(
 		credentialService:           credentialService,
 		credentialValidator:         validator,
 		credentialCallContextGetter: credentialCallContextGetter,
+		credentialInvalidatorGetter: credentialInvalidatorGetter,
 		authorizer:                  authorizer,
 		presence:                    ctx.Presence(),
 		getEnviron:                  getEnviron,
@@ -357,7 +360,12 @@ func (api *API) AdoptResources(ctx context.Context, args params.AdoptResourcesAr
 		return errors.Trace(err)
 	}
 
-	err = ra.AdoptResources(environscontext.CallContext(m.State()), st.ControllerUUID(), args.SourceControllerVersion)
+	invalidatorFunc, err := api.credentialInvalidatorGetter()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	callCtx := environscontext.WithCredentialInvalidator(ctx, invalidatorFunc)
+	err = ra.AdoptResources(callCtx, st.ControllerUUID(), args.SourceControllerVersion)
 	if errors.Is(err, errors.NotImplemented) {
 		return nil
 	}
@@ -400,14 +408,14 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Label)
 	}
 
-	callCtx, err := api.credentialCallContextGetter(model.UUID(m.UUID()))
+	callCtx, err := api.credentialCallContextGetter(ctx, model.UUID(m.UUID()))
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	cred := jujucloud.NewCredential(storedCredential.AuthType(), storedCredential.Attributes())
 
 	var result params.ErrorResults
-	modelErrors, err := api.credentialValidator.Validate(callCtx, credential.IdFromTag(credentialTag), &cred, cloud.Type != "manual")
+	modelErrors, err := api.credentialValidator.Validate(ctx, callCtx, credential.IdFromTag(credentialTag), &cred, cloud.Type != "manual")
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

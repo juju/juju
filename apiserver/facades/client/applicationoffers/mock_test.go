@@ -27,7 +27,8 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -88,7 +89,7 @@ type mockEnviron struct {
 	spaceInfo *environs.ProviderSpaceInfo
 }
 
-func (e *mockEnviron) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (e *mockEnviron) ProviderSpaceInfo(ctx envcontext.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	e.stub.MethodCall(e, "ProviderSpaceInfo", space)
 	spaceName := corenetwork.AlphaSpaceName
 	if space != nil {
@@ -125,6 +126,10 @@ func (m *mockModel) Name() string {
 
 func (m *mockModel) Owner() names.UserTag {
 	return names.NewUserTag(m.owner)
+}
+
+func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
+	return jujutesting.DefaultCredentialTag, true
 }
 
 type mockCharm struct {
@@ -359,10 +364,6 @@ func (m *mockState) KeyRelation(key string) (crossmodel.Relation, error) {
 
 func (m *mockState) OfferConnections(offerUUID string) ([]applicationoffers.OfferConnection, error) {
 	return m.connections, nil
-}
-
-func (m *mockState) GetModelCallContext() context.ProviderCallContext {
-	return context.NewEmptyCloudCallContext()
 }
 
 func (m *mockState) User(tag names.UserTag) (applicationoffers.User, error) {

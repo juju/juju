@@ -12,7 +12,7 @@ import (
 	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
 	storage "github.com/juju/juju/internal/storage"
 	version "github.com/juju/version/v2"
@@ -43,7 +43,7 @@ func (m *MockZonedEnviron) EXPECT() *MockZonedEnvironMockRecorder {
 }
 
 // AdoptResources mocks base method.
-func (m *MockZonedEnviron) AdoptResources(arg0 context.ProviderCallContext, arg1 string, arg2 version.Number) error {
+func (m *MockZonedEnviron) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 version.Number) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AdoptResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -57,7 +57,7 @@ func (mr *MockZonedEnvironMockRecorder) AdoptResources(arg0, arg1, arg2 interfac
 }
 
 // AllInstances mocks base method.
-func (m *MockZonedEnviron) AllInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockZonedEnviron) AllInstances(arg0 envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -72,7 +72,7 @@ func (mr *MockZonedEnvironMockRecorder) AllInstances(arg0 interface{}) *gomock.C
 }
 
 // AllRunningInstances mocks base method.
-func (m *MockZonedEnviron) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockZonedEnviron) AllRunningInstances(arg0 envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -87,7 +87,7 @@ func (mr *MockZonedEnvironMockRecorder) AllRunningInstances(arg0 interface{}) *g
 }
 
 // AvailabilityZones mocks base method.
-func (m *MockZonedEnviron) AvailabilityZones(arg0 context.ProviderCallContext) (network.AvailabilityZones, error) {
+func (m *MockZonedEnviron) AvailabilityZones(arg0 envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AvailabilityZones", arg0)
 	ret0, _ := ret[0].(network.AvailabilityZones)
@@ -102,7 +102,7 @@ func (mr *MockZonedEnvironMockRecorder) AvailabilityZones(arg0 interface{}) *gom
 }
 
 // Bootstrap mocks base method.
-func (m *MockZonedEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 context.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (m *MockZonedEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 envcontext.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*environs.BootstrapResult)
@@ -131,7 +131,7 @@ func (mr *MockZonedEnvironMockRecorder) Config() *gomock.Call {
 }
 
 // ConstraintsValidator mocks base method.
-func (m *MockZonedEnviron) ConstraintsValidator(arg0 context.ProviderCallContext) (constraints.Validator, error) {
+func (m *MockZonedEnviron) ConstraintsValidator(arg0 envcontext.ProviderCallContext) (constraints.Validator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsValidator", arg0)
 	ret0, _ := ret[0].(constraints.Validator)
@@ -146,7 +146,7 @@ func (mr *MockZonedEnvironMockRecorder) ConstraintsValidator(arg0 interface{}) *
 }
 
 // ControllerInstances mocks base method.
-func (m *MockZonedEnviron) ControllerInstances(arg0 context.ProviderCallContext, arg1 string) ([]instance.Id, error) {
+func (m *MockZonedEnviron) ControllerInstances(arg0 envcontext.ProviderCallContext, arg1 string) ([]instance.Id, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerInstances", arg0, arg1)
 	ret0, _ := ret[0].([]instance.Id)
@@ -161,7 +161,7 @@ func (mr *MockZonedEnvironMockRecorder) ControllerInstances(arg0, arg1 interface
 }
 
 // Create mocks base method.
-func (m *MockZonedEnviron) Create(arg0 context.ProviderCallContext, arg1 environs.CreateParams) error {
+func (m *MockZonedEnviron) Create(arg0 envcontext.ProviderCallContext, arg1 environs.CreateParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -175,7 +175,7 @@ func (mr *MockZonedEnvironMockRecorder) Create(arg0, arg1 interface{}) *gomock.C
 }
 
 // DeriveAvailabilityZones mocks base method.
-func (m *MockZonedEnviron) DeriveAvailabilityZones(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) ([]string, error) {
+func (m *MockZonedEnviron) DeriveAvailabilityZones(arg0 envcontext.ProviderCallContext, arg1 environs.StartInstanceParams) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeriveAvailabilityZones", arg0, arg1)
 	ret0, _ := ret[0].([]string)
@@ -190,7 +190,7 @@ func (mr *MockZonedEnvironMockRecorder) DeriveAvailabilityZones(arg0, arg1 inter
 }
 
 // Destroy mocks base method.
-func (m *MockZonedEnviron) Destroy(arg0 context.ProviderCallContext) error {
+func (m *MockZonedEnviron) Destroy(arg0 envcontext.ProviderCallContext) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
@@ -204,7 +204,7 @@ func (mr *MockZonedEnvironMockRecorder) Destroy(arg0 interface{}) *gomock.Call {
 }
 
 // DestroyController mocks base method.
-func (m *MockZonedEnviron) DestroyController(arg0 context.ProviderCallContext, arg1 string) error {
+func (m *MockZonedEnviron) DestroyController(arg0 envcontext.ProviderCallContext, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyController", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -218,7 +218,7 @@ func (mr *MockZonedEnvironMockRecorder) DestroyController(arg0, arg1 interface{}
 }
 
 // InstanceAvailabilityZoneNames mocks base method.
-func (m *MockZonedEnviron) InstanceAvailabilityZoneNames(arg0 context.ProviderCallContext, arg1 []instance.Id) (map[instance.Id]string, error) {
+func (m *MockZonedEnviron) InstanceAvailabilityZoneNames(arg0 envcontext.ProviderCallContext, arg1 []instance.Id) (map[instance.Id]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceAvailabilityZoneNames", arg0, arg1)
 	ret0, _ := ret[0].(map[instance.Id]string)
@@ -233,7 +233,7 @@ func (mr *MockZonedEnvironMockRecorder) InstanceAvailabilityZoneNames(arg0, arg1
 }
 
 // InstanceTypes mocks base method.
-func (m *MockZonedEnviron) InstanceTypes(arg0 context.ProviderCallContext, arg1 constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (m *MockZonedEnviron) InstanceTypes(arg0 envcontext.ProviderCallContext, arg1 constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceTypes", arg0, arg1)
 	ret0, _ := ret[0].(instances.InstanceTypesWithCostMetadata)
@@ -248,7 +248,7 @@ func (mr *MockZonedEnvironMockRecorder) InstanceTypes(arg0, arg1 interface{}) *g
 }
 
 // Instances mocks base method.
-func (m *MockZonedEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
+func (m *MockZonedEnviron) Instances(arg0 envcontext.ProviderCallContext, arg1 []instance.Id) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Instances", arg0, arg1)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -263,7 +263,7 @@ func (mr *MockZonedEnvironMockRecorder) Instances(arg0, arg1 interface{}) *gomoc
 }
 
 // PrecheckInstance mocks base method.
-func (m *MockZonedEnviron) PrecheckInstance(arg0 context.ProviderCallContext, arg1 environs.PrecheckInstanceParams) error {
+func (m *MockZonedEnviron) PrecheckInstance(arg0 envcontext.ProviderCallContext, arg1 environs.PrecheckInstanceParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrecheckInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -319,7 +319,7 @@ func (mr *MockZonedEnvironMockRecorder) SetConfig(arg0 interface{}) *gomock.Call
 }
 
 // StartInstance mocks base method.
-func (m *MockZonedEnviron) StartInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (m *MockZonedEnviron) StartInstance(arg0 envcontext.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartInstance", arg0, arg1)
 	ret0, _ := ret[0].(*environs.StartInstanceResult)
@@ -334,7 +334,7 @@ func (mr *MockZonedEnvironMockRecorder) StartInstance(arg0, arg1 interface{}) *g
 }
 
 // StopInstances mocks base method.
-func (m *MockZonedEnviron) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.Id) error {
+func (m *MockZonedEnviron) StopInstances(arg0 envcontext.ProviderCallContext, arg1 ...instance.Id) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {

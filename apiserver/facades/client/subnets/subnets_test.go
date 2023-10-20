@@ -24,7 +24,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -33,10 +32,9 @@ import (
 // SubnetSuite uses mocks for testing.
 // All future facade tests should be added to this suite.
 type SubnetSuite struct {
-	mockBacking          *mocks.MockBacking
-	mockResource         *facademocks.MockResources
-	mockCloudCallContext *context.CloudCallContext
-	mockAuthorizer       *facademocks.MockAuthorizer
+	mockBacking    *mocks.MockBacking
+	mockResource   *facademocks.MockResources
+	mockAuthorizer *facademocks.MockAuthorizer
 
 	api *subnets.API
 }
@@ -86,7 +84,6 @@ func (s *SubnetSuite) TestSubnetsByCIDR(c *gc.C) {
 func (s *SubnetSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockResource = facademocks.NewMockResources(ctrl)
-	s.mockCloudCallContext = context.NewEmptyCloudCallContext()
 	s.mockBacking = mocks.NewMockBacking(ctrl)
 
 	s.mockAuthorizer = facademocks.NewMockAuthorizer(ctrl)
@@ -96,7 +93,7 @@ func (s *SubnetSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
 	s.mockBacking.EXPECT().ModelTag().Return(names.NewModelTag("123"))
 
 	var err error
-	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, s.mockCloudCallContext, s.mockResource, s.mockAuthorizer, loggo.GetLogger("juju.apiserver.subnets"))
+	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, apiservertesting.NoopModelCredentialInvalidatorGetter, s.mockResource, s.mockAuthorizer, loggo.GetLogger("juju.apiserver.subnets"))
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }
@@ -112,8 +109,6 @@ type SubnetsSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 	facade     *subnets.API
-
-	callContext context.ProviderCallContext
 }
 
 type stubBacking struct {
@@ -145,11 +140,10 @@ func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 		Controller: false,
 	}
 
-	s.callContext = context.NewEmptyCloudCallContext()
 	var err error
 	s.facade, err = subnets.NewAPIWithBacking(
 		&stubBacking{apiservertesting.BackingInstance},
-		s.callContext,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		s.resources, s.authorizer,
 		loggo.GetLogger("juju.apiserver.subnets"),
 	)
@@ -194,7 +188,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
 	facade, err := subnets.NewAPIWithBacking(
 		&stubBacking{apiservertesting.BackingInstance},
-		s.callContext,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		s.resources, s.authorizer,
 		loggo.GetLogger("juju.apiserver.subnets"),
 	)
@@ -208,7 +202,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 	agentAuthorizer.Tag = names.NewMachineTag("42")
 	facade, err = subnets.NewAPIWithBacking(
 		&stubBacking{apiservertesting.BackingInstance},
-		s.callContext,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		s.resources, agentAuthorizer,
 		loggo.GetLogger("juju.apiserver.subnets"),
 	)
@@ -249,14 +243,16 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesUpdates(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertAllZonesResult(c, results, apiservertesting.ProviderInstance.Zones)
 
-	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
-		apiservertesting.BackingCall("AvailabilityZones"),
-		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("CloudSpec"),
-		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.ZonedEnvironCall("AvailabilityZones", s.callContext),
-		apiservertesting.BackingCall("SetAvailabilityZones", apiservertesting.ProviderInstance.Zones),
+	apiservertesting.SharedStub.CheckCallNames(c,
+		"AvailabilityZones",
+		"ModelConfig",
+		"CloudSpec",
+		"Open",
+		"AvailabilityZones",
+		"SetAvailabilityZones",
 	)
+	apiservertesting.SharedStub.CheckCall(c, 3, "Open", apiservertesting.BackingInstance.EnvConfig)
+	apiservertesting.SharedStub.CheckCall(c, 5, "SetAvailabilityZones", apiservertesting.ProviderInstance.Zones)
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
@@ -278,14 +274,16 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndSetFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
-	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
-		apiservertesting.BackingCall("AvailabilityZones"),
-		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("CloudSpec"),
-		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.ZonedEnvironCall("AvailabilityZones", s.callContext),
-		apiservertesting.BackingCall("SetAvailabilityZones", apiservertesting.ProviderInstance.Zones),
+	apiservertesting.SharedStub.CheckCallNames(c,
+		"AvailabilityZones",
+		"ModelConfig",
+		"CloudSpec",
+		"Open",
+		"AvailabilityZones",
+		"SetAvailabilityZones",
 	)
+	apiservertesting.SharedStub.CheckCall(c, 3, "Open", apiservertesting.BackingInstance.EnvConfig)
+	apiservertesting.SharedStub.CheckCall(c, 5, "SetAvailabilityZones", apiservertesting.ProviderInstance.Zones)
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc.C) {
@@ -306,13 +304,14 @@ func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndFetchingZonesFails(c *gc
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(results, jc.DeepEquals, params.ZoneResults{})
 
-	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub,
-		apiservertesting.BackingCall("AvailabilityZones"),
-		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("CloudSpec"),
-		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.ZonedEnvironCall("AvailabilityZones", s.callContext),
+	apiservertesting.SharedStub.CheckCallNames(c,
+		"AvailabilityZones",
+		"ModelConfig",
+		"CloudSpec",
+		"Open",
+		"AvailabilityZones",
 	)
+	apiservertesting.SharedStub.CheckCall(c, 3, "Open", apiservertesting.BackingInstance.EnvConfig)
 }
 
 func (s *SubnetsSuite) TestAllZonesWithNoBackingZonesAndModelConfigFails(c *gc.C) {

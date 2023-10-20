@@ -11,7 +11,7 @@ import (
 	cloud "github.com/juju/juju/cloud"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -97,7 +97,7 @@ func (mr *MockTestCloudProviderMockRecorder) FinalizeCredential(arg0, arg1 inter
 }
 
 // Ping mocks base method.
-func (m *MockTestCloudProvider) Ping(arg0 context.ProviderCallContext, arg1 string) error {
+func (m *MockTestCloudProvider) Ping(arg0 envcontext.ProviderCallContext, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Ping", arg0, arg1)
 	ret0, _ := ret[0].(error)

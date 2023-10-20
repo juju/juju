@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -24,7 +24,7 @@ type MockPolicy struct {
 	GetConfigValidator            func() (config.Validator, error)
 	GetProviderConfigSchemaSource func(cloudName string) (config.ConfigSchemaSource, error)
 	GetConstraintsValidator       func() (constraints.Validator, error)
-	GetInstanceDistributor        func() (context.Distributor, error)
+	GetInstanceDistributor        func() (envcontext.Distributor, error)
 	GetStorageProviderRegistry    func() (storage.ProviderRegistry, error)
 }
 
@@ -42,14 +42,14 @@ func (p *MockPolicy) ConfigValidator() (config.Validator, error) {
 	return nil, errors.NotImplementedf("ConfigValidator")
 }
 
-func (p *MockPolicy) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+func (p *MockPolicy) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	if p.GetConstraintsValidator != nil {
 		return p.GetConstraintsValidator()
 	}
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 
-func (p *MockPolicy) InstanceDistributor() (context.Distributor, error) {
+func (p *MockPolicy) InstanceDistributor() (envcontext.Distributor, error) {
 	if p.GetInstanceDistributor != nil {
 		return p.GetInstanceDistributor()
 	}

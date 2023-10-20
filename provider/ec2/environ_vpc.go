@@ -16,7 +16,7 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 const (
@@ -134,7 +134,7 @@ type vpcAPIClient interface {
 // customization by experienced users, protecting beginners from bad Juju-UX due
 // to broken VPC setup, while still allowing power users to override that and
 // continue (but knowing what that implies).
-func validateVPC(apiClient vpcAPIClient, ctx context.ProviderCallContext, vpcID string) error {
+func validateVPC(apiClient vpcAPIClient, ctx envcontext.ProviderCallContext, vpcID string) error {
 	if vpcID == "" || apiClient == nil {
 		return errors.Errorf("invalid arguments: empty VPC ID or nil client")
 	}
@@ -198,7 +198,7 @@ func isDualStackSubnet(subnet types.Subnet) bool {
 	return !ipv6Native && assignOnCreation
 }
 
-func getVPCByID(apiClient vpcAPIClient, ctx context.ProviderCallContext, vpcID string) (*types.Vpc, error) {
+func getVPCByID(apiClient vpcAPIClient, ctx envcontext.ProviderCallContext, vpcID string) (*types.Vpc, error) {
 	response, err := apiClient.DescribeVpcs(ctx, &ec2.DescribeVpcsInput{
 		VpcIds: []string{vpcID},
 	})
@@ -240,7 +240,7 @@ func checkVPCIsAvailable(vpc *types.Vpc) error {
 	return nil
 }
 
-func getVPCSubnets(apiClient vpcAPIClient, ctx context.ProviderCallContext, vpcID string) ([]types.Subnet, error) {
+func getVPCSubnets(apiClient vpcAPIClient, ctx envcontext.ProviderCallContext, vpcID string) ([]types.Subnet, error) {
 	response, err := apiClient.DescribeSubnets(ctx, &ec2.DescribeSubnetsInput{
 		Filters: []types.Filter{makeFilter("vpc-id", vpcID)},
 	})
@@ -261,7 +261,7 @@ func getVPCSubnets(apiClient vpcAPIClient, ctx context.ProviderCallContext, vpcI
 // that conforms to NotFound is returned.
 func subnetsForIDs(
 	apiClient vpcAPIClient,
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	subnetIds []corenetwork.Id,
 ) ([]types.Subnet, error) {
 	if len(subnetIds) == 0 {
@@ -317,7 +317,7 @@ func findFirstPublicSubnet(subnets []types.Subnet) (*types.Subnet, error) {
 	return nil, fmt.Errorf("VPC contains no public subnets%w", errors.Hide(errorVPCNotRecommended))
 }
 
-func getVPCInternetGateway(apiClient vpcAPIClient, ctx context.ProviderCallContext, vpc *types.Vpc) (*types.InternetGateway, error) {
+func getVPCInternetGateway(apiClient vpcAPIClient, ctx envcontext.ProviderCallContext, vpc *types.Vpc) (*types.InternetGateway, error) {
 	vpcID := aws.ToString(vpc.VpcId)
 	resp, err := apiClient.DescribeInternetGateways(ctx, &ec2.DescribeInternetGatewaysInput{
 		Filters: []types.Filter{makeFilter("attachment.vpc-id", vpcID)},
@@ -354,7 +354,7 @@ func checkInternetGatewayIsAvailable(gateway *types.InternetGateway) error {
 	return nil
 }
 
-func getVPCMainRouteTable(apiClient vpcAPIClient, ctx context.ProviderCallContext, vpc *types.Vpc) (types.RouteTable, error) {
+func getVPCMainRouteTable(apiClient vpcAPIClient, ctx envcontext.ProviderCallContext, vpc *types.Vpc) (types.RouteTable, error) {
 	vpcID := aws.ToString(vpc.VpcId)
 	resp, err := apiClient.DescribeRouteTables(ctx, &ec2.DescribeRouteTablesInput{
 		Filters: []types.Filter{
@@ -390,7 +390,7 @@ func getVPCMainRouteTable(apiClient vpcAPIClient, ctx context.ProviderCallContex
 	return resp.RouteTables[0], nil
 }
 
-func getVPCCIDR(apiClient vpcAPIClient, ctx context.ProviderCallContext, vpcID string) (string, error) {
+func getVPCCIDR(apiClient vpcAPIClient, ctx envcontext.ProviderCallContext, vpcID string) (string, error) {
 	vpc, err := getVPCByID(apiClient, ctx, vpcID)
 	if err != nil {
 		return "", err
@@ -443,7 +443,7 @@ func checkVPCRouteTableRoutes(vpc *types.Vpc, routeTable *types.RouteTable, gate
 	return fmt.Errorf("missing local route with destination %q%w", vpcCIDRBlock, errors.Hide(errorVPCNotRecommended))
 }
 
-func findDefaultVPCID(apiClient vpcAPIClient, ctx context.ProviderCallContext) (string, error) {
+func findDefaultVPCID(apiClient vpcAPIClient, ctx envcontext.ProviderCallContext) (string, error) {
 	response, err := apiClient.DescribeAccountAttributes(ctx, &ec2.DescribeAccountAttributesInput{
 		AttributeNames: []types.AccountAttributeName{"default-vpc"},
 	})
@@ -472,7 +472,7 @@ func findDefaultVPCID(apiClient vpcAPIClient, ctx context.ProviderCallContext) (
 // error satisfying errors.IsNotFound() when no results match.
 func getVPCSubnetsForAvailabilityZone(
 	apiClient vpcAPIClient,
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	vpcID, zoneName string,
 	allowedSubnetIDs []corenetwork.Id,
 ) ([]types.Subnet, error) {
@@ -519,7 +519,7 @@ func isVPCIDSet(vpcID string) bool {
 	return vpcID != "" && vpcID != vpcIDNone
 }
 
-func validateBootstrapVPC(apiClient vpcAPIClient, cloudCtx context.ProviderCallContext, region, vpcID string, forceVPCID bool, ctx environs.BootstrapContext) error {
+func validateBootstrapVPC(apiClient vpcAPIClient, cloudCtx envcontext.ProviderCallContext, region, vpcID string, forceVPCID bool, ctx environs.BootstrapContext) error {
 	if vpcID == vpcIDNone {
 		ctx.Infof("Using EC2-classic features or default VPC in region %q", region)
 	}
@@ -548,7 +548,7 @@ func validateBootstrapVPC(apiClient vpcAPIClient, cloudCtx context.ProviderCallC
 	return nil
 }
 
-func validateModelVPC(apiClient vpcAPIClient, ctx context.ProviderCallContext, modelName, vpcID string) error {
+func validateModelVPC(apiClient vpcAPIClient, ctx envcontext.ProviderCallContext, modelName, vpcID string) error {
 	if !isVPCIDSet(vpcID) {
 		return nil
 	}

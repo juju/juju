@@ -9,7 +9,7 @@ import (
 
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
-	context "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -37,7 +37,7 @@ func (m *MockInstance) EXPECT() *MockInstanceMockRecorder {
 }
 
 // Addresses mocks base method.
-func (m *MockInstance) Addresses(arg0 context.ProviderCallContext) (network.ProviderAddresses, error) {
+func (m *MockInstance) Addresses(arg0 envcontext.ProviderCallContext) (network.ProviderAddresses, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Addresses", arg0)
 	ret0, _ := ret[0].(network.ProviderAddresses)
@@ -66,7 +66,7 @@ func (mr *MockInstanceMockRecorder) Id() *gomock.Call {
 }
 
 // Status mocks base method.
-func (m *MockInstance) Status(arg0 context.ProviderCallContext) instance.Status {
+func (m *MockInstance) Status(arg0 envcontext.ProviderCallContext) instance.Status {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Status", arg0)
 	ret0, _ := ret[0].(instance.Status)

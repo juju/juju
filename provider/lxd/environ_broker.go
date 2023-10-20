@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -28,7 +28,7 @@ import (
 
 // StartInstance implements environs.InstanceBroker.
 func (env *environ) StartInstance(
-	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
 ) (*environs.StartInstanceResult, error) {
 	logger.Debugf("StartInstance: %q, %s", args.InstanceConfig.MachineId, args.InstanceConfig.Base)
 
@@ -87,7 +87,7 @@ func (env *environ) finishInstanceConfig(args environs.StartInstanceParams) (str
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *environ) newContainer(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	args environs.StartInstanceParams,
 	arch string,
 	virtType instance.VirtType,
@@ -342,7 +342,7 @@ func (env *environ) assignContainerNICs(instStartParams environs.StartInstancePa
 // directive in the start-up start-up arguments. If so, a server for the
 // specific node is returned.
 func (env *environ) getTargetServer(
-	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
 ) (Server, error) {
 	p, err := env.parsePlacement(ctx, args.Placement)
 	if err != nil {
@@ -359,7 +359,7 @@ type lxdPlacement struct {
 	nodeName string
 }
 
-func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*lxdPlacement, error) {
+func (env *environ) parsePlacement(ctx envcontext.ProviderCallContext, placement string) (*lxdPlacement, error) {
 	if placement == "" {
 		return &lxdPlacement{}, nil
 	}
@@ -413,7 +413,7 @@ func (env *environ) getHardwareCharacteristics(
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (env *environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	environInstances, err := env.allInstances()
 	instances := make([]instances.Instance, len(environInstances))
 	for i, inst := range environInstances {
@@ -426,13 +426,13 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.I
 }
 
 // AllRunningInstances implements environs.InstanceBroker.
-func (env *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (env *environ) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	// We can only get Alive containers from lxd api which means that "all" is the same as "running".
 	return env.AllInstances(ctx)
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(ctx context.ProviderCallContext, instances ...instance.Id) error {
+func (env *environ) StopInstances(ctx envcontext.ProviderCallContext, instances ...instance.Id) error {
 	prefix := env.namespace.Prefix()
 	var names []string
 	for _, id := range instances {

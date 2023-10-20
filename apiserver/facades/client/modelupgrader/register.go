@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -68,7 +68,7 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 		newEnviron,
 		common.NewBlockChecker(backend),
 		auth,
-		context.CallContext(st),
+		credentialcommon.CredentialInvalidatorGetter(ctx),
 		registry.New,
 		environscloudspecGetter,
 		ctx.Logger().Child("modelupgrader"),

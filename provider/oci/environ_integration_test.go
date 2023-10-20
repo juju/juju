@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	envcontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/oci"
@@ -269,7 +269,7 @@ func (s *environSuite) TestAvailabilityZones(c *gc.C) {
 
 	s.setupAvailabilityDomainsExpectations(1)
 
-	az, err := s.env.AvailabilityZones(nil)
+	az, err := s.env.AvailabilityZones(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, gc.IsNil)
 	c.Check(len(az), gc.Equals, 3)
 }
@@ -286,7 +286,7 @@ func (s *environSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 	req := []instance.Id{
 		id,
 	}
-	zones, err := s.env.InstanceAvailabilityZoneNames(nil, req)
+	zones, err := s.env.InstanceAvailabilityZoneNames(envcontext.WithoutCredentialInvalidator(context.Background()), req)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(zones), gc.Equals, 1)
 	c.Assert(zones[id], gc.Equals, "fakeZone1")
@@ -295,7 +295,7 @@ func (s *environSuite) TestInstanceAvailabilityZoneNames(c *gc.C) {
 		instance.Id("fakeInstance1"),
 		instance.Id("fakeInstance3"),
 	}
-	zones, err = s.env.InstanceAvailabilityZoneNames(nil, req)
+	zones, err = s.env.InstanceAvailabilityZoneNames(envcontext.WithoutCredentialInvalidator(context.Background()), req)
 	c.Assert(err, gc.ErrorMatches, "only some instances were found")
 	c.Check(len(zones), gc.Equals, 1)
 }
@@ -312,7 +312,7 @@ func (s *environSuite) TestInstances(c *gc.C) {
 		instance.Id("fakeInstance1"),
 	}
 
-	inst, err := s.env.Instances(nil, req)
+	inst, err := s.env.Instances(envcontext.WithoutCredentialInvalidator(context.Background()), req)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(inst), gc.Equals, 1)
 	c.Assert(inst[0].Id(), gc.Equals, instance.Id("fakeInstance1"))
@@ -321,7 +321,7 @@ func (s *environSuite) TestInstances(c *gc.C) {
 		instance.Id("fakeInstance1"),
 		instance.Id("fakeInstance3"),
 	}
-	inst, err = s.env.Instances(nil, req)
+	inst, err = s.env.Instances(envcontext.WithoutCredentialInvalidator(context.Background()), req)
 	c.Assert(err, gc.ErrorMatches, "only some instances were found")
 	c.Check(len(inst), gc.Equals, 1)
 	c.Assert(inst[0].Id(), gc.Equals, instance.Id("fakeInstance1"))
@@ -353,15 +353,16 @@ func (s *environSuite) TestCreate(c *gc.C) {
 		gomock.Any(), gomock.Any()).Return(
 		ociIdentity.ListAvailabilityDomainsResponse{}, errors.New("got error"))
 
-	err := s.env.Create(nil, environs.CreateParams{})
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
+	err := s.env.Create(ctx, environs.CreateParams{})
 	c.Assert(err, gc.IsNil)
 
-	err = s.env.Create(nil, environs.CreateParams{})
+	err = s.env.Create(ctx, environs.CreateParams{})
 	c.Assert(err, gc.ErrorMatches, "got error")
 }
 
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
-	validator, err := s.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64")
@@ -373,7 +374,7 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (s *environSuite) TestConstraintsValidatorEmpty(c *gc.C) {
-	validator, err := s.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	unsupported, err := validator.Validate(constraints.Value{})
@@ -383,7 +384,7 @@ func (s *environSuite) TestConstraintsValidatorEmpty(c *gc.C) {
 }
 
 func (s *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
-	validator, err := s.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=amd64 tags=foo virt-type=kvm")
@@ -394,7 +395,7 @@ func (s *environSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 }
 
 func (s *environSuite) TestConstraintsValidatorWrongArch(c *gc.C) {
-	validator, err := s.env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("arch=ppc64el")
@@ -410,7 +411,7 @@ func (s *environSuite) TestControllerInstancesNoControllerInstances(c *gc.C) {
 		context.Background(), &s.testCompartment).Return(
 		s.listInstancesResponse, nil)
 
-	ids, err := s.env.ControllerInstances(nil, s.controllerUUID)
+	ids, err := s.env.ControllerInstances(envcontext.WithoutCredentialInvalidator(context.Background()), s.controllerUUID)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 0)
 }
@@ -424,7 +425,7 @@ func (s *environSuite) TestControllerInstancesOneController(c *gc.C) {
 		context.Background(), &s.testCompartment).Return(
 		s.listInstancesResponse, nil)
 
-	ids, err := s.env.ControllerInstances(nil, s.controllerUUID)
+	ids, err := s.env.ControllerInstances(envcontext.WithoutCredentialInvalidator(context.Background()), s.controllerUUID)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 1)
 }
@@ -563,7 +564,7 @@ func (s *environSuite) TestStopInstances(c *gc.C) {
 	ids := []instance.Id{
 		instance.Id("instance1"),
 	}
-	err := s.env.StopInstances(nil, ids...)
+	err := s.env.StopInstances(envcontext.WithoutCredentialInvalidator(context.Background()), ids...)
 	c.Assert(err, gc.IsNil)
 
 }
@@ -594,7 +595,7 @@ func (s *environSuite) TestStopInstancesSingleFail(c *gc.C) {
 		instance.Id("fakeInstance2"),
 		instance.Id("fakeInstance3"),
 	}
-	err := s.env.StopInstances(nil, ids...)
+	err := s.env.StopInstances(envcontext.WithoutCredentialInvalidator(context.Background()), ids...)
 	c.Assert(err, gc.ErrorMatches, "failed to stop instance fakeInstance2: I failed to terminate")
 
 }
@@ -630,7 +631,7 @@ func (s *environSuite) TestStopInstancesMultipleFail(c *gc.C) {
 		instance.Id("fakeInstance3"),
 		instance.Id("fakeInstance4"),
 	}
-	err := s.env.StopInstances(nil, ids...)
+	err := s.env.StopInstances(envcontext.WithoutCredentialInvalidator(context.Background()), ids...)
 	// order in which the instances are returned or fail is not guaranteed
 	c.Assert(err, gc.ErrorMatches, `failed to stop instances \[fakeInstance[24] fakeInstance[24]\]: \[I failed to terminate fakeInstance[24] I failed to terminate fakeInstance[24]\]`)
 
@@ -701,7 +702,7 @@ func (s *environSuite) TestStopInstancesTimeoutTransitioningToTerminating(c *gc.
 	ids := []instance.Id{
 		instance.Id("fakeInstance1"),
 	}
-	err := s.env.StopInstances(nil, ids...)
+	err := s.env.StopInstances(envcontext.WithoutCredentialInvalidator(context.Background()), ids...)
 	c.Check(err, gc.ErrorMatches, ".*Instance still in running state after 2 checks")
 
 }
@@ -774,7 +775,7 @@ func (s *environSuite) TestStopInstancesTimeoutTransitioningToTerminated(c *gc.C
 	ids := []instance.Id{
 		instance.Id("fakeInstance2"),
 	}
-	err := s.env.StopInstances(nil, ids...)
+	err := s.env.StopInstances(envcontext.WithoutCredentialInvalidator(context.Background()), ids...)
 	c.Check(err, gc.ErrorMatches, ".*Timed out waiting for instance to transition from TERMINATING to TERMINATED")
 
 }
@@ -787,7 +788,7 @@ func (s *environSuite) TestAllRunningInstances(c *gc.C) {
 		context.Background(), &s.testCompartment).Return(
 		s.listInstancesResponse, nil)
 
-	ids, err := s.env.AllRunningInstances(nil)
+	ids, err := s.env.AllRunningInstances(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 2)
 }
@@ -806,7 +807,7 @@ func (s *environSuite) TestAllRunningInstancesExtraUnrelatedInstance(c *gc.C) {
 		context.Background(), &s.testCompartment).Return(
 		s.listInstancesResponse, nil)
 
-	ids, err := s.env.AllRunningInstances(nil)
+	ids, err := s.env.AllRunningInstances(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, gc.IsNil)
 	c.Check(len(ids), gc.Equals, 2)
 }
@@ -910,7 +911,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.setupStartInstanceExpectations(true, true, gomock.Any())
 
 	ctx := envtesting.BootstrapTODOContext(c)
-	_, err := s.env.Bootstrap(ctx, nil,
+	_, err := s.env.Bootstrap(ctx, envcontext.WithoutCredentialInvalidator(context.Background()),
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
@@ -930,7 +931,7 @@ func (s *environSuite) TestBootstrapFlexibleShape(c *gc.C) {
 	// VM.Standard3.Flex shape defined in listShapesResponse(), which has
 	// 32 maximum CPUs.
 	ctx := envtesting.BootstrapTODOContext(c)
-	_, err := s.env.Bootstrap(ctx, nil,
+	_, err := s.env.Bootstrap(ctx, envcontext.WithoutCredentialInvalidator(context.Background()),
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
@@ -958,7 +959,7 @@ func (s *environSuite) TestBootstrapNoAllocatePublicIP(c *gc.C) {
 	s.setupStartInstanceExpectations(true, false, noPublicIPMatcher{})
 
 	ctx := envtesting.BootstrapTODOContext(c)
-	_, err := s.env.Bootstrap(ctx, nil,
+	_, err := s.env.Bootstrap(ctx, envcontext.WithoutCredentialInvalidator(context.Background()),
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("ubuntu"),
@@ -988,7 +989,7 @@ func (s *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	s.setupListSubnetsExpectations(vcnId, "fakeRouteTableId", machineTags, 0)
 
 	ctx := envtesting.BootstrapTODOContext(c)
-	_, err := s.env.Bootstrap(ctx, nil,
+	_, err := s.env.Bootstrap(ctx, envcontext.WithoutCredentialInvalidator(context.Background()),
 		environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			AvailableTools:           makeToolsList("centos"),
@@ -1240,7 +1241,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	s.setupDeleteVcnExpectations(vcnId)
 	s.setupDeleteVolumesExpectations()
 
-	err := s.env.DestroyController(nil, s.controllerUUID)
+	err := s.env.DestroyController(envcontext.WithoutCredentialInvalidator(context.Background()), s.controllerUUID)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1274,6 +1275,6 @@ func (s *environSuite) TestEnsureShapeConfig(c *gc.C) {
 	s.setupDeleteVcnExpectations(vcnId)
 	s.setupDeleteVolumesExpectations()
 
-	err := s.env.DestroyController(nil, s.controllerUUID)
+	err := s.env.DestroyController(envcontext.WithoutCredentialInvalidator(context.Background()), s.controllerUUID)
 	c.Assert(err, gc.IsNil)
 }

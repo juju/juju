@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -65,7 +65,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 		return fmt.Errorf("mock connection failure to %s", host)
 	})
 
-	s.callCtx = envcontext.NewEmptyCloudCallContext()
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {

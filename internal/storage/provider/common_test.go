@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 )
@@ -43,7 +43,7 @@ func (s *providerCommonSuite) TestCommonProvidersExported(c *gc.C) {
 func testDetachFilesystems(
 	c *gc.C, commands *mockRunCommand,
 	source storage.FilesystemSource,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	mounted bool,
 	etcDir, fstab string,
 ) {

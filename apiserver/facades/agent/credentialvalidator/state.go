@@ -26,16 +26,6 @@ type StateAccessor interface {
 
 type stateShim struct {
 	*state.State
-	m *state.Model
-}
-
-// NewStateShim creates new state shim to be used by credential validator Facade.
-func NewStateShim(st *state.State) (StateAccessor, error) {
-	m, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &stateShim{State: st, m: m}, nil
 }
 
 // Model returns model from this shim.
@@ -43,8 +33,13 @@ func (s *stateShim) Model() (ModelAccessor, error) {
 	return s.State.Model()
 }
 
-func (s *stateShim) CloudCredentialTag() (names.CloudCredentialTag, bool) {
-	return s.m.CloudCredentialTag()
+func (s *stateShim) CloudCredentialTag() (names.CloudCredentialTag, bool, error) {
+	m, err := s.State.Model()
+	if err != nil {
+		return names.CloudCredentialTag{}, false, errors.Trace(err)
+	}
+	credTag, exists := m.CloudCredentialTag()
+	return credTag, exists, nil
 }
 
 // ModelCredential stores model's cloud credential information.

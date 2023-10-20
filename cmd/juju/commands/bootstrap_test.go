@@ -5,7 +5,7 @@ package commands
 
 import (
 	"bytes"
-	stdcontext "context"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -40,7 +40,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -1037,7 +1037,7 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 // bootstrap will stop immediately. Nothing will be destroyed.
 func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	destroyed := false
-	s.PatchValue(&environsDestroy, func(name string, _ environs.ControllerDestroyer, _ context.ProviderCallContext, _ jujuclient.ControllerStore) error {
+	s.PatchValue(&environsDestroy, func(name string, _ environs.ControllerDestroyer, _ envcontext.ProviderCallContext, _ jujuclient.ControllerStore) error {
 		c.Assert(name, gc.Equals, "decontroller")
 		destroyed = true
 		return nil
@@ -1055,26 +1055,6 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller")
 	c.Check(err, gc.ErrorMatches, ".*mock-prepare$")
 	c.Check(destroyed, jc.IsFalse)
-}
-
-// TestBootstrapInvalidCredentialMessage tests that an informative message is logged
-// when attempting to bootstrap with an invalid credential.
-func (s *BootstrapSuite) TestBootstrapInvalidCredentialMessage(c *gc.C) {
-	bootstrapFuncs := &fakeBootstrapFuncs{
-		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx context.ProviderCallContext, _ bootstrap.BootstrapParams) error {
-			callCtx.InvalidateCredential("considered invalid for the sake of testing")
-			return nil
-		},
-	}
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return bootstrapFuncs
-	})
-	ctx, _ := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
-		"dummy", "devcontroller",
-		"--auto-upgrade",
-	)
-	c.Assert(cmdtesting.Stderr(ctx), jc.Contains,
-		`Cloud credential "default" is not accepted by cloud provider: considered invalid for the sake of testing`)
 }
 
 type controllerModelAccountParams struct {
@@ -1366,12 +1346,12 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	cfg, err := provider.PrepareConfig(*params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	env, err := environs.New(stdcontext.TODO(), environs.OpenParams{
+	env, err := environs.New(context.Background(), environs.OpenParams{
 		Cloud:  params.Cloud,
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.PrepareForBootstrap(envtesting.BootstrapContext(stdcontext.TODO(), c), "controller-1")
+	err = env.PrepareForBootstrap(envtesting.BootstrapContext(context.Background(), c), "controller-1")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Now check the available tools which are the 1.2.0 envtools.
@@ -2158,7 +2138,7 @@ func (s *BootstrapSuite) TestBootstrapTestingOptions(c *gc.C) {
 	s.PatchEnvironment("JUJU_AGENT_TESTING_OPTIONS", "foo=bar, hello = world")
 	var gotArgs bootstrap.BootstrapParams
 	bootstrapFuncs := &fakeBootstrapFuncs{
-		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
 			gotArgs = args
 			return errors.New("test error")
 		},
@@ -2193,7 +2173,7 @@ func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharm(c *gc.C) {
 	} {
 		var gotArgs bootstrap.BootstrapParams
 		bootstrapFuncs := &fakeBootstrapFuncs{
-			bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+			bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
 				gotArgs = args
 				return errors.New("test error")
 			},
@@ -2400,10 +2380,10 @@ type fakeBootstrapFuncs struct {
 	newCloudDetector    func(environs.EnvironProvider) (environs.CloudDetector, bool)
 	cloudRegionDetector environs.CloudRegionDetector
 	cloudFinalizer      environs.CloudFinalizer
-	bootstrapF          func(environs.BootstrapContext, environs.BootstrapEnviron, context.ProviderCallContext, bootstrap.BootstrapParams) error
+	bootstrapF          func(environs.BootstrapContext, environs.BootstrapEnviron, envcontext.ProviderCallContext, bootstrap.BootstrapParams) error
 }
 
-func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx context.ProviderCallContext, args bootstrap.BootstrapParams) error {
+func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.BootstrapEnviron, callCtx envcontext.ProviderCallContext, args bootstrap.BootstrapParams) error {
 	if fake.bootstrapF != nil {
 		return fake.bootstrapF(ctx, env, callCtx, args)
 	}

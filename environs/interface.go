@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/proxy"
 	"github.com/juju/juju/internal/storage"
@@ -49,7 +49,7 @@ type EnvironProvider interface {
 	CloudSchema() *jsonschema.Schema
 
 	// Ping tests the connection to the cloud, to verify the endpoint is valid.
-	Ping(ctx context.ProviderCallContext, endpoint string) error
+	Ping(ctx envcontext.ProviderCallContext, endpoint string) error
 
 	// PrepareConfig prepares the configuration for a new model, based on
 	// the provided arguments. PrepareConfig is expected to produce a
@@ -322,7 +322,7 @@ type Bootstrapper interface {
 	// using an architecture constraint; this will have the effect of
 	// limiting the available tools to just those matching the specified
 	// architecture.
-	Bootstrap(ctx BootstrapContext, callCtx context.ProviderCallContext, params BootstrapParams) (*BootstrapResult, error)
+	Bootstrap(ctx BootstrapContext, callCtx envcontext.ProviderCallContext, params BootstrapParams) (*BootstrapResult, error)
 }
 
 // Configer implements access to an environment's configuration.
@@ -355,7 +355,7 @@ type BootstrapEnviron interface {
 	//
 	// Create is not called for the initial controller model; it is
 	// the Bootstrap method's job to create the controller model.
-	Create(context.ProviderCallContext, CreateParams) error
+	Create(envcontext.ProviderCallContext, CreateParams) error
 }
 
 // CloudDestroyer provides the API to cleanup cloud resources.
@@ -367,7 +367,7 @@ type CloudDestroyer interface {
 	//
 	// When Destroy has been called, any Environ referring to the
 	// same remote environment may become invalid.
-	Destroy(ctx context.ProviderCallContext) error
+	Destroy(ctx envcontext.ProviderCallContext) error
 }
 
 // An Environ represents a Juju environment.
@@ -400,7 +400,7 @@ type Environ interface {
 	// If there are no controller instances, ErrNoInstances is returned.
 	// If it can be determined that the environment has not been bootstrapped,
 	// then ErrNotBootstrapped should be returned instead.
-	ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error)
+	ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error)
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
@@ -420,7 +420,7 @@ type Environ interface {
 // This ensures that "kill-controller" can clean up hosted models
 // when the Juju controller process is unavailable.
 type ControllerDestroyer interface {
-	DestroyController(ctx context.ProviderCallContext, controllerUUID string) error
+	DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error
 }
 
 type ResourceAdopter interface {
@@ -435,14 +435,14 @@ type ResourceAdopter interface {
 	// provided for backwards compatibility - if the technique used to
 	// tag items changes, the version number can be used to decide how
 	// to remove the old tags correctly.
-	AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error
+	AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error
 }
 
 // ConstraintsChecker provides a means to check that constraints are valid.
 type ConstraintsChecker interface {
 	// ConstraintsValidator returns a Validator instance which
 	// is used to validate and merge constraints.
-	ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error)
+	ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error)
 }
 
 // InstancePrechecker provides a means of "prechecking" instance
@@ -456,7 +456,7 @@ type InstancePrechecker interface {
 	// all invalid parameters. If PrecheckInstance returns nil, it is not
 	// guaranteed that the constraints are valid; if a non-nil error is
 	// returned, then the constraints are definitely invalid.
-	PrecheckInstance(context.ProviderCallContext, PrecheckInstanceParams) error
+	PrecheckInstance(envcontext.ProviderCallContext, PrecheckInstanceParams) error
 }
 
 // InstanceLister provider api to list instances for specified instance ids.
@@ -467,7 +467,7 @@ type InstanceLister interface {
 	// some but not all the instances were found, the returned slice
 	// will have some nil slots, and an ErrPartialInstances error
 	// will be returned.
-	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
+	Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
 }
 
 // PrecheckInstanceParams contains the parameters for
@@ -501,12 +501,12 @@ type Firewaller interface {
 	// OpenPorts opens the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error
+	OpenPorts(ctx envcontext.ProviderCallContext, rules firewall.IngressRules) error
 
 	// ClosePorts closes the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(ctx context.ProviderCallContext, rules firewall.IngressRules) error
+	ClosePorts(ctx envcontext.ProviderCallContext, rules firewall.IngressRules) error
 
 	// IngressRules returns the ingress rules applied to the whole environment.
 	// Must only be used if the environment was setup with the
@@ -514,7 +514,7 @@ type Firewaller interface {
 	// It is expected that there be only one ingress rule result for a given
 	// port range - the rule's SourceCIDRs will contain all applicable source
 	// address rules for that port range.
-	IngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error)
+	IngressRules(ctx envcontext.ProviderCallContext) (firewall.IngressRules, error)
 }
 
 // FirewallFeatureQuerier exposes methods for detecting what features the
@@ -522,7 +522,7 @@ type Firewaller interface {
 type FirewallFeatureQuerier interface {
 	// SupportsRulesWithIPV6CIDRs returns true if the environment supports
 	// ingress rules containing IPV6 CIDRs.
-	SupportsRulesWithIPV6CIDRs(ctx context.ProviderCallContext) (bool, error)
+	SupportsRulesWithIPV6CIDRs(ctx envcontext.ProviderCallContext) (bool, error)
 }
 
 // InstanceTagger is an interface that can be used for tagging instances.
@@ -531,13 +531,13 @@ type InstanceTagger interface {
 	//
 	// The specified tags will replace any existing ones with the
 	// same names, but other existing tags will be left alone.
-	TagInstance(ctx context.ProviderCallContext, id instance.Id, tags map[string]string) error
+	TagInstance(ctx envcontext.ProviderCallContext, id instance.Id, tags map[string]string) error
 }
 
 // InstanceTypesFetcher is an interface that allows for instance information from
 // a provider to be obtained.
 type InstanceTypesFetcher interface {
-	InstanceTypes(context.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error)
+	InstanceTypes(envcontext.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error)
 }
 
 // Upgrader is an interface that can be used for upgrading Environs. If an
@@ -546,7 +546,7 @@ type InstanceTypesFetcher interface {
 type Upgrader interface {
 	// UpgradeOperations returns a list of UpgradeOperations for upgrading
 	// an Environ.
-	UpgradeOperations(context.ProviderCallContext, UpgradeOperationsParams) []UpgradeOperation
+	UpgradeOperations(envcontext.ProviderCallContext, UpgradeOperationsParams) []UpgradeOperation
 }
 
 // UpgradeOperationsParams contains the parameters for
@@ -580,7 +580,7 @@ type UpgradeStep interface {
 	Description() string
 
 	// Run executes the upgrade business logic.
-	Run(ctx context.ProviderCallContext) error
+	Run(ctx envcontext.ProviderCallContext) error
 }
 
 // JujuUpgradePrechecker is an interface that can be used to precheck
@@ -658,7 +658,7 @@ type SupportedFeatureEnumerator interface {
 // CloudEndpointChecker.
 type CheckProvider interface {
 	// AllInstances returns all instances currently known to the broker.
-	AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error)
+	AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error)
 }
 
 // CloudEndpointChecker defines a method for cloud endpoint validation.
@@ -669,5 +669,5 @@ type CheckProvider interface {
 type CloudEndpointChecker interface {
 	// ValidateCloudEndpoint validates connectivity with the cloud's
 	// endpoint and returns nil if no problems.
-	ValidateCloudEndpoint(ctx context.ProviderCallContext) error
+	ValidateCloudEndpoint(ctx envcontext.ProviderCallContext) error
 }

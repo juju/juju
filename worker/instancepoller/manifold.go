@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/worker/common"
 )
@@ -50,11 +50,11 @@ type environWithoutNetworking struct {
 	env environs.Environ
 }
 
-func (e environWithoutNetworking) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (e environWithoutNetworking) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	return e.env.Instances(ctx, ids)
 }
 
-func (e environWithoutNetworking) NetworkInterfaces(context.ProviderCallContext, []instance.Id) ([]network.InterfaceInfos, error) {
+func (e environWithoutNetworking) NetworkInterfaces(envcontext.ProviderCallContext, []instance.Id) ([]network.InterfaceInfos, error) {
 	return nil, errNetworkingNotSupported
 }
 

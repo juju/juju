@@ -138,7 +138,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	coretesting.DumpTestLogsAfter(time.Minute, c, s)
 
 	// Ensure the dummy provider is initialised - no need to actually bootstrap.
-	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
+	ctx := envtesting.BootstrapContext(stdcontext.Background(), c)
 	err = s.Environ.PrepareForBootstrap(ctx, "controller")
 	c.Assert(err, jc.ErrorIsNil)
 }

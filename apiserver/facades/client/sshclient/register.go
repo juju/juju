@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -44,7 +43,6 @@ func newFacade(ctx facade.Context) (*Facade, error) {
 		&facadeBackend,
 		leadershipReader,
 		ctx.Auth(),
-		context.CallContext(st),
 		func(ctx stdcontext.Context, args environs.OpenParams) (Broker, error) {
 			return caas.New(ctx, args)
 		},

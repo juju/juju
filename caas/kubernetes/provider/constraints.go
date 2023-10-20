@@ -5,7 +5,7 @@ package provider
 
 import (
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 var unsupportedConstraints = []string{
@@ -20,7 +20,7 @@ var unsupportedConstraints = []string{
 
 // ConstraintsValidator returns a Validator value which is used to
 // validate and merge constraints.
-func (k *kubernetesClient) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+func (k *kubernetesClient) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	return validator, nil

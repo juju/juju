@@ -43,9 +43,9 @@ type testBackend struct {
 	credentialSet    bool
 }
 
-func (m *testBackend) CloudCredentialTag() (names.CloudCredentialTag, bool) {
+func (m *testBackend) CloudCredentialTag() (names.CloudCredentialTag, bool, error) {
 	m.MethodCall(m, "mockModel.CloudCredentialTag")
-	return m.credentialTag, m.credentialSet
+	return m.credentialTag, m.credentialSet, nil
 }
 
 func (b *testBackend) Model() (credentialvalidator.ModelAccessor, error) {

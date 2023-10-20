@@ -4,7 +4,7 @@
 package maas
 
 import (
-	stdcontext "context"
+	"context"
 	"errors"
 	"os"
 
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/testing"
 )
 
@@ -120,7 +120,7 @@ func (s *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	spec := s.cloudSpec()
 	cred := oauthCredential("wrongly-formatted-oauth-string")
 	spec.Credential = &cred
-	env, err := providerInstance.Open(stdcontext.TODO(), environs.OpenParams{
+	env, err := providerInstance.Open(context.Background(), environs.OpenParams{
 		Cloud:  spec,
 		Config: config,
 	})
@@ -151,14 +151,14 @@ endpoint: http://foo.com/openstack
 type MaasPingSuite struct {
 	testing.BaseSuite
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&MaasPingSuite{})
 
 func (s *MaasPingSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *MaasPingSuite) TestPingNoEndpoint(c *gc.C) {
@@ -225,7 +225,7 @@ func (s *MaasPingSuite) TestPingVersionURLBad(c *gc.C) {
 	})
 }
 
-func ping(c *gc.C, callCtx context.ProviderCallContext, endpoint string, getCapabilities Capabilities) error {
+func ping(c *gc.C, callCtx envcontext.ProviderCallContext, endpoint string, getCapabilities Capabilities) error {
 	p, err := environs.Provider("maas")
 	c.Assert(err, jc.ErrorIsNil)
 	m, ok := p.(EnvironProvider)

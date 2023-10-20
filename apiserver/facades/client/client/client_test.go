@@ -416,7 +416,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		backend, nil,
 		nil, nil,
 		authorizer, nil, toolsFinder,
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return registryProvider, nil
 		},
@@ -495,7 +495,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 		backend, nil,
 		nil, nil,
 		authorizer, nil, toolsFinder,
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
 			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
 				Repository:    "test-account",
@@ -580,7 +580,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		backend, nil,
 		nil, nil,
 		authorizer, nil, toolsFinder,
-		nil, nil, nil, nil, nil,
+		nil, nil, nil, nil,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
 			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
 				Repository:    "test-account",

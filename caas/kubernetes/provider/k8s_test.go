@@ -4,7 +4,7 @@
 package provider_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -46,7 +46,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/testing"
@@ -248,8 +248,8 @@ func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
-	callCtx := &context.CloudCallContext{}
+	ctx := envtesting.BootstrapContext(context.TODO(), c)
+	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 	bootstrapParams := environs.BootstrapParams{
 		ControllerConfig:         testing.FakeControllerConfig(),
 		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
@@ -269,8 +269,8 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	// Ensure the broker is configured with operator storage.
 	s.setupOperatorStorageConfig(c)
 
-	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
-	callCtx := &context.CloudCallContext{}
+	ctx := envtesting.BootstrapContext(context.TODO(), c)
+	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 	bootstrapParams := environs.BootstrapParams{
 		ControllerConfig:         testing.FakeControllerConfig(),
 		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
@@ -331,7 +331,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "some-storage", v1.GetOptions{}).
 			Return(sc, nil),
 	)
-	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.TODO(), c)
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIsNil,
 	)
@@ -348,7 +348,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistNamespaceError(c *gc
 		s.mockNamespaces.EXPECT().Get(gomock.Any(), "controller-ctrl-1", v1.GetOptions{}).
 			Return(ns, nil),
 	)
-	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.TODO(), c)
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIs, errors.AlreadyExists,
 	)
@@ -366,7 +366,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrapAlreadyExistControllerAnnotation
 		s.mockNamespaces.EXPECT().List(gomock.Any(), v1.ListOptions{}).
 			Return(&core.NamespaceList{Items: []core.Namespace{*ns}}, nil),
 	)
-	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.TODO(), c)
 	c.Assert(
 		s.broker.PrepareForBootstrap(ctx, "ctrl-1"), jc.ErrorIs, errors.AlreadyExists,
 	)
@@ -705,7 +705,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 
 func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
 	s.assertDestroy(c, true, func() error {
-		return s.broker.DestroyController(context.NewEmptyCloudCallContext(), testing.ControllerTag.Id())
+		return s.broker.DestroyController(envcontext.WithoutCredentialInvalidator(context.Background()), testing.ControllerTag.Id())
 	})
 }
 
@@ -749,7 +749,9 @@ func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
-	s.assertDestroy(c, false, func() error { return s.broker.Destroy(context.NewEmptyCloudCallContext()) })
+	s.assertDestroy(c, false, func() error {
+		return s.broker.Destroy(envcontext.WithoutCredentialInvalidator(context.Background()))
+	})
 }
 
 func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
@@ -774,7 +776,7 @@ func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
 	)
 
 	err := s.broker.Create(
-		&context.CloudCallContext{},
+		envcontext.WithoutCredentialInvalidator(context.Background()),
 		environs.CreateParams{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -796,7 +798,7 @@ func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
 	)
 
 	err := s.broker.Create(
-		&context.CloudCallContext{},
+		envcontext.WithoutCredentialInvalidator(context.Background()),
 		environs.CreateParams{},
 	)
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)

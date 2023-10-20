@@ -78,7 +78,10 @@ func (api *CredentialValidatorAPI) WatchCredential(ctx context.Context, tag para
 		return fail(err)
 	}
 	// Is credential used by the model that has created this backend?
-	modelCredentialTag, exists := api.backend.CloudCredentialTag()
+	modelCredentialTag, exists, err := api.backend.CloudCredentialTag()
+	if err != nil {
+		return fail(err)
+	}
 	if !exists || credentialTag != modelCredentialTag {
 		return fail(apiservererrors.ErrPerm)
 	}
@@ -122,7 +125,10 @@ func (api *CredentialValidatorAPI) modelCredential(ctx context.Context) (*ModelC
 		return nil, errors.Trace(err)
 	}
 
-	modelCredentialTag, exists := api.backend.CloudCredentialTag()
+	modelCredentialTag, exists, err := api.backend.CloudCredentialTag()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	result := &ModelCredential{Model: m.ModelTag(), Exists: exists}
 	if !exists {
 		// A model credential is not set, we must check if the model

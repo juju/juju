@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -69,24 +69,24 @@ var (
 
 var providerInstance environProvider
 
-func (e *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (e *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	return nil
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx envcontext.ProviderCallContext, args environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	return common.Bootstrap(ctx, e, callCtx, args)
 }
 
-func (e *environ) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (e *environ) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	return e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()})
 }
 
 // TagInstance implements environs.InstanceTagger.
-func (e *environ) TagInstance(ctx context.ProviderCallContext, id instance.Id, tags map[string]string) error {
+func (e *environ) TagInstance(ctx envcontext.ProviderCallContext, id instance.Id, tags map[string]string) error {
 	return e.setTagsForDevice(string(id), tags)
 }
 
-func (e *environ) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (e *environ) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	return e.getPacketInstancesByTag(map[string]string{"juju-model-uuid": e.Config().UUID()})
 }
 
@@ -102,7 +102,7 @@ var unsupportedConstraints = []string{
 	constraints.ImageID,
 }
 
-func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+func (e *environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
 	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
@@ -110,7 +110,7 @@ func (e *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constra
 	return validator, nil
 }
 
-func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (e *environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	insts, err := e.getPacketInstancesByTag(map[string]string{
 		"juju-is-controller":   "true",
 		"juju-controller-uuid": controllerUUID,
@@ -125,11 +125,11 @@ func (e *environ) ControllerInstances(ctx context.ProviderCallContext, controlle
 	return instanceIDs, nil
 }
 
-func (e *environ) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
+func (e *environ) Create(ctx envcontext.ProviderCallContext, args environs.CreateParams) error {
 	return nil
 }
 
-func (e *environ) Destroy(ctx context.ProviderCallContext) error {
+func (e *environ) Destroy(ctx envcontext.ProviderCallContext) error {
 	insts, err := e.getPacketInstancesByTag(map[string]string{
 		"juju-model-uuid": e.Config().UUID(),
 	})
@@ -151,7 +151,7 @@ func (e *environ) Destroy(ctx context.ProviderCallContext) error {
 	return common.Destroy(e, ctx)
 }
 
-func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+func (e *environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	insts, err := e.ControllerInstances(ctx, controllerUUID)
 	if err != nil {
 		return err
@@ -165,7 +165,7 @@ func (e *environ) DestroyController(ctx context.ProviderCallContext, controllerU
 	return e.Destroy(ctx)
 }
 
-func (e *environ) InstanceTypes(context.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (e *environ) InstanceTypes(envcontext.ProviderCallContext, constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	i := instances.InstanceTypesWithCostMetadata{}
 	instances, err := e.supportedInstanceTypes()
 	if err != nil {
@@ -176,7 +176,7 @@ func (e *environ) InstanceTypes(context.ProviderCallContext, constraints.Value) 
 	return i, nil
 }
 
-func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (e *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	toReturn := make([]instances.Instance, len(ids))
 	var missingInstanceCount int
 
@@ -210,7 +210,7 @@ func (e *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) 
 	return toReturn, nil
 }
 
-func (e *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+func (e *environ) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	return nil
 }
 
@@ -246,7 +246,7 @@ var (
 	configDefaults = schema.Defaults{}
 )
 
-func (e *environ) configureInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
+func (e *environ) configureInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*instances.InstanceSpec, error) {
 	instanceTypes, err := e.InstanceTypes(ctx, constraints.Value{})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -421,7 +421,7 @@ EOF`,
 	return cloudCfg, nil
 }
 
-func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, resultErr error) {
+func (e *environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, resultErr error) {
 	spec, err := e.configureInstance(ctx, args)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -549,7 +549,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	return r, nil
 }
 
-func (e *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (e *environ) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
 	return e.deleteDevicesByIDs(ctx, ids)
 }
 
@@ -569,7 +569,7 @@ func (e *environ) Region() (simplestreams.CloudSpec, error) {
 	}, nil
 }
 
-func (e *environ) deleteDevicesByIDs(ctx context.ProviderCallContext, ids []instance.Id) error {
+func (e *environ) deleteDevicesByIDs(ctx envcontext.ProviderCallContext, ids []instance.Id) error {
 	for _, id := range ids {
 		_, err := e.equinixClient.Devices.Delete(string(id), true)
 		if err != nil {
@@ -808,7 +808,7 @@ var ErrDeviceProvisioningFailed = errors.New("device provisioning failed")
 
 // waitDeviceActive is a function capable of figuring out when a Equinix Metal
 // device is active
-func waitDeviceActive(ctx context.ProviderCallContext, c *packngo.Client, id string) (*packngo.Device, error) {
+func waitDeviceActive(ctx envcontext.ProviderCallContext, c *packngo.Client, id string) (*packngo.Device, error) {
 	var d *packngo.Device
 	err := retry.Call(retry.CallArgs{
 		Func: func() error {

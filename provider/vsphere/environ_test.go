@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	environscontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/testing"
@@ -29,7 +29,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.PatchValue(&vsphere.Bootstrap, func(
 		ctx environs.BootstrapContext,
 		env environs.Environ,
-		callCtx environscontext.ProviderCallContext,
+		callCtx envcontext.ProviderCallContext,
 		args environs.BootstrapParams,
 	) (*environs.BootstrapResult, error) {
 		return nil, errors.New("Bootstrap called")
@@ -54,7 +54,7 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 
 func (s *environSuite) TestDestroy(c *gc.C) {
 	var destroyCalled bool
-	s.PatchValue(&vsphere.DestroyEnv, func(env environs.Environ, callCtx environscontext.ProviderCallContext) error {
+	s.PatchValue(&vsphere.DestroyEnv, func(env environs.Environ, callCtx envcontext.ProviderCallContext) error {
 		destroyCalled = true
 		s.client.CheckNoCalls(c)
 		return nil
@@ -87,7 +87,7 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	}}
 
 	var destroyCalled bool
-	s.PatchValue(&vsphere.DestroyEnv, func(env environs.Environ, callCtx environscontext.ProviderCallContext) error {
+	s.PatchValue(&vsphere.DestroyEnv, func(env environs.Environ, callCtx envcontext.ProviderCallContext) error {
 		destroyCalled = true
 		s.client.CheckNoCalls(c)
 		return nil
@@ -138,7 +138,7 @@ func (s *environSuite) TestAdoptResources(c *gc.C) {
 }
 
 func (s *environSuite) TestPrepareForBootstrap(c *gc.C) {
-	err := s.env.PrepareForBootstrap(envtesting.BootstrapContext(context.TODO(), c), "controller-1")
+	err := s.env.PrepareForBootstrap(envtesting.BootstrapContext(context.Background(), c), "controller-1")
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -148,13 +148,13 @@ func (s *environSuite) TestSupportsNetworking(c *gc.C) {
 }
 
 func (s *environSuite) TestAdoptResourcesPermissionError(c *gc.C) {
-	AssertInvalidatesCredential(c, s.client, func(ctx environscontext.ProviderCallContext) error {
+	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
 		return s.env.AdoptResources(ctx, "foo", version.Number{})
 	})
 }
 
 func (s *environSuite) TestBootstrapPermissionError(c *gc.C) {
-	AssertInvalidatesCredential(c, s.client, func(ctx environscontext.ProviderCallContext) error {
+	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
 		_, err := s.env.Bootstrap(nil, ctx, environs.BootstrapParams{
 			ControllerConfig:         testing.FakeControllerConfig(),
 			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
@@ -164,13 +164,13 @@ func (s *environSuite) TestBootstrapPermissionError(c *gc.C) {
 }
 
 func (s *environSuite) TestDestroyPermissionError(c *gc.C) {
-	AssertInvalidatesCredential(c, s.client, func(ctx environscontext.ProviderCallContext) error {
+	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
 		return s.env.Destroy(ctx)
 	})
 }
 
 func (s *environSuite) TestDestroyControllerPermissionError(c *gc.C) {
-	AssertInvalidatesCredential(c, s.client, func(ctx environscontext.ProviderCallContext) error {
+	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
 		return s.env.DestroyController(ctx, "foo")
 	})
 }

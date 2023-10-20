@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
@@ -43,10 +43,10 @@ type Policy interface {
 	ConfigValidator() (config.Validator, error)
 
 	// ConstraintsValidator returns a constraints.Validator or an error.
-	ConstraintsValidator(context.ProviderCallContext) (constraints.Validator, error)
+	ConstraintsValidator(envcontext.ProviderCallContext) (constraints.Validator, error)
 
-	// InstanceDistributor returns an context.Distributor or an error.
-	InstanceDistributor() (context.Distributor, error)
+	// InstanceDistributor returns an envcontext.Distributor or an error.
+	InstanceDistributor() (envcontext.Distributor, error)
 
 	// StorageProviderRegistry returns a storage.ProviderRegistry or an error.
 	StorageProviderRegistry() (storage.ProviderRegistry, error)
@@ -77,7 +77,7 @@ func (st *State) precheckInstance(
 		return errors.Trace(err)
 	}
 	return prechecker.PrecheckInstance(
-		context.CallContext(st),
+		envcontext.WithoutCredentialInvalidator(stdcontext.Background()),
 		environs.PrecheckInstanceParams{
 			Base:              mBase,
 			Constraints:       cons,
@@ -92,7 +92,7 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 	var validator constraints.Validator
 	if st.policy != nil {
 		var err error
-		validator, err = st.policy.ConstraintsValidator(context.CallContext(st))
+		validator, err = st.policy.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(stdcontext.Background()))
 		if errors.Is(err, errors.NotImplemented) {
 			validator = constraints.NewValidator()
 		} else if err != nil {

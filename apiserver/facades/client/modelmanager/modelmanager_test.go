@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
 	jujutesting "github.com/juju/juju/juju/testing"
 	_ "github.com/juju/juju/provider/azure"
 	_ "github.com/juju/juju/provider/ec2"
@@ -70,8 +69,6 @@ type modelManagerSuite struct {
 	authoriser    apiservertesting.FakeAuthorizer
 	api           *modelmanager.ModelManagerAPI
 	caasApi       *modelmanager.ModelManagerAPI
-
-	callContext context.ProviderCallContext
 }
 
 var _ = gc.Suite(&modelManagerSuite{})
@@ -200,8 +197,6 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		Tag: names.NewUserTag("admin"),
 	}
 
-	s.callContext = context.NewEmptyCloudCallContext()
-
 	newBroker := func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error) {
 		s.caasBroker = &mockCaasBroker{namespace: args.Config.Name()}
 		return s.caasBroker, nil
@@ -220,7 +215,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		&mockModelManagerService{},
 		&mockModelService{},
 		nil, newBroker, common.NewBlockChecker(s.st),
-		s.authoriser, s.st.model, s.callContext,
+		s.authoriser, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -236,7 +231,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 		&mockModelManagerService{},
 		&mockModelService{},
 		nil, newBroker, common.NewBlockChecker(s.caasSt),
-		s.authoriser, s.st.model, s.callContext,
+		s.authoriser, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.caasApi = caasApi
@@ -264,7 +259,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		&mockModelManagerService{},
 		&mockModelService{},
 		nil, newBroker, common.NewBlockChecker(s.st),
-		s.authoriser, s.st.model, s.callContext,
+		s.authoriser, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = mm
@@ -728,7 +723,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 		&mockModelManagerService{},
 		&mockModelService{},
 		nil, nil, common.NewBlockChecker(s.st),
-		s.authoriser, s.st.model, s.callContext,
+		s.authoriser, s.st.model,
 	)
 	c.Check(err, jc.ErrorIsNil)
 
@@ -875,8 +870,6 @@ type modelManagerStateSuite struct {
 	modelmanager *modelmanager.ModelManagerAPI
 	authoriser   apiservertesting.FakeAuthorizer
 
-	callContext context.ProviderCallContext
-
 	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
@@ -895,7 +888,6 @@ func (s *modelManagerStateSuite) SetUpTest(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: jujutesting.AdminUser,
 	}
-	s.callContext = context.NewEmptyCloudCallContext()
 
 	ctrl := gomock.NewController(c)
 	s.controllerConfigGetter = mocks.NewMockControllerConfigGetter(ctrl)
@@ -917,7 +909,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	newEnviron := common.EnvironFuncForModel(model, serviceFactory.Cloud(), serviceFactory.Credential(), configGetter)
 	toolsFinder := common.NewToolsFinder(s.controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
-		st, nil, ctlrSt,
+		mockCredentialShim{st}, nil, ctlrSt,
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		&mockModelManagerService{},
@@ -927,7 +919,6 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		common.NewBlockChecker(st),
 		s.authoriser,
 		s.ControllerModel(c),
-		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.modelmanager = modelmanager
@@ -940,7 +931,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		st,
+		mockCredentialShim{st},
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		serviceFactory.Cloud(),
@@ -949,7 +940,6 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 		&mockModelService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.ControllerModel(c),
-		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)
@@ -962,7 +952,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		st,
+		mockCredentialShim{st},
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		serviceFactory.Cloud(),
@@ -970,7 +960,6 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		&mockModelManagerService{},
 		&mockModelService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser, s.ControllerModel(c),
-		s.callContext,
 	)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -1173,7 +1162,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		backend,
+		mockCredentialShim{backend},
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		serviceFactory.Cloud(),
@@ -1182,7 +1171,6 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 		&mockModelService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.ControllerModel(c),
-		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1229,7 +1217,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		backend,
+		mockCredentialShim{backend},
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		serviceFactory.Cloud(),
@@ -1238,7 +1226,6 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 		&mockModelService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser,
 		s.ControllerModel(c),
-		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1273,7 +1260,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 
 	backend := common.NewModelManagerBackend(model, s.StatePool())
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
-		backend,
+		mockCredentialShim{backend},
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		serviceFactory.Cloud(),
@@ -1281,7 +1268,6 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 		&mockModelManagerService{},
 		&mockModelService{},
 		nil, nil, common.NewBlockChecker(backend), s.authoriser, s.ControllerModel(c),
-		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1751,7 +1737,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	anAuthoriser.Tag = user
 	st := common.NewUserAwareModelManagerBackend(model, s.StatePool(), user)
 	endPoint, err := modelmanager.NewModelManagerAPI(
-		st,
+		mockCredentialShim{st},
 		nil,
 		common.NewModelManagerBackend(s.ControllerModel(c), s.StatePool()),
 		serviceFactory.Cloud(),
@@ -1760,7 +1746,6 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 		&mockModelService{},
 		nil, nil, common.NewBlockChecker(st), anAuthoriser,
 		s.ControllerModel(c),
-		s.callContext,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(endPoint, gc.NotNil)

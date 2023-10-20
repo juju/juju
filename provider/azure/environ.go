@@ -36,7 +36,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -202,11 +202,8 @@ func (env *azureEnviron) initEnviron(ctx stdcontext.Context) error {
 // PrepareForBootstrap is part of the Environ interface.
 func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, _ string) error {
 	if ctx.ShouldVerifyCredentials() {
-		cloudCtx := &context.CloudCallContext{
-			Context:                  ctx.Context(),
-			InvalidateCredentialFunc: func(string) error { return nil },
-		}
-		if err := verifyCredentials(env, cloudCtx); err != nil {
+		callCtx := envcontext.WithoutCredentialInvalidator(ctx.Context())
+		if err := verifyCredentials(env, callCtx); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -214,7 +211,7 @@ func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, _ st
 }
 
 // Create is part of the Environ interface.
-func (env *azureEnviron) Create(ctx context.ProviderCallContext, args environs.CreateParams) error {
+func (env *azureEnviron) Create(ctx envcontext.ProviderCallContext, args environs.CreateParams) error {
 	if err := verifyCredentials(env, ctx); err != nil {
 		return errors.Trace(err)
 	}
@@ -224,7 +221,7 @@ func (env *azureEnviron) Create(ctx context.ProviderCallContext, args environs.C
 // Bootstrap is part of the Environ interface.
 func (env *azureEnviron) Bootstrap(
 	ctx environs.BootstrapContext,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
 	if err := env.initResourceGroup(callCtx, args.ControllerConfig.ControllerUUID(), env.config.resourceGroupName != "", true); err != nil {
@@ -261,7 +258,7 @@ func (env *azureEnviron) Bootstrap(
 }
 
 // initResourceGroup creates a resource group for this environment.
-func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, controllerUUID string, existingResourceGroup, controller bool) error {
+func (env *azureEnviron) initResourceGroup(ctx envcontext.ProviderCallContext, controllerUUID string, existingResourceGroup, controller bool) error {
 	env.mu.Lock()
 	resourceTags := tags.ResourceTags(
 		names.NewModelTag(env.config.Config.UUID()),
@@ -309,7 +306,7 @@ func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, cont
 }
 
 func (env *azureEnviron) createCommonResourceDeployment(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	tags map[string]string,
 	rules []*armnetwork.SecurityRule,
 	commonResources ...armtemplates.Resource,
@@ -337,7 +334,7 @@ func (env *azureEnviron) createCommonResourceDeployment(
 }
 
 // ControllerInstances is specified in the Environ interface.
-func (env *azureEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (env *azureEnviron) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	inst, err := env.allInstances(ctx, env.resourceGroup, false, controllerUUID)
 	if err != nil {
 		return nil, err
@@ -385,7 +382,7 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+func (env *azureEnviron) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	instanceTypes, err := env.getInstanceTypes(ctx)
 	if err != nil {
 		return nil, err
@@ -419,7 +416,7 @@ func (env *azureEnviron) ConstraintsValidator(ctx context.ProviderCallContext) (
 }
 
 // PrecheckInstance is defined on the environs.InstancePrechecker interface.
-func (env *azureEnviron) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+func (env *azureEnviron) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	if _, err := env.findPlacementSubnet(ctx, args.Placement); err != nil {
 		return errors.Trace(err)
 	}
@@ -440,7 +437,7 @@ func (env *azureEnviron) PrecheckInstance(ctx context.ProviderCallContext, args 
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (env *azureEnviron) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.ControllerUUID == "" {
 		return nil, errors.New("missing controller UUID")
 	}
@@ -517,7 +514,7 @@ func (env *azureEnviron) StartInstance(ctx context.ProviderCallContext, args env
 	return nil, errors.New("no suitable instance type found for this subscription")
 }
 func (env *azureEnviron) startInstance(
-	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+	ctx envcontext.ProviderCallContext, args environs.StartInstanceParams,
 	instanceSpec *instances.InstanceSpec, envTags map[string]string,
 ) (*environs.StartInstanceResult, error) {
 
@@ -617,7 +614,7 @@ func referenceInfo(entityRef string) (entityRG, entityName string) {
 // All resources created are tagged with the specified "vmTags", so if
 // this function fails then all resources can be deleted by tag.
 func (env *azureEnviron) createVirtualMachine(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	vmName string,
 	vmTags, envTags map[string]string,
 	instanceSpec *instances.InstanceSpec,
@@ -898,7 +895,7 @@ func maxFaultDomains(location string) int32 {
 }
 
 // waitCommonResourcesCreated waits for the "common" deployment to complete.
-func (env *azureEnviron) waitCommonResourcesCreated(ctx context.ProviderCallContext) error {
+func (env *azureEnviron) waitCommonResourcesCreated(ctx envcontext.ProviderCallContext) error {
 	env.mu.Lock()
 	defer env.mu.Unlock()
 	if env.commonResourcesCreated {
@@ -915,7 +912,7 @@ type deploymentIncompleteError struct {
 	error
 }
 
-func (env *azureEnviron) waitCommonResourcesCreatedLocked(ctx context.ProviderCallContext) (*armresources.DeploymentExtended, error) {
+func (env *azureEnviron) waitCommonResourcesCreatedLocked(ctx envcontext.ProviderCallContext) (*armresources.DeploymentExtended, error) {
 	// Release the lock while we're waiting, to avoid blocking others.
 	env.mu.Unlock()
 	defer env.mu.Lock()
@@ -1118,7 +1115,7 @@ func newOSProfile(
 }
 
 // StopInstances is specified in the InstanceBroker interface.
-func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (env *azureEnviron) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -1201,7 +1198,7 @@ func (env *azureEnviron) StopInstances(ctx context.ProviderCallContext, ids ...i
 }
 
 // cancelDeployment cancels a template deployment.
-func (env *azureEnviron) cancelDeployment(ctx context.ProviderCallContext, name string) error {
+func (env *azureEnviron) cancelDeployment(ctx envcontext.ProviderCallContext, name string) error {
 	logger.Debugf("- canceling deployment %q", name)
 	deploy, err := env.deployClient()
 	if err != nil {
@@ -1235,7 +1232,7 @@ func isDeployConflictError(err error) bool {
 // deleteVirtualMachine deletes a virtual machine and all of the resources that
 // it owns, and any corresponding network security rules.
 func (env *azureEnviron) deleteVirtualMachine(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	instId instance.Id,
 	networkInterfaces []*armnetwork.Interface,
 	publicIPAddresses []*armnetwork.PublicIPAddress,
@@ -1340,7 +1337,7 @@ func (env *azureEnviron) deleteVirtualMachine(
 }
 
 // AdoptResources is part of the Environ interface.
-func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, _ version.Number) error {
+func (env *azureEnviron) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, _ version.Number) error {
 	resourceGroups, err := env.resourceGroupsClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -1397,7 +1394,7 @@ func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, control
 	return nil
 }
 
-func (env *azureEnviron) updateGroupControllerTag(ctx context.ProviderCallContext, client *armresources.ResourceGroupsClient, groupName, controllerUUID string) error {
+func (env *azureEnviron) updateGroupControllerTag(ctx envcontext.ProviderCallContext, client *armresources.ResourceGroupsClient, groupName, controllerUUID string) error {
 	group, err := client.Get(ctx, groupName, nil)
 	if err != nil {
 		return errorutils.HandleCredentialError(errors.Trace(err), ctx)
@@ -1419,7 +1416,7 @@ func (env *azureEnviron) updateGroupControllerTag(ctx context.ProviderCallContex
 }
 
 func (env *azureEnviron) updateResourceControllerTag(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	client *armresources.Client,
 	stubResource *armresources.GenericResourceExpanded,
 	controllerUUID string,
@@ -1462,7 +1459,7 @@ var (
 )
 
 // Instances is specified in the Environ interface.
-func (env *azureEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (env *azureEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -1503,12 +1500,12 @@ func (env *azureEnviron) Instances(ctx context.ProviderCallContext, ids []instan
 }
 
 // AllInstances is specified in the InstanceBroker interface.
-func (env *azureEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (env *azureEnviron) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	return env.allInstances(ctx, env.resourceGroup, true, "")
 }
 
 // AllRunningInstances is specified in the InstanceBroker interface.
-func (env *azureEnviron) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (env *azureEnviron) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	return env.allInstances(ctx, env.resourceGroup, true, "", runningInstStates...)
 }
 
@@ -1517,7 +1514,7 @@ func (env *azureEnviron) AllRunningInstances(ctx context.ProviderCallContext) ([
 // This function returns environs.ErrPartialInstances if the
 // insts slice has not been completely filled.
 func (env *azureEnviron) gatherInstances(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	ids []instance.Id,
 	insts []instances.Instance,
 	resourceGroup string,
@@ -1555,7 +1552,7 @@ func (env *azureEnviron) gatherInstances(
 // with one of the specified instance states.
 // If no instance states are specified, then return all instances.
 func (env *azureEnviron) allInstances(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	resourceGroup string,
 	refreshAddresses bool,
 	controllerUUID string,
@@ -1609,7 +1606,7 @@ func (env *azureEnviron) allInstances(
 // allQueuedInstances returns any pending or failed machine deployments
 // in the given resource group.
 func (env *azureEnviron) allQueuedInstances(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	resourceGroup string,
 	controllerOnly bool,
 ) ([]*azureInstance, error) {
@@ -1716,7 +1713,7 @@ func isControllerDeployment(deployment *armresources.DeploymentExtended) bool {
 // allProvisionedInstances returns all of the instances
 // in the given resource group.
 func (env *azureEnviron) allProvisionedInstances(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	resourceGroup string,
 	controllerUUID string,
 	instStates ...armresources.ProvisioningState,
@@ -1791,7 +1788,7 @@ func isControllerInstance(vm *armcompute.VirtualMachine, controllerUUID string) 
 }
 
 // Destroy is specified in the Environ interface.
-func (env *azureEnviron) Destroy(ctx context.ProviderCallContext) error {
+func (env *azureEnviron) Destroy(ctx envcontext.ProviderCallContext) error {
 	logger.Debugf("destroying model %q", env.modelName)
 	logger.Debugf("- deleting resource group %q", env.resourceGroup)
 	if err := env.deleteResourceGroup(ctx, env.resourceGroup); err != nil {
@@ -1804,7 +1801,7 @@ func (env *azureEnviron) Destroy(ctx context.ProviderCallContext) error {
 }
 
 // DestroyController is specified in the Environ interface.
-func (env *azureEnviron) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+func (env *azureEnviron) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	logger.Debugf("destroying model %q", env.modelName)
 	logger.Debugf("deleting resource groups")
 	if err := env.deleteControllerManagedResourceGroups(ctx, controllerUUID); err != nil {
@@ -1816,7 +1813,7 @@ func (env *azureEnviron) DestroyController(ctx context.ProviderCallContext, cont
 	return nil
 }
 
-func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.ProviderCallContext, controllerUUID string) error {
+func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	resourceGroups, err := env.resourceGroupsClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -1879,7 +1876,7 @@ func (env *azureEnviron) deleteControllerManagedResourceGroups(ctx context.Provi
 	return errors.New(strings.Join(combined, "; "))
 }
 
-func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, resourceGroup string) error {
+func (env *azureEnviron) deleteResourceGroup(ctx envcontext.ProviderCallContext, resourceGroup string) error {
 	// For user specified, existing resource groups, delete the contents, not the group.
 	if env.config.resourceGroupName != "" {
 		return env.deleteResourcesInGroup(ctx, resourceGroup)
@@ -1900,7 +1897,7 @@ func (env *azureEnviron) deleteResourceGroup(ctx context.ProviderCallContext, re
 	return nil
 }
 
-func (env *azureEnviron) deleteResourcesInGroup(ctx context.ProviderCallContext, resourceGroup string) (err error) {
+func (env *azureEnviron) deleteResourcesInGroup(ctx envcontext.ProviderCallContext, resourceGroup string) (err error) {
 	logger.Debugf("deleting all resources in %s", resourceGroup)
 
 	defer func() {
@@ -2129,7 +2126,7 @@ func resourceName(tag names.Tag) string {
 
 // getInstanceTypes gets the instance types available for the configured
 // location, keyed by name.
-func (env *azureEnviron) getInstanceTypes(ctx context.ProviderCallContext) (map[string]instances.InstanceType, error) {
+func (env *azureEnviron) getInstanceTypes(ctx envcontext.ProviderCallContext) (map[string]instances.InstanceType, error) {
 	env.mu.Lock()
 	defer env.mu.Unlock()
 	instanceTypes, err := env.getInstanceTypesLocked(ctx)
@@ -2141,7 +2138,7 @@ func (env *azureEnviron) getInstanceTypes(ctx context.ProviderCallContext) (map[
 
 // getInstanceTypesLocked returns the instance types for Azure, by listing the
 // role sizes available to the subscription.
-func (env *azureEnviron) getInstanceTypesLocked(ctx context.ProviderCallContext) (map[string]instances.InstanceType, error) {
+func (env *azureEnviron) getInstanceTypesLocked(ctx envcontext.ProviderCallContext) (map[string]instances.InstanceType, error) {
 	if env.instanceTypes != nil {
 		return env.instanceTypes, nil
 	}

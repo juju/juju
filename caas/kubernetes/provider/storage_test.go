@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -13,7 +15,7 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -98,7 +100,7 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	vs, err := p.VolumeSource(&storage.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	errs, err := vs.DestroyVolumes(&context.CloudCallContext{}, []string{"vol-1"})
+	errs, err := vs.DestroyVolumes(envcontext.WithoutCredentialInvalidator(context.Background()), []string{"vol-1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, jc.DeepEquals, []error{nil})
 }
@@ -123,7 +125,7 @@ func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *gc.C) {
 	vs, err := p.VolumeSource(&storage.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	errs, err := vs.DestroyVolumes(&context.CloudCallContext{}, []string{"vol-1"})
+	errs, err := vs.DestroyVolumes(envcontext.WithoutCredentialInvalidator(context.Background()), []string{"vol-1"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, jc.DeepEquals, []error{nil})
 }
@@ -142,7 +144,7 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 	vs, err := p.VolumeSource(&storage.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	vols, err := vs.ListVolumes(&context.CloudCallContext{})
+	vols, err := vs.ListVolumes(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(vols, jc.DeepEquals, []string{"vol-1"})
 }
@@ -165,7 +167,7 @@ func (s *storageSuite) TestDescribeVolumes(c *gc.C) {
 	vs, err := p.VolumeSource(&storage.Config{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := vs.DescribeVolumes(&context.CloudCallContext{}, []string{"vol-id"})
+	result, err := vs.DescribeVolumes(envcontext.WithoutCredentialInvalidator(context.Background()), []string{"vol-id"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []storage.DescribeVolumesResult{{
 		VolumeInfo: &storage.VolumeInfo{VolumeId: "vol-id", Size: 68, Persistent: true},

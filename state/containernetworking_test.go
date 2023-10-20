@@ -4,14 +4,14 @@
 package state_test
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 type containerTestNetworkLessEnviron struct {
@@ -32,12 +32,12 @@ type ContainerNetworkingSuite struct {
 
 var _ = gc.Suite(&ContainerNetworkingSuite{})
 
-func (e *containerTestNetworkedEnviron) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
+func (e *containerTestNetworkedEnviron) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
 	e.stub.AddCall("SuperSubnets", ctx)
 	return e.superSubnets, e.stub.NextErr()
 }
 
-func (e *containerTestNetworkedEnviron) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
+func (e *containerTestNetworkedEnviron) SupportsContainerAddresses(ctx envcontext.ProviderCallContext) (bool, error) {
 	e.stub.AddCall("SupportsContainerAddresses", ctx)
 	return e.supportsContainerAddresses, e.stub.NextErr()
 }
@@ -47,7 +47,7 @@ var _ environs.NetworkingEnviron = (*containerTestNetworkedEnviron)(nil)
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNetworkless(c *gc.C) {
 	err := s.Model.AutoConfigureContainerNetworking(containerTestNetworkLessEnviron{})
 	c.Assert(err, jc.ErrorIsNil)
-	config, err := s.Model.ModelConfig(stdcontext.Background())
+	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "local")
@@ -61,7 +61,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDoesntCha
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.Model.AutoConfigureContainerNetworking(containerTestNetworkLessEnviron{})
 	c.Assert(err, jc.ErrorIsNil)
-	config, err := s.Model.ModelConfig(stdcontext.Background())
+	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
@@ -80,7 +80,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingAlreadyCo
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.Model.AutoConfigureContainerNetworking(&environ)
 	c.Check(err, jc.ErrorIsNil)
-	config, err := s.Model.ModelConfig(stdcontext.Background())
+	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "local")
@@ -93,7 +93,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNoSuperSu
 	}
 	err := s.Model.AutoConfigureContainerNetworking(&environ)
 	c.Check(err, jc.ErrorIsNil)
-	config, err := s.Model.ModelConfig(stdcontext.Background())
+	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "local")
@@ -108,7 +108,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingSupportsC
 	}
 	err := s.Model.AutoConfigureContainerNetworking(&environ)
 	c.Check(err, jc.ErrorIsNil)
-	config, err := s.Model.ModelConfig(stdcontext.Background())
+	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
@@ -123,7 +123,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDefault(c
 	}
 	err := s.Model.AutoConfigureContainerNetworking(&environ)
 	c.Check(err, jc.ErrorIsNil)
-	config, err := s.Model.ModelConfig(stdcontext.Background())
+	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "fan")
@@ -138,7 +138,7 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingIgnoresIP
 	}
 	err := s.Model.AutoConfigureContainerNetworking(&environ)
 	c.Check(err, jc.ErrorIsNil)
-	config, err := s.Model.ModelConfig(stdcontext.Background())
+	config, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
