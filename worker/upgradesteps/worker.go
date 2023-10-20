@@ -66,13 +66,13 @@ type apiLostDuringUpgrade struct {
 	err error
 }
 
-func (e *apiLostDuringUpgrade) Error() string {
-	return fmt.Sprintf("API connection lost during upgrade: %v", e.err)
-}
-
-func isAPILostDuringUpgrade(err error) bool {
+func (e *apiLostDuringUpgrade) Is(err error) bool {
 	_, ok := err.(*apiLostDuringUpgrade)
 	return ok
+}
+
+func (e *apiLostDuringUpgrade) Error() string {
+	return fmt.Sprintf("API connection lost during upgrade: %v", e.err)
 }
 
 type baseWorker struct {

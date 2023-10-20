@@ -184,7 +184,7 @@ func (w *controllerWorker) run() error {
 				// Only return an error from the worker if the connection was lost
 				// whilst running upgrades. Returning an error when the connection is
 				// lost will cause the agent to restart.
-				if isAPILostDuringUpgrade(err) {
+				if errors.Is(err, &apiLostDuringUpgrade{}) {
 					return errors.Trace(err)
 				}
 				return nil

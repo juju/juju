@@ -13,6 +13,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
@@ -32,6 +33,7 @@ type baseSuite struct {
 	testing.IsolationSuite
 
 	agent        *MockAgent
+	config       *MockConfig
 	configSetter *MockConfigSetter
 	lock         *MockLock
 	clock        *MockClock
@@ -49,6 +51,9 @@ func (s *baseSuite) newBaseWorker(c *gc.C, from, to version.Number) *baseWorker 
 		fromVersion:         from,
 		toVersion:           to,
 		tag:                 names.NewMachineTag("0"),
+		preUpgradeSteps: func(_ agent.Config, isController bool) error {
+			return nil
+		},
 		performUpgradeSteps: func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
 			return nil
 		},
@@ -60,6 +65,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.agent = NewMockAgent(ctrl)
+	s.config = NewMockConfig(ctrl)
 	s.configSetter = NewMockConfigSetter(ctrl)
 	s.lock = NewMockLock(ctrl)
 	s.clock = NewMockClock(ctrl)

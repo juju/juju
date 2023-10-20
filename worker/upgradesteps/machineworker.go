@@ -83,7 +83,7 @@ func (w *machineWorker) run() error {
 		// state went away (possible mongo primary change). Returning
 		// an error when the connection is lost will cause the agent
 		// to restart.
-		if isAPILostDuringUpgrade(err) {
+		if errors.Is(err, &apiLostDuringUpgrade{}) {
 			return errors.Trace(err)
 		}
 
