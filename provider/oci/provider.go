@@ -74,7 +74,6 @@ type credentialSection struct {
 	KeyFile     string
 	PassPhrase  string
 	Fingerprint string
-	Region      string
 }
 
 var credentialSchema = map[cloud.AuthType]cloud.CredentialSchema{
@@ -105,9 +104,10 @@ var credentialSchema = map[cloud.AuthType]cloud.CredentialSchema{
 				Description: "Private key fingerprint",
 			},
 		},
+		// Deprecated, but still supported for backward compatibility
 		{
 			"region", cloud.CredentialAttr{
-				Description: "Region to log into",
+				Description: "DEPRECATED: Region to log into",
 			},
 		},
 	},
@@ -206,34 +206,39 @@ func (e *EnvironProvider) Open(_ stdcontext.Context, params environs.OpenParams)
 	}
 
 	creds := params.Cloud.Credential.Attributes()
-	jujuConfig := common.JujuConfigProvider{
+	providerConfig := common.JujuConfigProvider{
 		Key:         []byte(creds["key"]),
 		Fingerprint: creds["fingerprint"],
 		Passphrase:  creds["pass-phrase"],
 		Tenancy:     creds["tenancy"],
 		User:        creds["user"],
-		OCIRegion:   creds["region"],
+		OCIRegion:   params.Cloud.Region,
 	}
-	provider, err := jujuConfig.Config()
+	// We don't support setting a default region in the credentials anymore. Because, such approach conflicts with the
+	// way we handle regions in Juju.
+	if creds["region"] != "" {
+		logger.Warningf("Setting a default region in Oracle Cloud credentials is not supported.")
+	}
+	err := providerConfig.Validate()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	compute, err := common.NewComputeClient(provider)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	networking, err := common.NewNetworkClient(provider)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	storage, err := common.NewStorageClient(provider)
+	compute, err := common.NewComputeClient(providerConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	identity, err := ociIdentity.NewIdentityClientWithConfigurationProvider(provider)
+	networking, err := common.NewNetworkClient(providerConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	storage, err := common.NewStorageClient(providerConfig)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	identity, err := ociIdentity.NewIdentityClientWithConfigurationProvider(providerConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -244,7 +249,7 @@ func (e *EnvironProvider) Open(_ stdcontext.Context, params environs.OpenParams)
 		Storage:    storage,
 		Firewall:   networking,
 		Identity:   identity,
-		ociConfig:  provider,
+		ociConfig:  providerConfig,
 		clock:      clock.WallClock,
 		p:          e,
 	}
@@ -302,8 +307,6 @@ func (e EnvironProvider) DetectCredentials(cloudName string) (*cloud.CloudCreden
 	}
 	cfg.NameMapper = ini.TitleUnderscore
 
-	var defaultRegion string
-
 	for _, val := range cfg.SectionStrings() {
 		values := new(credentialSection)
 		if err := cfg.Section(val).MapTo(values); err != nil {
@@ -326,9 +329,6 @@ func (e EnvironProvider) DetectCredentials(cloudName string) (*cloud.CloudCreden
 		if values.Fingerprint == "" {
 			missingFields = append(missingFields, "fingerprint")
 		}
-		if values.Region == "" {
-			missingFields = append(missingFields, "region")
-		}
 
 		if len(missingFields) > 0 {
 			logger.Warningf("missing required field(s) in section %s: %s", val, strings.Join(missingFields, ", "))
@@ -344,9 +344,6 @@ func (e EnvironProvider) DetectCredentials(cloudName string) (*cloud.CloudCreden
 			continue
 		}
 
-		if val == "DEFAULT" {
-			defaultRegion = values.Region
-		}
 		httpSigCreds := cloud.NewCredential(
 			cloud.HTTPSigAuthType,
 			map[string]string{
@@ -355,7 +352,6 @@ func (e EnvironProvider) DetectCredentials(cloudName string) (*cloud.CloudCreden
 				"key":         string(pemFileContent),
 				"pass-phrase": values.PassPhrase,
 				"fingerprint": values.Fingerprint,
-				"region":      values.Region,
 			},
 		)
 		httpSigCreds.Label = fmt.Sprintf("OCI credential %q", val)
@@ -364,7 +360,6 @@ func (e EnvironProvider) DetectCredentials(cloudName string) (*cloud.CloudCreden
 	if len(result.AuthCredentials) == 0 {
 		return nil, errors.NotFoundf("OCI credentials")
 	}
-	result.DefaultRegion = defaultRegion
 	return &result, nil
 }
 

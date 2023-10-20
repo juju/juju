@@ -68,7 +68,6 @@ func fakeCredential() cloud.Credential {
 		"pass-phrase": ocitesting.PrivateKeyPassphrase,
 		"tenancy":     "fake",
 		"user":        "fake",
-		"region":      "us-ashburn-1",
 	})
 }
 
@@ -134,14 +133,12 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
 			"pass-phrase": ocitesting.PrivateKeyPassphrase,
 			"key":         ocitesting.PrivateKeyEncrypted,
-			"region":      "us-phoenix-1",
 		},
 	}
 	s.writeOCIConfig(c, cfg)
 	creds, err := s.provider.DetectCredentials("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(creds.AuthCredentials), gc.Equals, 1)
-	c.Assert(creds.DefaultRegion, gc.Equals, "us-phoenix-1")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsWrongPassphrase(c *gc.C) {
@@ -150,7 +147,6 @@ func (s *credentialsSuite) TestDetectCredentialsWrongPassphrase(c *gc.C) {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
 			"pass-phrase": "bogus",
 			"key":         ocitesting.PrivateKeyEncrypted,
-			"region":      "us-phoenix-1",
 		},
 	}
 	s.writeOCIConfig(c, cfg)
@@ -164,20 +160,17 @@ func (s *credentialsSuite) TestDetectCredentialsMultiSection(c *gc.C) {
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
 			"pass-phrase": ocitesting.PrivateKeyPassphrase,
 			"key":         ocitesting.PrivateKeyEncrypted,
-			"region":      "us-ashburn-1",
 		},
 		"SECONDARY": {
 			"fingerprint": ocitesting.PrivateKeyUnencryptedFingerprint,
 			"pass-phrase": "",
 			"key":         ocitesting.PrivateKeyUnencrypted,
-			"region":      "us-phoenix-1",
 		},
 	}
 	s.writeOCIConfig(c, cfg)
 	creds, err := s.provider.DetectCredentials("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(creds.AuthCredentials), gc.Equals, 2)
-	c.Assert(creds.DefaultRegion, gc.Equals, "us-ashburn-1")
 }
 
 func (s *credentialsSuite) TestDetectCredentialsMultiSectionInvalidConfig(c *gc.C) {
@@ -188,13 +181,11 @@ func (s *credentialsSuite) TestDetectCredentialsMultiSectionInvalidConfig(c *gc.
 			"fingerprint": ocitesting.PrivateKeyEncryptedFingerprint,
 			"pass-phrase": "bogus",
 			"key":         ocitesting.PrivateKeyEncrypted,
-			"region":      "us-ashburn-1",
 		},
 		"SECONDARY": {
 			"fingerprint": ocitesting.PrivateKeyUnencryptedFingerprint,
 			"pass-phrase": "",
 			"key":         ocitesting.PrivateKeyUnencrypted,
-			"region":      "us-phoenix-1",
 		},
 	}
 	s.writeOCIConfig(c, cfg)
