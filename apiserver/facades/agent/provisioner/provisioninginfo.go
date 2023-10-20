@@ -719,11 +719,15 @@ func (api *ProvisionerAPI) imageMetadataFromDataSources(env environs.Environ, co
 	for _, source := range sources {
 		api.logger.Debugf("looking in data source %v", source.Description())
 		found, info, err := imagemetadata.Fetch(fetcher, []simplestreams.DataSource{source}, constraint)
-		if err != nil {
+		if errors.Is(err, errors.NotFound) || errors.Is(err, errors.Unauthorized) {
 			// Do not stop looking in other data sources if there is an issue here.
 			api.logger.Warningf("encountered %v while getting published images metadata from %v", err, source.Description())
 			continue
+		} else if err != nil {
+			// When we get an actual protocol/unexpected error, we need to stop.
+			return nil, errors.Annotatef(err, "failed getting published images metadata from %s", source.Description())
 		}
+
 		for _, m := range found {
 			metadataState = append(metadataState, toModel(m, info.Source, source.Priority()))
 		}

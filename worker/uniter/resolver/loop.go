@@ -6,7 +6,7 @@ package resolver
 import (
 	"time"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/charm/v11/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/mutex/v2"
@@ -268,7 +268,7 @@ func checkCharmInstallUpgrade(logger Logger, charmDir string, remote remotestate
 		return nil
 	}
 
-	_, err := corecharm.ReadCharmDir(charmDir)
+	_, err := jujucharm.ReadCharmDir(charmDir)
 	haveCharmDir := err == nil
 	if haveCharmDir {
 		// If the unit is installed and already upgrading and the charm dir
@@ -286,7 +286,7 @@ func checkCharmInstallUpgrade(logger Logger, charmDir string, remote remotestate
 		if err != nil {
 			return errors.Trace(err)
 		}
-		curl, err := corecharm.ParseURL(remote.CharmURL)
+		curl, err := jujucharm.ParseURL(remote.CharmURL)
 		if err != nil {
 			return errors.Trace(err)
 		}

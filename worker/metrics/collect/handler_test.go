@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -60,10 +60,10 @@ func (s *handlerSuite) SetUpTest(c *gc.C) {
 	s.recorder = &dummyRecorder{
 		charmURL: "local:trusty/metered-1",
 		unitTag:  "metered/0",
-		metrics: map[string]corecharm.Metric{
+		metrics: map[string]jujucharm.Metric{
 			"pings": {
 				Description: "test metric",
-				Type:        corecharm.MetricTypeAbsolute,
+				Type:        jujucharm.MetricTypeAbsolute,
 			},
 			"juju-units": {},
 		},
@@ -84,10 +84,10 @@ func (s *handlerSuite) SetUpTest(c *gc.C) {
 			return &dummyRecorder{
 				charmURL: "local:trusty/metered-1",
 				unitTag:  "metered/0",
-				metrics: map[string]corecharm.Metric{
+				metrics: map[string]jujucharm.Metric{
 					"pings": {
 						Description: "test metric",
-						Type:        corecharm.MetricTypeAbsolute,
+						Type:        jujucharm.MetricTypeAbsolute,
 					},
 					"juju-units": {},
 				},
@@ -224,7 +224,7 @@ type mockMetricFactory struct {
 }
 
 // Recorder implements the spool.MetricFactory interface.
-func (f *mockMetricFactory) Recorder(metrics map[string]corecharm.Metric, charmURL, unitTag string) (spool.MetricRecorder, error) {
+func (f *mockMetricFactory) Recorder(metrics map[string]jujucharm.Metric, charmURL, unitTag string) (spool.MetricRecorder, error) {
 	return f.recorder, nil
 }
 
@@ -232,11 +232,11 @@ type mockReadCharm struct {
 	testing.Stub
 }
 
-func (m *mockReadCharm) ReadCharm(unitTag names.UnitTag, paths context.Paths) (string, map[string]corecharm.Metric, error) {
+func (m *mockReadCharm) ReadCharm(unitTag names.UnitTag, paths context.Paths) (string, map[string]jujucharm.Metric, error) {
 	m.MethodCall(m, "ReadCharm", unitTag, paths)
 	return "local:trusty/metered-1",
-		map[string]corecharm.Metric{
-			"pings":      {Description: "test metric", Type: corecharm.MetricTypeAbsolute},
+		map[string]jujucharm.Metric{
+			"pings":      {Description: "test metric", Type: jujucharm.MetricTypeAbsolute},
 			"juju-units": {},
 		}, nil
 }

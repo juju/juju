@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
@@ -49,9 +49,9 @@ func (f fakeBundleInfo) ArchiveSha256() (string, error) {
 	return f.sha256, nil
 }
 
-func (s *BundlesDirSuite) testCharm(c *gc.C) *corecharm.CharmDir {
+func (s *BundlesDirSuite) testCharm(c *gc.C) *jujucharm.CharmDir {
 	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
-	dir, err := corecharm.ReadCharmDir(base)
+	dir, err := jujucharm.ReadCharmDir(base)
 	c.Assert(err, jc.ErrorIsNil)
 	return dir
 }
@@ -70,7 +70,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 
 	dlr := &downloader.Downloader{
 		OpenBlob: func(req downloader.Request) (io.ReadCloser, error) {
-			curl := corecharm.MustParseURL(req.URL.String())
+			curl := jujucharm.MustParseURL(req.URL.String())
 			if curl.Name != sch.Meta().Name {
 				return nil, errors.NotFoundf(req.URL.String())
 			}
@@ -131,8 +131,8 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	checkDownloadsEmpty()
 }
 
-func assertCharm(c *gc.C, bun charm.Bundle, sch *corecharm.CharmDir) {
-	actual := bun.(*corecharm.CharmArchive)
+func assertCharm(c *gc.C, bun charm.Bundle, sch *jujucharm.CharmDir) {
+	actual := bun.(*jujucharm.CharmArchive)
 	c.Assert(actual.Revision(), gc.Equals, sch.Revision())
 	c.Assert(actual.Meta(), gc.DeepEquals, sch.Meta())
 	c.Assert(actual.Config(), gc.DeepEquals, sch.Config())

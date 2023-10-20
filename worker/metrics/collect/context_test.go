@@ -6,7 +6,7 @@ package collect_test
 import (
 	"time"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3/keyvalues"
 	gc "gopkg.in/check.v1"
@@ -26,9 +26,9 @@ func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.recorder = &dummyRecorder{
 		charmURL: "local:quantal/metered-1",
 		unitTag:  "u/0",
-		metrics: map[string]corecharm.Metric{
+		metrics: map[string]jujucharm.Metric{
 			"pings": {
-				Type:        corecharm.MetricTypeGauge,
+				Type:        jujucharm.MetricTypeGauge,
 				Description: "pings-desc",
 			},
 		},

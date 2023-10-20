@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -116,7 +116,7 @@ func (s *metricsRecorderSuite) TestInit(c *gc.C) {
 	w, err := spool.NewJSONMetricRecorder(
 		spool.MetricRecorderConfig{
 			SpoolDir: s.paths.GetMetricsSpoolDir(),
-			Metrics: map[string]corecharm.Metric{
+			Metrics: map[string]jujucharm.Metric{
 				"pings": {},
 				"pongs": {},
 			},
@@ -186,10 +186,10 @@ func (s *metricsRecorderSuite) TestMetricValidation(c *gc.C) {
 		w, err := spool.NewJSONMetricRecorder(
 			spool.MetricRecorderConfig{
 				SpoolDir: s.paths.GetMetricsSpoolDir(),
-				Metrics: map[string]corecharm.Metric{
+				Metrics: map[string]jujucharm.Metric{
 					"juju-units": {},
 					"pongs": {
-						Type: corecharm.MetricTypeAbsolute,
+						Type: jujucharm.MetricTypeAbsolute,
 					},
 				},
 				CharmURL: "local:precise/wordpress",
@@ -235,7 +235,7 @@ func (s *metricsReaderSuite) SetUpTest(c *gc.C) {
 	s.w, err = spool.NewJSONMetricRecorder(
 		spool.MetricRecorderConfig{
 			SpoolDir: s.paths.GetMetricsSpoolDir(),
-			Metrics:  map[string]corecharm.Metric{"pings": {}},
+			Metrics:  map[string]jujucharm.Metric{"pings": {}},
 			CharmURL: "local:precise/wordpress",
 			UnitTag:  s.unitTag,
 		})

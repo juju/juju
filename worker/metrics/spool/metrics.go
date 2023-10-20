@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/v3"
@@ -130,7 +130,7 @@ type MetricMetadata struct {
 // and writes metrics to a spool directory for store-and-forward.
 type JSONMetricRecorder struct {
 	spoolDir     string
-	validMetrics map[string]corecharm.Metric
+	validMetrics map[string]jujucharm.Metric
 	charmURL     string
 	uuid         utils.UUID
 	created      time.Time
@@ -145,7 +145,7 @@ type JSONMetricRecorder struct {
 // MetricRecorderConfig stores configuration data for a metrics recorder.
 type MetricRecorderConfig struct {
 	SpoolDir string
-	Metrics  map[string]corecharm.Metric
+	Metrics  map[string]jujucharm.Metric
 	CharmURL string
 	UnitTag  string
 }

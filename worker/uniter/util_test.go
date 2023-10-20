@@ -18,7 +18,7 @@ import (
 	"time"
 
 	pebbleclient "github.com/canonical/pebble/client"
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -359,7 +359,7 @@ func (s createCharm) step(c *gc.C, ctx *testContext) {
 	if len(s.badHooks) > 0 {
 		ctx.runner.hooksWithErrors = set.NewStrings(s.badHooks...)
 	}
-	dir, err := corecharm.ReadCharmDir(base)
+	dir, err := jujucharm.ReadCharmDir(base)
 	c.Assert(err, jc.ErrorIsNil)
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, jc.ErrorIsNil)
@@ -367,7 +367,7 @@ func (s createCharm) step(c *gc.C, ctx *testContext) {
 }
 
 type addCharm struct {
-	dir  *corecharm.CharmDir
+	dir  *jujucharm.CharmDir
 	curl string
 }
 
@@ -959,7 +959,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 		OpenBlob: func(req downloader.Request) (io.ReadCloser, error) {
 			ctx.app.mu.Lock()
 			defer ctx.app.mu.Unlock()
-			curl := corecharm.MustParseURL(ctx.app.charmURL)
+			curl := jujucharm.MustParseURL(ctx.app.charmURL)
 			storagePath := fmt.Sprintf("/charms/%s/%d", curl.Name, curl.Revision)
 			blob, ok := ctx.servedCharms[storagePath]
 			if !ok {
@@ -1878,7 +1878,7 @@ var subordinateDying = custom{func(c *gc.C, ctx *testContext) {
 }}
 
 func curl(revision int) string {
-	return corecharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision).String()
+	return jujucharm.MustParseURL("ch:quantal/wordpress").WithRevision(revision).String()
 }
 
 type hookLock struct {
