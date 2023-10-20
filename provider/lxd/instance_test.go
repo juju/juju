@@ -4,6 +4,8 @@
 package lxd_test
 
 import (
+	stdcontext "context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -34,14 +36,14 @@ func (s *instanceSuite) TestID(c *gc.C) {
 }
 
 func (s *instanceSuite) TestStatus(c *gc.C) {
-	instanceStatus := s.Instance.Status(context.NewEmptyCloudCallContext())
+	instanceStatus := s.Instance.Status(context.WithoutCredentialInvalidator(stdcontext.Background()))
 
 	c.Check(instanceStatus.Message, gc.Equals, "Running")
 	s.CheckNoAPI(c)
 }
 
 func (s *instanceSuite) TestAddresses(c *gc.C) {
-	addresses, err := s.Instance.Addresses(context.NewEmptyCloudCallContext())
+	addresses, err := s.Instance.Addresses(context.WithoutCredentialInvalidator(stdcontext.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(addresses, jc.DeepEquals, s.Addresses)

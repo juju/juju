@@ -40,7 +40,7 @@ type instanceSuite struct {
 	networkInterfaces []*armnetwork.Interface
 	publicIPAddresses []*armnetwork.PublicIPAddress
 
-	callCtx             *context.CloudCallContext
+	callCtx             context.ProviderCallContext
 	invalidteCredential bool
 }
 
@@ -76,13 +76,10 @@ func (s *instanceSuite) SetUpTest(c *gc.C) {
 		Properties: &armcompute.VirtualMachineProperties{
 			ProvisioningState: to.Ptr("Succeeded")},
 	}}
-	s.callCtx = &context.CloudCallContext{
-		Context: stdcontext.TODO(),
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidteCredential = true
-			return nil
-		},
-	}
+	s.callCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+		s.invalidteCredential = true
+		return nil
+	})
 }
 
 func makeDeployment(name string, provisioningState armresources.ProvisioningState) *armresources.DeploymentExtended {

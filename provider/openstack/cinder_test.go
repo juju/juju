@@ -4,6 +4,7 @@
 package openstack_test
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/go-goose/goose/v5/cinder"
@@ -44,19 +45,17 @@ var _ = gc.Suite(&cinderVolumeSourceSuite{})
 type cinderVolumeSourceSuite struct {
 	testing.BaseSuite
 
-	callCtx           *context.CloudCallContext
+	callCtx           context.ProviderCallContext
 	invalidCredential bool
 	env               *mocks.MockZonedEnviron
 }
 
 func (s *cinderVolumeSourceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = &context.CloudCallContext{
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidCredential = true
-			return nil
-		},
-	}
+	s.callCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+		s.invalidCredential = true
+		return nil
+	})
 }
 
 func (s *cinderVolumeSourceSuite) TearDownTest(c *gc.C) {

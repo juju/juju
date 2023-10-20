@@ -174,6 +174,7 @@ func FetchInstanceTypeInfo(
 			NextToken:  nextToken,
 		})
 		if err != nil {
+			err = maybeConvertCredentialError(err, ctx)
 			return nil, fmt.Errorf("describing instance types: %w", err)
 		}
 		instanceTypes = append(instanceTypes, instTypeResults.InstanceTypes...)

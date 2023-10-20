@@ -60,7 +60,7 @@ func (s *ebsSuite) SetUpTest(c *gc.C) {
 	restoreEC2Patching := patchEC2ForTesting(c, s.srv.region)
 	s.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 
-	s.cloudCallCtx = context.NewEmptyCloudCallContext()
+	s.cloudCallCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
 }
 
 func (s *ebsSuite) ebsProvider(c *gc.C) storage.Provider {

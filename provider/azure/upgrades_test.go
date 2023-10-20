@@ -30,7 +30,7 @@ type environUpgradeSuite struct {
 	provider environs.EnvironProvider
 	env      environs.Environ
 
-	callCtx           *context.CloudCallContext
+	callCtx           context.ProviderCallContext
 	invalidCredential bool
 }
 
@@ -51,13 +51,10 @@ func (s *environUpgradeSuite) SetUpTest(c *gc.C) {
 	s.env = openEnviron(c, s.provider, &s.sender)
 	s.requests = nil
 	s.invalidCredential = false
-	s.callCtx = &context.CloudCallContext{
-		Context: stdcontext.TODO(),
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidCredential = true
-			return nil
-		},
-	}
+	s.callCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+		s.invalidCredential = true
+		return nil
+	})
 }
 
 func (s *environUpgradeSuite) TestEnvironImplementsUpgrader(c *gc.C) {

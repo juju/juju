@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"strings"
 
@@ -33,7 +34,7 @@ var _ = gc.Suite(&environPolicySuite{})
 
 func (s *environPolicySuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
 }
 
 func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *gc.C) {
@@ -176,7 +177,7 @@ func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *gc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(context.NewEmptyCloudCallContext())
+	validator, err := s.env.ConstraintsValidator(context.WithoutCredentialInvalidator(stdcontext.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse(strings.Join([]string{
@@ -257,7 +258,7 @@ func (s *environPolicySuite) TestSupportNetworks(c *gc.C) {
 
 	isSupported := s.env.(interface {
 		SupportNetworks(context.ProviderCallContext) bool
-	}).SupportNetworks(context.NewEmptyCloudCallContext())
+	}).SupportNetworks(context.WithoutCredentialInvalidator(stdcontext.Background()))
 
 	c.Check(isSupported, jc.IsFalse)
 }

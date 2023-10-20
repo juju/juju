@@ -65,7 +65,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 		return fmt.Errorf("mock connection failure to %s", host)
 	})
 
-	s.callCtx = envcontext.NewEmptyCloudCallContext()
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {

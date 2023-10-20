@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"reflect"
 
@@ -27,7 +28,7 @@ import (
 type environBrokerSuite struct {
 	lxd.EnvironSuite
 
-	callCtx           *context.CloudCallContext
+	callCtx           context.ProviderCallContext
 	defaultProfile    *api.Profile
 	invalidCredential bool
 }
@@ -36,12 +37,10 @@ var _ = gc.Suite(&environBrokerSuite{})
 
 func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = &context.CloudCallContext{
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidCredential = true
-			return nil
-		},
-	}
+	s.callCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+		s.invalidCredential = true
+		return nil
+	})
 	s.defaultProfile = &api.Profile{
 		ProfilePut: api.ProfilePut{
 			Devices: map[string]map[string]string{

@@ -41,12 +41,10 @@ var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = &envcontext.CloudCallContext{
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidCredential = true
-			return nil
-		},
-	}
+	s.callCtx = envcontext.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+		s.invalidCredential = true
+		return nil
+	})
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {
@@ -110,7 +108,7 @@ func (s *environSuite) TestBootstrapOkay(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapAPI(c *gc.C) {
-	ctx := envtesting.BootstrapContext(context.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.Background(), c)
 	params := environs.BootstrapParams{
 		ControllerConfig:         coretesting.FakeControllerConfig(),
 		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
@@ -393,7 +391,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *gc.C) {
 	s.expectHasProfileFalse("juju-controller")
 	s.expectCreateProfile("juju-controller", nil)
 
-	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
+	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.Background(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -402,7 +400,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c 
 	s.expectForProfileCreateRace("juju-controller")
 	s.expectCreateProfile("juju-controller", errors.New("The profile already exists"))
 
-	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
+	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.Background(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -411,7 +409,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *gc.C
 	s.expectHasProfileFalse("juju-controller")
 	s.expectCreateProfile("juju-controller", nil)
 
-	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.TODO(), lxdCloudSpec())
+	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.Background(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

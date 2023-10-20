@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	stdcontext "context"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
@@ -70,6 +72,6 @@ func (s *ResourcesSuite) TestAdoptResources(c *gc.C) {
 			Return(nil, nil),
 	)
 
-	err := s.broker.AdoptResources(context.NewEmptyCloudCallContext(), "uuid", version.MustParse("1.2.3"))
+	err := s.broker.AdoptResources(context.WithoutCredentialInvalidator(stdcontext.Background()), "uuid", version.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
@@ -30,7 +31,7 @@ var _ = gc.Suite(&AvailabilityZoneSuite{})
 func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
 	allInstances := make([]instances.Instance, 3)
 	for i := range allInstances {
 		allInstances[i] = &mockInstance{id: fmt.Sprintf("inst%d", i)}

@@ -90,7 +90,7 @@ type environSuite struct {
 	sshPublicKeys    []*armcompute.SSHPublicKey
 	linuxOsProfile   armcompute.OSProfile
 
-	callCtx               *context.CloudCallContext
+	callCtx               context.ProviderCallContext
 	invalidatedCredential bool
 }
 
@@ -233,13 +233,10 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.callCtx = &context.CloudCallContext{
-		Context: stdcontext.TODO(),
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidatedCredential = true
-			return nil
-		},
-	}
+	s.callCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+		s.invalidatedCredential = true
+		return nil
+	})
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {
@@ -267,7 +264,7 @@ func openEnviron(
 		makeResourceGroupNotFoundSender(fmt.Sprintf(".*/resourcegroups/juju-%s-model-deadbeef-.*", cfg.Name())),
 		makeSender(fmt.Sprintf(".*/resourcegroups/juju-%s-.*", cfg.Name()), makeResourceGroupResult()),
 	}
-	env, err := environs.Open(stdcontext.TODO(), provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.Background(), provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
 	})
@@ -295,7 +292,7 @@ func prepareForBootstrap(
 		makeResourceGroupNotFoundSender(".*/resourcegroups/juju-testmodel-model-deadbeef-.*"),
 		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
 	}
-	env, err := environs.Open(stdcontext.TODO(), provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.Background(), provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
 	})
@@ -1904,7 +1901,7 @@ func (s *environSuite) TestConstraintsValidatorMerge(c *gc.C) {
 func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{s.resourceSKUsSender()}
-	validator, err := env.ConstraintsValidator(context.NewEmptyCloudCallContext())
+	validator, err := env.ConstraintsValidator(context.WithoutCredentialInvalidator(stdcontext.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	return validator
 }

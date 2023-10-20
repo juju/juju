@@ -55,7 +55,7 @@ func (s *instanceSuite) TestFetchInstanceTypeInfoPagnation(c *gc.C) {
 	}
 
 	res, err := FetchInstanceTypeInfo(
-		context.NewCloudCallContext(stdcontext.Background()),
+		context.WithoutCredentialInvalidator(stdcontext.Background()),
 		fetchInstanceClientFunc(client),
 	)
 	c.Assert(err, jc.ErrorIsNil)

@@ -39,7 +39,7 @@ func InstanceSDKEC2(inst instances.Instance) types.Instance {
 }
 
 func TerminatedInstances(e environs.Environ) ([]instances.Instance, error) {
-	return e.(*environ).allInstancesByState(context.NewEmptyCloudCallContext(), "shutting-down", "terminated")
+	return e.(*environ).allInstancesByState(context.WithoutCredentialInvalidator(stdcontext.Background()), "shutting-down", "terminated")
 }
 
 func InstanceSecurityGroups(e environs.Environ, ctx context.ProviderCallContext, ids []instance.Id, states ...string) ([]types.GroupIdentifier, error) {

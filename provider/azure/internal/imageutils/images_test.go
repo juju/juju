@@ -4,6 +4,7 @@
 package imageutils_test
 
 import (
+	ctx "context"
 	"net/http"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -26,7 +27,7 @@ type imageutilsSuite struct {
 
 	mockSender *azuretesting.MockSender
 	client     *armcompute.VirtualMachineImagesClient
-	callCtx    *context.CloudCallContext
+	callCtx    context.ProviderCallContext
 }
 
 var _ = gc.Suite(&imageutilsSuite{})
@@ -42,7 +43,7 @@ func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.client, err = armcompute.NewVirtualMachineImagesClient("subscription-id", &azuretesting.FakeCredential{}, opts)
 	c.Assert(err, jc.ErrorIsNil)
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = context.WithoutCredentialInvalidator(ctx.TODO())
 }
 
 func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
@@ -104,10 +105,10 @@ func (s *imageutilsSuite) TestSeriesImageStreamNotFound(c *gc.C) {
 func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
 	called := false
-	s.callCtx.InvalidateCredentialFunc = func(string) error {
+	s.callCtx = context.WithCredentialInvalidator(ctx.TODO(), func(string) error {
 		called = true
 		return nil
-	}
+	})
 
 	_, err := imageutils.SeriesImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
 	c.Assert(err.Error(), jc.Contains, "RESPONSE 401")
@@ -117,10 +118,10 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 func (s *imageutilsSuite) TestSeriesImageStreamThrewNonCredentialError(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("308 Permanent Redirect", http.StatusPermanentRedirect))
 	called := false
-	s.callCtx.InvalidateCredentialFunc = func(string) error {
+	s.callCtx = context.WithCredentialInvalidator(ctx.TODO(), func(string) error {
 		called = true
 		return nil
-	}
+	})
 
 	_, err := imageutils.SeriesImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
 	c.Assert(err.Error(), jc.Contains, "RESPONSE 308")

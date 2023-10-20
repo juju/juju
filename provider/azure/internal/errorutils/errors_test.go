@@ -4,6 +4,7 @@
 package errorutils_test
 
 import (
+	stdcontext "context"
 	"io"
 	"net/http"
 	"strings"
@@ -34,12 +35,13 @@ func (s *ErrorSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *ErrorSuite) TestNilContext(c *gc.C) {
-	err := errorutils.HandleCredentialError(s.azureError, nil)
+func (s *ErrorSuite) TestNoValidation(c *gc.C) {
+	ctx := context.WithoutCredentialInvalidator(stdcontext.Background())
+	err := errorutils.HandleCredentialError(s.azureError, ctx)
 	c.Assert(err, gc.DeepEquals, s.azureError)
 
-	invalidated := errorutils.MaybeInvalidateCredential(s.azureError, nil)
-	c.Assert(invalidated, jc.IsFalse)
+	denied := errorutils.MaybeInvalidateCredential(s.azureError, ctx)
+	c.Assert(denied, jc.IsTrue)
 
 	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
 }
@@ -54,22 +56,20 @@ func (s *ErrorSuite) TestHasDenialStatusCode(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := context.NewEmptyCloudCallContext()
-	ctx.InvalidateCredentialFunc = func(msg string) error {
+	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
 		return errors.New("kaboom")
-	}
+	})
 	errorutils.MaybeInvalidateCredential(s.azureError, ctx)
 	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored azure cloud credential on the controller")
 }
 
 func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
-	ctx := context.NewEmptyCloudCallContext()
 	called := false
-	ctx.InvalidateCredentialFunc = func(msg string) error {
+	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
 		c.Assert(msg, gc.Matches, "azure cloud denied access: .*")
 		called = true
 		return nil
-	}
+	})
 
 	// First test another status code.
 	s.azureError.StatusCode = http.StatusAccepted
@@ -85,12 +85,11 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 }
 
 func (*ErrorSuite) TestNilAzureError(c *gc.C) {
-	ctx := context.NewEmptyCloudCallContext()
 	called := false
-	ctx.InvalidateCredentialFunc = func(msg string) error {
+	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
 		called = true
 		return nil
-	}
+	})
 	returnedErr := errorutils.HandleCredentialError(nil, ctx)
 	c.Assert(called, jc.IsFalse)
 	c.Assert(returnedErr, jc.ErrorIsNil)

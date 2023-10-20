@@ -202,11 +202,8 @@ func (env *azureEnviron) initEnviron(ctx stdcontext.Context) error {
 // PrepareForBootstrap is part of the Environ interface.
 func (env *azureEnviron) PrepareForBootstrap(ctx environs.BootstrapContext, _ string) error {
 	if ctx.ShouldVerifyCredentials() {
-		cloudCtx := &context.CloudCallContext{
-			Context:                  ctx.Context(),
-			InvalidateCredentialFunc: func(string) error { return nil },
-		}
-		if err := verifyCredentials(env, cloudCtx); err != nil {
+		callCtx := context.WithoutCredentialInvalidator(ctx.Context())
+		if err := verifyCredentials(env, callCtx); err != nil {
 			return errors.Trace(err)
 		}
 	}

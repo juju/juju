@@ -32,7 +32,7 @@ type storageSuite struct {
 	requests []*http.Request
 	sender   azuretesting.Senders
 
-	cloudCallCtx      *context.CloudCallContext
+	cloudCallCtx      context.ProviderCallContext
 	invalidCredential bool
 }
 
@@ -54,13 +54,10 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	env := openEnviron(c, envProvider, &s.sender)
 	s.provider, err = env.StorageProvider("azure")
 	c.Assert(err, jc.ErrorIsNil)
-	s.cloudCallCtx = &context.CloudCallContext{
-		Context: stdcontext.TODO(),
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidCredential = true
-			return nil
-		},
-	}
+	s.cloudCallCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+		s.invalidCredential = true
+		return nil
+	})
 }
 
 func (s *storageSuite) TearDownTest(c *gc.C) {

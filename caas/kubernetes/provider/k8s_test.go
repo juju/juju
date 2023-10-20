@@ -249,7 +249,7 @@ func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
 	defer ctrl.Finish()
 
 	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
-	callCtx := &context.CloudCallContext{}
+	callCtx := context.WithoutCredentialInvalidator(stdcontext.Background())
 	bootstrapParams := environs.BootstrapParams{
 		ControllerConfig:         testing.FakeControllerConfig(),
 		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
@@ -270,7 +270,7 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	s.setupOperatorStorageConfig(c)
 
 	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
-	callCtx := &context.CloudCallContext{}
+	callCtx := context.WithoutCredentialInvalidator(stdcontext.Background())
 	bootstrapParams := environs.BootstrapParams{
 		ControllerConfig:         testing.FakeControllerConfig(),
 		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
@@ -705,7 +705,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 
 func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
 	s.assertDestroy(c, true, func() error {
-		return s.broker.DestroyController(context.NewEmptyCloudCallContext(), testing.ControllerTag.Id())
+		return s.broker.DestroyController(context.WithoutCredentialInvalidator(stdcontext.Background()), testing.ControllerTag.Id())
 	})
 }
 
@@ -749,7 +749,7 @@ func (s *K8sBrokerSuite) TestEnsureImageRepoSecret(c *gc.C) {
 }
 
 func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
-	s.assertDestroy(c, false, func() error { return s.broker.Destroy(context.NewEmptyCloudCallContext()) })
+	s.assertDestroy(c, false, func() error { return s.broker.Destroy(context.WithoutCredentialInvalidator(stdcontext.Background())) })
 }
 
 func (s *K8sBrokerSuite) TestGetCurrentNamespace(c *gc.C) {
@@ -774,7 +774,7 @@ func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
 	)
 
 	err := s.broker.Create(
-		&context.CloudCallContext{},
+		context.WithoutCredentialInvalidator(stdcontext.Background()),
 		environs.CreateParams{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -796,7 +796,7 @@ func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
 	)
 
 	err := s.broker.Create(
-		&context.CloudCallContext{},
+		context.WithoutCredentialInvalidator(stdcontext.Background()),
 		environs.CreateParams{},
 	)
 	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)

@@ -4,6 +4,8 @@
 package lxd_test
 
 import (
+	stdcontext "context"
+
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
@@ -35,12 +37,10 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.provider = provider
 	s.Stub.ResetCalls()
-	s.callCtx = &context.CloudCallContext{
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidCredential = true
-			return nil
-		},
-	}
+	s.callCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+		s.invalidCredential = true
+		return nil
+	})
 }
 
 func (s *storageSuite) TearDownTest(c *gc.C) {

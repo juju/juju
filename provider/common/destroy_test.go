@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	stdcontext "context"
 	"errors"
 	"fmt"
 	"strings"
@@ -33,7 +34,7 @@ var _ = gc.Suite(&DestroySuite{})
 
 func (s *DestroySuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
 }
 
 func (s *DestroySuite) TestCannotGetInstances(c *gc.C) {

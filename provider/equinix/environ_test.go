@@ -83,7 +83,7 @@ func (s *environProviderSuite) TestPrepareConfig(c *gc.C) {
 }
 
 func (s *environProviderSuite) TestOpen(c *gc.C) {
-	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
+	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
@@ -113,13 +113,13 @@ func (s *environProviderSuite) TestDestroy(c *gc.C) {
 		cl.Devices = device
 		return cl
 	})
-	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
+	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
-	err = env.Destroy(environContext.NewEmptyCloudCallContext())
+	err = env.Destroy(environContext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -151,14 +151,14 @@ func (s *environProviderSuite) TestGetPacketInstancesByTag(c *gc.C) {
 		cl.Devices = device
 		return cl
 	})
-	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
+	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 
-	err = env.DestroyController(environContext.NewEmptyCloudCallContext(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
+	err = env.DestroyController(environContext.WithoutCredentialInvalidator(context.Background()), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -185,13 +185,13 @@ func (s *environProviderSuite) TestAllInstances(c *gc.C) {
 		cl.Devices = device
 		return cl
 	})
-	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
+	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
-	ii, err := env.AllInstances(environContext.NewCloudCallContext(context.TODO()))
+	ii, err := env.AllInstances(environContext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(ii) == 2, jc.IsTrue)
 }
@@ -210,13 +210,13 @@ func (s *environProviderSuite) TestInstances(c *gc.C) {
 		cl.Devices = device
 		return cl
 	})
-	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
+	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
-	ii, err := env.Instances(environContext.NewCloudCallContext(context.TODO()), []instance.Id{"10"})
+	ii, err := env.Instances(environContext.WithoutCredentialInvalidator(context.Background()), []instance.Id{"10"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(ii[0].Id()), jc.Contains, "10")
 }
@@ -231,13 +231,13 @@ func (s *environProviderSuite) TestStopInstance(c *gc.C) {
 		cl.Devices = device
 		return cl
 	})
-	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
+	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
-	err = env.StopInstances(environContext.NewCloudCallContext(context.TODO()), "100")
+	err = env.StopInstances(environContext.WithoutCredentialInvalidator(context.Background()), "100")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -637,7 +637,7 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 		cl.OperatingSystems = os
 		return cl
 	})
-	env, err := environs.Open(context.TODO(), s.provider, environs.OpenParams{
+	env, err := environs.Open(context.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: makeTestModelConfig(c),
 	})
@@ -647,7 +647,7 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 	base := corebase.MakeDefaultBase("ubuntu", "20.04")
 	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, base, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = env.StartInstance(environContext.NewCloudCallContext(context.TODO()), environs.StartInstanceParams{
+	_, err = env.StartInstance(environContext.WithoutCredentialInvalidator(context.Background()), environs.StartInstanceParams{
 		ControllerUUID:   env.Config().UUID(),
 		AvailabilityZone: "yes",
 		InstanceConfig:   iConfig,
@@ -696,7 +696,7 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnProvisioning(c *gc.C) {
 		State: "active",
 	}, nil, nil).Times(1)
 	cl.Devices = device
-	_, err := waitDeviceActive(environContext.NewCloudCallContext(context.TODO()), cl, "100")
+	_, err := waitDeviceActive(environContext.WithoutCredentialInvalidator(context.Background()), cl, "100")
 
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -711,7 +711,7 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnActive(c *gc.C) {
 		State: "active",
 	}, nil, nil).Times(1)
 	cl.Devices = device
-	_, err := waitDeviceActive(environContext.NewEmptyCloudCallContext(), cl, "100")
+	_, err := waitDeviceActive(environContext.WithoutCredentialInvalidator(context.Background()), cl, "100")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -725,7 +725,7 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnFailed(c *gc.C) {
 		State: "failed",
 	}, nil, nil).Times(1)
 	cl.Devices = device
-	_, err := waitDeviceActive(environContext.NewEmptyCloudCallContext(), cl, "100")
+	_, err := waitDeviceActive(environContext.WithoutCredentialInvalidator(context.Background()), cl, "100")
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 

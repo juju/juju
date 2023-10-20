@@ -192,7 +192,7 @@ func bootstrapContextWithClientFunc(
 ) environs.BootstrapContext {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 
-	ctx := stdcontext.TODO()
+	ctx := stdcontext.Background()
 	ctx = stdcontext.WithValue(ctx, bootstrap.SimplestreamsFetcherContextKey, ss)
 	if clientFunc != nil {
 		ctx = stdcontext.WithValue(ctx, ec2.AWSClientContextKey, clientFunc)
@@ -269,8 +269,8 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.Tests.SetUpTest(c)
 
 	t.Tests.BootstrapContext = bootstrapContextWithClientFunc(c, bootstrapClientFunc(t.client), bootstrapIAMClientFunc(t.iamClient))
-	t.Tests.ProviderCallContext = context.NewCloudCallContext(t.Tests.BootstrapContext.Context())
-	t.callCtx = context.NewCloudCallContext(t.Tests.BootstrapContext.Context())
+	t.Tests.ProviderCallContext = context.WithoutCredentialInvalidator(t.Tests.BootstrapContext.Context())
+	t.callCtx = context.WithoutCredentialInvalidator(t.Tests.BootstrapContext.Context())
 	t.useIAMRole = false
 }
 

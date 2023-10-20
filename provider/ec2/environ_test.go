@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	stdcontext "context"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/errors"
@@ -244,7 +246,7 @@ func (*Suite) TestSupportsNetworking(c *gc.C) {
 }
 
 func (*Suite) TestSupportsSpaces(c *gc.C) {
-	callCtx := context.NewEmptyCloudCallContext()
+	callCtx := context.WithoutCredentialInvalidator(stdcontext.Background())
 	var env *environ
 	supported, err := env.SupportsSpaces(callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -253,7 +255,7 @@ func (*Suite) TestSupportsSpaces(c *gc.C) {
 }
 
 func (*Suite) TestSupportsSpaceDiscovery(c *gc.C) {
-	supported, err := (&environ{}).SupportsSpaceDiscovery(context.NewEmptyCloudCallContext())
+	supported, err := (&environ{}).SupportsSpaceDiscovery(context.WithoutCredentialInvalidator(stdcontext.Background()))
 	// TODO(jam): 2016-02-01 the comment on the interface says the error should
 	// conform to IsNotSupported, but all of the implementations just return
 	// nil for error and 'false' for supported.
@@ -262,7 +264,7 @@ func (*Suite) TestSupportsSpaceDiscovery(c *gc.C) {
 }
 
 func (*Suite) TestSupportsContainerAddresses(c *gc.C) {
-	callCtx := context.NewEmptyCloudCallContext()
+	callCtx := context.WithoutCredentialInvalidator(stdcontext.Background())
 	var env *environ
 	supported, err := env.SupportsContainerAddresses(callCtx)
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)

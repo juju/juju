@@ -39,7 +39,7 @@ func (s *ProviderFixture) SetUpTest(c *gc.C) {
 	s.provider = vsphere.NewEnvironProvider(vsphere.EnvironProviderConfig{
 		Dial: newMockDialFunc(&s.dialStub, s.client),
 	})
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
 }
 
 type EnvironFixture struct {
@@ -59,7 +59,7 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 		s.imageServer.Close()
 	})
 
-	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
+	env, err := s.provider.Open(stdcontext.Background(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url": s.imageServer.URL,
@@ -70,7 +70,7 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 
 	// Make sure we don't fall back to the public image sources.
 	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, "")
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
 }
 
 func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
@@ -139,12 +139,10 @@ func AssertInvalidatesCredential(c *gc.C, client *mockClient, f func(context.Pro
 		}{Fault: types.NoPermission{}},
 	}), errors.New("find folder failed"))
 	var called bool
-	ctx := &context.CloudCallContext{
-		InvalidateCredentialFunc: func(string) error {
-			called = true
-			return nil
-		},
-	}
+	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+		called = true
+		return nil
+	})
 	err := f(ctx)
 	c.Assert(err, gc.ErrorMatches, ".*ServerFaultCode: No way José$")
 	c.Assert(called, gc.Equals, true)

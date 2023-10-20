@@ -120,7 +120,7 @@ func (s *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	spec := s.cloudSpec()
 	cred := oauthCredential("wrongly-formatted-oauth-string")
 	spec.Credential = &cred
-	env, err := providerInstance.Open(stdcontext.TODO(), environs.OpenParams{
+	env, err := providerInstance.Open(stdcontext.Background(), environs.OpenParams{
 		Cloud:  spec,
 		Config: config,
 	})
@@ -158,7 +158,7 @@ var _ = gc.Suite(&MaasPingSuite{})
 
 func (s *MaasPingSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
 }
 
 func (s *MaasPingSuite) TestPingNoEndpoint(c *gc.C) {

@@ -4,6 +4,7 @@
 package maas
 
 import (
+	stdcontext "context"
 	"path/filepath"
 	"testing"
 
@@ -30,7 +31,7 @@ type baseProviderSuite struct {
 	envtesting.ToolsFixture
 	controllerUUID string
 
-	callCtx           *context.CloudCallContext
+	callCtx           context.ProviderCallContext
 	invalidCredential bool
 }
 
@@ -56,12 +57,10 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.HostSeries, func() (string, error) { return version.DefaultSupportedLTS(), nil })
-	s.callCtx = &context.CloudCallContext{
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidCredential = true
-			return nil
-		},
-	}
+	s.callCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+		s.invalidCredential = true
+		return nil
+	})
 }
 
 func (s *baseProviderSuite) TearDownTest(c *gc.C) {

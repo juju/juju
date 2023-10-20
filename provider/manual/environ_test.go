@@ -30,13 +30,13 @@ type baseEnvironSuite struct {
 
 func (s *baseEnvironSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := ManualProvider{}.Open(stdcontext.TODO(), environs.OpenParams{
+	env, err := ManualProvider{}.Open(stdcontext.Background(), environs.OpenParams{
 		Cloud:  CloudSpec(),
 		Config: MinimalConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
 }
 
 type environSuite struct {

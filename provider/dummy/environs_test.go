@@ -55,7 +55,7 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.Tests.SetUpTest(c)
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
@@ -66,7 +66,7 @@ func (s *suite) TearDownTest(c *gc.C) {
 func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	e, err := bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapContext(stdcontext.TODO(), c),
+		envtesting.BootstrapContext(stdcontext.Background(), c),
 		s.ControllerStore,
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
@@ -82,8 +82,8 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	netenv, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(stdcontext.TODO(), c), netenv,
-		context.NewEmptyCloudCallContext(), bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(stdcontext.Background(), c), netenv,
+		context.WithoutCredentialInvalidator(stdcontext.Background()), bootstrap.BootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			Cloud: cloud.Cloud{
 				Name:      "dummy",

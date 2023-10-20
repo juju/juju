@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -62,11 +63,11 @@ func (s *ErrorsSuite) TestInvalidCredentialf(c *gc.C) {
 
 var authFailureError = errors.New("auth failure")
 
-func (s *ErrorsSuite) TestNilContext(c *gc.C) {
+func (s *ErrorsSuite) TestNoValidation(c *gc.C) {
 	isAuthF := func(e error) bool {
 		return true
 	}
-	denied := common.MaybeHandleCredentialError(isAuthF, authFailureError, nil)
+	denied := common.MaybeHandleCredentialError(isAuthF, authFailureError, context.WithoutCredentialInvalidator(stdcontext.Background()))
 	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
 	c.Assert(denied, jc.IsTrue)
 }
@@ -75,10 +76,9 @@ func (s *ErrorsSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 	isAuthF := func(e error) bool {
 		return true
 	}
-	ctx := context.NewEmptyCloudCallContext()
-	ctx.InvalidateCredentialFunc = func(msg string) error {
+	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
 		return errors.New("kaboom")
-	}
+	})
 	denied := common.MaybeHandleCredentialError(isAuthF, authFailureError, ctx)
 	c.Assert(c.GetTestLog(), jc.Contains, "could not invalidate stored cloud credential on the controller")
 	c.Assert(denied, jc.IsTrue)
@@ -106,13 +106,12 @@ func (s *ErrorsSuite) checkPermissionHandling(c *gc.C, e error, handled bool) {
 	isAuthF := func(e error) bool {
 		return handled
 	}
-	ctx := context.NewEmptyCloudCallContext()
 	called := false
-	ctx.InvalidateCredentialFunc = func(msg string) error {
+	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
 		c.Assert(msg, gc.Matches, "cloud denied access:.*auth failure")
 		called = true
 		return nil
-	}
+	})
 
 	denied := common.MaybeHandleCredentialError(isAuthF, e, ctx)
 	c.Assert(called, gc.Equals, handled)

@@ -71,15 +71,13 @@ func HandleCredentialError(err error, ctx context.ProviderCallContext) error {
 }
 
 func maybeInvalidateCredential(err error, ctx context.ProviderCallContext) bool {
-	if ctx == nil {
-		return false
-	}
 	if !HasDenialStatusCode(err) {
 		return false
 	}
 
+	invalidateCredentialFunc := context.CredentialInvalidatorFromContext(ctx)
 	converted := fmt.Errorf("google cloud denied access: %w", common.CredentialNotValidError(err))
-	invalidateErr := ctx.InvalidateCredential(converted.Error())
+	invalidateErr := invalidateCredentialFunc(converted.Error())
 	if invalidateErr != nil {
 		logger.Warningf("could not invalidate stored google cloud credential on the controller: %v", invalidateErr)
 	}

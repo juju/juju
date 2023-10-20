@@ -4,6 +4,7 @@
 package equinix
 
 import (
+	stdcontext "context"
 	"net/http"
 
 	"github.com/juju/testing"
@@ -310,7 +311,7 @@ func (s *networkSuite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(env, gc.NotNil)
 	netEnviron, ok := env.(environs.NetworkingEnviron)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("expected environ to implement environs.Networking"))
-	ii, err := netEnviron.NetworkInterfaces(&context.CloudCallContext{}, []instance.Id{"100"})
+	ii, err := netEnviron.NetworkInterfaces(context.WithoutCredentialInvalidator(stdcontext.Background()), []instance.Id{"100"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(ii[0]), jc.DeepEquals, 3)
 }
