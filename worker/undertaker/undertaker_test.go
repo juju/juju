@@ -19,11 +19,11 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
-	watcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
-	cloudspec "github.com/juju/juju/environs/cloudspec"
-	environscontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/undertaker"
 )
@@ -399,7 +399,7 @@ type waitDestroyer struct {
 	environs.Environ
 }
 
-func (w *waitDestroyer) Destroy(ctx environscontext.ProviderCallContext) error {
+func (w *waitDestroyer) Destroy(ctx envcontext.ProviderCallContext) error {
 	<-ctx.Done()
 	return ctx.Err()
 }

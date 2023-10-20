@@ -21,21 +21,21 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
-	envcontext "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 // BaseAPI provides various boilerplate methods used by the facade business logic.
 type BaseAPI struct {
-	Authorizer                      facade.Authorizer
-	GetApplicationOffers            func(interface{}) jujucrossmodel.ApplicationOffers
-	ControllerModel                 Backend
-	StatePool                       StatePool
-	getEnviron                      environFromModelFunc
-	getControllerInfo               func(context.Context) (apiAddrs []string, caCert string, _ error)
-	credentialInvalidatorFuncGetter envcontext.InvalidateModelCredentialFuncGetter
-	logger                          loggo.Logger
+	Authorizer                  facade.Authorizer
+	GetApplicationOffers        func(interface{}) jujucrossmodel.ApplicationOffers
+	ControllerModel             Backend
+	StatePool                   StatePool
+	getEnviron                  environFromModelFunc
+	getControllerInfo           func(context.Context) (apiAddrs []string, caCert string, _ error)
+	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
+	logger                      loggo.Logger
 }
 
 // checkAdmin ensures that the specified in user is a model or controller admin.
@@ -560,7 +560,7 @@ func (api *BaseAPI) collectRemoteSpaces(ctx context.Context, backend Backend, sp
 		return nil, nil
 	}
 
-	invalidatorFunc, err := api.credentialInvalidatorFuncGetter()
+	invalidatorFunc, err := api.credentialInvalidatorGetter()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

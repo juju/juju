@@ -90,7 +90,7 @@ func newFacade(ctx facade.Context) (*API, error) {
 		credentialService,
 		service.NewCredentialValidator(),
 		credentialCallContextGetter,
-		credentialcommon.CredentialInvalidatorFuncGetter(ctx),
+		credentialcommon.CredentialInvalidatorGetter(ctx),
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New))
 }

@@ -4,7 +4,7 @@
 package lxd_test
 
 import (
-	stdcontext "context"
+	"context"
 
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	jujulxd "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/provider/lxd"
 )
@@ -36,7 +36,7 @@ func (s *environNetSuite) TestSubnetsForUnknownContainer(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
-	ctx := context.WithoutCredentialInvalidator(stdcontext.Background())
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	_, err := env.Subnets(ctx, "bogus", nil)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -48,7 +48,7 @@ func (s *environNetSuite) TestSubnetsForServersThatLackRequiredAPIExtensions(c *
 	srv := lxd.NewMockServer(ctrl)
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
-	ctx := context.WithoutCredentialInvalidator(stdcontext.Background())
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	// Space support and by extension, subnet detection is not available.
 	srv.EXPECT().HasExtension("network").Return(false)
@@ -126,7 +126,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainer(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
-	ctx := context.WithoutCredentialInvalidator(stdcontext.Background())
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	subnets, err := env.Subnets(ctx, "woot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -192,7 +192,7 @@ func (s *environNetSuite) TestSubnetsForKnownContainerAndSubnetFiltering(c *gc.C
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
 	// Filter list so we only get a single subnet
-	ctx := context.WithoutCredentialInvalidator(stdcontext.Background())
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	subnets, err := env.Subnets(ctx, "woot", []network.Id{"subnet-lxdbr0-10.55.158.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -286,7 +286,7 @@ func (s *environNetSuite) TestSubnetDiscoveryFallbackForOlderLXDs(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
-	ctx := context.WithoutCredentialInvalidator(stdcontext.Background())
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 
 	// Spaces should be supported
 	supportsSpaces, err := env.SupportsSpaces(ctx)
@@ -382,7 +382,7 @@ func (s *environNetSuite) TestNetworkInterfaces(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
-	ctx := context.WithoutCredentialInvalidator(stdcontext.Background())
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot"})
 	c.Assert(err, jc.ErrorIsNil)
 	expInfos := []network.InterfaceInfos{
@@ -458,7 +458,7 @@ func (s *environNetSuite) TestNetworkInterfacesPartialResults(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
-	ctx := context.WithoutCredentialInvalidator(stdcontext.Background())
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	infos, err := env.NetworkInterfaces(ctx, []instance.Id{"woot", "unknown"})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances, gc.Commentf("expected a partial instances error to be returned if some of the instances were not found"))
 	expInfos := []network.InterfaceInfos{
@@ -494,7 +494,7 @@ func (s *environNetSuite) TestNetworkInterfacesNoResults(c *gc.C) {
 
 	env := s.NewEnviron(c, srv, nil, environscloudspec.CloudSpec{}).(environs.Networking)
 
-	ctx := context.WithoutCredentialInvalidator(stdcontext.Background())
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	_, err := env.NetworkInterfaces(ctx, []instance.Id{"unknown1", "unknown2"})
 	c.Assert(err, gc.Equals, environs.ErrNoInstances, gc.Commentf("expected a no instances error to be returned if none of the requested instances exists"))
 }

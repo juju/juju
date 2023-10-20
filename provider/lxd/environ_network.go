@@ -17,14 +17,14 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 var _ environs.Networking = (*environ)(nil)
 
 // Subnets returns basic information about subnets known by the provider for
 // the environment.
-func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, subnetIDs []network.Id) ([]network.SubnetInfo, error) {
+func (e *environ) Subnets(ctx envcontext.ProviderCallContext, inst instance.Id, subnetIDs []network.Id) ([]network.SubnetInfo, error) {
 	srv := e.server()
 
 	// All containers will have the same view on the LXD network. If an
@@ -221,7 +221,7 @@ func makeSubnetInfo(subnetID network.Id, networkID network.Id, cidr, azName stri
 // was no other error, it will return ErrNoInstances. If some but not all of
 // the instances were found, the returned slice will have some nil slots, and
 // an ErrPartialInstances error will be returned.
-func (e *environ) NetworkInterfaces(_ context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
+func (e *environ) NetworkInterfaces(_ envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	var (
 		missing int
 		srv     = e.server()
@@ -404,14 +404,14 @@ func isErrMissingAPIExtension(err error, ext string) bool {
 }
 
 // SuperSubnets returns information about aggregated subnet.
-func (*environ) SuperSubnets(context.ProviderCallContext) ([]string, error) {
+func (*environ) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
 	return nil, errors.NotSupportedf("super subnets")
 }
 
 // SupportsSpaces returns whether the current environment supports
 // spaces. The returned error satisfies errors.IsNotSupported(),
 // unless a general API failure occurs.
-func (e *environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
+func (e *environ) SupportsSpaces(envcontext.ProviderCallContext) (bool, error) {
 	// Really old lxd versions (e.g. xenial/ppc64) do not even support the
 	// network API extension so the subnet discovery code path will not
 	// work there.
@@ -420,25 +420,25 @@ func (e *environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
 
 // AreSpacesRoutable returns whether the communication between the
 // two spaces can use cloud-local addresses.
-func (*environ) AreSpacesRoutable(context.ProviderCallContext, *environs.ProviderSpaceInfo, *environs.ProviderSpaceInfo) (bool, error) {
+func (*environ) AreSpacesRoutable(envcontext.ProviderCallContext, *environs.ProviderSpaceInfo, *environs.ProviderSpaceInfo) (bool, error) {
 	return false, errors.NotSupportedf("spaces")
 }
 
 // SupportsContainerAddresses returns true if the current environment is
 // able to allocate addresses for containers.
-func (*environ) SupportsContainerAddresses(context.ProviderCallContext) (bool, error) {
+func (*environ) SupportsContainerAddresses(envcontext.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
 // AllocateContainerAddresses allocates a static subnets for each of the
 // container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
 // network config including all allocated addresses on success.
-func (*environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error) {
+func (*environ) AllocateContainerAddresses(envcontext.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 
 // ReleaseContainerAddresses releases the previously allocated
 // addresses matching the interface details passed in.
-func (*environ) ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error {
+func (*environ) ReleaseContainerAddresses(envcontext.ProviderCallContext, []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }

@@ -36,7 +36,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -627,7 +627,7 @@ type mockCaasBroker struct {
 	namespace string
 }
 
-func (m *mockCaasBroker) Create(context.ProviderCallContext, environs.CreateParams) error {
+func (m *mockCaasBroker) Create(envcontext.ProviderCallContext, environs.CreateParams) error {
 	m.MethodCall(m, "Create")
 	if m.namespace == "existing-ns" {
 		return errors.AlreadyExistsf("namespace %q", m.namespace)

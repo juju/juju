@@ -4,7 +4,7 @@
 package provisioner_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"reflect"
 	"strings"
@@ -41,7 +41,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	environmocks "github.com/juju/juju/environs/testing"
@@ -76,7 +76,7 @@ type ProvisionerTaskSuite struct {
 	instances      []instances.Instance
 	instanceBroker *testInstanceBroker
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&ProvisionerTaskSuite{})
@@ -95,12 +95,12 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 	s.instanceBroker = &testInstanceBroker{
 		Stub:      &testing.Stub{},
 		callsChan: make(chan string, 2),
-		allInstancesFunc: func(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+		allInstancesFunc: func(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 			return s.instances, s.instanceBroker.NextErr()
 		},
 	}
 
-	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.TODO())
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *ProvisionerTaskSuite) TestStartStop(c *gc.C) {
@@ -683,7 +683,7 @@ func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C)
 	defer ctrl.Finish()
 
 	broker := providermocks.NewMockZonedEnviron(ctrl)
-	broker.EXPECT().AllRunningInstances(s.callCtx).Return(nil, errors.New("boom")).Do(func(context.ProviderCallContext) {
+	broker.EXPECT().AllRunningInstances(s.callCtx).Return(nil, errors.New("boom")).Do(func(envcontext.ProviderCallContext) {
 		go func() { close(s.setupDone) }()
 	})
 
@@ -910,7 +910,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 
 	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(1)
 	exp.InstanceAvailabilityZoneNames(s.callCtx, []instance.Id{s.instances[0].Id()}).Return(
-		map[instance.Id]string{}, nil).Do(func(context.ProviderCallContext, []instance.Id) { close(s.setupDone) })
+		map[instance.Id]string{}, nil).Do(func(envcontext.ProviderCallContext, []instance.Id) { close(s.setupDone) })
 
 	az1 := providermocks.NewMockAvailabilityZone(ctrl)
 	az1.EXPECT().Name().Return("az1").MinTimes(1)
@@ -939,7 +939,7 @@ func (s *ProvisionerTaskSuite) TestUpdatedZonesReflectedInAZMachineSlice(c *gc.C
 	exp.DeriveAvailabilityZones(s.callCtx, gomock.Any()).Return([]string{}, nil).AnyTimes()
 	exp.StartInstance(s.callCtx, gomock.Any()).Return(&environs.StartInstanceResult{
 		Instance: &testInstance{id: "instance-0"},
-	}, nil).MinTimes(1).Do(func(context.ProviderCallContext, environs.StartInstanceParams) {
+	}, nil).MinTimes(1).Do(func(envcontext.ProviderCallContext, environs.StartInstanceParams) {
 		select {
 		case step <- struct{}{}:
 		case <-time.After(testing.LongWait):
@@ -1354,7 +1354,7 @@ func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller, machin
 	exp := broker.EXPECT()
 	exp.AllRunningInstances(s.callCtx).Return(s.instances, nil).MinTimes(1)
 	exp.InstanceAvailabilityZoneNames(s.callCtx, instanceIds).Return(map[instance.Id]string{}, nil).Do(
-		func(context.ProviderCallContext, []instance.Id) { close(s.setupDone) },
+		func(envcontext.ProviderCallContext, []instance.Id) { close(s.setupDone) },
 	)
 	exp.AvailabilityZones(s.callCtx).Return(zones, nil).MinTimes(1)
 	return broker
@@ -1438,7 +1438,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithRetry(
 		Broker:                     s.instanceBroker,
 		ImageStream:                imagemetadata.ReleasedStream,
 		RetryStartInstanceStrategy: retryStrategy,
-		CloudCallContextFunc:       func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
+		CloudCallContextFunc:       func(_ context.Context) envcontext.ProviderCallContext { return s.callCtx },
 		NumProvisionWorkers:        numProvisionWorkers,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1477,7 +1477,7 @@ func (s *ProvisionerTaskSuite) newProvisionerTaskWithBrokerAndEventCb(
 		Broker:                     broker,
 		ImageStream:                imagemetadata.ReleasedStream,
 		RetryStartInstanceStrategy: provisioner.NewRetryStrategy(0*time.Second, 0),
-		CloudCallContextFunc:       func(_ stdcontext.Context) context.ProviderCallContext { return s.callCtx },
+		CloudCallContextFunc:       func(_ context.Context) envcontext.ProviderCallContext { return s.callCtx },
 		NumProvisionWorkers:        numProvisionWorkers,
 		EventProcessedCb:           evtCb,
 	})
@@ -1538,28 +1538,28 @@ type testInstanceBroker struct {
 	*testing.Stub
 
 	callsChan        chan string
-	allInstancesFunc func(ctx context.ProviderCallContext) ([]instances.Instance, error)
+	allInstancesFunc func(ctx envcontext.ProviderCallContext) ([]instances.Instance, error)
 }
 
-func (t *testInstanceBroker) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (t *testInstanceBroker) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	t.AddCall("StartInstance", ctx, args)
 	t.callsChan <- "StartInstance"
 	return nil, t.NextErr()
 }
 
-func (t *testInstanceBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (t *testInstanceBroker) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
 	t.AddCall("StopInstances", ctx, ids)
 	t.callsChan <- "StopInstances"
 	return t.NextErr()
 }
 
-func (t *testInstanceBroker) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (t *testInstanceBroker) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	t.AddCall("AllInstances", ctx)
 	t.callsChan <- "AllInstances"
 	return t.allInstancesFunc(ctx)
 }
 
-func (t *testInstanceBroker) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (t *testInstanceBroker) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	t.AddCall("AllRunningInstances", ctx)
 	t.callsChan <- "AllRunningInstances"
 	return t.allInstancesFunc(ctx)

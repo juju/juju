@@ -4,7 +4,7 @@
 package lxd_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"strings"
 
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/version"
 )
@@ -27,14 +27,14 @@ type environPolicySuite struct {
 
 	svr     *lxd.MockServer
 	env     environs.Environ
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&environPolicySuite{})
 
 func (s *environPolicySuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *environPolicySuite) TestPrecheckInstanceDefaults(c *gc.C) {
@@ -177,7 +177,7 @@ func (s *environPolicySuite) TestConstraintsValidatorEmpty(c *gc.C) {
 func (s *environPolicySuite) TestConstraintsValidatorUnsupported(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	validator, err := s.env.ConstraintsValidator(context.WithoutCredentialInvalidator(stdcontext.Background()))
+	validator, err := s.env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse(strings.Join([]string{
@@ -257,8 +257,8 @@ func (s *environPolicySuite) TestSupportNetworks(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	isSupported := s.env.(interface {
-		SupportNetworks(context.ProviderCallContext) bool
-	}).SupportNetworks(context.WithoutCredentialInvalidator(stdcontext.Background()))
+		SupportNetworks(envcontext.ProviderCallContext) bool
+	}).SupportNetworks(envcontext.WithoutCredentialInvalidator(context.Background()))
 
 	c.Check(isSupported, jc.IsFalse)
 }

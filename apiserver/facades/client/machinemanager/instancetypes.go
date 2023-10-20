@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/rpc/params"
 )
@@ -52,7 +52,7 @@ type instanceTypeConstraints struct {
 
 // getInstanceTypes returns a list of the available instance types in the provider according
 // to the passed constraints.
-func getInstanceTypes(ctx context.ProviderCallContext, cons instanceTypeConstraints) (params.InstanceTypesResult, error) {
+func getInstanceTypes(ctx envcontext.ProviderCallContext, cons instanceTypeConstraints) (params.InstanceTypesResult, error) {
 	instanceTypes, err := cons.environ.InstanceTypes(ctx, cons.constraints)
 	if err != nil {
 		return params.InstanceTypesResult{}, errors.Trace(err)

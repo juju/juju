@@ -4,7 +4,7 @@
 package google_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/gce/google"
 	"github.com/juju/juju/testing"
 )
@@ -35,13 +35,13 @@ func (s *ErrorSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestNoValidation(c *gc.C) {
-	err := google.HandleCredentialError(s.googleError, context.WithoutCredentialInvalidator(stdcontext.Background()))
+	err := google.HandleCredentialError(s.googleError, envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, gc.DeepEquals, s.googleError)
 	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
 }
 
 func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
 		return errors.New("kaboom")
 	})
 	google.HandleCredentialError(s.googleError, ctx)
@@ -50,7 +50,7 @@ func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 
 func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 	called := false
-	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
 		c.Assert(msg, gc.Matches,
 			regexp.QuoteMeta(`google cloud denied access: Get "http://notforreal.com/": 40`)+".*")
 		called = true
@@ -81,7 +81,7 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 
 func (*ErrorSuite) TestNilGoogleError(c *gc.C) {
 	called := false
-	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
 		called = true
 		return nil
 	})
@@ -92,7 +92,7 @@ func (*ErrorSuite) TestNilGoogleError(c *gc.C) {
 
 func (*ErrorSuite) TestAnyOtherError(c *gc.C) {
 	called := false
-	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
 		called = true
 		return nil
 	})

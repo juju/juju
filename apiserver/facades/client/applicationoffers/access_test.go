@@ -44,7 +44,7 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, nil, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.authorizer, s.authContext, apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		s.mockState, s.mockStatePool, s.authorizer, s.authContext, apiservertesting.NoopModelCredentialInvalidatorGetter,
 		c.MkDir(), loggo.GetLogger("juju.apiserver.applicationoffers"),
 	)
 	c.Assert(err, jc.ErrorIsNil)

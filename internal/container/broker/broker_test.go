@@ -4,7 +4,7 @@
 package broker_test
 
 import (
-	stdcontext "context"
+	"context"
 	"net"
 	"os"
 	"path/filepath"
@@ -27,7 +27,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/instances/instancetest"
 	"github.com/juju/juju/internal/container"
@@ -266,12 +266,12 @@ func (m *mockInstance) Id() instance.Id {
 }
 
 // Status implements instances.Instance.Status.
-func (m *mockInstance) Status(context.ProviderCallContext) instance.Status {
+func (m *mockInstance) Status(envcontext.ProviderCallContext) instance.Status {
 	return instance.Status{}
 }
 
 // Addresses implements instances.Instance.Addresses.
-func (m *mockInstance) Addresses(context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (m *mockInstance) Addresses(envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	return nil, nil
 }
 
@@ -301,7 +301,7 @@ func instancesFromResults(results ...*environs.StartInstanceResult) []instances.
 }
 
 func assertInstancesStarted(c *gc.C, broker environs.InstanceBroker, results ...*environs.StartInstanceResult) {
-	allInstances, err := broker.AllRunningInstances(context.WithoutCredentialInvalidator(stdcontext.Background()))
+	allInstances, err := broker.AllRunningInstances(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	instancetest.MatchInstances(c, allInstances, instancesFromResults(results...)...)
 }
@@ -335,7 +335,7 @@ func makeNoOpStatusCallback() func(settableStatus status.Status, info string, da
 }
 
 func callStartInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
-	return broker.StartInstance(context.WithoutCredentialInvalidator(stdcontext.Background()), environs.StartInstanceParams{
+	return broker.StartInstance(envcontext.WithoutCredentialInvalidator(context.Background()), environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          makePossibleTools(),
 		InstanceConfig: makeInstanceConfig(c, s, machineId),

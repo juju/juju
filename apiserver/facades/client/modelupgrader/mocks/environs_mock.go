@@ -10,7 +10,7 @@ import (
 	constraints "github.com/juju/juju/core/constraints"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
-	context "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	storage "github.com/juju/juju/internal/storage"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -39,7 +39,7 @@ func (m *MockBootstrapEnviron) EXPECT() *MockBootstrapEnvironMockRecorder {
 }
 
 // Bootstrap mocks base method.
-func (m *MockBootstrapEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 context.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (m *MockBootstrapEnviron) Bootstrap(arg0 environs.BootstrapContext, arg1 envcontext.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*environs.BootstrapResult)
@@ -68,7 +68,7 @@ func (mr *MockBootstrapEnvironMockRecorder) Config() *gomock.Call {
 }
 
 // ConstraintsValidator mocks base method.
-func (m *MockBootstrapEnviron) ConstraintsValidator(arg0 context.ProviderCallContext) (constraints.Validator, error) {
+func (m *MockBootstrapEnviron) ConstraintsValidator(arg0 envcontext.ProviderCallContext) (constraints.Validator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsValidator", arg0)
 	ret0, _ := ret[0].(constraints.Validator)
@@ -83,7 +83,7 @@ func (mr *MockBootstrapEnvironMockRecorder) ConstraintsValidator(arg0 interface{
 }
 
 // Create mocks base method.
-func (m *MockBootstrapEnviron) Create(arg0 context.ProviderCallContext, arg1 environs.CreateParams) error {
+func (m *MockBootstrapEnviron) Create(arg0 envcontext.ProviderCallContext, arg1 environs.CreateParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -97,7 +97,7 @@ func (mr *MockBootstrapEnvironMockRecorder) Create(arg0, arg1 interface{}) *gomo
 }
 
 // Destroy mocks base method.
-func (m *MockBootstrapEnviron) Destroy(arg0 context.ProviderCallContext) error {
+func (m *MockBootstrapEnviron) Destroy(arg0 envcontext.ProviderCallContext) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
@@ -111,7 +111,7 @@ func (mr *MockBootstrapEnvironMockRecorder) Destroy(arg0 interface{}) *gomock.Ca
 }
 
 // DestroyController mocks base method.
-func (m *MockBootstrapEnviron) DestroyController(arg0 context.ProviderCallContext, arg1 string) error {
+func (m *MockBootstrapEnviron) DestroyController(arg0 envcontext.ProviderCallContext, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyController", arg0, arg1)
 	ret0, _ := ret[0].(error)

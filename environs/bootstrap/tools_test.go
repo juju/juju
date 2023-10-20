@@ -4,7 +4,7 @@
 package bootstrap_test
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -42,7 +42,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleHostArch(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	arch := arch.PPC64EL
-	validator, err := env.ConstraintsValidator(context.WithoutCredentialInvalidator(stdcontext.Background()))
+	validator, err := env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, &arch, nil, validator)
 	c.Assert(err, gc.ErrorMatches, `cannot use agent built for "ppc64el" using a machine running on "amd64"`)
@@ -58,7 +58,7 @@ func (s *toolsSuite) TestValidateUploadAllowedIncompatibleTargetArch(c *gc.C) {
 	devVersion.Build = 1234
 	s.PatchValue(&jujuversion.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
-	validator, err := env.ConstraintsValidator(context.WithoutCredentialInvalidator(stdcontext.Background()))
+	validator, err := env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, nil, nil, validator)
 	c.Assert(err, gc.ErrorMatches, `model "foo" of type dummy does not support instances running on "ppc64el"`)
@@ -71,7 +71,7 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 	ubuntuFocal := corebase.MustParseBaseFromString("ubuntu@20.04")
 	s.PatchValue(&arch.HostArch, func() string { return arm64 })
 	s.PatchValue(&os.HostOS, func() os.OSType { return os.Ubuntu })
-	validator, err := env.ConstraintsValidator(context.WithoutCredentialInvalidator(stdcontext.Background()))
+	validator, err := env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	err = bootstrap.ValidateUploadAllowed(env, &arm64, &ubuntuFocal, validator)
 	c.Assert(err, jc.ErrorIsNil)

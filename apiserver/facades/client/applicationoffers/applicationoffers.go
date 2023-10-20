@@ -20,7 +20,7 @@ import (
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
-	envcontext "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -43,7 +43,7 @@ func createOffersAPI(
 	statePool StatePool,
 	authorizer facade.Authorizer,
 	authContext *commoncrossmodel.AuthContext,
-	credentialInvalidatorFuncGetter envcontext.InvalidateModelCredentialFuncGetter,
+	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	dataDir string,
 	logger loggo.Logger,
 ) (*OffersAPI, error) {
@@ -55,14 +55,14 @@ func createOffersAPI(
 		dataDir:     dataDir,
 		authContext: authContext,
 		BaseAPI: BaseAPI{
-			Authorizer:                      authorizer,
-			GetApplicationOffers:            getApplicationOffers,
-			ControllerModel:                 backend,
-			credentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
-			StatePool:                       statePool,
-			getEnviron:                      getEnviron,
-			getControllerInfo:               getControllerInfo,
-			logger:                          logger,
+			Authorizer:                  authorizer,
+			GetApplicationOffers:        getApplicationOffers,
+			ControllerModel:             backend,
+			credentialInvalidatorGetter: credentialInvalidatorGetter,
+			StatePool:                   statePool,
+			getEnviron:                  getEnviron,
+			getControllerInfo:           getControllerInfo,
+			logger:                      logger,
 		},
 	}
 	return api, nil

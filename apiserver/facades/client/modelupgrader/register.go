@@ -68,7 +68,7 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 		newEnviron,
 		common.NewBlockChecker(backend),
 		auth,
-		credentialcommon.CredentialInvalidatorFuncGetter(ctx),
+		credentialcommon.CredentialInvalidatorGetter(ctx),
 		registry.New,
 		environscloudspecGetter,
 		ctx.Logger().Child("modelupgrader"),

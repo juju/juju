@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/equinix"
 )
 
@@ -19,14 +19,14 @@ type providerSuite struct {
 	provider environs.CloudEnvironProvider
 	testing.IsolationSuite
 	dialStub testing.Stub
-	callCtx  context.ProviderCallContext
+	callCtx  envcontext.ProviderCallContext
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.dialStub.ResetCalls()
 	s.provider = equinix.NewProvider()
-	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
+	s.callCtx = envcontext.WithoutCredentialInvalidator(stdcontext.Background())
 }
 
 var _ = gc.Suite(&providerSuite{})
@@ -39,7 +39,7 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 
 func (s *providerSuite) TestOpen(c *gc.C) {
 	config := fakeConfig(c)
-	env, err := environs.Open(context.WithoutCredentialInvalidator(stdcontext.Background()), s.provider, environs.OpenParams{
+	env, err := environs.Open(envcontext.WithoutCredentialInvalidator(stdcontext.Background()), s.provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: config,
 	})

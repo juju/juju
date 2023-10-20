@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -51,11 +51,11 @@ type Backing interface {
 
 // API provides the subnets API facade for version 5.
 type API struct {
-	backing                         Backing
-	resources                       facade.Resources
-	authorizer                      facade.Authorizer
-	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter
-	logger                          loggo.Logger
+	backing                     Backing
+	resources                   facade.Resources
+	authorizer                  facade.Authorizer
+	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
+	logger                      loggo.Logger
 }
 
 func (api *API) checkCanRead() error {
@@ -65,7 +65,7 @@ func (api *API) checkCanRead() error {
 // newAPIWithBacking creates a new server-side Subnets API facade with
 // a common.NetworkBacking
 func newAPIWithBacking(
-	backing Backing, credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter,
+	backing Backing, credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	resources facade.Resources, authorizer facade.Authorizer, logger loggo.Logger,
 ) (*API, error) {
 	// Only clients can access the Subnets facade.
@@ -73,11 +73,11 @@ func newAPIWithBacking(
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
-		backing:                         backing,
-		resources:                       resources,
-		authorizer:                      authorizer,
-		credentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
-		logger:                          logger,
+		backing:                     backing,
+		resources:                   resources,
+		authorizer:                  authorizer,
+		credentialInvalidatorGetter: credentialInvalidatorGetter,
+		logger:                      logger,
 	}, nil
 }
 
@@ -88,11 +88,11 @@ func (api *API) AllZones(ctx stdcontext.Context) (params.ZoneResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ZoneResults{}, err
 	}
-	invalidator, err := api.credentialInvalidatorFuncGetter()
+	invalidator, err := api.credentialInvalidatorGetter()
 	if err != nil {
 		return params.ZoneResults{}, errors.Trace(err)
 	}
-	callCtx := context.WithCredentialInvalidator(ctx, invalidator)
+	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidator)
 	return allZones(callCtx, api.backing, api.logger)
 }
 

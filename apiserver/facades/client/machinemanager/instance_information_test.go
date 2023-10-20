@@ -64,7 +64,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 			Authorizer: s.authorizer,
 			ModelTag:   names.NewModelTag("beef1beef1-0000-0000-000011112222"),
 		},
-		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		common.NewResources(),
 		s.leadership,
 		nil,

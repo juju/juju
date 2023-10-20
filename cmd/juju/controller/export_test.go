@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -99,7 +99,7 @@ func NewDestroyCommandForTest(
 	api destroyControllerAPI,
 	store jujuclient.ClientStore,
 	apierr error,
-	environsDestroy func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error,
+	environsDestroy func(string, environs.ControllerDestroyer, envcontext.ProviderCallContext, jujuclient.ControllerStore) error,
 
 ) cmd.Command {
 	cmd := &destroyCommand{
@@ -125,7 +125,7 @@ func NewKillCommandForTest(
 	apierr error,
 	clock clock.Clock,
 	apiOpen api.OpenFunc,
-	environsDestroy func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error,
+	environsDestroy func(string, environs.ControllerDestroyer, envcontext.ProviderCallContext, jujuclient.ControllerStore) error,
 ) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{

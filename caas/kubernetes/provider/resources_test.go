@@ -4,7 +4,7 @@
 package provider_test
 
 import (
-	stdcontext "context"
+	"context"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -14,7 +14,7 @@ import (
 	core "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/testing"
 )
 
@@ -72,6 +72,6 @@ func (s *ResourcesSuite) TestAdoptResources(c *gc.C) {
 			Return(nil, nil),
 	)
 
-	err := s.broker.AdoptResources(context.WithoutCredentialInvalidator(stdcontext.Background()), "uuid", version.MustParse("1.2.3"))
+	err := s.broker.AdoptResources(envcontext.WithoutCredentialInvalidator(context.Background()), "uuid", version.MustParse("1.2.3"))
 	c.Assert(err, jc.ErrorIsNil)
 }

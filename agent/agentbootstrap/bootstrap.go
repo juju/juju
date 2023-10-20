@@ -37,7 +37,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
@@ -299,7 +299,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	// We need to do this before setting the API host-ports,
 	// because any space names in the bootstrap machine addresses must be
 	// reconcilable with space IDs at that point.
-	callContext := context.WithoutCredentialInvalidator(ctx)
+	callContext := envcontext.WithoutCredentialInvalidator(ctx)
 	if err = space.ReloadSpaces(callContext, space.NewState(st), b.bootstrapEnviron); err != nil {
 		if !errors.Is(err, errors.NotSupported) {
 			return nil, errors.Trace(err)
@@ -463,7 +463,7 @@ func (b *AgentBootstrap) ensureInitialModel(
 		return errors.Annotate(err, "opening initial model environment")
 	}
 
-	callCtx := context.WithoutCredentialInvalidator(ctx)
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	if err := initialModelEnv.Create(
 		callCtx,
 		environs.CreateParams{

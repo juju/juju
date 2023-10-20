@@ -4,7 +4,7 @@
 package ec2
 
 import (
-	sdkcontext "context"
+	"context"
 	"fmt"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -17,7 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/common"
 )
@@ -27,7 +27,7 @@ type vpcSuite struct {
 
 	stubAPI *stubVPCAPIClient
 
-	cloudCallCtx context.ProviderCallContext
+	cloudCallCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&vpcSuite{})
@@ -36,7 +36,7 @@ func (s *vpcSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.stubAPI = &stubVPCAPIClient{Stub: &testing.Stub{}}
-	s.cloudCallCtx = context.WithoutCredentialInvalidator(sdkcontext.Background())
+	s.cloudCallCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *vpcSuite) TestValidateBootstrapVPCUnexpectedError(c *gc.C) {
@@ -657,34 +657,34 @@ type stubVPCAPIClient struct {
 
 // AccountAttributes implements vpcAPIClient and is used to test finding the
 // default VPC from the "default-vpc"" attribute.
-func (s *stubVPCAPIClient) DescribeAccountAttributes(_ sdkcontext.Context, in *ec2.DescribeAccountAttributesInput, _ ...func(*ec2.Options)) (*ec2.DescribeAccountAttributesOutput, error) {
+func (s *stubVPCAPIClient) DescribeAccountAttributes(_ context.Context, in *ec2.DescribeAccountAttributesInput, _ ...func(*ec2.Options)) (*ec2.DescribeAccountAttributesOutput, error) {
 	s.Stub.AddCall("DescribeAccountAttributesWithContext", makeArgsFromNames(in.AttributeNames...)...)
 	return s.attributesResponse, s.Stub.NextErr()
 }
 
 // VPCs implements vpcAPIClient and is used to test getting the details of a
 // VPC.
-func (s *stubVPCAPIClient) DescribeVpcs(_ sdkcontext.Context, in *ec2.DescribeVpcsInput, _ ...func(*ec2.Options)) (*ec2.DescribeVpcsOutput, error) {
+func (s *stubVPCAPIClient) DescribeVpcs(_ context.Context, in *ec2.DescribeVpcsInput, _ ...func(*ec2.Options)) (*ec2.DescribeVpcsOutput, error) {
 	s.Stub.AddCall("DescribeVpcsWithContext", in.VpcIds, in.Filters)
 	return s.vpcsResponse, s.Stub.NextErr()
 }
 
 // Subnets implements vpcAPIClient and is used to test getting a VPC's subnets.
-func (s *stubVPCAPIClient) DescribeSubnets(_ sdkcontext.Context, in *ec2.DescribeSubnetsInput, _ ...func(*ec2.Options)) (*ec2.DescribeSubnetsOutput, error) {
+func (s *stubVPCAPIClient) DescribeSubnets(_ context.Context, in *ec2.DescribeSubnetsInput, _ ...func(*ec2.Options)) (*ec2.DescribeSubnetsOutput, error) {
 	s.Stub.AddCall("DescribeSubnetsWithContext", in.SubnetIds, in.Filters)
 	return s.subnetsResponse, s.Stub.NextErr()
 }
 
 // InternetGateways implements vpcAPIClient and is used to test getting the
 // attached IGW of a VPC.
-func (s *stubVPCAPIClient) DescribeInternetGateways(_ sdkcontext.Context, in *ec2.DescribeInternetGatewaysInput, _ ...func(*ec2.Options)) (*ec2.DescribeInternetGatewaysOutput, error) {
+func (s *stubVPCAPIClient) DescribeInternetGateways(_ context.Context, in *ec2.DescribeInternetGatewaysInput, _ ...func(*ec2.Options)) (*ec2.DescribeInternetGatewaysOutput, error) {
 	s.Stub.AddCall("DescribeInternetGatewaysWithContext", in.InternetGatewayIds, in.Filters)
 	return s.gatewaysResponse, s.Stub.NextErr()
 }
 
 // RouteTables implements vpcAPIClient and is used to test getting all route
 // tables of a VPC, alond with their routes.
-func (s *stubVPCAPIClient) DescribeRouteTables(_ sdkcontext.Context, in *ec2.DescribeRouteTablesInput, _ ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error) {
+func (s *stubVPCAPIClient) DescribeRouteTables(_ context.Context, in *ec2.DescribeRouteTablesInput, _ ...func(*ec2.Options)) (*ec2.DescribeRouteTablesOutput, error) {
 	s.Stub.AddCall("DescribeRouteTablesWithContext", in.RouteTableIds, in.Filters)
 	return s.routeTablesResponse, s.Stub.NextErr()
 }
@@ -815,7 +815,7 @@ func (s *stubVPCAPIClient) PrepareValidateVPCResponses() {
 	)
 }
 
-func (s *stubVPCAPIClient) CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c *gc.C, ctx context.ProviderCallContext, lastExpectedCallName string) {
+func (s *stubVPCAPIClient) CallValidateVPCAndCheckCallsUpToExpectingVPCNotRecommendedError(c *gc.C, ctx envcontext.ProviderCallContext, lastExpectedCallName string) {
 	err := validateVPC(s, ctx, anyVPCID)
 	c.Assert(err, jc.ErrorIs, errorVPCNotRecommended)
 

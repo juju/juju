@@ -7,7 +7,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/core/network"
-	callcontext "github.com/juju/juju/environs/context"
+	callcontext "github.com/juju/juju/environs/envcontext"
 )
 
 // sessionEnviron implements common.ZonedEnviron. An instance of

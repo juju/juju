@@ -672,11 +672,11 @@ func (s *LegacySuite) SetUpTest(c *gc.C) {
 	s.blockChecker = mockBlockChecker{}
 	var err error
 	s.facade, err = spaces.NewAPIWithBacking(spaces.APIConfig{
-		Backing:                         &stubBacking{apiservertesting.BackingInstance},
-		Check:                           &s.blockChecker,
-		CredentialInvalidatorFuncGetter: apiservertesting.NoopInvalidateModelCredentialFuncGetter,
-		Resources:                       s.resources,
-		Authorizer:                      s.auth,
+		Backing:                     &stubBacking{apiservertesting.BackingInstance},
+		Check:                       &s.blockChecker,
+		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
+		Resources:                   s.resources,
+		Authorizer:                  s.auth,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
@@ -692,11 +692,11 @@ func (s *LegacySuite) TearDownTest(c *gc.C) {
 func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
 	facade, err := spaces.NewAPIWithBacking(spaces.APIConfig{
-		Backing:                         &stubBacking{apiservertesting.BackingInstance},
-		Check:                           &s.blockChecker,
-		CredentialInvalidatorFuncGetter: apiservertesting.NoopInvalidateModelCredentialFuncGetter,
-		Resources:                       s.resources,
-		Authorizer:                      s.auth,
+		Backing:                     &stubBacking{apiservertesting.BackingInstance},
+		Check:                       &s.blockChecker,
+		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
+		Resources:                   s.resources,
+		Authorizer:                  s.auth,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
@@ -707,11 +707,11 @@ func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 	agentAuthorizer := s.auth
 	agentAuthorizer.Tag = names.NewMachineTag("42")
 	facade, err = spaces.NewAPIWithBacking(spaces.APIConfig{
-		Backing:                         &stubBacking{apiservertesting.BackingInstance},
-		Check:                           &s.blockChecker,
-		CredentialInvalidatorFuncGetter: apiservertesting.NoopInvalidateModelCredentialFuncGetter,
-		Resources:                       s.resources,
-		Authorizer:                      agentAuthorizer,
+		Backing:                     &stubBacking{apiservertesting.BackingInstance},
+		Check:                       &s.blockChecker,
+		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
+		Resources:                   s.resources,
+		Authorizer:                  agentAuthorizer,
 	})
 	c.Assert(err, jc.DeepEquals, apiservererrors.ErrPerm)
 	c.Assert(facade, gc.IsNil)

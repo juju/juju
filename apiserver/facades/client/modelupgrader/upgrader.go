@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/rpc/params"
@@ -31,14 +31,14 @@ import (
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
 type ModelUpgraderAPI struct {
-	controllerTag                   names.ControllerTag
-	statePool                       StatePool
-	check                           common.BlockCheckerInterface
-	authorizer                      facade.Authorizer
-	toolsFinder                     common.ToolsFinder
-	apiUser                         names.UserTag
-	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter
-	newEnviron                      common.NewEnvironFunc
+	controllerTag               names.ControllerTag
+	statePool                   StatePool
+	check                       common.BlockCheckerInterface
+	authorizer                  facade.Authorizer
+	toolsFinder                 common.ToolsFinder
+	apiUser                     names.UserTag
+	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
+	newEnviron                  common.NewEnvironFunc
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
@@ -54,7 +54,7 @@ func NewModelUpgraderAPI(
 	newEnviron common.NewEnvironFunc,
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
-	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter,
+	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	logger loggo.Logger,
@@ -67,17 +67,17 @@ func NewModelUpgraderAPI(
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
 	return &ModelUpgraderAPI{
-		controllerTag:                   controllerTag,
-		statePool:                       stPool,
-		check:                           blockChecker,
-		authorizer:                      authorizer,
-		toolsFinder:                     toolsFinder,
-		apiUser:                         apiUser,
-		credentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
-		newEnviron:                      newEnviron,
-		registryAPIFunc:                 registryAPIFunc,
-		environscloudspecGetter:         environscloudspecGetter,
-		logger:                          logger,
+		controllerTag:               controllerTag,
+		statePool:                   stPool,
+		check:                       blockChecker,
+		authorizer:                  authorizer,
+		toolsFinder:                 toolsFinder,
+		apiUser:                     apiUser,
+		credentialInvalidatorGetter: credentialInvalidatorGetter,
+		newEnviron:                  newEnviron,
+		registryAPIFunc:             registryAPIFunc,
+		environscloudspecGetter:     environscloudspecGetter,
+		logger:                      logger,
 	}, nil
 }
 
@@ -218,11 +218,11 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	invalidatorFunc, err := m.credentialInvalidatorFuncGetter()
+	invalidatorFunc, err := m.credentialInvalidatorGetter()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	callCtx := context.WithCredentialInvalidator(ctx, invalidatorFunc)
+	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
 	if err := preCheckEnvironForUpgradeModel(
 		callCtx, envOrBroker, model.IsControllerModel(), currentVersion, targetVersion, m.logger,
 	); err != nil {
@@ -248,7 +248,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 }
 
 func preCheckEnvironForUpgradeModel(
-	ctx context.ProviderCallContext, env environs.BootstrapEnviron,
+	ctx envcontext.ProviderCallContext, env environs.BootstrapEnviron,
 	controllerModel bool, currentVersion, targetVersion version.Number,
 	logger loggo.Logger,
 ) error {

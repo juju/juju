@@ -5,7 +5,6 @@ package lxd_test
 
 import (
 	"context"
-	stdcontext "context"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/cmd/v3/cmdtesting"
@@ -22,7 +21,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	environscmd "github.com/juju/juju/environs/cmd"
-	envcontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/lxd"
 	coretesting "github.com/juju/juju/testing"
@@ -41,7 +40,7 @@ var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = envcontext.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
 		s.invalidCredential = true
 		return nil
 	})
@@ -406,7 +405,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfile(c *gc.C) {
 	s.expectHasProfileFalse("juju-controller")
 	s.expectCreateProfile("juju-controller", nil)
 
-	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.Background(), lxdCloudSpec())
+	err := s.cloudSpecEnv.SetCloudSpec(context.Background(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -415,7 +414,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecCreateProfileErrorSucceeds(c 
 	s.expectForProfileCreateRace("juju-controller")
 	s.expectCreateProfile("juju-controller", errors.New("The profile already exists"))
 
-	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.Background(), lxdCloudSpec())
+	err := s.cloudSpecEnv.SetCloudSpec(context.Background(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -424,7 +423,7 @@ func (s *environCloudProfileSuite) TestSetCloudSpecUsesConfiguredProject(c *gc.C
 	s.expectHasProfileFalse("juju-controller")
 	s.expectCreateProfile("juju-controller", nil)
 
-	err := s.cloudSpecEnv.SetCloudSpec(stdcontext.Background(), lxdCloudSpec())
+	err := s.cloudSpecEnv.SetCloudSpec(context.Background(), lxdCloudSpec())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

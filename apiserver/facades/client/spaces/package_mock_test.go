@@ -17,7 +17,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
 	config "github.com/juju/juju/environs/config"
-	context0 "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	space "github.com/juju/juju/environs/space"
 	state "github.com/juju/juju/state"
 	txn "github.com/juju/mgo/v3/txn"
@@ -1326,7 +1326,7 @@ func (m *MockEnvironSpaces) EXPECT() *MockEnvironSpacesMockRecorder {
 }
 
 // ReloadSpaces mocks base method.
-func (m *MockEnvironSpaces) ReloadSpaces(arg0 context0.ProviderCallContext, arg1 ReloadSpacesState, arg2 environs.BootstrapEnviron) error {
+func (m *MockEnvironSpaces) ReloadSpaces(arg0 envcontext.ProviderCallContext, arg1 ReloadSpacesState, arg2 environs.BootstrapEnviron) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReloadSpaces", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

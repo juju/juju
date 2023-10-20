@@ -4,7 +4,7 @@
 package storageprovisioner_test
 
 import (
-	stdcontext "context"
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -18,7 +18,7 @@ import (
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -71,8 +71,8 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 		Status:      &mockStatusSetter{},
 		Clock:       &mockClock{},
 		Logger:      loggo.GetLogger("test"),
-		CloudCallContextFunc: func(ctx stdcontext.Context) context.ProviderCallContext {
-			return context.WithoutCredentialInvalidator(ctx)
+		CloudCallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
+			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2330,8 +2330,8 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		Status:      args.statusSetter,
 		Clock:       args.clock,
 		Logger:      loggo.GetLogger("test"),
-		CloudCallContextFunc: func(ctx stdcontext.Context) context.ProviderCallContext {
-			return context.WithoutCredentialInvalidator(ctx)
+		CloudCallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
+			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

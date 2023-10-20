@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
-	environscontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	_ "github.com/juju/juju/provider/manual"
 	"github.com/juju/juju/rpc/params"
@@ -55,7 +55,7 @@ type Suite struct {
 	credentialValidator       *MockCredentialValidator
 
 	facadeContext facadetest.Context
-	callContext   environscontext.ProviderCallContext
+	callContext   envcontext.ProviderCallContext
 	leaders       map[string]string
 }
 
@@ -521,7 +521,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	s.callContext = environscontext.WithoutCredentialInvalidator(context.Background())
+	s.callContext = envcontext.WithoutCredentialInvalidator(context.Background())
 	s.facadeContext = facadetest.Context{
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -545,7 +545,7 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 		func(ctx context.Context, modelUUID model.UUID) (service.CredentialValidationContext, error) {
 			return service.CredentialValidationContext{}, nil
 		},
-		func() (environscontext.InvalidateModelCredentialFunc, error) {
+		func() (envcontext.ModelCredentialInvalidatorFunc, error) {
 			return func(reason string) error {
 				return nil
 			}, nil
@@ -601,12 +601,12 @@ type mockEnv struct {
 	instances []*mockInstance
 }
 
-func (e *mockEnv) AdoptResources(ctx environscontext.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
+func (e *mockEnv) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
 	e.MethodCall(e, "AdoptResources", ctx, controllerUUID, sourceVersion)
 	return e.NextErr()
 }
 
-func (e *mockEnv) AllInstances(ctx environscontext.ProviderCallContext) ([]instances.Instance, error) {
+func (e *mockEnv) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	e.MethodCall(e, "AllInstances", ctx)
 	results := make([]instances.Instance, len(e.instances))
 	for i, anInstance := range e.instances {
@@ -620,7 +620,7 @@ type mockBroker struct {
 	*testing.Stub
 }
 
-func (e *mockBroker) AdoptResources(ctx environscontext.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
+func (e *mockBroker) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, sourceVersion version.Number) error {
 	e.MethodCall(e, "AdoptResources", ctx, controllerUUID, sourceVersion)
 	return e.NextErr()
 }

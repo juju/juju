@@ -70,7 +70,7 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 			Authorizer: s.authorizer,
 			ModelTag:   names.ModelTag{},
 		},
-		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		common.NewResources(),
 		nil,
 		nil,
@@ -123,7 +123,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		machinemanager.ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		common.NewResources(),
 		nil,
 		nil,
@@ -768,7 +768,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		machinemanager.ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		common.NewResources(),
 		nil,
 		nil,
@@ -1025,7 +1025,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		machinemanager.ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		common.NewResources(),
 		nil,
 		nil,
@@ -1290,7 +1290,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Control
 		machinemanager.ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		common.NewResources(),
 		nil,
 		nil,
@@ -1399,7 +1399,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setAPIUser(c *gc.C, user names
 		machinemanager.ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		common.NewResources(),
 		nil,
 		nil,
@@ -1509,7 +1509,7 @@ func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		machinemanager.ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		common.NewResources(),
 		nil,
 		nil,

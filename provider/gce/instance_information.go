@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -41,7 +41,7 @@ func ensureDefaultConstraints(c constraints.Value) constraints.Value {
 }
 
 // InstanceTypes implements InstanceTypesFetcher
-func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
+func (env *environ) InstanceTypes(ctx envcontext.ProviderCallContext, c constraints.Value) (instances.InstanceTypesWithCostMetadata, error) {
 	allInstanceTypes, err := env.getAllInstanceTypes(ctx, clock.WallClock)
 	if err != nil {
 		return instances.InstanceTypesWithCostMetadata{}, errors.Trace(err)
@@ -55,7 +55,7 @@ func (env *environ) InstanceTypes(ctx context.ProviderCallContext, c constraints
 
 // getAllInstanceTypes fetches and memoizes the list of available GCE instances
 // for the AZs associated with the current region.
-func (env *environ) getAllInstanceTypes(ctx context.ProviderCallContext, clock clock.Clock) ([]instances.InstanceType, error) {
+func (env *environ) getAllInstanceTypes(ctx envcontext.ProviderCallContext, clock clock.Clock) ([]instances.InstanceType, error) {
 	env.instTypeListLock.Lock()
 	defer env.instTypeListLock.Unlock()
 

@@ -4,7 +4,7 @@
 package ec2
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -12,17 +12,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
-type fetchInstanceClientFunc func(stdcontext.Context, *ec2.DescribeInstanceTypesInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypesOutput, error)
+type fetchInstanceClientFunc func(context.Context, *ec2.DescribeInstanceTypesInput, ...func(*ec2.Options)) (*ec2.DescribeInstanceTypesOutput, error)
 
 type instanceSuite struct{}
 
 var _ = gc.Suite(&instanceSuite{})
 
 func (f fetchInstanceClientFunc) DescribeInstanceTypes(
-	c stdcontext.Context,
+	c context.Context,
 	i *ec2.DescribeInstanceTypesInput,
 	o ...func(*ec2.Options),
 ) (*ec2.DescribeInstanceTypesOutput, error) {
@@ -32,7 +32,7 @@ func (f fetchInstanceClientFunc) DescribeInstanceTypes(
 func (s *instanceSuite) TestFetchInstanceTypeInfoPagnation(c *gc.C) {
 	callCount := 0
 	client := func(
-		_ stdcontext.Context,
+		_ context.Context,
 		i *ec2.DescribeInstanceTypesInput,
 		o ...func(*ec2.Options),
 	) (*ec2.DescribeInstanceTypesOutput, error) {
@@ -55,7 +55,7 @@ func (s *instanceSuite) TestFetchInstanceTypeInfoPagnation(c *gc.C) {
 	}
 
 	res, err := FetchInstanceTypeInfo(
-		context.WithoutCredentialInvalidator(stdcontext.Background()),
+		envcontext.WithoutCredentialInvalidator(context.Background()),
 		fetchInstanceClientFunc(client),
 	)
 	c.Assert(err, jc.ErrorIsNil)

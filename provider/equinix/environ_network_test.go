@@ -4,7 +4,7 @@
 package equinix
 
 import (
-	stdcontext "context"
+	"context"
 	"net/http"
 
 	"github.com/juju/testing"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/equinix/mocks"
 )
@@ -311,7 +311,7 @@ func (s *networkSuite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(env, gc.NotNil)
 	netEnviron, ok := env.(environs.NetworkingEnviron)
 	c.Assert(ok, jc.IsTrue, gc.Commentf("expected environ to implement environs.Networking"))
-	ii, err := netEnviron.NetworkInterfaces(context.WithoutCredentialInvalidator(stdcontext.Background()), []instance.Id{"100"})
+	ii, err := netEnviron.NetworkInterfaces(envcontext.WithoutCredentialInvalidator(context.Background()), []instance.Id{"100"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(ii[0]), jc.DeepEquals, 3)
 }

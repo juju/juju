@@ -4,7 +4,7 @@
 package manual
 
 import (
-	stdcontext "context"
+	"context"
 	"os"
 
 	"github.com/juju/errors"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -25,18 +25,18 @@ type baseEnvironSuite struct {
 	coretesting.FakeJujuXDGDataHomeSuite
 	env *manualEnviron
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 func (s *baseEnvironSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	env, err := ManualProvider{}.Open(stdcontext.Background(), environs.OpenParams{
+	env, err := ManualProvider{}.Open(context.Background(), environs.OpenParams{
 		Cloud:  CloudSpec(),
 		Config: MinimalConfig(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.env = env.(*manualEnviron)
-	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 type environSuite struct {

@@ -5,7 +5,6 @@ package agent
 
 import (
 	"context"
-	stdcontext "context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -50,7 +49,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -788,7 +787,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.Open(stdcontext.TODO(), provider, environs.OpenParams{
+	env, err := environs.Open(context.Background(), provider, environs.OpenParams{
 		Cloud:  testing.FakeCloudSpec(),
 		Config: cfg,
 	})
@@ -796,7 +795,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	err = env.PrepareForBootstrap(nullContext(), "controller-1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	callCtx := envcontext.WithoutCredentialInvalidator(stdcontext.Background())
+	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 	s.AddCleanup(func(c *gc.C) {
 		err := env.DestroyController(callCtx, controllerCfg.ControllerUUID())
 		c.Assert(err, jc.ErrorIsNil)
@@ -845,10 +844,10 @@ func nullContext() environs.BootstrapContext {
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = io.Discard
 	ctx.Stderr = io.Discard
-	return environscmd.BootstrapContext(stdcontext.Background(), ctx)
+	return environscmd.BootstrapContext(context.Background(), ctx)
 }
 
-func bootstrapDqliteWithDummyCloudType(ctx stdcontext.Context, mgr database.BootstrapNodeManager, logger database.Logger, preferLoopback bool, ops ...database.BootstrapOpt) error {
+func bootstrapDqliteWithDummyCloudType(ctx context.Context, mgr database.BootstrapNodeManager, logger database.Logger, preferLoopback bool, ops ...database.BootstrapOpt) error {
 	// The dummy cloud type needs to be inserted before the other operations.
 	ops = append([]database.BootstrapOpt{
 		jujutesting.InsertDummyCloudType,

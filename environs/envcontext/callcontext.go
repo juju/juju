@@ -1,7 +1,7 @@
 // Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package context
+package envcontext
 
 import (
 	stdcontext "context"
@@ -12,14 +12,14 @@ import (
 )
 
 type (
-	// InvalidateModelCredentialFunc records a credential as being invalid.
-	InvalidateModelCredentialFunc func(reason string) error
+	// ModelCredentialInvalidatorFunc records a credential as being invalid.
+	ModelCredentialInvalidatorFunc func(reason string) error
 
-	// InvalidateModelCredentialFuncGetter returns a function which records a credential as being invalid.
-	InvalidateModelCredentialFuncGetter func() (InvalidateModelCredentialFunc, error)
+	// ModelCredentialInvalidatorGetter returns a function which records a credential as being invalid.
+	ModelCredentialInvalidatorGetter func() (ModelCredentialInvalidatorFunc, error)
 
-	// CredentialIDFuncGetter returns a function which returns a credential ID.
-	CredentialIDFuncGetter func() (credential.ID, error)
+	// CredentialIDGetter is a function which returns a credential ID.
+	CredentialIDGetter func() (credential.ID, error)
 
 	// InvalidateCredentialFunc records a credential with the given ID as being invalid.
 	InvalidateCredentialFunc func(ctx stdcontext.Context, id credential.ID, reason string) error
@@ -35,9 +35,9 @@ type ModelCredentialInvalidator interface {
 // NewCredentialInvalidator creates a credential validator with
 // callbacks which update dqlite and mongo.
 func NewCredentialInvalidator(
-	idGetter CredentialIDFuncGetter,
+	idGetter CredentialIDGetter,
 	invalidateFunc InvalidateCredentialFunc,
-	legacyInvalidateFunc InvalidateModelCredentialFunc,
+	legacyInvalidateFunc ModelCredentialInvalidatorFunc,
 ) ModelCredentialInvalidator {
 	return &legacyCredentialAdaptor{
 		idGetter:         idGetter,
@@ -80,7 +80,7 @@ func (a *legacyCredentialAdaptor) InvalidateModelCredential(reason string) error
 // and is used in provider api calls.
 type ProviderCallContext struct {
 	stdcontext.Context
-	invalidationFunc InvalidateModelCredentialFunc
+	invalidator ModelCredentialInvalidatorFunc
 }
 
 // WithoutCredentialInvalidator returns a ProviderCallContext
@@ -91,18 +91,18 @@ func WithoutCredentialInvalidator(ctx stdcontext.Context) ProviderCallContext {
 
 // WithCredentialInvalidator returns a ProviderCallContext
 // with the specified credential invalidation callback.
-func WithCredentialInvalidator(ctx stdcontext.Context, invalidationFunc InvalidateModelCredentialFunc) ProviderCallContext {
+func WithCredentialInvalidator(ctx stdcontext.Context, invalidationFunc ModelCredentialInvalidatorFunc) ProviderCallContext {
 	return ProviderCallContext{
-		Context:          ctx,
-		invalidationFunc: invalidationFunc,
+		Context:     ctx,
+		invalidator: invalidationFunc,
 	}
 }
 
 // CredentialInvalidatorFromContext returns a credential invalidation func
 // that may be associated with the context. If none, it returns a no-op function.
-func CredentialInvalidatorFromContext(ctx ProviderCallContext) InvalidateModelCredentialFunc {
-	if ctx.invalidationFunc != nil {
-		return ctx.invalidationFunc
+func CredentialInvalidatorFromContext(ctx ProviderCallContext) ModelCredentialInvalidatorFunc {
+	if ctx.invalidator != nil {
+		return ctx.invalidator
 	}
 	// No op.
 	return func(string) error { return nil }

@@ -4,7 +4,7 @@
 package storage_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -19,7 +19,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider/dummy"
 	"github.com/juju/juju/rpc/params"
@@ -40,7 +40,7 @@ func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
 	}
 
 	found, err := s.api.ListStorageDetails(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageFilters{[]params.StorageFilter{{}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -52,7 +52,7 @@ func (s *storageSuite) TestStorageListEmpty(c *gc.C) {
 
 func (s *storageSuite) TestStorageListFilesystem(c *gc.C) {
 	found, err := s.api.ListStorageDetails(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageFilters{[]params.StorageFilter{{}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -77,7 +77,7 @@ func (s *storageSuite) TestStorageListFilesystem(c *gc.C) {
 func (s *storageSuite) TestStorageListVolume(c *gc.C) {
 	s.storageInstance.kind = state.StorageKindBlock
 	found, err := s.api.ListStorageDetails(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageFilters{[]params.StorageFilter{{}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -108,7 +108,7 @@ func (s *storageSuite) TestStorageListError(c *gc.C) {
 	}
 
 	found, err := s.api.ListStorageDetails(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageFilters{[]params.StorageFilter{{}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -128,7 +128,7 @@ func (s *storageSuite) TestStorageListInstanceError(c *gc.C) {
 	}
 
 	found, err := s.api.ListStorageDetails(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageFilters{[]params.StorageFilter{{}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -154,7 +154,7 @@ func (s *storageSuite) TestStorageListAttachmentError(c *gc.C) {
 	}
 
 	found, err := s.api.ListStorageDetails(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageFilters{[]params.StorageFilter{{}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -174,7 +174,7 @@ func (s *storageSuite) TestStorageListMachineError(c *gc.C) {
 	msg := "list test error"
 	s.state.unitErr = msg
 	found, err := s.api.ListStorageDetails(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageFilters{[]params.StorageFilter{{}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,7 +200,7 @@ func (s *storageSuite) TestStorageListFilesystemError(c *gc.C) {
 	}
 
 	found, err := s.api.ListStorageDetails(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageFilters{[]params.StorageFilter{{}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -221,7 +221,7 @@ func (s *storageSuite) TestStorageListFilesystemAttachmentError(c *gc.C) {
 	s.state.unitErr = msg
 
 	found, err := s.api.ListStorageDetails(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageFilters{[]params.StorageFilter{{}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -270,14 +270,14 @@ func (s *storageSuite) assertInstanceInfoError(c *gc.C, obtained params.StorageD
 }
 
 func (s *storageSuite) TestShowStorageEmpty(c *gc.C) {
-	found, err := s.api.StorageDetails(stdcontext.Background(), params.Entities{})
+	found, err := s.api.StorageDetails(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 0)
 }
 
 func (s *storageSuite) TestShowStorageInvalidTag(c *gc.C) {
 	// Only storage tags are permitted
-	found, err := s.api.StorageDetails(stdcontext.Background(), params.Entities{
+	found, err := s.api.StorageDetails(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -289,7 +289,7 @@ func (s *storageSuite) TestShowStorage(c *gc.C) {
 	entity := params.Entity{Tag: s.storageTag.String()}
 
 	found, err := s.api.StorageDetails(
-		stdcontext.Background(),
+		context.Background(),
 		params.Entities{Entities: []params.Entity{entity}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -323,14 +323,14 @@ func (s *storageSuite) TestShowStorageInvalidId(c *gc.C) {
 	storageTag := "foo"
 	entity := params.Entity{Tag: storageTag}
 
-	found, err := s.api.StorageDetails(stdcontext.Background(), params.Entities{Entities: []params.Entity{entity}})
+	found, err := s.api.StorageDetails(context.Background(), params.Entities{Entities: []params.Entity{entity}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
 	s.assertInstanceInfoError(c, found.Results[0], params.StorageDetailsResult{}, `"foo" is not a valid tag`)
 }
 
 func (s *storageSuite) TestRemove(c *gc.C) {
-	results, err := s.api.Remove(stdcontext.Background(), params.RemoveStorage{[]params.RemoveStorageInstance{
+	results, err := s.api.Remove(context.Background(), params.RemoveStorage{[]params.RemoveStorageInstance{
 		{Tag: "storage-foo-0", DestroyStorage: true},
 		{Tag: "storage-foo-1", DestroyAttachments: true, DestroyStorage: true},
 		{Tag: "storage-foo-1", DestroyAttachments: true, DestroyStorage: false},
@@ -361,7 +361,7 @@ func (s *storageSuite) TestRemove(c *gc.C) {
 
 func (s *storageSuite) TestDetach(c *gc.C) {
 	results, err := s.api.DetachStorage(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageDetachmentParams{
 			StorageIds: params.StorageAttachmentIds{[]params.StorageAttachmentId{
 				{StorageTag: "storage-data-0", UnitTag: "unit-mysql-0"},
@@ -397,7 +397,7 @@ func (s *storageSuite) TestDetach(c *gc.C) {
 
 func (s *storageSuite) TestDetachSpecifiedNotFound(c *gc.C) {
 	results, err := s.api.DetachStorage(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageDetachmentParams{
 			StorageIds: params.StorageAttachmentIds{[]params.StorageAttachmentId{
 				{StorageTag: "storage-data-0", UnitTag: "unit-foo-42"},
@@ -439,7 +439,7 @@ func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *gc.C) {
 		)
 	}
 	results, err := s.api.DetachStorage(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageDetachmentParams{
 			StorageIds: params.StorageAttachmentIds{[]params.StorageAttachmentId{
 				{StorageTag: "storage-data-0"},
@@ -461,7 +461,7 @@ func (s *storageSuite) TestDetachAttachmentNotFoundConcurrent(c *gc.C) {
 
 func (s *storageSuite) TestDetachNoAttachmentsStorageNotFound(c *gc.C) {
 	results, err := s.api.DetachStorage(
-		stdcontext.Background(),
+		context.Background(),
 		params.StorageDetachmentParams{
 			StorageIds: params.StorageAttachmentIds{[]params.StorageAttachmentId{
 				{StorageTag: "storage-foo-42"},
@@ -482,7 +482,7 @@ func (s *storageSuite) TestDetachNoAttachmentsStorageNotFound(c *gc.C) {
 }
 
 func (s *storageSuite) TestAttach(c *gc.C) {
-	results, err := s.api.Attach(stdcontext.Background(), params.StorageAttachmentIds{[]params.StorageAttachmentId{
+	results, err := s.api.Attach(context.Background(), params.StorageAttachmentIds{[]params.StorageAttachmentId{
 		{StorageTag: "storage-data-0", UnitTag: "unit-mysql-0"},
 		{StorageTag: "storage-data-0", UnitTag: "machine-0"},
 		{StorageTag: "volume-0", UnitTag: "unit-mysql-0"},
@@ -512,7 +512,7 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	}
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
-	results, err := s.api.Import(stdcontext.Background(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
+	results, err := s.api.Import(context.Background(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -561,7 +561,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 	}
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
-	results, err := s.api.Import(stdcontext.Background(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
+	results, err := s.api.Import(context.Background(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -611,7 +611,7 @@ func (s *storageSuite) TestImportFilesystemError(c *gc.C) {
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
 	filesystemSource.SetErrors(errors.New("nope"))
-	results, err := s.api.Import(stdcontext.Background(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
+	results, err := s.api.Import(context.Background(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -636,7 +636,7 @@ func (s *storageSuite) TestImportFilesystemNotSupported(c *gc.C) {
 	}
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
-	results, err := s.api.Import(stdcontext.Background(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
+	results, err := s.api.Import(context.Background(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -667,7 +667,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *gc.C) {
 	}
 	s.registry.Providers["radiance"] = dummyStorageProvider
 
-	results, err := s.api.Import(stdcontext.Background(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
+	results, err := s.api.Import(context.Background(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
 		Kind:        params.StorageKindFilesystem,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -685,7 +685,7 @@ func (s *storageSuite) TestImportFilesystemVolumeBackedNotSupported(c *gc.C) {
 }
 
 func (s *storageSuite) TestImportValidationErrors(c *gc.C) {
-	results, err := s.api.Import(stdcontext.Background(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
+	results, err := s.api.Import(context.Background(), params.BulkImportStorageParams{[]params.ImportStorageParams{{
 		Kind:        params.StorageKindBlock,
 		Pool:        "radiance",
 		ProviderId:  "foo",
@@ -708,7 +708,7 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("superuserfoo"),
 	}
-	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, apiservertesting.NoopInvalidateModelCredentialFuncGetter)
+	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
 
 	// Sanity check before running test:
 	// Ensure that the user has NO read access to the model but SuperuserAccess
@@ -719,7 +719,7 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ListStorageDetails should not fail
-	_, err = s.api.ListStorageDetails(stdcontext.Background(), params.StorageFilters{})
+	_, err = s.api.ListStorageDetails(context.Background(), params.StorageFilters{})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -728,7 +728,7 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("userfoo"),
 	}
-	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, apiservertesting.NoopInvalidateModelCredentialFuncGetter)
+	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
 
 	// Sanity check before running test:
 	// Ensure that the user has NO read access to the model and NO SuperuserAccess
@@ -739,7 +739,7 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
 
 	// ListStorageDetails should fail with perm error
-	_, err = s.api.ListStorageDetails(stdcontext.Background(), params.StorageFilters{})
+	_, err = s.api.ListStorageDetails(context.Background(), params.StorageFilters{})
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
@@ -748,7 +748,7 @@ type filesystemImporter struct {
 }
 
 // ImportFilesystem is part of the storage.FilesystemImporter interface.
-func (f filesystemImporter) ImportFilesystem(_ context.ProviderCallContext, providerId string, tags map[string]string) (storage.FilesystemInfo, error) {
+func (f filesystemImporter) ImportFilesystem(_ envcontext.ProviderCallContext, providerId string, tags map[string]string) (storage.FilesystemInfo, error) {
 	f.MethodCall(f, "ImportFilesystem", providerId, tags)
 	return storage.FilesystemInfo{
 		FilesystemId: providerId,
@@ -761,7 +761,7 @@ type volumeImporter struct {
 }
 
 // ImportVolume is part of the storage.VolumeImporter interface.
-func (v volumeImporter) ImportVolume(_ context.ProviderCallContext, providerId string, tags map[string]string) (storage.VolumeInfo, error) {
+func (v volumeImporter) ImportVolume(_ envcontext.ProviderCallContext, providerId string, tags map[string]string) (storage.VolumeInfo, error) {
 	v.MethodCall(v, "ImportVolume", providerId, tags)
 	return storage.VolumeInfo{
 		VolumeId:   providerId,

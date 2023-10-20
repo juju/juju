@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/oci/common"
 )
 
@@ -171,7 +171,7 @@ func (e EnvironProvider) CloudSchema() *jsonschema.Schema {
 }
 
 // Ping implements environs.EnvironProvider.
-func (e *EnvironProvider) Ping(ctx context.ProviderCallContext, endpoint string) error {
+func (e *EnvironProvider) Ping(ctx envcontext.ProviderCallContext, endpoint string) error {
 	return errors.NotImplementedf("Ping")
 }
 

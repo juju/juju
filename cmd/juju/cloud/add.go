@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
@@ -173,7 +173,7 @@ func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		// Ping is provider.Ping except in tests where we don't actually want to
 		// require a valid cloud.
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
-			callCtx := context.WithoutCredentialInvalidator(stdcontext.Background())
+			callCtx := envcontext.WithoutCredentialInvalidator(stdcontext.Background())
 			return p.Ping(callCtx, endpoint)
 		},
 	}

@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/network/containerizer"
 	"github.com/juju/juju/internal/storage"
@@ -61,19 +61,19 @@ type ProvisionerAPI struct {
 	*common.ToolsGetter
 	*networkingcommon.NetworkConfigAPI
 
-	st                              *state.State
-	m                               *state.Model
-	controllerConfigService         ControllerConfigService
-	resources                       facade.Resources
-	authorizer                      facade.Authorizer
-	storageProviderRegistry         storage.ProviderRegistry
-	storagePoolManager              poolmanager.PoolManager
-	configGetter                    environs.EnvironConfigGetter
-	getAuthFunc                     common.GetAuthFunc
-	getCanModify                    common.GetAuthFunc
-	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter
-	toolsFinder                     common.ToolsFinder
-	logger                          loggo.Logger
+	st                          *state.State
+	m                           *state.Model
+	controllerConfigService     ControllerConfigService
+	resources                   facade.Resources
+	authorizer                  facade.Authorizer
+	storageProviderRegistry     storage.ProviderRegistry
+	storagePoolManager          poolmanager.PoolManager
+	configGetter                environs.EnvironConfigGetter
+	getAuthFunc                 common.GetAuthFunc
+	getCanModify                common.GetAuthFunc
+	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
+	toolsFinder                 common.ToolsFinder
+	logger                      loggo.Logger
 
 	// Hold on to the controller UUID, as we'll reuse it for a lot of
 	// calls.
@@ -182,20 +182,20 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 			serviceFactory.ControllerConfig(),
 			serviceFactory.ExternalController(),
 		),
-		NetworkConfigAPI:                netConfigAPI,
-		st:                              st,
-		m:                               model,
-		controllerConfigService:         serviceFactory.ControllerConfig(),
-		resources:                       resources,
-		authorizer:                      authorizer,
-		configGetter:                    configGetter,
-		storageProviderRegistry:         storageProviderRegistry,
-		storagePoolManager:              poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
-		getAuthFunc:                     getAuthFunc,
-		getCanModify:                    getCanModify,
-		credentialInvalidatorFuncGetter: credentialcommon.CredentialInvalidatorFuncGetter(ctx),
-		controllerUUID:                  controllerCfg.ControllerUUID(),
-		logger:                          ctx.Logger().Child("provisioner"),
+		NetworkConfigAPI:            netConfigAPI,
+		st:                          st,
+		m:                           model,
+		controllerConfigService:     serviceFactory.ControllerConfig(),
+		resources:                   resources,
+		authorizer:                  authorizer,
+		configGetter:                configGetter,
+		storageProviderRegistry:     storageProviderRegistry,
+		storagePoolManager:          poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
+		getAuthFunc:                 getAuthFunc,
+		getCanModify:                getCanModify,
+		credentialInvalidatorGetter: credentialcommon.CredentialInvalidatorGetter(ctx),
+		controllerUUID:              controllerCfg.ControllerUUID(),
+		logger:                      ctx.Logger().Child("provisioner"),
 	}
 	if isCaasModel {
 		return api, nil
@@ -844,7 +844,7 @@ type perContainerHandler interface {
 	// Any errors that are returned from ProcessOneContainer will be turned
 	// into ServerError and handed to SetError
 	ProcessOneContainer(
-		env environs.Environ, callContext context.ProviderCallContext,
+		env environs.Environ, callContext envcontext.ProviderCallContext,
 		policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
 	) error
 
@@ -877,11 +877,11 @@ func (api *ProvisionerAPI) processEachContainer(ctx stdcontext.Context, args par
 		return errors.Trace(err)
 	}
 
-	invalidatorFunc, err := api.credentialInvalidatorFuncGetter()
+	invalidatorFunc, err := api.credentialInvalidatorGetter()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	callCtx := context.WithCredentialInvalidator(ctx, invalidatorFunc)
+	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
 
 	for i, entity := range args.Entities {
 		machineTag, err := names.ParseMachineTag(entity.Tag)
@@ -932,7 +932,7 @@ func (ctx *prepareOrGetContext) ConfigType() string {
 
 // ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (ctx *prepareOrGetContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
+	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
 ) error {
 	instanceId, err := guest.InstanceId()
 	if ctx.maintain {
@@ -1044,7 +1044,7 @@ type hostChangesContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *hostChangesContext) ProcessOneContainer(
-	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
+	env environs.Environ, callContext envcontext.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
 ) error {
 	bridges, reconfigureDelay, err := policy.FindMissingBridgesForContainer(host, guest)
 	if err != nil {
@@ -1096,7 +1096,7 @@ type containerProfileContext struct {
 
 // Implements perContainerHandler.ProcessOneContainer
 func (ctx *containerProfileContext) ProcessOneContainer(
-	_ environs.Environ, _ context.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, logger loggo.Logger,
+	_ environs.Environ, _ envcontext.ProviderCallContext, _ BridgePolicy, idx int, _, guest Machine, logger loggo.Logger,
 ) error {
 	units, err := guest.Units()
 	if err != nil {

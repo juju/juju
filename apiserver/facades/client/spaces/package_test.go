@@ -97,7 +97,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 		s.ReloadSpacesState,
 		s.ReloadSpacesEnviron,
 		s.EnvironSpaces,
-		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		DefaultReloadSpacesAuthorizer(
 			s.authorizer,
 			s.blockChecker,
@@ -107,13 +107,13 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 
 	var err error
 	s.API, err = newAPIWithBacking(apiConfig{
-		ReloadSpacesAPI:                 s.ReloadSpacesAPI,
-		Backing:                         s.Backing,
-		Check:                           s.blockChecker,
-		CredentialInvalidatorFuncGetter: apiservertesting.NoopInvalidateModelCredentialFuncGetter,
-		Resources:                       s.resource,
-		Authorizer:                      s.authorizer,
-		Factory:                         s.OpFactory,
+		ReloadSpacesAPI:             s.ReloadSpacesAPI,
+		Backing:                     s.Backing,
+		Check:                       s.blockChecker,
+		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
+		Resources:                   s.resource,
+		Authorizer:                  s.authorizer,
+		Factory:                     s.OpFactory,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -124,8 +124,8 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 // can be removed when it is grandfathered out.
 func SupportsSpaces(backing Backing) error {
 	api := &API{
-		backing:                         backing,
-		credentialInvalidatorFuncGetter: apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		backing:                     backing,
+		credentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
 	}
 	return api.checkSupportsSpaces(stdcontext.Background())
 }

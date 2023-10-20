@@ -4,7 +4,7 @@
 package errorutils_test
 
 import (
-	stdcontext "context"
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/testing"
@@ -36,7 +36,7 @@ func (s *ErrorSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestNoValidation(c *gc.C) {
-	ctx := context.WithoutCredentialInvalidator(stdcontext.Background())
+	ctx := envcontext.WithoutCredentialInvalidator(context.Background())
 	err := errorutils.HandleCredentialError(s.azureError, ctx)
 	c.Assert(err, gc.DeepEquals, s.azureError)
 
@@ -56,7 +56,7 @@ func (s *ErrorSuite) TestHasDenialStatusCode(c *gc.C) {
 }
 
 func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
 		return errors.New("kaboom")
 	})
 	errorutils.MaybeInvalidateCredential(s.azureError, ctx)
@@ -65,7 +65,7 @@ func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 
 func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 	called := false
-	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
 		c.Assert(msg, gc.Matches, "azure cloud denied access: .*")
 		called = true
 		return nil
@@ -86,7 +86,7 @@ func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 
 func (*ErrorSuite) TestNilAzureError(c *gc.C) {
 	called := false
-	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
 		called = true
 		return nil
 	})

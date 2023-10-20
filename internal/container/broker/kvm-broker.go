@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/container"
 )
@@ -51,7 +51,7 @@ type kvmBroker struct {
 }
 
 // StartInstance is specified in the Broker interface.
-func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (broker *kvmBroker) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// TODO: refactor common code out of the container brokers.
 	containerMachineID := args.InstanceConfig.MachineId
 	kvmLogger.Infof("starting kvm container for containerMachineID: %s", containerMachineID)
@@ -136,7 +136,7 @@ func (broker *kvmBroker) StartInstance(ctx context.ProviderCallContext, args env
 }
 
 // StopInstances shuts down the given instances.
-func (broker *kvmBroker) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (broker *kvmBroker) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
 	for _, id := range ids {
 		kvmLogger.Infof("stopping kvm container for instance: %s", id)
 		if err := broker.manager.DestroyContainer(id); err != nil {
@@ -149,11 +149,11 @@ func (broker *kvmBroker) StopInstances(ctx context.ProviderCallContext, ids ...i
 }
 
 // AllInstances returns all containers.
-func (broker *kvmBroker) AllInstances(ctx context.ProviderCallContext) (result []instances.Instance, err error) {
+func (broker *kvmBroker) AllInstances(ctx envcontext.ProviderCallContext) (result []instances.Instance, err error) {
 	return broker.manager.ListContainers()
 }
 
 // AllRunningInstances only returns running containers.
-func (broker *kvmBroker) AllRunningInstances(ctx context.ProviderCallContext) (result []instances.Instance, err error) {
+func (broker *kvmBroker) AllRunningInstances(ctx envcontext.ProviderCallContext) (result []instances.Instance, err error) {
 	return broker.manager.ListContainers()
 }

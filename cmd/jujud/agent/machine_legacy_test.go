@@ -4,7 +4,7 @@
 package agent
 
 import (
-	stdcontext "context"
+	"context"
 	"database/sql"
 	"os"
 	"path/filepath"
@@ -45,7 +45,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -119,7 +119,7 @@ func (s *MachineLegacySuite) SetUpTest(c *gc.C) {
 	coretesting.DumpTestLogsAfter(time.Minute, c, s)
 
 	// Ensure the dummy provider is initialised - no need to actually bootstrap.
-	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.Background(), c)
 	err = s.Environ.PrepareForBootstrap(ctx, "controller")
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -220,7 +220,7 @@ func (s *MachineLegacySuite) TestHostedModelWorkers(c *gc.C) {
 	// The dummy provider blows up in the face of multi-model
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
-	s.PatchValue(&newEnvirons, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
+	s.PatchValue(&newEnvirons, func(context.Context, environs.OpenParams) (environs.Environ, error) {
 		return &minModelWorkersEnviron{}, nil
 	})
 
@@ -245,7 +245,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *g
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
 	loggo.GetLogger("juju.worker.dependency").SetLogLevel(loggo.TRACE)
-	s.PatchValue(&newEnvirons, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
+	s.PatchValue(&newEnvirons, func(context.Context, environs.OpenParams) (environs.Environ, error) {
 		return &minModelWorkersEnviron{}, nil
 	})
 
@@ -269,7 +269,7 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithInvalidCredential(c *g
 
 	// invalidate cloud credential for this model
 	serviceFactory := s.ControllerServiceFactory(c)
-	err := serviceFactory.Credential().InvalidateCredential(stdcontext.Background(), testing.DefaultCredentialId, "coz i can")
+	err := serviceFactory.Credential().InvalidateCredential(context.Background(), testing.DefaultCredentialId, "coz i can")
 	c.Assert(err, jc.ErrorIsNil)
 
 	tracker := agenttest.NewEngineTracker()
@@ -293,11 +293,11 @@ func (s *MachineLegacySuite) TestWorkersForHostedModelWithDeletedCredential(c *g
 	// scenarios so patch in a minimal environs.Environ that's good
 	// enough to allow the model workers to run.
 	loggo.GetLogger("juju.worker.dependency").SetLogLevel(loggo.TRACE)
-	s.PatchValue(&newEnvirons, func(stdcontext.Context, environs.OpenParams) (environs.Environ, error) {
+	s.PatchValue(&newEnvirons, func(context.Context, environs.OpenParams) (environs.Environ, error) {
 		return &minModelWorkersEnviron{}, nil
 	})
 
-	ctx := stdcontext.Background()
+	ctx := context.Background()
 	id := credential.ID{
 		Cloud: "dummy",
 		Owner: "admin",
@@ -703,7 +703,7 @@ func (s *MachineLegacySuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, instId := s.waitProvisioned(c, unit)
-	insts, err := s.Environ.Instances(context.WithoutCredentialInvalidator(stdcontext.Background()), []instance.Id{instId})
+	insts, err := s.Environ.Instances(envcontext.WithoutCredentialInvalidator(context.Background()), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 
 	dummy.SetInstanceStatus(insts[0], "running")
@@ -876,7 +876,7 @@ func (s *MachineLegacySuite) waitStopped(c *gc.C, job state.MachineJob, a *Machi
 
 func (s *MachineLegacySuite) claimSingularLease(c *gc.C) {
 	modelUUID := s.ControllerModelUUID()
-	err := s.TxnRunner().StdTxn(stdcontext.Background(), func(ctx stdcontext.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		q := `
 INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
 VALUES (?, 0, ?, ?, 'machine-999-lxd-99', datetime('now'), datetime('now', '+100 seconds'))`[1:]

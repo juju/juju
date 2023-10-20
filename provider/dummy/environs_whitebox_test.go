@@ -4,14 +4,14 @@
 package dummy
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 var (
@@ -23,7 +23,7 @@ var _ = gc.Suite(&environWhiteboxSuite{})
 type environWhiteboxSuite struct{}
 
 func (s *environWhiteboxSuite) TestSupportsContainerAddresses(c *gc.C) {
-	callCtx := context.WithoutCredentialInvalidator(stdcontext.Background())
+	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 	// For now this is a static method so we can use a nil environ
 	var env *environ
 	supported, err := env.SupportsContainerAddresses(callCtx)

@@ -4,7 +4,7 @@
 package agent
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -38,7 +38,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/mongo/mongotest"
@@ -185,7 +185,7 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add a machine and ensure it is provisioned.
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, context.WithoutCredentialInvalidator(stdcontext.Background()), s.ControllerModel(c).ControllerUUID(), machineId)
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, envcontext.WithoutCredentialInvalidator(context.Background()), s.ControllerModel(c).ControllerUUID(), machineId)
 	c.Assert(m.SetProvisioned(inst.Id(), "", agent.BootstrapNonce, md), jc.ErrorIsNil)
 
 	// Add an address for the tests in case the initiateMongoServer
@@ -265,7 +265,7 @@ func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) (*gomock.Contro
 	agentConf := agentconf.NewAgentConf(s.DataDir)
 	agentConf.ReadConfig(names.NewMachineTag(m.Id()).String())
 	logger := s.newBufferedLogWriter()
-	newDBWorkerFunc := func(stdcontext.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
+	newDBWorkerFunc := func(context.Context, dbaccessor.DBApp, string, ...dbaccessor.TrackedDBWorkerOption) (dbaccessor.TrackedDB, error) {
 		return testing.NewTrackedDB(s.TxnRunnerFactory()), nil
 	}
 	machineAgentFactory := NewTestMachineAgentFactory(c, agentConf, logger, newDBWorkerFunc, c.MkDir(), s.cmdRunner)
@@ -290,7 +290,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	// runs it won't overwrite them.
 	instId, err := machine.InstanceId()
 	c.Assert(err, jc.ErrorIsNil)
-	insts, err := s.Environ.Instances(context.WithoutCredentialInvalidator(stdcontext.Background()), []instance.Id{instId})
+	insts, err := s.Environ.Instances(envcontext.WithoutCredentialInvalidator(context.Background()), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 	dummy.SetInstanceAddresses(insts[0], network.NewMachineAddresses([]string{"0.1.2.3"}).AsProviderAddresses())
 }
@@ -432,11 +432,11 @@ func (e *minModelWorkersEnviron) SetConfig(*config.Config) error {
 	return nil
 }
 
-func (e *minModelWorkersEnviron) AllRunningInstances(context.ProviderCallContext) ([]instances.Instance, error) {
+func (e *minModelWorkersEnviron) AllRunningInstances(envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	return nil, nil
 }
 
-func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (e *minModelWorkersEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	return nil, environs.ErrNoInstances
 }
 

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"google.golang.org/api/googleapi"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -65,17 +65,17 @@ func (err InvalidConfigValueError) Error() string {
 
 // HandleCredentialError determines if a given error relates to an invalid credential.
 // If it is, the credential is invalidated. Original error is returned untouched.
-func HandleCredentialError(err error, ctx context.ProviderCallContext) error {
+func HandleCredentialError(err error, ctx envcontext.ProviderCallContext) error {
 	maybeInvalidateCredential(err, ctx)
 	return err
 }
 
-func maybeInvalidateCredential(err error, ctx context.ProviderCallContext) bool {
+func maybeInvalidateCredential(err error, ctx envcontext.ProviderCallContext) bool {
 	if !HasDenialStatusCode(err) {
 		return false
 	}
 
-	invalidateCredentialFunc := context.CredentialInvalidatorFromContext(ctx)
+	invalidateCredentialFunc := envcontext.CredentialInvalidatorFromContext(ctx)
 	converted := fmt.Errorf("google cloud denied access: %w", common.CredentialNotValidError(err))
 	invalidateErr := invalidateCredentialFunc(converted.Error())
 	if invalidateErr != nil {

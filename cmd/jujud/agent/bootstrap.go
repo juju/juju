@@ -43,7 +43,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
@@ -457,7 +457,7 @@ func getAddressesForMongo(
 		return network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(), nil
 	}
 
-	callCtx := context.WithoutCredentialInvalidator(ctx)
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	instanceLister, ok := env.(environs.InstanceLister)
 	if !ok {
 		// this should never happened.

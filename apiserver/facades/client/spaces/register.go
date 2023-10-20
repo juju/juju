@@ -32,7 +32,7 @@ func newAPI(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
-	credentialInvalidatorFuncGetter := credentialcommon.CredentialInvalidatorFuncGetter(ctx)
+	credentialInvalidatorGetter := credentialcommon.CredentialInvalidatorGetter(ctx)
 	check := common.NewBlockChecker(st)
 
 	reloadSpacesEnvirons, err := DefaultReloadSpacesEnvirons(st, cloudService, credentialService)
@@ -46,18 +46,18 @@ func newAPI(ctx facade.Context) (*API, error) {
 		space.NewState(st),
 		reloadSpacesEnvirons,
 		EnvironSpacesAdapter{},
-		credentialInvalidatorFuncGetter,
+		credentialInvalidatorGetter,
 		reloadSpacesAuth,
 	)
 
 	return newAPIWithBacking(apiConfig{
-		ReloadSpacesAPI:                 reloadSpacesAPI,
-		Backing:                         stateShim,
-		Check:                           check,
-		CredentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
-		Resources:                       ctx.Resources(),
-		Authorizer:                      auth,
-		Factory:                         newOpFactory(st),
-		logger:                          ctx.Logger().Child("spaces"),
+		ReloadSpacesAPI:             reloadSpacesAPI,
+		Backing:                     stateShim,
+		Check:                       check,
+		CredentialInvalidatorGetter: credentialInvalidatorGetter,
+		Resources:                   ctx.Resources(),
+		Authorizer:                  auth,
+		Factory:                     newOpFactory(st),
+		logger:                      ctx.Logger().Child("spaces"),
 	})
 }

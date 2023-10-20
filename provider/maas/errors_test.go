@@ -4,7 +4,7 @@
 package maas
 
 import (
-	stdcontext "context"
+	"context"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/testing"
 )
@@ -32,13 +32,13 @@ func (s *ErrorSuite) SetUpTest(c *gc.C) {
 
 func (s *ErrorSuite) TestNoValidation(c *gc.C) {
 	denied := common.MaybeHandleCredentialError(
-		IsAuthorisationFailure, s.maasError, context.WithoutCredentialInvalidator(stdcontext.Background()))
+		IsAuthorisationFailure, s.maasError, envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
 	c.Assert(denied, jc.IsTrue)
 }
 
 func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
-	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
 		return errors.New("kaboom")
 	})
 	denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, s.maasError, ctx)
@@ -79,7 +79,7 @@ func (s *ErrorSuite) TestGomaasError(c *gc.C) {
 
 func (s *ErrorSuite) checkMaasPermissionHandling(c *gc.C, handled bool) {
 	called := false
-	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
 		c.Assert(msg, gc.Matches, "cloud denied access:.*")
 		called = true
 		return nil

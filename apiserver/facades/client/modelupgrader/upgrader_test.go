@@ -127,7 +127,7 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 		func(ctx stdcontext.Context) (environs.BootstrapEnviron, error) {
 			return s.bootstrapEnviron, nil
 		},
-		s.blockChecker, s.authoriser, apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		s.blockChecker, s.authoriser, apiservertesting.NoopModelCredentialInvalidatorGetter,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return s.registryProvider, nil
 		},

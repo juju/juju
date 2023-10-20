@@ -4,7 +4,7 @@
 package lxd_test
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	containerlxd "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/lxd"
@@ -24,7 +24,7 @@ type storageSuite struct {
 
 	provider storage.Provider
 
-	callCtx           context.ProviderCallContext
+	callCtx           envcontext.ProviderCallContext
 	invalidCredential bool
 }
 
@@ -37,7 +37,7 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.provider = provider
 	s.Stub.ResetCalls()
-	s.callCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
 		s.invalidCredential = true
 		return nil
 	})

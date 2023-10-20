@@ -4,7 +4,7 @@
 package machineundertaker_test
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/worker/machineundertaker"
 )
 
@@ -102,8 +102,8 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NoAddresses(c *gc.C) {
 		API:      &api,
 		Releaser: &releaser,
 		Logger:   loggo.GetLogger("test"),
-		CallContextFunc: func(ctx stdcontext.Context) context.ProviderCallContext {
-			return context.WithoutCredentialInvalidator(ctx)
+		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
+			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/4"))
@@ -126,8 +126,8 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *gc.C) {
 		API:      &api,
 		Releaser: &releaser,
 		Logger:   loggo.GetLogger("test"),
-		CallContextFunc: func(ctx stdcontext.Context) context.ProviderCallContext {
-			return context.WithoutCredentialInvalidator(ctx)
+		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
+			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/4"))
@@ -152,8 +152,8 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorReleasing(c *gc.C) {
 		API:      &api,
 		Releaser: &releaser,
 		Logger:   loggo.GetLogger("test"),
-		CallContextFunc: func(ctx stdcontext.Context) context.ProviderCallContext {
-			return context.WithoutCredentialInvalidator(ctx)
+		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
+			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/4"))
@@ -177,8 +177,8 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *gc.C) {
 		API:      &api,
 		Releaser: &releaser,
 		Logger:   loggo.GetLogger("test"),
-		CallContextFunc: func(ctx stdcontext.Context) context.ProviderCallContext {
-			return context.WithoutCredentialInvalidator(ctx)
+		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
+			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/4"))
@@ -203,8 +203,8 @@ func (*undertakerSuite) TestHandle_CompletesRemoval(c *gc.C) {
 		API:      &api,
 		Releaser: &releaser,
 		Logger:   loggo.GetLogger("test"),
-		CallContextFunc: func(ctx stdcontext.Context) context.ProviderCallContext {
-			return context.WithoutCredentialInvalidator(ctx)
+		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
+			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	}
 	err := u.Handle(nil)
@@ -234,8 +234,8 @@ func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *gc.C) {
 		API:      &api,
 		Releaser: &releaser,
 		Logger:   loggo.GetLogger("test"),
-		CallContextFunc: func(ctx stdcontext.Context) context.ProviderCallContext {
-			return context.WithoutCredentialInvalidator(ctx)
+		CallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
+			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	}
 	err := u.Handle(nil)
@@ -303,7 +303,7 @@ type fakeReleaser struct {
 	*testing.Stub
 }
 
-func (r *fakeReleaser) ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
+func (r *fakeReleaser) ReleaseContainerAddresses(ctx envcontext.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error {
 	r.Stub.AddCall("ReleaseContainerAddresses", interfaces)
 	return r.Stub.NextErr()
 }

@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	environsContext "github.com/juju/juju/environs/context"
+	environsContext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -543,7 +543,7 @@ func (m *ModelManagerAPI) newModel(
 		}
 	}
 
-	invalidatorFuncGetter := credentialcommon.ModelCredentialInvalidatorFuncGetter(m.credentialService, credentialStateShim{st.(StateBackend)})
+	invalidatorFuncGetter := credentialcommon.ModelCredentialInvalidatorGetter(m.credentialService, credentialStateShim{st.(StateBackend)})
 	invalidatorFunc, err := invalidatorFuncGetter()
 	if err != nil {
 		return nil, errors.Trace(err)

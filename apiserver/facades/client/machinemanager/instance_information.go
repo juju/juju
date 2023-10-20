@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	envcontext "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -60,7 +60,7 @@ func instanceTypes(
 			env,
 			value,
 		)
-		invalidatorFunc, err := mm.credentialInvalidatorFuncGetter()
+		invalidatorFunc, err := mm.credentialInvalidatorGetter()
 		if err != nil {
 			return params.InstanceTypesResults{}, errors.Trace(err)
 		}

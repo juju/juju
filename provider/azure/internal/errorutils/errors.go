@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -163,19 +163,19 @@ func SimpleError(err error) error {
 // HandleCredentialError determines if given error relates to invalid credential.
 // If it is, the credential is invalidated.
 // Original error is returned untouched.
-func HandleCredentialError(err error, ctx context.ProviderCallContext) error {
+func HandleCredentialError(err error, ctx envcontext.ProviderCallContext) error {
 	MaybeInvalidateCredential(err, ctx)
 	return err
 }
 
 // MaybeInvalidateCredential determines if given error is related to authentication/authorisation failures.
 // If an error is related to an invalid credential, then this call will try to invalidate that credential as well.
-func MaybeInvalidateCredential(err error, ctx context.ProviderCallContext) bool {
+func MaybeInvalidateCredential(err error, ctx envcontext.ProviderCallContext) bool {
 	if !HasDenialStatusCode(err) {
 		return false
 	}
 
-	invalidateCredentialFunc := context.CredentialInvalidatorFromContext(ctx)
+	invalidateCredentialFunc := envcontext.CredentialInvalidatorFromContext(ctx)
 	converted := fmt.Errorf("azure cloud denied access: %w", common.CredentialNotValidError(err))
 	invalidateErr := invalidateCredentialFunc(converted.Error())
 	if invalidateErr != nil {

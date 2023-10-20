@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -67,7 +67,7 @@ func (s *ErrorsSuite) TestNoValidation(c *gc.C) {
 	isAuthF := func(e error) bool {
 		return true
 	}
-	denied := common.MaybeHandleCredentialError(isAuthF, authFailureError, context.WithoutCredentialInvalidator(stdcontext.Background()))
+	denied := common.MaybeHandleCredentialError(isAuthF, authFailureError, envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(c.GetTestLog(), jc.DeepEquals, "")
 	c.Assert(denied, jc.IsTrue)
 }
@@ -76,7 +76,7 @@ func (s *ErrorsSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 	isAuthF := func(e error) bool {
 		return true
 	}
-	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
 		return errors.New("kaboom")
 	})
 	denied := common.MaybeHandleCredentialError(isAuthF, authFailureError, ctx)
@@ -107,7 +107,7 @@ func (s *ErrorsSuite) checkPermissionHandling(c *gc.C, e error, handled bool) {
 		return handled
 	}
 	called := false
-	ctx := context.WithCredentialInvalidator(stdcontext.Background(), func(msg string) error {
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(msg string) error {
 		c.Assert(msg, gc.Matches, "cloud denied access:.*auth failure")
 		called = true
 		return nil

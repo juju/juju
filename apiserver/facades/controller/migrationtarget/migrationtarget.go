@@ -26,7 +26,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
-	environscontext "github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -59,19 +59,19 @@ type ControllerConfigService interface {
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state                           *state.State
-	modelImporter                   ModelImporter
-	externalControllerService       ExternalControllerService
-	cloudService                    common.CloudService
-	credentialService               credentialcommon.CredentialService
-	credentialValidator             credentialservice.CredentialValidator
-	credentialCallContextGetter     credentialservice.ValidationContextGetter
-	credentialInvalidatorFuncGetter environscontext.InvalidateModelCredentialFuncGetter
-	pool                            *state.StatePool
-	authorizer                      facade.Authorizer
-	presence                        facade.Presence
-	getEnviron                      stateenvirons.NewEnvironFunc
-	getCAASBroker                   stateenvirons.NewCAASBrokerFunc
+	state                       *state.State
+	modelImporter               ModelImporter
+	externalControllerService   ExternalControllerService
+	cloudService                common.CloudService
+	credentialService           credentialcommon.CredentialService
+	credentialValidator         credentialservice.CredentialValidator
+	credentialCallContextGetter credentialservice.ValidationContextGetter
+	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter
+	pool                        *state.StatePool
+	authorizer                  facade.Authorizer
+	presence                    facade.Presence
+	getEnviron                  stateenvirons.NewEnvironFunc
+	getCAASBroker               stateenvirons.NewCAASBrokerFunc
 }
 
 // APIV1 implements the V1 version of the API facade.
@@ -79,7 +79,7 @@ type APIV1 struct {
 	*API
 }
 
-// NewAPI returns a new APIV1. Accepts a NewEnvironFunc and context.ProviderCallContext
+// NewAPI returns a new APIV1. Accepts a NewEnvironFunc and envcontext.ProviderCallContext
 // for testing purposes.
 func NewAPI(
 	ctx facade.Context,
@@ -90,7 +90,7 @@ func NewAPI(
 	credentialService credentialcommon.CredentialService,
 	validator credentialservice.CredentialValidator,
 	credentialCallContextGetter credentialservice.ValidationContextGetter,
-	credentialInvalidatorFuncGetter environscontext.InvalidateModelCredentialFuncGetter,
+	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter,
 	getEnviron stateenvirons.NewEnvironFunc,
 	getCAASBroker stateenvirons.NewCAASBrokerFunc,
 ) (*API, error) {
@@ -104,19 +104,19 @@ func NewAPI(
 	)
 
 	return &API{
-		state:                           st,
-		modelImporter:                   modelImporter,
-		pool:                            pool,
-		externalControllerService:       externalControllerService,
-		cloudService:                    cloudService,
-		credentialService:               credentialService,
-		credentialValidator:             validator,
-		credentialCallContextGetter:     credentialCallContextGetter,
-		credentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
-		authorizer:                      authorizer,
-		presence:                        ctx.Presence(),
-		getEnviron:                      getEnviron,
-		getCAASBroker:                   getCAASBroker,
+		state:                       st,
+		modelImporter:               modelImporter,
+		pool:                        pool,
+		externalControllerService:   externalControllerService,
+		cloudService:                cloudService,
+		credentialService:           credentialService,
+		credentialValidator:         validator,
+		credentialCallContextGetter: credentialCallContextGetter,
+		credentialInvalidatorGetter: credentialInvalidatorGetter,
+		authorizer:                  authorizer,
+		presence:                    ctx.Presence(),
+		getEnviron:                  getEnviron,
+		getCAASBroker:               getCAASBroker,
 	}, nil
 }
 
@@ -360,7 +360,7 @@ func (api *API) AdoptResources(ctx context.Context, args params.AdoptResourcesAr
 		return errors.Trace(err)
 	}
 
-	invalidatorFunc, err := api.credentialInvalidatorFuncGetter()
+	invalidatorFunc, err := api.credentialInvalidatorGetter()
 	if err != nil {
 		return errors.Trace(err)
 	}

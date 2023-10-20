@@ -4,7 +4,7 @@
 package azure_test
 
 import (
-	stdcontext "context"
+	"context"
 	"net/http"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -16,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/testing"
@@ -30,7 +30,7 @@ type environUpgradeSuite struct {
 	provider environs.EnvironProvider
 	env      environs.Environ
 
-	callCtx           context.ProviderCallContext
+	callCtx           envcontext.ProviderCallContext
 	invalidCredential bool
 }
 
@@ -51,7 +51,7 @@ func (s *environUpgradeSuite) SetUpTest(c *gc.C) {
 	s.env = openEnviron(c, s.provider, &s.sender)
 	s.requests = nil
 	s.invalidCredential = false
-	s.callCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
 		s.invalidCredential = true
 		return nil
 	})

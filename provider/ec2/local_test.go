@@ -4,7 +4,7 @@
 package ec2_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"regexp"
 	"sort"
@@ -43,7 +43,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
@@ -152,7 +152,7 @@ func (srv *localServer) stopServer(c *gc.C) {
 }
 
 func bootstrapClientFunc(ec2Client ec2.Client) ec2.ClientFunc {
-	return func(ctx stdcontext.Context, spec cloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.Client, error) {
+	return func(ctx context.Context, spec cloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.Client, error) {
 		credentialAttrs := spec.Credential.Attributes()
 		accessKey := credentialAttrs["access-key"]
 		secretKey := credentialAttrs["secret-key"]
@@ -169,7 +169,7 @@ func bootstrapClientFunc(ec2Client ec2.Client) ec2.ClientFunc {
 }
 
 func bootstrapIAMClientFunc(iamClient ec2.IAMClient) ec2.IAMClientFunc {
-	return func(ctx stdcontext.Context, spec cloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.IAMClient, error) {
+	return func(ctx context.Context, spec cloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.IAMClient, error) {
 		credentialAttrs := spec.Credential.Attributes()
 		accessKey := credentialAttrs["access-key"]
 		secretKey := credentialAttrs["secret-key"]
@@ -192,13 +192,13 @@ func bootstrapContextWithClientFunc(
 ) environs.BootstrapContext {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 
-	ctx := stdcontext.Background()
-	ctx = stdcontext.WithValue(ctx, bootstrap.SimplestreamsFetcherContextKey, ss)
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, bootstrap.SimplestreamsFetcherContextKey, ss)
 	if clientFunc != nil {
-		ctx = stdcontext.WithValue(ctx, ec2.AWSClientContextKey, clientFunc)
+		ctx = context.WithValue(ctx, ec2.AWSClientContextKey, clientFunc)
 	}
 	if iamClientFunc != nil {
-		ctx = stdcontext.WithValue(ctx, ec2.AWSIAMClientContextKey, iamClientFunc)
+		ctx = context.WithValue(ctx, ec2.AWSIAMClientContextKey, iamClientFunc)
 	}
 	return envtesting.BootstrapContext(ctx, c)
 }
@@ -217,7 +217,7 @@ type localServerSuite struct {
 	iamClient  ec2.IAMClient
 	useIAMRole bool
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&localServerSuite{})
@@ -269,8 +269,8 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.Tests.SetUpTest(c)
 
 	t.Tests.BootstrapContext = bootstrapContextWithClientFunc(c, bootstrapClientFunc(t.client), bootstrapIAMClientFunc(t.iamClient))
-	t.Tests.ProviderCallContext = context.WithoutCredentialInvalidator(t.Tests.BootstrapContext.Context())
-	t.callCtx = context.WithoutCredentialInvalidator(t.Tests.BootstrapContext.Context())
+	t.Tests.ProviderCallContext = envcontext.WithoutCredentialInvalidator(t.Tests.BootstrapContext.Context())
+	t.callCtx = envcontext.WithoutCredentialInvalidator(t.Tests.BootstrapContext.Context())
 	t.useIAMRole = false
 }
 
@@ -474,7 +474,7 @@ func (t *localServerSuite) TestDestroyErr(c *gc.C) {
 	env := t.prepareAndBootstrap(c)
 
 	msg := "terminate instances error"
-	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2.Client, context.ProviderCallContext, ...instance.Id) ([]types.InstanceStateChange, error) {
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(ec2.Client, envcontext.ProviderCallContext, ...instance.Id) ([]types.InstanceStateChange, error) {
 		return nil, errors.New(msg)
 	})
 
@@ -487,13 +487,13 @@ func (t *localServerSuite) TestIAMRoleCleanup(c *gc.C) {
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Running)
 	env := t.prepareAndBootstrap(c)
 
-	res, err := t.iamClient.ListInstanceProfiles(stdcontext.Background(), &iam.ListInstanceProfilesInput{
+	res, err := t.iamClient.ListInstanceProfiles(context.Background(), &iam.ListInstanceProfilesInput{
 		PathPrefix: aws.String(fmt.Sprintf("/juju/controller/%s/", t.ControllerUUID)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(res.InstanceProfiles), gc.Equals, 1)
 
-	res1, err := t.iamClient.ListRoles(stdcontext.Background(), &iam.ListRolesInput{
+	res1, err := t.iamClient.ListRoles(context.Background(), &iam.ListRolesInput{
 		PathPrefix: aws.String(fmt.Sprintf("/juju/controller/%s/", t.ControllerUUID)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -502,13 +502,13 @@ func (t *localServerSuite) TestIAMRoleCleanup(c *gc.C) {
 	err = env.DestroyController(t.callCtx, t.ControllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res, err = t.iamClient.ListInstanceProfiles(stdcontext.Background(), &iam.ListInstanceProfilesInput{
+	res, err = t.iamClient.ListInstanceProfiles(context.Background(), &iam.ListInstanceProfilesInput{
 		PathPrefix: aws.String(fmt.Sprintf("/juju/controller/%s/", t.ControllerUUID)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(res.InstanceProfiles), gc.Equals, 0)
 
-	res1, err = t.iamClient.ListRoles(stdcontext.Background(), &iam.ListRolesInput{
+	res1, err = t.iamClient.ListRoles(context.Background(), &iam.ListRolesInput{
 		PathPrefix: aws.String(fmt.Sprintf("/juju/controller/%s/", t.ControllerUUID)),
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -540,7 +540,7 @@ func (t *localServerSuite) TestGetTerminatedInstances(c *gc.C) {
 	inst1, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
 	inst := t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, gc.NotNil)
-	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(client ec2.Client, ctx context.ProviderCallContext, ids ...instance.Id) ([]types.InstanceStateChange, error) {
+	t.BaseSuite.PatchValue(ec2.TerminateInstancesById, func(client ec2.Client, ctx envcontext.ProviderCallContext, ids ...instance.Id) ([]types.InstanceStateChange, error) {
 		// Terminate the one destined for termination and
 		// err out to ensure that one instance will be terminated, the other - not.
 		_, err = client.TerminateInstances(ctx, &awsec2.TerminateInstancesInput{
@@ -583,7 +583,7 @@ func (t *localServerSuite) TestDestroyControllerModelDeleteSecurityGroupInsisten
 	env := t.prepareAndBootstrap(c)
 	msg := "destroy security group error"
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
-		ec2.SecurityGroupCleaner, context.ProviderCallContext, types.GroupIdentifier, clock.Clock,
+		ec2.SecurityGroupCleaner, envcontext.ProviderCallContext, types.GroupIdentifier, clock.Clock,
 	) error {
 		return errors.New(msg)
 	})
@@ -601,7 +601,7 @@ func (t *localServerSuite) TestDestroyHostedModelDeleteSecurityGroupInsistentlyE
 
 	msg := "destroy security group error"
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
-		ec2.SecurityGroupCleaner, context.ProviderCallContext, types.GroupIdentifier, clock.Clock,
+		ec2.SecurityGroupCleaner, envcontext.ProviderCallContext, types.GroupIdentifier, clock.Clock,
 	) error {
 		return errors.New(msg)
 	})
@@ -714,7 +714,7 @@ func (t *localServerSuite) TestInstancesCreatedWithIMDSv2(c *gc.C) {
 	t.prepareAndBootstrap(c)
 
 	output, err := t.srv.ec2srv.DescribeInstances(
-		stdcontext.Background(), &awsec2.DescribeInstancesInput{
+		context.Background(), &awsec2.DescribeInstancesInput{
 			Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, t.ControllerUUID)},
 		})
 	c.Assert(err, jc.ErrorIsNil)
@@ -901,7 +901,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *gc.C) {
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 	var resultZones []types.AvailabilityZone
 	var resultErr error
-	t.PatchValue(ec2.EC2AvailabilityZones, func(c ec2.Client, ctx stdcontext.Context, params *awsec2.DescribeAvailabilityZonesInput, optFns ...func(*awsec2.Options)) (*awsec2.DescribeAvailabilityZonesOutput, error) {
+	t.PatchValue(ec2.EC2AvailabilityZones, func(c ec2.Client, ctx context.Context, params *awsec2.DescribeAvailabilityZonesInput, optFns ...func(*awsec2.Options)) (*awsec2.DescribeAvailabilityZonesOutput, error) {
 		resp := &awsec2.DescribeAvailabilityZonesOutput{
 			AvailabilityZones: append([]types.AvailabilityZone{}, resultZones...),
 		}
@@ -925,7 +925,7 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 
 func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 	var resultZones []types.AvailabilityZone
-	t.PatchValue(ec2.EC2AvailabilityZones, func(c ec2.Client, ctx stdcontext.Context, params *awsec2.DescribeAvailabilityZonesInput, optFns ...func(*awsec2.Options)) (*awsec2.DescribeAvailabilityZonesOutput, error) {
+	t.PatchValue(ec2.EC2AvailabilityZones, func(c ec2.Client, ctx context.Context, params *awsec2.DescribeAvailabilityZonesInput, optFns ...func(*awsec2.Options)) (*awsec2.DescribeAvailabilityZonesOutput, error) {
 		resp := &awsec2.DescribeAvailabilityZonesOutput{
 			AvailabilityZones: append([]types.AvailabilityZone{}, resultZones...),
 		}
@@ -948,7 +948,7 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 
 func (t *localServerSuite) TestDeriveAvailabilityZones(c *gc.C) {
 	var resultZones []types.AvailabilityZone
-	t.PatchValue(ec2.EC2AvailabilityZones, func(c ec2.Client, ctx stdcontext.Context, params *awsec2.DescribeAvailabilityZonesInput, optFns ...func(*awsec2.Options)) (*awsec2.DescribeAvailabilityZonesOutput, error) {
+	t.PatchValue(ec2.EC2AvailabilityZones, func(c ec2.Client, ctx context.Context, params *awsec2.DescribeAvailabilityZonesInput, optFns ...func(*awsec2.Options)) (*awsec2.DescribeAvailabilityZonesOutput, error) {
 		resp := &awsec2.DescribeAvailabilityZonesOutput{
 			AvailabilityZones: append([]types.AvailabilityZone{}, resultZones...),
 		}
@@ -968,7 +968,7 @@ func (t *localServerSuite) TestDeriveAvailabilityZones(c *gc.C) {
 
 func (t *localServerSuite) TestDeriveAvailabilityZonesImpaired(c *gc.C) {
 	var resultZones []types.AvailabilityZone
-	t.PatchValue(ec2.EC2AvailabilityZones, func(c ec2.Client, ctx stdcontext.Context, params *awsec2.DescribeAvailabilityZonesInput, optFns ...func(*awsec2.Options)) (*awsec2.DescribeAvailabilityZonesOutput, error) {
+	t.PatchValue(ec2.EC2AvailabilityZones, func(c ec2.Client, ctx context.Context, params *awsec2.DescribeAvailabilityZonesInput, optFns ...func(*awsec2.Options)) (*awsec2.DescribeAvailabilityZonesOutput, error) {
 		resp := &awsec2.DescribeAvailabilityZonesOutput{
 			AvailabilityZones: append([]types.AvailabilityZone{}, resultZones...),
 		}
@@ -1082,7 +1082,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneAllNoDefaultSubnet(c *gc.C)
 func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError smithy.APIError) {
 	env := t.prepareAndBootstrap(c)
 
-	t.PatchValue(ec2.RunInstances, func(e ec2.Client, ctx context.ProviderCallContext, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
+	t.PatchValue(ec2.RunInstances, func(e ec2.Client, ctx envcontext.ProviderCallContext, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
 		return nil, runInstancesError
 	})
 
@@ -1435,7 +1435,7 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 
 	// Here we're asserting that the placement happened in the backend.
 	// The post condition.
-	instances, err := t.client.DescribeInstances(stdcontext.Background(), &awsec2.DescribeInstancesInput{
+	instances, err := t.client.DescribeInstances(context.Background(), &awsec2.DescribeInstancesInput{
 		InstanceIds: []string{string(res.Instance.Id())},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1451,7 +1451,7 @@ func (t *localServerSuite) TestIPv6SubnetSelectionWithVPC(c *gc.C) {
 
 	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId})
 
-	instances, err := t.client.DescribeInstances(stdcontext.Background(), &awsec2.DescribeInstancesInput{
+	instances, err := t.client.DescribeInstances(context.Background(), &awsec2.DescribeInstancesInput{
 		Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, t.ControllerUUID)},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1478,7 +1478,7 @@ func (t *localServerSuite) TestIPv6SubnetSelectionWithVPC(c *gc.C) {
 
 	// Here we're asserting that the placement happened in the backend.
 	// The post condition.
-	instances, err = t.client.DescribeInstances(stdcontext.Background(), &awsec2.DescribeInstancesInput{
+	instances, err = t.client.DescribeInstances(context.Background(), &awsec2.DescribeInstancesInput{
 		InstanceIds: []string{string(res.Instance.Id())},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1494,7 +1494,7 @@ func (t *localServerSuite) TestSingleStackIPv6(c *gc.C) {
 
 	env := t.prepareAndBootstrapWithConfig(c, coretesting.Attrs{"vpc-id": vpcId})
 
-	instances, err := t.client.DescribeInstances(stdcontext.Background(), &awsec2.DescribeInstancesInput{
+	instances, err := t.client.DescribeInstances(context.Background(), &awsec2.DescribeInstancesInput{
 		Filters: []types.Filter{makeFilter("tag:"+tags.JujuController, t.ControllerUUID)},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1624,7 +1624,7 @@ func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, run
 	var azArgs []string
 	realRunInstances := *ec2.RunInstances
 
-	t.PatchValue(ec2.RunInstances, func(e ec2.Client, ctx context.ProviderCallContext, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
+	t.PatchValue(ec2.RunInstances, func(e ec2.Client, ctx envcontext.ProviderCallContext, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
 		azArgs = append(azArgs, aws.ToString(ri.Placement.AvailabilityZone))
 		if len(azArgs) == 1 {
 			return nil, runInstancesError
@@ -1662,7 +1662,7 @@ func (t *localServerSuite) TestStartInstanceWithImageIDErr(c *gc.C) {
 		Constraints:    constraints.Value{ImageID: expectedImageID},
 	}
 
-	t.PatchValue(ec2.RunInstances, func(e ec2.Client, ctx context.ProviderCallContext, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
+	t.PatchValue(ec2.RunInstances, func(e ec2.Client, ctx envcontext.ProviderCallContext, ri *awsec2.RunInstancesInput, callback environs.StatusCallbackFunc) (resp *awsec2.RunInstancesOutput, err error) {
 		return nil, &smithy.GenericAPIError{
 			Code:    "InvalisAMIID",
 			Message: fmt.Sprintf("The image id '[%s]' does not exist", *ri.ImageId),
@@ -1751,7 +1751,7 @@ func (t *localServerSuite) TestConstraintsValidatorVocabSpecifiedVPC(c *gc.C) {
 	assertVPCInstanceTypeAvailable(c, env, t.callCtx)
 }
 
-func assertVPCInstanceTypeAvailable(c *gc.C, env environs.Environ, ctx context.ProviderCallContext) {
+func assertVPCInstanceTypeAvailable(c *gc.C, env environs.Environ, ctx envcontext.ProviderCallContext) {
 	validator, err := env.ConstraintsValidator(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = validator.Validate(constraints.MustParse("instance-type=t2.medium"))
@@ -2915,7 +2915,7 @@ func (t *localServerSuite) TestGlobalPorts(c *gc.C) {
 	// retrying due to StopInstances deleting the security groups, which are
 	// global when firewall-mode is FwGlobal.
 	t.BaseSuite.PatchValue(ec2.DeleteSecurityGroupInsistently, func(
-		ec2.SecurityGroupCleaner, context.ProviderCallContext, types.GroupIdentifier, clock.Clock,
+		ec2.SecurityGroupCleaner, envcontext.ProviderCallContext, types.GroupIdentifier, clock.Clock,
 	) error {
 		return nil
 	})
@@ -3234,7 +3234,7 @@ func (t *localServerSuite) TestIngressRulesWithPartiallyMatchingCIDRs(c *gc.C) {
 
 // createGroup creates a new EC2 group and returns it. If it already exists,
 // it revokes all its permissions and returns the existing group.
-func createGroup(c *gc.C, ec2conn ec2.Client, ctx stdcontext.Context, name string, descr string) types.SecurityGroupIdentifier {
+func createGroup(c *gc.C, ec2conn ec2.Client, ctx context.Context, name string, descr string) types.SecurityGroupIdentifier {
 	resp, err := ec2conn.CreateSecurityGroup(ctx, &awsec2.CreateSecurityGroupInput{
 		GroupName:   aws.String(name),
 		Description: aws.String(descr),

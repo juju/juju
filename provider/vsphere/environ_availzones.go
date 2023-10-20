@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 type vmwareAvailZone struct {
@@ -34,7 +34,7 @@ func (z *vmwareAvailZone) Available() bool {
 }
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (zones network.AvailabilityZones, err error) {
+func (env *environ) AvailabilityZones(ctx envcontext.ProviderCallContext) (zones network.AvailabilityZones, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		zones, err = env.AvailabilityZones(ctx)
 		return err
@@ -43,7 +43,7 @@ func (env *environ) AvailabilityZones(ctx context.ProviderCallContext) (zones ne
 }
 
 // AvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error) {
+func (env *sessionEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error) {
 	if len(env.zones) > 0 {
 		// This is relatively expensive to compute, so cache it on the session
 		return env.zones, nil
@@ -124,7 +124,7 @@ func makeAvailZoneName(hostFolder, crPath, poolPath string) string {
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
-func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (names map[instance.Id]string, err error) {
+func (env *environ) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (names map[instance.Id]string, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		names, err = env.InstanceAvailabilityZoneNames(ctx, ids)
 		return err
@@ -133,7 +133,7 @@ func (env *environ) InstanceAvailabilityZoneNames(ctx context.ProviderCallContex
 }
 
 // InstanceAvailabilityZoneNames is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
+func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error) {
 	zones, err := env.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -172,7 +172,7 @@ func (env *sessionEnviron) InstanceAvailabilityZoneNames(ctx context.ProviderCal
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) (names []string, err error) {
+func (env *environ) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (names []string, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		names, err = env.DeriveAvailabilityZones(ctx, args)
 		return err
@@ -181,7 +181,7 @@ func (env *environ) DeriveAvailabilityZones(ctx context.ProviderCallContext, arg
 }
 
 // DeriveAvailabilityZones is part of the common.ZonedEnviron interface.
-func (env *sessionEnviron) DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
+func (env *sessionEnviron) DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error) {
 	if args.Placement != "" {
 		// args.Placement will always be a zone name or empty.
 		placement, err := env.parsePlacement(ctx, args.Placement)
@@ -195,7 +195,7 @@ func (env *sessionEnviron) DeriveAvailabilityZones(ctx context.ProviderCallConte
 	return nil, nil
 }
 
-func (env *sessionEnviron) availZone(ctx context.ProviderCallContext, name string) (*vmwareAvailZone, error) {
+func (env *sessionEnviron) availZone(ctx envcontext.ProviderCallContext, name string) (*vmwareAvailZone, error) {
 	zones, err := env.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

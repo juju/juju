@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/core/status"
-	environscontext "github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/rpc/params"

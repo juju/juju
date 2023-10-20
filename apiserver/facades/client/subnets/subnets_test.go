@@ -93,7 +93,7 @@ func (s *SubnetSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
 	s.mockBacking.EXPECT().ModelTag().Return(names.NewModelTag("123"))
 
 	var err error
-	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, apiservertesting.NoopInvalidateModelCredentialFuncGetter, s.mockResource, s.mockAuthorizer, loggo.GetLogger("juju.apiserver.subnets"))
+	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, apiservertesting.NoopModelCredentialInvalidatorGetter, s.mockResource, s.mockAuthorizer, loggo.GetLogger("juju.apiserver.subnets"))
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }
@@ -143,7 +143,7 @@ func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.facade, err = subnets.NewAPIWithBacking(
 		&stubBacking{apiservertesting.BackingInstance},
-		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		s.resources, s.authorizer,
 		loggo.GetLogger("juju.apiserver.subnets"),
 	)
@@ -188,7 +188,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
 	facade, err := subnets.NewAPIWithBacking(
 		&stubBacking{apiservertesting.BackingInstance},
-		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		s.resources, s.authorizer,
 		loggo.GetLogger("juju.apiserver.subnets"),
 	)
@@ -202,7 +202,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 	agentAuthorizer.Tag = names.NewMachineTag("42")
 	facade, err = subnets.NewAPIWithBacking(
 		&stubBacking{apiservertesting.BackingInstance},
-		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		s.resources, agentAuthorizer,
 		loggo.GetLogger("juju.apiserver.subnets"),
 	)

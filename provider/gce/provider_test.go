@@ -39,7 +39,7 @@ func (s *providerSuite) TestRegistered(c *gc.C) {
 }
 
 func (s *providerSuite) TestOpen(c *gc.C) {
-	env, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
+	env, err := environs.Open(stdcontext.Background(), s.provider, environs.OpenParams{
 		Cloud:  s.spec,
 		Config: s.Config,
 	})
@@ -66,7 +66,7 @@ func (s *providerSuite) TestOpenUnsupportedCredential(c *gc.C) {
 }
 
 func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec, expect string) {
-	_, err := environs.Open(stdcontext.TODO(), s.provider, environs.OpenParams{
+	_, err := environs.Open(stdcontext.Background(), s.provider, environs.OpenParams{
 		Cloud:  spec,
 		Config: s.Config,
 	})

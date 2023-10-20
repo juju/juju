@@ -47,8 +47,8 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/status",
 		"core/trace",
 		"core/watcher",
-		"domain/credential", // Imported by environs/context.
-		"environs/context",
+		"domain/credential", // Imported by environs/envcontext.
+		"environs/envcontext",
 		"internal/feature",
 		"internal/proxy",
 		"internal/proxy/config",

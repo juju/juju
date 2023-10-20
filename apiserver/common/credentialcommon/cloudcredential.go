@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/domain/credential"
-	envcontext "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -62,16 +62,16 @@ func (api *CredentialManagerAPI) InvalidateModelCredential(ctx context.Context, 
 	return params.ErrorResult{}, nil
 }
 
-// CredentialInvalidatorFuncGetter returns a getter for a function used to invalidate the cloud credential
+// CredentialInvalidatorGetter returns a getter for a function used to invalidate the cloud credential
 // for the model associated with the facade context.
-func CredentialInvalidatorFuncGetter(ctx facade.Context) envcontext.InvalidateModelCredentialFuncGetter {
-	return ModelCredentialInvalidatorFuncGetter(ctx.ServiceFactory().Credential(), stateShim{ctx.State()})
+func CredentialInvalidatorGetter(ctx facade.Context) envcontext.ModelCredentialInvalidatorGetter {
+	return ModelCredentialInvalidatorGetter(ctx.ServiceFactory().Credential(), stateShim{ctx.State()})
 }
 
-// ModelCredentialInvalidatorFuncGetter returns a getter for a function used to invalidate the cloud credential
+// ModelCredentialInvalidatorGetter returns a getter for a function used to invalidate the cloud credential
 // for the model associated with the specified state.
-func ModelCredentialInvalidatorFuncGetter(credentialService CredentialService, st StateBackend) envcontext.InvalidateModelCredentialFuncGetter {
-	return func() (envcontext.InvalidateModelCredentialFunc, error) {
+func ModelCredentialInvalidatorGetter(credentialService CredentialService, st StateBackend) envcontext.ModelCredentialInvalidatorGetter {
+	return func() (envcontext.ModelCredentialInvalidatorFunc, error) {
 		idGetter := func() (credential.ID, error) {
 			credTag, _, err := st.CloudCredentialTag()
 			if err != nil {

@@ -4,7 +4,7 @@
 package common_test
 
 import (
-	stdcontext "context"
+	"context"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
@@ -86,7 +86,7 @@ func (s *modelStatusSuite) TestModelStatusNonAuth(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}},
 	}
-	result, err := api.ModelStatus(stdcontext.Background(), req)
+	result, err := api.ModelStatus(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
 }
@@ -110,7 +110,7 @@ func (s *modelStatusSuite) TestModelStatusOwnerAllowed(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: model.ModelTag().String()}},
 	}
-	_, err = api.ModelStatus(stdcontext.Background(), req)
+	_, err = api.ModelStatus(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -173,7 +173,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
 	}
-	results, err := s.modelStatusAPI.ModelStatus(stdcontext.Background(), req)
+	results, err := s.modelStatusAPI.ModelStatus(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	arch := arch.DefaultArchitecture
@@ -251,7 +251,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 	req := params.Entities{
 		Entities: []params.Entity{{Tag: controllerModelTag}, {Tag: hostedModelTag}},
 	}
-	results, err := s.modelStatusAPI.ModelStatus(stdcontext.Background(), req)
+	results, err := s.modelStatusAPI.ModelStatus(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results.Results, jc.DeepEquals, []params.ModelStatus{
@@ -298,7 +298,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 			},
 		},
 	}
-	result, err := s.modelStatusAPI.ModelStatus(stdcontext.Background(), req)
+	result, err := s.modelStatusAPI.ModelStatus(context.Background(), req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expected)
 }
@@ -313,11 +313,11 @@ func (statePolicy) ConfigValidator() (config.Validator, error) {
 	return nil, errors.NotImplementedf("ConfigValidator")
 }
 
-func (statePolicy) ConstraintsValidator(context.ProviderCallContext) (constraints.Validator, error) {
+func (statePolicy) ConstraintsValidator(envcontext.ProviderCallContext) (constraints.Validator, error) {
 	return nil, errors.NotImplementedf("ConstraintsValidator")
 }
 
-func (statePolicy) InstanceDistributor() (context.Distributor, error) {
+func (statePolicy) InstanceDistributor() (envcontext.Distributor, error) {
 	return nil, errors.NotImplementedf("InstanceDistributor")
 }
 

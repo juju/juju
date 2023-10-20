@@ -4,7 +4,7 @@
 package maas
 
 import (
-	stdcontext "context"
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -31,7 +31,7 @@ type baseProviderSuite struct {
 	envtesting.ToolsFixture
 	controllerUUID string
 
-	callCtx           context.ProviderCallContext
+	callCtx           envcontext.ProviderCallContext
 	invalidCredential bool
 }
 
@@ -57,7 +57,7 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&version.Current, coretesting.FakeVersionNumber)
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
 	s.PatchValue(&series.HostSeries, func() (string, error) { return version.DefaultSupportedLTS(), nil })
-	s.callCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
 		s.invalidCredential = true
 		return nil
 	})

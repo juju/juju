@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -35,7 +35,7 @@ type Facade interface {
 // AddressReleaser defines the interface we need from the environment
 // networking.
 type AddressReleaser interface {
-	ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error
+	ReleaseContainerAddresses(envcontext.ProviderCallContext, []network.ProviderInterfaceInfo) error
 }
 
 // Undertaker is responsible for doing any provider-level

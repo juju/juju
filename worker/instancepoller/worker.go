@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/common"
@@ -43,8 +43,8 @@ var (
 // Environ specifies the provider-specific methods needed by the instance
 // poller.
 type Environ interface {
-	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
-	NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error)
+	Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
+	NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error)
 }
 
 // Machine specifies an interface for machine instances processed by the

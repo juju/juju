@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 const killDoc = `
@@ -120,7 +120,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
-	callCtx := context.WithoutCredentialInvalidator(ctx)
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {
@@ -260,7 +260,7 @@ func (c *killCommand) DirectDestroyRemaining(
 				hasErrors = true
 				continue
 			}
-			callCtx := context.WithoutCredentialInvalidator(ctx)
+			callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 			if err := env.Destroy(callCtx); err != nil {
 				logger.Warningf(err.Error())
 				hasErrors = true

@@ -4,7 +4,7 @@
 package provider_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/testing"
@@ -29,14 +29,14 @@ type managedfsSuite struct {
 	filesystems  map[names.FilesystemTag]storage.Filesystem
 	fakeEtcDir   string
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 func (s *managedfsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.blockDevices = make(map[names.VolumeTag]storage.BlockDevice)
 	s.filesystems = make(map[names.FilesystemTag]storage.Filesystem)
-	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 	s.fakeEtcDir = c.MkDir()
 }
 

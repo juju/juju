@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
@@ -30,12 +30,12 @@ type storageMetadataFunc func() (poolmanager.PoolManager, storage.ProviderRegist
 
 // StorageAPI implements the latest version (v6) of the Storage API.
 type StorageAPI struct {
-	backend                         backend
-	storageAccess                   storageAccess
-	storageMetadata                 storageMetadataFunc
-	authorizer                      facade.Authorizer
-	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter
-	modelType                       state.ModelType
+	backend                     backend
+	storageAccess               storageAccess
+	storageMetadata             storageMetadataFunc
+	authorizer                  facade.Authorizer
+	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
+	modelType                   state.ModelType
 }
 
 func NewStorageAPI(
@@ -44,15 +44,15 @@ func NewStorageAPI(
 	storageAccess storageAccess,
 	storageMetadata storageMetadataFunc,
 	authorizer facade.Authorizer,
-	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter,
+	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 ) *StorageAPI {
 	return &StorageAPI{
-		backend:                         backend,
-		modelType:                       modelType,
-		storageAccess:                   storageAccess,
-		storageMetadata:                 storageMetadata,
-		authorizer:                      authorizer,
-		credentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
+		backend:                     backend,
+		modelType:                   modelType,
+		storageAccess:               storageAccess,
+		storageMetadata:             storageMetadata,
+		authorizer:                  authorizer,
+		credentialInvalidatorGetter: credentialInvalidatorGetter,
 	}
 }
 
@@ -776,11 +776,11 @@ func (a *StorageAPI) importFilesystem(
 
 	// If the storage provider supports filesystems, import the filesystem,
 	// otherwise import a volume which will back a filesystem.
-	invalidatorFunc, err := a.credentialInvalidatorFuncGetter()
+	invalidatorFunc, err := a.credentialInvalidatorGetter()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	callCtx := context.WithCredentialInvalidator(ctx, invalidatorFunc)
+	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
 	if provider.Supports(storage.StorageKindFilesystem) {
 		filesystemSource, err := provider.FilesystemSource(cfg)
 		if err != nil {

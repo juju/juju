@@ -5,7 +5,7 @@ package azure_test
 
 import (
 	"bytes"
-	stdcontext "context"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,7 +41,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/sync"
@@ -90,7 +90,7 @@ type environSuite struct {
 	sshPublicKeys    []*armcompute.SSHPublicKey
 	linuxOsProfile   armcompute.OSProfile
 
-	callCtx               context.ProviderCallContext
+	callCtx               envcontext.ProviderCallContext
 	invalidatedCredential bool
 }
 
@@ -233,7 +233,7 @@ func (s *environSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.callCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
 		s.invalidatedCredential = true
 		return nil
 	})
@@ -264,7 +264,7 @@ func openEnviron(
 		makeResourceGroupNotFoundSender(fmt.Sprintf(".*/resourcegroups/juju-%s-model-deadbeef-.*", cfg.Name())),
 		makeSender(fmt.Sprintf(".*/resourcegroups/juju-%s-.*", cfg.Name()), makeResourceGroupResult()),
 	}
-	env, err := environs.Open(stdcontext.Background(), provider, environs.OpenParams{
+	env, err := environs.Open(context.Background(), provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
 	})
@@ -292,7 +292,7 @@ func prepareForBootstrap(
 		makeResourceGroupNotFoundSender(".*/resourcegroups/juju-testmodel-model-deadbeef-.*"),
 		makeSender(".*/resourcegroups/juju-testmodel-.*", makeResourceGroupResult()),
 	}
-	env, err := environs.Open(stdcontext.Background(), provider, environs.OpenParams{
+	env, err := environs.Open(context.Background(), provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
 		Config: cfg,
 	})
@@ -1901,7 +1901,7 @@ func (s *environSuite) TestConstraintsValidatorMerge(c *gc.C) {
 func (s *environSuite) constraintsValidator(c *gc.C) constraints.Validator {
 	env := s.openEnviron(c)
 	s.sender = azuretesting.Senders{s.resourceSKUsSender()}
-	validator, err := env.ConstraintsValidator(context.WithoutCredentialInvalidator(stdcontext.Background()))
+	validator, err := env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	return validator
 }

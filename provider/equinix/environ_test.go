@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	environContext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/provider/equinix/mocks"
@@ -119,7 +119,7 @@ func (s *environProviderSuite) TestDestroy(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
-	err = env.Destroy(environContext.WithoutCredentialInvalidator(context.Background()))
+	err = env.Destroy(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -158,7 +158,7 @@ func (s *environProviderSuite) TestGetPacketInstancesByTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
 
-	err = env.DestroyController(environContext.WithoutCredentialInvalidator(context.Background()), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
+	err = env.DestroyController(envcontext.WithoutCredentialInvalidator(context.Background()), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -191,7 +191,7 @@ func (s *environProviderSuite) TestAllInstances(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
-	ii, err := env.AllInstances(environContext.WithoutCredentialInvalidator(context.Background()))
+	ii, err := env.AllInstances(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(ii) == 2, jc.IsTrue)
 }
@@ -216,7 +216,7 @@ func (s *environProviderSuite) TestInstances(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
-	ii, err := env.Instances(environContext.WithoutCredentialInvalidator(context.Background()), []instance.Id{"10"})
+	ii, err := env.Instances(envcontext.WithoutCredentialInvalidator(context.Background()), []instance.Id{"10"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(ii[0].Id()), jc.Contains, "10")
 }
@@ -237,7 +237,7 @@ func (s *environProviderSuite) TestStopInstance(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env, gc.NotNil)
-	err = env.StopInstances(environContext.WithoutCredentialInvalidator(context.Background()), "100")
+	err = env.StopInstances(envcontext.WithoutCredentialInvalidator(context.Background()), "100")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -647,7 +647,7 @@ func (s *environProviderSuite) TestStartInstance(c *gc.C) {
 	base := corebase.MakeDefaultBase("ubuntu", "20.04")
 	iConfig, err := instancecfg.NewBootstrapInstanceConfig(testing.FakeControllerConfig(), cons, cons, base, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = env.StartInstance(environContext.WithoutCredentialInvalidator(context.Background()), environs.StartInstanceParams{
+	_, err = env.StartInstance(envcontext.WithoutCredentialInvalidator(context.Background()), environs.StartInstanceParams{
 		ControllerUUID:   env.Config().UUID(),
 		AvailabilityZone: "yes",
 		InstanceConfig:   iConfig,
@@ -696,7 +696,7 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnProvisioning(c *gc.C) {
 		State: "active",
 	}, nil, nil).Times(1)
 	cl.Devices = device
-	_, err := waitDeviceActive(environContext.WithoutCredentialInvalidator(context.Background()), cl, "100")
+	_, err := waitDeviceActive(envcontext.WithoutCredentialInvalidator(context.Background()), cl, "100")
 
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -711,7 +711,7 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnActive(c *gc.C) {
 		State: "active",
 	}, nil, nil).Times(1)
 	cl.Devices = device
-	_, err := waitDeviceActive(environContext.WithoutCredentialInvalidator(context.Background()), cl, "100")
+	_, err := waitDeviceActive(envcontext.WithoutCredentialInvalidator(context.Background()), cl, "100")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -725,7 +725,7 @@ func (*EquinixUtils) TestWaitDeviceActive_ReturnFailed(c *gc.C) {
 		State: "failed",
 	}, nil, nil).Times(1)
 	cl.Devices = device
-	_, err := waitDeviceActive(environContext.WithoutCredentialInvalidator(context.Background()), cl, "100")
+	_, err := waitDeviceActive(envcontext.WithoutCredentialInvalidator(context.Background()), cl, "100")
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 

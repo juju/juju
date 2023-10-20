@@ -4,7 +4,7 @@
 package dummy_test
 
 import (
-	stdcontext "context"
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/jujutest"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -43,7 +43,7 @@ type suite struct {
 	testing.BaseSuite
 	jujutest.Tests
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 func (s *suite) SetUpSuite(c *gc.C) {
@@ -55,7 +55,7 @@ func (s *suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&jujuversion.Current, testing.FakeVersionNumber)
 	s.Tests.SetUpTest(c)
-	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
@@ -66,7 +66,7 @@ func (s *suite) TearDownTest(c *gc.C) {
 func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	e, err := bootstrap.PrepareController(
 		false,
-		envtesting.BootstrapContext(stdcontext.Background(), c),
+		envtesting.BootstrapContext(context.Background(), c),
 		s.ControllerStore,
 		bootstrap.PrepareParams{
 			ControllerConfig: testing.FakeControllerConfig(),
@@ -82,8 +82,8 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.NetworkingEnviron {
 	netenv, supported := environs.SupportsNetworking(env)
 	c.Assert(supported, jc.IsTrue)
 
-	err = bootstrap.Bootstrap(envtesting.BootstrapContext(stdcontext.Background(), c), netenv,
-		context.WithoutCredentialInvalidator(stdcontext.Background()), bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(context.Background(), c), netenv,
+		envcontext.WithoutCredentialInvalidator(context.Background()), bootstrap.BootstrapParams{
 			ControllerConfig: testing.FakeControllerConfig(),
 			Cloud: cloud.Cloud{
 				Name:      "dummy",

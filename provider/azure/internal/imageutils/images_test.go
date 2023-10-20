@@ -4,7 +4,7 @@
 package imageutils_test
 
 import (
-	ctx "context"
+	"context"
 	"net/http"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/provider/azure/internal/imageutils"
@@ -27,7 +27,7 @@ type imageutilsSuite struct {
 
 	mockSender *azuretesting.MockSender
 	client     *armcompute.VirtualMachineImagesClient
-	callCtx    context.ProviderCallContext
+	callCtx    envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&imageutilsSuite{})
@@ -43,7 +43,7 @@ func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.client, err = armcompute.NewVirtualMachineImagesClient("subscription-id", &azuretesting.FakeCredential{}, opts)
 	c.Assert(err, jc.ErrorIsNil)
-	s.callCtx = context.WithoutCredentialInvalidator(ctx.TODO())
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.TODO())
 }
 
 func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
@@ -105,7 +105,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamNotFound(c *gc.C) {
 func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
 	called := false
-	s.callCtx = context.WithCredentialInvalidator(ctx.TODO(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.TODO(), func(string) error {
 		called = true
 		return nil
 	})
@@ -118,7 +118,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 func (s *imageutilsSuite) TestSeriesImageStreamThrewNonCredentialError(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("308 Permanent Redirect", http.StatusPermanentRedirect))
 	called := false
-	s.callCtx = context.WithCredentialInvalidator(ctx.TODO(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.TODO(), func(string) error {
 		called = true
 		return nil
 	})

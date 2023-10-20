@@ -4,7 +4,7 @@
 package lxd_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"reflect"
 
@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	containerlxd "github.com/juju/juju/internal/container/lxd"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 	"github.com/juju/juju/provider/lxd"
@@ -28,7 +28,7 @@ import (
 type environBrokerSuite struct {
 	lxd.EnvironSuite
 
-	callCtx           context.ProviderCallContext
+	callCtx           envcontext.ProviderCallContext
 	defaultProfile    *api.Profile
 	invalidCredential bool
 }
@@ -37,7 +37,7 @@ var _ = gc.Suite(&environBrokerSuite{})
 
 func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = context.WithCredentialInvalidator(stdcontext.Background(), func(string) error {
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(string) error {
 		s.invalidCredential = true
 		return nil
 	})

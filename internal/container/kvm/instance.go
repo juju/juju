@@ -10,7 +10,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 )
 
@@ -27,7 +27,7 @@ func (kvm *kvmInstance) Id() instance.Id {
 }
 
 // Status implements instances.Instance.Status.
-func (kvm *kvmInstance) Status(ctx context.ProviderCallContext) instance.Status {
+func (kvm *kvmInstance) Status(ctx envcontext.ProviderCallContext) instance.Status {
 	if kvm.container.IsRunning() {
 		return instance.Status{
 			Status:  status.Running,
@@ -44,23 +44,23 @@ func (*kvmInstance) Refresh() error {
 	return nil
 }
 
-func (kvm *kvmInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (kvm *kvmInstance) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	logger.Errorf("kvmInstance.Addresses not implemented")
 	return nil, nil
 }
 
 // OpenPorts implements instances.Instance.OpenPorts.
-func (kvm *kvmInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+func (kvm *kvmInstance) OpenPorts(ctx envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts implements instances.Instance.ClosePorts.
-func (kvm *kvmInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+func (kvm *kvmInstance) ClosePorts(ctx envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	return fmt.Errorf("not implemented")
 }
 
 // IngressRules implements instances.Instance.IngressRules.
-func (kvm *kvmInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
+func (kvm *kvmInstance) IngressRules(ctx envcontext.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

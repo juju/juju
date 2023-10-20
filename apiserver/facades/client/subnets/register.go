@@ -30,6 +30,6 @@ func newAPI(ctx facade.Context) (*API, error) {
 
 	return newAPIWithBacking(
 		stateShim,
-		credentialcommon.CredentialInvalidatorFuncGetter(ctx),
+		credentialcommon.CredentialInvalidatorGetter(ctx),
 		ctx.Resources(), ctx.Auth(), ctx.Logger().Child("subnets"))
 }

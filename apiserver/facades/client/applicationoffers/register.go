@@ -60,7 +60,7 @@ func newOffersAPI(facadeContext facade.Context) (*OffersAPI, error) {
 		GetStatePool(facadeContext.StatePool()),
 		facadeContext.Auth(),
 		authContext.(*commoncrossmodel.AuthContext),
-		credentialcommon.CredentialInvalidatorFuncGetter(facadeContext),
+		credentialcommon.CredentialInvalidatorGetter(facadeContext),
 		facadeContext.DataDir(),
 		facadeContext.Logger().Child("applicationoffers"),
 	)
