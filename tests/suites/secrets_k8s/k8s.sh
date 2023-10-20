@@ -3,12 +3,17 @@ run_secrets() {
 
 	microk8s enable ingress
 
-	juju --show-log add-model "model-secrets-k8s" --config secret-backend=auto
+	model_name='model-secrets-k8s'
+	juju --show-log add-model "$model_name" --config secret-backend=auto
 
 	juju --show-log deploy hello-kubecon hello
 	juju --show-log deploy nginx-ingress-integrator nginx
 	juju --show-log integrate nginx hello
 	juju --show-log trust nginx --scope=cluster
+
+	# create user secrets.
+	juju --show-log add-secret owned-by="$model_name"  --label "$model_name" --info "this is a user secret"
+
 
 	wait_for "active" '.applications["hello"] | ."application-status".current'
 	wait_for "hello" "$(idle_condition "hello" 0)"
@@ -33,19 +38,19 @@ run_secrets() {
 	juju exec --unit hello/0 -- secret-get "$app_owned_full_uri" --label=hello-app
 
 	echo "Checking: secret-get by URI - content"
-	check_contains "$(juju exec --unit hello/0 -- secret-get "$unit_owned_full_uri")" 'owned-by: hello/0'
-	check_contains "$(juju exec --unit hello/0 -- secret-get "$app_owned_full_uri")" 'owned-by: hello-app'
+	check_contains "$(juju exec --unit hello/0 -- secret-get $unit_owned_full_uri)" 'owned-by: hello/0'
+	check_contains "$(juju exec --unit hello/0 -- secret-get $app_owned_full_uri)" 'owned-by: hello-app'
 
 	echo "Checking: secret-get by URI - metadata"
-	check_contains "$(juju exec --unit hello/0 -- secret-info-get "$unit_owned_full_uri" --format json | jq ".${unit_owned_short_uri}.owner")" unit
-	check_contains "$(juju exec --unit hello/0 -- secret-info-get "$app_owned_full_uri" --format json | jq ".${app_owned_short_uri}.owner")" application
+	check_contains "$(juju exec --unit hello/0 -- secret-info-get $unit_owned_full_uri --format json | jq .${unit_owned_short_uri}.owner)" unit
+	check_contains "$(juju exec --unit hello/0 -- secret-info-get $app_owned_full_uri --format json | jq .${app_owned_short_uri}.owner)" application
 
 	echo "Checking: secret-get by label or consumer label - content"
 	check_contains "$(juju exec --unit hello/0 -- secret-get --label=hello_0)" 'owned-by: hello/0'
 	check_contains "$(juju exec --unit hello/0 -- secret-get --label=hello-app)" 'owned-by: hello-app'
 
 	echo "Checking: secret-get by label - metadata"
-	check_contains "$(juju exec --unit hello/0 -- secret-info-get --label=hello_0 --format json | jq ".${unit_owned_short_uri}.label")" hello_0
+	check_contains "$(juju exec --unit hello/0 -- secret-info-get --label=hello_0 --format json | jq \".${unit_owned_short_uri}.label\")" hello_0
 
 	relation_id=$(juju --show-log show-unit hello/0 --format json | jq '."hello/0"."relation-info"[0]."relation-id"')
 	juju exec --unit hello/0 -- secret-grant "$unit_owned_full_uri" -r "$relation_id"
@@ -62,15 +67,15 @@ run_secrets() {
 	check_contains "$(juju exec --unit nginx/0 -- secret-get --label=consumer_label_secret_owned_by_hello)" 'owned-by: hello-app'
 
 	echo "Check owner unit's k8s role rules to ensure we are using the k8s secret provider"
-	check_contains "$(microk8s kubectl -n model-secrets-k8s get roles/unit-hello-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${unit_owned_short_uri}-1\") ) | .verbs[0] ")" '*'
-	check_contains "$(microk8s kubectl -n model-secrets-k8s get roles/unit-hello-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${app_owned_short_uri}-1\") ) | .verbs[0] ")" '*'
+	check_contains "$(microk8s kubectl -n "$model_name" get roles/unit-hello-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${unit_owned_short_uri}-1\") ) | .verbs[0] ")" '*'
+	check_contains "$(microk8s kubectl -n "$model_name" get roles/unit-hello-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${app_owned_short_uri}-1\") ) | .verbs[0] ")" '*'
 
 	# Check consumer unit's k8s role rules to ensure we are using the k8s secret provider.
-	check_contains "$(microk8s kubectl -n model-secrets-k8s get roles/unit-nginx-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${unit_owned_short_uri}-1\") ) | .verbs[0] ")" 'get'
-	check_contains "$(microk8s kubectl -n model-secrets-k8s get roles/unit-nginx-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${app_owned_short_uri}-1\") ) | .verbs[0] ")" 'get'
+	check_contains "$(microk8s kubectl -n "$model_name" get roles/unit-nginx-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${unit_owned_short_uri}-1\") ) | .verbs[0] ")" 'get'
+	check_contains "$(microk8s kubectl -n "$model_name" get roles/unit-nginx-0 -o json | jq ".rules[] | select( has(\"resourceNames\") ) | select( .resourceNames[] | contains(\"${app_owned_short_uri}-1\") ) | .verbs[0] ")" 'get'
 
-	check_contains "$(microk8s kubectl -n model-secrets-k8s get "secrets/${unit_owned_short_uri}-1" -o json | jq -r '.data["owned-by"]' | base64 -d)" "hello/0"
-	check_contains "$(microk8s kubectl -n model-secrets-k8s get "secrets/${app_owned_short_uri}-1" -o json | jq -r '.data["owned-by"]' | base64 -d)" "hello-app"
+	check_contains "$(microk8s kubectl -n "$model_name" get "secrets/${unit_owned_short_uri}-1" -o json | jq -r '.data["owned-by"]' | base64 -d)" "hello/0"
+	check_contains "$(microk8s kubectl -n "$model_name" get "secrets/${app_owned_short_uri}-1" -o json | jq -r '.data["owned-by"]' | base64 -d)" "hello-app"
 
 	echo "Checking: secret-revoke by relation ID"
 	juju exec --unit hello/0 -- secret-revoke "$app_owned_full_uri" --relation "$relation_id"
@@ -90,7 +95,70 @@ run_secrets() {
 	juju --show-log remove-relation nginx hello
 	# wait for relation removed.
 	wait_for null '.applications["nginx"] | .relations.source[0]'
-	destroy_model "model-secrets-k8s"
+	destroy_model "$model_name"
+}
+
+run_user_secrets() {
+	echo
+
+	microk8s enable ingress
+
+	model_name='model-user-secrets-k8s'
+	juju --show-log add-model "$model_name" --config secret-backend=auto
+	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
+
+	juju --show-log deploy hello-kubecon
+
+	# create user secrets.
+	secret_uri=$(juju --show-log add-secret owned-by="$model_name-1" --info "this is a user secret")
+	secret_short_uri=${secret_uri##*:}
+
+	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'this is a user secret'
+
+	# create a new revision 2.
+	juju --show-log update-secret "$secret_uri" --info info owned-by="$model_name-2"
+	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'info'
+
+	# grant secret to hello-kubecon app, and now the application can access the revision 2.
+	juju --show-log grant-secret "$secret_uri" hello-kubecon
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri)" "owned-by: $model_uuid-2"
+
+	# create a new revision 3.
+	juju --show-log update-secret "$secret_uri" owned-by="$model_name-3"
+
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revision)" '3'
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.owner)" "$model_uuid"
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.description)" 'info'
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revisions | length)" '3'
+
+	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 1 | yq .${secret_short_uri}.content)" "owned-by: $model_uuid-1"
+	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_uuid-2"
+	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_uuid-3"
+
+	# turn on --auto-prune
+	juju --show-log update-secret "$secret_uri" --auto-prune=true
+
+	# revision 1 should be pruned.
+	# revision 2 is still been used by hello-kubecon app, so it should not be pruned.
+	# revision 3 is the latest revision, so it should not be pruned.
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revisions | length)" '2'
+	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_uuid-2"
+	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_uuid-3"
+
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri --peek)" "owned-by: $model_uuid-3"
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri --refresh)" "owned-by: $model_uuid-3"
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri)" "owned-by: $model_uuid-3"
+
+	# revision 2 should be pruned.
+	# revision 3 is the latest revision, so it should not be pruned.
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revisions | length)" '1'
+	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_uuid-3"
+
+	juju --show-log revoke-secret $secret_uri hello-kubecon
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get "$secret_uri" 2>&1)" 'not found' # permission denied??? TODO: fix this in juju.!!!
+
+	juju --show-log remove-secret $secret_uri
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions)" 'not found'
 }
 
 run_secret_drain() {
@@ -198,5 +266,20 @@ test_secret_drain() {
 		cd .. || exit
 
 		run "run_secret_drain"
+	)
+}
+
+test_user_secrets() {
+	if [ "$(skip 'test_user_secrets')" ]; then
+		echo "==> TEST SKIPPED: test_user_secrets"
+		return
+	fi
+
+	(
+		set_verbosity
+
+		cd .. || exit
+
+		run "run_user_secrets"
 	)
 }
