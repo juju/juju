@@ -22,6 +22,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -205,6 +206,29 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(model.Blocks(), jc.DeepEquals, map[string]string{
 		"all-changes": "locked down",
 	})
+}
+
+func (s *MigrationExportSuite) TestModelRegionForOCICLoud(c *gc.C) {
+	cl, err := s.Model.Cloud()
+	c.Assert(err, jc.ErrorIsNil)
+
+	cl.Type = "oci"
+	err = s.State.UpdateCloud(cl)
+	c.Assert(err, jc.ErrorIsNil)
+
+	tag := names.NewCloudCredentialTag(fmt.Sprintf("%s/owner/name", cl.Name))
+	err = s.State.UpdateCloudCredential(tag, cloud.NewCredential(cloud.EmptyAuthType, map[string]string{
+		"region": "nether",
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.Model.SetCloudCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export(map[string]string{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(model.CloudRegion(), gc.Equals, "nether")
 }
 
 func (s *MigrationExportSuite) TestModelUsers(c *gc.C) {

@@ -245,6 +245,17 @@ func (s *modelconfigSuite) TestModelSetCannotChangeBothDefaultSeriesAndDefaultBa
 	c.Assert(result.Config["default-base"].Value, gc.Equals, "ubuntu@22.04/stable")
 }
 
+func (s *modelconfigSuite) TestModelSetCannotSetAuthorizedKeys(c *gc.C) {
+	// Try to set the authorized-keys model config.
+	args := params.ModelSet{
+		Config: map[string]interface{}{"authorized-keys": "ssh-rsa new Juju:juju-client-key"},
+	}
+	err := s.api.ModelSet(args)
+	c.Assert(err, gc.ErrorMatches, "authorized-keys cannot be set")
+	// Make sure the authorized-keys still contains its original value.
+	s.assertConfigValue(c, "authorized-keys", coretesting.FakeAuthKeys)
+}
+
 func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *gc.C) {
 	args := params.ModelSet{
 		Config: map[string]interface{}{"logging-config": "<root>=DEBUG;somepackage=TRACE"},

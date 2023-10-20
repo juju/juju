@@ -49,7 +49,13 @@ func (f *fakeEnvAPI) Close() error {
 }
 
 func (f *fakeEnvAPI) ModelGet() (map[string]interface{}, error) {
-	return f.values, nil
+	// We need to deep copy f.values first, because verifyKnownKeys() will
+	// alter the returned values of ModelGet(), hence breaking the tests.
+	valuesCopy := make(map[string]interface{})
+	for k, v := range f.values {
+		valuesCopy[k] = v
+	}
+	return valuesCopy, nil
 }
 
 func (f *fakeEnvAPI) ModelGetWithMetadata() (config.ConfigValues, error) {
