@@ -129,10 +129,15 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 
+	region, err := deriveCloudRegion(dbModel)
+	if err != nil {
+		return nil, errors.Annotate(err, "deriving cloud region")
+	}
+
 	args := description.ModelArgs{
 		Type:               string(dbModel.Type()),
 		Cloud:              dbModel.CloudName(),
-		CloudRegion:        dbModel.CloudRegion(),
+		CloudRegion:        region,
 		Owner:              dbModel.Owner(),
 		Config:             modelConfig.Settings,
 		PasswordHash:       dbModel.doc.PasswordHash,
@@ -244,6 +249,30 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	}
 
 	return export.model, nil
+}
+
+// deriveCloudRegion accommodates migration of the model's cloud region
+// for legacy Oracle models that derived region from credentials.
+// If this model is on OCI and its credential has a region attribute,
+// we'll use that. Otherwise, it's the model's region as usual.
+func deriveCloudRegion(m *Model) (string, error) {
+	cloud, err := m.Cloud()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	if cloud.Type == "oci" {
+		cred, _, err := m.CloudCredential()
+		if err != nil {
+			return "", errors.Trace(err)
+		}
+
+		if region := cred.Attributes["region"]; region != "" {
+			return region, nil
+		}
+	}
+
+	return m.CloudRegion(), nil
 }
 
 // ExportStateMigration defines a migration for exporting various entities into
