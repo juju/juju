@@ -38,7 +38,6 @@ func newSecretsDrainAPI(context facade.Context) (*commonsecrets.SecretsDrainAPI,
 	return commonsecrets.NewSecretsDrainAPI(
 		authTag,
 		context.Auth(),
-		context.Resources(),
 		context.Logger().Child("secretsdrain"),
 		leadershipChecker,
 		commonsecrets.SecretsModel(model),

@@ -5950,7 +5950,7 @@ controller  kontroll    dummy/dummy-region  1.2.3    unsupported  15:04:05+07:00
 }
 
 func (s *StatusSuite) TestStatusArgsWithoutWatch(c *gc.C) {
-	cmd, err := initStatusCommand()
+	cmd, err := initStatusCommand(s.store)
 	c.Assert(err, jc.ErrorIsNil)
 
 	statusArgsGNUStyle := []string{"juju", "status", "--watch=1s", "--relations"}

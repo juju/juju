@@ -111,7 +111,7 @@ func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 		),
 	)
 
-	w, err := secrets.NewSecretBackendModelConfigWatcher(context.Background(), s.model, s.modelConfigChangesWatcher, loggo.GetLogger("juju.apiserver.secretsdrain"))
+	w, err := secrets.NewSecretBackendModelConfigWatcher(context.Background(), model, modelConfigChangesWatcher, loggo.GetLogger("juju.apiserver.secretsdrain"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
 

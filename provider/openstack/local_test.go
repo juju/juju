@@ -2714,7 +2714,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(s.env, ss)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 2)
 
 	// Make sure there is something to download from each location
 	metadata := "metadata-content"
@@ -2774,7 +2774,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSourcesWithCertificate
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 2)
 
 	// Make sure there is something to download from each location
 	metadata := "metadata-content"
