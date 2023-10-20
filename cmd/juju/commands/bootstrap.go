@@ -957,15 +957,6 @@ to create a new model to deploy %sworkloads.
 		c.controllerName, cloudRegion,
 	)
 
-	cloudCallCtx := envcontext.NewCloudCallContext(context.Background())
-	// At this stage, the credential we intend to use is not yet stored
-	// server-side. So, if the credential is not accepted by the provider,
-	// we cannot mark it as invalid, just log it as an informative message.
-	cloudCallCtx.InvalidateCredentialFunc = func(reason string) error {
-		ctx.Infof("Cloud credential %q is not accepted by cloud provider: %v", credentials.name, reason)
-		return nil
-	}
-
 	// If we error out for any reason, clean up the environment.
 	defer func() {
 		if resultErr != nil {
@@ -987,8 +978,9 @@ See `[1:] + "`juju kill-controller`" + `.`)
 				// logging the error twice.
 				resultErr = cmd.ErrSilent
 				handleBootstrapError(ctx, func() error {
+					callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 					return environsDestroy(
-						c.controllerName, environ, cloudCallCtx, store,
+						c.controllerName, environ, callCtx, store,
 					)
 				})
 			}
@@ -1006,7 +998,8 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		bootstrapParams.MetadataDir = ctx.AbsPath(c.MetadataSource)
 	}
 
-	constraintsValidator, err := environ.ConstraintsValidator(cloudCallCtx)
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
+	constraintsValidator, err := environ.ConstraintsValidator(callCtx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1077,13 +1070,13 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	if err = bootstrapFuncs.Bootstrap(
 		bootstrapCtx,
 		environ,
-		cloudCallCtx,
+		callCtx,
 		bootstrapParams,
 	); err != nil {
 		return errors.Annotate(err, "failed to bootstrap model")
 	}
 
-	if err = c.controllerDataRefresher(environ, cloudCallCtx, bootstrapCfg); err != nil {
+	if err = c.controllerDataRefresher(environ, callCtx, bootstrapCfg); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1108,7 +1101,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 
 func (c *bootstrapCommand) controllerDataRefresher(
 	environ environs.BootstrapEnviron,
-	cloudCallCtx *envcontext.CloudCallContext,
+	callCtx envcontext.ProviderCallContext,
 	bootstrapCfg bootstrapConfigs,
 ) error {
 	agentVersion := jujuversion.Current
@@ -1122,7 +1115,7 @@ func (c *bootstrapCommand) controllerDataRefresher(
 	var err error
 	if env, ok := environ.(environs.InstanceBroker); ok {
 		// IAAS.
-		addrs, err = common.BootstrapEndpointAddresses(env, cloudCallCtx)
+		addrs, err = common.BootstrapEndpointAddresses(env, callCtx)
 		if err != nil {
 			return errors.Trace(err)
 		}

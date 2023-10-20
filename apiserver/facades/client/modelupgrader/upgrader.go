@@ -31,14 +31,14 @@ import (
 // ModelUpgraderAPI implements the model upgrader interface and is
 // the concrete implementation of the api end point.
 type ModelUpgraderAPI struct {
-	controllerTag names.ControllerTag
-	statePool     StatePool
-	check         common.BlockCheckerInterface
-	authorizer    facade.Authorizer
-	toolsFinder   common.ToolsFinder
-	apiUser       names.UserTag
-	callContext   context.ProviderCallContext
-	newEnviron    common.NewEnvironFunc
+	controllerTag                   names.ControllerTag
+	statePool                       StatePool
+	check                           common.BlockCheckerInterface
+	authorizer                      facade.Authorizer
+	toolsFinder                     common.ToolsFinder
+	apiUser                         names.UserTag
+	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter
+	newEnviron                      common.NewEnvironFunc
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error)
@@ -54,7 +54,7 @@ func NewModelUpgraderAPI(
 	newEnviron common.NewEnvironFunc,
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
-	callCtx context.ProviderCallContext,
+	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 	environscloudspecGetter func(names.ModelTag) (environscloudspec.CloudSpec, error),
 	logger loggo.Logger,
@@ -67,17 +67,17 @@ func NewModelUpgraderAPI(
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 
 	return &ModelUpgraderAPI{
-		controllerTag:           controllerTag,
-		statePool:               stPool,
-		check:                   blockChecker,
-		authorizer:              authorizer,
-		toolsFinder:             toolsFinder,
-		apiUser:                 apiUser,
-		callContext:             callCtx,
-		newEnviron:              newEnviron,
-		registryAPIFunc:         registryAPIFunc,
-		environscloudspecGetter: environscloudspecGetter,
-		logger:                  logger,
+		controllerTag:                   controllerTag,
+		statePool:                       stPool,
+		check:                           blockChecker,
+		authorizer:                      authorizer,
+		toolsFinder:                     toolsFinder,
+		apiUser:                         apiUser,
+		credentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
+		newEnviron:                      newEnviron,
+		registryAPIFunc:                 registryAPIFunc,
+		environscloudspecGetter:         environscloudspecGetter,
+		logger:                          logger,
 	}, nil
 }
 
@@ -218,8 +218,13 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+	invalidatorFunc, err := m.credentialInvalidatorFuncGetter()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	callCtx := context.WithCredentialInvalidator(ctx, invalidatorFunc)
 	if err := preCheckEnvironForUpgradeModel(
-		m.callContext, envOrBroker, model.IsControllerModel(), currentVersion, targetVersion, m.logger,
+		callCtx, envOrBroker, model.IsControllerModel(), currentVersion, targetVersion, m.logger,
 	); err != nil {
 		return result, errors.Trace(err)
 	}

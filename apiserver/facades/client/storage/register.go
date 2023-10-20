@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/state"
@@ -59,5 +59,9 @@ func newStorageAPI(ctx facade.Context) (*StorageAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	return NewStorageAPI(stateShim{st}, model.Type(), storageAccessor, storageMetadata, authorizer, context.CallContext(st)), nil
+
+	return NewStorageAPI(
+		stateShim{st}, model.Type(),
+		storageAccessor, storageMetadata, authorizer,
+		credentialcommon.CredentialInvalidatorFuncGetter(ctx)), nil
 }

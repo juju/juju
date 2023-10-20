@@ -60,7 +60,8 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.authorizer, s.authContext, c.MkDir(), loggo.GetLogger("juju.apiserver.applicationoffers"),
+		s.mockState, s.mockStatePool, s.authorizer, s.authContext, apiservertesting.NoopInvalidateModelCredentialFuncGetter,
+		c.MkDir(), loggo.GetLogger("juju.apiserver.applicationoffers"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -1151,7 +1152,7 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, s.authContext,
-		c.MkDir(),
+		apiservertesting.NoopInvalidateModelCredentialFuncGetter, c.MkDir(),
 		loggo.GetLogger("juju.apiserver.applicationoffers"),
 	)
 	c.Assert(err, jc.ErrorIsNil)

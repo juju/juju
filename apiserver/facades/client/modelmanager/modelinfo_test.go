@@ -50,7 +50,6 @@ type modelInfoSuite struct {
 	st           *mockState
 	ctlrSt       *mockState
 	modelmanager *modelmanager.ModelManagerAPI
-	callContext  context.ProviderCallContext
 }
 
 func pUint64(v uint64) *uint64 {
@@ -168,8 +167,6 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.callContext = context.NewEmptyCloudCallContext()
-
 	var err error
 	cred := cloud.NewEmptyCredential()
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
@@ -181,7 +178,7 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		&mockModelManagerService{},
 		&mockModelService{},
 		nil, nil, common.NewBlockChecker(s.st),
-		&s.authorizer, s.st.model, s.callContext,
+		&s.authorizer, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -207,7 +204,7 @@ func (s *modelInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		&mockModelManagerService{},
 		&mockModelService{},
 		nil, nil,
-		common.NewBlockChecker(s.st), s.authorizer, s.st.model, s.callContext,
+		common.NewBlockChecker(s.st), s.authorizer, s.st.model,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -1037,6 +1034,11 @@ func (st *mockState) ListSecretBackends() ([]*secrets.SecretBackend, error) {
 	}}, nil
 }
 
+func (st *mockState) InvalidateModelCredential(reason string) error {
+	st.MethodCall(st, "InvalidateModelCredential", reason)
+	return nil
+}
+
 type mockSecretProvider struct {
 	provider.ProviderConfig
 	provider.SecretBackendProvider
@@ -1350,4 +1352,12 @@ func (m *mockCloudService) ListAll(ctx stdcontext.Context) ([]cloud.Cloud, error
 		result = append(result, cld)
 	}
 	return result, nil
+}
+
+type mockCredentialShim struct {
+	common.ModelManagerBackend
+}
+
+func (s mockCredentialShim) InvalidateModelCredential(reason string) error {
+	return nil
 }

@@ -77,7 +77,7 @@ func (st *State) precheckInstance(
 		return errors.Trace(err)
 	}
 	return prechecker.PrecheckInstance(
-		context.CallContext(st),
+		context.WithoutCredentialInvalidator(stdcontext.Background()),
 		environs.PrecheckInstanceParams{
 			Base:              mBase,
 			Constraints:       cons,
@@ -92,7 +92,7 @@ func (st *State) constraintsValidator() (constraints.Validator, error) {
 	var validator constraints.Validator
 	if st.policy != nil {
 		var err error
-		validator, err = st.policy.ConstraintsValidator(context.CallContext(st))
+		validator, err = st.policy.ConstraintsValidator(context.WithoutCredentialInvalidator(stdcontext.Background()))
 		if errors.Is(err, errors.NotImplemented) {
 			validator = constraints.NewValidator()
 		} else if err != nil {

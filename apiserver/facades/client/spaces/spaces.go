@@ -26,10 +26,10 @@ import (
 type API struct {
 	reloadSpacesAPI ReloadSpaces
 
-	backing   Backing
-	resources facade.Resources
-	auth      facade.Authorizer
-	context   context.ProviderCallContext
+	backing                         Backing
+	resources                       facade.Resources
+	auth                            facade.Authorizer
+	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter
 
 	check     BlockChecker
 	opFactory OpFactory
@@ -37,14 +37,14 @@ type API struct {
 }
 
 type apiConfig struct {
-	ReloadSpacesAPI ReloadSpaces
-	Backing         Backing
-	Check           BlockChecker
-	Context         context.ProviderCallContext
-	Resources       facade.Resources
-	Authorizer      facade.Authorizer
-	Factory         OpFactory
-	logger          loggo.Logger
+	ReloadSpacesAPI                 ReloadSpaces
+	Backing                         Backing
+	Check                           BlockChecker
+	CredentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter
+	Resources                       facade.Resources
+	Authorizer                      facade.Authorizer
+	Factory                         OpFactory
+	logger                          loggo.Logger
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
@@ -56,14 +56,14 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 	}
 
 	return &API{
-		reloadSpacesAPI: cfg.ReloadSpacesAPI,
-		backing:         cfg.Backing,
-		resources:       cfg.Resources,
-		auth:            cfg.Authorizer,
-		context:         cfg.Context,
-		check:           cfg.Check,
-		opFactory:       cfg.Factory,
-		logger:          cfg.logger,
+		reloadSpacesAPI:                 cfg.ReloadSpacesAPI,
+		backing:                         cfg.Backing,
+		resources:                       cfg.Resources,
+		auth:                            cfg.Authorizer,
+		credentialInvalidatorFuncGetter: cfg.CredentialInvalidatorFuncGetter,
+		check:                           cfg.Check,
+		opFactory:                       cfg.Factory,
+		logger:                          cfg.logger,
 	}, nil
 }
 
@@ -238,7 +238,12 @@ func (api *API) checkSupportsSpaces(ctx stdcontext.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "getting environ")
 	}
-	if !environs.SupportsSpaces(api.context, env) {
+	invalidatorFunc, err := api.credentialInvalidatorFuncGetter()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	callCtx := context.WithCredentialInvalidator(ctx, invalidatorFunc)
+	if !environs.SupportsSpaces(callCtx, env) {
 		return errors.NotSupportedf("spaces")
 	}
 	return nil
@@ -311,7 +316,12 @@ func (api *API) ensureSpacesNotProviderSourced(ctx stdcontext.Context) error {
 		return errors.NotSupportedf("provider networking")
 	}
 
-	providerSourced, err := netEnv.SupportsSpaceDiscovery(api.context)
+	invalidatorFunc, err := api.credentialInvalidatorFuncGetter()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	callCtx := context.WithCredentialInvalidator(ctx, invalidatorFunc)
+	providerSourced, err := netEnv.SupportsSpaceDiscovery(callCtx)
 	if err != nil {
 		return errors.Trace(err)
 	}

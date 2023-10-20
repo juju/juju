@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -70,17 +71,29 @@ type CloudService interface {
 	ListAll(ctx context.Context) ([]jujucloud.Cloud, error)
 }
 
+// CredentialService exposes State methods needed by credential manager.
+type CredentialService interface {
+	CloudCredential(ctx context.Context, id credential.ID) (jujucloud.Credential, error)
+	InvalidateCredential(ctx context.Context, id credential.ID, reason string) error
+}
+
+// StateBackend represents the mongo backend.
+type StateBackend interface {
+	common.ModelManagerBackend
+	InvalidateModelCredential(string) error
+}
+
 // ModelManagerAPI implements the model manager interface and is
 // the concrete implementation of the api end point.
 type ModelManagerAPI struct {
 	*common.ModelStatusAPI
 	modelManagerService ModelManagerService
 	modelService        ModelService
-	state               common.ModelManagerBackend
+	state               StateBackend
 	modelExporter       ModelExporter
 	ctlrState           common.ModelManagerBackend
 	cloudService        CloudService
-	credentialService   common.CredentialService
+	credentialService   CredentialService
 	check               common.BlockCheckerInterface
 	authorizer          facade.Authorizer
 	toolsFinder         common.ToolsFinder
@@ -88,17 +101,16 @@ type ModelManagerAPI struct {
 	isAdmin             bool
 	model               common.Model
 	getBroker           newCaasBrokerFunc
-	callContext         environsContext.ProviderCallContext
 }
 
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
 func NewModelManagerAPI(
-	st common.ModelManagerBackend,
+	st StateBackend,
 	modelExporter ModelExporter,
 	ctlrSt common.ModelManagerBackend,
 	cloudService CloudService,
-	credentialService common.CredentialService,
+	credentialService CredentialService,
 	modelManagerService ModelManagerService,
 	modelService ModelService,
 	toolsFinder common.ToolsFinder,
@@ -106,7 +118,6 @@ func NewModelManagerAPI(
 	blockChecker common.BlockCheckerInterface,
 	authorizer facade.Authorizer,
 	m common.Model,
-	callCtx environsContext.ProviderCallContext,
 ) (*ModelManagerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -137,7 +148,6 @@ func NewModelManagerAPI(
 		apiUser:             apiUser,
 		isAdmin:             isAdmin,
 		model:               m,
-		callContext:         callCtx,
 		modelService:        modelService,
 	}, nil
 }
@@ -434,8 +444,9 @@ Please choose a different model name.
 		return nil, errors.Annotate(err, "failed to open kubernetes client")
 	}
 
+	callCtx := environsContext.WithoutCredentialInvalidator(ctx)
 	if err = broker.Create(
-		m.callContext,
+		callCtx,
 		environs.CreateParams{ControllerUUID: controllerConfig.ControllerUUID()},
 	); err != nil {
 		return nil, errors.Annotatef(err, "creating namespace %q", createArgs.Name)
@@ -490,8 +501,9 @@ func (m *ModelManagerAPI) newModel(
 		return nil, errors.Annotate(err, "failed to open environ")
 	}
 
+	callCtx := environsContext.WithoutCredentialInvalidator(ctx)
 	err = env.Create(
-		m.callContext,
+		callCtx,
 		environs.CreateParams{
 			ControllerUUID: controllerCfg.ControllerUUID(),
 		},
@@ -516,7 +528,7 @@ func (m *ModelManagerAPI) newModel(
 	})
 	if err != nil {
 		// Clean up the environ.
-		if e := env.Destroy(m.callContext); e != nil {
+		if e := env.Destroy(callCtx); e != nil {
 			logger.Warningf("failed to destroy environ, error %v", e)
 		}
 		return nil, errors.Annotate(err, "failed to create new model")
@@ -531,7 +543,13 @@ func (m *ModelManagerAPI) newModel(
 		}
 	}
 
-	if err = space.ReloadSpaces(m.callContext, spaceStateShim{
+	invalidatorFuncGetter := credentialcommon.ModelCredentialInvalidatorFuncGetter(m.credentialService, credentialStateShim{st.(StateBackend)})
+	invalidatorFunc, err := invalidatorFuncGetter()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	callCtx = environsContext.WithCredentialInvalidator(ctx, invalidatorFunc)
+	if err = space.ReloadSpaces(callCtx, spaceStateShim{
 		ModelManagerBackend: st,
 	}, env); err != nil {
 		if errors.Is(err, errors.NotSupported) {
@@ -600,7 +618,12 @@ func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{
 		}
 	}
 
-	st := m.state
+	type dumper interface {
+		DumpAll() (map[string]interface{}, error)
+		ModelTag() names.ModelTag
+	}
+
+	var st dumper = m.state
 	if st.ModelTag() != modelTag {
 		newSt, release, err := m.state.GetBackend(modelTag.Id())
 		if errors.Is(err, errors.NotFound) {

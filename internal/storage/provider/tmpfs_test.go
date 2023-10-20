@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	stdcontext "context"
 	"errors"
 	"fmt"
 
@@ -36,7 +37,7 @@ func (s *tmpfsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
 	s.fakeEtcDir = c.MkDir()
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
 }
 
 func (s *tmpfsSuite) TearDownTest(c *gc.C) {

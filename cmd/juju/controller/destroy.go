@@ -18,7 +18,6 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/client/credentialmanager"
 	controllerapi "github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -38,7 +37,6 @@ import (
 // NewDestroyCommand returns a command to destroy a controller.
 func NewDestroyCommand() cmd.Command {
 	cmd := destroyCommand{}
-	cmd.controllerCredentialAPIFunc = cmd.credentialAPIForControllerModel
 	cmd.environsDestroy = environs.Destroy
 	// Even though this command is all about destroying a controller we end up
 	// needing environment endpoints so we can fall back to the client destroy
@@ -277,8 +275,6 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	cloudCallCtx := cloudCallContext(c.controllerCredentialAPIFunc)
-
 	for {
 		// Attempt to destroy the controller.
 		ctx.Infof("Destroying controller")
@@ -365,7 +361,8 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			}
 		}
 		ctx.Infof("All models reclaimed, cleaning up controller machines")
-		return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
+		callCtx := context.WithoutCredentialInvalidator(ctx)
+		return c.environsDestroy(controllerName, controllerEnviron, callCtx, store)
 	}
 }
 
@@ -534,8 +531,6 @@ type destroyCommandBase struct {
 	api    destroyControllerAPI
 	apierr error
 
-	controllerCredentialAPIFunc newCredentialAPIFunc
-
 	environsDestroy func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error
 }
 
@@ -676,36 +671,4 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 		Cloud:          cloudSpec,
 		Config:         cfg,
 	})
-}
-
-// CredentialAPI defines the methods on the credential API endpoint that the
-// destroy command might call.
-type CredentialAPI interface {
-	InvalidateModelCredential(string) error
-	Close() error
-}
-
-func (c *destroyCommandBase) credentialAPIForControllerModel() (CredentialAPI, error) {
-	// Note that the api here needs to operate on a controller model itself,
-	// as the controller model's cloud credential is the controller cloud credential.
-	root, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return credentialmanager.NewClient(root), nil
-}
-
-type newCredentialAPIFunc func() (CredentialAPI, error)
-
-func cloudCallContext(newAPIFunc newCredentialAPIFunc) context.ProviderCallContext {
-	callCtx := context.NewCloudCallContext(stdcontext.Background())
-	callCtx.InvalidateCredentialFunc = func(reason string) error {
-		api, err := newAPIFunc()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer api.Close()
-		return api.InvalidateModelCredential(reason)
-	}
-	return callCtx
 }

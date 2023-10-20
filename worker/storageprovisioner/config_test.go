@@ -138,8 +138,8 @@ func almostValidConfig() storageprovisioner.Config {
 	// gofmt doesn't seem to want to let me one-line any of these
 	// except the last one, so I'm standardising on multi-line.
 	return storageprovisioner.Config{
-		CloudCallContextFunc: func(_ stdcontext.Context) context.ProviderCallContext {
-			return context.NewEmptyCloudCallContext()
+		CloudCallContextFunc: func(ctx stdcontext.Context) context.ProviderCallContext {
+			return context.WithoutCredentialInvalidator(ctx)
 		},
 		Volumes: struct {
 			storageprovisioner.VolumeAccessor

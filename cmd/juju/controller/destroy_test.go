@@ -53,8 +53,7 @@ type baseDestroySuite struct {
 	store    *jujuclient.MemStore
 	apierror error
 
-	controllerCredentialAPI *mockCredentialAPI
-	environsDestroy         func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error
+	environsDestroy func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error
 }
 
 // fakeDestroyAPI mocks out the controller API
@@ -148,7 +147,6 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	}
 	s.apierror = nil
 
-	s.controllerCredentialAPI = &mockCredentialAPI{}
 	s.environsDestroy = environs.Destroy
 
 	s.store = jujuclient.NewMemStore()
@@ -228,7 +226,6 @@ func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context,
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
 	return controller.NewDestroyCommandForTest(
 		s.api, s.store, s.apierror,
-		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 		s.environsDestroy,
 	)
 }
@@ -571,68 +568,4 @@ func (s *DestroySuite) TestDestroyReturnsBlocks(c *gc.C) {
 		"test1  1871299e-1370-4f3e-83ab-1849ed7b1076  cheryl  destroy-model\n"+
 		"test2  c59d0e3b-2bd7-4867-b1b9-f1ef8a0bb004  bob     all, destroy-model\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-}
-
-func (s *DestroySuite) TestDestroyWithInvalidCredentialCallbackExecutingSuccessfully(c *gc.C) {
-	s.destroyAndInvalidateCredential(c)
-}
-
-func (s *DestroySuite) destroyAndInvalidateCredential(c *gc.C) {
-	s.destroyAndInvalidateCredentialWithError(c, "")
-}
-
-func (s *DestroySuite) destroyAndInvalidateCredentialWithError(c *gc.C, expectedErr string) {
-	called := false
-	// Make sure that the invalidate credential callback in the cloud context
-	// is called.
-	s.environsDestroy = func(controllerName string,
-		env environs.ControllerDestroyer,
-		ctx context.ProviderCallContext,
-		store jujuclient.ControllerStore,
-	) error {
-		called = true
-		err := ctx.InvalidateCredential("testing now")
-		if expectedErr == "" {
-			c.Assert(err, jc.ErrorIsNil)
-		} else {
-			c.Assert(err, gc.ErrorMatches, expectedErr)
-		}
-		return environs.Destroy(controllerName, env, ctx, store)
-	}
-	_, err := s.runDestroyCommand(c, "test1", "--no-prompt")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-	s.controllerCredentialAPI.CheckCallNames(c, "InvalidateModelCredential", "Close")
-}
-
-func (s *DestroySuite) TestDestroyWithInvalidCredentialCallbackFailing(c *gc.C) {
-	msg := "unexpected creds callback error"
-	s.controllerCredentialAPI.SetErrors(errors.New(msg))
-	// As we are throwing the error on within the callback,
-	// the actual call to destroy should succeed.
-	s.destroyAndInvalidateCredentialWithError(c, msg)
-}
-
-func (s *DestroySuite) TestDestroyWithInvalidCredentialCallbackFailingToCloseAPI(c *gc.C) {
-	s.controllerCredentialAPI.SetErrors(
-		nil, // call to invalidate credential succeeds
-		errors.New("unexpected creds callback error"), // call to close api client fails
-	)
-	// As we are throwing the error on api.Close for callback,
-	// the actual call to destroy should succeed.
-	s.destroyAndInvalidateCredential(c)
-}
-
-type mockCredentialAPI struct {
-	jujutesting.Stub
-}
-
-func (m *mockCredentialAPI) InvalidateModelCredential(reason string) error {
-	m.MethodCall(m, "InvalidateModelCredential", reason)
-	return m.NextErr()
-}
-
-func (m *mockCredentialAPI) Close() error {
-	m.MethodCall(m, "Close")
-	return m.NextErr()
 }

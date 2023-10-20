@@ -96,10 +96,10 @@ type testBackend struct {
 	*testing.Stub
 }
 
-func (b *testBackend) CloudCredentialTag() (names.CloudCredentialTag, bool) {
+func (b *testBackend) CloudCredentialTag() (names.CloudCredentialTag, bool, error) {
 	b.AddCall("CloudCredentialTag")
 	tag := names.NewCloudCredentialTag("cirrus/fred/default")
-	return tag, true
+	return tag, true, nil
 }
 
 func newMockCredentialService() *testCredentialService {

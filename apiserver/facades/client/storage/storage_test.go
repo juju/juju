@@ -526,7 +526,6 @@ func (s *storageSuite) TestImportFilesystem(c *gc.C) {
 	}})
 	filesystemSource.CheckCalls(c, []testing.StubCall{
 		{"ImportFilesystem", []interface{}{
-			s.callContext,
 			"foo", map[string]string{
 				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
@@ -576,7 +575,6 @@ func (s *storageSuite) TestImportFilesystemVolumeBacked(c *gc.C) {
 	}})
 	volumeSource.CheckCalls(c, []testing.StubCall{
 		{"ImportVolume", []interface{}{
-			s.callContext,
 			"foo", map[string]string{
 				"juju-model-uuid":      "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 				"juju-controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
@@ -710,7 +708,7 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("superuserfoo"),
 	}
-	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, s.callContext)
+	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, apiservertesting.NoopInvalidateModelCredentialFuncGetter)
 
 	// Sanity check before running test:
 	// Ensure that the user has NO read access to the model but SuperuserAccess
@@ -730,7 +728,7 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("userfoo"),
 	}
-	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, s.callContext)
+	s.api = facadestorage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, apiservertesting.NoopInvalidateModelCredentialFuncGetter)
 
 	// Sanity check before running test:
 	// Ensure that the user has NO read access to the model and NO SuperuserAccess
@@ -750,8 +748,8 @@ type filesystemImporter struct {
 }
 
 // ImportFilesystem is part of the storage.FilesystemImporter interface.
-func (f filesystemImporter) ImportFilesystem(ctx context.ProviderCallContext, providerId string, tags map[string]string) (storage.FilesystemInfo, error) {
-	f.MethodCall(f, "ImportFilesystem", ctx, providerId, tags)
+func (f filesystemImporter) ImportFilesystem(_ context.ProviderCallContext, providerId string, tags map[string]string) (storage.FilesystemInfo, error) {
+	f.MethodCall(f, "ImportFilesystem", providerId, tags)
 	return storage.FilesystemInfo{
 		FilesystemId: providerId,
 		Size:         123,
@@ -763,8 +761,8 @@ type volumeImporter struct {
 }
 
 // ImportVolume is part of the storage.VolumeImporter interface.
-func (v volumeImporter) ImportVolume(ctx context.ProviderCallContext, providerId string, tags map[string]string) (storage.VolumeInfo, error) {
-	v.MethodCall(v, "ImportVolume", ctx, providerId, tags)
+func (v volumeImporter) ImportVolume(_ context.ProviderCallContext, providerId string, tags map[string]string) (storage.VolumeInfo, error) {
+	v.MethodCall(v, "ImportVolume", providerId, tags)
 	return storage.VolumeInfo{
 		VolumeId:   providerId,
 		Size:       123,

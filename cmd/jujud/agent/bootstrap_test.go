@@ -53,7 +53,6 @@ import (
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
@@ -661,27 +660,6 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	c.Assert(called, gc.Equals, 1)
 }
 
-func (s *BootstrapSuite) TestBootstrapWithInvalidCredentialLogs(c *gc.C) {
-	called := false
-	newEnviron := func(_ stdcontext.Context, ps environs.OpenParams) (environs.Environ, error) {
-		called = true
-		env, _ := environs.New(stdcontext.TODO(), ps)
-		return &mockDummyEnviron{env}, nil
-	}
-	s.PatchValue(&environsNewIAAS, newEnviron)
-	_, cmd, err := s.initBootstrapCommand(c, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = cmd.Run(cmdtesting.Context(c))
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(called, jc.IsTrue)
-	// Note that the credential is not needed for dummy provider
-	// which is what the test here uses. This test only checks that
-	// the message related to the credential is logged.
-	c.Assert(c.GetTestLog(), jc.Contains,
-		`ERROR juju.cmd.jujud Cloud credential "" is not accepted by cloud provider: considered invalid for the sake of testing`)
-}
-
 func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 	_, err := os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -818,7 +796,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	err = env.PrepareForBootstrap(nullContext(), "controller-1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	callCtx := envcontext.NewEmptyCloudCallContext()
+	callCtx := envcontext.WithoutCredentialInvalidator(stdcontext.Background())
 	s.AddCleanup(func(c *gc.C) {
 		err := env.DestroyController(callCtx, controllerCfg.ControllerUUID())
 		c.Assert(err, jc.ErrorIsNil)
@@ -868,16 +846,6 @@ func nullContext() environs.BootstrapContext {
 	ctx.Stdout = io.Discard
 	ctx.Stderr = io.Discard
 	return environscmd.BootstrapContext(stdcontext.Background(), ctx)
-}
-
-type mockDummyEnviron struct {
-	environs.Environ
-}
-
-func (m *mockDummyEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
-	// ensure that callback is used...
-	ctx.InvalidateCredential("considered invalid for the sake of testing")
-	return m.Environ.Instances(ctx, ids)
 }
 
 func bootstrapDqliteWithDummyCloudType(ctx stdcontext.Context, mgr database.BootstrapNodeManager, logger database.Logger, preferLoopback bool, ops ...database.BootstrapOpt) error {

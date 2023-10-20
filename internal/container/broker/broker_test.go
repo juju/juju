@@ -4,6 +4,7 @@
 package broker_test
 
 import (
+	stdcontext "context"
 	"net"
 	"os"
 	"path/filepath"
@@ -300,7 +301,7 @@ func instancesFromResults(results ...*environs.StartInstanceResult) []instances.
 }
 
 func assertInstancesStarted(c *gc.C, broker environs.InstanceBroker, results ...*environs.StartInstanceResult) {
-	allInstances, err := broker.AllRunningInstances(context.NewEmptyCloudCallContext())
+	allInstances, err := broker.AllRunningInstances(context.WithoutCredentialInvalidator(stdcontext.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	instancetest.MatchInstances(c, allInstances, instancesFromResults(results...)...)
 }
@@ -334,7 +335,7 @@ func makeNoOpStatusCallback() func(settableStatus status.Status, info string, da
 }
 
 func callStartInstance(c *gc.C, s patcher, broker environs.InstanceBroker, machineId string) (*environs.StartInstanceResult, error) {
-	return broker.StartInstance(context.NewEmptyCloudCallContext(), environs.StartInstanceParams{
+	return broker.StartInstance(context.WithoutCredentialInvalidator(stdcontext.Background()), environs.StartInstanceParams{
 		Constraints:    constraints.Value{},
 		Tools:          makePossibleTools(),
 		InstanceConfig: makeInstanceConfig(c, s, machineId),

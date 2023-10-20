@@ -23,7 +23,6 @@ import (
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/jujuclient"
 	_ "github.com/juju/juju/provider/ec2"
 	_ "github.com/juju/juju/provider/lxd"
@@ -908,39 +907,6 @@ clouds:
 			Message: `property "auth-typs" is invalid. Perhaps you mean "auth-types".`,
 		},
 	})
-}
-
-func (s *addSuite) TestInvalidCredentialMessage(c *gc.C) {
-	fake := newFakeCloudMetadataStore()
-	fake.Call("PublicCloudMetadata", []string(nil)).Returns(map[string]jujucloud.Cloud{}, false, nil)
-	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
-	const expectedYAMLarg = "" +
-		"auth-types:\n" +
-		"- oauth1\n" +
-		"endpoint: http://mymaas\n"
-	fake.Call("ParseOneCloud", []byte(expectedYAMLarg)).Returns(garageMAASCloud, nil)
-	m1Cloud := garageMAASCloud
-	m1Cloud.Name = "m1"
-	m1Metadata := map[string]jujucloud.Cloud{"m1": m1Cloud}
-	fake.Call("WritePersonalCloudMetadata", addDefaultRegion(m1Metadata)).Returns(nil)
-
-	command := cloud.NewAddCloudCommandForTest(fake, jujuclient.NewMemStore(), nil)
-	command.Ping = func(environs.EnvironProvider, string) error {
-		return command.CloudCallCtx.InvalidateCredential("running test")
-	}
-
-	err := cmdtesting.InitCommand(command, []string{"--client"})
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	ctx.Stdin = strings.NewReader("" +
-		/* Select cloud type: */ "maas\n" +
-		/* Enter a name for the cloud: */ "m1\n" +
-		/* Enter the controller's hostname or IP address: */ "http://mymaas\n",
-	)
-
-	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, "Cloud credential is not accepted by cloud provider: running test")
 }
 
 func (*addSuite) TestInteractiveOpenstackNoCloudCert(c *gc.C) {

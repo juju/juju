@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/domain/credential"
+	envcontext "github.com/juju/juju/environs/context"
 )
 
 // ConstCredentialGetter returns a CredentialService which serves a fixed credential.
@@ -28,4 +29,14 @@ func (c credentialGetter) CloudCredential(_ context.Context, id credential.ID) (
 		return cloud.Credential{}, errors.NotFoundf("credential %q", id)
 	}
 	return *c.cred, nil
+}
+
+func (c credentialGetter) InvalidateCredential(_ context.Context, _ credential.ID, _ string) error {
+	return nil
+}
+
+func NoopInvalidateModelCredentialFuncGetter() (envcontext.InvalidateModelCredentialFunc, error) {
+	return func(string) error {
+		return nil
+	}, nil
 }

@@ -149,8 +149,6 @@ type AddCloudCommand struct {
 	// default it just calls the correct provider's Ping method.
 	Ping func(p environs.EnvironProvider, endpoint string) error
 
-	// CloudCallCtx contains context to be used for any cloud calls.
-	CloudCallCtx       *context.CloudCallContext
 	cloudMetadataStore CloudMetadataStore
 
 	// These attributes are used when adding a cloud to a controller.
@@ -166,18 +164,17 @@ type AddCloudCommand struct {
 
 // NewAddCloudCommand returns a command to add cloud information.
 func NewAddCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
-	cloudCallCtx := context.NewCloudCallContext(stdcontext.Background())
 	store := jujuclient.NewFileClientStore()
 	c := &AddCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
 			Store: store,
 		},
 		cloudMetadataStore: cloudMetadataStore,
-		CloudCallCtx:       cloudCallCtx,
 		// Ping is provider.Ping except in tests where we don't actually want to
 		// require a valid cloud.
 		Ping: func(p environs.EnvironProvider, endpoint string) error {
-			return p.Ping(cloudCallCtx, endpoint)
+			callCtx := context.WithoutCredentialInvalidator(stdcontext.Background())
+			return p.Ping(callCtx, endpoint)
 		},
 	}
 	c.addCloudAPIFunc = c.cloudAPI
@@ -461,15 +458,6 @@ func (c *AddCloudCommand) runInteractive(ctxt *cmd.Context) (*jujucloud.Cloud, e
 	provider, err := environs.Provider(cloudType)
 	if err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	// At this stage, since we do not have a reference to any model, nor can we get it,
-	// nor do we need to have a model for anything that this command does,
-	// no cloud credential stored server-side can be invalidated.
-	// So, just log an informative message.
-	c.CloudCallCtx.InvalidateCredentialFunc = func(reason string) error {
-		ctxt.Infof("Cloud credential is not accepted by cloud provider: %v", reason)
-		return nil
 	}
 
 	// VerifyURLs will return true if a schema format type jsonschema.FormatURI is used

@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	stdcontext "context"
 	"os"
 	"path/filepath"
 
@@ -31,7 +32,7 @@ type loopSuite struct {
 func (s *loopSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
 }
 
 func (s *loopSuite) TearDownTest(c *gc.C) {

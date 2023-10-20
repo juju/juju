@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -85,8 +86,8 @@ type MachineManagerAPI struct {
 	leadership             Leadership
 	upgradeSeriesAPI       UpgradeSeries
 
-	callContext environscontext.ProviderCallContext
-	logger      loggo.Logger
+	credentialInvalidatorFuncGetter environscontext.InvalidateModelCredentialFuncGetter
+	logger                          loggo.Logger
 }
 
 type MachineManagerV9 struct {
@@ -155,7 +156,7 @@ func NewFacadeV10(ctx facade.Context) (*MachineManagerAPI, error) {
 			ModelTag:   model.ModelTag(),
 			Authorizer: ctx.Auth(),
 		},
-		environscontext.CallContext(st),
+		credentialcommon.CredentialInvalidatorFuncGetter(ctx),
 		ctx.Resources(),
 		leadership,
 		chClient,
@@ -172,7 +173,7 @@ func NewMachineManagerAPI(
 	storageAccess StorageInterface,
 	pool Pool,
 	auth Authorizer,
-	callCtx environscontext.ProviderCallContext,
+	credentialInvalidatorFuncGetter environscontext.InvalidateModelCredentialFuncGetter,
 	resources facade.Resources,
 	leadership Leadership,
 	charmhubClient CharmhubClient,
@@ -183,17 +184,17 @@ func NewMachineManagerAPI(
 	}
 
 	api := &MachineManagerAPI{
-		controllerConfigGetter: controllerConfigGetter,
-		st:                     backend,
-		cloudService:           cloudService,
-		credentialService:      credentialService,
-		pool:                   pool,
-		authorizer:             auth,
-		check:                  common.NewBlockChecker(backend),
-		callContext:            callCtx,
-		resources:              resources,
-		leadership:             leadership,
-		storageAccess:          storageAccess,
+		controllerConfigGetter:          controllerConfigGetter,
+		st:                              backend,
+		cloudService:                    cloudService,
+		credentialService:               credentialService,
+		pool:                            pool,
+		authorizer:                      auth,
+		check:                           common.NewBlockChecker(backend),
+		credentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
+		resources:                       resources,
+		leadership:                      leadership,
+		storageAccess:                   storageAccess,
 		upgradeSeriesAPI: NewUpgradeSeriesAPI(
 			upgradeSeriesState{state: backend},
 			makeUpgradeSeriesValidator(charmhubClient),

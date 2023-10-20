@@ -71,8 +71,8 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 		Status:      &mockStatusSetter{},
 		Clock:       &mockClock{},
 		Logger:      loggo.GetLogger("test"),
-		CloudCallContextFunc: func(_ stdcontext.Context) context.ProviderCallContext {
-			return context.NewEmptyCloudCallContext()
+		CloudCallContextFunc: func(ctx stdcontext.Context) context.ProviderCallContext {
+			return context.WithoutCredentialInvalidator(ctx)
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2330,8 +2330,8 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		Status:      args.statusSetter,
 		Clock:       args.clock,
 		Logger:      loggo.GetLogger("test"),
-		CloudCallContextFunc: func(_ stdcontext.Context) context.ProviderCallContext {
-			return context.NewEmptyCloudCallContext()
+		CloudCallContextFunc: func(ctx stdcontext.Context) context.ProviderCallContext {
+			return context.WithoutCredentialInvalidator(ctx)
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)

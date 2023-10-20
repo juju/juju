@@ -4,14 +4,15 @@
 package cloud
 
 import (
+	stdcontext "context"
 	"reflect"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/model"
-	envcontext "github.com/juju/juju/environs/context"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -32,44 +33,35 @@ func newFacadeV7(context facade.Context) (*CloudAPI, error) {
 		WithLegacyUpdater(systemState.CloudCredentialUpdated).
 		WithLegacyRemover(systemState.RemoveModelsCredential)
 
-	credentialCallContextGetter := func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
+	credentialCallContextGetter := func(ctx stdcontext.Context, modelUUID model.UUID) (service.CredentialValidationContext, error) {
 		modelState, err := context.StatePool().Get(string(modelUUID))
 		if err != nil {
-			return credentialcommon.CredentialValidationContext{}, err
+			return service.CredentialValidationContext{}, err
 		}
 		defer modelState.Release()
 
 		m, err := modelState.Model()
 		if err != nil {
-			return credentialcommon.CredentialValidationContext{}, err
+			return service.CredentialValidationContext{}, err
 		}
 		cfg, err := m.Config()
 		if err != nil {
-			return credentialcommon.CredentialValidationContext{}, err
+			return service.CredentialValidationContext{}, err
 		}
 
-		// TODO(wallyworld) - we don't want to get the tag here but fixing it needs a big refactor in another PR.
-		// For now we need to update both dqlite and mongo.
-		tag, _ := m.CloudCredentialTag()
-		credentialInvalidator := envcontext.NewCredentialInvalidator(
-			tag, credentialService.InvalidateCredential, modelState.State.InvalidateModelCredential)
-
-		callCtx := envcontext.CallContext(credentialInvalidator)
-		cld, err := context.ServiceFactory().Cloud().Get(callCtx, m.CloudName())
+		cld, err := context.ServiceFactory().Cloud().Get(ctx, m.CloudName())
 		if err != nil {
-			return credentialcommon.CredentialValidationContext{}, err
+			return service.CredentialValidationContext{}, err
 		}
 
-		ctx := credentialcommon.CredentialValidationContext{
+		return service.CredentialValidationContext{
 			ControllerUUID: m.ControllerUUID(),
-			Context:        callCtx,
 			Config:         cfg,
 			MachineService: credentialcommon.NewMachineService(modelState.State),
 			ModelType:      model.Type(m.Type()),
 			Cloud:          *cld,
 			Region:         m.CloudRegion(),
-		}
-		return ctx, err
+		}, nil
 	}
 
 	credentialService = credentialService.WithValidationContextGetter(credentialCallContextGetter)

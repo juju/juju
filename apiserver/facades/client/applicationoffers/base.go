@@ -21,20 +21,21 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
 // BaseAPI provides various boilerplate methods used by the facade business logic.
 type BaseAPI struct {
-	Authorizer           facade.Authorizer
-	GetApplicationOffers func(interface{}) jujucrossmodel.ApplicationOffers
-	ControllerModel      Backend
-	StatePool            StatePool
-	getEnviron           environFromModelFunc
-	getControllerInfo    func(context.Context) (apiAddrs []string, caCert string, _ error)
-	ctx                  context.Context
-	logger               loggo.Logger
+	Authorizer                      facade.Authorizer
+	GetApplicationOffers            func(interface{}) jujucrossmodel.ApplicationOffers
+	ControllerModel                 Backend
+	StatePool                       StatePool
+	getEnviron                      environFromModelFunc
+	getControllerInfo               func(context.Context) (apiAddrs []string, caCert string, _ error)
+	credentialInvalidatorFuncGetter envcontext.InvalidateModelCredentialFuncGetter
+	logger                          loggo.Logger
 }
 
 // checkAdmin ensures that the specified in user is a model or controller admin.
@@ -559,6 +560,12 @@ func (api *BaseAPI) collectRemoteSpaces(ctx context.Context, backend Backend, sp
 		return nil, nil
 	}
 
+	invalidatorFunc, err := api.credentialInvalidatorFuncGetter()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	callCtx := envcontext.WithCredentialInvalidator(ctx, invalidatorFunc)
+
 	results := make(map[string]params.RemoteSpace)
 	for _, name := range spaceNames {
 		space := environs.DefaultSpaceInfo
@@ -573,7 +580,7 @@ func (api *BaseAPI) collectRemoteSpaces(ctx context.Context, backend Backend, sp
 			}
 			space = &dbSpaceInfo
 		}
-		providerSpace, err := netEnv.ProviderSpaceInfo(backend.GetModelCallContext(), space)
+		providerSpace, err := netEnv.ProviderSpaceInfo(callCtx, space)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}

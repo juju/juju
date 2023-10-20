@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/domain/credential"
+	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/model"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/environs"
@@ -467,7 +468,7 @@ func (s *Suite) TestCheckMachinesManualCloud(c *gc.C) {
 	tag := names.NewCloudCredentialTag(
 		fmt.Sprintf("manual/%s/dummy-credential", owner.Name()))
 	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.IdFromTag(tag)).Return(cred, nil)
-	s.credentialValidator.EXPECT().Validate(gomock.Any(), credential.IdFromTag(tag), &cred, false)
+	s.credentialValidator.EXPECT().Validate(gomock.Any(), gomock.Any(), credential.IdFromTag(tag), &cred, false)
 
 	st := s.Factory.MakeModel(c, &factory.ModelParams{
 		CloudName:       "manual",
@@ -520,7 +521,7 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	s.callContext = environscontext.NewEmptyCloudCallContext()
+	s.callContext = environscontext.WithoutCredentialInvalidator(context.Background())
 	s.facadeContext = facadetest.Context{
 		State_:     s.State,
 		StatePool_: s.StatePool,
@@ -541,8 +542,13 @@ func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stat
 		s.cloudService,
 		s.credentialService,
 		s.credentialValidator,
-		func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
-			return credentialcommon.CredentialValidationContext{}, nil
+		func(ctx context.Context, modelUUID model.UUID) (service.CredentialValidationContext, error) {
+			return service.CredentialValidationContext{}, nil
+		},
+		func() (environscontext.InvalidateModelCredentialFunc, error) {
+			return func(reason string) error {
+				return nil
+			}, nil
 		},
 		environFunc,
 		brokerFunc,

@@ -20,7 +20,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/rpc/params"
 )
@@ -65,7 +64,7 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 			Authorizer: s.authorizer,
 			ModelTag:   names.NewModelTag("beef1beef1-0000-0000-000011112222"),
 		},
-		context.NewEmptyCloudCallContext(),
+		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
 		common.NewResources(),
 		s.leadership,
 		nil,

@@ -4,6 +4,7 @@
 package state
 
 import (
+	stdcontext "context"
 	"fmt"
 
 	"github.com/juju/collections/set"
@@ -42,7 +43,7 @@ func distributeUnit(u *Unit, candidates []instance.Id, limitZones []string) ([]i
 	if len(distributionGroup) == 0 {
 		return candidates, nil
 	}
-	return distributor.DistributeInstances(context.CallContext(u.st), candidates, distributionGroup, limitZones)
+	return distributor.DistributeInstances(context.WithoutCredentialInvalidator(stdcontext.Background()), candidates, distributionGroup, limitZones)
 }
 
 // ApplicationInstances returns the instance IDs of provisioned

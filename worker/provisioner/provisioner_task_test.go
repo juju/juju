@@ -76,7 +76,7 @@ type ProvisionerTaskSuite struct {
 	instances      []instances.Instance
 	instanceBroker *testInstanceBroker
 
-	callCtx           *context.CloudCallContext
+	callCtx           context.ProviderCallContext
 	invalidCredential bool
 }
 
@@ -101,13 +101,10 @@ func (s *ProvisionerTaskSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	s.callCtx = &context.CloudCallContext{
-		Context: stdcontext.TODO(),
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidCredential = true
-			return nil
-		},
-	}
+	s.callCtx = context.WithCredentialInvalidator(stdcontext.TODO(), func(string) error {
+		s.invalidCredential = true
+		return nil
+	})
 }
 
 func (s *ProvisionerTaskSuite) TestStartStop(c *gc.C) {

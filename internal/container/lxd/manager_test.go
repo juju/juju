@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	stdcontext "context"
 	"errors"
 	stdtesting "testing"
 
@@ -179,7 +180,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	instanceId := instance.Id()
 	c.Check(string(instanceId), gc.Equals, hostName)
 
-	instanceStatus := instance.Status(context.NewEmptyCloudCallContext())
+	instanceStatus := instance.Status(context.WithoutCredentialInvalidator(stdcontext.Background()))
 	c.Check(instanceStatus.Status, gc.Equals, status.Running)
 	c.Check(*hc.AvailabilityZone, gc.Equals, "test-availability-zone")
 

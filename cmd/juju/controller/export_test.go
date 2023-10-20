@@ -99,16 +99,14 @@ func NewDestroyCommandForTest(
 	api destroyControllerAPI,
 	store jujuclient.ClientStore,
 	apierr error,
-	controllerCredentialAPIFunc newCredentialAPIFunc,
 	environsDestroy func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error,
 
 ) cmd.Command {
 	cmd := &destroyCommand{
 		destroyCommandBase: destroyCommandBase{
-			api:                         api,
-			apierr:                      apierr,
-			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
-			environsDestroy:             environsDestroy,
+			api:             api,
+			apierr:          apierr,
+			environsDestroy: environsDestroy,
 		},
 	}
 	cmd.SetClientStore(store)
@@ -127,15 +125,13 @@ func NewKillCommandForTest(
 	apierr error,
 	clock clock.Clock,
 	apiOpen api.OpenFunc,
-	controllerCredentialAPIFunc newCredentialAPIFunc,
 	environsDestroy func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error,
 ) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
-			api:                         api,
-			apierr:                      apierr,
-			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
-			environsDestroy:             environsDestroy,
+			api:             api,
+			apierr:          apierr,
+			environsDestroy: environsDestroy,
 		},
 		clock: clock,
 	}

@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -44,15 +43,13 @@ import (
 var _ = gc.Suite(&MachineManagerSuite{})
 
 type MachineManagerSuite struct {
-	authorizer  *apiservertesting.FakeAuthorizer
-	callContext context.ProviderCallContext
+	authorizer *apiservertesting.FakeAuthorizer
 
 	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *MachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.callContext = context.NewEmptyCloudCallContext()
 }
 
 func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
@@ -73,7 +70,7 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 			Authorizer: s.authorizer,
 			ModelTag:   names.ModelTag{},
 		},
-		s.callContext,
+		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
 		common.NewResources(),
 		nil,
 		nil,
@@ -94,14 +91,11 @@ type AddMachineManagerSuite struct {
 	cloudService  *commonmocks.MockCloudService
 	credService   *commonmocks.MockCredentialService
 
-	callContext context.ProviderCallContext
-
 	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *AddMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.callContext = context.NewEmptyCloudCallContext()
 }
 
 func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
@@ -129,7 +123,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		machinemanager.ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		s.callContext,
+		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
 		common.NewResources(),
 		nil,
 		nil,
@@ -733,14 +727,11 @@ type ProvisioningMachineManagerSuite struct {
 	credService  *commonmocks.MockCredentialService
 	api          *machinemanager.MachineManagerAPI
 
-	callContext context.ProviderCallContext
-
 	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *ProvisioningMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.callContext = context.NewEmptyCloudCallContext()
 }
 
 func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
@@ -777,7 +768,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		machinemanager.ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		s.callContext,
+		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
 		common.NewResources(),
 		nil,
 		nil,
@@ -1008,14 +999,11 @@ type UpgradeSeriesValidateMachineManagerSuite struct {
 	credService  *commonmocks.MockCredentialService
 	api          *machinemanager.MachineManagerAPI
 
-	callContext context.ProviderCallContext
-
 	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *UpgradeSeriesValidateMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.callContext = context.NewEmptyCloudCallContext()
 }
 
 func (s *UpgradeSeriesValidateMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
@@ -1037,7 +1025,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		machinemanager.ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		s.callContext,
+		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
 		common.NewResources(),
 		nil,
 		nil,
@@ -1274,14 +1262,11 @@ type UpgradeSeriesPrepareMachineManagerSuite struct {
 	credService  *commonmocks.MockCredentialService
 	api          *machinemanager.MachineManagerAPI
 
-	callContext context.ProviderCallContext
-
 	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *UpgradeSeriesPrepareMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.callContext = context.NewEmptyCloudCallContext()
 }
 
 func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
@@ -1305,7 +1290,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Control
 		machinemanager.ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		s.callContext,
+		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
 		common.NewResources(),
 		nil,
 		nil,
@@ -1414,7 +1399,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setAPIUser(c *gc.C, user names
 		machinemanager.ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		s.callContext,
+		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
 		common.NewResources(),
 		nil,
 		nil,
@@ -1495,14 +1480,11 @@ type UpgradeSeriesCompleteMachineManagerSuite struct {
 	credService  *commonmocks.MockCredentialService
 	api          *machinemanager.MachineManagerAPI
 
-	callContext context.ProviderCallContext
-
 	controllerConfigGetter *mocks.MockControllerConfigGetter
 }
 
 func (s *UpgradeSeriesCompleteMachineManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: names.NewUserTag("admin")}
-	s.callContext = context.NewEmptyCloudCallContext()
 }
 
 func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
@@ -1527,7 +1509,7 @@ func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		machinemanager.ModelAuthorizer{
 			Authorizer: s.authorizer,
 		},
-		s.callContext,
+		apiservertesting.NoopInvalidateModelCredentialFuncGetter,
 		common.NewResources(),
 		nil,
 		nil,

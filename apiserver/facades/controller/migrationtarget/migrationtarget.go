@@ -59,18 +59,19 @@ type ControllerConfigService interface {
 // API implements the API required for the model migration
 // master worker when communicating with the target controller.
 type API struct {
-	state                       *state.State
-	modelImporter               ModelImporter
-	externalControllerService   ExternalControllerService
-	cloudService                common.CloudService
-	credentialService           credentialcommon.CredentialService
-	credentialValidator         credentialcommon.CredentialValidator
-	credentialCallContextGetter credentialservice.ValidationContextGetter
-	pool                        *state.StatePool
-	authorizer                  facade.Authorizer
-	presence                    facade.Presence
-	getEnviron                  stateenvirons.NewEnvironFunc
-	getCAASBroker               stateenvirons.NewCAASBrokerFunc
+	state                           *state.State
+	modelImporter                   ModelImporter
+	externalControllerService       ExternalControllerService
+	cloudService                    common.CloudService
+	credentialService               credentialcommon.CredentialService
+	credentialValidator             credentialservice.CredentialValidator
+	credentialCallContextGetter     credentialservice.ValidationContextGetter
+	credentialInvalidatorFuncGetter environscontext.InvalidateModelCredentialFuncGetter
+	pool                            *state.StatePool
+	authorizer                      facade.Authorizer
+	presence                        facade.Presence
+	getEnviron                      stateenvirons.NewEnvironFunc
+	getCAASBroker                   stateenvirons.NewCAASBrokerFunc
 }
 
 // APIV1 implements the V1 version of the API facade.
@@ -87,8 +88,9 @@ func NewAPI(
 	externalControllerService ExternalControllerService,
 	cloudService common.CloudService,
 	credentialService credentialcommon.CredentialService,
-	validator credentialcommon.CredentialValidator,
+	validator credentialservice.CredentialValidator,
 	credentialCallContextGetter credentialservice.ValidationContextGetter,
+	credentialInvalidatorFuncGetter environscontext.InvalidateModelCredentialFuncGetter,
 	getEnviron stateenvirons.NewEnvironFunc,
 	getCAASBroker stateenvirons.NewCAASBrokerFunc,
 ) (*API, error) {
@@ -102,18 +104,19 @@ func NewAPI(
 	)
 
 	return &API{
-		state:                       st,
-		modelImporter:               modelImporter,
-		pool:                        pool,
-		externalControllerService:   externalControllerService,
-		cloudService:                cloudService,
-		credentialService:           credentialService,
-		credentialValidator:         validator,
-		credentialCallContextGetter: credentialCallContextGetter,
-		authorizer:                  authorizer,
-		presence:                    ctx.Presence(),
-		getEnviron:                  getEnviron,
-		getCAASBroker:               getCAASBroker,
+		state:                           st,
+		modelImporter:                   modelImporter,
+		pool:                            pool,
+		externalControllerService:       externalControllerService,
+		cloudService:                    cloudService,
+		credentialService:               credentialService,
+		credentialValidator:             validator,
+		credentialCallContextGetter:     credentialCallContextGetter,
+		credentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
+		authorizer:                      authorizer,
+		presence:                        ctx.Presence(),
+		getEnviron:                      getEnviron,
+		getCAASBroker:                   getCAASBroker,
 	}, nil
 }
 
@@ -357,7 +360,12 @@ func (api *API) AdoptResources(ctx context.Context, args params.AdoptResourcesAr
 		return errors.Trace(err)
 	}
 
-	err = ra.AdoptResources(environscontext.CallContext(m.State()), st.ControllerUUID(), args.SourceControllerVersion)
+	invalidatorFunc, err := api.credentialInvalidatorFuncGetter()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	callCtx := environscontext.WithCredentialInvalidator(ctx, invalidatorFunc)
+	err = ra.AdoptResources(callCtx, st.ControllerUUID(), args.SourceControllerVersion)
 	if errors.Is(err, errors.NotImplemented) {
 		return nil
 	}
@@ -400,14 +408,14 @@ func (api *API) CheckMachines(ctx context.Context, args params.ModelArgs) (param
 		return params.ErrorResults{}, errors.NotValidf("credential %q", storedCredential.Label)
 	}
 
-	callCtx, err := api.credentialCallContextGetter(model.UUID(m.UUID()))
+	callCtx, err := api.credentialCallContextGetter(ctx, model.UUID(m.UUID()))
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 	cred := jujucloud.NewCredential(storedCredential.AuthType(), storedCredential.Attributes())
 
 	var result params.ErrorResults
-	modelErrors, err := api.credentialValidator.Validate(callCtx, credential.IdFromTag(credentialTag), &cred, cloud.Type != "manual")
+	modelErrors, err := api.credentialValidator.Validate(ctx, callCtx, credential.IdFromTag(credentialTag), &cred, cloud.Type != "manual")
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

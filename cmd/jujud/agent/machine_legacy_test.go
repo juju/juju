@@ -703,7 +703,7 @@ func (s *MachineLegacySuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	m, instId := s.waitProvisioned(c, unit)
-	insts, err := s.Environ.Instances(context.NewEmptyCloudCallContext(), []instance.Id{instId})
+	insts, err := s.Environ.Instances(context.WithoutCredentialInvalidator(stdcontext.Background()), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 
 	dummy.SetInstanceStatus(insts[0], "running")

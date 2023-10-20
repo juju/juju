@@ -299,7 +299,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	// We need to do this before setting the API host-ports,
 	// because any space names in the bootstrap machine addresses must be
 	// reconcilable with space IDs at that point.
-	callContext := context.CallContext(st)
+	callContext := context.WithoutCredentialInvalidator(ctx)
 	if err = space.ReloadSpaces(callContext, space.NewState(st), b.bootstrapEnviron); err != nil {
 		if !errors.Is(err, errors.NotSupported) {
 			return nil, errors.Trace(err)
@@ -463,8 +463,9 @@ func (b *AgentBootstrap) ensureInitialModel(
 		return errors.Annotate(err, "opening initial model environment")
 	}
 
+	callCtx := context.WithoutCredentialInvalidator(ctx)
 	if err := initialModelEnv.Create(
-		context.CallContext(st),
+		callCtx,
 		environs.CreateParams{
 			ControllerUUID: controllerUUID,
 		}); err != nil {
@@ -497,8 +498,7 @@ func (b *AgentBootstrap) ensureInitialModel(
 	}
 
 	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
-	callContext := context.CallContext(initialModelState)
-	if err = space.ReloadSpaces(callContext, space.NewState(initialModelState), initialModelEnv); err != nil {
+	if err = space.ReloadSpaces(callCtx, space.NewState(initialModelState), initialModelEnv); err != nil {
 		if errors.Is(err, errors.NotSupported) {
 			b.logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {

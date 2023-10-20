@@ -43,26 +43,26 @@ type EnvironSpaces interface {
 
 // ReloadSpacesAPI provides the reload spaces API facade for version.
 type ReloadSpacesAPI struct {
-	state     ReloadSpacesState
-	environs  ReloadSpacesEnviron
-	spaces    EnvironSpaces
-	context   context.ProviderCallContext
-	authorize ReloadSpacesAuthorizer
+	state                           ReloadSpacesState
+	environs                        ReloadSpacesEnviron
+	spaces                          EnvironSpaces
+	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter
+	authorize                       ReloadSpacesAuthorizer
 }
 
 // NewReloadSpacesAPI creates a new ReloadSpacesAPI.
 func NewReloadSpacesAPI(state ReloadSpacesState,
 	environs ReloadSpacesEnviron,
 	spaces EnvironSpaces,
-	context context.ProviderCallContext,
+	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter,
 	authorizer ReloadSpacesAuthorizer,
 ) *ReloadSpacesAPI {
 	return &ReloadSpacesAPI{
-		state:     state,
-		environs:  environs,
-		spaces:    spaces,
-		context:   context,
-		authorize: authorizer,
+		state:                           state,
+		environs:                        environs,
+		spaces:                          spaces,
+		credentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
+		authorize:                       authorizer,
 	}
 }
 
@@ -75,7 +75,12 @@ func (api *ReloadSpacesAPI) ReloadSpaces(ctx stdcontext.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(api.spaces.ReloadSpaces(api.context, api.state, env))
+	invalidatorFunc, err := api.credentialInvalidatorFuncGetter()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	callCtx := context.WithCredentialInvalidator(ctx, invalidatorFunc)
+	return errors.Trace(api.spaces.ReloadSpaces(callCtx, api.state, env))
 }
 
 // ReloadSpacesAuthorizer represents a way to authorize reload spaces.

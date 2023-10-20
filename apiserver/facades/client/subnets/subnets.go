@@ -51,11 +51,11 @@ type Backing interface {
 
 // API provides the subnets API facade for version 5.
 type API struct {
-	backing    Backing
-	resources  facade.Resources
-	authorizer facade.Authorizer
-	context    context.ProviderCallContext
-	logger     loggo.Logger
+	backing                         Backing
+	resources                       facade.Resources
+	authorizer                      facade.Authorizer
+	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter
+	logger                          loggo.Logger
 }
 
 func (api *API) checkCanRead() error {
@@ -64,17 +64,20 @@ func (api *API) checkCanRead() error {
 
 // newAPIWithBacking creates a new server-side Subnets API facade with
 // a common.NetworkBacking
-func newAPIWithBacking(backing Backing, ctx context.ProviderCallContext, resources facade.Resources, authorizer facade.Authorizer, logger loggo.Logger) (*API, error) {
+func newAPIWithBacking(
+	backing Backing, credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter,
+	resources facade.Resources, authorizer facade.Authorizer, logger loggo.Logger,
+) (*API, error) {
 	// Only clients can access the Subnets facade.
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
-		backing:    backing,
-		resources:  resources,
-		authorizer: authorizer,
-		context:    ctx,
-		logger:     logger,
+		backing:                         backing,
+		resources:                       resources,
+		authorizer:                      authorizer,
+		credentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
+		logger:                          logger,
 	}, nil
 }
 
@@ -85,7 +88,12 @@ func (api *API) AllZones(ctx stdcontext.Context) (params.ZoneResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.ZoneResults{}, err
 	}
-	return allZones(api.context, api.backing, api.logger)
+	invalidator, err := api.credentialInvalidatorFuncGetter()
+	if err != nil {
+		return params.ZoneResults{}, errors.Trace(err)
+	}
+	callCtx := context.WithCredentialInvalidator(ctx, invalidator)
+	return allZones(callCtx, api.backing, api.logger)
 }
 
 // ListSubnets returns the matching subnets after applying

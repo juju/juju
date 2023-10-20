@@ -20,6 +20,7 @@ import (
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -42,6 +43,7 @@ func createOffersAPI(
 	statePool StatePool,
 	authorizer facade.Authorizer,
 	authContext *commoncrossmodel.AuthContext,
+	credentialInvalidatorFuncGetter envcontext.InvalidateModelCredentialFuncGetter,
 	dataDir string,
 	logger loggo.Logger,
 ) (*OffersAPI, error) {
@@ -53,14 +55,14 @@ func createOffersAPI(
 		dataDir:     dataDir,
 		authContext: authContext,
 		BaseAPI: BaseAPI{
-			ctx:                  context.Background(),
-			Authorizer:           authorizer,
-			GetApplicationOffers: getApplicationOffers,
-			ControllerModel:      backend,
-			StatePool:            statePool,
-			getEnviron:           getEnviron,
-			getControllerInfo:    getControllerInfo,
-			logger:               logger,
+			Authorizer:                      authorizer,
+			GetApplicationOffers:            getApplicationOffers,
+			ControllerModel:                 backend,
+			credentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
+			StatePool:                       statePool,
+			getEnviron:                      getEnviron,
+			getControllerInfo:               getControllerInfo,
+			logger:                          logger,
 		},
 	}
 	return api, nil
@@ -499,7 +501,7 @@ func (api *OffersAPI) getConsumeDetails(ctx context.Context, user names.UserTag,
 				}
 			}
 		}
-		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(api.ctx, offerDetails, user.Id(), urls.BakeryVersion)
+		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(ctx, offerDetails, user.Id(), urls.BakeryVersion)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue

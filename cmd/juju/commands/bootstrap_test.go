@@ -1057,26 +1057,6 @@ func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 	c.Check(destroyed, jc.IsFalse)
 }
 
-// TestBootstrapInvalidCredentialMessage tests that an informative message is logged
-// when attempting to bootstrap with an invalid credential.
-func (s *BootstrapSuite) TestBootstrapInvalidCredentialMessage(c *gc.C) {
-	bootstrapFuncs := &fakeBootstrapFuncs{
-		bootstrapF: func(_ environs.BootstrapContext, _ environs.BootstrapEnviron, callCtx context.ProviderCallContext, _ bootstrap.BootstrapParams) error {
-			callCtx.InvalidateCredential("considered invalid for the sake of testing")
-			return nil
-		},
-	}
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return bootstrapFuncs
-	})
-	ctx, _ := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
-		"dummy", "devcontroller",
-		"--auto-upgrade",
-	)
-	c.Assert(cmdtesting.Stderr(ctx), jc.Contains,
-		`Cloud credential "default" is not accepted by cloud provider: considered invalid for the sake of testing`)
-}
-
 type controllerModelAccountParams struct {
 	controller     string
 	controllerUUID string

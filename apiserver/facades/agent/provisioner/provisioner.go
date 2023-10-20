@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -60,19 +61,19 @@ type ProvisionerAPI struct {
 	*common.ToolsGetter
 	*networkingcommon.NetworkConfigAPI
 
-	st                      *state.State
-	m                       *state.Model
-	controllerConfigService ControllerConfigService
-	resources               facade.Resources
-	authorizer              facade.Authorizer
-	storageProviderRegistry storage.ProviderRegistry
-	storagePoolManager      poolmanager.PoolManager
-	configGetter            environs.EnvironConfigGetter
-	getAuthFunc             common.GetAuthFunc
-	getCanModify            common.GetAuthFunc
-	providerCallContext     context.ProviderCallContext
-	toolsFinder             common.ToolsFinder
-	logger                  loggo.Logger
+	st                              *state.State
+	m                               *state.Model
+	controllerConfigService         ControllerConfigService
+	resources                       facade.Resources
+	authorizer                      facade.Authorizer
+	storageProviderRegistry         storage.ProviderRegistry
+	storagePoolManager              poolmanager.PoolManager
+	configGetter                    environs.EnvironConfigGetter
+	getAuthFunc                     common.GetAuthFunc
+	getCanModify                    common.GetAuthFunc
+	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter
+	toolsFinder                     common.ToolsFinder
+	logger                          loggo.Logger
 
 	// Hold on to the controller UUID, as we'll reuse it for a lot of
 	// calls.
@@ -164,7 +165,7 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
-	callCtx := context.CallContext(st)
+
 	resources := ctx.Resources()
 	api := &ProvisionerAPI{
 		Remover:              common.NewRemover(st, nil, false, getAuthFunc),
@@ -181,20 +182,20 @@ func NewProvisionerAPI(ctx facade.Context) (*ProvisionerAPI, error) {
 			serviceFactory.ControllerConfig(),
 			serviceFactory.ExternalController(),
 		),
-		NetworkConfigAPI:        netConfigAPI,
-		st:                      st,
-		m:                       model,
-		controllerConfigService: serviceFactory.ControllerConfig(),
-		resources:               resources,
-		authorizer:              authorizer,
-		configGetter:            configGetter,
-		storageProviderRegistry: storageProviderRegistry,
-		storagePoolManager:      poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
-		getAuthFunc:             getAuthFunc,
-		getCanModify:            getCanModify,
-		providerCallContext:     callCtx,
-		controllerUUID:          controllerCfg.ControllerUUID(),
-		logger:                  ctx.Logger().Child("provisioner"),
+		NetworkConfigAPI:                netConfigAPI,
+		st:                              st,
+		m:                               model,
+		controllerConfigService:         serviceFactory.ControllerConfig(),
+		resources:                       resources,
+		authorizer:                      authorizer,
+		configGetter:                    configGetter,
+		storageProviderRegistry:         storageProviderRegistry,
+		storagePoolManager:              poolmanager.New(state.NewStateSettings(st), storageProviderRegistry),
+		getAuthFunc:                     getAuthFunc,
+		getCanModify:                    getCanModify,
+		credentialInvalidatorFuncGetter: credentialcommon.CredentialInvalidatorFuncGetter(ctx),
+		controllerUUID:                  controllerCfg.ControllerUUID(),
+		logger:                          ctx.Logger().Child("provisioner"),
 	}
 	if isCaasModel {
 		return api, nil
@@ -876,6 +877,12 @@ func (api *ProvisionerAPI) processEachContainer(ctx stdcontext.Context, args par
 		return errors.Trace(err)
 	}
 
+	invalidatorFunc, err := api.credentialInvalidatorFuncGetter()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	callCtx := context.WithCredentialInvalidator(ctx, invalidatorFunc)
+
 	for i, entity := range args.Entities {
 		machineTag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
@@ -896,7 +903,7 @@ func (api *ProvisionerAPI) processEachContainer(ctx stdcontext.Context, args par
 		}
 
 		if err := handler.ProcessOneContainer(
-			env, api.providerCallContext, policy, i,
+			env, callCtx, policy, i,
 			NewMachine(hostMachine),
 			NewMachine(guest),
 			api.logger,
@@ -913,17 +920,17 @@ type prepareOrGetContext struct {
 	maintain bool
 }
 
-// Implements perContainerHandler.SetError
+// SetError implements perContainerHandler.SetError
 func (ctx *prepareOrGetContext) SetError(idx int, err error) {
 	ctx.result.Results[idx].Error = apiservererrors.ServerError(err)
 }
 
-// Implements perContainerHandler.ConfigType
+// ConfigType implements perContainerHandler.ConfigType
 func (ctx *prepareOrGetContext) ConfigType() string {
 	return "network"
 }
 
-// Implements perContainerHandler.ProcessOneContainer
+// ProcessOneContainer implements perContainerHandler.ProcessOneContainer
 func (ctx *prepareOrGetContext) ProcessOneContainer(
 	env environs.Environ, callContext context.ProviderCallContext, policy BridgePolicy, idx int, host, guest Machine, logger loggo.Logger,
 ) error {

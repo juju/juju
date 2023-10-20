@@ -1,7 +1,7 @@
 // Copyright 2016 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package common
+package machinemanager
 
 import (
 	"github.com/juju/errors"
@@ -35,13 +35,12 @@ func toParamsInstanceTypeResult(itypes []instances.InstanceType) []params.Instan
 	return result
 }
 
-// NewInstanceTypeConstraints returns an instanceTypeConstraints with the passed
+// newInstanceTypeConstraints returns an instanceTypeConstraints with the passed
 // parameters.
-func NewInstanceTypeConstraints(env environs.Environ, ctx context.ProviderCallContext, constraints constraints.Value) instanceTypeConstraints {
+func newInstanceTypeConstraints(env environs.Environ, constraints constraints.Value) instanceTypeConstraints {
 	return instanceTypeConstraints{
 		environ:     env,
 		constraints: constraints,
-		context:     ctx,
 	}
 }
 
@@ -49,13 +48,12 @@ func NewInstanceTypeConstraints(env environs.Environ, ctx context.ProviderCallCo
 type instanceTypeConstraints struct {
 	constraints constraints.Value
 	environ     environs.Environ
-	context     context.ProviderCallContext
 }
 
-// InstanceTypes returns a list of the available instance types in the provider according
+// getInstanceTypes returns a list of the available instance types in the provider according
 // to the passed constraints.
-func InstanceTypes(cons instanceTypeConstraints) (params.InstanceTypesResult, error) {
-	instanceTypes, err := cons.environ.InstanceTypes(cons.context, cons.constraints)
+func getInstanceTypes(ctx context.ProviderCallContext, cons instanceTypeConstraints) (params.InstanceTypesResult, error) {
+	instanceTypes, err := cons.environ.InstanceTypes(ctx, cons.constraints)
 	if err != nil {
 		return params.InstanceTypesResult{}, errors.Trace(err)
 	}

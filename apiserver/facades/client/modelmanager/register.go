@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -75,7 +74,7 @@ func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 	backend := common.NewUserAwareModelManagerBackend(model, pool, apiUser)
 
 	return NewModelManagerAPI(
-		backend,
+		backend.(StateBackend),
 		migration.NewModelExporter(
 			backend,
 			modelmigration.NewScope(changestream.NewTxnRunnerFactory(ctx.ControllerDB), nil),
@@ -90,6 +89,5 @@ func newFacadeV10(ctx facade.Context) (*ModelManagerAPI, error) {
 		common.NewBlockChecker(backend),
 		auth,
 		model,
-		context.CallContext(st),
 	)
 }

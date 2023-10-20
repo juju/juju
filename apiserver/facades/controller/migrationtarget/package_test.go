@@ -10,7 +10,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package migrationtarget_test -destination domain_mock_test.go github.com/juju/juju/apiserver/facades/controller/migrationtarget ControllerConfigService,ExternalControllerService
-//go:generate go run go.uber.org/mock/mockgen -package migrationtarget_test -destination credential_mock_test.go github.com/juju/juju/apiserver/common/credentialcommon CredentialValidator
+//go:generate go run go.uber.org/mock/mockgen -package migrationtarget_test -destination credential_mock_test.go github.com/juju/juju/domain/credential/service CredentialValidator
 
 func TestAll(t *stdtesting.T) {
 	testing.MgoTestPackage(t)

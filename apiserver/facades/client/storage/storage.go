@@ -30,12 +30,12 @@ type storageMetadataFunc func() (poolmanager.PoolManager, storage.ProviderRegist
 
 // StorageAPI implements the latest version (v6) of the Storage API.
 type StorageAPI struct {
-	backend         backend
-	storageAccess   storageAccess
-	storageMetadata storageMetadataFunc
-	authorizer      facade.Authorizer
-	callContext     context.ProviderCallContext
-	modelType       state.ModelType
+	backend                         backend
+	storageAccess                   storageAccess
+	storageMetadata                 storageMetadataFunc
+	authorizer                      facade.Authorizer
+	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter
+	modelType                       state.ModelType
 }
 
 func NewStorageAPI(
@@ -44,15 +44,15 @@ func NewStorageAPI(
 	storageAccess storageAccess,
 	storageMetadata storageMetadataFunc,
 	authorizer facade.Authorizer,
-	callContext context.ProviderCallContext,
+	credentialInvalidatorFuncGetter context.InvalidateModelCredentialFuncGetter,
 ) *StorageAPI {
 	return &StorageAPI{
-		backend:         backend,
-		modelType:       modelType,
-		storageAccess:   storageAccess,
-		storageMetadata: storageMetadata,
-		authorizer:      authorizer,
-		callContext:     callContext,
+		backend:                         backend,
+		modelType:                       modelType,
+		storageAccess:                   storageAccess,
+		storageMetadata:                 storageMetadata,
+		authorizer:                      authorizer,
+		credentialInvalidatorFuncGetter: credentialInvalidatorFuncGetter,
 	}
 }
 
@@ -717,7 +717,7 @@ func (a *StorageAPI) Import(ctx stdcontext.Context, args params.BulkImportStorag
 
 	results := make([]params.ImportStorageResult, len(args.Storage))
 	for i, arg := range args.Storage {
-		details, err := a.importStorage(arg)
+		details, err := a.importStorage(ctx, arg)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -727,7 +727,7 @@ func (a *StorageAPI) Import(ctx stdcontext.Context, args params.BulkImportStorag
 	return params.ImportStorageResults{Results: results}, nil
 }
 
-func (a *StorageAPI) importStorage(arg params.ImportStorageParams) (*params.ImportStorageDetails, error) {
+func (a *StorageAPI) importStorage(ctx stdcontext.Context, arg params.ImportStorageParams) (*params.ImportStorageDetails, error) {
 	if arg.Kind != params.StorageKindFilesystem {
 		// TODO(axw) implement support for volumes.
 		return nil, errors.NotSupportedf("storage kind %q", arg.Kind.String())
@@ -758,10 +758,11 @@ func (a *StorageAPI) importStorage(arg params.ImportStorageParams) (*params.Impo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return a.importFilesystem(arg, provider, cfg)
+	return a.importFilesystem(ctx, arg, provider, cfg)
 }
 
 func (a *StorageAPI) importFilesystem(
+	ctx stdcontext.Context,
 	arg params.ImportStorageParams,
 	provider storage.Provider,
 	cfg *storage.Config,
@@ -775,6 +776,11 @@ func (a *StorageAPI) importFilesystem(
 
 	// If the storage provider supports filesystems, import the filesystem,
 	// otherwise import a volume which will back a filesystem.
+	invalidatorFunc, err := a.credentialInvalidatorFuncGetter()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	callCtx := context.WithCredentialInvalidator(ctx, invalidatorFunc)
 	if provider.Supports(storage.StorageKindFilesystem) {
 		filesystemSource, err := provider.FilesystemSource(cfg)
 		if err != nil {
@@ -787,7 +793,7 @@ func (a *StorageAPI) importFilesystem(
 				cfg.Provider(),
 			)
 		}
-		info, err := filesystemImporter.ImportFilesystem(a.callContext, arg.ProviderId, resourceTags)
+		info, err := filesystemImporter.ImportFilesystem(callCtx, arg.ProviderId, resourceTags)
 		if err != nil {
 			return nil, errors.Annotate(err, "importing filesystem")
 		}
@@ -805,7 +811,7 @@ func (a *StorageAPI) importFilesystem(
 				cfg.Provider(),
 			)
 		}
-		info, err := volumeImporter.ImportVolume(a.callContext, arg.ProviderId, resourceTags)
+		info, err := volumeImporter.ImportVolume(callCtx, arg.ProviderId, resourceTags)
 		if err != nil {
 			return nil, errors.Annotate(err, "importing volume")
 		}

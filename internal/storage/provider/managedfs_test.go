@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	stdcontext "context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,7 +36,7 @@ func (s *managedfsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.blockDevices = make(map[names.VolumeTag]storage.BlockDevice)
 	s.filesystems = make(map[names.FilesystemTag]storage.Filesystem)
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = context.WithoutCredentialInvalidator(stdcontext.Background())
 	s.fakeEtcDir = c.MkDir()
 }
 

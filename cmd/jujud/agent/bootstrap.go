@@ -298,15 +298,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	callCtx := context.NewCloudCallContext(ctx)
-	// At this stage, cloud credential has not yet been stored server-side
-	// as there is no server-side. If these cloud calls will fail with
-	// invalid credential, just log it.
-	callCtx.InvalidateCredentialFunc = func(reason string) error {
-		logger.Errorf("Cloud credential %q is not accepted by cloud provider: %v", args.ControllerCloudCredentialName, reason)
-		return nil
-	}
-
 	if err := agentconfig.ReadAgentConfig(c, agent.BootstrapControllerId); err != nil {
 		return errors.Annotate(err, "cannot read config")
 	}
@@ -318,7 +309,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err := ensureKeys(isCAAS, args, &info, newConfigAttrs); err != nil {
 		return errors.Trace(err)
 	}
-	addrs, err := getAddressesForMongo(isCAAS, env, callCtx, args)
+	addrs, err := getAddressesForMongo(isCAAS, env, ctx, args)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -459,13 +450,14 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 func getAddressesForMongo(
 	isCAAS bool,
 	env environs.BootstrapEnviron,
-	callCtx *context.CloudCallContext,
+	ctx stdcontext.Context,
 	args instancecfg.StateInitializationParams,
 ) (network.ProviderAddresses, error) {
 	if isCAAS {
 		return network.NewMachineAddresses([]string{"localhost"}).AsProviderAddresses(), nil
 	}
 
+	callCtx := context.WithoutCredentialInvalidator(ctx)
 	instanceLister, ok := env.(environs.InstanceLister)
 	if !ok {
 		// this should never happened.

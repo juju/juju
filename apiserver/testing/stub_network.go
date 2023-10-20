@@ -260,16 +260,6 @@ func ZonedEnvironCall(name string, args ...interface{}) StubMethodCall {
 	}
 }
 
-// NetworkingEnvironCall makes it easy to check method calls on
-// NetworkingEnvironInstance.
-func NetworkingEnvironCall(name string, args ...interface{}) StubMethodCall {
-	return StubMethodCall{
-		Receiver: NetworkingEnvironInstance,
-		FuncName: name,
-		Args:     args,
-	}
-}
-
 // ZonedNetworkingEnvironCall makes it easy to check method calls on
 // ZonedNetworkingEnvironInstance.
 func ZonedNetworkingEnvironCall(name string, args ...interface{}) StubMethodCall {

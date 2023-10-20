@@ -4,6 +4,7 @@
 package migrationtarget
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -11,9 +12,9 @@ import (
 	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
-	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -44,45 +45,41 @@ func newFacade(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 
-	credentialCallContextGetter := func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error) {
+	credentialCallContextGetter := func(stdctx context.Context, modelUUID model.UUID) (service.CredentialValidationContext, error) {
 		modelState, err := ctx.StatePool().Get(string(modelUUID))
 		if err != nil {
-			return credentialcommon.CredentialValidationContext{}, err
+			return service.CredentialValidationContext{}, err
 		}
 		defer modelState.Release()
 
 		m, err := modelState.Model()
 		if err != nil {
-			return credentialcommon.CredentialValidationContext{}, err
+			return service.CredentialValidationContext{}, err
 		}
 		cfg, err := m.Config()
 		if err != nil {
-			return credentialcommon.CredentialValidationContext{}, err
+			return service.CredentialValidationContext{}, err
 		}
 
-		callCtx := envcontext.CallContext(modelState.State)
-		cld, err := ctx.ServiceFactory().Cloud().Get(callCtx, m.CloudName())
+		cld, err := ctx.ServiceFactory().Cloud().Get(stdctx, m.CloudName())
 		if err != nil {
-			return credentialcommon.CredentialValidationContext{}, err
+			return service.CredentialValidationContext{}, err
 		}
 
-		ctx := credentialcommon.CredentialValidationContext{
+		return service.CredentialValidationContext{
 			ControllerUUID: m.ControllerUUID(),
-			Context:        callCtx,
 			Config:         cfg,
 			MachineService: credentialcommon.NewMachineService(modelState.State),
 			ModelType:      model.Type(m.Type()),
 			Cloud:          *cld,
 			Region:         m.CloudRegion(),
-		}
-		return ctx, err
+		}, nil
 	}
 
 	credentialService := ctx.ServiceFactory().Credential()
 	// TODO(wallyworld) - service factory in tests returns a nil service.
 	if credentialService != nil {
 		credentialService = credentialService.WithValidationContextGetter(credentialCallContextGetter)
-
 	}
 	return NewAPI(
 		ctx,
@@ -91,8 +88,9 @@ func newFacade(ctx facade.Context) (*API, error) {
 		ctx.ServiceFactory().ExternalController(),
 		ctx.ServiceFactory().Cloud(),
 		credentialService,
-		credentialcommon.NewCredentialValidator(),
+		service.NewCredentialValidator(),
 		credentialCallContextGetter,
+		credentialcommon.CredentialInvalidatorFuncGetter(ctx),
 		stateenvirons.GetNewEnvironFunc(environs.New),
 		stateenvirons.GetNewCAASBrokerFunc(caas.New))
 }

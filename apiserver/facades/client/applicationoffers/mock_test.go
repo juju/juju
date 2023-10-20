@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -125,6 +126,10 @@ func (m *mockModel) Name() string {
 
 func (m *mockModel) Owner() names.UserTag {
 	return names.NewUserTag(m.owner)
+}
+
+func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
+	return jujutesting.DefaultCredentialTag, true
 }
 
 type mockCharm struct {
@@ -359,10 +364,6 @@ func (m *mockState) KeyRelation(key string) (crossmodel.Relation, error) {
 
 func (m *mockState) OfferConnections(offerUUID string) ([]applicationoffers.OfferConnection, error) {
 	return m.connections, nil
-}
-
-func (m *mockState) GetModelCallContext() context.ProviderCallContext {
-	return context.NewEmptyCloudCallContext()
 }
 
 func (m *mockState) User(tag names.UserTag) (applicationoffers.User, error) {

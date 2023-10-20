@@ -44,17 +44,19 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.lifeGetter = &mockLifecycleManager{}
 
 	s.config = storageprovisioner.Config{
-		Model:                coretesting.ModelTag,
-		Scope:                coretesting.ModelTag,
-		Applications:         s.applicationsWatcher,
-		Volumes:              newMockVolumeAccessor(),
-		Filesystems:          newMockFilesystemAccessor(),
-		Life:                 s.lifeGetter,
-		Status:               &mockStatusSetter{},
-		Clock:                &mockClock{},
-		Logger:               loggo.GetLogger("test"),
-		Registry:             storage.StaticProviderRegistry{},
-		CloudCallContextFunc: func(_ stdcontext.Context) context.ProviderCallContext { return context.NewEmptyCloudCallContext() },
+		Model:        coretesting.ModelTag,
+		Scope:        coretesting.ModelTag,
+		Applications: s.applicationsWatcher,
+		Volumes:      newMockVolumeAccessor(),
+		Filesystems:  newMockFilesystemAccessor(),
+		Life:         s.lifeGetter,
+		Status:       &mockStatusSetter{},
+		Clock:        &mockClock{},
+		Logger:       loggo.GetLogger("test"),
+		Registry:     storage.StaticProviderRegistry{},
+		CloudCallContextFunc: func(ctx stdcontext.Context) context.ProviderCallContext {
+			return context.WithoutCredentialInvalidator(ctx)
+		},
 	}
 }
 
