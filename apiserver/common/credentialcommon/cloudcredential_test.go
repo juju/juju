@@ -76,8 +76,8 @@ type testBackend struct {
 	tag names.CloudCredentialTag
 }
 
-func (b *testBackend) CloudCredentialTag() (names.CloudCredentialTag, bool) {
-	return b.tag, true
+func (b *testBackend) CloudCredentialTag() (names.CloudCredentialTag, bool, error) {
+	return b.tag, true, nil
 }
 
 func (b *testBackend) InvalidateModelCredential(reason string) error {

@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
@@ -63,7 +62,7 @@ type State interface {
 }
 
 // ValidationContextGetter returns the artefacts for a specified model, used to make credential validation calls.
-type ValidationContextGetter func(modelUUID model.UUID) (credentialcommon.CredentialValidationContext, error)
+type ValidationContextGetter func(ctx context.Context, modelUUID model.UUID) (CredentialValidationContext, error)
 
 // Logger facilitates emitting log messages.
 type Logger interface {
@@ -79,7 +78,7 @@ type Service struct {
 	// These are set via options after the service is created.
 
 	validationContextGetter ValidationContextGetter
-	validator               credentialcommon.CredentialValidator
+	validator               CredentialValidator
 
 	// TODO(wallyworld) - remove when models are out of mongo
 	legacyUpdater func(tag names.CloudCredentialTag) error
@@ -92,7 +91,7 @@ func NewService(st State, watcherFactory WatcherFactory, logger Logger) *Service
 		st:             st,
 		watcherFactory: watcherFactory,
 		logger:         logger,
-		validator:      credentialcommon.NewCredentialValidator(),
+		validator:      NewCredentialValidator(),
 	}
 }
 
@@ -106,7 +105,7 @@ func (s *Service) WithValidationContextGetter(validationContextGetter Validation
 
 // WithCredentialValidator configures the service to use the specified
 // credential validator.
-func (s *Service) WithCredentialValidator(validator credentialcommon.CredentialValidator) *Service {
+func (s *Service) WithCredentialValidator(validator CredentialValidator) *Service {
 	s.validator = validator
 	return s
 }
@@ -232,16 +231,16 @@ func (s *Service) modelsUsingCredential(ctx context.Context, id credential.ID) (
 	return models, nil
 }
 
-func (s *Service) validateCredentialForModel(modelUUID model.UUID, id credential.ID, cred *cloud.Credential) ([]error, error) {
+func (s *Service) validateCredentialForModel(ctx context.Context, modelUUID model.UUID, id credential.ID, cred *cloud.Credential) ([]error, error) {
 	if s.validator == nil || s.validationContextGetter == nil {
 		return nil, errors.Errorf("missing validation helpers")
 	}
-	ctx, err := s.validationContextGetter(modelUUID)
+	validationCtx, err := s.validationContextGetter(ctx, modelUUID)
 	if err != nil {
 		return []error{errors.Trace(err)}, nil
 	}
 
-	modelErrors, err := s.validator.Validate(ctx, id, cred, false)
+	modelErrors, err := s.validator.Validate(ctx, validationCtx, id, cred, false)
 	if err != nil {
 		return []error{errors.Trace(err)}, nil
 	}
@@ -293,7 +292,7 @@ func (s *Service) CheckAndUpdateCredential(ctx context.Context, id credential.ID
 			ModelUUID: uuid,
 			ModelName: name,
 		}
-		result.Errors, err = s.validateCredentialForModel(uuid, id, &cred)
+		result.Errors, err = s.validateCredentialForModel(ctx, uuid, id, &cred)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
