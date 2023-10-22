@@ -4,6 +4,8 @@
 package migrationflag
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -78,7 +80,7 @@ func (facade *Facade) Watch(uuid string) (watcher.NotifyWatcher, error) {
 func (facade *Facade) call(name, uuid string, results interface{}) error {
 	model := names.NewModelTag(uuid).String()
 	args := params.Entities{[]params.Entity{{model}}}
-	err := facade.caller.FacadeCall(name, args, results)
+	err := facade.caller.FacadeCall(context.TODO(), name, args, results)
 	return errors.Trace(err)
 }
 

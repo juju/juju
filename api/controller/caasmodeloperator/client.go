@@ -4,6 +4,8 @@
 package caasmodeloperator
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
@@ -39,7 +41,7 @@ type ModelOperatorProvisioningInfo struct {
 // when provisioning into a caas env
 func (c *Client) ModelOperatorProvisioningInfo() (ModelOperatorProvisioningInfo, error) {
 	var result params.ModelOperatorInfo
-	if err := c.facade.FacadeCall("ModelOperatorProvisioningInfo", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ModelOperatorProvisioningInfo", nil, &result); err != nil {
 		return ModelOperatorProvisioningInfo{}, err
 	}
 	d := result.ImageDetails
@@ -82,7 +84,7 @@ func (c *Client) SetPassword(password string) error {
 			Password: password,
 		}},
 	}
-	err := c.facade.FacadeCall("SetPasswords", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "SetPasswords", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -93,7 +95,7 @@ func (c *Client) SetPassword(password string) error {
 // information returned by ModelOperatorProvisioningInfo.
 func (c *Client) WatchModelOperatorProvisioningInfo() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	if err := c.facade.FacadeCall("WatchModelOperatorProvisioningInfo", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchModelOperatorProvisioningInfo", nil, &result); err != nil {
 		return nil, err
 	}
 	if result.Error != nil {

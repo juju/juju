@@ -57,7 +57,7 @@ func (s *SubnetsSuite) TestListSubnetsNoResults(c *gc.C) {
 	result := new(params.ListSubnetsResults)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListSubnets", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListSubnets", args, result).SetArg(3, results).Return(nil)
 	client := subnets.NewAPIFromCaller(mockFacadeCaller)
 
 	obtainedResults, err := client.ListSubnets(&space, zone)
@@ -78,7 +78,7 @@ func (s *SubnetsSuite) TestListSubnetsFails(c *gc.C) {
 	result := new(params.ListSubnetsResults)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListSubnets", args, result).SetArg(2, results).Return(errors.New("bang"))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListSubnets", args, result).SetArg(3, results).Return(errors.New("bang"))
 	client := subnets.NewAPIFromCaller(mockFacadeCaller)
 
 	obtainedResults, err := client.ListSubnets(&space, zone)
@@ -102,7 +102,7 @@ func (s *SubnetsSuite) testSubnetsByCIDR(c *gc.C,
 
 	result := new(params.SubnetsResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SubnetsByCIDR", args, result).SetArg(2, expectedResults).Return(err)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SubnetsByCIDR", args, result).SetArg(3, expectedResults).Return(err)
 	client := subnets.NewAPIFromCaller(mockFacadeCaller)
 
 	gotResult, gotErr := client.SubnetsByCIDR(cidrs)

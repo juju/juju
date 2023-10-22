@@ -4,6 +4,8 @@
 package backups
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/rpc/params"
@@ -19,7 +21,7 @@ func (c *Client) Create(notes string, noDownload bool) (*params.BackupsMetadataR
 		NoDownload: noDownload,
 	}
 
-	if err := c.facade.FacadeCall("Create", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Create", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 

@@ -4,6 +4,8 @@
 package metricsdebug
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -48,7 +50,7 @@ func (c *Client) GetMetrics(tags ...string) ([]params.MetricResult, error) {
 	}
 	p := params.Entities{Entities: entities}
 	results := new(params.MetricResults)
-	if err := c.facade.FacadeCall("GetMetrics", p, results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "GetMetrics", p, results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := results.OneError(); err != nil {
@@ -72,7 +74,7 @@ func (c *Client) SetMeterStatus(tag, code, info string) error {
 		},
 	}
 	results := new(params.ErrorResults)
-	if err := c.facade.FacadeCall("SetMeterStatus", args, results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "SetMeterStatus", args, results); err != nil {
 		return errors.Trace(err)
 	}
 	if err := results.OneError(); err != nil {

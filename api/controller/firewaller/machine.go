@@ -4,6 +4,7 @@
 package firewaller
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -36,7 +37,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.client.facade.FacadeCall("WatchUnits", args, &results)
+	err := m.client.facade.FacadeCall(context.TODO(), "WatchUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.client.facade.FacadeCall("InstanceId", args, &results)
+	err := m.client.facade.FacadeCall(context.TODO(), "InstanceId", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -86,7 +87,7 @@ func (m *Machine) IsManual() (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.client.facade.FacadeCall("AreManuallyProvisioned", args, &results)
+	err := m.client.facade.FacadeCall(context.TODO(), "AreManuallyProvisioned", args, &results)
 	if err != nil {
 		return false, err
 	}
@@ -108,7 +109,7 @@ func (m *Machine) OpenedMachinePortRanges() (byUnitAndCIDR map[names.UnitTag]net
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	if err = m.client.facade.FacadeCall("OpenedMachinePortRanges", args, &results); err != nil {
+	if err = m.client.facade.FacadeCall(context.TODO(), "OpenedMachinePortRanges", args, &results); err != nil {
 		return nil, nil, err
 	}
 	if len(results.Results) != 1 {

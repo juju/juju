@@ -4,6 +4,7 @@
 package modelgeneration
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -31,7 +32,7 @@ func NewClient(st base.APICallCloser) *Client {
 // AddBranch adds a new branch to the model.
 func (c *Client) AddBranch(branchName string) error {
 	var result params.ErrorResult
-	err := c.facade.FacadeCall("AddBranch", argForBranch(branchName), &result)
+	err := c.facade.FacadeCall(context.TODO(), "AddBranch", argForBranch(branchName), &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -44,7 +45,7 @@ func (c *Client) AddBranch(branchName string) error {
 // Abort aborts an existing branch to the model.
 func (c *Client) AbortBranch(branchName string) error {
 	var result params.ErrorResult
-	err := c.facade.FacadeCall("AbortBranch", argForBranch(branchName), &result)
+	err := c.facade.FacadeCall(context.TODO(), "AbortBranch", argForBranch(branchName), &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -59,7 +60,7 @@ func (c *Client) AbortBranch(branchName string) error {
 // The new generation ID of the model is returned.
 func (c *Client) CommitBranch(branchName string) (int, error) {
 	var result params.IntResult
-	err := c.facade.FacadeCall("CommitBranch", argForBranch(branchName), &result)
+	err := c.facade.FacadeCall(context.TODO(), "CommitBranch", argForBranch(branchName), &result)
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
@@ -72,7 +73,7 @@ func (c *Client) CommitBranch(branchName string) (int, error) {
 // ListCommits returns the details of all committed model branches.
 func (c *Client) ListCommits() (model.GenerationCommits, error) {
 	var result params.BranchResults
-	err := c.facade.FacadeCall("ListCommits", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "ListCommits", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -86,7 +87,7 @@ func (c *Client) ListCommits() (model.GenerationCommits, error) {
 func (c *Client) ShowCommit(generationId int) (model.GenerationCommit, error) {
 	var result params.GenerationResult
 	arg := params.GenerationId{GenerationId: generationId}
-	err := c.facade.FacadeCall("ShowCommit", arg, &result)
+	err := c.facade.FacadeCall(context.TODO(), "ShowCommit", arg, &result)
 	if err != nil {
 		return model.GenerationCommit{}, errors.Trace(err)
 	}
@@ -119,7 +120,7 @@ func (c *Client) TrackBranch(branchName string, entities []string, numUnits int)
 			return errors.Errorf("%q is not an application or a unit", entity)
 		}
 	}
-	err := c.facade.FacadeCall("TrackBranch", arg, &result)
+	err := c.facade.FacadeCall(context.TODO(), "TrackBranch", arg, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -134,7 +135,7 @@ func (c *Client) TrackBranch(branchName string, entities []string, numUnits int)
 // "in-flight" branch with the input name.
 func (c *Client) HasActiveBranch(branchName string) (bool, error) {
 	var result params.BoolResult
-	err := c.facade.FacadeCall("HasActiveBranch", argForBranch(branchName), &result)
+	err := c.facade.FacadeCall(context.TODO(), "HasActiveBranch", argForBranch(branchName), &result)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -157,7 +158,7 @@ func (c *Client) BranchInfo(
 	}
 
 	var result params.BranchResults
-	err := c.facade.FacadeCall("BranchInfo", arg, &result)
+	err := c.facade.FacadeCall(context.TODO(), "BranchInfo", arg, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

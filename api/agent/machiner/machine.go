@@ -4,6 +4,8 @@
 package machiner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -50,7 +52,7 @@ func (m *Machine) SetStatus(status status.Status, info string, data map[string]i
 			{Tag: m.tag.String(), Status: status.String(), Info: info, Data: data},
 		},
 	}
-	err := m.client.facade.FacadeCall("SetStatus", args, &result)
+	err := m.client.facade.FacadeCall(context.TODO(), "SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -65,7 +67,7 @@ func (m *Machine) SetMachineAddresses(addresses []network.MachineAddress) error 
 			{Tag: m.Tag().String(), Addresses: params.FromMachineAddresses(addresses...)},
 		},
 	}
-	err := m.client.facade.FacadeCall("SetMachineAddresses", args, &result)
+	err := m.client.facade.FacadeCall(context.TODO(), "SetMachineAddresses", args, &result)
 	if err != nil {
 		return err
 	}
@@ -79,7 +81,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.client.facade.FacadeCall("EnsureDead", args, &result)
+	err := m.client.facade.FacadeCall(context.TODO(), "EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -97,7 +99,7 @@ func (m *Machine) Jobs() (*params.JobsResult, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.Tag().String()}},
 	}
-	err := m.client.facade.FacadeCall("Jobs", args, &results)
+	err := m.client.facade.FacadeCall(context.TODO(), "Jobs", args, &results)
 	if err != nil {
 		return nil, errors.Annotate(err, "error from FacadeCall")
 	}
@@ -118,7 +120,7 @@ func (m *Machine) SetObservedNetworkConfig(netConfig []params.NetworkConfig) err
 		Tag:    m.Tag().String(),
 		Config: netConfig,
 	}
-	err := m.client.facade.FacadeCall("SetObservedNetworkConfig", args, nil)
+	err := m.client.facade.FacadeCall(context.TODO(), "SetObservedNetworkConfig", args, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -137,7 +139,7 @@ func (m *Machine) RecordAgentStartInformation(hostname string) error {
 			},
 		},
 	}
-	err := m.client.facade.FacadeCall("RecordAgentStartInformation", args, &result)
+	err := m.client.facade.FacadeCall(context.TODO(), "RecordAgentStartInformation", args, &result)
 
 	if err != nil {
 		return err

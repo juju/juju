@@ -179,7 +179,7 @@ func (m *Machine) SetInstanceStatus(status status.Status, message string, data m
 	args := params.SetStatus{Entities: []params.EntityStatusArgs{
 		{Tag: m.tag.String(), Status: status.String(), Info: message, Data: data},
 	}}
-	err := m.st.facade.FacadeCall("SetInstanceStatus", args, &result)
+	err := m.st.facade.FacadeCall(context.TODO(), "SetInstanceStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (m *Machine) InstanceStatus() (status.Status, string, error) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
 	}}
-	err := m.st.facade.FacadeCall("InstanceStatus", args, &results)
+	err := m.st.facade.FacadeCall(context.TODO(), "InstanceStatus", args, &results)
 	if err != nil {
 		return "", "", err
 	}
@@ -215,7 +215,7 @@ func (m *Machine) SetStatus(status status.Status, info string, data map[string]i
 			{Tag: m.tag.String(), Status: status.String(), Info: info, Data: data},
 		},
 	}
-	err := m.st.facade.FacadeCall("SetStatus", args, &result)
+	err := m.st.facade.FacadeCall(context.TODO(), "SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func (m *Machine) Status() (status.Status, string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("Status", args, &results)
+	err := m.st.facade.FacadeCall(context.TODO(), "Status", args, &results)
 	if err != nil {
 		return "", "", err
 	}
@@ -251,7 +251,7 @@ func (m *Machine) SetModificationStatus(status status.Status, info string, data 
 			{Tag: m.tag.String(), Status: status.String(), Info: info, Data: data},
 		},
 	}
-	err := m.st.facade.FacadeCall("SetModificationStatus", args, &result)
+	err := m.st.facade.FacadeCall(context.TODO(), "SetModificationStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -264,7 +264,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("EnsureDead", args, &result)
+	err := m.st.facade.FacadeCall(context.TODO(), "EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -277,7 +277,7 @@ func (m *Machine) Remove() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("Remove", args, &result)
+	err := m.st.facade.FacadeCall(context.TODO(), "Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -290,7 +290,7 @@ func (m *Machine) MarkForRemoval() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("MarkMachinesForRemoval", args, &result)
+	err := m.st.facade.FacadeCall(context.TODO(), "MarkMachinesForRemoval", args, &result)
 	if err != nil {
 		return err
 	}
@@ -303,7 +303,7 @@ func (m *Machine) AvailabilityZone() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("AvailabilityZone", args, &results)
+	err := m.st.facade.FacadeCall(context.TODO(), "AvailabilityZone", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -323,7 +323,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("DistributionGroup", args, &results)
+	err := m.st.facade.FacadeCall(context.TODO(), "DistributionGroup", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -357,7 +357,7 @@ func (m *Machine) SetInstanceInfo(
 			CharmProfiles:     charmProfiles,
 		}},
 	}
-	err := m.st.facade.FacadeCall("SetInstanceInfo", args, &result)
+	err := m.st.facade.FacadeCall(context.TODO(), "SetInstanceInfo", args, &result)
 	if err != nil {
 		return err
 	}
@@ -370,7 +370,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("InstanceId", args, &results)
+	err := m.st.facade.FacadeCall(context.TODO(), "InstanceId", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -390,7 +390,7 @@ func (m *Machine) KeepInstance() (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.facade.FacadeCall("KeepInstance", args, &results)
+	err := m.st.facade.FacadeCall(context.TODO(), "KeepInstance", args, &results)
 	if err != nil {
 		return false, err
 	}
@@ -415,7 +415,7 @@ func (m *Machine) SetPassword(password string) error {
 			{Tag: m.tag.String(), Password: password},
 		},
 	}
-	err := m.st.facade.FacadeCall("SetPasswords", args, &result)
+	err := m.st.facade.FacadeCall(context.TODO(), "SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}
@@ -443,7 +443,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 			{MachineTag: m.tag.String(), ContainerType: string(ctype)},
 		},
 	}
-	err := m.st.facade.FacadeCall("WatchContainers", args, &results)
+	err := m.st.facade.FacadeCall(context.TODO(), "WatchContainers", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -466,7 +466,7 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 			{MachineTag: m.tag.String(), ContainerTypes: containerTypes},
 		},
 	}
-	err := m.st.facade.FacadeCall("SetSupportedContainers", args, &results)
+	err := m.st.facade.FacadeCall(context.TODO(), "SetSupportedContainers", args, &results)
 	if err != nil {
 		return err
 	}
@@ -493,7 +493,7 @@ func (m *Machine) SupportedContainers() ([]instance.ContainerType, bool, error) 
 			{Tag: m.tag.String()},
 		},
 	}
-	err := m.st.facade.FacadeCall("SupportedContainers", args, &results)
+	err := m.st.facade.FacadeCall(context.TODO(), "SupportedContainers", args, &results)
 	if err != nil {
 		return nil, false, err
 	}
@@ -519,7 +519,7 @@ func (m *Machine) SetCharmProfiles(profiles []string) error {
 			},
 		},
 	}
-	err := m.st.facade.FacadeCall("SetCharmProfiles", args, &results)
+	err := m.st.facade.FacadeCall(context.TODO(), "SetCharmProfiles", args, &results)
 	if err != nil {
 		return err
 	}

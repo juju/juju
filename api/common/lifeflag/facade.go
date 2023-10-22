@@ -4,6 +4,8 @@
 package lifeflag
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -50,7 +52,7 @@ func (c *Client) Watch(entity names.Tag) (watcher.NotifyWatcher, error) {
 		Entities: []params.Entity{{Tag: entity.String()}},
 	}
 	var results params.NotifyWatchResults
-	err := c.caller.FacadeCall("Watch", args, &results)
+	err := c.caller.FacadeCall(context.TODO(), "Watch", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -75,7 +77,7 @@ func (c *Client) Life(entity names.Tag) (life.Value, error) {
 		Entities: []params.Entity{{Tag: entity.String()}},
 	}
 	var results params.LifeResults
-	err := c.caller.FacadeCall("Life", args, &results)
+	err := c.caller.FacadeCall(context.TODO(), "Life", args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

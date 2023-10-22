@@ -4,6 +4,8 @@
 package instancepoller
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -51,7 +53,7 @@ var newStringsWatcher = apiwatcher.NewStringsWatcher
 // machine life or agent start timestamps.
 func (api *API) WatchModelMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := api.facade.FacadeCall("WatchModelMachineStartTimes", nil, &result)
+	err := api.facade.FacadeCall(context.TODO(), "WatchModelMachineStartTimes", nil, &result)
 	if err != nil {
 		return nil, err
 	}

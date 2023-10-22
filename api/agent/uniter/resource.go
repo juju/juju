@@ -23,7 +23,7 @@ import (
 // FacadeCaller exposes the raw API caller functionality needed here.
 type FacadeCaller interface {
 	// FacadeCall makes an API request.
-	FacadeCall(request string, args, response interface{}) error
+	FacadeCall(ctx context.Context, request string, args, response interface{}) error
 }
 
 // UnitHTTPClient exposes the raw API HTTP caller functionality needed here.
@@ -89,7 +89,7 @@ func (c *ResourcesFacadeClient) getResourceInfo(resourceName string) (resources.
 	args := params.ListUnitResourcesArgs{
 		ResourceNames: []string{resourceName},
 	}
-	if err := c.FacadeCall("GetResourceInfo", &args, &response); err != nil {
+	if err := c.FacadeCall(context.TODO(), "GetResourceInfo", &args, &response); err != nil {
 		return resources.Resource{}, errors.Annotate(err, "could not get resource info")
 	}
 	if response.Error != nil {

@@ -4,6 +4,8 @@
 package metricsadder
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -34,7 +36,7 @@ func (c *Client) AddMetricBatches(batches []params.MetricBatchParam) (map[string
 		Batches: batches,
 	}
 	results := new(params.ErrorResults)
-	err := c.facade.FacadeCall("AddMetricBatches", parameters, results)
+	err := c.facade.FacadeCall(context.TODO(), "AddMetricBatches", parameters, results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

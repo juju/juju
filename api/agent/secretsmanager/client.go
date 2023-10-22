@@ -4,6 +4,8 @@
 package secretsmanager
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -38,7 +40,7 @@ func (c *Client) CreateSecretURIs(count int) ([]*coresecrets.URI, error) {
 	if count <= 0 {
 		return nil, errors.NotValidf("secret URi count %d", count)
 	}
-	if err := c.facade.FacadeCall("CreateSecretURIs", params.CreateSecretURIsArg{
+	if err := c.facade.FacadeCall(context.TODO(), "CreateSecretURIs", params.CreateSecretURIsArg{
 		Count: count,
 	}, &results); err != nil {
 		return nil, errors.Trace(err)
@@ -67,7 +69,7 @@ func (c *Client) WatchConsumedSecretsChanges(unitName string) (watcher.StringsWa
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewUnitTag(unitName).String()}},
 	}
-	err := c.facade.FacadeCall("WatchConsumedSecretsChanges", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchConsumedSecretsChanges", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +97,7 @@ func (c *Client) WatchObsolete(ownerTags ...names.Tag) (watcher.StringsWatcher, 
 	for i, tag := range ownerTags {
 		args.Entities[i] = params.Entity{Tag: tag.String()}
 	}
-	err := c.facade.FacadeCall("WatchObsolete", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchObsolete", args, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +117,7 @@ func (c *Client) GetConsumerSecretsRevisionInfo(unitName string, uris []string) 
 		URIs:        uris,
 	}
 
-	err := c.facade.FacadeCall("GetConsumerSecretsRevisionInfo", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "GetConsumerSecretsRevisionInfo", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +144,7 @@ func (c *Client) GetConsumerSecretsRevisionInfo(unitName string, uris []string) 
 // SecretMetadata returns metadata for the specified secrets.
 func (c *Client) SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error) {
 	var results params.ListSecretResults
-	err := c.facade.FacadeCall("GetSecretMetadata", nil, &results)
+	err := c.facade.FacadeCall(context.TODO(), "GetSecretMetadata", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -182,7 +184,7 @@ func (c *Client) WatchSecretsRotationChanges(ownerTags ...names.Tag) (watcher.Se
 	for i, tag := range ownerTags {
 		args.Entities[i] = params.Entity{Tag: tag.String()}
 	}
-	err := c.facade.FacadeCall("WatchSecretsRotationChanges", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchSecretsRotationChanges", args, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +209,7 @@ func (c *Client) SecretRotated(uri string, oldRevision int) error {
 			OriginalRevision: oldRevision,
 		}},
 	}
-	err = c.facade.FacadeCall("SecretsRotated", args, &results)
+	err = c.facade.FacadeCall(context.TODO(), "SecretsRotated", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -229,7 +231,7 @@ func (c *Client) WatchSecretRevisionsExpiryChanges(ownerTags ...names.Tag) (watc
 	for i, tag := range ownerTags {
 		args.Entities[i] = params.Entity{Tag: tag.String()}
 	}
-	err := c.facade.FacadeCall("WatchSecretRevisionsExpiryChanges", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchSecretRevisionsExpiryChanges", args, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +256,7 @@ type SecretRevokeGrantArgs struct {
 func (c *Client) Grant(uri *coresecrets.URI, p *SecretRevokeGrantArgs) error {
 	args := grantRevokeArgsToParams(p, uri)
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("SecretsGrant", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SecretsGrant", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -296,7 +298,7 @@ func grantRevokeArgsToParams(p *SecretRevokeGrantArgs, secretUri *coresecrets.UR
 func (c *Client) Revoke(uri *coresecrets.URI, p *SecretRevokeGrantArgs) error {
 	args := grantRevokeArgsToParams(p, uri)
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("SecretsRevoke", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SecretsRevoke", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

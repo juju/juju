@@ -4,6 +4,8 @@
 package hostkeyreporter
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
@@ -31,7 +33,7 @@ func (f *Facade) ReportKeys(machineId string, publicKeys []string) error {
 		PublicKeys: publicKeys,
 	}}}
 	var result params.ErrorResults
-	err := f.caller.FacadeCall("ReportKeys", args, &result)
+	err := f.caller.FacadeCall(context.TODO(), "ReportKeys", args, &result)
 	if err != nil {
 		return err
 	}

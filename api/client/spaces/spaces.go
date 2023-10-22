@@ -4,6 +4,8 @@
 package spaces
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -48,7 +50,7 @@ func makeCreateSpacesParams(name string, cidrs []string, public bool) params.Cre
 func (api *API) CreateSpace(name string, cidrs []string, public bool) error {
 	var response params.ErrorResults
 	var args = makeCreateSpacesParams(name, cidrs, public)
-	err := api.facade.FacadeCall("CreateSpaces", args, &response)
+	err := api.facade.FacadeCall(context.TODO(), "CreateSpaces", args, &response)
 	if err != nil {
 		if params.IsCodeNotSupported(err) {
 			return errors.NewNotSupported(nil, err.Error())
@@ -66,7 +68,7 @@ func (api *API) ShowSpace(name string) (params.ShowSpaceResult, error) {
 	args = params.Entities{
 		Entities: []params.Entity{{Tag: names.NewSpaceTag(name).String()}},
 	}
-	err := api.facade.FacadeCall("ShowSpace", args, &response)
+	err := api.facade.FacadeCall(context.TODO(), "ShowSpace", args, &response)
 	if err != nil {
 		if params.IsCodeNotSupported(err) {
 			return params.ShowSpaceResult{}, errors.NewNotSupported(nil, err.Error())
@@ -87,7 +89,7 @@ func (api *API) ShowSpace(name string) (params.ShowSpaceResult, error) {
 // ListSpaces lists all available spaces and their associated subnets.
 func (api *API) ListSpaces() ([]params.Space, error) {
 	var response params.ListSpacesResults
-	err := api.facade.FacadeCall("ListSpaces", nil, &response)
+	err := api.facade.FacadeCall(context.TODO(), "ListSpaces", nil, &response)
 	if params.IsCodeNotSupported(err) {
 		return response.Results, errors.NewNotSupported(nil, err.Error())
 	}
@@ -96,7 +98,7 @@ func (api *API) ListSpaces() ([]params.Space, error) {
 
 // ReloadSpaces reloads spaces from substrate.
 func (api *API) ReloadSpaces() error {
-	err := api.facade.FacadeCall("ReloadSpaces", nil, nil)
+	err := api.facade.FacadeCall(context.TODO(), "ReloadSpaces", nil, nil)
 	if params.IsCodeNotSupported(err) {
 		return errors.NewNotSupported(nil, err.Error())
 	}
@@ -113,7 +115,7 @@ func (api *API) RenameSpace(oldName string, newName string) error {
 	}
 	spaceRenameParams[0] = spaceRename
 	args := params.RenameSpacesParams{Changes: spaceRenameParams}
-	err := api.facade.FacadeCall("RenameSpace", args, &response)
+	err := api.facade.FacadeCall(context.TODO(), "RenameSpace", args, &response)
 	if err != nil {
 		if params.IsCodeNotSupported(err) {
 			return errors.NewNotSupported(nil, err.Error())
@@ -136,7 +138,7 @@ func (api *API) RemoveSpace(name string, force bool, dryRun bool) (params.Remove
 			DryRun: dryRun,
 		}},
 	}
-	err := api.facade.FacadeCall("RemoveSpace", args, &response)
+	err := api.facade.FacadeCall(context.TODO(), "RemoveSpace", args, &response)
 	if err != nil {
 		if params.IsCodeNotSupported(err) {
 			return params.RemoveSpaceResult{}, errors.NewNotSupported(nil, err.Error())
@@ -170,7 +172,7 @@ func (api *API) MoveSubnets(space names.SpaceTag, subnets []names.SubnetTag, for
 	}
 
 	var results params.MoveSubnetsResults
-	if err := api.facade.FacadeCall("MoveSubnets", args, &results); err != nil {
+	if err := api.facade.FacadeCall(context.TODO(), "MoveSubnets", args, &results); err != nil {
 		if params.IsCodeNotSupported(err) {
 			return params.MoveSubnetsResult{}, errors.NewNotSupported(nil, err.Error())
 		}

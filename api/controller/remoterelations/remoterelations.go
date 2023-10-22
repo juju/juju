@@ -4,6 +4,8 @@
 package remoterelations
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
@@ -38,7 +40,7 @@ func (c *Client) ImportRemoteEntity(entity names.Tag, token string) error {
 		{Tag: entity.String(), Token: token}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("ImportRemoteEntities", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ImportRemoteEntities", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -59,7 +61,7 @@ func (c *Client) ExportEntities(tags []names.Tag) ([]params.TokenResult, error) 
 		args.Entities[i].Tag = tag.String()
 	}
 	var results params.TokenResults
-	err := c.facade.FacadeCall("ExportEntities", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ExportEntities", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -75,7 +77,7 @@ func (c *Client) GetToken(tag names.Tag) (string, error) {
 		{Tag: tag.String()}},
 	}
 	var results params.StringResults
-	err := c.facade.FacadeCall("GetTokens", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "GetTokens", args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -98,7 +100,7 @@ func (c *Client) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
 		{Tag: entity.String(), Macaroon: mac}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("SaveMacaroons", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SaveMacaroons", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -120,7 +122,7 @@ func (c *Client) Relations(keys []string) ([]params.RemoteRelationResult, error)
 		args.Entities[i].Tag = names.NewRelationTag(key).String()
 	}
 	var results params.RemoteRelationResults
-	err := c.facade.FacadeCall("Relations", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "Relations", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -138,7 +140,7 @@ func (c *Client) RemoteApplications(applications []string) ([]params.RemoteAppli
 		args.Entities[i].Tag = names.NewApplicationTag(applicationName).String()
 	}
 	var results params.RemoteApplicationResults
-	err := c.facade.FacadeCall("RemoteApplications", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "RemoteApplications", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -152,7 +154,7 @@ func (c *Client) RemoteApplications(applications []string) ([]params.RemoteAppli
 // removal, and lifecycle changes of remote applications in the model.
 func (c *Client) WatchRemoteApplications() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchRemoteApplications", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchRemoteApplications", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -178,7 +180,7 @@ func (c *Client) WatchRemoteApplicationRelations(application string) (watcher.St
 	}
 
 	var results params.StringsWatchResults
-	err := c.facade.FacadeCall("WatchRemoteApplicationRelations", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchRemoteApplicationRelations", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -205,7 +207,7 @@ func (c *Client) WatchLocalRelationChanges(relationKey string) (apiwatcher.Remot
 		Entities: []params.Entity{{Tag: relationTag.String()}},
 	}
 	var results params.RemoteRelationWatchResults
-	err := c.facade.FacadeCall("WatchLocalRelationChanges", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchLocalRelationChanges", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -224,7 +226,7 @@ func (c *Client) WatchLocalRelationChanges(relationKey string) (apiwatcher.Remot
 // removal, and lifecycle changes of remote relations in the model.
 func (c *Client) WatchRemoteRelations() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchRemoteRelations", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchRemoteRelations", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -242,7 +244,7 @@ func (c *Client) ConsumeRemoteRelationChange(change params.RemoteRelationChangeE
 		Changes: []params.RemoteRelationChangeEvent{change},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("ConsumeRemoteRelationChanges", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ConsumeRemoteRelationChanges", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -254,7 +256,7 @@ func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) 
 	modelTag := names.NewModelTag(modelUUID)
 	args := params.Entities{Entities: []params.Entity{{Tag: modelTag.String()}}}
 	var results params.ControllerAPIInfoResults
-	err := c.facade.FacadeCall("ControllerAPIInfoForModels", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ControllerAPIInfoForModels", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -278,7 +280,7 @@ func (c *Client) SetRemoteApplicationStatus(applicationName string, status statu
 		{Tag: names.NewApplicationTag(applicationName).String(), Status: status.String(), Info: message},
 	}}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("SetRemoteApplicationsStatus", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SetRemoteApplicationsStatus", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -299,7 +301,7 @@ func (c *Client) UpdateControllerForModel(controller crossmodel.ControllerInfo, 
 	}}}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("UpdateControllersForModels", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "UpdateControllersForModels", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -331,7 +333,7 @@ func (c *Client) ConsumeRemoteSecretChanges(changes []watcher.SecretRevisionChan
 		}
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("ConsumeRemoteSecretChanges", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ConsumeRemoteSecretChanges", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

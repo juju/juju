@@ -4,6 +4,8 @@
 package instancemutater
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -38,7 +40,7 @@ func NewClientFromFacade(facadeCaller base.FacadeCaller) *Client {
 // and not containers.
 func (c *Client) WatchModelMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchModelMachines", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchModelMachines", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

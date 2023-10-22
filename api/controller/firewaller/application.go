@@ -4,6 +4,7 @@
 package firewaller
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -42,7 +43,7 @@ func (s *Application) ExposeInfo() (bool, map[string]params.ExposedEndpoint, err
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
-	err := s.client.facade.FacadeCall("GetExposeInfo", args, &results)
+	err := s.client.facade.FacadeCall(context.TODO(), "GetExposeInfo", args, &results)
 	if err != nil {
 		return false, nil, err
 	}

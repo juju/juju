@@ -159,7 +159,7 @@ func (s *UploadSuite) TestAddPendingResources(c *gc.C) {
 	results := params.AddPendingResourcesResult{
 		PendingIDs: expected,
 	}
-	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, result).SetArg(2, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, result).SetArg(3, results).Return(nil)
 
 	cURL := charm.MustParseURL("ch:spam")
 	pendingIDs, err := s.client.AddPendingResources(resources.AddPendingResourcesArgs{
@@ -209,7 +209,7 @@ func (s *UploadSuite) TestUploadPendingResource(c *gc.C) {
 
 	ctx := context.TODO()
 	s.mockAPICaller.EXPECT().Context().Return(ctx)
-	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, gomock.Any()).SetArg(3, results).Return(nil)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any())
 
 	uploadID, err := s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", strings.NewReader(data))
@@ -231,7 +231,7 @@ func (s *UploadSuite) TestUploadPendingResourceNoFile(c *gc.C) {
 	results := params.AddPendingResourcesResult{
 		PendingIDs: []string{expected},
 	}
-	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, gomock.Any()).SetArg(3, results).Return(nil)
 
 	uploadID, err := s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,7 +275,7 @@ func (s *UploadSuite) TestUploadPendingResourceFailed(c *gc.C) {
 
 	ctx := context.TODO()
 	s.mockAPICaller.EXPECT().Context().Return(ctx)
-	s.mockFacadeCaller.EXPECT().FacadeCall("AddPendingResources", &args, gomock.Any()).SetArg(2, results).Return(nil)
+	s.mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddPendingResources", &args, gomock.Any()).SetArg(3, results).Return(nil)
 	s.mockHTTPClient.EXPECT().Do(ctx, reqMatcher{c, req}, gomock.Any()).Return(errors.New("boom"))
 
 	_, err = s.client.UploadPendingResource("a-application", res[0].Resource, "file.zip", strings.NewReader(data))

@@ -4,6 +4,7 @@
 package modelupgrader
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -43,7 +44,7 @@ func (c *Client) AbortModelUpgrade(modelUUID string) error {
 	args := params.ModelParam{
 		ModelTag: names.NewModelTag(modelUUID).String(),
 	}
-	return c.facade.FacadeCall("AbortModelUpgrade", args, nil)
+	return c.facade.FacadeCall(context.TODO(), "AbortModelUpgrade", args, nil)
 }
 
 // UpgradeModel upgrades the model to the provided agent version.
@@ -61,7 +62,7 @@ func (c *Client) UpgradeModel(
 		DryRun:              druRun,
 	}
 	var result params.UpgradeModelResult
-	err := c.facade.FacadeCall("UpgradeModel", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "UpgradeModel", args, &result)
 	if err != nil {
 		return result.ChosenVersion, errors.Trace(err)
 	}

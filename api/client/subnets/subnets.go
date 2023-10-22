@@ -4,6 +4,8 @@
 package subnets
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -42,7 +44,7 @@ func (api *API) ListSubnets(spaceTag *names.SpaceTag, zone string) ([]params.Sub
 		SpaceTag: space,
 		Zone:     zone,
 	}
-	err := api.facade.FacadeCall("ListSubnets", args, &response)
+	err := api.facade.FacadeCall(context.TODO(), "ListSubnets", args, &response)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -55,7 +57,7 @@ func (api *API) SubnetsByCIDR(cidrs []string) ([]params.SubnetsResult, error) {
 	args := params.CIDRParams{CIDRS: cidrs}
 
 	var result params.SubnetsResults
-	if err := api.facade.FacadeCall("SubnetsByCIDR", args, &result); err != nil {
+	if err := api.facade.FacadeCall(context.TODO(), "SubnetsByCIDR", args, &result); err != nil {
 		if params.IsCodeNotSupported(err) {
 			return nil, errors.NewNotSupported(nil, err.Error())
 		}

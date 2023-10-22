@@ -5,6 +5,7 @@
 package retrystrategy
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -32,7 +33,7 @@ func (c *Client) RetryStrategy(agentTag names.Tag) (params.RetryStrategy, error)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag.String()}},
 	}
-	err := c.facade.FacadeCall("RetryStrategy", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "RetryStrategy", args, &results)
 	if err != nil {
 		return params.RetryStrategy{}, errors.Trace(err)
 	}
@@ -54,7 +55,7 @@ func (c *Client) WatchRetryStrategy(agentTag names.Tag) (watcher.NotifyWatcher, 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag.String()}},
 	}
-	err := c.facade.FacadeCall("WatchRetryStrategy", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchRetryStrategy", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

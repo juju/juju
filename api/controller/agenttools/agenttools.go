@@ -4,6 +4,8 @@
 package agenttools
 
 import (
+	"context"
+
 	"github.com/juju/juju/api/base"
 )
 
@@ -22,5 +24,5 @@ func NewFacade(caller base.APICaller) *Facade {
 
 // UpdateToolsVersion calls UpdateToolsAvailable in the server.
 func (f *Facade) UpdateToolsVersion() error {
-	return f.facade.FacadeCall("UpdateToolsAvailable", nil, nil)
+	return f.facade.FacadeCall(context.TODO(), "UpdateToolsAvailable", nil, nil)
 }

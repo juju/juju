@@ -28,7 +28,7 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredential(c *gc.C) {
 	results := params.ErrorResult{}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("InvalidateModelCredential", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "InvalidateModelCredential", args, result).SetArg(3, results).Return(nil)
 	client := credentialmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.InvalidateModelCredential("auth fail")
@@ -43,7 +43,7 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredentialBackendFailure(c *
 	results := params.ErrorResult{Error: apiservererrors.ServerError(errors.New("boom"))}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("InvalidateModelCredential", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "InvalidateModelCredential", args, result).SetArg(3, results).Return(nil)
 	client := credentialmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.InvalidateModelCredential("")
@@ -57,7 +57,7 @@ func (s *CredentialManagerSuite) TestInvalidateModelCredentialError(c *gc.C) {
 	result := new(params.ErrorResult)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("InvalidateModelCredential", args, result).Return(errors.New("foo"))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "InvalidateModelCredential", args, result).Return(errors.New("foo"))
 	client := credentialmanager.NewClientFromCaller(mockFacadeCaller)
 
 	err := client.InvalidateModelCredential("")

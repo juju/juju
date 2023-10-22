@@ -4,6 +4,8 @@
 package caasoperatorupgrader
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
@@ -31,7 +33,7 @@ func (c *Client) Upgrade(agentTag string, v version.Number) error {
 		AgentTag: agentTag,
 		Version:  v,
 	}
-	if err := c.facade.FacadeCall("UpgradeOperator", arg, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "UpgradeOperator", arg, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if result.Error != nil {

@@ -4,6 +4,8 @@
 package environupgrader
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -33,7 +35,7 @@ func (c *Client) ModelEnvironVersion(tag names.ModelTag) (int, error) {
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	var results params.IntResults
-	err := c.facade.FacadeCall("ModelEnvironVersion", &args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ModelEnvironVersion", &args, &results)
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
@@ -53,7 +55,7 @@ func (c *Client) ModelTargetEnvironVersion(tag names.ModelTag) (int, error) {
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	var results params.IntResults
-	err := c.facade.FacadeCall("ModelTargetEnvironVersion", &args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ModelTargetEnvironVersion", &args, &results)
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
@@ -76,7 +78,7 @@ func (c *Client) SetModelEnvironVersion(tag names.ModelTag, v int) error {
 		}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("SetModelEnvironVersion", &args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SetModelEnvironVersion", &args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -97,7 +99,7 @@ func (c *Client) SetModelStatus(tag names.ModelTag, status status.Status, info s
 			{Tag: tag.String(), Status: status.String(), Info: info, Data: data},
 		},
 	}
-	if err := c.facade.FacadeCall("SetModelStatus", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "SetModelStatus", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	return result.OneError()

@@ -4,6 +4,7 @@
 package caasapplicationprovisioner
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/charm/v11"
@@ -50,7 +51,7 @@ func NewClient(caller base.APICaller) *Client {
 // changes to the lifecycles of CAAS applications in the current model.
 func (c *Client) WatchApplications() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	if err := c.facade.FacadeCall("WatchApplications", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchApplications", nil, &result); err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
@@ -67,7 +68,7 @@ func (c *Client) SetPassword(appName string, password string) error {
 		Tag:      names.NewApplicationTag(appName).String(),
 		Password: password,
 	}}}
-	err := c.facade.FacadeCall("SetPasswords", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}
@@ -97,7 +98,7 @@ func (c *Client) Life(entityName string) (life.Value, error) {
 	}
 
 	var results params.LifeResults
-	if err := c.facade.FacadeCall("Life", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Life", args, &results); err != nil {
 		return "", err
 	}
 	if n := len(results.Results); n != 1 {
@@ -117,7 +118,7 @@ func (c *Client) WatchProvisioningInfo(applicationName string) (watcher.NotifyWa
 	}
 	var results params.NotifyWatchResults
 
-	if err := c.facade.FacadeCall("WatchProvisioningInfo", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchProvisioningInfo", args, &results); err != nil {
 		return nil, err
 	}
 
@@ -158,7 +159,7 @@ func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, err
 		},
 	}
 	var result params.CAASApplicationProvisioningInfoResults
-	if err := c.facade.FacadeCall("ProvisioningInfo", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ProvisioningInfo", args, &result); err != nil {
 		return ProvisioningInfo{}, err
 	}
 	if len(result.Results) != 1 {
@@ -247,7 +248,7 @@ func (c *Client) SetOperatorStatus(appName string, status status.Status, message
 	args := params.SetStatus{Entities: []params.EntityStatusArgs{
 		{Tag: names.NewApplicationTag(appName).String(), Status: status.String(), Info: message, Data: data},
 	}}
-	err := c.facade.FacadeCall("SetOperatorStatus", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "SetOperatorStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -260,7 +261,7 @@ func (c *Client) Units(appName string) ([]params.CAASUnit, error) {
 		Tag: names.NewApplicationTag(appName).String(),
 	}}}
 	var result params.CAASUnitsResults
-	if err := c.facade.FacadeCall("Units", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Units", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(result.Results) != 1 {
@@ -291,7 +292,7 @@ func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.D
 		Tag: names.NewApplicationTag(appName).String(),
 	}}}
 	var result params.CAASApplicationOCIResourceResults
-	if err := c.facade.FacadeCall("ApplicationOCIResources", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ApplicationOCIResources", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(result.Results) != 1 {
@@ -325,7 +326,7 @@ func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.D
 func (c *Client) UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error) {
 	var result params.UpdateApplicationUnitResults
 	args := params.UpdateApplicationUnitArgs{Args: []params.UpdateApplicationUnits{arg}}
-	err := c.facade.FacadeCall("UpdateApplicationsUnits", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "UpdateApplicationsUnits", args, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -350,7 +351,7 @@ func (c *Client) WatchApplication(appName string) (watcher.NotifyWatcher, error)
 func (c *Client) ClearApplicationResources(appName string) error {
 	var result params.ErrorResults
 	args := params.Entities{Entities: []params.Entity{{Tag: names.NewApplicationTag(appName).String()}}}
-	if err := c.facade.FacadeCall("ClearApplicationsResources", args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ClearApplicationsResources", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if len(result.Results) != len(args.Entities) {
@@ -375,7 +376,7 @@ func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) 
 	}
 
 	var results params.StringsWatchResults
-	if err := c.facade.FacadeCall("WatchUnits", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchUnits", args, &results); err != nil {
 		return nil, err
 	}
 	if n := len(results.Results); n != 1 {
@@ -397,7 +398,7 @@ func (c *Client) RemoveUnit(unitName string) error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewUnitTag(unitName).String()}},
 	}
-	err := c.facade.FacadeCall("Remove", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -423,7 +424,7 @@ func (c *Client) DestroyUnits(unitNames []string) error {
 	}
 	result := params.DestroyUnitResults{}
 
-	err := c.facade.FacadeCall("DestroyUnits", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "DestroyUnits", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -446,7 +447,7 @@ func (c *Client) DestroyUnits(unitNames []string) error {
 func (c *Client) ProvisioningState(appName string) (*params.CAASApplicationProvisioningState, error) {
 	var result params.CAASApplicationProvisioningStateResult
 	args := params.Entity{Tag: names.NewApplicationTag(appName).String()}
-	err := c.facade.FacadeCall("ProvisioningState", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "ProvisioningState", args, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -463,7 +464,7 @@ func (c *Client) SetProvisioningState(appName string, state params.CAASApplicati
 		Application:       params.Entity{Tag: names.NewApplicationTag(appName).String()},
 		ProvisioningState: state,
 	}
-	err := c.facade.FacadeCall("SetProvisioningState", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "SetProvisioningState", args, &result)
 	if err != nil {
 		return err
 	}
@@ -476,7 +477,7 @@ func (c *Client) SetProvisioningState(appName string, state params.CAASApplicati
 // ProvisionerConfig returns the provisoner's configuration.
 func (c *Client) ProvisionerConfig() (params.CAASApplicationProvisionerConfig, error) {
 	var result params.CAASApplicationProvisionerConfigResult
-	err := c.facade.FacadeCall("ProvisionerConfig", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "ProvisionerConfig", nil, &result)
 	if err != nil {
 		return params.CAASApplicationProvisionerConfig{}, err
 	}

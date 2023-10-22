@@ -4,6 +4,8 @@
 package meterstatus
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -45,7 +47,7 @@ func (c *Client) MeterStatus() (statusCode, statusInfo string, rErr error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: c.tag.String()}},
 	}
-	err := c.facade.FacadeCall("GetMeterStatus", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "GetMeterStatus", args, &results)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -65,7 +67,7 @@ func (c *Client) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: c.tag.String()}},
 	}
-	err := c.facade.FacadeCall("WatchMeterStatus", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchMeterStatus", args, &results)
 	if err != nil {
 		return nil, err
 	}

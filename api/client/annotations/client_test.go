@@ -4,6 +4,8 @@
 package annotations_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -47,8 +49,8 @@ func (s *annotationsMockSuite) TestSetEntitiesAnnotation(c *gc.C) {
 		Results: nil,
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Set", annotationsSetMatcher{c, args}, result).SetArg(2, results).DoAndReturn(
-		func(arg0 string, args params.AnnotationsSet, results *params.ErrorResults) []error {
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Set", annotationsSetMatcher{c, args}, result).SetArg(3, results).DoAndReturn(
+		func(ctx context.Context, arg0 string, args params.AnnotationsSet, results *params.ErrorResults) []error {
 			for _, aParam := range args.Annotations {
 				// Since sometimes arrays returned on some
 				// architectures vary the order within params.AnnotationsSet,
@@ -85,7 +87,7 @@ func (s *annotationsMockSuite) TestGetEntitiesAnnotations(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Get", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Get", args, result).SetArg(3, results).Return(nil)
 
 	annotationsClient := annotations.NewClientFromCaller(mockFacadeCaller)
 	found, err := annotationsClient.Get([]string{"charm"})

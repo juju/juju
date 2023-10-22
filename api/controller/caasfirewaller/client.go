@@ -4,6 +4,8 @@
 package caasfirewaller
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -53,7 +55,7 @@ func (c *Client) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: modelTag.String()}},
 	}
-	if err := c.facade.FacadeCall("WatchOpenedPorts", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchOpenedPorts", args, &results); err != nil {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
@@ -73,7 +75,7 @@ func (c *Client) GetOpenedPorts(appName string) (network.GroupedPortRanges, erro
 		Tag: names.NewApplicationTag(appName).String(),
 	}
 	var result params.ApplicationOpenedPortsResults
-	if err := c.facade.FacadeCall("GetOpenedPorts", arg, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "GetOpenedPorts", arg, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(result.Results) != 1 {
@@ -113,7 +115,7 @@ func entities(tags ...names.Tag) params.Entities {
 // changes to the lifecycles of CAAS applications in the current model.
 func (c *Client) WatchApplications() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	if err := c.facade.FacadeCall("WatchApplications", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchApplications", nil, &result); err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
@@ -143,7 +145,7 @@ func (c *Client) Life(appName string) (life.Value, error) {
 	args := entities(appTag)
 
 	var results params.LifeResults
-	if err := c.facade.FacadeCall("Life", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Life", args, &results); err != nil {
 		return "", err
 	}
 	if n := len(results.Results); n != 1 {
@@ -161,7 +163,7 @@ func (c *Client) ApplicationConfig(applicationName string) (config.ConfigAttribu
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
 	}
-	err := c.facade.FacadeCall("ApplicationsConfig", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ApplicationsConfig", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -181,7 +183,7 @@ func (c *Client) IsExposed(appName string) (bool, error) {
 	args := entities(appTag)
 
 	var results params.BoolResults
-	if err := c.facade.FacadeCall("IsExposed", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "IsExposed", args, &results); err != nil {
 		return false, err
 	}
 	if n := len(results.Results); n != 1 {

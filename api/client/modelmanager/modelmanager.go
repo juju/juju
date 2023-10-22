@@ -4,6 +4,7 @@
 package modelmanager
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -73,7 +74,7 @@ func (c *Client) CreateModel(
 		CloudCredentialTag: cloudCredentialTag,
 	}
 	var modelInfo params.ModelInfo
-	err := c.facade.FacadeCall("CreateModel", createArgs, &modelInfo)
+	err := c.facade.FacadeCall(context.TODO(), "CreateModel", createArgs, &modelInfo)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -170,7 +171,7 @@ func (c *Client) ListModels(user string) ([]base.UserModel, error) {
 		return nil, errors.Errorf("invalid user name %q", user)
 	}
 	entity := params.Entity{names.NewUserTag(user).String()}
-	err := c.facade.FacadeCall("ListModels", entity, &models)
+	err := c.facade.FacadeCall(context.TODO(), "ListModels", entity, &models)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -201,7 +202,7 @@ func (c *Client) ListModelSummaries(user string, all bool) ([]base.UserModelSumm
 		return nil, errors.Errorf("invalid user name %q", user)
 	}
 	in := params.ModelSummariesRequest{UserTag: names.NewUserTag(user).String(), All: all}
-	err := c.facade.FacadeCall("ListModelSummaries", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "ListModelSummaries", in, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -288,7 +289,7 @@ func (c *Client) ModelInfo(tags []names.ModelTag) ([]params.ModelInfoResult, err
 		entities.Entities[i].Tag = tag.String()
 	}
 	var results params.ModelInfoResults
-	err := c.facade.FacadeCall("ModelInfo", entities, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ModelInfo", entities, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -314,7 +315,7 @@ func (c *Client) DumpModel(model names.ModelTag, simplified bool) (map[string]in
 		Simplified: simplified,
 	}
 
-	err := c.facade.FacadeCall("DumpModels", entities, &results)
+	err := c.facade.FacadeCall(context.TODO(), "DumpModels", entities, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -342,7 +343,7 @@ func (c *Client) DumpModelDB(model names.ModelTag) (map[string]interface{}, erro
 		Entities: []params.Entity{{Tag: model.String()}},
 	}
 
-	err := c.facade.FacadeCall("DumpModelsDB", entities, &results)
+	err := c.facade.FacadeCall(context.TODO(), "DumpModelsDB", entities, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -369,7 +370,7 @@ func (c *Client) DestroyModel(tag names.ModelTag, destroyStorage, force *bool, m
 	}
 	args := params.DestroyModelsParams{Models: []params.DestroyModelParams{arg}}
 	var results params.ErrorResults
-	if err := c.facade.FacadeCall("DestroyModels", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "DestroyModels", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	if n := len(results.Results); n != 1 {
@@ -417,7 +418,7 @@ func (c *Client) modifyModelUser(action params.ModelAction, user, access string,
 	}
 
 	var result params.ErrorResults
-	err := c.facade.FacadeCall("ModifyModelAccess", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "ModifyModelAccess", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -441,7 +442,7 @@ func (c *Client) ModelDefaults(cloud string) (config.ModelDefaultAttributes, err
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewCloudTag(cloud).String()}},
 	}
-	err := c.facade.FacadeCall("ModelDefaultsForClouds", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ModelDefaultsForClouds", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -482,7 +483,7 @@ func (c *Client) SetModelDefaults(cloud, region string, config map[string]interf
 		}},
 	}
 	var result params.ErrorResults
-	err := c.facade.FacadeCall("SetModelDefaults", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "SetModelDefaults", args, &result)
 	if err != nil {
 		return err
 	}
@@ -503,7 +504,7 @@ func (c *Client) UnsetModelDefaults(cloud, region string, keys ...string) error 
 		}},
 	}
 	var result params.ErrorResults
-	err := c.facade.FacadeCall("UnsetModelDefaults", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "UnsetModelDefaults", args, &result)
 	if err != nil {
 		return err
 	}
@@ -519,7 +520,7 @@ func (c *Client) ChangeModelCredential(model names.ModelTag, credential names.Cl
 		},
 	}
 
-	err := c.facade.FacadeCall("ChangeModelCredential", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "ChangeModelCredential", in, &out)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -536,7 +537,7 @@ func (c *Client) ValidateModelUpgrade(model names.ModelTag, force bool) error {
 		Force: force,
 	}
 	var results params.ErrorResults
-	if err := c.facade.FacadeCall("ValidateModelUpgrades", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ValidateModelUpgrades", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	if num := len(results.Results); num != 1 {

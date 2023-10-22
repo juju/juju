@@ -4,6 +4,8 @@
 package firewaller
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"gopkg.in/macaroon.v2"
@@ -88,7 +90,7 @@ func (c *Client) Machine(tag names.MachineTag) (*Machine, error) {
 // model.
 func (c *Client) WatchModelMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchModelMachines", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchModelMachines", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +112,7 @@ func (c *Client) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: modelTag.String()}},
 	}
-	if err := c.facade.FacadeCall("WatchOpenedPorts", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchOpenedPorts", args, &results); err != nil {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
@@ -128,7 +130,7 @@ func (c *Client) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 // configured to open
 func (c *Client) ModelFirewallRules() (firewall.IngressRules, error) {
 	var results params.IngressRulesResult
-	if err := c.facade.FacadeCall("ModelFirewallRules", nil, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ModelFirewallRules", nil, &results); err != nil {
 		return nil, err
 	}
 	if results.Error != nil {
@@ -145,7 +147,7 @@ func (c *Client) ModelFirewallRules() (firewall.IngressRules, error) {
 // potential changes to a model's configured firewall rules
 func (c *Client) WatchModelFirewallRules() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := c.facade.FacadeCall("WatchModelFirewallRules", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchModelFirewallRules", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +178,7 @@ func (c *Client) Relation(tag names.RelationTag) (*Relation, error) {
 func (c *Client) WatchEgressAddressesForRelation(relationTag names.RelationTag) (watcher.StringsWatcher, error) {
 	args := params.Entities{[]params.Entity{{Tag: relationTag.String()}}}
 	var results params.StringsWatchResults
-	err := c.facade.FacadeCall("WatchEgressAddressesForRelations", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchEgressAddressesForRelations", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -198,7 +200,7 @@ func (c *Client) WatchEgressAddressesForRelation(relationTag names.RelationTag) 
 func (c *Client) WatchIngressAddressesForRelation(relationTag names.RelationTag) (watcher.StringsWatcher, error) {
 	args := params.Entities{[]params.Entity{{Tag: relationTag.String()}}}
 	var results params.StringsWatchResults
-	err := c.facade.FacadeCall("WatchIngressAddressesForRelations", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchIngressAddressesForRelations", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -218,7 +220,7 @@ func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) 
 	modelTag := names.NewModelTag(modelUUID)
 	args := params.Entities{[]params.Entity{{Tag: modelTag.String()}}}
 	var results params.ControllerAPIInfoResults
-	err := c.facade.FacadeCall("ControllerAPIInfoForModels", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ControllerAPIInfoForModels", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -241,7 +243,7 @@ func (c *Client) MacaroonForRelation(relationKey string) (*macaroon.Macaroon, er
 	relationTag := names.NewRelationTag(relationKey)
 	args := params.Entities{[]params.Entity{{Tag: relationTag.String()}}}
 	var results params.MacaroonResults
-	err := c.facade.FacadeCall("MacaroonForRelations", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "MacaroonForRelations", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -263,7 +265,7 @@ func (c *Client) SetRelationStatus(relationKey string, status relation.Status, m
 	}}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("SetRelationsStatus", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SetRelationsStatus", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -274,7 +276,7 @@ func (c *Client) SetRelationStatus(relationKey string, status relation.Status, m
 // associated subnets.
 func (c *Client) AllSpaceInfos() (network.SpaceInfos, error) {
 	var result params.SpaceInfos
-	err := c.facade.FacadeCall("SpaceInfos", params.SpaceInfosParams{}, &result)
+	err := c.facade.FacadeCall(context.TODO(), "SpaceInfos", params.SpaceInfosParams{}, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -285,7 +287,7 @@ func (c *Client) AllSpaceInfos() (network.SpaceInfos, error) {
 // subnets.
 func (c *Client) WatchSubnets() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchSubnets", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchSubnets", nil, &result)
 	if err != nil {
 		return nil, err
 	}

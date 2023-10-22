@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/charm/v11"
@@ -69,7 +70,7 @@ func (u *Unit) Refresh() error {
 			{Tag: u.tag.String()},
 		},
 	}
-	err := u.client.facade.FacadeCall("Refresh", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "Refresh", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -100,7 +101,7 @@ func (u *Unit) SetUnitStatus(unitStatus status.Status, info string, data map[str
 			{Tag: u.tag.String(), Status: unitStatus.String(), Info: info, Data: data},
 		},
 	}
-	err := u.client.facade.FacadeCall("SetUnitStatus", args, &result)
+	err := u.client.facade.FacadeCall(context.TODO(), "SetUnitStatus", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -115,7 +116,7 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 			{Tag: u.tag.String()},
 		},
 	}
-	err := u.client.facade.FacadeCall("UnitStatus", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "UnitStatus", args, &results)
 	if err != nil {
 		return params.StatusResult{}, errors.Trace(err)
 	}
@@ -137,7 +138,7 @@ func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[s
 			{Tag: u.tag.String(), Status: agentStatus.String(), Info: info, Data: data},
 		},
 	}
-	err := u.client.facade.FacadeCall("SetAgentStatus", args, &result)
+	err := u.client.facade.FacadeCall(context.TODO(), "SetAgentStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -153,7 +154,7 @@ func (u *Unit) AddMetrics(metrics []params.Metric) error {
 			Metrics: metrics,
 		}},
 	}
-	err := u.client.facade.FacadeCall("AddMetrics", args, &result)
+	err := u.client.facade.FacadeCall(context.TODO(), "AddMetrics", args, &result)
 	if err != nil {
 		return errors.Annotate(err, "unable to add metric")
 	}
@@ -175,7 +176,7 @@ func (u *Unit) AddMetricBatches(batches []params.MetricBatch) (map[string]error,
 		batchResults[batch.UUID] = nil
 	}
 	results := new(params.ErrorResults)
-	err := u.client.facade.FacadeCall("AddMetricBatches", p, results)
+	err := u.client.facade.FacadeCall(context.TODO(), "AddMetricBatches", p, results)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to send metric batches")
 	}
@@ -192,7 +193,7 @@ func (u *Unit) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("EnsureDead", args, &result)
+	err := u.client.facade.FacadeCall(context.TODO(), "EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -211,7 +212,7 @@ func (u *Unit) WatchRelations() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("WatchUnitRelations", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "WatchUnitRelations", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +251,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("ConfigSettings", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "ConfigSettings", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +289,7 @@ func (u *Unit) Destroy() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("Destroy", args, &result)
+	err := u.client.facade.FacadeCall(context.TODO(), "Destroy", args, &result)
 	if err != nil {
 		return err
 	}
@@ -301,7 +302,7 @@ func (u *Unit) DestroyAllSubordinates() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("DestroyAllSubordinates", args, &result)
+	err := u.client.facade.FacadeCall(context.TODO(), "DestroyAllSubordinates", args, &result)
 	if err != nil {
 		return err
 	}
@@ -317,7 +318,7 @@ func (u *Unit) AssignedMachine() (names.MachineTag, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("AssignedMachine", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "AssignedMachine", args, &results)
 	if err != nil {
 		return invalidTag, err
 	}
@@ -341,7 +342,7 @@ func (u *Unit) PrincipalName() (string, bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("GetPrincipal", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "GetPrincipal", args, &results)
 	if err != nil {
 		return "", false, err
 	}
@@ -369,7 +370,7 @@ func (u *Unit) HasSubordinates() (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("HasSubordinates", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "HasSubordinates", args, &results)
 	if err != nil {
 		return false, err
 	}
@@ -396,7 +397,7 @@ func (u *Unit) PublicAddress() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("PublicAddress", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "PublicAddress", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -423,7 +424,7 @@ func (u *Unit) PrivateAddress() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("PrivateAddress", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "PrivateAddress", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -443,7 +444,7 @@ func (u *Unit) AvailabilityZone() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	if err := u.client.facade.FacadeCall("AvailabilityZone", args, &results); err != nil {
+	if err := u.client.facade.FacadeCall(context.TODO(), "AvailabilityZone", args, &results); err != nil {
 		return "", errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -464,7 +465,7 @@ func (u *Unit) CharmURL() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("CharmURL", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "CharmURL", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -493,7 +494,7 @@ func (u *Unit) SetCharmURL(curl string) error {
 			{Tag: u.tag.String(), CharmURL: curl},
 		},
 	}
-	err := u.client.facade.FacadeCall("SetCharmURL", args, &result)
+	err := u.client.facade.FacadeCall(context.TODO(), "SetCharmURL", args, &result)
 	if err != nil {
 		return err
 	}
@@ -506,7 +507,7 @@ func (u *Unit) ClearResolved() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("ClearResolved", args, &result)
+	err := u.client.facade.FacadeCall(context.TODO(), "ClearResolved", args, &result)
 	if err != nil {
 		return err
 	}
@@ -536,7 +537,7 @@ func getHashWatcher(u *Unit, methodName string) (watcher.StringsWatcher, error) 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall(methodName, args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), methodName, args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -570,7 +571,7 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("WatchActionNotifications", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "WatchActionNotifications", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -597,7 +598,7 @@ func (u *Unit) LogActionMessage(tag names.ActionTag, message string) error {
 	args := params.ActionMessageParams{
 		Messages: []params.EntityString{{Tag: tag.String(), Value: message}},
 	}
-	err := u.client.facade.FacadeCall("LogActionsMessages", args, &result)
+	err := u.client.facade.FacadeCall(context.TODO(), "LogActionsMessages", args, &result)
 	if err != nil {
 		return err
 	}
@@ -624,7 +625,7 @@ func (u *Unit) RequestReboot() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineId.String()}},
 	}
-	err = u.client.facade.FacadeCall("RequestReboot", args, &result)
+	err = u.client.facade.FacadeCall(context.TODO(), "RequestReboot", args, &result)
 	if err != nil {
 		return err
 	}
@@ -650,7 +651,7 @@ func (u *Unit) RelationsStatus() ([]RelationStatus, error) {
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	var results params.RelationUnitStatusResults
-	err := u.client.facade.FacadeCall("RelationsStatus", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "RelationsStatus", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -682,7 +683,7 @@ func (u *Unit) MeterStatus() (statusCode, statusInfo string, rErr error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("GetMeterStatus", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "GetMeterStatus", args, &results)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -703,7 +704,7 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("WatchMeterStatus", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "WatchMeterStatus", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -732,7 +733,7 @@ func (u *Unit) WatchInstanceData() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("WatchInstanceData", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "WatchInstanceData", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -754,7 +755,7 @@ func (u *Unit) LXDProfileName() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("LXDProfileName", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "LXDProfileName", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -775,7 +776,7 @@ func (u *Unit) CanApplyLXDProfile() (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("CanApplyLXDProfile", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "CanApplyLXDProfile", args, &results)
 	if err != nil {
 		return false, err
 	}
@@ -798,7 +799,7 @@ func (u *Unit) NetworkInfo(bindings []string, relationId *int) (map[string]param
 		RelationId: relationId,
 	}
 
-	err := u.client.facade.FacadeCall("NetworkInfo", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "NetworkInfo", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -823,7 +824,7 @@ func (u *Unit) SetState(unitState params.SetUnitStateArg) error {
 // single transaction.
 func (u *Unit) CommitHookChanges(req params.CommitHookChangesArgs) error {
 	var results params.ErrorResults
-	err := u.client.facade.FacadeCall("CommitHookChanges", req, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "CommitHookChanges", req, &results)
 	if err != nil {
 		return err
 	}

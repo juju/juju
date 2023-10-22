@@ -4,6 +4,8 @@
 package payloads
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -35,7 +37,7 @@ func (c Client) ListFull(patterns ...string) ([]payloads.FullPayloadInfo, error)
 	args := params.PayloadListArgs{
 		Patterns: patterns,
 	}
-	if err := c.facade.FacadeCall("List", &args, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "List", &args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 

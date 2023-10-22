@@ -4,6 +4,8 @@
 package charmrevisionupdater
 
 import (
+	"context"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
 )
@@ -22,7 +24,7 @@ func NewClient(caller base.APICaller) *Client {
 // and updates the revision info in state.
 func (st *Client) UpdateLatestRevisions() error {
 	result := new(params.ErrorResult)
-	err := st.facade.FacadeCall("UpdateLatestRevisions", nil, result)
+	err := st.facade.FacadeCall(context.TODO(), "UpdateLatestRevisions", nil, result)
 	if err != nil {
 		return err
 	}

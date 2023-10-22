@@ -4,6 +4,8 @@
 package usersecrets
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -29,7 +31,7 @@ func NewClient(caller base.APICaller) *Client {
 // obsolete revision changes.
 func (c *Client) WatchRevisionsToPrune() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall("WatchRevisionsToPrune", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchRevisionsToPrune", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +56,7 @@ func (c *Client) DeleteRevisions(uri *secrets.URI, revisions ...int) error {
 	}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("DeleteRevisions", params.DeleteSecretArgs{Args: []params.DeleteSecretArg{arg}}, &results)
+	err := c.facade.FacadeCall(context.TODO(), "DeleteRevisions", params.DeleteSecretArgs{Args: []params.DeleteSecretArg{arg}}, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -4,6 +4,7 @@
 package usermanager
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -47,7 +48,7 @@ func (c *Client) AddUser(
 		}},
 	}
 	var results params.AddUserResults
-	err := c.facade.FacadeCall("AddUser", userArgs, &results)
+	err := c.facade.FacadeCall(context.TODO(), "AddUser", userArgs, &results)
 	if err != nil {
 		return names.UserTag{}, nil, errors.Trace(err)
 	}
@@ -76,7 +77,7 @@ func (c *Client) userCall(username string, methodCall string) error {
 	args := params.Entities{
 		[]params.Entity{{tag.String()}},
 	}
-	err := c.facade.FacadeCall(methodCall, args, &results)
+	err := c.facade.FacadeCall(context.TODO(), methodCall, args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -130,7 +131,7 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 		Entities:        entities,
 		IncludeDisabled: bool(all),
 	}
-	err := c.facade.FacadeCall("UserInfo", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "UserInfo", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -170,7 +171,7 @@ func (c *Client) ModelUserInfo(modelUUID string) ([]params.ModelUserInfo, error)
 			Tag: names.NewModelTag(modelUUID).String(),
 		}},
 	}
-	err := c.facade.FacadeCall("ModelUserInfo", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ModelUserInfo", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -197,7 +198,7 @@ func (c *Client) SetPassword(username, password string) error {
 			Password: password}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("SetPassword", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SetPassword", args, &results)
 	if err != nil {
 		return err
 	}
@@ -216,7 +217,7 @@ func (c *Client) ResetPassword(username string) ([]byte, error) {
 		}},
 	}
 	var out params.AddUserResults
-	err := c.facade.FacadeCall("ResetPassword", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "ResetPassword", in, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

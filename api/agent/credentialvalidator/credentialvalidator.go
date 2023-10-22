@@ -4,6 +4,8 @@
 package credentialvalidator
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -34,7 +36,7 @@ func NewFacade(caller base.APICaller) *Facade {
 func (c *Facade) ModelCredential() (base.StoredCredential, bool, error) {
 	out := params.ModelCredential{}
 	emptyResult := base.StoredCredential{}
-	if err := c.facade.FacadeCall("ModelCredential", nil, &out); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ModelCredential", nil, &out); err != nil {
 		return emptyResult, false, errors.Trace(err)
 	}
 
@@ -62,7 +64,7 @@ func (c *Facade) WatchCredential(credentialID string) (watcher.NotifyWatcher, er
 	}
 	in := names.NewCloudCredentialTag(credentialID).String()
 	var result params.NotifyWatchResult
-	err := c.facade.FacadeCall("WatchCredential", params.Entity{in}, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchCredential", params.Entity{in}, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -78,7 +80,7 @@ func (c *Facade) WatchCredential(credentialID string) (watcher.NotifyWatcher, er
 func (c *Facade) InvalidateModelCredential(reason string) error {
 	in := params.InvalidateCredentialArg{reason}
 	var result params.ErrorResult
-	err := c.facade.FacadeCall("InvalidateModelCredential", in, &result)
+	err := c.facade.FacadeCall(context.TODO(), "InvalidateModelCredential", in, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -93,7 +95,7 @@ func (c *Facade) InvalidateModelCredential(reason string) error {
 // to a given cloud credential.
 func (c *Facade) WatchModelCredential() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := c.facade.FacadeCall("WatchModelCredential", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "WatchModelCredential", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

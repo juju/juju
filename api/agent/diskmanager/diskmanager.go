@@ -4,6 +4,8 @@
 package diskmanager
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
@@ -37,7 +39,7 @@ func (st *State) SetMachineBlockDevices(devices []storage.BlockDevice) error {
 		}},
 	}
 	var results params.ErrorResults
-	err := st.facade.FacadeCall("SetMachineBlockDevices", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "SetMachineBlockDevices", args, &results)
 	if err != nil {
 		return err
 	}

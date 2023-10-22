@@ -4,6 +4,8 @@
 package cleaner
 
 import (
+	"context"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/watcher"
@@ -25,13 +27,13 @@ func NewAPI(caller base.APICaller) *API {
 
 // Cleanup calls the server-side Cleanup method.
 func (api *API) Cleanup() error {
-	return api.facade.FacadeCall("Cleanup", nil, nil)
+	return api.facade.FacadeCall(context.TODO(), "Cleanup", nil, nil)
 }
 
 // WatchCleanups calls the server-side WatchCleanups method.
 func (api *API) WatchCleanups() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := api.facade.FacadeCall("WatchCleanups", nil, &result)
+	err := api.facade.FacadeCall(context.TODO(), "WatchCleanups", nil, &result)
 	if err != nil {
 		return nil, err
 	}

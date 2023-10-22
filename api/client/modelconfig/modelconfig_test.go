@@ -31,7 +31,7 @@ func (s *modelconfigSuite) TestModelGet(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ModelGet", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelGet", args, res).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.ModelGet()
 	c.Assert(err, jc.ErrorIsNil)
@@ -52,7 +52,7 @@ func (s *modelconfigSuite) TestModelGetWithMetadata(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ModelGet", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelGet", args, res).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.ModelGetWithMetadata()
 	c.Assert(err, jc.ErrorIsNil)
@@ -73,7 +73,7 @@ func (s *modelconfigSuite) TestModelSet(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ModelSet", args, res).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelSet", args, res).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.ModelSet(map[string]interface{}{
 		"some-name":  "value",
@@ -91,7 +91,7 @@ func (s *modelconfigSuite) TestModelUnset(c *gc.C) {
 		Keys: []string{"foo", "bar"},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ModelUnset", args, res).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelUnset", args, res).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.ModelUnset("foo", "bar")
 	c.Assert(err, jc.ErrorIsNil)
@@ -110,7 +110,7 @@ func (s *modelconfigSuite) TestSetSupport(c *gc.C) {
 		Credentials: []byte("creds"),
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SetSLALevel", args, res).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetSLALevel", args, res).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetSLALevel("foobar", "bob", []byte("creds"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -126,7 +126,7 @@ func (s *modelconfigSuite) TestGetSupport(c *gc.C) {
 		Result: "level",
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SLALevel", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SLALevel", args, res).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	level, err := client.SLALevel()
 	c.Assert(err, jc.ErrorIsNil)
@@ -143,7 +143,7 @@ func (s *modelconfigSuite) TestSequences(c *gc.C) {
 		Sequences: map[string]int{"foo": 5, "bar": 2},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Sequences", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Sequences", args, res).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	sequences, err := client.Sequences()
 	c.Assert(err, jc.ErrorIsNil)
@@ -160,7 +160,7 @@ func (s *modelconfigSuite) TestGetModelConstraints(c *gc.C) {
 		Constraints: constraints.MustParse("arch=amd64"),
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("GetModelConstraints", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetModelConstraints", args, res).SetArg(3, results).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -176,7 +176,7 @@ func (s *modelconfigSuite) TestSetModelConstraints(c *gc.C) {
 		Constraints: constraints.MustParse("arch=amd64"),
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SetModelConstraints", args, res).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetModelConstraints", args, res).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelConstraints(constraints.MustParse("arch=amd64"))
 	c.Assert(err, jc.ErrorIsNil)

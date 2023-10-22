@@ -49,7 +49,7 @@ func (s *modelGenerationSuite) TestAddBranch(c *gc.C) {
 
 	resultSource := params.ErrorResult{}
 	arg := params.BranchArg{BranchName: s.branchName}
-	s.fCaller.EXPECT().FacadeCall("AddBranch", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "AddBranch", arg, gomock.Any()).SetArg(3, resultSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.AddBranch(s.branchName)
@@ -61,7 +61,7 @@ func (s *modelGenerationSuite) TestAbortBranch(c *gc.C) {
 
 	resultSource := params.ErrorResult{}
 	arg := params.BranchArg{BranchName: s.branchName}
-	s.fCaller.EXPECT().FacadeCall("AbortBranch", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "AbortBranch", arg, gomock.Any()).SetArg(3, resultSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.AbortBranch(s.branchName)
@@ -83,7 +83,7 @@ func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 		},
 	}
 
-	s.fCaller.EXPECT().FacadeCall("TrackBranch", arg, gomock.Any()).SetArg(2, resultsSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "TrackBranch", arg, gomock.Any()).SetArg(3, resultsSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	err := api.TrackBranch(s.branchName, []string{"mysql/0", "mysql"}, 0)
@@ -103,7 +103,7 @@ func (s *modelGenerationSuite) TestCommitBranch(c *gc.C) {
 
 	resultSource := params.IntResult{Result: 2}
 	arg := params.BranchArg{BranchName: s.branchName}
-	s.fCaller.EXPECT().FacadeCall("CommitBranch", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "CommitBranch", arg, gomock.Any()).SetArg(3, resultSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	newGenID, err := api.CommitBranch("new-branch")
@@ -116,7 +116,7 @@ func (s *modelGenerationSuite) TestHasActiveBranch(c *gc.C) {
 
 	resultSource := params.BoolResult{Result: true}
 	arg := params.BranchArg{BranchName: s.branchName}
-	s.fCaller.EXPECT().FacadeCall("HasActiveBranch", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "HasActiveBranch", arg, gomock.Any()).SetArg(3, resultSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 	has, err := api.HasActiveBranch(s.branchName)
@@ -146,7 +146,7 @@ func (s *modelGenerationSuite) TestBranchInfo(c *gc.C) {
 		Detailed:    true,
 	}
 
-	s.fCaller.EXPECT().FacadeCall("BranchInfo", arg, gomock.Any()).SetArg(2, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall(gomock.Any(), "BranchInfo", arg, gomock.Any()).SetArg(3, resultSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
 

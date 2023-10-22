@@ -42,7 +42,7 @@ func (s *clientSuite) TestClientEnableHA(c *gc.C) {
 		}}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("EnableHA", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "EnableHA", args, res).SetArg(3, results).Return(nil)
 	client := highavailability.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.EnableHA(3, emptyCons, nil)

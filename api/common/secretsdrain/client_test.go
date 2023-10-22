@@ -40,7 +40,7 @@ func (s *secretsDrainSuite) TestGetSecretsToDrain(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	now := time.Now()
-	apiCaller.EXPECT().FacadeCall("GetSecretsToDrain", nil, gomock.Any()).SetArg(
+	apiCaller.EXPECT().FacadeCall(gomock.Any(), "GetSecretsToDrain", nil, gomock.Any()).SetArg(
 		2, params.ListSecretResults{
 			Results: []params.ListSecretResult{{
 				URI:              uri.String(),
@@ -96,6 +96,7 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	apiCaller.EXPECT().FacadeCall(
+		gomock.Any(),
 		"ChangeSecretBackend",
 		params.ChangeSecretBackendArgs{
 			Args: []params.ChangeSecretBackendArg{
@@ -113,7 +114,7 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 		},
 		gomock.Any(),
 	).SetArg(
-		2, params.ErrorResults{
+		3, params.ErrorResults{
 			[]params.ErrorResult{
 				{Error: nil},
 			},
@@ -144,8 +145,8 @@ func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *gc.C) {
 
 	apiCaller := mocks.NewMockFacadeCaller(ctrl)
 
-	apiCaller.EXPECT().FacadeCall("WatchSecretBackendChanged", nil, gomock.Any()).SetArg(
-		2, params.NotifyWatchResult{
+	apiCaller.EXPECT().FacadeCall(gomock.Any(), "WatchSecretBackendChanged", nil, gomock.Any()).SetArg(
+		3, params.NotifyWatchResult{
 			Error: &params.Error{Message: "FAIL"},
 		},
 	).Return(nil)

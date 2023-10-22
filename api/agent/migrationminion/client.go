@@ -4,6 +4,8 @@
 package migrationminion
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -26,7 +28,7 @@ type Client struct {
 // the migration for the model associated with the API connection.
 func (c *Client) Watch() (watcher.MigrationStatusWatcher, error) {
 	var result params.NotifyWatchResult
-	err := c.caller.FacadeCall("Watch", nil, &result)
+	err := c.caller.FacadeCall(context.TODO(), "Watch", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -45,6 +47,6 @@ func (c *Client) Report(migrationId string, phase migration.Phase, success bool)
 		Phase:       phase.String(),
 		Success:     success,
 	}
-	err := c.caller.FacadeCall("Report", args, nil)
+	err := c.caller.FacadeCall(context.TODO(), "Report", args, nil)
 	return errors.Trace(err)
 }

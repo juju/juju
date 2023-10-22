@@ -87,7 +87,7 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 		},
 	}
 
-	mockFacadeCaller.EXPECT().FacadeCall("CharmInfo", args, info).SetArg(2, params).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CharmInfo", args, info).SetArg(3, params).Return(nil)
 
 	client := apicommoncharms.NewCharmInfoClient(mockFacadeCaller)
 	got, err := client.CharmInfo(url)
@@ -176,7 +176,7 @@ func (s *suite) TestApplicationCharmInfo(c *gc.C) {
 		// The rest of the field conversions are tested by TestCharmInfo
 	}
 
-	mockFacadeCaller.EXPECT().FacadeCall("ApplicationCharmInfo", args, info).SetArg(2, params).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ApplicationCharmInfo", args, info).SetArg(3, params).Return(nil)
 
 	client := apicommoncharms.NewApplicationCharmInfoClient(mockFacadeCaller)
 	got, err := client.ApplicationCharmInfo("foobar")

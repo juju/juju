@@ -4,6 +4,8 @@
 package unitassigner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -36,7 +38,7 @@ func (a API) AssignUnits(tags []names.UnitTag) ([]error, error) {
 	}
 	args := params.Entities{Entities: entities}
 	var result params.ErrorResults
-	if err := a.facade.FacadeCall("AssignUnits", args, &result); err != nil {
+	if err := a.facade.FacadeCall(context.TODO(), "AssignUnits", args, &result); err != nil {
 		return nil, err
 	}
 
@@ -61,7 +63,7 @@ func convertNotFound(err error) error {
 // created.
 func (a API) WatchUnitAssignments() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := a.facade.FacadeCall("WatchUnitAssignments", nil, &result)
+	err := a.facade.FacadeCall(context.TODO(), "WatchUnitAssignments", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +77,7 @@ func (a API) WatchUnitAssignments() (watcher.StringsWatcher, error) {
 // SetAgentStatus sets the status of the unit agents.
 func (a API) SetAgentStatus(args params.SetStatus) error {
 	var result params.ErrorResults
-	err := a.facade.FacadeCall("SetAgentStatus", args, &result)
+	err := a.facade.FacadeCall(context.TODO(), "SetAgentStatus", args, &result)
 	if err != nil {
 		return err
 	}

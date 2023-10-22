@@ -4,6 +4,7 @@
 package crossmodelsecrets
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
@@ -113,6 +114,7 @@ func (c *Client) GetSecretAccessScope(uri *coresecrets.URI, appToken string, uni
 		var results params.StringResults
 
 		if err := c.facade.FacadeCall(
+			context.TODO(),
 			"GetSecretAccessScope", args, &results,
 		); err != nil {
 			return "", errors.Trace(err)
@@ -181,6 +183,7 @@ func (c *Client) GetRemoteSecretContentInfo(uri *coresecrets.URI, revision int, 
 		var results params.SecretContentResults
 
 		if err := c.facade.FacadeCall(
+			context.TODO(),
 			"GetSecretContentInfo", args, &results,
 		); err != nil {
 			return nil, nil, 0, false, errors.Trace(err)

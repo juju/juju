@@ -4,6 +4,8 @@
 package applicationoffers
 
 import (
+	"context"
+
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/charm/v11"
 	"github.com/juju/errors"
@@ -49,7 +51,7 @@ func (c *Client) Offer(modelUUID, application string, endpoints []string, owner,
 		},
 	}
 	out := params.ErrorResults{}
-	if err := c.facade.FacadeCall("Offer", params.AddApplicationOffers{Offers: offers}, &out); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Offer", params.AddApplicationOffers{Offers: offers}, &out); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return out.Results, nil
@@ -84,7 +86,7 @@ func (c *Client) ListOffers(filters ...crossmodel.ApplicationOfferFilter) ([]*cr
 	}
 
 	offers := params.QueryApplicationOffersResults{}
-	err := c.facade.FacadeCall("ListApplicationOffers", paramsFilter, &offers)
+	err := c.facade.FacadeCall(context.TODO(), "ListApplicationOffers", paramsFilter, &offers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -177,7 +179,7 @@ func (c *Client) modifyOfferUser(action params.OfferAction, user, access string,
 	}
 
 	var result params.ErrorResults
-	err := c.facade.FacadeCall("ModifyOfferAccess", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "ModifyOfferAccess", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -207,7 +209,7 @@ func (c *Client) ApplicationOffer(urlStr string) (*crossmodel.ApplicationOfferDe
 
 	found := params.ApplicationOffersResults{}
 
-	err = c.facade.FacadeCall("ApplicationOffers", params.OfferURLs{[]string{urlStr}, bakery.LatestVersion}, &found)
+	err = c.facade.FacadeCall(context.TODO(), "ApplicationOffers", params.OfferURLs{[]string{urlStr}, bakery.LatestVersion}, &found)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -247,7 +249,7 @@ func (c *Client) FindApplicationOffers(filters ...crossmodel.ApplicationOfferFil
 	}
 
 	offers := params.QueryApplicationOffersResults{}
-	err := c.facade.FacadeCall("FindApplicationOffers", paramsFilter, &offers)
+	err := c.facade.FacadeCall(context.TODO(), "FindApplicationOffers", paramsFilter, &offers)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -272,7 +274,7 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 		OfferURLs: offerURLs,
 	}
 
-	err = c.facade.FacadeCall("GetConsumeDetails", args, &found)
+	err = c.facade.FacadeCall(context.TODO(), "GetConsumeDetails", args, &found)
 	if err != nil {
 		return params.ConsumeOfferDetails{}, errors.Trace(err)
 	}
@@ -310,7 +312,7 @@ func (c *Client) DestroyOffers(force bool, offerURLs ...string) error {
 	}
 
 	var result params.ErrorResults
-	err := c.facade.FacadeCall("DestroyOffers", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "DestroyOffers", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}

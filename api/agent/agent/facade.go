@@ -4,6 +4,8 @@
 package agent
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -66,7 +68,7 @@ func (facade *connFacade) Life(entity names.Tag) (Life, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: entity.String()}},
 	}
-	err := facade.caller.FacadeCall("GetEntities", args, &results)
+	err := facade.caller.FacadeCall(context.TODO(), "GetEntities", args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -96,7 +98,7 @@ func (facade *connFacade) SetPassword(entity names.Tag, password string) error {
 			Password: password,
 		}},
 	}
-	err := facade.caller.FacadeCall("SetPasswords", args, &results)
+	err := facade.caller.FacadeCall(context.TODO(), "SetPasswords", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

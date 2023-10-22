@@ -4,6 +4,7 @@
 package charms
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/charm/v11"
@@ -30,7 +31,7 @@ func NewCharmInfoClient(facade base.FacadeCaller) *CharmInfoClient {
 func (c *CharmInfoClient) CharmInfo(charmURL string) (*CharmInfo, error) {
 	args := params.CharmURL{URL: charmURL}
 	var info params.Charm
-	if err := c.facade.FacadeCall("CharmInfo", args, &info); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "CharmInfo", args, &info); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return convertCharm(&info)
@@ -51,7 +52,7 @@ func NewApplicationCharmInfoClient(facade base.FacadeCaller) *ApplicationCharmIn
 func (c *ApplicationCharmInfoClient) ApplicationCharmInfo(appName string) (*CharmInfo, error) {
 	args := params.Entity{Tag: names.NewApplicationTag(appName).String()}
 	var info params.Charm
-	if err := c.facade.FacadeCall("ApplicationCharmInfo", args, &info); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ApplicationCharmInfo", args, &info); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return convertCharm(&info)

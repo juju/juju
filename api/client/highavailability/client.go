@@ -4,6 +4,8 @@
 package highavailability
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -36,7 +38,7 @@ func (c *Client) EnableHA(
 			Placement:      placement,
 		}}}
 
-	err := c.facade.FacadeCall("EnableHA", arg, &results)
+	err := c.facade.FacadeCall(context.TODO(), "EnableHA", arg, &results)
 	if err != nil {
 		return params.ControllersChanges{}, err
 	}

@@ -37,7 +37,7 @@ func (s *actionSuite) TestRunOnAllMachines(c *gc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("RunOnAllMachines", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RunOnAllMachines", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.RunOnAllMachines("pwd", time.Millisecond)
@@ -74,7 +74,7 @@ func (s *actionSuite) TestRun(c *gc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Run", args, res).SetArg(2, ress).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Run", args, res).SetArg(3, ress).Return(nil)
 	client := action.NewClientFromCaller(mockFacadeCaller)
 
 	result, err := client.Run(action.RunParams{

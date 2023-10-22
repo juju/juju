@@ -33,7 +33,7 @@ func (s *blockMockSuite) TestSwitchBlockOn(c *gc.C) {
 	result := new(params.ErrorResult)
 	results := params.ErrorResult{Error: nil}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SwitchBlockOn", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SwitchBlockOn", args, result).SetArg(3, results).Return(nil)
 
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	err := blockClient.SwitchBlockOn(blockType, msg)
@@ -56,7 +56,7 @@ func (s *blockMockSuite) TestSwitchBlockOnError(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SwitchBlockOn", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SwitchBlockOn", args, result).SetArg(3, results).Return(nil)
 
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	err := blockClient.SwitchBlockOn("", "")
@@ -77,7 +77,7 @@ func (s *blockMockSuite) TestSwitchBlockOff(c *gc.C) {
 	results := params.ErrorResult{Error: nil}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SwitchBlockOff", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SwitchBlockOff", args, result).SetArg(3, results).Return(nil)
 
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	err := blockClient.SwitchBlockOff(blockType)
@@ -99,7 +99,7 @@ func (s *blockMockSuite) TestSwitchBlockOffError(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("SwitchBlockOff", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SwitchBlockOff", args, result).SetArg(3, results).Return(nil)
 
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	err := blockClient.SwitchBlockOff("")
@@ -128,7 +128,7 @@ func (s *blockMockSuite) TestList(c *gc.C) {
 		Results: []params.BlockResult{one, two},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("List", nil, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "List", nil, result).SetArg(3, results).Return(nil)
 	blockClient := block.NewClientFromCaller(mockFacadeCaller)
 	found, err := blockClient.List()
 	c.Assert(errors.Cause(err), gc.ErrorMatches, errmsg)

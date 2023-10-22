@@ -5,6 +5,8 @@
 package reboot
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -62,7 +64,7 @@ func NewFromConnection(c api.Connection) (Client, error) {
 func (c *client) WatchForRebootEvent() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 
-	if err := c.facade.FacadeCall("WatchForRebootEvent", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchForRebootEvent", nil, &result); err != nil {
 		return nil, err
 	}
 	if result.Error != nil {
@@ -80,7 +82,7 @@ func (c *client) RequestReboot() error {
 		Entities: []params.Entity{{Tag: c.machineTag.String()}},
 	}
 
-	err := c.facade.FacadeCall("RequestReboot", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "RequestReboot", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -101,7 +103,7 @@ func (c *client) ClearReboot() error {
 		Entities: []params.Entity{{Tag: c.machineTag.String()}},
 	}
 
-	err := c.facade.FacadeCall("ClearReboot", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ClearReboot", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -124,7 +126,7 @@ func (c *client) GetRebootAction() (params.RebootAction, error) {
 		Entities: []params.Entity{{Tag: c.machineTag.String()}},
 	}
 
-	err := c.facade.FacadeCall("GetRebootAction", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "GetRebootAction", args, &results)
 	if err != nil {
 		return params.ShouldDoNothing, err
 	}

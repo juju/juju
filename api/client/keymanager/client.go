@@ -4,6 +4,8 @@
 package keymanager
 
 import (
+	"context"
+
 	"github.com/juju/utils/v3/ssh"
 
 	"github.com/juju/juju/api/base"
@@ -30,7 +32,7 @@ func (c *Client) ListKeys(mode ssh.ListMode, users ...string) ([]params.StringsR
 		p.Entities.Entities[i] = params.Entity{Tag: userName}
 	}
 	results := new(params.StringsResults)
-	err := c.facade.FacadeCall("ListKeys", p, results)
+	err := c.facade.FacadeCall(context.TODO(), "ListKeys", p, results)
 	return results.Results, err
 }
 
@@ -38,7 +40,7 @@ func (c *Client) ListKeys(mode ssh.ListMode, users ...string) ([]params.StringsR
 func (c *Client) AddKeys(user string, keys ...string) ([]params.ErrorResult, error) {
 	p := params.ModifyUserSSHKeys{User: user, Keys: keys}
 	results := new(params.ErrorResults)
-	err := c.facade.FacadeCall("AddKeys", p, results)
+	err := c.facade.FacadeCall(context.TODO(), "AddKeys", p, results)
 	return results.Results, err
 }
 
@@ -46,7 +48,7 @@ func (c *Client) AddKeys(user string, keys ...string) ([]params.ErrorResult, err
 func (c *Client) DeleteKeys(user string, keys ...string) ([]params.ErrorResult, error) {
 	p := params.ModifyUserSSHKeys{User: user, Keys: keys}
 	results := new(params.ErrorResults)
-	err := c.facade.FacadeCall("DeleteKeys", p, results)
+	err := c.facade.FacadeCall(context.TODO(), "DeleteKeys", p, results)
 	return results.Results, err
 }
 
@@ -54,6 +56,6 @@ func (c *Client) DeleteKeys(user string, keys ...string) ([]params.ErrorResult, 
 func (c *Client) ImportKeys(user string, keyIds ...string) ([]params.ErrorResult, error) {
 	p := params.ModifyUserSSHKeys{User: user, Keys: keyIds}
 	results := new(params.ErrorResults)
-	err := c.facade.FacadeCall("ImportKeys", p, results)
+	err := c.facade.FacadeCall(context.TODO(), "ImportKeys", p, results)
 	return results.Results, err
 }

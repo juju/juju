@@ -64,7 +64,7 @@ func (s *storageMockSuite) TestStorageDetails(c *gc.C) {
 	result := new(params.StorageDetailsResults)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("StorageDetails", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "StorageDetails", args, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 
@@ -87,7 +87,7 @@ func (s *storageMockSuite) TestStorageDetailsFacadeCallError(c *gc.C) {
 
 	result := new(params.StorageDetailsResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("StorageDetails", gomock.AssignableToTypeOf(params.Entities{}), result).SetArg(2, params.StorageDetailsResults{}).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "StorageDetails", gomock.AssignableToTypeOf(params.Entities{}), result).SetArg(3, params.StorageDetailsResults{}).Return(errors.New(msg))
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.StorageDetails([]names.StorageTag{oneTag})
@@ -113,7 +113,7 @@ func (s *storageMockSuite) TestListStorageDetails(c *gc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListStorageDetails", gomock.AssignableToTypeOf(params.StorageFilters{}), result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListStorageDetails", gomock.AssignableToTypeOf(params.StorageFilters{}), result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.ListStorageDetails()
@@ -138,7 +138,7 @@ func (s *storageMockSuite) TestListStorageDetailsFacadeCallError(c *gc.C) {
 
 	result := new(params.StorageDetailsListResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListStorageDetails", gomock.AssignableToTypeOf(params.StorageFilters{}), result).SetArg(2, params.StorageDetailsListResults{}).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListStorageDetails", gomock.AssignableToTypeOf(params.StorageFilters{}), result).SetArg(3, params.StorageDetailsListResults{}).Return(errors.New(msg))
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.ListStorageDetails()
@@ -179,7 +179,7 @@ func (s *storageMockSuite) TestListPools(c *gc.C) {
 		}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListPools", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListPools", args, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 
@@ -197,7 +197,7 @@ func (s *storageMockSuite) TestListPoolsFacadeCallError(c *gc.C) {
 
 	result := new(params.StoragePoolsResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListPools", gomock.AssignableToTypeOf(params.StoragePoolFilters{}), result).SetArg(2, params.StoragePoolsResults{}).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListPools", gomock.AssignableToTypeOf(params.StoragePoolFilters{}), result).SetArg(3, params.StoragePoolsResults{}).Return(errors.New(msg))
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.ListPools(nil, nil)
@@ -228,7 +228,7 @@ func (s *storageMockSuite) TestCreatePool(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("CreatePool", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CreatePool", args, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	err := storageClient.CreatePool(poolName, poolType, poolConfig)
@@ -243,7 +243,7 @@ func (s *storageMockSuite) TestCreatePoolFacadeCallError(c *gc.C) {
 
 	result := new(params.ErrorResults)
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("CreatePool", gomock.AssignableToTypeOf(params.StoragePoolArgs{}), result).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CreatePool", gomock.AssignableToTypeOf(params.StoragePoolArgs{}), result).Return(errors.New(msg))
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	err := storageClient.CreatePool("", "", nil)
@@ -276,7 +276,7 @@ func (s *storageMockSuite) TestListVolumes(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListVolumes", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListVolumes", args, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.ListVolumes([]string{"0", "1"})
@@ -309,7 +309,7 @@ func (s *storageMockSuite) TestListVolumesEmptyFilter(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListVolumes", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListVolumes", args, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.ListVolumes(nil)
@@ -331,7 +331,7 @@ func (s *storageMockSuite) TestListVolumesFacadeCallError(c *gc.C) {
 	result := new(params.VolumeDetailsListResults)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListVolumes", args, result).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListVolumes", args, result).Return(errors.New(msg))
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	_, err := storageClient.ListVolumes(nil)
@@ -376,7 +376,7 @@ func (s *storageMockSuite) TestListFilesystems(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListFilesystems", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListFilesystems", args, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.ListFilesystems([]string{"1", "2"})
@@ -399,7 +399,7 @@ func (s *storageMockSuite) TestListFilesystemsEmptyFilter(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListFilesystems", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListFilesystems", args, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	_, err := storageClient.ListFilesystems(nil)
@@ -418,7 +418,7 @@ func (s *storageMockSuite) TestListFilesystemsFacadeCallError(c *gc.C) {
 	result := new(params.FilesystemDetailsListResults)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ListFilesystems", args, result).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListFilesystems", args, result).Return(errors.New(msg))
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	_, err := storageClient.ListFilesystems(nil)
@@ -466,7 +466,7 @@ func (s *storageMockSuite) TestAddToUnit(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("AddToUnit", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddToUnit", args, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	r, err := storageClient.AddToUnit(unitStorages)
@@ -494,7 +494,7 @@ func (s *storageMockSuite) TestAddToUnitFacadeCallError(c *gc.C) {
 	result := new(params.AddStorageResults)
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("AddToUnit", args, result).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddToUnit", args, result).Return(errors.New(msg))
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	found, err := storageClient.AddToUnit(unitStorages)
@@ -519,7 +519,7 @@ func (s *storageMockSuite) TestRemove(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Remove", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Remove", args, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := storageClient.Remove([]string{"foo/0", "bar/1"}, false, false, &false_, nil)
@@ -542,7 +542,7 @@ func (s *storageMockSuite) TestRemoveDestroyAttachments(c *gc.C) {
 		Results: []params.ErrorResult{{}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Remove", args, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Remove", args, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := storageClient.Remove([]string{"foo/0"}, true, true, &true_, nil)
@@ -579,7 +579,7 @@ func (s *storageMockSuite) TestDetach(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("DetachStorage", expectedArgs, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DetachStorage", expectedArgs, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := storageClient.Detach([]string{"foo/0", "bar/1"}, nil, nil)
@@ -597,7 +597,7 @@ func (s *storageMockSuite) TestDetachArityMismatch(c *gc.C) {
 		Results: []params.ErrorResult{{}, {}, {}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("DetachStorage", gomock.AssignableToTypeOf(params.StorageDetachmentParams{}), result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "DetachStorage", gomock.AssignableToTypeOf(params.StorageDetachmentParams{}), result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	_, err := storageClient.Detach([]string{"foo/0", "bar/1"}, nil, nil)
@@ -625,7 +625,7 @@ func (s *storageMockSuite) TestAttach(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Attach", expectedArgs, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Attach", expectedArgs, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	obtained, err := storageClient.Attach("foo/0", []string{"bar/1", "baz/2"})
@@ -643,7 +643,7 @@ func (s *storageMockSuite) TestAttachArityMismatch(c *gc.C) {
 		Results: []params.ErrorResult{{}, {}, {}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Attach", gomock.AssignableToTypeOf(params.StorageAttachmentIds{}), result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Attach", gomock.AssignableToTypeOf(params.StorageAttachmentIds{}), result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	_, err := storageClient.Attach("foo/0", []string{"bar/1", "baz/2"})
@@ -668,7 +668,7 @@ func (s *storageMockSuite) TestImport(c *gc.C) {
 		},
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Import", expectedArgs, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Import", expectedArgs, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	storageTag, err := storageClient.Import(jujustorage.StorageKindBlock, "foo", "bar", "baz")
@@ -686,7 +686,7 @@ func (s *storageMockSuite) TestImportError(c *gc.C) {
 		},
 		}}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Import", gomock.AssignableToTypeOf(params.BulkImportStorageParams{}), result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Import", gomock.AssignableToTypeOf(params.BulkImportStorageParams{}), result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	_, err := storageClient.Import(jujustorage.StorageKindBlock, "foo", "bar", "baz")
@@ -702,7 +702,7 @@ func (s *storageMockSuite) TestImportArityMismatch(c *gc.C) {
 		Results: []params.ImportStorageResult{{}, {}},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Import", gomock.AssignableToTypeOf(params.BulkImportStorageParams{}), result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Import", gomock.AssignableToTypeOf(params.BulkImportStorageParams{}), result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	_, err := storageClient.Import(jujustorage.StorageKindBlock, "foo", "bar", "baz")
@@ -724,7 +724,7 @@ func (s *storageMockSuite) TestRemovePool(c *gc.C) {
 		Results: make([]params.ErrorResult, len(expectedArgs.Pools)),
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("RemovePool", expectedArgs, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RemovePool", expectedArgs, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	err := storageClient.RemovePool(poolName)
@@ -741,7 +741,7 @@ func (s *storageMockSuite) TestRemovePoolFacadeCallError(c *gc.C) {
 		Results: make([]params.ErrorResult, 1),
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("RemovePool", gomock.AssignableToTypeOf(params.StoragePoolDeleteArgs{}), result).SetArg(2, results).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "RemovePool", gomock.AssignableToTypeOf(params.StoragePoolDeleteArgs{}), result).SetArg(3, results).Return(errors.New(msg))
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	err := storageClient.RemovePool("")
@@ -770,7 +770,7 @@ func (s *storageMockSuite) TestUpdatePool(c *gc.C) {
 		Results: make([]params.ErrorResult, len(expectedArgs.Pools)),
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdatePool", expectedArgs, result).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdatePool", expectedArgs, result).SetArg(3, results).Return(nil)
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	err := storageClient.UpdatePool(poolName, providerType, poolConfig)
@@ -787,7 +787,7 @@ func (s *storageMockSuite) TestUpdatePoolFacadeCallError(c *gc.C) {
 		Results: make([]params.ErrorResult, 1),
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("UpdatePool", gomock.AssignableToTypeOf(params.StoragePoolArgs{}), result).SetArg(2, results).Return(errors.New(msg))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "UpdatePool", gomock.AssignableToTypeOf(params.StoragePoolArgs{}), result).SetArg(3, results).Return(errors.New(msg))
 
 	storageClient := storage.NewClientFromCaller(mockFacadeCaller)
 	err := storageClient.UpdatePool("", "", nil)

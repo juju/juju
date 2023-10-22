@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/collections/transform"
@@ -105,7 +106,7 @@ func (client *Client) relation(relationTag, unitTag names.Tag) (params.RelationR
 			{Relation: relationTag.String(), Unit: unitTag.String()},
 		},
 	}
-	err := client.facade.FacadeCall("Relation", args, &result)
+	err := client.facade.FacadeCall(context.TODO(), "Relation", args, &result)
 	if err != nil {
 		return nothing, err
 	}
@@ -127,7 +128,7 @@ func (client *Client) setRelationStatus(id int, status relation.Status) error {
 		}},
 	}
 	var results params.ErrorResults
-	if err := client.facade.FacadeCall("SetRelationStatus", args, &results); err != nil {
+	if err := client.facade.FacadeCall(context.TODO(), "SetRelationStatus", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()
@@ -144,7 +145,7 @@ func (client *Client) getOneAction(tag *names.ActionTag) (params.ActionResult, e
 	}
 
 	var results params.ActionResults
-	err := client.facade.FacadeCall("Actions", args, &results)
+	err := client.facade.FacadeCall(context.TODO(), "Actions", args, &results)
 	if err != nil {
 		return nothing, err
 	}
@@ -184,7 +185,7 @@ func (client *Client) ActionStatus(tag names.ActionTag) (string, error) {
 	}
 
 	var results params.StringResults
-	err := client.facade.FacadeCall("ActionStatus", args, &results)
+	err := client.facade.FacadeCall(context.TODO(), "ActionStatus", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -234,7 +235,7 @@ func (client *Client) Application(tag names.ApplicationTag) (*Application, error
 // addresses implemented fully. See also LP bug 1221798.
 func (client *Client) ProviderType() (string, error) {
 	var result params.StringResult
-	err := client.facade.FacadeCall("ProviderType", nil, &result)
+	err := client.facade.FacadeCall(context.TODO(), "ProviderType", nil, &result)
 	if err != nil {
 		return "", err
 	}
@@ -301,7 +302,7 @@ func (client *Client) ActionBegin(tag names.ActionTag) error {
 		},
 	}
 
-	err := client.facade.FacadeCall("BeginActions", args, &outcome)
+	err := client.facade.FacadeCall(context.TODO(), "BeginActions", args, &outcome)
 	if err != nil {
 		return err
 	}
@@ -330,7 +331,7 @@ func (client *Client) ActionFinish(tag names.ActionTag, status string, results m
 		},
 	}
 
-	err := client.facade.FacadeCall("FinishActions", args, &outcome)
+	err := client.facade.FacadeCall(context.TODO(), "FinishActions", args, &outcome)
 	if err != nil {
 		return err
 	}
@@ -351,7 +352,7 @@ func (client *Client) RelationById(id int) (*Relation, error) {
 		RelationIds: []int{id},
 	}
 
-	err := client.facade.FacadeCall("RelationById", args, &results)
+	err := client.facade.FacadeCall(context.TODO(), "RelationById", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -376,7 +377,7 @@ func (client *Client) RelationById(id int) (*Relation, error) {
 // Model returns the model entity.
 func (client *Client) Model() (*model.Model, error) {
 	var result params.ModelResult
-	err := client.facade.FacadeCall("CurrentModel", nil, &result)
+	err := client.facade.FacadeCall(context.TODO(), "CurrentModel", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -427,7 +428,7 @@ func (client *Client) OpenedMachinePortRangesByEndpoint(machineTag names.Machine
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineTag.String()}},
 	}
-	err := client.facade.FacadeCall("OpenedMachinePortRangesByEndpoint", args, &results)
+	err := client.facade.FacadeCall(context.TODO(), "OpenedMachinePortRangesByEndpoint", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -441,7 +442,7 @@ func (client *Client) OpenedPortRangesByEndpoint() (map[names.UnitTag]network.Gr
 		return nil, errors.NotImplementedf("OpenedPortRangesByEndpoint() (need V18+)")
 	}
 	var results params.OpenPortRangesByEndpointResults
-	if err := client.facade.FacadeCall("OpenedPortRangesByEndpoint", nil, &results); err != nil {
+	if err := client.facade.FacadeCall(context.TODO(), "OpenedPortRangesByEndpoint", nil, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return processOpenPortRangesByEndpointResults(results, client.unitTag)
@@ -460,7 +461,7 @@ func (client *Client) WatchRelationUnits(
 			Unit:     unitTag.String(),
 		}},
 	}
-	err := client.facade.FacadeCall("WatchRelationUnits", args, &results)
+	err := client.facade.FacadeCall(context.TODO(), "WatchRelationUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +479,7 @@ func (client *Client) WatchRelationUnits(
 // SLALevel returns the SLA level set on the model.
 func (client *Client) SLALevel() (string, error) {
 	var result params.StringResult
-	err := client.facade.FacadeCall("SLALevel", nil, &result)
+	err := client.facade.FacadeCall(context.TODO(), "SLALevel", nil, &result)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -491,7 +492,7 @@ func (client *Client) SLALevel() (string, error) {
 // CloudAPIVersion returns the API version of the cloud, if known.
 func (client *Client) CloudAPIVersion() (string, error) {
 	var result params.StringResult
-	err := client.facade.FacadeCall("CloudAPIVersion", nil, &result)
+	err := client.facade.FacadeCall(context.TODO(), "CloudAPIVersion", nil, &result)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -514,7 +515,7 @@ func (client *Client) GoalState() (application.GoalState, error) {
 		},
 	}
 
-	err := client.facade.FacadeCall("GoalStates", args, &result)
+	err := client.facade.FacadeCall(context.TODO(), "GoalStates", args, &result)
 	if err != nil {
 		return gs, err
 	}
@@ -561,7 +562,7 @@ func goalStateFromParams(paramsGoalState *params.GoalState) application.GoalStat
 func (client *Client) CloudSpec() (*params.CloudSpec, error) {
 	var result params.CloudSpecResult
 
-	err := client.facade.FacadeCall("CloudSpec", nil, &result)
+	err := client.facade.FacadeCall(context.TODO(), "CloudSpec", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -578,7 +579,7 @@ func (client *Client) UnitWorkloadVersion(tag names.UnitTag) (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	err := client.facade.FacadeCall("WorkloadVersion", args, &results)
+	err := client.facade.FacadeCall(context.TODO(), "WorkloadVersion", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -601,7 +602,7 @@ func (client *Client) SetUnitWorkloadVersion(tag names.UnitTag, version string) 
 			{Tag: tag.String(), WorkloadVersion: version},
 		},
 	}
-	err := client.facade.FacadeCall("SetWorkloadVersion", args, &result)
+	err := client.facade.FacadeCall(context.TODO(), "SetWorkloadVersion", args, &result)
 	if err != nil {
 		return err
 	}

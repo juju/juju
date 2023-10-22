@@ -4,6 +4,8 @@
 package deployer
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/base"
@@ -57,6 +59,6 @@ func (c *Client) Machine(tag names.MachineTag) (*Machine, error) {
 // ConnectionInfo returns all the address information that the deployer task
 // needs in one call.
 func (c *Client) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	err = c.facade.FacadeCall("ConnectionInfo", nil, &result)
+	err = c.facade.FacadeCall(context.TODO(), "ConnectionInfo", nil, &result)
 	return result, err
 }

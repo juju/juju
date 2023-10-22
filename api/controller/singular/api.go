@@ -4,6 +4,7 @@
 package singular
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -63,7 +64,7 @@ func (api *API) Claim(duration time.Duration) error {
 		}},
 	}
 	var results params.ErrorResults
-	err := api.facadeCaller.FacadeCall("Claim", args, &results)
+	err := api.facadeCaller.FacadeCall(context.TODO(), "Claim", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -89,7 +90,7 @@ func (api *API) Wait() error {
 		}},
 	}
 	var results params.ErrorResults
-	err := api.facadeCaller.FacadeCall("Wait", args, &results)
+	err := api.facadeCaller.FacadeCall(context.TODO(), "Wait", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

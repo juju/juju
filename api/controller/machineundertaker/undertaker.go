@@ -4,6 +4,8 @@
 package machineundertaker
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -42,7 +44,7 @@ func NewAPI(caller base.APICaller, newWatcher NewWatcherFunc) (*API, error) {
 func (api *API) AllMachineRemovals() ([]names.MachineTag, error) {
 	var results params.EntitiesResults
 	args := wrapEntities(api.modelTag)
-	err := api.facade.FacadeCall("AllMachineRemovals", &args, &results)
+	err := api.facade.FacadeCall(context.TODO(), "AllMachineRemovals", &args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -69,7 +71,7 @@ func (api *API) AllMachineRemovals() ([]names.MachineTag, error) {
 func (api *API) GetProviderInterfaceInfo(machine names.MachineTag) ([]network.ProviderInterfaceInfo, error) {
 	var result params.ProviderInterfaceInfoResults
 	args := wrapEntities(machine)
-	err := api.facade.FacadeCall("GetMachineProviderInterfaceInfo", &args, &result)
+	err := api.facade.FacadeCall(context.TODO(), "GetMachineProviderInterfaceInfo", &args, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -93,7 +95,7 @@ func (api *API) GetProviderInterfaceInfo(machine names.MachineTag) ([]network.Pr
 // after any provider resources are cleaned up.
 func (api *API) CompleteRemoval(machine names.MachineTag) error {
 	args := wrapEntities(machine)
-	return api.facade.FacadeCall("CompleteMachineRemovals", &args, nil)
+	return api.facade.FacadeCall(context.TODO(), "CompleteMachineRemovals", &args, nil)
 }
 
 // WatchMachineRemovals registers to be notified when a machine
@@ -101,7 +103,7 @@ func (api *API) CompleteRemoval(machine names.MachineTag) error {
 func (api *API) WatchMachineRemovals() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := wrapEntities(api.modelTag)
-	err := api.facade.FacadeCall("WatchMachineRemovals", &args, &results)
+	err := api.facade.FacadeCall(context.TODO(), "WatchMachineRemovals", &args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

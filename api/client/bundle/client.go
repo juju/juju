@@ -4,6 +4,8 @@
 package bundle
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -30,7 +32,7 @@ func NewClient(st base.APICallCloser) *Client {
 // incase it's used in the future. We may want to re-evaluate in future
 func (c *Client) GetChangesMapArgs(bundleURL, bundleDataYAML string) (params.BundleChangesMapArgsResults, error) {
 	var result params.BundleChangesMapArgsResults
-	if err := c.facade.FacadeCall("GetChangesMapArgs", params.BundleChangesParams{
+	if err := c.facade.FacadeCall(context.TODO(), "GetChangesMapArgs", params.BundleChangesParams{
 		BundleURL:      bundleURL,
 		BundleDataYAML: bundleDataYAML,
 	}, &result); err != nil {
@@ -45,7 +47,7 @@ func (c *Client) ExportBundle(includeDefaults bool) (string, error) {
 	arg := params.ExportBundleParams{
 		IncludeCharmDefaults: includeDefaults,
 	}
-	if err := c.facade.FacadeCall("ExportBundle", arg, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ExportBundle", arg, &result); err != nil {
 		return "", errors.Trace(err)
 	}
 

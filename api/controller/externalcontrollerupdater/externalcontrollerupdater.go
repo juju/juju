@@ -4,6 +4,8 @@
 package externalcontrollerupdater
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -31,7 +33,7 @@ func New(caller base.APICaller) *Client {
 // controllers.
 func (c *Client) WatchExternalControllers() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
-	err := c.facade.FacadeCall("WatchExternalControllers", nil, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchExternalControllers", nil, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +59,7 @@ func (c *Client) ExternalControllerInfo(controllerUUID string) (*crossmodel.Cont
 		Tag: controllerTag.String(),
 	}}}
 	var results params.ExternalControllerInfoResults
-	err := c.facade.FacadeCall("ExternalControllerInfo", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "ExternalControllerInfo", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -90,7 +92,7 @@ func (c *Client) SetExternalControllerInfo(info crossmodel.ControllerInfo) error
 			},
 		}},
 	}
-	err := c.facade.FacadeCall("SetExternalControllerInfo", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SetExternalControllerInfo", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

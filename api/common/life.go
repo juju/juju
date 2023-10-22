@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -24,7 +26,7 @@ func Life(caller base.FacadeCaller, tags []names.Tag) ([]params.LifeResult, erro
 		entities[i] = params.Entity{t.String()}
 	}
 	args := params.Entities{Entities: entities}
-	if err := caller.FacadeCall("Life", args, &result); err != nil {
+	if err := caller.FacadeCall(context.TODO(), "Life", args, &result); err != nil {
 		return []params.LifeResult{}, err
 	}
 	return result.Results, nil

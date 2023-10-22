@@ -4,6 +4,8 @@
 package instancepoller
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -61,7 +63,7 @@ func (m *Machine) Status() (params.StatusResult, error) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
 	}}
-	err := m.facade.FacadeCall("Status", args, &results)
+	err := m.facade.FacadeCall(context.TODO(), "Status", args, &results)
 	if err != nil {
 		return params.StatusResult{}, errors.Trace(err)
 	}
@@ -82,7 +84,7 @@ func (m *Machine) IsManual() (bool, error) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
 	}}
-	err := m.facade.FacadeCall("AreManuallyProvisioned", args, &results)
+	err := m.facade.FacadeCall(context.TODO(), "AreManuallyProvisioned", args, &results)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -103,7 +105,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
 	}}
-	err := m.facade.FacadeCall("InstanceId", args, &results)
+	err := m.facade.FacadeCall(context.TODO(), "InstanceId", args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -124,7 +126,7 @@ func (m *Machine) InstanceStatus() (params.StatusResult, error) {
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
 	}}
-	err := m.facade.FacadeCall("InstanceStatus", args, &results)
+	err := m.facade.FacadeCall(context.TODO(), "InstanceStatus", args, &results)
 	if err != nil {
 		return params.StatusResult{}, errors.Trace(err)
 	}
@@ -145,7 +147,7 @@ func (m *Machine) SetInstanceStatus(status status.Status, message string, data m
 	args := params.SetStatus{Entities: []params.EntityStatusArgs{
 		{Tag: m.tag.String(), Status: status.String(), Info: message, Data: data},
 	}}
-	err := m.facade.FacadeCall("SetInstanceStatus", args, &result)
+	err := m.facade.FacadeCall(context.TODO(), "SetInstanceStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -162,7 +164,7 @@ func (m *Machine) SetProviderNetworkConfig(ifList network.InterfaceInfos) (netwo
 		}},
 	}
 
-	err := m.facade.FacadeCall("SetProviderNetworkConfig", args, &results)
+	err := m.facade.FacadeCall(context.TODO(), "SetProviderNetworkConfig", args, &results)
 	if err != nil {
 		return nil, false, err
 	}

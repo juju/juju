@@ -65,7 +65,7 @@ func (s *bundleMockSuite) TestGetChangesMapArgs(c *gc.C) {
 		Changes: changes,
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("GetChangesMapArgs", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetChangesMapArgs", args, res).SetArg(3, results).Return(nil)
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetChangesMapArgs(bundleURL, bundleYAML)
 	c.Assert(err, jc.ErrorIsNil)
@@ -100,7 +100,7 @@ func (s *bundleMockSuite) TestGetChangesMapArgsReturnsErrors(c *gc.C) {
 		},
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("GetChangesMapArgs", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetChangesMapArgs", args, res).SetArg(3, results).Return(nil)
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.GetChangesMapArgs(bundleURL, bundleYAML)
 	c.Assert(err, jc.ErrorIsNil)
@@ -133,7 +133,7 @@ func (s *bundleMockSuite) TestExportBundleLatest(c *gc.C) {
 		Result: bundleStr,
 	}
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("ExportBundle", args, res).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ExportBundle", args, res).SetArg(3, results).Return(nil)
 	client := bundle.NewClientFromCaller(mockFacadeCaller)
 	result, err := client.ExportBundle(true)
 	c.Assert(err, jc.ErrorIsNil)

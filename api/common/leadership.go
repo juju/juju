@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -41,7 +43,7 @@ func NewLeadershipPinningAPIFromFacade(facade base.FacadeCaller) *LeadershipPinn
 // application's pinned behaviour.
 func (a *LeadershipPinningAPI) PinnedLeadership() (map[string][]names.Tag, error) {
 	var callResult params.PinnedLeadershipResult
-	err := a.facade.FacadeCall("PinnedLeadership", nil, &callResult)
+	err := a.facade.FacadeCall(context.TODO(), "PinnedLeadership", nil, &callResult)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -90,7 +92,7 @@ func (a *LeadershipPinningAPI) UnpinMachineApplications() (map[string]error, err
 // transforms the response into map.
 func (a *LeadershipPinningAPI) pinMachineAppsOps(callName string) (map[string]error, error) {
 	var callResult params.PinApplicationsResults
-	err := a.facade.FacadeCall(callName, nil, &callResult)
+	err := a.facade.FacadeCall(context.TODO(), callName, nil, &callResult)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

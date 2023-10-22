@@ -4,6 +4,7 @@
 package logger
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v4"
@@ -32,7 +33,7 @@ func (c *Client) LoggingConfig(agentTag names.Tag) (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag.String()}},
 	}
-	err := c.facade.FacadeCall("LoggingConfig", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "LoggingConfig", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return "", err
@@ -55,7 +56,7 @@ func (c *Client) WatchLoggingConfig(agentTag names.Tag) (watcher.NotifyWatcher, 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag.String()}},
 	}
-	err := c.facade.FacadeCall("WatchLoggingConfig", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchLoggingConfig", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err

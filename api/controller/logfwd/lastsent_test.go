@@ -4,6 +4,7 @@
 package logfwd_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -211,7 +212,7 @@ func (s *stubFacadeCaller) newFacadeCaller(facade string) logfwd.FacadeCaller {
 	return s
 }
 
-func (s *stubFacadeCaller) FacadeCall(request string, args, response interface{}) error {
+func (s *stubFacadeCaller) FacadeCall(ctx context.Context, request string, args, response interface{}) error {
 	s.stub.AddCall("FacadeCall", request, args)
 	if err := s.stub.NextErr(); err != nil {
 		return err

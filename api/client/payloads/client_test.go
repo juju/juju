@@ -42,7 +42,7 @@ func (s *ClientSuite) TestList(c *gc.C) {
 	}
 
 	mockFacadeCaller := mocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("List", args, gomock.Any()).SetArg(2, resultParams).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "List", args, gomock.Any()).SetArg(3, resultParams).Return(nil)
 	client := payloads.NewClientFromCaller(mockFacadeCaller)
 
 	results, err := client.ListFull("a-tag", "a-application/0")

@@ -4,6 +4,7 @@
 package resources
 
 import (
+	"context"
 	"io"
 	"strings"
 
@@ -52,7 +53,7 @@ func (c Client) ListResources(applications []string) ([]resources.ApplicationRes
 	}
 
 	var apiResults params.ResourcesResults
-	if err := c.facade.FacadeCall("ListResources", &args, &apiResults); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ListResources", &args, &apiResults); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -159,7 +160,7 @@ func (c Client) AddPendingResources(args AddPendingResourcesArgs) ([]string, err
 	}
 
 	var result params.AddPendingResourcesResult
-	if err := c.facade.FacadeCall("AddPendingResources", &apiArgs, &result); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "AddPendingResources", &apiArgs, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {

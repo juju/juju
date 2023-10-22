@@ -4,6 +4,8 @@
 package crosscontroller
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -37,7 +39,7 @@ type ControllerInfo struct {
 // ControllerInfo returns the remote controller's API information.
 func (c *Client) ControllerInfo() (*ControllerInfo, error) {
 	var results params.ControllerAPIInfoResults
-	if err := c.facade.FacadeCall("ControllerInfo", nil, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ControllerInfo", nil, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -57,7 +59,7 @@ func (c *Client) ControllerInfo() (*ControllerInfo, error) {
 // controller's API information changes.
 func (c *Client) WatchControllerInfo() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
-	if err := c.facade.FacadeCall("WatchControllerInfo", nil, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "WatchControllerInfo", nil, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {

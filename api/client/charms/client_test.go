@@ -93,7 +93,7 @@ func (s *charmsMockSuite) TestResolveCharms(c *gc.C) {
 		}}
 
 	mockClientFacade.EXPECT().BestAPIVersion().Return(7).AnyTimes()
-	mockFacadeCaller.EXPECT().FacadeCall("ResolveCharms", facadeArgs, resolve).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResolveCharms", facadeArgs, resolve).SetArg(3, results).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, mockClientFacade)
 
@@ -180,7 +180,7 @@ func (s *charmsMockSuite) TestResolveCharmsLegacy(c *gc.C) {
 		}}
 
 	mockClientFacade.EXPECT().BestAPIVersion().Return(6).AnyTimes()
-	mockFacadeCaller.EXPECT().FacadeCall("ResolveCharms", facadeArgs, resolve).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ResolveCharms", facadeArgs, resolve).SetArg(3, results).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, mockClientFacade)
 
@@ -247,7 +247,7 @@ func (s *charmsMockSuite) TestGetDownloadInfo(c *gc.C) {
 		}},
 	}
 
-	mockFacadeCaller.EXPECT().FacadeCall("GetDownloadInfos", facadeArgs, &resolve).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetDownloadInfos", facadeArgs, &resolve).SetArg(3, results).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
@@ -288,7 +288,7 @@ func (s *charmsMockSuite) TestAddCharm(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("AddCharm", facadeArgs, result).SetArg(2, actualResult).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "AddCharm", facadeArgs, result).SetArg(3, actualResult).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	got, err := client.AddCharm(curl, origin, false)
@@ -313,7 +313,7 @@ func (s charmsMockSuite) TestCheckCharmPlacement(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("CheckCharmPlacement", facadeArgs, &result).SetArg(2, actualResult).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CheckCharmPlacement", facadeArgs, &result).SetArg(3, actualResult).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	err := client.CheckCharmPlacement("winnie", charm.MustParseURL("poo"))
@@ -333,7 +333,7 @@ func (s charmsMockSuite) TestCheckCharmPlacementError(c *gc.C) {
 
 	var result params.ErrorResults
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("CheckCharmPlacement", facadeArgs, &result).Return(errors.Errorf("trap"))
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "CheckCharmPlacement", facadeArgs, &result).Return(errors.Errorf("trap"))
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	err := client.CheckCharmPlacement("winnie", charm.MustParseURL("poo"))
@@ -370,7 +370,7 @@ func (s *charmsMockSuite) TestListCharmResources(c *gc.C) {
 		}}},
 	}
 
-	mockFacadeCaller.EXPECT().FacadeCall("ListCharmResources", facadeArgs, &resolve).SetArg(2, results).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ListCharmResources", facadeArgs, &resolve).SetArg(3, results).Return(nil)
 
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)

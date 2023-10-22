@@ -4,6 +4,7 @@
 package logfwd
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -52,7 +53,7 @@ type LastSentResult struct {
 // FacadeCaller provides the functionality to call methods on a facade.
 type FacadeCaller interface {
 	// FacadeCall is the same method as on base.FacadeCaller.
-	FacadeCall(request string, params, response interface{}) error
+	FacadeCall(ctx context.Context, request string, params, response interface{}) error
 }
 
 // LastSentClient exposes the "last sent" methods of the LogForwarding
@@ -81,7 +82,7 @@ func (c LastSentClient) GetLastSent(ids []LastSentID) ([]LastSentResult, error) 
 	}
 
 	var apiResults params.LogForwardingGetLastSentResults
-	err := c.caller.FacadeCall("GetLastSent", args, &apiResults)
+	err := c.caller.FacadeCall(context.TODO(), "GetLastSent", args, &apiResults)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -119,7 +120,7 @@ func (c LastSentClient) SetLastSent(reqs []LastSentInfo) ([]LastSentResult, erro
 	}
 
 	var apiResults params.ErrorResults
-	err := c.caller.FacadeCall("SetLastSent", args, &apiResults)
+	err := c.caller.FacadeCall(context.TODO(), "SetLastSent", args, &apiResults)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

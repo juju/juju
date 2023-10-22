@@ -43,11 +43,12 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
 	apiCaller := mocks.NewMockFacadeCaller(ctrl)
 
 	apiCaller.EXPECT().FacadeCall(
+		gomock.Any(),
 		"GetSecretBackendConfigs",
 		params.SecretBackendArgs{BackendIDs: []string{"active-id"}},
 		gomock.Any(),
 	).SetArg(
-		2, params.SecretBackendConfigResults{
+		3, params.SecretBackendConfigResults{
 			ActiveID: "active-id",
 			Results: map[string]params.SecretBackendConfigResult{
 				"active-id": {
@@ -89,11 +90,12 @@ func (s *SecretsSuite) TestGetBackendConfigForDraing(c *gc.C) {
 	apiCaller := mocks.NewMockFacadeCaller(ctrl)
 
 	apiCaller.EXPECT().FacadeCall(
+		gomock.Any(),
 		"GetSecretBackendConfigs",
 		params.SecretBackendArgs{ForDrain: true, BackendIDs: []string{"active-id"}},
 		gomock.Any(),
 	).SetArg(
-		2, params.SecretBackendConfigResults{
+		3, params.SecretBackendConfigResults{
 			ActiveID: "active-id",
 			Results: map[string]params.SecretBackendConfigResult{
 				"active-id": {
@@ -132,6 +134,7 @@ func (s *SecretsSuite) TestGetContentInfo(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	apiCaller.EXPECT().FacadeCall(
+		gomock.Any(),
 		"GetSecretContentInfo",
 		params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
@@ -143,7 +146,7 @@ func (s *SecretsSuite) TestGetContentInfo(c *gc.C) {
 		},
 		gomock.Any(),
 	).SetArg(
-		2, params.SecretContentResults{
+		3, params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
 			}},
@@ -167,6 +170,7 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	apiCaller.EXPECT().FacadeCall(
+		gomock.Any(),
 		"GetSecretContentInfo",
 		params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
@@ -178,7 +182,7 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *gc.C) {
 		},
 		gomock.Any(),
 	).SetArg(
-		2, params.SecretContentResults{
+		3, params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{ValueRef: &params.SecretValueRef{
 					BackendID:  "backend-id",
@@ -224,6 +228,7 @@ func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *gc.C) {
 	apiCaller := mocks.NewMockFacadeCaller(ctrl)
 
 	apiCaller.EXPECT().FacadeCall(
+		gomock.Any(),
 		"GetSecretContentInfo",
 		params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
@@ -234,7 +239,7 @@ func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *gc.C) {
 		},
 		gomock.Any(),
 	).SetArg(
-		2, params.SecretContentResults{
+		3, params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
 			}},
@@ -258,6 +263,7 @@ func (s *SecretsSuite) TestGetContentInfoError(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	apiCaller.EXPECT().FacadeCall(
+		gomock.Any(),
 		"GetSecretContentInfo",
 		params.GetSecretContentArgs{
 			Args: []params.GetSecretContentArg{{
@@ -268,7 +274,7 @@ func (s *SecretsSuite) TestGetContentInfoError(c *gc.C) {
 		},
 		gomock.Any(),
 	).SetArg(
-		2, params.SecretContentResults{
+		3, params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Error: &params.Error{Message: "boom"},
 			}},
@@ -290,6 +296,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfo(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	apiCaller.EXPECT().FacadeCall(
+		gomock.Any(),
 		"GetSecretRevisionContentInfo",
 		params.SecretRevisionArg{
 			URI:           uri.String(),
@@ -298,7 +305,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfo(c *gc.C) {
 		},
 		gomock.Any(),
 	).SetArg(
-		2, params.SecretContentResults{
+		3, params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
 			}},
@@ -322,6 +329,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	apiCaller.EXPECT().FacadeCall(
+		gomock.Any(),
 		"GetSecretRevisionContentInfo",
 		params.SecretRevisionArg{
 			URI:           uri.String(),
@@ -330,7 +338,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *gc.C) {
 		},
 		gomock.Any(),
 	).SetArg(
-		2, params.SecretContentResults{
+		3, params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{ValueRef: &params.SecretValueRef{
 					BackendID:  "backend-id",
@@ -377,6 +385,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoError(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	apiCaller.EXPECT().FacadeCall(
+		gomock.Any(),
 		"GetSecretRevisionContentInfo",
 		params.SecretRevisionArg{
 			URI:           uri.String(),
@@ -385,7 +394,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoError(c *gc.C) {
 		},
 		gomock.Any(),
 	).SetArg(
-		2, params.SecretContentResults{
+		3, params.SecretContentResults{
 			Results: []params.SecretContentResult{{
 				Error: &params.Error{Message: "boom"},
 			}},

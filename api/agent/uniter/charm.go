@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -40,7 +41,7 @@ func (c *Charm) ArchiveSha256() (string, error) {
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{{URL: c.curl}},
 	}
-	err := c.client.facade.FacadeCall("CharmArchiveSha256", args, &results)
+	err := c.client.facade.FacadeCall(context.TODO(), "CharmArchiveSha256", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -61,7 +62,7 @@ func (c *Charm) LXDProfileRequired() (bool, error) {
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{{URL: c.curl}},
 	}
-	err := c.client.facade.FacadeCall("LXDProfileRequired", args, &results)
+	err := c.client.facade.FacadeCall(context.TODO(), "LXDProfileRequired", args, &results)
 	if err != nil {
 		return false, err
 	}

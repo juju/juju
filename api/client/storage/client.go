@@ -4,6 +4,7 @@
 package storage
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -33,7 +34,7 @@ func (c *Client) StorageDetails(tags []names.StorageTag) ([]params.StorageDetail
 	for i, tag := range tags {
 		entities[i] = params.Entity{Tag: tag.String()}
 	}
-	if err := c.facade.FacadeCall("StorageDetails", params.Entities{Entities: entities}, &found); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "StorageDetails", params.Entities{Entities: entities}, &found); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return found.Results, nil
@@ -45,7 +46,7 @@ func (c *Client) ListStorageDetails() ([]params.StorageDetails, error) {
 		[]params.StorageFilter{{}}, // one empty filter
 	}
 	var results params.StorageDetailsListResults
-	if err := c.facade.FacadeCall("ListStorageDetails", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ListStorageDetails", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -70,7 +71,7 @@ func (c *Client) ListPools(providers, names []string) ([]params.StoragePool, err
 		}},
 	}
 	var results params.StoragePoolsResults
-	if err := c.facade.FacadeCall("ListPools", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ListPools", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -94,7 +95,7 @@ func (c *Client) CreatePool(pname, provider string, attrs map[string]interface{}
 		}},
 	}
 
-	if err := c.facade.FacadeCall("CreatePool", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "CreatePool", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()
@@ -108,7 +109,7 @@ func (c *Client) RemovePool(pname string) error {
 			Name: pname,
 		}},
 	}
-	if err := c.facade.FacadeCall("RemovePool", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "RemovePool", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()
@@ -124,7 +125,7 @@ func (c *Client) UpdatePool(pname, provider string, attrs map[string]interface{}
 			Attrs:    attrs,
 		}},
 	}
-	if err := c.facade.FacadeCall("UpdatePool", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "UpdatePool", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	return results.OneError()
@@ -142,7 +143,7 @@ func (c *Client) ListVolumes(machines []string) ([]params.VolumeDetailsListResul
 	}
 	args := params.VolumeFilters{filters}
 	var results params.VolumeDetailsListResults
-	if err := c.facade.FacadeCall("ListVolumes", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ListVolumes", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(filters) {
@@ -166,7 +167,7 @@ func (c *Client) ListFilesystems(machines []string) ([]params.FilesystemDetailsL
 	}
 	args := params.FilesystemFilters{filters}
 	var results params.FilesystemDetailsListResults
-	if err := c.facade.FacadeCall("ListFilesystems", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "ListFilesystems", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(filters) {
@@ -185,7 +186,7 @@ func (c *Client) ListFilesystems(machines []string) ([]params.FilesystemDetailsL
 func (c *Client) AddToUnit(storages []params.StorageAddParams) ([]params.AddStorageResult, error) {
 	out := params.AddStorageResults{}
 	in := params.StoragesAddParams{Storages: storages}
-	err := c.facade.FacadeCall("AddToUnit", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "AddToUnit", in, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -210,7 +211,7 @@ func (c *Client) Attach(unitId string, storageIds []string) ([]params.ErrorResul
 		}
 	}
 	out := params.ErrorResults{}
-	if err := c.facade.FacadeCall("Attach", in, &out); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Attach", in, &out); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(out.Results) != len(storageIds) {
@@ -243,7 +244,7 @@ func (c *Client) Remove(storageIds []string, destroyAttachments, destroyStorage 
 		}
 	}
 	args = params.RemoveStorage{aStorage}
-	if err := c.facade.FacadeCall("Remove", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Remove", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(storageIds) {
@@ -272,7 +273,7 @@ func (c *Client) Detach(storageIds []string, force *bool, maxWait *time.Duration
 		Force:      force,
 		MaxWait:    maxWait,
 	}
-	if err := c.facade.FacadeCall("DetachStorage", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "DetachStorage", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != len(storageIds) {
@@ -300,7 +301,7 @@ func (c *Client) Import(
 			ProviderId:  storageProviderId,
 		}},
 	}
-	if err := c.facade.FacadeCall("Import", args, &results); err != nil {
+	if err := c.facade.FacadeCall(context.TODO(), "Import", args, &results); err != nil {
 		return names.StorageTag{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {

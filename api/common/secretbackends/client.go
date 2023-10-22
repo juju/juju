@@ -4,6 +4,7 @@
 package secretbackends
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -35,7 +36,7 @@ func (c *Client) GetSecretBackendConfig(backendID *string) (*provider.ModelBacke
 	if backendID != nil {
 		args.BackendIDs = []string{*backendID}
 	}
-	err := c.facade.FacadeCall("GetSecretBackendConfigs", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "GetSecretBackendConfigs", args, &results)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, errors.Trace(err)
 	}
@@ -74,7 +75,7 @@ func (c *Client) GetBackendConfigForDrain(backendID *string) (*provider.ModelBac
 	if backendID != nil {
 		arg.BackendIDs = []string{*backendID}
 	}
-	err := c.facade.FacadeCall("GetSecretBackendConfigs", arg, &result)
+	err := c.facade.FacadeCall(context.TODO(), "GetSecretBackendConfigs", arg, &result)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return nil, "", errors.Trace(err)
 	}
@@ -113,6 +114,7 @@ func (c *Client) GetContentInfo(uri *coresecrets.URI, label string, refresh, pee
 	var results params.SecretContentResults
 
 	if err := c.facade.FacadeCall(
+		context.TODO(),
 		"GetSecretContentInfo", params.GetSecretContentArgs{Args: []params.GetSecretContentArg{arg}}, &results,
 	); err != nil {
 		return nil, nil, false, errors.Trace(err)
@@ -172,6 +174,7 @@ func (c *Client) GetRevisionContentInfo(uri *coresecrets.URI, revision int, pend
 	var results params.SecretContentResults
 
 	if err := c.facade.FacadeCall(
+		context.TODO(),
 		"GetSecretRevisionContentInfo", arg, &results,
 	); err != nil {
 		return nil, nil, false, errors.Trace(err)

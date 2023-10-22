@@ -4,6 +4,7 @@
 package uniter
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -69,7 +70,7 @@ func (s *Application) CharmModifiedVersion() (int, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
-	err := s.client.facade.FacadeCall("CharmModifiedVersion", args, &results)
+	err := s.client.facade.FacadeCall(context.TODO(), "CharmModifiedVersion", args, &results)
 	if err != nil {
 		return -1, err
 	}
@@ -96,7 +97,7 @@ func (s *Application) CharmURL() (string, bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
-	err := s.client.facade.FacadeCall("CharmURL", args, &results)
+	err := s.client.facade.FacadeCall(context.TODO(), "CharmURL", args, &results)
 	if err != nil {
 		return "", false, err
 	}
@@ -128,7 +129,7 @@ func (s *Application) SetStatus(unitName string, appStatus status.Status, info s
 			},
 		},
 	}
-	err := s.client.facade.FacadeCall("SetApplicationStatus", args, &result)
+	err := s.client.facade.FacadeCall(context.TODO(), "SetApplicationStatus", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -147,7 +148,7 @@ func (s *Application) Status(unitName string) (params.ApplicationStatusResult, e
 			},
 		},
 	}
-	err := s.client.facade.FacadeCall("ApplicationStatus", args, &results)
+	err := s.client.facade.FacadeCall(context.TODO(), "ApplicationStatus", args, &results)
 	if err != nil {
 		return params.ApplicationStatusResult{}, errors.Trace(err)
 	}

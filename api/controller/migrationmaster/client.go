@@ -50,7 +50,7 @@ type Client struct {
 // for the model associated with the API connection.
 func (c *Client) Watch() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := c.caller.FacadeCall("Watch", nil, &result)
+	err := c.caller.FacadeCall(context.TODO(), "Watch", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -65,7 +65,7 @@ func (c *Client) Watch() (watcher.NotifyWatcher, error) {
 func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 	var empty migration.MigrationStatus
 	var status params.MasterMigrationStatus
-	err := c.caller.FacadeCall("MigrationStatus", nil, &status)
+	err := c.caller.FacadeCall(context.TODO(), "MigrationStatus", nil, &status)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -119,7 +119,7 @@ func (c *Client) SetPhase(phase migration.Phase) error {
 	args := params.SetMigrationPhaseArgs{
 		Phase: phase.String(),
 	}
-	return c.caller.FacadeCall("SetPhase", args, nil)
+	return c.caller.FacadeCall(context.TODO(), "SetPhase", args, nil)
 }
 
 // SetStatusMessage sets a human readable message regarding the
@@ -128,13 +128,13 @@ func (c *Client) SetStatusMessage(message string) error {
 	args := params.SetMigrationStatusMessageArgs{
 		Message: message,
 	}
-	return c.caller.FacadeCall("SetStatusMessage", args, nil)
+	return c.caller.FacadeCall(context.TODO(), "SetStatusMessage", args, nil)
 }
 
 // ModelInfo return basic information about the model to migrated.
 func (c *Client) ModelInfo() (migration.ModelInfo, error) {
 	var info params.MigrationModelInfo
-	err := c.caller.FacadeCall("ModelInfo", nil, &info)
+	err := c.caller.FacadeCall(context.TODO(), "ModelInfo", nil, &info)
 	if err != nil {
 		return migration.ModelInfo{}, errors.Trace(err)
 	}
@@ -155,7 +155,7 @@ func (c *Client) ModelInfo() (migration.ModelInfo, error) {
 // and uuids of any other hosted models involved in cross model relations.
 func (c *Client) SourceControllerInfo() (migration.SourceControllerInfo, []string, error) {
 	var info params.MigrationSourceInfo
-	err := c.caller.FacadeCall("SourceControllerInfo", nil, &info)
+	err := c.caller.FacadeCall(context.TODO(), "SourceControllerInfo", nil, &info)
 	if err != nil {
 		return migration.SourceControllerInfo{}, nil, errors.Trace(err)
 	}
@@ -174,7 +174,7 @@ func (c *Client) SourceControllerInfo() (migration.SourceControllerInfo, []strin
 // Prechecks verifies that the source controller and model are healthy
 // and able to participate in a migration.
 func (c *Client) Prechecks() error {
-	return c.caller.FacadeCall("Prechecks", params.PrechecksArgs{}, nil)
+	return c.caller.FacadeCall(context.TODO(), "Prechecks", params.PrechecksArgs{}, nil)
 }
 
 // Export returns a serialized representation of the model associated
@@ -183,7 +183,7 @@ func (c *Client) Prechecks() error {
 func (c *Client) Export() (migration.SerializedModel, error) {
 	var empty migration.SerializedModel
 	var serialized params.SerializedModel
-	err := c.caller.FacadeCall("Export", nil, &serialized)
+	err := c.caller.FacadeCall(context.TODO(), "Export", nil, &serialized)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -218,7 +218,7 @@ func (c *Client) ProcessRelations(controllerAlias string) error {
 		ControllerAlias: controllerAlias,
 	}
 	var result params.ErrorResult
-	err := c.caller.FacadeCall("ProcessRelations", param, &result)
+	err := c.caller.FacadeCall(context.TODO(), "ProcessRelations", param, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -248,14 +248,14 @@ func (c *Client) OpenResource(application, name string) (io.ReadCloser, error) {
 // Reap removes the documents for the model associated with the API
 // connection.
 func (c *Client) Reap() error {
-	return c.caller.FacadeCall("Reap", nil, nil)
+	return c.caller.FacadeCall(context.TODO(), "Reap", nil, nil)
 }
 
 // WatchMinionReports returns a watcher which reports when a migration
 // minion has made a report for the current migration phase.
 func (c *Client) WatchMinionReports() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := c.caller.FacadeCall("WatchMinionReports", nil, &result)
+	err := c.caller.FacadeCall(context.TODO(), "WatchMinionReports", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -271,7 +271,7 @@ func (c *Client) MinionReports() (migration.MinionReports, error) {
 	var in params.MinionReports
 	var out migration.MinionReports
 
-	err := c.caller.FacadeCall("MinionReports", nil, &in)
+	err := c.caller.FacadeCall(context.TODO(), "MinionReports", nil, &in)
 	if err != nil {
 		return out, errors.Trace(err)
 	}
@@ -306,7 +306,7 @@ func (c *Client) MinionReportTimeout() (time.Duration, error) {
 	var timeout time.Duration
 
 	var res params.StringResult
-	err := c.caller.FacadeCall("MinionReportTimeout", nil, &res)
+	err := c.caller.FacadeCall(context.TODO(), "MinionReportTimeout", nil, &res)
 	if err != nil {
 		return timeout, errors.Trace(err)
 	}

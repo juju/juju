@@ -4,6 +4,8 @@
 package metricsmanager
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -46,7 +48,7 @@ func (c *Client) CleanupOldMetrics() error {
 		{c.modelTag.String()},
 	}}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("CleanupOldMetrics", p, &results)
+	err := c.facade.FacadeCall(context.TODO(), "CleanupOldMetrics", p, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -59,7 +61,7 @@ func (c *Client) SendMetrics() error {
 		{c.modelTag.String()},
 	}}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("SendMetrics", p, &results)
+	err := c.facade.FacadeCall(context.TODO(), "SendMetrics", p, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

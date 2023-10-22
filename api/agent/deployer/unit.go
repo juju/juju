@@ -4,6 +4,8 @@
 package deployer
 
 import (
+	"context"
+
 	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/api/common"
@@ -51,7 +53,7 @@ func (u *Unit) Remove() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.client.facade.FacadeCall("Remove", args, &result)
+	err := u.client.facade.FacadeCall(context.TODO(), "Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -66,7 +68,7 @@ func (u *Unit) SetPassword(password string) error {
 			{Tag: u.tag.String(), Password: password},
 		},
 	}
-	err := u.client.facade.FacadeCall("SetPasswords", args, &result)
+	err := u.client.facade.FacadeCall(context.TODO(), "SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}
@@ -81,7 +83,7 @@ func (u *Unit) SetStatus(unitStatus status.Status, info string, data map[string]
 			{Tag: u.tag.String(), Status: unitStatus.String(), Info: info, Data: data},
 		},
 	}
-	err := u.client.facade.FacadeCall("SetStatus", args, &result)
+	err := u.client.facade.FacadeCall(context.TODO(), "SetStatus", args, &result)
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,8 @@
 package credentialmanager
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -26,7 +28,7 @@ func NewClient(st base.APICallCloser) *Client {
 func (c *Client) InvalidateModelCredential(reason string) error {
 	in := params.InvalidateCredentialArg{reason}
 	var result params.ErrorResult
-	err := c.facade.FacadeCall("InvalidateModelCredential", in, &result)
+	err := c.facade.FacadeCall(context.TODO(), "InvalidateModelCredential", in, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}

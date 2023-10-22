@@ -4,6 +4,7 @@
 package proxyupdater
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -47,7 +48,7 @@ func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatche
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: api.tag.String()}},
 	}
-	err := api.facade.FacadeCall("WatchForProxyConfigAndAPIHostPortChanges", args, &results)
+	err := api.facade.FacadeCall(context.TODO(), "WatchForProxyConfigAndAPIHostPortChanges", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +96,7 @@ func (api *API) ProxyConfig() (ProxyConfiguration, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: api.tag.String()}},
 	}
-	err := api.facade.FacadeCall("ProxyConfig", args, &results)
+	err := api.facade.FacadeCall(context.TODO(), "ProxyConfig", args, &results)
 	if err != nil {
 		return empty, err
 	}

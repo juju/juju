@@ -4,6 +4,8 @@
 package modelconfig
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -29,7 +31,7 @@ func NewClient(st base.APICallCloser) *Client {
 // ModelGet returns all model settings.
 func (c *Client) ModelGet() (map[string]interface{}, error) {
 	result := params.ModelConfigResults{}
-	err := c.facade.FacadeCall("ModelGet", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "ModelGet", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -44,7 +46,7 @@ func (c *Client) ModelGet() (map[string]interface{}, error) {
 // metadata like the source of the setting value.
 func (c *Client) ModelGetWithMetadata() (config.ConfigValues, error) {
 	result := params.ModelConfigResults{}
-	err := c.facade.FacadeCall("ModelGet", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "ModelGet", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -61,19 +63,19 @@ func (c *Client) ModelGetWithMetadata() (config.ConfigValues, error) {
 // ModelSet sets the given key-value pairs in the model.
 func (c *Client) ModelSet(config map[string]interface{}) error {
 	args := params.ModelSet{Config: config}
-	return c.facade.FacadeCall("ModelSet", args, nil)
+	return c.facade.FacadeCall(context.TODO(), "ModelSet", args, nil)
 }
 
 // ModelUnset sets the given key-value pairs in the model.
 func (c *Client) ModelUnset(keys ...string) error {
 	args := params.ModelUnset{Keys: keys}
-	return c.facade.FacadeCall("ModelUnset", args, nil)
+	return c.facade.FacadeCall(context.TODO(), "ModelUnset", args, nil)
 }
 
 // GetModelConstraints returns the constraints for the model.
 func (c *Client) GetModelConstraints() (constraints.Value, error) {
 	results := new(params.GetConstraintsResults)
-	err := c.facade.FacadeCall("GetModelConstraints", nil, results)
+	err := c.facade.FacadeCall(context.TODO(), "GetModelConstraints", nil, results)
 	return results.Constraints, err
 }
 
@@ -82,7 +84,7 @@ func (c *Client) SetModelConstraints(constraints constraints.Value) error {
 	params := params.SetConstraints{
 		Constraints: constraints,
 	}
-	return c.facade.FacadeCall("SetModelConstraints", params, nil)
+	return c.facade.FacadeCall(context.TODO(), "SetModelConstraints", params, nil)
 }
 
 // SetSLALevel sets the support level for the given model.
@@ -94,13 +96,13 @@ func (c *Client) SetSLALevel(level, owner string, creds []byte) error {
 		},
 		Credentials: creds,
 	}
-	return c.facade.FacadeCall("SetSLALevel", args, nil)
+	return c.facade.FacadeCall(context.TODO(), "SetSLALevel", args, nil)
 }
 
 // SLALevel gets the support level for the given model.
 func (c *Client) SLALevel() (string, error) {
 	var result params.StringResult
-	err := c.facade.FacadeCall("SLALevel", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "SLALevel", nil, &result)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -110,7 +112,7 @@ func (c *Client) SLALevel() (string, error) {
 // Sequences returns all sequence names and next values.
 func (c *Client) Sequences() (map[string]int, error) {
 	var result params.ModelSequencesResult
-	err := c.facade.FacadeCall("Sequences", nil, &result)
+	err := c.facade.FacadeCall(context.TODO(), "Sequences", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -29,7 +29,7 @@ func (s *prunerSuite) TestPrune(c *gc.C) {
 	}
 
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
-	mockFacadeCaller.EXPECT().FacadeCall("Prune", args, nil).Return(nil)
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Prune", args, nil).Return(nil)
 
 	client := action.NewPrunerFromCaller(mockFacadeCaller)
 	err := client.Prune(time.Hour, 666)

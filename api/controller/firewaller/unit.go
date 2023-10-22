@@ -4,6 +4,8 @@
 package firewaller
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -65,7 +67,7 @@ func (u *Unit) AssignedMachine() (names.MachineTag, error) {
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	emptyTag := names.NewMachineTag("")
-	err := u.client.facade.FacadeCall("GetAssignedMachine", args, &results)
+	err := u.client.facade.FacadeCall(context.TODO(), "GetAssignedMachine", args, &results)
 	if err != nil {
 		return emptyTag, err
 	}

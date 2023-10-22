@@ -4,6 +4,8 @@
 package undertaker
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -69,7 +71,7 @@ func (c *Client) SetStatus(status status.Status, message string, data map[string
 		},
 	}
 	var results params.ErrorResults
-	if err := c.caller.FacadeCall("SetStatus", args, &results); err != nil {
+	if err := c.caller.FacadeCall(context.TODO(), "SetStatus", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -85,7 +87,7 @@ func (c *Client) entityFacadeCall(name string, results interface{}) error {
 	args := params.Entities{
 		Entities: []params.Entity{{c.modelTag.String()}},
 	}
-	return c.caller.FacadeCall(name, args, results)
+	return c.caller.FacadeCall(context.TODO(), name, args, results)
 }
 
 // WatchModelResources starts a watcher for changes to the model's

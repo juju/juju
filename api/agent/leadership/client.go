@@ -4,6 +4,7 @@
 package leadership
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -50,7 +51,7 @@ func (c *client) BlockUntilLeadershipReleased(appId string, cancel <-chan struct
 	// TODO(axw) make it possible to plumb a context.Context
 	// through the API/RPC client, so we can cancel or abandon
 	// requests.
-	err := c.FacadeCall("BlockUntilLeadershipReleased", names.NewApplicationTag(appId), &result)
+	err := c.FacadeCall(context.TODO(), "BlockUntilLeadershipReleased", names.NewApplicationTag(appId), &result)
 	if err != nil {
 		return errors.Annotate(err, friendlyErrMsg)
 	} else if result.Error != nil {
@@ -85,7 +86,7 @@ func (c *client) bulkClaimLeadership(args ...params.ClaimLeadershipParams) (*par
 
 	bulkParams := params.ClaimLeadershipBulkParams{args}
 	var results params.ClaimLeadershipBulkResults
-	if err := c.FacadeCall("ClaimLeadership", bulkParams, &results); err != nil {
+	if err := c.FacadeCall(context.TODO(), "ClaimLeadership", bulkParams, &results); err != nil {
 		return nil, errors.Annotate(err, "error making a leadership claim")
 	}
 	return &results, nil

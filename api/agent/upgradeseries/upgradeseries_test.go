@@ -48,7 +48,7 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 			Status: model.UpgradeSeriesPrepareStarted,
 		}},
 	}
-	fCaller.EXPECT().FacadeCall("MachineStatus", s.args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall(gomock.Any(), "MachineStatus", s.args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	status, err := api.MachineStatus()
@@ -70,7 +70,7 @@ func (s *upgradeSeriesSuite) TestMachineStatusNotFound(c *gc.C) {
 			},
 		}},
 	}
-	fCaller.EXPECT().FacadeCall("MachineStatus", s.args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall(gomock.Any(), "MachineStatus", s.args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	status, err := api.MachineStatus()
@@ -91,7 +91,7 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 		},
 	}
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	fCaller.EXPECT().FacadeCall("SetMachineStatus", args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall(gomock.Any(), "SetMachineStatus", args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	err := api.SetMachineStatus(model.UpgradeSeriesCompleteStarted, "")
@@ -109,7 +109,7 @@ func (s *upgradeSeriesSuite) TestCurrentSeries(c *gc.C) {
 			Result: "xenial",
 		}},
 	}
-	fCaller.EXPECT().FacadeCall("CurrentSeries", s.args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall(gomock.Any(), "CurrentSeries", s.args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	target, err := api.CurrentSeries()
@@ -128,7 +128,7 @@ func (s *upgradeSeriesSuite) TestTargetSeries(c *gc.C) {
 			Result: "bionic",
 		}},
 	}
-	fCaller.EXPECT().FacadeCall("TargetSeries", s.args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall(gomock.Any(), "TargetSeries", s.args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	target, err := api.TargetSeries()
@@ -151,7 +151,7 @@ func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 			{Tag: r1.String()},
 		}}},
 	}
-	fCaller.EXPECT().FacadeCall("UnitsPrepared", s.args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall(gomock.Any(), "UnitsPrepared", s.args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	units, err := api.UnitsPrepared()
@@ -178,7 +178,7 @@ func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
 			{Tag: p2.String()},
 		}}},
 	}
-	fCaller.EXPECT().FacadeCall("UnitsCompleted", s.args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall(gomock.Any(), "UnitsCompleted", s.args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	units, err := api.UnitsCompleted()
@@ -195,7 +195,7 @@ func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 	fCaller := mocks.NewMockFacadeCaller(ctrl)
 
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	fCaller.EXPECT().FacadeCall("StartUnitCompletion", s.upgradeSeriesStartUnitCompletionArgs, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall(gomock.Any(), "StartUnitCompletion", s.upgradeSeriesStartUnitCompletionArgs, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	err := api.StartUnitCompletion("")
@@ -214,7 +214,7 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
 		},
 	}
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	fCaller.EXPECT().FacadeCall("FinishUpgradeSeries", args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall(gomock.Any(), "FinishUpgradeSeries", args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	err := api.FinishUpgradeSeries("xenial")
@@ -237,7 +237,7 @@ func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
 		},
 	}
 	resultSource := params.ErrorResults{Results: []params.ErrorResult{{}}}
-	fCaller.EXPECT().FacadeCall("SetInstanceStatus", args, gomock.Any()).SetArg(2, resultSource)
+	fCaller.EXPECT().FacadeCall(gomock.Any(), "SetInstanceStatus", args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
 	err := api.SetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for something")

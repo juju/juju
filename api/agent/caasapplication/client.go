@@ -4,6 +4,8 @@
 package caasapplication
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -38,7 +40,7 @@ func (c *Client) UnitIntroduction(podName string, podUUID string) (*UnitConfig, 
 		PodName: podName,
 		PodUUID: podUUID,
 	}
-	err := c.facade.FacadeCall("UnitIntroduction", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "UnitIntroduction", args, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +72,7 @@ func (c *Client) UnitTerminating(unit names.UnitTag) (UnitTermination, error) {
 	args := params.Entity{
 		Tag: unit.String(),
 	}
-	err := c.facade.FacadeCall("UnitTerminating", args, &result)
+	err := c.facade.FacadeCall(context.TODO(), "UnitTerminating", args, &result)
 	if err != nil {
 		return UnitTermination{}, err
 	}

@@ -4,6 +4,8 @@
 package fanconfigurer
 
 import (
+	"context"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/network"
@@ -27,7 +29,7 @@ func NewFacade(caller base.APICaller) *Facade {
 // fan configuration to change.
 func (f *Facade) WatchForFanConfigChanges() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := f.caller.FacadeCall("WatchForFanConfigChanges", nil, &result)
+	err := f.caller.FacadeCall(context.TODO(), "WatchForFanConfigChanges", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +39,7 @@ func (f *Facade) WatchForFanConfigChanges() (watcher.NotifyWatcher, error) {
 // FanConfig returns the current fan configuration.
 func (f *Facade) FanConfig() (network.FanConfig, error) {
 	var result params.FanConfigResult
-	err := f.caller.FacadeCall("FanConfig", nil, &result)
+	err := f.caller.FacadeCall(context.TODO(), "FanConfig", nil, &result)
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -55,7 +56,7 @@ func (st *Client) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, erro
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	err := st.facade.FacadeCall("GetEntities", args, &results)
+	err := st.facade.FacadeCall(context.TODO(), "GetEntities", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +71,7 @@ func (st *Client) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, erro
 
 func (st *Client) StateServingInfo() (controller.StateServingInfo, error) {
 	var results params.StateServingInfo
-	err := st.facade.FacadeCall("StateServingInfo", nil, &results)
+	err := st.facade.FacadeCall(context.TODO(), "StateServingInfo", nil, &results)
 	if err != nil {
 		return controller.StateServingInfo{}, errors.Trace(err)
 	}

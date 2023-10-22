@@ -4,6 +4,8 @@
 package applicationscaler
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names/v4"
@@ -36,7 +38,7 @@ func NewAPI(caller base.APICaller, newWatcher NewWatcherFunc) *API {
 // that may need to be rescaled.
 func (api *API) Watch() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := api.caller.FacadeCall("Watch", nil, &result)
+	err := api.caller.FacadeCall(context.TODO(), "Watch", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -62,7 +64,7 @@ func (api *API) Rescale(applications []string) error {
 		args.Entities[i].Tag = tag.String()
 	}
 	var results params.ErrorResults
-	err := api.caller.FacadeCall("Rescale", args, &results)
+	err := api.caller.FacadeCall(context.TODO(), "Rescale", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

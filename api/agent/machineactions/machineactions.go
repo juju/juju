@@ -5,6 +5,8 @@
 package machineactions
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -31,7 +33,7 @@ func (c *Client) WatchActionNotifications(agent names.MachineTag) (watcher.Strin
 		Entities: []params.Entity{{Tag: agent.String()}},
 	}
 
-	err := c.facade.FacadeCall("WatchActionNotifications", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchActionNotifications", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -56,7 +58,7 @@ func (c *Client) getOneAction(tag names.ActionTag) (params.ActionResult, error) 
 	}
 
 	var results params.ActionResults
-	err := c.facade.FacadeCall("Actions", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "Actions", args, &results)
 	if err != nil {
 		return nothing, errors.Trace(err)
 	}
@@ -101,7 +103,7 @@ func (c *Client) ActionBegin(tag names.ActionTag) error {
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 
-	err := c.facade.FacadeCall("BeginActions", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "BeginActions", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -122,7 +124,7 @@ func (c *Client) ActionFinish(tag names.ActionTag, status string, actionResults 
 		}},
 	}
 
-	err := c.facade.FacadeCall("FinishActions", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "FinishActions", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -138,7 +140,7 @@ func (c *Client) RunningActions(agent names.MachineTag) ([]params.ActionResult, 
 		Entities: []params.Entity{{Tag: agent.String()}},
 	}
 
-	err := c.facade.FacadeCall("RunningActions", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "RunningActions", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

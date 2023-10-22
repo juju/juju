@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/network"
@@ -28,7 +30,7 @@ func NewAPIAddresser(facade base.FacadeCaller) *APIAddresser {
 // APIAddresses returns the list of addresses used to connect to the API.
 func (a *APIAddresser) APIAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := a.facade.FacadeCall("APIAddresses", nil, &result)
+	err := a.facade.FacadeCall(context.TODO(), "APIAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +44,7 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 // APIHostPorts returns the host/port addresses of the API servers.
 func (a *APIAddresser) APIHostPorts() ([]network.ProviderHostPorts, error) {
 	var result params.APIHostPortsResult
-	err := a.facade.FacadeCall("APIHostPorts", nil, &result)
+	err := a.facade.FacadeCall(context.TODO(), "APIHostPorts", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +54,7 @@ func (a *APIAddresser) APIHostPorts() ([]network.ProviderHostPorts, error) {
 // WatchAPIHostPorts watches the host/port addresses of the API servers.
 func (a *APIAddresser) WatchAPIHostPorts() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := a.facade.FacadeCall("WatchAPIHostPorts", nil, &result)
+	err := a.facade.FacadeCall(context.TODO(), "WatchAPIHostPorts", nil, &result)
 	if err != nil {
 		return nil, err
 	}

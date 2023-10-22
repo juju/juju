@@ -4,6 +4,8 @@
 package keyupdater
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -29,7 +31,7 @@ func (c *Client) AuthorisedKeys(tag names.MachineTag) ([]string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	err := c.facade.FacadeCall("AuthorisedKeys", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "AuthorisedKeys", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -52,7 +54,7 @@ func (c *Client) WatchAuthorisedKeys(tag names.MachineTag) (watcher.NotifyWatche
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	err := c.facade.FacadeCall("WatchAuthorisedKeys", args, &results)
+	err := c.facade.FacadeCall(context.TODO(), "WatchAuthorisedKeys", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err

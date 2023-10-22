@@ -4,6 +4,8 @@
 package imagemetadatamanager
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -44,7 +46,7 @@ func (c *Client) List(
 		RootStorageType: rootStorageType,
 	}
 	out := params.ListCloudImageMetadataResult{}
-	err := c.facade.FacadeCall("List", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "List", in, &out)
 	return out.Result, err
 }
 
@@ -55,7 +57,7 @@ func (c *Client) Save(metadata []params.CloudImageMetadata) error {
 		Metadata: []params.CloudImageMetadataList{{metadata}},
 	}
 	out := params.ErrorResults{}
-	err := c.facade.FacadeCall("Save", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "Save", in, &out)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -72,7 +74,7 @@ func (c *Client) Save(metadata []params.CloudImageMetadata) error {
 func (c *Client) Delete(imageId string) error {
 	in := params.MetadataImageIds{[]string{imageId}}
 	out := params.ErrorResults{}
-	err := c.facade.FacadeCall("Delete", in, &out)
+	err := c.facade.FacadeCall(context.TODO(), "Delete", in, &out)
 	if err != nil {
 		return errors.Trace(err)
 	}

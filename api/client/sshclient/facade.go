@@ -4,6 +4,8 @@
 package sshclient
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 
@@ -50,7 +52,7 @@ func (facade *Facade) AllAddresses(target string) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	var out params.SSHAddressesResults
-	err = facade.caller.FacadeCall("AllAddresses", entities, &out)
+	err = facade.caller.FacadeCall(context.TODO(), "AllAddresses", entities, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -69,7 +71,7 @@ func (facade *Facade) addressCall(callName, target string) (string, error) {
 		return "", errors.Trace(err)
 	}
 	var out params.SSHAddressResults
-	err = facade.caller.FacadeCall(callName, entities, &out)
+	err = facade.caller.FacadeCall(context.TODO(), callName, entities, &out)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -90,7 +92,7 @@ func (facade *Facade) PublicKeys(target string) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 	var out params.SSHPublicKeysResults
-	err = facade.caller.FacadeCall("PublicKeys", entities, &out)
+	err = facade.caller.FacadeCall(context.TODO(), "PublicKeys", entities, &out)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -107,7 +109,7 @@ func (facade *Facade) PublicKeys(target string) ([]string, error) {
 // controller hosts for the associated model.
 func (facade *Facade) Proxy() (bool, error) {
 	var out params.SSHProxyResult
-	err := facade.caller.FacadeCall("Proxy", nil, &out)
+	err := facade.caller.FacadeCall(context.TODO(), "Proxy", nil, &out)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -145,7 +147,7 @@ func countError(count int) error {
 func (facade *Facade) ModelCredentialForSSH() (cloudspec.CloudSpec, error) {
 	var result params.CloudSpecResult
 
-	err := facade.caller.FacadeCall("ModelCredentialForSSH", nil, &result)
+	err := facade.caller.FacadeCall(context.TODO(), "ModelCredentialForSSH", nil, &result)
 	if err != nil {
 		return cloudspec.CloudSpec{}, err
 	}
