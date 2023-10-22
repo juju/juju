@@ -26,13 +26,20 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // NewWatcherFunc exists to let us unit test Facade without patching.
 type NewWatcherFunc func(base.APICaller, params.NotifyWatchResult) watcher.NotifyWatcher
 
 // NewClient returns a new Client based on an existing API connection.
-func NewClient(caller base.APICaller, newWatcher NewWatcherFunc) *Client {
+func NewClient(caller base.APICaller, newWatcher NewWatcherFunc, options ...Option) *Client {
 	return &Client{
-		caller:            base.NewFacadeCaller(caller, "MigrationMaster"),
+		caller:            base.NewFacadeCaller(caller, "MigrationMaster", options...),
 		newWatcher:        newWatcher,
 		httpClientFactory: caller.HTTPClient,
 	}

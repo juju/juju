@@ -13,6 +13,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client provides access to the high availability service, used to manage controllers.
 type Client struct {
 	base.ClientFacade
@@ -20,8 +27,8 @@ type Client struct {
 }
 
 // NewClient returns a new HighAvailability client.
-func NewClient(caller base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(caller, "HighAvailability")
+func NewClient(caller base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(caller, "HighAvailability", options...)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 

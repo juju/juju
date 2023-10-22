@@ -25,6 +25,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const uniterFacade = "Uniter"
 
 // Client provides access to the Uniter API facade.
@@ -45,10 +52,12 @@ type Client struct {
 func NewClient(
 	caller base.APICaller,
 	authTag names.UnitTag,
+	options ...Option,
 ) *Client {
 	facadeCaller := base.NewFacadeCaller(
 		caller,
 		uniterFacade,
+		options...,
 	)
 	client := &Client{
 		ModelWatcher:     common.NewModelWatcher(facadeCaller),

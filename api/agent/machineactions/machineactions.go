@@ -16,12 +16,19 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 type Client struct {
 	facade base.FacadeCaller
 }
 
-func NewClient(caller base.APICaller) *Client {
-	return &Client{base.NewFacadeCaller(caller, "MachineActions")}
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	return &Client{base.NewFacadeCaller(caller, "MachineActions", options...)}
 }
 
 // WatchActionNotifications returns a StringsWatcher for observing the

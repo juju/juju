@@ -12,15 +12,22 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Facade provides access to the HostKeyReporter API facade.
 type Facade struct {
 	caller base.FacadeCaller
 }
 
 // NewFacade creates a new client-side HostKeyReporter facade.
-func NewFacade(caller base.APICaller) *Facade {
+func NewFacade(caller base.APICaller, options ...Option) *Facade {
 	return &Facade{
-		caller: base.NewFacadeCaller(caller, "HostKeyReporter"),
+		caller: base.NewFacadeCaller(caller, "HostKeyReporter", options...),
 	}
 }
 

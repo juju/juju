@@ -19,6 +19,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 var logger = loggo.GetLogger("juju.api.crossmodelrelations")
 
 // Client provides access to the crossmodelrelations api facade.
@@ -30,14 +37,14 @@ type Client struct {
 }
 
 // NewClient creates a new client-side CrossModelRelations facade.
-func NewClient(caller base.APICallCloser) *Client {
-	return NewClientWithCache(caller, NewMacaroonCache(clock.WallClock))
+func NewClient(caller base.APICallCloser, options ...Option) *Client {
+	return NewClientWithCache(caller, NewMacaroonCache(clock.WallClock), options...)
 }
 
 // NewClientWithCache creates a new client-side CrossModelRelations facade
 // with the specified cache.
-func NewClientWithCache(caller base.APICallCloser, cache *MacaroonCache) *Client {
-	frontend, backend := base.NewClientFacade(caller, "CrossModelRelations")
+func NewClientWithCache(caller base.APICallCloser, cache *MacaroonCache, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(caller, "CrossModelRelations", options...)
 	return &Client{
 		ClientFacade: frontend,
 		facade:       backend,

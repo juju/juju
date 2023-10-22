@@ -18,6 +18,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const machineManagerFacade = "MachineManager"
 
 // Client provides access to the machinemanager, used to add machines to state.
@@ -32,8 +39,8 @@ func ConstructClient(clientFacade base.ClientFacade, facadeCaller base.FacadeCal
 }
 
 // NewClient returns a new machinemanager client.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, machineManagerFacade)
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, machineManagerFacade, options...)
 	return ConstructClient(frontend, backend)
 }
 

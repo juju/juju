@@ -15,6 +15,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // NewAPI returns a new API client for the Singular facade. It exposes methods
 // for claiming and observing administration responsibility for the entity with
 // the supplied tag, on behalf of the authenticated agent.
@@ -22,6 +29,7 @@ func NewAPI(
 	apiCaller base.APICaller,
 	claimant names.Tag,
 	entity names.Tag,
+	options ...Option,
 ) (*API, error) {
 	if !names.IsValidMachine(claimant.Id()) && !names.IsValidControllerAgent(claimant.Id()) {
 		return nil, errors.NotValidf("claimant tag")
@@ -36,7 +44,7 @@ func NewAPI(
 			"invalid entity kind %q for singular API", entity.Kind(),
 		)
 	}
-	facadeCaller := base.NewFacadeCaller(apiCaller, "Singular")
+	facadeCaller := base.NewFacadeCaller(apiCaller, "Singular", options...)
 	return &API{
 		facadeCaller: facadeCaller,
 		claimant:     claimant,

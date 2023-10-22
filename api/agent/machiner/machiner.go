@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/core/life"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const machinerFacade = "Machiner"
 
 // Client provides access to the Machiner API facade.
@@ -21,8 +28,8 @@ type Client struct {
 }
 
 // NewClient creates a new client-side Machiner facade.
-func NewClient(caller base.APICaller) *Client {
-	facadeCaller := base.NewFacadeCaller(caller, machinerFacade)
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	facadeCaller := base.NewFacadeCaller(caller, machinerFacade, options...)
 	return &Client{
 		facade:       facadeCaller,
 		APIAddresser: common.NewAPIAddresser(facadeCaller),

@@ -17,6 +17,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client provides access to an reboot worker's client facade.
 type Client interface {
 	// WatchForRebootEvent returns a watcher.NotifyWatcher that
@@ -43,9 +50,9 @@ type client struct {
 
 // NewClient returns a version of the client that provides functionality
 // required by the reboot worker.
-func NewClient(caller base.APICaller, machineTag names.MachineTag) Client {
+func NewClient(caller base.APICaller, machineTag names.MachineTag, options ...Option) Client {
 	return &client{
-		facade:     base.NewFacadeCaller(caller, "Reboot"),
+		facade:     base.NewFacadeCaller(caller, "Reboot", options...),
 		machineTag: machineTag,
 	}
 }

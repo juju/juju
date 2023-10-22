@@ -17,14 +17,21 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client provides access to the retry strategy api
 type Client struct {
 	facade base.FacadeCaller
 }
 
 // NewClient creates a client for accessing the retry strategy api
-func NewClient(apiCaller base.APICaller) *Client {
-	return &Client{base.NewFacadeCaller(apiCaller, "RetryStrategy")}
+func NewClient(apiCaller base.APICaller, options ...Option) *Client {
+	return &Client{base.NewFacadeCaller(apiCaller, "RetryStrategy", options...)}
 }
 
 // RetryStrategy returns the configuration for the agent specified by the agentTag.

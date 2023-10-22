@@ -13,6 +13,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client provides access to the metrics manager api
 type Client struct {
 	modelTag names.ModelTag
@@ -28,13 +35,13 @@ type MetricsManagerClient interface {
 var _ MetricsManagerClient = (*Client)(nil)
 
 // NewClient creates a new client for accessing the metricsmanager api
-func NewClient(apiCaller base.APICaller) (*Client, error) {
+func NewClient(apiCaller base.APICaller, options ...Option) (*Client, error) {
 	modelTag, ok := apiCaller.ModelTag()
 	if !ok {
 		return nil, errors.New("metricsmanager client is not appropriate for controller-only API")
 
 	}
-	facade := base.NewFacadeCaller(apiCaller, "MetricsManager")
+	facade := base.NewFacadeCaller(apiCaller, "MetricsManager", options...)
 	return &Client{
 		modelTag: modelTag,
 		facade:   facade,

@@ -15,6 +15,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // MeterStatusClient defines the methods on the MeterStatus API end point.
 type MeterStatusClient interface {
 	// MeterStatus returns the meter status and additional information for the
@@ -26,9 +33,9 @@ type MeterStatusClient interface {
 }
 
 // NewClient creates a new client for accessing the MeterStatus API.
-func NewClient(caller base.APICaller, tag names.UnitTag) MeterStatusClient {
+func NewClient(caller base.APICaller, tag names.UnitTag, options ...Option) MeterStatusClient {
 	return &Client{
-		facade: base.NewFacadeCaller(caller, "MeterStatus"),
+		facade: base.NewFacadeCaller(caller, "MeterStatus", options...),
 		tag:    tag,
 	}
 }

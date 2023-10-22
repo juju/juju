@@ -145,11 +145,15 @@ func NewFacadeCaller(caller APICaller, facadeName string, options ...Option) Fac
 // NewFacadeCallerForVersion wraps an APICaller for a given facade
 // name and version.
 func NewFacadeCallerForVersion(caller APICaller, facadeName string, version int, options ...Option) FacadeCaller {
+	// Derive the context from the API caller context if it's available. The
+	// default will be a noop tracer if none is found.
+	tracer, _ := coretrace.TracerFromContext(caller.Context())
+
 	fc := facadeCaller{
 		facadeName:  facadeName,
 		bestVersion: version,
 		caller:      caller,
-		tracer:      coretrace.NoopTracer{},
+		tracer:      tracer,
 	}
 
 	for _, option := range options {

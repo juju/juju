@@ -16,6 +16,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const instancePollerFacade = "InstancePoller"
 
 // API provides access to the InstancePoller API facade.
@@ -26,11 +33,11 @@ type API struct {
 }
 
 // NewAPI creates a new client-side InstancePoller facade.
-func NewAPI(caller base.APICaller) *API {
+func NewAPI(caller base.APICaller, options ...Option) *API {
 	if caller == nil {
 		panic("caller is nil")
 	}
-	facadeCaller := base.NewFacadeCaller(caller, instancePollerFacade)
+	facadeCaller := base.NewFacadeCaller(caller, instancePollerFacade, options...)
 	return &API{
 		ModelWatcher: common.NewModelWatcher(facadeCaller),
 		facade:       facadeCaller,

@@ -17,6 +17,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const proxyUpdaterFacade = "ProxyUpdater"
 
 // API provides access to the ProxyUpdater API facade.
@@ -26,7 +33,7 @@ type API struct {
 }
 
 // NewAPI returns a new api client facade instance.
-func NewAPI(caller base.APICaller, tag names.Tag) (*API, error) {
+func NewAPI(caller base.APICaller, tag names.Tag, options ...Option) (*API, error) {
 	if caller == nil {
 		return nil, fmt.Errorf("caller is nil")
 	}
@@ -36,7 +43,7 @@ func NewAPI(caller base.APICaller, tag names.Tag) (*API, error) {
 	}
 
 	return &API{
-		facade: base.NewFacadeCaller(caller, proxyUpdaterFacade),
+		facade: base.NewFacadeCaller(caller, proxyUpdaterFacade, options...),
 		tag:    tag,
 	}, nil
 }

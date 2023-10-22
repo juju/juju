@@ -18,6 +18,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client is the api client for the SecretsManager facade.
 type Client struct {
 	facade base.FacadeCaller
@@ -25,8 +32,8 @@ type Client struct {
 }
 
 // NewClient creates a secrets api client.
-func NewClient(caller base.APICaller) *Client {
-	facade := base.NewFacadeCaller(caller, "SecretsManager")
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	facade := base.NewFacadeCaller(caller, "SecretsManager", options...)
 	return &Client{
 		facade: facade,
 		Client: commonsecretbackends.NewClient(facade),

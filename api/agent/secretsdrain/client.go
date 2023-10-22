@@ -8,7 +8,14 @@ import (
 	commonsecretdrain "github.com/juju/juju/api/common/secretsdrain"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // NewClient creates a secrets api client.
-func NewClient(caller base.APICaller) *commonsecretdrain.Client {
-	return commonsecretdrain.NewClient(base.NewFacadeCaller(caller, "SecretsDrain"))
+func NewClient(caller base.APICaller, options ...Option) *commonsecretdrain.Client {
+	return commonsecretdrain.NewClient(base.NewFacadeCaller(caller, "SecretsDrain", options...))
 }

@@ -15,6 +15,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // NewWatcherFunc exists to let us test WatchMachineRemovals.
 type NewWatcherFunc func(base.APICaller, params.NotifyWatchResult) watcher.NotifyWatcher
 
@@ -26,13 +33,13 @@ type API struct {
 }
 
 // NewAPI creates a new client-side machine undertaker facade.
-func NewAPI(caller base.APICaller, newWatcher NewWatcherFunc) (*API, error) {
+func NewAPI(caller base.APICaller, newWatcher NewWatcherFunc, options ...Option) (*API, error) {
 	modelTag, ok := caller.ModelTag()
 	if !ok {
 		return nil, errors.New("machine undertaker client requires a model API connection")
 	}
 	api := API{
-		facade:     base.NewFacadeCaller(caller, "MachineUndertaker"),
+		facade:     base.NewFacadeCaller(caller, "MachineUndertaker", options...),
 		modelTag:   modelTag,
 		newWatcher: newWatcher,
 	}

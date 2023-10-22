@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // MetricsAdderClient defines the methods on the metricadder API end point.
 type MetricsAdderClient interface {
 	// AddMetricBatches stores specified metric batches in the state.
@@ -19,8 +26,8 @@ type MetricsAdderClient interface {
 }
 
 // NewClient creates a new client for accessing the metricsadder API.
-func NewClient(caller base.APICaller) *Client {
-	return &Client{facade: base.NewFacadeCaller(caller, "MetricsAdder")}
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	return &Client{facade: base.NewFacadeCaller(caller, "MetricsAdder", options...)}
 }
 
 var _ MetricsAdderClient = (*Client)(nil)

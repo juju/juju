@@ -15,6 +15,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client provides access to a logger facade client.
 type Client struct {
 	facade base.FacadeCaller
@@ -22,8 +29,8 @@ type Client struct {
 
 // NewClient returns a version of the logger client that provides functionality
 // required by the logger worker.
-func NewClient(caller base.APICaller) *Client {
-	return &Client{base.NewFacadeCaller(caller, "Logger")}
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	return &Client{base.NewFacadeCaller(caller, "Logger", options...)}
 }
 
 // LoggingConfig returns the loggo configuration string for the agent

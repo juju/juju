@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client allows access to the credential management API end point.
 type Client struct {
 	base.ClientFacade
@@ -19,8 +26,8 @@ type Client struct {
 }
 
 // NewClient creates a new client for accessing the credential manager API.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "CredentialManager")
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, "CredentialManager", options...)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 

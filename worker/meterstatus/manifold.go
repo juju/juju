@@ -53,7 +53,7 @@ type ManifoldConfig struct {
 	Logger        Logger
 
 	NewHookRunner           func(HookRunnerConfig) HookRunner
-	NewMeterStatusAPIClient func(base.APICaller, names.UnitTag) meterstatus.MeterStatusClient
+	NewMeterStatusAPIClient func(base.APICaller, names.UnitTag, ...base.Option) meterstatus.MeterStatusClient
 	NewUniterStateAPIClient func(base.FacadeCaller, names.UnitTag) *common.UnitStateAPI
 
 	NewConnectedStatusWorker func(ConnectedConfig) (worker.Worker, error)

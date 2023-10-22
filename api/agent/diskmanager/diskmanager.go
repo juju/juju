@@ -13,6 +13,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const diskManagerFacade = "DiskManager"
 
 // State provides access to a diskmanager worker's view of the state.
@@ -22,9 +29,9 @@ type State struct {
 }
 
 // NewState creates a new client-side DiskManager facade.
-func NewState(caller base.APICaller, authTag names.MachineTag) *State {
+func NewState(caller base.APICaller, authTag names.MachineTag, options ...Option) *State {
 	return &State{
-		base.NewFacadeCaller(caller, diskManagerFacade),
+		base.NewFacadeCaller(caller, diskManagerFacade, options...),
 		authTag,
 	}
 }

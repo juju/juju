@@ -28,6 +28,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client allows access to the CAAS application provisioner API endpoint.
 type Client struct {
 	facade base.FacadeCaller
@@ -36,8 +43,8 @@ type Client struct {
 }
 
 // NewClient returns a client used to access the CAAS Application Provisioner API.
-func NewClient(caller base.APICaller) *Client {
-	facadeCaller := base.NewFacadeCaller(caller, "CAASApplicationProvisioner")
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	facadeCaller := base.NewFacadeCaller(caller, "CAASApplicationProvisioner", options...)
 	charmInfoClient := charmscommon.NewCharmInfoClient(facadeCaller)
 	appCharmInfoClient := charmscommon.NewApplicationCharmInfoClient(facadeCaller)
 	return &Client{

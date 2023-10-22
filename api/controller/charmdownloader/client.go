@@ -15,14 +15,21 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client allows access to the charmdownloader API.
 type Client struct {
 	facade base.FacadeCaller
 }
 
 // NewClient creates a new client for accessing the charmdownloader API.
-func NewClient(caller base.APICaller) *Client {
-	facadeCaller := base.NewFacadeCaller(caller, "CharmDownloader")
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	facadeCaller := base.NewFacadeCaller(caller, "CharmDownloader", options...)
 	return &Client{facade: facadeCaller}
 }
 

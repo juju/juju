@@ -18,6 +18,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const upgradeSeriesFacade = "UpgradeSeries"
 
 // Client provides access to the UpgradeSeries API facade.
@@ -31,10 +38,11 @@ type Client struct {
 }
 
 // NewClient Constructs an API caller.
-func NewClient(caller base.APICaller, authTag names.Tag) *Client {
+func NewClient(caller base.APICaller, authTag names.Tag, options ...Option) *Client {
 	facadeCaller := base.NewFacadeCaller(
 		caller,
 		upgradeSeriesFacade,
+		options...,
 	)
 	return &Client{
 		facade:               facadeCaller,

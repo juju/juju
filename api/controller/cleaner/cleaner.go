@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const cleanerFacade = "Cleaner"
 
 // API provides access to the Cleaner API facade.
@@ -20,8 +27,8 @@ type API struct {
 }
 
 // NewAPI creates a new client-side Cleaner facade.
-func NewAPI(caller base.APICaller) *API {
-	facadeCaller := base.NewFacadeCaller(caller, cleanerFacade)
+func NewAPI(caller base.APICaller, options ...Option) *API {
+	facadeCaller := base.NewFacadeCaller(caller, cleanerFacade, options...)
 	return &API{facade: facadeCaller}
 }
 

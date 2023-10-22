@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Client provides access to the metric debug api
 type Client struct {
 	base.ClientFacade
@@ -37,8 +44,8 @@ var _ MetricsDebugClient = (*Client)(nil)
 var _ MeterStatusClient = (*Client)(nil)
 
 // NewClient creates a new client for accessing the metricsdebug api
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "MetricsDebug")
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, "MetricsDebug", options...)
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 

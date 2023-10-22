@@ -22,6 +22,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 var logger = loggo.GetLogger("juju.api.modelmanager")
 
 // Client provides methods that the Juju client command uses to interact
@@ -34,8 +41,8 @@ type Client struct {
 
 // NewClient creates a new `Client` based on an existing authenticated API
 // connection.
-func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "ModelManager")
+func NewClient(st base.APICallCloser, options ...Option) *Client {
+	frontend, backend := base.NewClientFacade(st, "ModelManager", options...)
 	return &Client{
 		ClientFacade:   frontend,
 		facade:         backend,

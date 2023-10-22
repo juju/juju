@@ -60,11 +60,18 @@ type LXDProfileResult struct {
 	Name        string                       `json:"name" yaml:"name"`
 }
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const provisionerFacade = "Provisioner"
 
 // NewClient creates a new provisioner facade using the input caller.
-func NewClient(caller base.APICaller) *Client {
-	facadeCaller := base.NewFacadeCaller(caller, provisionerFacade)
+func NewClient(caller base.APICaller, options ...Option) *Client {
+	facadeCaller := base.NewFacadeCaller(caller, provisionerFacade, options...)
 	return &Client{
 		ModelWatcher:        common.NewModelWatcher(facadeCaller),
 		APIAddresser:        common.NewAPIAddresser(facadeCaller),

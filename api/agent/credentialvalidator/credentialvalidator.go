@@ -16,6 +16,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 // Facade provides methods that the Juju client command uses to interact
 // with the Juju backend.
 type Facade struct {
@@ -24,8 +31,8 @@ type Facade struct {
 
 // NewFacade creates a new `Facade` based on an existing authenticated API
 // connection.
-func NewFacade(caller base.APICaller) *Facade {
-	return &Facade{base.NewFacadeCaller(caller, "CredentialValidator")}
+func NewFacade(caller base.APICaller, options ...Option) *Facade {
+	return &Facade{base.NewFacadeCaller(caller, "CredentialValidator", options...)}
 }
 
 // ModelCredential gets the cloud credential that a given model uses, including

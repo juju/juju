@@ -15,6 +15,13 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
+// Option is a function that can be used to configure a Client.
+type Option = base.Option
+
+// WithTracer returns an Option that configures the Client to use the
+// supplied tracer.
+var WithTracer = base.WithTracer
+
 const uaFacade = "UnitAssigner"
 
 // API provides access to the UnitAssigner API facade.
@@ -23,8 +30,8 @@ type API struct {
 }
 
 // New creates a new client-side UnitAssigner facade.
-func New(caller base.APICaller) API {
-	fc := base.NewFacadeCaller(caller, uaFacade)
+func New(caller base.APICaller, options ...Option) API {
+	fc := base.NewFacadeCaller(caller, uaFacade, options...)
 	return API{facade: fc}
 }
 
