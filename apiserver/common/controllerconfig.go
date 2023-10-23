@@ -61,7 +61,7 @@ func (s *ControllerConfigAPI) ControllerConfig(ctx context.Context) (params.Cont
 	if err != nil {
 		return result, err
 	}
-	result.Config = params.ControllerConfig(config)
+	result.Config = params.ControllerConfig(controller.EncodeForJSON(config))
 	return result, nil
 }
 

@@ -808,7 +808,9 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 	}
 	if _, err := c.hub.Publish(
 		controller.ConfigChanged,
-		controller.ConfigChangedMessage{Config: cfg}); err != nil {
+		controller.ConfigChangedMessage{
+			Config: corecontroller.EncodeForJSON(cfg),
+		}); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

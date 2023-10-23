@@ -6,6 +6,7 @@ package common_test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
@@ -52,10 +53,11 @@ func (s *controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {
 
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(
 		map[string]interface{}{
-			controller.ControllerUUIDKey: testing.ControllerTag.Id(),
-			controller.CACertKey:         testing.CACert,
-			controller.APIPort:           4321,
-			controller.StatePort:         1234,
+			controller.ControllerUUIDKey:     testing.ControllerTag.Id(),
+			controller.CACertKey:             testing.CACert,
+			controller.APIPort:               4321,
+			controller.StatePort:             1234,
+			controller.QueryTracingThreshold: time.Second,
 		},
 		nil,
 	)
@@ -63,10 +65,11 @@ func (s *controllerConfigSuite) TestControllerConfigSuccess(c *gc.C) {
 	result, err := s.ctrlConfigAPI.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(map[string]interface{}(result.Config), jc.DeepEquals, map[string]interface{}{
-		"ca-cert":         testing.CACert,
-		"controller-uuid": "deadbeef-1bad-500d-9000-4b1d0d06f00d",
-		"state-port":      1234,
-		"api-port":        4321,
+		"ca-cert":                 testing.CACert,
+		"controller-uuid":         "deadbeef-1bad-500d-9000-4b1d0d06f00d",
+		"state-port":              1234,
+		"api-port":                4321,
+		"query-tracing-threshold": "1s",
 	})
 }
 
