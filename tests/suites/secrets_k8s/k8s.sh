@@ -119,6 +119,7 @@ run_user_secrets() {
 	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'info'
 
 	# grant secret to hello-kubecon app, and now the application can access the revision 2.
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
 	juju --show-log grant-secret "$secret_uri" hello-kubecon
 	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-2"
 
