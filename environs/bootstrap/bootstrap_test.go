@@ -35,7 +35,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	environscmd "github.com/juju/juju/environs/cmd"
 	"github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -92,7 +92,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
-	s.callContext = envcontext.NewEmptyCloudCallContext()
+	s.callContext = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
@@ -511,7 +511,7 @@ func (s *bootstrapSuite) setupProviderWithSomeSupportedArches(c *gc.C) bootstrap
 	s.setDummyStorage(c, env.bootstrapEnviron)
 
 	// test provider constraints only has amd64 and arm64 as supported architectures
-	consBefore, err := env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
+	consBefore, err := env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	desiredArch := constraints.MustParse("arch=s390x")
 	unsupported, err := consBefore.Validate(desiredArch)
@@ -558,7 +558,7 @@ func (s *bootstrapSuite) setupProviderWithNoSupportedArches(c *gc.C) bootstrapEn
 	}
 	s.setDummyStorage(c, env.bootstrapEnviron)
 
-	consBefore, err := env.ConstraintsValidator(envcontext.NewEmptyCloudCallContext())
+	consBefore, err := env.ConstraintsValidator(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Assert(err, jc.ErrorIsNil)
 	// test provider constraints only has amd64 and arm64 as supported architectures
 	desiredArch := constraints.MustParse("arch=s390x")

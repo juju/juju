@@ -14,7 +14,7 @@ import (
 	ociCore "github.com/oracle/oci-go-sdk/v65/core"
 
 	"github.com/juju/juju/core/instance"
-	envcontext "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 	allProvidersCommon "github.com/juju/juju/provider/common"

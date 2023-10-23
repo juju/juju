@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/api/client/credentialmanager"
 	"github.com/juju/juju/api/controller/controller"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/caas"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 const killDoc = `
@@ -46,7 +46,6 @@ stop watching and destroy the models directly through the cloud provider.
 // forceful destroy.
 func NewKillCommand() modelcmd.Command {
 	cmd := killCommand{clock: clock.WallClock}
-	cmd.controllerCredentialAPIFunc = cmd.credentialAPIForControllerModel
 	cmd.environsDestroy = environs.Destroy
 	return wrapKillCommand(&cmd)
 }
@@ -121,12 +120,12 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
-	cloudCallCtx := cloudCallContext(c.controllerCredentialAPIFunc)
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	// If we were unable to connect to the API, just destroy the controller through
 	// the environs interface.
 	if api == nil {
 		ctx.Infof("Unable to connect to the API server, destroying through provider")
-		return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
+		return c.environsDestroy(controllerName, controllerEnviron, callCtx, store)
 	}
 
 	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
@@ -149,7 +148,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	})
 	if err != nil {
 		ctx.Infof("Unable to destroy controller through the API: %s\nDestroying through provider", err)
-		return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
+		return c.environsDestroy(controllerName, controllerEnviron, callCtx, store)
 	}
 
 	ctx.Infof("Destroying controller %q\nWaiting for resources to be reclaimed", controllerName)
@@ -164,7 +163,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 	if err := c.WaitForModels(ctx, api, uuid); err != nil {
 		c.DirectDestroyRemaining(ctx, api, controllerCloudSpec)
 	}
-	return c.environsDestroy(controllerName, controllerEnviron, cloudCallCtx, store)
+	return c.environsDestroy(controllerName, controllerEnviron, callCtx, store)
 }
 
 func (c *killCommand) getControllerAPIWithTimeout(timeout time.Duration) (destroyControllerAPI, error) {
@@ -261,8 +260,8 @@ func (c *killCommand) DirectDestroyRemaining(
 				hasErrors = true
 				continue
 			}
-			cloudCallCtx := cloudCallContext(c.credentialAPIFunctionForModel(model.Name))
-			if err := env.Destroy(cloudCallCtx); err != nil {
+			callCtx := envcontext.WithoutCredentialInvalidator(ctx)
+			if err := env.Destroy(callCtx); err != nil {
 				logger.Warningf(err.Error())
 				hasErrors = true
 				continue
@@ -295,19 +294,6 @@ func transformModelCloudSpecForInstanceRoles(
 		return controllerCloudSpec, nil
 	}
 	return modelCloudSpec, nil
-}
-
-func (c *killCommand) credentialAPIFunctionForModel(modelName string) newCredentialAPIFunc {
-	f := func(api CredentialAPI, err error) newCredentialAPIFunc {
-		return func() (CredentialAPI, error) {
-			return api, err
-		}
-	}
-	root, err := c.NewModelAPIRoot(modelName)
-	if err != nil {
-		return f(nil, errors.Trace(err))
-	}
-	return f(credentialmanager.NewClient(root), nil)
 }
 
 // WaitForModels will wait for the models to bring themselves down nicely.

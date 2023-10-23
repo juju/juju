@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -265,7 +265,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 // used in the tests.
 var endpointsForTest = map[string]apiuniter.Endpoint{
 	"wordpress:db mysql:db": {
-		Relation: corecharm.Relation{
+		Relation: jujucharm.Relation{
 			Name:      "db",
 			Role:      "requirer",
 			Interface: "mysql",
@@ -273,7 +273,7 @@ var endpointsForTest = map[string]apiuniter.Endpoint{
 		},
 	},
 	"logging:logging-directory u:logging-dir": {
-		Relation: corecharm.Relation{
+		Relation: jujucharm.Relation{
 			Name:      "logging-dir",
 			Role:      "provider",
 			Interface: "logging-dir",
@@ -281,7 +281,7 @@ var endpointsForTest = map[string]apiuniter.Endpoint{
 		},
 	},
 	"logging:info u:juju-info": {
-		Relation: corecharm.Relation{
+		Relation: jujucharm.Relation{
 			Name:      "juju-info",
 			Role:      "provider",
 			Interface: "juju-info",

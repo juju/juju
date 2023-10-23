@@ -11,7 +11,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain/schema"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
+	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package changestreampruner -destination stream_mock_test.go github.com/juju/juju/worker/changestreampruner DBGetter,Logger
@@ -23,12 +25,29 @@ func TestPackage(t *testing.T) {
 }
 
 type baseSuite struct {
-	domaintesting.ControllerSuite
+	databasetesting.DqliteSuite
 
 	dbGetter *MockDBGetter
 	clock    *MockClock
 	timer    *MockTimer
 	logger   *MockLogger
+}
+
+// SetUpTest is responsible for setting up a testing database suite initialised
+// with the controller schema.
+func (s *baseSuite) SetUpTest(c *gc.C) {
+	s.DqliteSuite.SetUpTest(c)
+	s.DqliteSuite.ApplyDDL(c, &domaintesting.SchemaApplier{
+		Schema: schema.ControllerDDL(),
+	})
+}
+
+// ApplyDDLForRunner is responsible for applying the controller schema to the
+// given database.
+func (s *baseSuite) ApplyDDLForRunner(c *gc.C, runner coredatabase.TxnRunner) {
+	s.DqliteSuite.ApplyDDLForRunner(c, &domaintesting.SchemaApplier{
+		Schema: schema.ControllerDDL(),
+	}, runner)
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {

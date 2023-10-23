@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 )
 
 // Instances is part of the environs.Environ interface.
-func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) (instances []instances.Instance, err error) {
+func (env *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) (instances []instances.Instance, err error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -28,7 +28,7 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 }
 
 // Instances is part of the environs.Environ interface.
-func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (env *sessionEnviron) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -63,7 +63,7 @@ func (env *sessionEnviron) Instances(ctx context.ProviderCallContext, ids []inst
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) (ids []instance.Id, err error) {
+func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) (ids []instance.Id, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		ids, err = env.ControllerInstances(ctx, controllerUUID)
 		return err
@@ -72,7 +72,7 @@ func (env *environ) ControllerInstances(ctx context.ProviderCallContext, control
 }
 
 // ControllerInstances is part of the environs.Environ interface.
-func (env *sessionEnviron) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (env *sessionEnviron) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	instances, err := env.AllRunningInstances(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -103,7 +103,7 @@ func (env *sessionEnviron) ControllerInstances(ctx context.ProviderCallContext, 
 // parsePlacement extracts the availability zone from the placement
 // string and returns it. If no zone is found there then an error is
 // returned.
-func (env *sessionEnviron) parsePlacement(ctx context.ProviderCallContext, placement string) (*vmwareAvailZone, error) {
+func (env *sessionEnviron) parsePlacement(ctx envcontext.ProviderCallContext, placement string) (*vmwareAvailZone, error) {
 	if placement == "" {
 		return nil, nil
 	}

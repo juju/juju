@@ -1,7 +1,7 @@
 // Copyright 2018 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package credentialcommon
+package service
 
 import (
 	stdcontext "context"
@@ -12,20 +12,49 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/domain/credential"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/environs/instances"
 )
+
+// MachineService provides access to all machines.
+type MachineService interface {
+	// AllMachines returns all machines in the model.
+	AllMachines() ([]Machine, error)
+}
+
+// Machine defines machine methods needed for the check.
+type Machine interface {
+	// IsManual returns true if the machine was manually provisioned.
+	IsManual() (bool, error)
+
+	// IsContainer returns true if the machine is a container.
+	IsContainer() bool
+
+	// InstanceId returns the provider specific instance id for this
+	// machine, or a NotProvisionedError, if not set.
+	InstanceId() (instance.Id, error)
+
+	// Id returns the machine id.
+	Id() string
+}
+
+// CloudProvider defines methods needed from the cloud provider to perform the check.
+type CloudProvider interface {
+	// AllInstances returns all instances currently known to the cloud provider.
+	AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error)
+}
 
 // CredentialValidationContext provides access to artefacts needed to
 // validate a credential for a given model.
 type CredentialValidationContext struct {
 	ControllerUUID string
 
-	Context        context.ProviderCallContext
 	Config         *config.Config
 	MachineService MachineService
 
@@ -38,7 +67,8 @@ type CredentialValidationContext struct {
 // valid for any models which want to use it.
 type CredentialValidator interface {
 	Validate(
-		ctx CredentialValidationContext,
+		ctx stdcontext.Context,
+		validationContext CredentialValidationContext,
 		credentialID credential.ID,
 		credential *cloud.Credential,
 		checkCloudInstances bool,
@@ -55,7 +85,8 @@ func NewCredentialValidator() CredentialValidator {
 // Validate checks if a new cloud credential could be valid for a model whose
 // details are defined in the context.
 func (v defaultCredentialValidator) Validate(
-	ctx CredentialValidationContext,
+	ctx stdcontext.Context,
+	validationContext CredentialValidationContext,
 	id credential.ID,
 	cred *cloud.Credential,
 	checkCloudInstances bool,
@@ -64,17 +95,17 @@ func (v defaultCredentialValidator) Validate(
 		return nil, fmt.Errorf("credential %w", err)
 	}
 
-	openParams, err := v.buildOpenParams(ctx, id, cred)
+	openParams, err := v.buildOpenParams(validationContext, id, cred)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	switch ctx.ModelType {
+	switch validationContext.ModelType {
 	case model.TypeCAAS:
-		return checkCAASModelCredential(ctx.Context, openParams)
+		return checkCAASModelCredential(ctx, openParams)
 	case model.TypeIAAS:
-		return checkIAASModelCredential(ctx, openParams, checkCloudInstances)
+		return checkIAASModelCredential(ctx, validationContext.MachineService, openParams, checkCloudInstances)
 	default:
-		return nil, errors.NotSupportedf("model type %q", ctx.ModelType)
+		return nil, errors.NotSupportedf("model type %q", validationContext.ModelType)
 	}
 }
 
@@ -90,8 +121,8 @@ func checkCAASModelCredential(ctx stdcontext.Context, brokerParams environs.Open
 	return nil, nil
 }
 
-func checkIAASModelCredential(ctx CredentialValidationContext, openParams environs.OpenParams, checkCloudInstances bool) ([]error, error) {
-	env, err := newEnv(ctx.Context, openParams)
+func checkIAASModelCredential(ctx stdcontext.Context, machineService MachineService, openParams environs.OpenParams, checkCloudInstances bool) ([]error, error) {
+	env, err := newEnv(ctx, openParams)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -99,15 +130,15 @@ func checkIAASModelCredential(ctx CredentialValidationContext, openParams enviro
 	// In the future, this check may be extended to other cloud resources,
 	// entities and operation-level authorisations such as interfaces,
 	// ability to CRUD storage, etc.
-	return checkMachineInstances(ctx, env, checkCloudInstances)
+	return checkMachineInstances(ctx, machineService, env, checkCloudInstances)
 }
 
 // checkMachineInstances compares model machines from state with
 // the ones reported by the provider using supplied credential.
 // This only makes sense for non-k8s providers.
-func checkMachineInstances(ctx CredentialValidationContext, provider CloudProvider, checkCloudInstances bool) ([]error, error) {
+func checkMachineInstances(ctx stdcontext.Context, machineService MachineService, provider CloudProvider, checkCloudInstances bool) ([]error, error) {
 	// Get machines from state
-	machines, err := ctx.MachineService.AllMachines()
+	machines, err := machineService.AllMachines()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -140,7 +171,8 @@ func checkMachineInstances(ctx CredentialValidationContext, provider CloudProvid
 
 	// Check that we can see all machines' instances regardless of their state as perceived by the cloud, i.e.
 	// this call will return all non-terminated instances.
-	instances, err := provider.AllInstances(ctx.Context)
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
+	instances, err := provider.AllInstances(callCtx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -16,6 +16,7 @@ import (
 // State defines a interface for interacting with the underlying state.
 type State interface {
 	Create(context.Context, model.UUID) error
+	List(context.Context) ([]model.UUID, error)
 	Delete(context.Context, model.UUID) error
 }
 
@@ -41,6 +42,20 @@ func (s *Service) Create(ctx context.Context, uuid model.UUID) error {
 
 	err := s.st.Create(ctx, uuid)
 	return errors.Annotatef(domain.CoerceError(err), "creating model %q", uuid)
+}
+
+// ModelList returns a list of all model UUIDs.
+// This only includes active models. Either a model is within the model manager
+// list or it's not.
+// Note: This shouldn't be used as a proxy for alive models. This hasn't got
+// the same guarantees. Instead this should only be used for managing models
+// from a dqlite perspective.
+func (s *Service) ModelList(ctx context.Context) ([]model.UUID, error) {
+	uuids, err := s.st.List(ctx)
+	if err != nil {
+		return nil, errors.Annotatef(err, "retrieving model list")
+	}
+	return uuids, nil
 }
 
 // Delete takes a model UUID and deletes the model if it exists.

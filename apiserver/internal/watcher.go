@@ -4,10 +4,13 @@
 package internal
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/watcher/eventsource"
 )
 
 // Watcher defines a generic watcher over a set of changes.
@@ -20,30 +23,30 @@ type Watcher[T any] interface {
 type WatcherRegistry interface {
 	// Register registers a watcher and returns a string that can be used
 	// to unregister it.
-	Register(w worker.Worker) (string, error)
+	Register(worker.Worker) (string, error)
 }
 
 // FirstResult checks whether the first set of returned changes are
 // available and returns them, otherwise it kills the worker and waits
 // for the error and returns it.
-func FirstResult[T any](w Watcher[T]) (T, error) {
-	changes, ok := <-w.Changes()
-	if !ok {
-		w.Kill()
-		var t T
-		err := w.Wait()
-		if err == nil {
-			return t, errors.Annotatef(apiservererrors.ErrStoppedWatcher, "expected an error from %T, got nil", w)
-		}
-		return t, errors.Trace(err)
+func FirstResult[T any](ctx context.Context, w eventsource.Watcher[T]) (T, error) {
+	t, err := eventsource.ConsumeInitialEvent[T](ctx, w)
+	if err == nil {
+		return t, nil
 	}
-	return changes, nil
+
+	// Enable backwards compatibility with the apiserver error.
+	if errors.Is(err, eventsource.ErrWorkerStopped) {
+		return t, errors.Annotatef(apiservererrors.ErrStoppedWatcher, "expected an error from %T, got nil", w)
+	}
+
+	return t, errors.Trace(err)
 }
 
 // EnsureRegisterWatcher registers a watcher and returns the first set
 // of changes.
-func EnsureRegisterWatcher[T any](reg WatcherRegistry, w Watcher[T]) (string, T, error) {
-	changes, err := FirstResult(w)
+func EnsureRegisterWatcher[T any](ctx context.Context, reg WatcherRegistry, w eventsource.Watcher[T]) (string, T, error) {
+	changes, err := FirstResult(ctx, w)
 	if err != nil {
 		return "", changes, errors.Trace(err)
 	}

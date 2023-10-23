@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 // SupportsNetworking is a convenience helper to check if an environment
@@ -27,12 +27,12 @@ type Networking interface {
 	// Subnets returns basic information about subnets known
 	// by the provider for the environment.
 	Subnets(
-		ctx context.ProviderCallContext, inst instance.Id, subnetIds []network.Id,
+		ctx envcontext.ProviderCallContext, inst instance.Id, subnetIds []network.Id,
 	) ([]network.SubnetInfo, error)
 
 	// SuperSubnets returns information about aggregated subnets - eg. global CIDR
 	// for EC2 VPC.
-	SuperSubnets(ctx context.ProviderCallContext) ([]string, error)
+	SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error)
 
 	// NetworkInterfaces returns a slice with the network interfaces that
 	// correspond to the given instance IDs. If no instances where found,
@@ -40,22 +40,22 @@ type Networking interface {
 	// but not all of the instances were found, the returned slice will
 	// have some nil slots, and an ErrPartialInstances error will be
 	// returned.
-	NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error)
+	NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error)
 
 	// SupportsSpaces returns whether the current environment supports
 	// spaces. The returned error satisfies errors.IsNotSupported(),
 	// unless a general API failure occurs.
-	SupportsSpaces(ctx context.ProviderCallContext) (bool, error)
+	SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, error)
 
 	// SupportsSpaceDiscovery returns whether the current environment
 	// supports discovering spaces from the provider. The returned error
 	// satisfies errors.IsNotSupported(), unless a general API failure occurs.
-	SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error)
+	SupportsSpaceDiscovery(ctx envcontext.ProviderCallContext) (bool, error)
 
 	// Spaces returns a slice of network.SpaceInfo with info, including
 	// details of all associated subnets, about all spaces known to the
 	// provider that have subnets available.
-	Spaces(ctx context.ProviderCallContext) (network.SpaceInfos, error)
+	Spaces(ctx envcontext.ProviderCallContext) (network.SpaceInfos, error)
 
 	// ProviderSpaceInfo returns the details of the space requested as
 	// a ProviderSpaceInfo. This will contain everything needed to
@@ -76,25 +76,25 @@ type Networking interface {
 	// authoritative. In that case the provider should collect up any
 	// other information needed to determine routability and include
 	// the passed-in space info in the ProviderSpaceInfo returned.
-	ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*ProviderSpaceInfo, error)
+	ProviderSpaceInfo(ctx envcontext.ProviderCallContext, space *network.SpaceInfo) (*ProviderSpaceInfo, error)
 
 	// AreSpacesRoutable returns whether the communication between the
 	// two spaces can use cloud-local addresses.
-	AreSpacesRoutable(ctx context.ProviderCallContext, space1, space2 *ProviderSpaceInfo) (bool, error)
+	AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *ProviderSpaceInfo) (bool, error)
 
 	// SupportsContainerAddresses returns true if the current environment is
 	// able to allocate addresses for containers. If returning false, we also
 	// return an IsNotSupported error.
-	SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error)
+	SupportsContainerAddresses(ctx envcontext.ProviderCallContext) (bool, error)
 
 	// AllocateContainerAddresses allocates a static address for each of the
 	// container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
 	// network config including all allocated addresses on success.
-	AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo network.InterfaceInfos) (network.InterfaceInfos, error)
+	AllocateContainerAddresses(ctx envcontext.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo network.InterfaceInfos) (network.InterfaceInfos, error)
 
 	// ReleaseContainerAddresses releases the previously allocated
 	// addresses matching the interface details passed in.
-	ReleaseContainerAddresses(ctx context.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error
+	ReleaseContainerAddresses(ctx envcontext.ProviderCallContext, interfaces []network.ProviderInterfaceInfo) error
 }
 
 // NetworkingEnviron combines the standard Environ interface with the
@@ -115,20 +115,20 @@ type NoSpaceDiscoveryEnviron struct{}
 
 // SupportsSpaceDiscovery (Networking) indicates that
 // this environ does not support space discovery.
-func (*NoSpaceDiscoveryEnviron) SupportsSpaceDiscovery(context.ProviderCallContext) (bool, error) {
+func (*NoSpaceDiscoveryEnviron) SupportsSpaceDiscovery(envcontext.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
 // Spaces (Networking) indicates that this provider
 // does not support returning spaces.
-func (*NoSpaceDiscoveryEnviron) Spaces(context.ProviderCallContext) (network.SpaceInfos, error) {
+func (*NoSpaceDiscoveryEnviron) Spaces(envcontext.ProviderCallContext) (network.SpaceInfos, error) {
 	return nil, errors.NotSupportedf("Spaces")
 }
 
 // ProviderSpaceInfo (Networking) indicates that this provider
 // does not support returning provider info for the input space.
 func (*NoSpaceDiscoveryEnviron) ProviderSpaceInfo(
-	context.ProviderCallContext, *network.SpaceInfo,
+	envcontext.ProviderCallContext, *network.SpaceInfo,
 ) (*ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("ProviderSpaceInfo")
 }
@@ -140,7 +140,7 @@ func supportsNetworking(environ BootstrapEnviron) (NetworkingEnviron, bool) {
 
 // SupportsSpaces checks if the environment implements NetworkingEnviron
 // and also if it supports spaces.
-func SupportsSpaces(ctx context.ProviderCallContext, env BootstrapEnviron) bool {
+func SupportsSpaces(ctx envcontext.ProviderCallContext, env BootstrapEnviron) bool {
 	netEnv, ok := supportsNetworking(env)
 	if !ok {
 		return false
@@ -157,7 +157,7 @@ func SupportsSpaces(ctx context.ProviderCallContext, env BootstrapEnviron) bool 
 
 // SupportsContainerAddresses checks if the environment will let us allocate
 // addresses for containers from the host ranges.
-func SupportsContainerAddresses(ctx context.ProviderCallContext, env BootstrapEnviron) bool {
+func SupportsContainerAddresses(ctx envcontext.ProviderCallContext, env BootstrapEnviron) bool {
 	netEnv, ok := supportsNetworking(env)
 	if !ok {
 		return false

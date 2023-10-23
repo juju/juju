@@ -4,6 +4,7 @@
 package upgradedatabase
 
 import (
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -21,6 +22,7 @@ type Logger interface {
 	Warningf(string, ...any)
 	Infof(string, ...any)
 	Debugf(string, ...any)
+	Tracef(string, ...any)
 }
 
 // ManifoldConfig defines the configuration on which this manifold depends.
@@ -30,6 +32,7 @@ type ManifoldConfig struct {
 	ServiceFactoryName string
 	DBAccessorName     string
 	Logger             Logger
+	Clock              clock.Clock
 	NewWorker          func(Config) (worker.Worker, error)
 }
 
@@ -49,6 +52,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -89,18 +95,23 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
+			currentConfig := controllerAgent.CurrentConfig()
+
 			// Work out where we're upgrading from and, where we want to upgrade to.
-			fromVersion := controllerAgent.CurrentConfig().UpgradedToVersion()
+			fromVersion := currentConfig.UpgradedToVersion()
 			toVersion := jujuversion.Current
 
 			return cfg.NewWorker(Config{
 				DBUpgradeCompleteLock: dbUpgradeCompleteLock,
 				Agent:                 controllerAgent,
+				ModelManagerService:   serviceFactoryGetter.ModelManager(),
 				UpgradeService:        serviceFactoryGetter.Upgrade(),
 				DBGetter:              dbGetter,
+				Tag:                   currentConfig.Tag(),
 				FromVersion:           fromVersion,
 				ToVersion:             toVersion,
 				Logger:                cfg.Logger,
+				Clock:                 cfg.Clock,
 			})
 		},
 	}

@@ -4,7 +4,7 @@
 package ec2_test
 
 import (
-	stdcontext "context"
+	"context"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -17,7 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -26,8 +26,8 @@ type SecurityGroupSuite struct {
 	coretesting.BaseSuite
 
 	clientStub   *stubClient
-	deleteFunc   func(ec2.SecurityGroupCleaner, context.ProviderCallContext, types.GroupIdentifier, clock.Clock) error
-	cloudCallCtx context.ProviderCallContext
+	deleteFunc   func(ec2.SecurityGroupCleaner, envcontext.ProviderCallContext, types.GroupIdentifier, clock.Clock) error
+	cloudCallCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&SecurityGroupSuite{})
@@ -45,7 +45,7 @@ func (s *SecurityGroupSuite) SetUpTest(c *gc.C) {
 			return nil, nil
 		},
 	}
-	s.cloudCallCtx = context.NewEmptyCloudCallContext()
+	s.cloudCallCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *SecurityGroupSuite) TestDeleteSecurityGroupSuccess(c *gc.C) {
@@ -108,7 +108,7 @@ type stubClient struct {
 	deleteSecurityGroup func(group types.GroupIdentifier) (*awsec2.DeleteSecurityGroupOutput, error)
 }
 
-func (s *stubClient) DeleteSecurityGroup(ctx stdcontext.Context, input *awsec2.DeleteSecurityGroupInput, _ ...func(*awsec2.Options)) (*awsec2.DeleteSecurityGroupOutput, error) {
+func (s *stubClient) DeleteSecurityGroup(ctx context.Context, input *awsec2.DeleteSecurityGroupInput, _ ...func(*awsec2.Options)) (*awsec2.DeleteSecurityGroupOutput, error) {
 	s.MethodCall(s, "DeleteSecurityGroup", aws.ToString(input.GroupId), aws.ToString(input.GroupName))
 	return s.deleteSecurityGroup(types.GroupIdentifier{
 		GroupId:   input.GroupId,

@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
-	jujucontext "github.com/juju/juju/environs/context"
+	jujucontext "github.com/juju/juju/environs/envcontext"
 	jujustorage "github.com/juju/juju/internal/storage"
 )
 

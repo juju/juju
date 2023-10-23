@@ -16,14 +16,14 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 var _ environs.Networking = (*environ)(nil)
 
 // Subnets returns basic information about subnets known by the provider for
 // the environment.
-func (e *environ) Subnets(ctx context.ProviderCallContext, inst instance.Id, subnetIDs []network.Id) ([]network.SubnetInfo, error) {
+func (e *environ) Subnets(ctx envcontext.ProviderCallContext, inst instance.Id, subnetIDs []network.Id) ([]network.SubnetInfo, error) {
 	attrs := e.cloud.Credential.Attributes()
 	if attrs == nil {
 		return nil, errors.Trace(fmt.Errorf("empty attribute credentials"))
@@ -102,7 +102,7 @@ func makeSubnetIDForNetwork(networkName, address string, mask int) (string, stri
 // SupportsSpaces returns whether the current environment supports
 // spaces. The returned error satisfies errors.IsNotSupported(),
 // unless a general API failure occurs.
-func (e *environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
+func (e *environ) SupportsSpaces(envcontext.ProviderCallContext) (bool, error) {
 	return true, nil
 }
 
@@ -111,7 +111,7 @@ func (e *environ) SupportsSpaces(context.ProviderCallContext) (bool, error) {
 // was no other error, it will return ErrNoInstances. If some but not all of
 // the instances were found, the returned slice will have some nil slots, and
 // an ErrPartialInstances error will be returned.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
+func (e *environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -181,7 +181,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 
 // SuperSubnets returns information about the reserved private subnets that can
 // be used as underlays when setting up FAN networking.
-func (e *environ) SuperSubnets(context.ProviderCallContext) ([]string, error) {
+func (e *environ) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
 	attrs := e.cloud.Credential.Attributes()
 	if attrs == nil {
 		return nil, errors.Trace(fmt.Errorf("empty attribute credentials"))
@@ -207,46 +207,46 @@ func (e *environ) SuperSubnets(context.ProviderCallContext) ([]string, error) {
 
 // SupportsContainerAddresses returns true if the current environment is
 // able to allocate addaddresses for containers.
-func (*environ) SupportsContainerAddresses(context.ProviderCallContext) (bool, error) {
+func (*environ) SupportsContainerAddresses(envcontext.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
 // SupportsSpaceDiscovery returns whether the current environment
 // supports discovering spaces from the provider. The returned error
 // satisfies errors.IsNotSupported(), unless a general API failure occurs.
-func (*environ) SupportsSpaceDiscovery(context.ProviderCallContext) (bool, error) {
+func (*environ) SupportsSpaceDiscovery(envcontext.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
 // Spaces returns a slice of network.SpaceInfo with info, including
 // details of all associated subnets, about all spaces known to the
 // provider that have subnets available.
-func (*environ) Spaces(context.ProviderCallContext) (network.SpaceInfos, error) {
+func (*environ) Spaces(envcontext.ProviderCallContext) (network.SpaceInfos, error) {
 	return nil, errors.NotSupportedf("spaces")
 }
 
 // AllocateContainerAddresses allocates a static addsubnetss for each of the
 // container NICs in preparedInfo, hosted by the hostInstanceID. Returns the
 // network config including all allocated addaddresses on success.
-func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error) {
+func (e *environ) AllocateContainerAddresses(envcontext.ProviderCallContext, instance.Id, names.MachineTag, network.InterfaceInfos) (network.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 
 // AreSpacesRoutable returns whether the communication between the
 // two spaces can use cloud-local addaddresses.
-func (*environ) AreSpacesRoutable(context.ProviderCallContext, *environs.ProviderSpaceInfo, *environs.ProviderSpaceInfo) (bool, error) {
+func (*environ) AreSpacesRoutable(envcontext.ProviderCallContext, *environs.ProviderSpaceInfo, *environs.ProviderSpaceInfo) (bool, error) {
 	return false, errors.NotSupportedf("spaces")
 }
 
 // ProviderSpaceInfo returns the details of the space requested as
 // a ProviderSpaceInfo.
-func (*environ) ProviderSpaceInfo(context.ProviderCallContext, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
+func (*environ) ProviderSpaceInfo(envcontext.ProviderCallContext, *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	return nil, errors.NotSupportedf("spaces")
 }
 
 // ReleaseContainerAddresses releases the previously allocated
 // addaddresses matching the interface details passed in.
-func (*environ) ReleaseContainerAddresses(context.ProviderCallContext, []network.ProviderInterfaceInfo) error {
+func (*environ) ReleaseContainerAddresses(envcontext.ProviderCallContext, []network.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container address allocation")
 }
 

@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/environs/context"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -27,5 +27,9 @@ func newAPI(ctx facade.Context) (*API, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIWithBacking(stateShim, context.CallContext(st), ctx.Resources(), ctx.Auth(), ctx.Logger().Child("subnets"))
+
+	return newAPIWithBacking(
+		stateShim,
+		credentialcommon.CredentialInvalidatorGetter(ctx),
+		ctx.Resources(), ctx.Auth(), ctx.Logger().Child("subnets"))
 }

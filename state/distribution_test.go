@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/state"
 )
 
@@ -35,7 +35,7 @@ type mockInstanceDistributor struct {
 }
 
 func (p *mockInstanceDistributor) DistributeInstances(
-	ctx context.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
+	ctx envcontext.ProviderCallContext, candidates, distributionGroup []instance.Id, limitZones []string,
 ) ([]instance.Id, error) {
 	p.candidates = candidates
 	p.distributionGroup = distributionGroup
@@ -50,7 +50,7 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	s.distributor = mockInstanceDistributor{}
-	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
+	s.policy.GetInstanceDistributor = func() (envcontext.Distributor, error) {
 		return &s.distributor, nil
 	}
 
@@ -144,7 +144,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesErrors(c *gc.C) {
 	_, err = unit.AssignToCleanEmptyMachine()
 	c.Assert(err, gc.ErrorMatches, ".*no assignment for you")
 	// If the policy's InstanceDistributor method fails, that will be returned first.
-	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
+	s.policy.GetInstanceDistributor = func() (envcontext.Distributor, error) {
 		return nil, fmt.Errorf("incapable of InstanceDistributor")
 	}
 	_, err = unit.AssignToCleanMachine()
@@ -203,7 +203,7 @@ func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C)
 	s.setupScenario(c)
 
 	var distributorErr error
-	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
+	s.policy.GetInstanceDistributor = func() (envcontext.Distributor, error) {
 		return nil, distributorErr
 	}
 	unit, err := s.wordpress.AddUnit(state.AddUnitParams{})
@@ -217,7 +217,7 @@ func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C)
 }
 
 func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
-	s.policy.GetInstanceDistributor = func() (context.Distributor, error) {
+	s.policy.GetInstanceDistributor = func() (envcontext.Distributor, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}

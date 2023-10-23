@@ -9,7 +9,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 // ZonedEnviron is an environs.Environ that has support for availability zones.
@@ -19,12 +19,12 @@ type ZonedEnviron interface {
 	environs.Environ
 
 	// AvailabilityZones returns all availability zones in the environment.
-	AvailabilityZones(ctx context.ProviderCallContext) (network.AvailabilityZones, error)
+	AvailabilityZones(ctx envcontext.ProviderCallContext) (network.AvailabilityZones, error)
 
 	// InstanceAvailabilityZoneNames returns the names of the availability
 	// zones for the specified instances. The error returned follows the same
 	// rules as Environ.Instances.
-	InstanceAvailabilityZoneNames(ctx context.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error)
+	InstanceAvailabilityZoneNames(ctx envcontext.ProviderCallContext, ids []instance.Id) (map[instance.Id]string, error)
 
 	// DeriveAvailabilityZones attempts to derive availability zones from
 	// the specified StartInstanceParams.
@@ -35,7 +35,7 @@ type ZonedEnviron interface {
 	// there is no such restriction, then DeriveAvailabilityZones should
 	// return an empty string slice to indicate that the caller should
 	// choose an availability zone.
-	DeriveAvailabilityZones(ctx context.ProviderCallContext, args environs.StartInstanceParams) ([]string, error)
+	DeriveAvailabilityZones(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) ([]string, error)
 }
 
 // AvailabilityZoneInstances describes an availability zone and
@@ -76,7 +76,7 @@ func (b byPopulationThenName) Swap(i, j int) {
 // If the specified group is empty, then it will behave as if the result of
 // AllRunningInstances were provided.
 func AvailabilityZoneAllocations(
-	env ZonedEnviron, ctx context.ProviderCallContext, group []instance.Id,
+	env ZonedEnviron, ctx envcontext.ProviderCallContext, group []instance.Id,
 ) ([]AvailabilityZoneInstances, error) {
 	if len(group) == 0 {
 		instances, err := env.AllRunningInstances(ctx)
@@ -147,7 +147,7 @@ var internalAvailabilityZoneAllocations = AvailabilityZoneAllocations
 // At that time limitZones could be transformed to a map so that lookups in the
 // filtering below are more efficient.
 func DistributeInstances(
-	env ZonedEnviron, ctx context.ProviderCallContext, candidates, group []instance.Id, limitZones []string,
+	env ZonedEnviron, ctx envcontext.ProviderCallContext, candidates, group []instance.Id, limitZones []string,
 ) ([]instance.Id, error) {
 	// Determine availability zone distribution for the group.
 	zoneInstances, err := internalAvailabilityZoneAllocations(env, ctx, group)

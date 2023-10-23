@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -38,7 +38,7 @@ func Open(ctx stdcontext.Context, p EnvironProvider, args OpenParams) (Environ, 
 func Destroy(
 	controllerName string,
 	env ControllerDestroyer,
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	store jujuclient.ControllerStore,
 ) error {
 	details, err := store.ControllerByName(controllerName)

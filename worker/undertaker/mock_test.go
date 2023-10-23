@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	environscontext "github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/worker/undertaker"
 )
@@ -106,7 +106,7 @@ type mockDestroyer struct {
 	stub *testing.Stub
 }
 
-func (mock *mockDestroyer) Destroy(ctx environscontext.ProviderCallContext) error {
+func (mock *mockDestroyer) Destroy(ctx envcontext.ProviderCallContext) error {
 	mock.stub.AddCall("Destroy", ctx)
 	// A small delay to allow any timeout to expire.
 	time.Sleep(100 * time.Millisecond)

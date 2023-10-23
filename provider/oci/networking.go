@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	envcontext "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	providerCommon "github.com/juju/juju/provider/oci/common"
 )

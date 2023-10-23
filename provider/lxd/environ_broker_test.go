@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 
@@ -18,7 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	containerlxd "github.com/juju/juju/internal/container/lxd"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 	"github.com/juju/juju/provider/lxd"
@@ -27,7 +28,7 @@ import (
 type environBrokerSuite struct {
 	lxd.EnvironSuite
 
-	callCtx           *context.CloudCallContext
+	callCtx           envcontext.ProviderCallContext
 	defaultProfile    *api.Profile
 	invalidCredential bool
 }
@@ -36,12 +37,10 @@ var _ = gc.Suite(&environBrokerSuite{})
 
 func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = &context.CloudCallContext{
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidCredential = true
-			return nil
-		},
-	}
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
+		s.invalidCredential = true
+		return nil
+	})
 	s.defaultProfile = &api.Profile{
 		ProfilePut: api.ProfilePut{
 			Devices: map[string]map[string]string{

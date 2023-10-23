@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 )
 
@@ -28,7 +28,7 @@ var AddressesRefreshAttempt = utils.AttemptStrategy{
 
 // getAddresses queries and returns the Addresses for the given instances,
 // ignoring nil instances or ones without addresses.
-func getAddresses(ctx context.ProviderCallContext, instances []instances.Instance) []network.ProviderAddress {
+func getAddresses(ctx envcontext.ProviderCallContext, instances []instances.Instance) []network.ProviderAddress {
 	var allAddrs []network.ProviderAddress
 	for _, inst := range instances {
 		if inst == nil {
@@ -51,7 +51,7 @@ func getAddresses(ctx context.ProviderCallContext, instances []instances.Instanc
 // to have addresses, and returns them.
 func waitAnyInstanceAddresses(
 	env Environ,
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	instanceIds []instance.Id,
 ) ([]network.ProviderAddress, error) {
 	var addrs []network.ProviderAddress
@@ -72,7 +72,7 @@ func waitAnyInstanceAddresses(
 // APIInfo returns an api.Info for the environment. The result is populated
 // with addresses and CA certificate, but no tag or password.
 func APIInfo(
-	ctx context.ProviderCallContext, controllerUUID, modelUUID, caCert string, apiPort int, env Environ,
+	ctx envcontext.ProviderCallContext, controllerUUID, modelUUID, caCert string, apiPort int, env Environ,
 ) (*api.Info, error) {
 	instanceIds, err := env.ControllerInstances(ctx, controllerUUID)
 	if err != nil {
@@ -95,7 +95,7 @@ func APIInfo(
 
 // CheckProviderAPI returns an error if a simple API call
 // to check a basic response from the specified environ fails.
-func CheckProviderAPI(envOrBroker BootstrapEnviron, ctx context.ProviderCallContext) error {
+func CheckProviderAPI(envOrBroker BootstrapEnviron, ctx envcontext.ProviderCallContext) error {
 	var err error
 	if checker, ok := envOrBroker.(CloudEndpointChecker); ok {
 		err = checker.ValidateCloudEndpoint(ctx)

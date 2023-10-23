@@ -6,7 +6,7 @@ package spool
 import (
 	"time"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
@@ -42,7 +42,7 @@ type MetricReader interface {
 // MetricFactory contains the metrics reader and recorder factories.
 type MetricFactory interface {
 	// Recorder returns a new MetricRecorder.
-	Recorder(metrics map[string]corecharm.Metric, charmURL, unitTag string) (MetricRecorder, error)
+	Recorder(metrics map[string]jujucharm.Metric, charmURL, unitTag string) (MetricRecorder, error)
 
 	// Reader returns a new MetricReader.
 	Reader() (MetricReader, error)
@@ -58,7 +58,7 @@ func (f *factory) Reader() (MetricReader, error) {
 }
 
 // Recorder implements the MetricFactory interface.
-func (f *factory) Recorder(declaredMetrics map[string]corecharm.Metric, charmURL, unitTag string) (MetricRecorder, error) {
+func (f *factory) Recorder(declaredMetrics map[string]jujucharm.Metric, charmURL, unitTag string) (MetricRecorder, error) {
 	return NewJSONMetricRecorder(MetricRecorderConfig{
 		SpoolDir: f.spoolDir,
 		Metrics:  declaredMetrics,

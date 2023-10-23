@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/client"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )
@@ -38,11 +37,10 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		nil, // pool
 		nil, // resources
 		authorizer,
-		nil,                                // presence
-		nil,                                // toolsFinder
-		nil,                                // newEnviron
-		nil,                                // blockChecker
-		context.NewEmptyCloudCallContext(), // ProviderCallContext
+		nil, // presence
+		nil, // toolsFinder
+		nil, // newEnviron
+		nil, // blockChecker
 		nil,
 		nil, // multiwatcher.Factory
 		nil,

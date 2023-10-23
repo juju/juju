@@ -10,7 +10,7 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	environs "github.com/juju/juju/environs"
-	context "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -39,7 +39,7 @@ func (m *MockLXDProfileInstanceBroker) EXPECT() *MockLXDProfileInstanceBrokerMoc
 }
 
 // AllInstances mocks base method.
-func (m *MockLXDProfileInstanceBroker) AllInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockLXDProfileInstanceBroker) AllInstances(arg0 envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -54,7 +54,7 @@ func (mr *MockLXDProfileInstanceBrokerMockRecorder) AllInstances(arg0 interface{
 }
 
 // AllRunningInstances mocks base method.
-func (m *MockLXDProfileInstanceBroker) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockLXDProfileInstanceBroker) AllRunningInstances(arg0 envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -113,7 +113,7 @@ func (mr *MockLXDProfileInstanceBrokerMockRecorder) MaybeWriteLXDProfile(arg0, a
 }
 
 // StartInstance mocks base method.
-func (m *MockLXDProfileInstanceBroker) StartInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (m *MockLXDProfileInstanceBroker) StartInstance(arg0 envcontext.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartInstance", arg0, arg1)
 	ret0, _ := ret[0].(*environs.StartInstanceResult)
@@ -128,7 +128,7 @@ func (mr *MockLXDProfileInstanceBrokerMockRecorder) StartInstance(arg0, arg1 int
 }
 
 // StopInstances mocks base method.
-func (m *MockLXDProfileInstanceBroker) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.Id) error {
+func (m *MockLXDProfileInstanceBroker) StopInstances(arg0 envcontext.ProviderCallContext, arg1 ...instance.Id) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {

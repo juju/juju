@@ -4,7 +4,7 @@
 package vsphere_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/provider/vsphere/internal/ovatest"
@@ -29,7 +29,7 @@ type ProviderFixture struct {
 	dialStub testing.Stub
 	client   *mockClient
 	provider environs.CloudEnvironProvider
-	callCtx  context.ProviderCallContext
+	callCtx  envcontext.ProviderCallContext
 }
 
 func (s *ProviderFixture) SetUpTest(c *gc.C) {
@@ -39,7 +39,7 @@ func (s *ProviderFixture) SetUpTest(c *gc.C) {
 	s.provider = vsphere.NewEnvironProvider(vsphere.EnvironProviderConfig{
 		Dial: newMockDialFunc(&s.dialStub, s.client),
 	})
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 type EnvironFixture struct {
@@ -47,7 +47,7 @@ type EnvironFixture struct {
 	imageServer         *httptest.Server
 	imageServerRequests []*http.Request
 	env                 environs.Environ
-	callCtx             context.ProviderCallContext
+	callCtx             envcontext.ProviderCallContext
 }
 
 func (s *EnvironFixture) SetUpTest(c *gc.C) {
@@ -59,7 +59,7 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 		s.imageServer.Close()
 	})
 
-	env, err := s.provider.Open(stdcontext.TODO(), environs.OpenParams{
+	env, err := s.provider.Open(context.Background(), environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
 			"image-metadata-url": s.imageServer.URL,
@@ -70,7 +70,7 @@ func (s *EnvironFixture) SetUpTest(c *gc.C) {
 
 	// Make sure we don't fall back to the public image sources.
 	s.PatchValue(&imagemetadata.DefaultUbuntuBaseURL, "")
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
@@ -130,7 +130,7 @@ func serveImageMetadata(requests *[]*http.Request) *httptest.Server {
 	return httptest.NewServer(mux)
 }
 
-func AssertInvalidatesCredential(c *gc.C, client *mockClient, f func(context.ProviderCallContext) error) {
+func AssertInvalidatesCredential(c *gc.C, client *mockClient, f func(envcontext.ProviderCallContext) error) {
 	client.SetErrors(soap.WrapSoapFault(&soap.Fault{
 		Code:   "ServerFaultCode",
 		String: "No way José",
@@ -139,12 +139,10 @@ func AssertInvalidatesCredential(c *gc.C, client *mockClient, f func(context.Pro
 		}{Fault: types.NoPermission{}},
 	}), errors.New("find folder failed"))
 	var called bool
-	ctx := &context.CloudCallContext{
-		InvalidateCredentialFunc: func(string) error {
-			called = true
-			return nil
-		},
-	}
+	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
+		called = true
+		return nil
+	})
 	err := f(ctx)
 	c.Assert(err, gc.ErrorMatches, ".*ServerFaultCode: No way José$")
 	c.Assert(called, gc.Equals, true)

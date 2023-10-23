@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -38,8 +37,6 @@ type facadeSuite struct {
 	authorizer       *apiservertesting.FakeAuthorizer
 	facade           *sshclient.Facade
 	m0, uFoo, uOther string
-
-	callContext environscontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&facadeSuite{})
@@ -59,20 +56,20 @@ func (s *facadeSuite) SetUpTest(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("igor")
 	s.authorizer.AdminTag = names.NewUserTag("igor")
 
-	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
+	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
 
 func (s *facadeSuite) TestMachineAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewMachineTag("0")
-	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
+	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, nil)
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
 func (s *facadeSuite) TestUnitAuthNotAllowed(c *gc.C) {
 	s.authorizer.Tag = names.NewUnitTag("foo/0")
-	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
+	_, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, nil)
 	c.Assert(err, gc.Equals, apiservererrors.ErrPerm)
 }
 
@@ -82,7 +79,7 @@ func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("jeremy")
 	s.authorizer.AdminTag = names.NewUserTag("igor")
 
-	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
+	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 
@@ -101,7 +98,7 @@ func (s *facadeSuite) TestSuperUserAuth(c *gc.C) {
 	s.authorizer.Tag = names.NewUserTag("superuser-jeremy")
 	s.authorizer.AdminTag = names.NewUserTag("igor")
 
-	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, s.callContext, nil)
+	facade, err := sshclient.InternalFacade(s.backend, nil, s.authorizer, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 
@@ -260,7 +257,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
 		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
 		authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(apiservererrors.ErrPerm),
 	)
-	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
+	facade, err := sshclient.InternalFacade(backend, nil, authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
 			return broker, nil
 		},
@@ -290,7 +287,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *gc.C) {
 		backend.EXPECT().Model().Return(model, nil),
 		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
-	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
+	facade, err := sshclient.InternalFacade(backend, nil, authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
 			return broker, nil
 		},
@@ -332,7 +329,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 		model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		backend.EXPECT().CloudSpec(gomock.Any()).Return(cloudSpec, nil),
 	)
-	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
+	facade, err := sshclient.InternalFacade(backend, nil, authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
 			return broker, nil
 		},
@@ -410,7 +407,7 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C, f func(authorizer *mo
 		model.EXPECT().Config().Return(nil, nil),
 		broker.EXPECT().GetSecretToken(k8sprovider.ExecRBACResourceName).Return("token", nil),
 	)
-	facade, err := sshclient.InternalFacade(backend, nil, authorizer, s.callContext,
+	facade, err := sshclient.InternalFacade(backend, nil, authorizer,
 		func(_ context.Context, arg environs.OpenParams) (sshclient.Broker, error) {
 			c.Assert(arg.ControllerUUID, gc.Equals, testing.ControllerTag.Id())
 			c.Assert(arg.Cloud, gc.DeepEquals, cloudSpec)

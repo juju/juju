@@ -19,7 +19,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
@@ -41,7 +41,7 @@ func (inst *azureInstance) Id() instance.Id {
 }
 
 // Status is specified in the Instance interface.
-func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Status {
+func (inst *azureInstance) Status(ctx envcontext.ProviderCallContext) instance.Status {
 	var instanceStatus status.Status
 	message := string(inst.provisioningState)
 	switch inst.provisioningState {
@@ -73,7 +73,7 @@ func (inst *azureInstance) Status(ctx context.ProviderCallContext) instance.Stat
 // VirtualMachines are up-to-date, and that there are no concurrent accesses
 // to the instances.
 func (env *azureEnviron) setInstanceAddresses(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	resourceGroup string,
 	instances []*azureInstance,
 ) (err error) {
@@ -96,7 +96,7 @@ func (env *azureEnviron) setInstanceAddresses(
 // group, and returns a mapping from instance ID to the network interfaces
 // associated with that instance.
 func (env *azureEnviron) instanceNetworkInterfaces(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	resourceGroup string,
 ) (map[instance.Id][]*armnetwork.Interface, error) {
 	nicClient, err := env.interfacesClient()
@@ -122,7 +122,7 @@ func (env *azureEnviron) instanceNetworkInterfaces(
 // group, and returns a mapping from instance ID to the public IP addresses
 // associated with that instance.
 func (env *azureEnviron) instancePublicIPAddresses(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	resourceGroup string,
 ) (map[instance.Id][]*armnetwork.PublicIPAddress, error) {
 	pipClient, err := env.publicAddressesClient()
@@ -145,7 +145,7 @@ func (env *azureEnviron) instancePublicIPAddresses(
 }
 
 // Addresses is specified in the Instance interface.
-func (inst *azureInstance) Addresses(ctx context.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
+func (inst *azureInstance) Addresses(ctx envcontext.ProviderCallContext) (corenetwork.ProviderAddresses, error) {
 	addresses := make([]corenetwork.ProviderAddress, 0, len(inst.networkInterfaces)+len(inst.publicIPAddresses))
 	for _, nic := range inst.networkInterfaces {
 		if nic.Properties == nil {
@@ -264,7 +264,7 @@ func getSecurityGroupInfoForInterfaces(ctx stdcontext.Context, env *azureEnviron
 }
 
 // OpenPorts is specified in the Instance interface.
-func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+func (inst *azureInstance) OpenPorts(ctx envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	securityGroupInfos, err := inst.getSecurityGroupInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -279,7 +279,7 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 }
 
 func (inst *azureInstance) openPortsOnGroup(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	machineId string, nsgInfo securityGroupInfo, rules firewall.IngressRules,
 ) error {
 	nsg := nsgInfo.securityGroup
@@ -369,7 +369,7 @@ func (inst *azureInstance) openPortsOnGroup(
 }
 
 // ClosePorts is specified in the Instance interface.
-func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
+func (inst *azureInstance) ClosePorts(ctx envcontext.ProviderCallContext, machineId string, rules firewall.IngressRules) error {
 	securityGroupInfos, err := inst.getSecurityGroupInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -384,7 +384,7 @@ func (inst *azureInstance) ClosePorts(ctx context.ProviderCallContext, machineId
 }
 
 func (inst *azureInstance) closePortsOnGroup(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	machineId string, nsgInfo securityGroupInfo, rules firewall.IngressRules,
 ) error {
 	// Delete rules one at a time; this is necessary to avoid trampling
@@ -416,7 +416,7 @@ func (inst *azureInstance) closePortsOnGroup(
 }
 
 // IngressRules is specified in the Instance interface.
-func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
+func (inst *azureInstance) IngressRules(ctx envcontext.ProviderCallContext, machineId string) (firewall.IngressRules, error) {
 	// The rules to use will be those on the primary network interface.
 	var info *securityGroupInfo
 	for _, nic := range inst.networkInterfaces {
@@ -444,7 +444,7 @@ func (inst *azureInstance) IngressRules(ctx context.ProviderCallContext, machine
 	return rules, nil
 }
 
-func (inst *azureInstance) ingressRulesForGroup(ctx context.ProviderCallContext, machineId string, nsgInfo *securityGroupInfo) (rules firewall.IngressRules, err error) {
+func (inst *azureInstance) ingressRulesForGroup(ctx envcontext.ProviderCallContext, machineId string, nsgInfo *securityGroupInfo) (rules firewall.IngressRules, err error) {
 	securityGroups, err := inst.env.securityGroupsClient()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -537,7 +537,7 @@ func (inst *azureInstance) ingressRulesForGroup(ctx context.ProviderCallContext,
 // i.e. both the ones opened by OpenPorts above, and the ones opened for API
 // access.
 func deleteInstanceNetworkSecurityRules(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	env *azureEnviron, id instance.Id,
 	networkInterfaces []*armnetwork.Interface,
 ) error {
@@ -562,7 +562,7 @@ func deleteInstanceNetworkSecurityRules(
 }
 
 func deleteSecurityRules(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	id instance.Id,
 	nsgInfo securityGroupInfo,
 	securityRuleClient *armnetwork.SecurityRulesClient,

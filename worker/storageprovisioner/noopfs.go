@@ -4,7 +4,7 @@
 package storageprovisioner
 
 import (
-	environscontext "github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 )
 

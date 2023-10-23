@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -104,8 +104,8 @@ func (s *ManifoldSuite) TestCollectWorkerStarts(c *gc.C) {
 			}, nil
 		})
 	s.PatchValue(collect.ReadCharm,
-		func(_ names.UnitTag, _ context.Paths) (string, map[string]corecharm.Metric, error) {
-			return "ch:ubuntu-1", map[string]corecharm.Metric{"pings": {Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+		func(_ names.UnitTag, _ context.Paths) (string, map[string]jujucharm.Metric, error) {
+			return "ch:ubuntu-1", map[string]jujucharm.Metric{"pings": {Description: "test metric", Type: jujucharm.MetricTypeAbsolute}}, nil
 		})
 	worker, err := s.manifold.Start(s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
@@ -123,8 +123,8 @@ func (s *ManifoldSuite) TestCollectWorkerErrorStopsListener(c *gc.C) {
 	listener := &mockListener{}
 	s.PatchValue(collect.NewSocketListener, collect.NewSocketListenerFnc(listener))
 	s.PatchValue(collect.ReadCharm,
-		func(_ names.UnitTag, _ context.Paths) (string, map[string]corecharm.Metric, error) {
-			return "local:ubuntu-1", map[string]corecharm.Metric{"pings": {Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+		func(_ names.UnitTag, _ context.Paths) (string, map[string]jujucharm.Metric, error) {
+			return "local:ubuntu-1", map[string]jujucharm.Metric{"pings": {Description: "test metric", Type: jujucharm.MetricTypeAbsolute}}, nil
 		})
 	worker, err := s.manifold.Start(s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
@@ -149,7 +149,7 @@ func (s *ManifoldSuite) TestRecordMetricsError(c *gc.C) {
 	recorder, err := spool.NewJSONMetricRecorder(
 		spool.MetricRecorderConfig{
 			SpoolDir: c.MkDir(),
-			Metrics: map[string]corecharm.Metric{
+			Metrics: map[string]jujucharm.Metric{
 				"juju-units": {},
 			},
 			CharmURL: "local:precise/wordpress",
@@ -161,7 +161,7 @@ func (s *ManifoldSuite) TestRecordMetricsError(c *gc.C) {
 			return &errorRecorder{recorder}, nil
 		})
 	s.PatchValue(collect.ReadCharm,
-		func(_ names.UnitTag, _ context.Paths) (string, map[string]corecharm.Metric, error) {
+		func(_ names.UnitTag, _ context.Paths) (string, map[string]jujucharm.Metric, error) {
 			return "ch:wordpress-37", nil, nil
 		})
 	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
@@ -183,8 +183,8 @@ func (s *ManifoldSuite) TestJujuUnitsBuiltinMetric(c *gc.C) {
 			return recorder, nil
 		})
 	s.PatchValue(collect.ReadCharm,
-		func(_ names.UnitTag, _ context.Paths) (string, map[string]corecharm.Metric, error) {
-			return "ch:wordpress-37", map[string]corecharm.Metric{"pings": {Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+		func(_ names.UnitTag, _ context.Paths) (string, map[string]jujucharm.Metric, error) {
+			return "ch:wordpress-37", map[string]jujucharm.Metric{"pings": {Description: "test metric", Type: jujucharm.MetricTypeAbsolute}}, nil
 		})
 	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
@@ -211,8 +211,8 @@ func (s *ManifoldSuite) TestAvailability(c *gc.C) {
 			return recorder, nil
 		})
 	s.PatchValue(collect.ReadCharm,
-		func(_ names.UnitTag, _ context.Paths) (string, map[string]corecharm.Metric, error) {
-			return "ch:wordpress-37", map[string]corecharm.Metric{"pings": {Description: "test metric", Type: corecharm.MetricTypeAbsolute}}, nil
+		func(_ names.UnitTag, _ context.Paths) (string, map[string]jujucharm.Metric, error) {
+			return "ch:wordpress-37", map[string]jujucharm.Metric{"pings": {Description: "test metric", Type: jujucharm.MetricTypeAbsolute}}, nil
 		})
 	charmdir := &dummyCharmdir{}
 	s.resources["charmdir-name"] = dt.NewStubResource(charmdir)
@@ -246,8 +246,8 @@ func (s *ManifoldSuite) TestNoMetricsDeclared(c *gc.C) {
 			return recorder, nil
 		})
 	s.PatchValue(collect.ReadCharm,
-		func(_ names.UnitTag, _ context.Paths) (string, map[string]corecharm.Metric, error) {
-			return "ch:wordpress-37", map[string]corecharm.Metric{}, nil
+		func(_ names.UnitTag, _ context.Paths) (string, map[string]jujucharm.Metric, error) {
+			return "ch:wordpress-37", map[string]jujucharm.Metric{}, nil
 		})
 	collectEntity, err := collect.NewCollect(s.manifoldConfig, s.resources.Context())
 	c.Assert(err, jc.ErrorIsNil)
@@ -312,7 +312,7 @@ type dummyRecorder struct {
 
 	// inputs
 	charmURL, unitTag string
-	metrics           map[string]corecharm.Metric
+	metrics           map[string]jujucharm.Metric
 	isDeclaredMetric  bool
 	err               string
 

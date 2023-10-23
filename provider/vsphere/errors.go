@@ -10,7 +10,7 @@ import (
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -47,7 +47,7 @@ func IsAuthorisationFailure(err error) bool {
 
 // HandleCredentialError marks the current credential as invalid if
 // the passed vsphere error indicates it should be.
-func HandleCredentialError(err error, env *sessionEnviron, ctx context.ProviderCallContext) {
+func HandleCredentialError(err error, env *sessionEnviron, ctx envcontext.ProviderCallContext) {
 	if err == nil {
 		return
 	}

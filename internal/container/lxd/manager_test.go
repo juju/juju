@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	"context"
 	"errors"
 	stdtesting "testing"
 
@@ -23,7 +24,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/lxd"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
@@ -179,7 +180,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 	instanceId := instance.Id()
 	c.Check(string(instanceId), gc.Equals, hostName)
 
-	instanceStatus := instance.Status(context.NewEmptyCloudCallContext())
+	instanceStatus := instance.Status(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Check(instanceStatus.Status, gc.Equals, status.Running)
 	c.Check(*hc.AvailabilityZone, gc.Equals, "test-availability-zone")
 

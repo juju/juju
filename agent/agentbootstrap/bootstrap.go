@@ -34,10 +34,12 @@ import (
 	credbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	modeldomain "github.com/juju/juju/domain/model"
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
+	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
+	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/space"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/mongo"
@@ -53,7 +55,7 @@ type DqliteInitializerFunc func(
 	mgr database.BootstrapNodeManager,
 	logger database.Logger,
 	preferLoopback bool,
-	ops ...database.BootstrapOpt,
+	concerns ...database.BootstrapConcern,
 ) error
 
 // Logger describes methods for emitting log output.
@@ -227,15 +229,25 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		Type:        controllerModelType,
 	}
 
+	controllerModelDefaults := modeldefaultsbootstrap.ModelDefaultsProvider(
+		nil,
+		stateParams.ControllerInheritedConfig,
+		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
+
 	if err := b.bootstrapDqlite(
 		ctx,
 		database.NewNodeManager(b.agentConfig, b.logger, coredatabase.NoopSlowQueryLogger{}),
 		b.logger,
 		false,
-		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
-		cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
-		credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
-		modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
+		database.BootstrapControllerConcern(
+			ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
+			cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
+			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
+			modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
+		),
+		database.BootstrapModelConcern(controllerUUID,
+			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
+		),
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -299,7 +311,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	// We need to do this before setting the API host-ports,
 	// because any space names in the bootstrap machine addresses must be
 	// reconcilable with space IDs at that point.
-	callContext := context.CallContext(st)
+	callContext := envcontext.WithoutCredentialInvalidator(ctx)
 	if err = space.ReloadSpaces(callContext, space.NewState(st), b.bootstrapEnviron); err != nil {
 		if !errors.Is(err, errors.NotSupported) {
 			return nil, errors.Trace(err)
@@ -463,8 +475,9 @@ func (b *AgentBootstrap) ensureInitialModel(
 		return errors.Annotate(err, "opening initial model environment")
 	}
 
+	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
 	if err := initialModelEnv.Create(
-		context.CallContext(st),
+		callCtx,
 		environs.CreateParams{
 			ControllerUUID: controllerUUID,
 		}); err != nil {
@@ -497,8 +510,7 @@ func (b *AgentBootstrap) ensureInitialModel(
 	}
 
 	// TODO(wpk) 2017-05-24 Copy subnets/spaces from controller model
-	callContext := context.CallContext(initialModelState)
-	if err = space.ReloadSpaces(callContext, space.NewState(initialModelState), initialModelEnv); err != nil {
+	if err = space.ReloadSpaces(callCtx, space.NewState(initialModelState), initialModelEnv); err != nil {
 		if errors.Is(err, errors.NotSupported) {
 			b.logger.Debugf("Not performing spaces load on a non-networking environment")
 		} else {

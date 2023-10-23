@@ -220,14 +220,14 @@ func (st State) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainupg
 		return errors.Trace(err)
 	}
 
-	completeDBUpgradeQuery := `
+	q := `
 UPDATE upgrade_info 
 SET state_type_id = $M.to_state 
 WHERE uuid = $M.info_uuid
 AND state_type_id = $M.from_state;`
-	completedDBUpgradeStmt, err := sqlair.Prepare(completeDBUpgradeQuery, sqlair.M{})
+	completedDBUpgradeStmt, err := sqlair.Prepare(q, sqlair.M{})
 	if err != nil {
-		return errors.Annotatef(err, "preparing %q", completeDBUpgradeQuery)
+		return errors.Annotatef(err, "preparing %q", q)
 	}
 
 	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -243,6 +243,41 @@ AND state_type_id = $M.from_state;`
 			return errors.Trace(err)
 		} else if num != 1 {
 			return errors.Errorf("expected to set db upgrade completed, but %d rows were affected", num)
+		}
+		return nil
+	}))
+}
+
+// SetDBUpgradeFailed marks the database upgrade as failed
+func (st State) SetDBUpgradeFailed(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	q := `
+UPDATE upgrade_info 
+SET state_type_id = $M.to_state 
+WHERE uuid = $M.info_uuid
+AND state_type_id = $M.from_state;`
+	completedDBUpgradeStmt, err := sqlair.Prepare(q, sqlair.M{})
+	if err != nil {
+		return errors.Annotatef(err, "preparing %q", q)
+	}
+
+	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var outcome sqlair.Outcome
+		if err = tx.Query(ctx, completedDBUpgradeStmt, sqlair.M{
+			"info_uuid":  upgradeUUID,
+			"from_state": upgrade.Started,
+			"to_state":   upgrade.Error,
+		}).Get(&outcome); err != nil {
+			return errors.Trace(err)
+		}
+		if num, err := outcome.Result().RowsAffected(); err != nil {
+			return errors.Trace(err)
+		} else if num != 1 {
+			return errors.Errorf("expected to set db upgrade failed, but %d rows were affected", num)
 		}
 		return nil
 	}))
@@ -367,7 +402,7 @@ func (st *State) UpgradeInfo(ctx context.Context, upgradeUUID domainupgrade.UUID
 		return upgrade.Info{}, errors.Trace(err)
 	}
 
-	getUpgradeQuery := `
+	q := `
 SELECT uuid, previous_version, target_version, upgrade_state_type.id 
 FROM upgrade_info 
 	LEFT JOIN upgrade_state_type
@@ -377,7 +412,7 @@ WHERE uuid = ?
 
 	var upgradeInfoRow info
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, getUpgradeQuery, upgradeUUID)
+		row := tx.QueryRowContext(ctx, q, upgradeUUID)
 		if err := row.Scan(&upgradeInfoRow.UUID, &upgradeInfoRow.PreviousVersion, &upgradeInfoRow.TargetVersion, &upgradeInfoRow.State); err != nil {
 			return errors.Trace(err)
 		}

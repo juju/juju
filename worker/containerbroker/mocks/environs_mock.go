@@ -10,7 +10,7 @@ import (
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	environs "github.com/juju/juju/environs"
-	context "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	instances "github.com/juju/juju/environs/instances"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -106,7 +106,7 @@ func (m *MockInstanceBroker) EXPECT() *MockInstanceBrokerMockRecorder {
 }
 
 // AllInstances mocks base method.
-func (m *MockInstanceBroker) AllInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockInstanceBroker) AllInstances(arg0 envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -121,7 +121,7 @@ func (mr *MockInstanceBrokerMockRecorder) AllInstances(arg0 interface{}) *gomock
 }
 
 // AllRunningInstances mocks base method.
-func (m *MockInstanceBroker) AllRunningInstances(arg0 context.ProviderCallContext) ([]instances.Instance, error) {
+func (m *MockInstanceBroker) AllRunningInstances(arg0 envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllRunningInstances", arg0)
 	ret0, _ := ret[0].([]instances.Instance)
@@ -136,7 +136,7 @@ func (mr *MockInstanceBrokerMockRecorder) AllRunningInstances(arg0 interface{}) 
 }
 
 // StartInstance mocks base method.
-func (m *MockInstanceBroker) StartInstance(arg0 context.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (m *MockInstanceBroker) StartInstance(arg0 envcontext.ProviderCallContext, arg1 environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartInstance", arg0, arg1)
 	ret0, _ := ret[0].(*environs.StartInstanceResult)
@@ -151,7 +151,7 @@ func (mr *MockInstanceBrokerMockRecorder) StartInstance(arg0, arg1 interface{}) 
 }
 
 // StopInstances mocks base method.
-func (m *MockInstanceBroker) StopInstances(arg0 context.ProviderCallContext, arg1 ...instance.Id) error {
+func (m *MockInstanceBroker) StopInstances(arg0 envcontext.ProviderCallContext, arg1 ...instance.Id) error {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0}
 	for _, a := range arg1 {

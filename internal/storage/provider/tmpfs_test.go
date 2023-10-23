@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -11,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/testing"
@@ -25,7 +26,7 @@ type tmpfsSuite struct {
 	commands   *mockRunCommand
 	fakeEtcDir string
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 func mountInfoTmpfsLine(id int, mountPoint, source string) string {
@@ -36,7 +37,7 @@ func (s *tmpfsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
 	s.fakeEtcDir = c.MkDir()
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *tmpfsSuite) TearDownTest(c *gc.C) {

@@ -821,7 +821,7 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(ctx context.Context, arg
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
-		id, changes, err := internal.EnsureRegisterWatcher[[]string](s.watcherRegistry, w)
+		id, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, s.watcherRegistry, w)
 		if err != nil {
 			return "", nil, errors.Trace(err)
 		}
@@ -872,7 +872,7 @@ func (s *SecretsManagerAPI) WatchObsolete(ctx context.Context, args params.Entit
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	id, changes, err := internal.EnsureRegisterWatcher[[]string](s.watcherRegistry, w)
+	id, changes, err := internal.EnsureRegisterWatcher[[]string](ctx, s.watcherRegistry, w)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -909,7 +909,7 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(ctx context.Context, arg
 		return result, errors.Trace(err)
 	}
 
-	id, secretChanges, err := internal.EnsureRegisterWatcher[[]corewatcher.SecretTriggerChange](s.watcherRegistry, w)
+	id, secretChanges, err := internal.EnsureRegisterWatcher[[]corewatcher.SecretTriggerChange](ctx, s.watcherRegistry, w)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil
@@ -1004,7 +1004,7 @@ func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(ctx context.Contex
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	id, secretChanges, err := internal.EnsureRegisterWatcher[[]corewatcher.SecretTriggerChange](s.watcherRegistry, w)
+	id, secretChanges, err := internal.EnsureRegisterWatcher[[]corewatcher.SecretTriggerChange](ctx, s.watcherRegistry, w)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil

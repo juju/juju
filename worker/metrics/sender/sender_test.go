@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
-	corecharm "github.com/juju/charm/v11"
+	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -44,9 +44,9 @@ func (s *senderSuite) SetUpTest(c *gc.C) {
 		s.spoolDir,
 	}
 
-	declaredMetrics := map[string]corecharm.Metric{
-		"pings": {Description: "test pings", Type: corecharm.MetricTypeAbsolute},
-		"pongs": {Description: "test pongs", Type: corecharm.MetricTypeGauge},
+	declaredMetrics := map[string]jujucharm.Metric{
+		"pings": {Description: "test pings", Type: jujucharm.MetricTypeAbsolute},
+		"pongs": {Description: "test pongs", Type: jujucharm.MetricTypeGauge},
 	}
 	recorder, err := s.metricfactory.Recorder(declaredMetrics, "local:trusty/testcharm", "testcharm/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -79,9 +79,9 @@ func (s *senderSuite) TestHandler(c *gc.C) {
 		tmpDir,
 	}
 
-	declaredMetrics := map[string]corecharm.Metric{
-		"pings": {Description: "test pings", Type: corecharm.MetricTypeAbsolute},
-		"pongs": {Description: "test pongs", Type: corecharm.MetricTypeGauge},
+	declaredMetrics := map[string]jujucharm.Metric{
+		"pings": {Description: "test pings", Type: jujucharm.MetricTypeAbsolute},
+		"pongs": {Description: "test pongs", Type: jujucharm.MetricTypeGauge},
 	}
 	recorder, err := metricFactory.Recorder(declaredMetrics, "local:trusty/testcharm", "testcharm/0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -271,7 +271,7 @@ type stubMetricFactory struct {
 	spoolDir string
 }
 
-func (s *stubMetricFactory) Recorder(declaredMetrics map[string]corecharm.Metric, charmURL, unitTag string) (spool.MetricRecorder, error) {
+func (s *stubMetricFactory) Recorder(declaredMetrics map[string]jujucharm.Metric, charmURL, unitTag string) (spool.MetricRecorder, error) {
 	s.MethodCall(s, "Recorder", declaredMetrics, charmURL, unitTag)
 	config := spool.MetricRecorderConfig{
 		SpoolDir: s.spoolDir,

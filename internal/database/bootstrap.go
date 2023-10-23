@@ -11,7 +11,9 @@ import (
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
+	coreschema "github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/pragma"
@@ -61,6 +63,64 @@ func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx)
 	return errors.Trace(StdTxn(ctx, r.db, f))
 }
 
+// BootstrapConcern is a type for describing a set of bootstrap operations to
+// perform on a dqlite application.
+type BootstrapConcern = func(ctx context.Context, logger Logger, dqlite *app.App) error
+
+// BootstrapControllerConcern is a BootstrapConcern type that will run the
+// provided BootstrapOpts on the controller database.
+func BootstrapControllerConcern(ops ...BootstrapOpt) BootstrapConcern {
+	return bootstrapDBConcern(coredatabase.ControllerNS, schema.ControllerDDL(), ops...)
+}
+
+// BootstrapModelConcern is a BootstrapConcern type that will run the
+// provided BootstrapOpts on the specified model database.
+func BootstrapModelConcern(uuid model.UUID, ops ...BootstrapOpt) BootstrapConcern {
+	return bootstrapDBConcern(uuid.String(), schema.ModelDDL(), ops...)
+}
+
+func bootstrapDBConcern(
+	namespace string,
+	namespaceSchema *coreschema.Schema,
+	ops ...BootstrapOpt,
+) BootstrapConcern {
+	return func(ctx context.Context, logger Logger, dqlite *app.App) error {
+		db, err := dqlite.Open(ctx, namespace)
+		if err != nil {
+			return errors.Annotatef(err, "opening database for namespace %q", namespace)
+		}
+
+		if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
+			return errors.Annotatef(err, "setting foreign keys pragma for namespace %q", namespace)
+		}
+
+		defer func() {
+			if err := db.Close(); err != nil {
+				logger.Errorf("closing database with namespace %q: %v", namespace, err)
+			}
+		}()
+
+		runner := &txnRunner{db: db}
+
+		migration := NewDBMigration(runner, logger, namespaceSchema)
+		if err := migration.Apply(ctx); err != nil {
+			return errors.Annotatef(err, "creating database with namespace %q schema", namespace)
+		}
+
+		for i, op := range ops {
+			if err := op(ctx, runner); err != nil {
+				return errors.Annotatef(
+					err,
+					"running bootstrap operation at index %d for database with namespace %q",
+					i,
+					namespace,
+				)
+			}
+		}
+		return nil
+	}
+}
+
 // BootstrapOpt is a function run when bootstrapping a database,
 // used to insert initial data into the model.
 type BootstrapOpt func(context.Context, coredatabase.TxnRunner) error
@@ -81,7 +141,7 @@ func BootstrapDqlite(
 	mgr BootstrapNodeManager,
 	logger Logger,
 	preferLoopback bool,
-	ops ...BootstrapOpt,
+	concerns ...BootstrapConcern,
 ) error {
 	dir, err := mgr.EnsureDataDir()
 	if err != nil {
@@ -119,32 +179,38 @@ func BootstrapDqlite(
 		return errors.Annotatef(err, "waiting for Dqlite readiness")
 	}
 
-	db, err := dqlite.Open(ctx, coredatabase.ControllerNS)
-	if err != nil {
-		return errors.Annotatef(err, "opening controller database")
-	}
-
-	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, true); err != nil {
-		return errors.Annotate(err, "setting foreign keys pragma")
-	}
-
-	defer func() {
-		if err := db.Close(); err != nil {
-			logger.Errorf("closing controller database: %v", err)
-		}
-	}()
-
-	runner := &txnRunner{db: db}
-
-	if err := NewDBMigration(runner, logger, schema.ControllerDDL(dqlite.ID())).Apply(ctx); err != nil {
-		return errors.Annotate(err, "creating controller database schema")
-	}
-
-	for i, op := range ops {
-		if err := op(ctx, runner); err != nil {
-			return errors.Annotatef(err, "running bootstrap operation at index %d", i)
+	for i, concern := range concerns {
+		if err := concern(ctx, logger, dqlite); err != nil {
+			return errors.Annotatef(err, "running bootstrap concern at index %d", i)
 		}
 	}
 
 	return nil
+}
+
+// InsertControllerNodeID inserts the node ID of the controller node
+// into the controller_node table.
+func InsertControllerNodeID(ctx context.Context, runner coredatabase.TxnRunner, nodeID uint64) error {
+	q := `
+-- TODO (manadart 2023-06-06): At the time of writing, 
+-- we have not yet modelled machines. 
+-- Accordingly, the controller ID remains the ID of the machine, 
+-- but it should probably become a UUID once machines have one.
+-- While HA is not supported in K8s, this doesn't matter.
+INSERT INTO controller_node (controller_id, dqlite_node_id, bind_address)
+VALUES ('0', ?, '127.0.0.1');`
+	return runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		result, err := tx.ExecContext(ctx, q, nodeID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if affected != 1 {
+			return errors.Errorf("expected 1 row affected, got %d", affected)
+		}
+		return nil
+	})
 }

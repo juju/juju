@@ -16,7 +16,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
@@ -34,7 +34,7 @@ const (
 // diskEncryptionInfo creates the resources needed for encrypting a disk,
 // including disk encryption set and vault.
 func (env *azureEnviron) diskEncryptionInfo(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	rootDisk *storage.VolumeParams,
 	envTags map[string]string,
 ) (string, error) {
@@ -292,7 +292,7 @@ func (env *azureEnviron) ensureVault(
 	return &result.Vault, &vaultParams, nil
 }
 
-func (env *azureEnviron) deleteVault(ctx context.ProviderCallContext, vaultName string) error {
+func (env *azureEnviron) deleteVault(ctx envcontext.ProviderCallContext, vaultName string) error {
 	logger.Debugf("delete vault key %q", vaultName)
 	vaults, err := env.vaultsClient()
 	if err != nil {

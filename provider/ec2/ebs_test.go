@@ -4,7 +4,7 @@
 package ec2_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/common"
@@ -39,7 +39,7 @@ type ebsSuite struct {
 	srv         localServer
 	modelConfig *config.Config
 
-	cloudCallCtx context.ProviderCallContext
+	cloudCallCtx envcontext.ProviderCallContext
 }
 
 var _ = gc.Suite(&ebsSuite{})
@@ -60,7 +60,7 @@ func (s *ebsSuite) SetUpTest(c *gc.C) {
 	restoreEC2Patching := patchEC2ForTesting(c, s.srv.region)
 	s.AddCleanup(func(c *gc.C) { restoreEC2Patching() })
 
-	s.cloudCallCtx = context.NewEmptyCloudCallContext()
+	s.cloudCallCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *ebsSuite) ebsProvider(c *gc.C) storage.Provider {
@@ -74,12 +74,12 @@ func (s *ebsSuite) ebsProvider(c *gc.C) storage.Provider {
 			"secret-key": "x",
 		},
 	)
-	clientFunc := func(ctx stdcontext.Context, spec environscloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.Client, error) {
+	clientFunc := func(ctx context.Context, spec environscloudspec.CloudSpec, options ...ec2.ClientOption) (ec2.Client, error) {
 		c.Assert(spec.Region, gc.Equals, "test")
 		return s.srv.ec2srv, nil
 	}
 
-	ctx := stdcontext.WithValue(s.cloudCallCtx, ec2.AWSClientContextKey, clientFunc)
+	ctx := context.WithValue(s.cloudCallCtx, ec2.AWSClientContextKey, clientFunc)
 	env, err := environs.Open(ctx, provider, environs.OpenParams{
 		Cloud: environscloudspec.CloudSpec{
 			Type:       "ec2",

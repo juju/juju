@@ -6,7 +6,7 @@ package ec2
 // TODO: Clean this up so it matches environs/openstack/config_test.go.
 
 import (
-	stdcontext "context"
+	"context"
 
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/testing"
 )
 
@@ -64,7 +64,7 @@ func (t configTest) check(c *gc.C) {
 	}).Merge(t.config)
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	e, err := environs.New(stdcontext.TODO(), environs.OpenParams{
+	e, err := environs.New(context.Background(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: cfg,
 	})
@@ -291,7 +291,7 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(Client, context.ProviderCallContext) error { return nil })
+	s.PatchValue(&verifyCredentials, func(Client, envcontext.ProviderCallContext) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})
@@ -321,7 +321,7 @@ func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
-	s.PatchValue(&verifyCredentials, func(Client, context.ProviderCallContext) error { return nil })
+	s.PatchValue(&verifyCredentials, func(Client, envcontext.ProviderCallContext) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})

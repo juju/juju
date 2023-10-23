@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/provider/gce/google"
@@ -31,7 +31,7 @@ var instStatuses = []string{
 // instances, the result at the corresponding index will be nil. In that
 // case the error will be environs.ErrPartialInstances (or
 // ErrNoInstances if none of the IDs match an instance).
-func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+func (env *environ) Instances(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -67,11 +67,11 @@ func (env *environ) Instances(ctx context.ProviderCallContext, ids []instance.Id
 	return results, err
 }
 
-var getInstances = func(env *environ, ctx context.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
+var getInstances = func(env *environ, ctx envcontext.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
 	return env.instances(ctx, statusFilters...)
 }
 
-func (env *environ) gceInstances(ctx context.ProviderCallContext, statusFilters ...string) ([]google.Instance, error) {
+func (env *environ) gceInstances(ctx envcontext.ProviderCallContext, statusFilters ...string) ([]google.Instance, error) {
 	prefix := env.namespace.Prefix()
 	if len(statusFilters) == 0 {
 		statusFilters = instStatuses
@@ -85,7 +85,7 @@ func (env *environ) gceInstances(ctx context.ProviderCallContext, statusFilters 
 // "juju-<env name>-machine-*". This is important because otherwise juju
 // will see they are not tracked in state, assume they're stale/rogue,
 // and shut them down.
-func (env *environ) instances(ctx context.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
+func (env *environ) instances(ctx envcontext.ProviderCallContext, statusFilters ...string) ([]instances.Instance, error) {
 	gceInstances, err := env.gceInstances(ctx, statusFilters...)
 	err = errors.Trace(err)
 
@@ -105,7 +105,7 @@ func (env *environ) instances(ctx context.ProviderCallContext, statusFilters ...
 
 // ControllerInstances returns the IDs of the instances corresponding
 // to juju controllers.
-func (env *environ) ControllerInstances(ctx context.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
+func (env *environ) ControllerInstances(ctx envcontext.ProviderCallContext, controllerUUID string) ([]instance.Id, error) {
 	instances, err := env.gceInstances(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -129,7 +129,7 @@ func (env *environ) ControllerInstances(ctx context.ProviderCallContext, control
 }
 
 // AdoptResources is part of the Environ interface.
-func (env *environ) AdoptResources(ctx context.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
+func (env *environ) AdoptResources(ctx envcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	instances, err := env.AllInstances(ctx)
 	if err != nil {
 		return errors.Annotate(err, "all instances")
@@ -154,7 +154,7 @@ type instPlacement struct {
 // parsePlacement extracts the availability zone from the placement
 // string and returns it. If no zone is found there then an error is
 // returned.
-func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement string) (*instPlacement, error) {
+func (env *environ) parsePlacement(ctx envcontext.ProviderCallContext, placement string) (*instPlacement, error) {
 	if placement == "" {
 		return nil, nil
 	}
@@ -177,7 +177,7 @@ func (env *environ) parsePlacement(ctx context.ProviderCallContext, placement st
 
 // checkInstanceType is used to ensure the provided constraints
 // specify a recognized instance type.
-func (env *environ) checkInstanceType(ctx context.ProviderCallContext, cons constraints.Value) bool {
+func (env *environ) checkInstanceType(ctx envcontext.ProviderCallContext, cons constraints.Value) bool {
 	if cons.InstanceType == nil || *cons.InstanceType == "" {
 		return false
 	}

@@ -4,6 +4,7 @@
 package broker_test
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
@@ -19,7 +20,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/kvm"
@@ -148,7 +149,7 @@ func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {
 	result2, err2 := s.startInstance(c, broker, "1/kvm/2")
 	c.Assert(err2, jc.ErrorIsNil)
 
-	callCtx := context.NewEmptyCloudCallContext()
+	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 	err := broker.StopInstances(callCtx, result0.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertResults(c, broker, result1, result2)
@@ -171,7 +172,7 @@ func (s *kvmBrokerSuite) TestAllRunningInstances(c *gc.C) {
 	c.Assert(err1, jc.ErrorIsNil)
 	s.assertResults(c, broker, result0, result1)
 
-	err := broker.StopInstances(context.NewEmptyCloudCallContext(), result1.Instance.Id())
+	err := broker.StopInstances(envcontext.WithoutCredentialInvalidator(context.Background()), result1.Instance.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	result2, err2 := s.startInstance(c, broker, "1/kvm/2")
 	c.Assert(err2, jc.ErrorIsNil)

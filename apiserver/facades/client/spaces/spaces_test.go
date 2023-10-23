@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statemocks "github.com/juju/juju/state/mocks"
@@ -640,7 +639,6 @@ type LegacySuite struct {
 	auth      apiservertesting.FakeAuthorizer
 	facade    *spaces.API
 
-	callContext  context.ProviderCallContext
 	blockChecker mockBlockChecker
 }
 
@@ -671,15 +669,14 @@ func (s *LegacySuite) SetUpTest(c *gc.C) {
 		Controller: false,
 	}
 
-	s.callContext = context.NewEmptyCloudCallContext()
 	s.blockChecker = mockBlockChecker{}
 	var err error
 	s.facade, err = spaces.NewAPIWithBacking(spaces.APIConfig{
-		Backing:    &stubBacking{apiservertesting.BackingInstance},
-		Check:      &s.blockChecker,
-		Context:    s.callContext,
-		Resources:  s.resources,
-		Authorizer: s.auth,
+		Backing:                     &stubBacking{apiservertesting.BackingInstance},
+		Check:                       &s.blockChecker,
+		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
+		Resources:                   s.resources,
+		Authorizer:                  s.auth,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
@@ -695,11 +692,11 @@ func (s *LegacySuite) TearDownTest(c *gc.C) {
 func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
 	facade, err := spaces.NewAPIWithBacking(spaces.APIConfig{
-		Backing:    &stubBacking{apiservertesting.BackingInstance},
-		Check:      &s.blockChecker,
-		Context:    s.callContext,
-		Resources:  s.resources,
-		Authorizer: s.auth,
+		Backing:                     &stubBacking{apiservertesting.BackingInstance},
+		Check:                       &s.blockChecker,
+		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
+		Resources:                   s.resources,
+		Authorizer:                  s.auth,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
@@ -710,11 +707,11 @@ func (s *LegacySuite) TestNewAPIWithBacking(c *gc.C) {
 	agentAuthorizer := s.auth
 	agentAuthorizer.Tag = names.NewMachineTag("42")
 	facade, err = spaces.NewAPIWithBacking(spaces.APIConfig{
-		Backing:    &stubBacking{apiservertesting.BackingInstance},
-		Check:      &s.blockChecker,
-		Context:    context.NewEmptyCloudCallContext(),
-		Resources:  s.resources,
-		Authorizer: agentAuthorizer,
+		Backing:                     &stubBacking{apiservertesting.BackingInstance},
+		Check:                       &s.blockChecker,
+		CredentialInvalidatorGetter: apiservertesting.NoopModelCredentialInvalidatorGetter,
+		Resources:                   s.resources,
+		Authorizer:                  agentAuthorizer,
 	})
 	c.Assert(err, jc.DeepEquals, apiservererrors.ErrPerm)
 	c.Assert(facade, gc.IsNil)
@@ -757,26 +754,25 @@ func (s *LegacySuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 		c.Assert(results.Results[0].Error, gc.ErrorMatches, p.Error)
 	}
 
-	baseCalls := []apiservertesting.StubMethodCall{
-		apiservertesting.BackingCall("ModelConfig"),
-		apiservertesting.BackingCall("CloudSpec"),
-		apiservertesting.ProviderCall("Open", apiservertesting.BackingInstance.EnvConfig),
-		apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces", s.callContext),
-	}
-
 	// If we have an expected error, no calls to SubnetByCIDR() nor
 	// AddSpace() should be made.  Check the methods called and
 	// return.  The exception is TestAddSpacesAPIError cause an
 	// error after SubnetByCIDR() is called.
 	if p.Error != "" && !subnetCallMade() {
-		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, baseCalls...)
+		apiservertesting.SharedStub.CheckCallNames(c,
+			"ModelConfig",
+			"CloudSpec",
+			"Open",
+			"SupportsSpaces",
+		)
+		apiservertesting.SharedStub.CheckCall(c, 2, "Open", apiservertesting.BackingInstance.EnvConfig)
 		return
 	}
 
-	allCalls := baseCalls
+	var allCalls []jtesting.StubCall
 	var subnetIDs []string
 	for _, cidr := range p.Subnets {
-		allCalls = append(allCalls, apiservertesting.BackingCall("SubnetByCIDR", cidr))
+		allCalls = append(allCalls, jtesting.StubCall{FuncName: "SubnetByCIDR", Args: []any{cidr}})
 		for _, fakeSN := range apiservertesting.BackingInstance.Subnets {
 			if fakeSN.CIDR() == cidr {
 				subnetIDs = append(subnetIDs, fakeSN.ID())
@@ -787,9 +783,13 @@ func (s *LegacySuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	// Only add the call to AddSpace() if there are no errors
 	// which have continued to this point.
 	if p.Error == "" {
-		allCalls = append(allCalls, apiservertesting.BackingCall("AddSpace", p.Name, network.Id(p.ProviderId), subnetIDs, p.Public))
+		allCalls = append(allCalls, jtesting.StubCall{FuncName: "AddSpace", Args: []any{p.Name, network.Id(p.ProviderId), subnetIDs, p.Public}})
 	}
-	apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, allCalls...)
+	if len(allCalls) == 0 {
+		return
+	}
+	remainingCalls := apiservertesting.SharedStub.Calls()[4:]
+	c.Assert(remainingCalls, jc.DeepEquals, allCalls)
 }
 
 func subnetCallMade() bool {
@@ -1059,7 +1059,7 @@ func (s *LegacySuite) TestSupportsSpacesModelConfigError(c *gc.C) {
 		errors.New("boom"), // Backing.ModelConfig()
 	)
 
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
 	c.Assert(err, gc.ErrorMatches, "getting environ: retrieving model config: boom")
 }
 
@@ -1070,7 +1070,7 @@ func (s *LegacySuite) TestSupportsSpacesEnvironNewError(c *gc.C) {
 		errors.New("boom"), // environs.New()
 	)
 
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
 	c.Assert(err, gc.ErrorMatches,
 		`getting environ: creating environ for model \"stub-zoned-networking-environ\" \(.*\): boom`)
 }
@@ -1083,7 +1083,7 @@ func (s *LegacySuite) TestSupportsSpacesWithoutNetworking(c *gc.C) {
 		apiservertesting.WithoutSpaces,
 		apiservertesting.WithoutSubnets)
 
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
@@ -1102,12 +1102,12 @@ func (s *LegacySuite) TestSupportsSpacesWithoutSpaces(c *gc.C) {
 		errors.New("boom"), // Backing.supportsSpaces()
 	)
 
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *LegacySuite) TestSupportsSpaces(c *gc.C) {
-	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewEmptyCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance})
 	c.Assert(err, jc.ErrorIsNil)
 }
 

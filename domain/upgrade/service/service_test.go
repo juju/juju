@@ -16,6 +16,7 @@ import (
 
 	coreupgrade "github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher/watchertest"
+	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 )
 
 type serviceSuite struct {
@@ -56,7 +57,7 @@ func (s *serviceSuite) TestCreateUpgradeAlreadyExists(c *gc.C) {
 	s.state.EXPECT().CreateUpgrade(gomock.Any(), version.MustParse("3.0.0"), version.MustParse("3.0.1")).Return(s.upgradeUUID, ucErr)
 
 	_, err := s.srv.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
-	c.Assert(err, jc.ErrorIs, errors.AlreadyExists)
+	c.Assert(err, jc.ErrorIs, upgradeerrors.ErrUpgradeAlreadyStarted)
 }
 
 func (s *serviceSuite) TestCreateUpgradeInvalidVersions(c *gc.C) {
@@ -124,12 +125,21 @@ func (s *serviceSuite) TestActiveUpgradeNoUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
-func (s *serviceSuite) TestCompleteDBUpgrade(c *gc.C) {
+func (s *serviceSuite) TestSetDBUpgradeCompleted(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().SetDBUpgradeCompleted(gomock.Any(), s.upgradeUUID).Return(nil)
 
 	err := s.srv.SetDBUpgradeCompleted(context.Background(), s.upgradeUUID)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetDBUpgradeFailed(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().SetDBUpgradeFailed(gomock.Any(), s.upgradeUUID).Return(nil)
+
+	err := s.srv.SetDBUpgradeFailed(context.Background(), s.upgradeUUID)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

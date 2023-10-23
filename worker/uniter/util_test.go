@@ -18,7 +18,6 @@ import (
 	"time"
 
 	pebbleclient "github.com/canonical/pebble/client"
-	corecharm "github.com/juju/charm/v11"
 	jujucharm "github.com/juju/charm/v11"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
@@ -960,7 +959,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 		OpenBlob: func(req downloader.Request) (io.ReadCloser, error) {
 			ctx.app.mu.Lock()
 			defer ctx.app.mu.Unlock()
-			curl := corecharm.MustParseURL(ctx.app.charmURL)
+			curl := jujucharm.MustParseURL(ctx.app.charmURL)
 			storagePath := fmt.Sprintf("/charms/%s/%d", curl.Name, curl.Revision)
 			blob, ok := ctx.servedCharms[storagePath]
 			if !ok {

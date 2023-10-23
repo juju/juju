@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
+	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -29,6 +30,7 @@ type State interface {
 	SetControllerDone(context.Context, domainupgrade.UUID, string) error
 	ActiveUpgrade(context.Context) (domainupgrade.UUID, error)
 	SetDBUpgradeCompleted(context.Context, domainupgrade.UUID) error
+	SetDBUpgradeFailed(context.Context, domainupgrade.UUID) error
 	UpgradeInfo(context.Context, domainupgrade.UUID) (upgrade.Info, error)
 }
 
@@ -58,7 +60,7 @@ func (s *Service) CreateUpgrade(ctx context.Context, previousVersion, targetVers
 	}
 	upgradeUUID, err := s.st.CreateUpgrade(ctx, previousVersion, targetVersion)
 	if database.IsErrConstraintUnique(err) {
-		return "", errors.AlreadyExistsf("active upgrade")
+		return "", upgradeerrors.ErrUpgradeAlreadyStarted
 	}
 	return upgradeUUID, domain.CoerceError(err)
 }
@@ -105,6 +107,15 @@ func (s *Service) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainu
 		return errors.Trace(err)
 	}
 	err := s.st.SetDBUpgradeCompleted(ctx, upgradeUUID)
+	return domain.CoerceError(err)
+}
+
+// SetDBUpgradeFailed marks the upgrade as completed in the database
+func (s *Service) SetDBUpgradeFailed(ctx context.Context, upgradeUUID domainupgrade.UUID) error {
+	if err := upgradeUUID.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	err := s.st.SetDBUpgradeFailed(ctx, upgradeUUID)
 	return domain.CoerceError(err)
 }
 

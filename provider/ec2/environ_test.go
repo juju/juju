@@ -4,6 +4,8 @@
 package ec2
 
 import (
+	"context"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/juju/errors"
@@ -16,7 +18,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/storage"
@@ -27,7 +29,7 @@ var (
 	_ environs.NetworkingEnviron = (*environ)(nil)
 	_ config.ConfigSchemaSource  = (*environProvider)(nil)
 	_ simplestreams.HasRegion    = (*environ)(nil)
-	_ context.Distributor        = (*environ)(nil)
+	_ envcontext.Distributor     = (*environ)(nil)
 )
 
 type Suite struct{}
@@ -244,7 +246,7 @@ func (*Suite) TestSupportsNetworking(c *gc.C) {
 }
 
 func (*Suite) TestSupportsSpaces(c *gc.C) {
-	callCtx := context.NewEmptyCloudCallContext()
+	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 	var env *environ
 	supported, err := env.SupportsSpaces(callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -253,7 +255,7 @@ func (*Suite) TestSupportsSpaces(c *gc.C) {
 }
 
 func (*Suite) TestSupportsSpaceDiscovery(c *gc.C) {
-	supported, err := (&environ{}).SupportsSpaceDiscovery(context.NewEmptyCloudCallContext())
+	supported, err := (&environ{}).SupportsSpaceDiscovery(envcontext.WithoutCredentialInvalidator(context.Background()))
 	// TODO(jam): 2016-02-01 the comment on the interface says the error should
 	// conform to IsNotSupported, but all of the implementations just return
 	// nil for error and 'false' for supported.
@@ -262,7 +264,7 @@ func (*Suite) TestSupportsSpaceDiscovery(c *gc.C) {
 }
 
 func (*Suite) TestSupportsContainerAddresses(c *gc.C) {
-	callCtx := context.NewEmptyCloudCallContext()
+	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 	var env *environ
 	supported, err := env.SupportsContainerAddresses(callCtx)
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)

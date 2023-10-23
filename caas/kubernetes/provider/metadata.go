@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes"
 	providerstorage "github.com/juju/juju/caas/kubernetes/provider/storage"
 	"github.com/juju/juju/environs"
-	environscontext "github.com/juju/juju/environs/context"
+	environscontext "github.com/juju/juju/environs/envcontext"
 )
 
 // newLabelRequirements creates a list of k8s node label requirements.

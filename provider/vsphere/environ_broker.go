@@ -22,7 +22,7 @@ import (
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/tools"
@@ -63,7 +63,7 @@ func templateDirectoryName(controllerFolderName string) string {
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (env *environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, err error) {
+func (env *environ) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (result *environs.StartInstanceResult, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		result, err = env.StartInstance(ctx, args)
 		return err
@@ -81,7 +81,7 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 }
 
 // StartInstance implements environs.InstanceBroker.
-func (env *sessionEnviron) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+func (env *sessionEnviron) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	vm, hw, err := env.newRawInstance(ctx, args)
 	if err != nil {
 		_ = args.StatusCallback(status.ProvisioningError, fmt.Sprint(err), nil)
@@ -118,7 +118,7 @@ func (env *sessionEnviron) finishMachineConfig(args environs.StartInstanceParams
 // provisioned, relative to the provided args and spec. Info for that
 // low-level instance is returned.
 func (env *sessionEnviron) newRawInstance(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	args environs.StartInstanceParams,
 ) (_ *mo.VirtualMachine, _ *instance.HardwareCharacteristics, err error) {
 	// Obtain the final constraints by merging with defaults.
@@ -294,7 +294,7 @@ func (env *sessionEnviron) newRawInstance(
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *environ) AllInstances(ctx context.ProviderCallContext) (instances []instances.Instance, err error) {
+func (env *environ) AllInstances(ctx envcontext.ProviderCallContext) (instances []instances.Instance, err error) {
 	err = env.withSession(ctx, func(env *sessionEnviron) error {
 		instances, err = env.AllInstances(ctx)
 		return err
@@ -303,7 +303,7 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) (instances []i
 }
 
 // AllInstances implements environs.InstanceBroker.
-func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (env *sessionEnviron) AllInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	modelFolderPath := path.Join(env.getVMFolder(), controllerFolderName("*"), env.modelFolderName())
 	vms, err := env.client.VirtualMachines(env.ctx, modelFolderPath+"/*")
 	if err != nil {
@@ -319,28 +319,28 @@ func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]inst
 }
 
 // AllRunningInstances implements environs.InstanceBroker.
-func (env *environ) AllRunningInstances(ctx context.ProviderCallContext) (instances []instances.Instance, err error) {
+func (env *environ) AllRunningInstances(ctx envcontext.ProviderCallContext) (instances []instances.Instance, err error) {
 	// AllInstances() already handles all instances irrespective of the state, so
 	// here 'all' is also 'all running'.
 	return env.AllInstances(ctx)
 }
 
 // AllRunningInstances implements environs.InstanceBroker.
-func (env *sessionEnviron) AllRunningInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
+func (env *sessionEnviron) AllRunningInstances(ctx envcontext.ProviderCallContext) ([]instances.Instance, error) {
 	// AllInstances() already handles all instances irrespective of the state, so
 	// here 'all' is also 'all running'.
 	return env.AllInstances(ctx)
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *environ) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (env *environ) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
 	return env.withSession(ctx, func(env *sessionEnviron) error {
 		return env.StopInstances(ctx, ids...)
 	})
 }
 
 // StopInstances implements environs.InstanceBroker.
-func (env *sessionEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
+func (env *sessionEnviron) StopInstances(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
 	modelFolderPath := path.Join(env.getVMFolder(), controllerFolderName("*"), env.modelFolderName())
 	results := make([]error, len(ids))
 	var wg sync.WaitGroup

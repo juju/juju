@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/environs"
 	environscmd "github.com/juju/juju/environs/cmd"
-	envcontext "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/common"
 )

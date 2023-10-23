@@ -10,12 +10,12 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 // PrecheckInstance verifies that the provided series and constraints
 // are valid for use in creating an instance in this environment.
-func (env *environ) PrecheckInstance(ctx context.ProviderCallContext, args environs.PrecheckInstanceParams) error {
+func (env *environ) PrecheckInstance(ctx envcontext.ProviderCallContext, args environs.PrecheckInstanceParams) error {
 	_, err := env.parsePlacement(ctx, args.Placement)
 	return errors.Trace(err)
 }
@@ -30,7 +30,7 @@ var unsupportedConstraints = []string{
 
 // ConstraintsValidator returns a Validator value which is used to
 // validate and merge constraints.
-func (env *environ) ConstraintsValidator(ctx context.ProviderCallContext) (constraints.Validator, error) {
+func (env *environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 
 	validator.RegisterUnsupported(unsupportedConstraints)
@@ -54,6 +54,6 @@ func (env *environ) ShouldApplyControllerConstraints() bool {
 
 // SupportNetworks returns whether the environment has support to
 // specify networks for applications and machines.
-func (env *environ) SupportNetworks(ctx context.ProviderCallContext) bool {
+func (env *environ) SupportNetworks(ctx envcontext.ProviderCallContext) bool {
 	return false
 }

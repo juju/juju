@@ -4,6 +4,7 @@
 package provider_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -12,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/testing"
@@ -25,13 +26,13 @@ type loopSuite struct {
 	storageDir string
 	commands   *mockRunCommand
 
-	callCtx context.ProviderCallContext
+	callCtx envcontext.ProviderCallContext
 }
 
 func (s *loopSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.storageDir = c.MkDir()
-	s.callCtx = context.NewEmptyCloudCallContext()
+	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
 func (s *loopSuite) TearDownTest(c *gc.C) {

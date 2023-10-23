@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 )
@@ -185,7 +185,7 @@ func (s *environAvailzonesSuite) TestDeriveAvailabilityZonesInvalidPlacement(c *
 }
 
 func (s *environAvailzonesSuite) TestAvailabilityZonesPermissionError(c *gc.C) {
-	AssertInvalidatesCredential(c, s.client, func(ctx context.ProviderCallContext) error {
+	AssertInvalidatesCredential(c, s.client, func(ctx envcontext.ProviderCallContext) error {
 		zonedEnv := s.env.(common.ZonedEnviron)
 		_, err := zonedEnv.AvailabilityZones(ctx)
 		return err

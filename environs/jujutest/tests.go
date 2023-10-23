@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -56,7 +56,7 @@ type Tests struct {
 
 	// ProviderCallContext holds the context to be used to make
 	// calls to a cloud provider.
-	ProviderCallContext context.ProviderCallContext
+	ProviderCallContext envcontext.ProviderCallContext
 
 	// BootstrapContext holds the context to bootstrap a test environment.
 	BootstrapContext environs.BootstrapContext
@@ -141,7 +141,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
 	ctx := stdcontext.WithValue(stdcontext.TODO(), bootstrap.SimplestreamsFetcherContextKey, ss)
 	t.BootstrapContext = envtesting.BootstrapContext(ctx, c)
-	t.ProviderCallContext = context.NewCloudCallContext(ctx)
+	t.ProviderCallContext = envcontext.WithoutCredentialInvalidator(ctx)
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {

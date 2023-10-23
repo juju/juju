@@ -5,6 +5,7 @@ package modelmanager
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/network"
@@ -47,4 +48,17 @@ func (s spaceStateShim) ConstraintsBySpaceName(name string) ([]space.Constraints
 		results[i] = constraint
 	}
 	return results, nil
+}
+
+type credentialStateShim struct {
+	StateBackend
+}
+
+func (s credentialStateShim) CloudCredentialTag() (names.CloudCredentialTag, bool, error) {
+	m, err := s.StateBackend.Model()
+	if err != nil {
+		return names.CloudCredentialTag{}, false, errors.Trace(err)
+	}
+	credTag, exists := m.CloudCredentialTag()
+	return credTag, exists, nil
 }

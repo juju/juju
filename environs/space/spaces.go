@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/state"
 )
 
@@ -53,7 +53,7 @@ type ReloadSpacesState interface {
 
 // ReloadSpaces loads spaces and subnets from provider specified by environ into state.
 // Currently it's an append-only operation, no spaces/subnets are deleted.
-func ReloadSpaces(ctx context.ProviderCallContext, state ReloadSpacesState, environ environs.BootstrapEnviron) error {
+func ReloadSpaces(ctx envcontext.ProviderCallContext, state ReloadSpacesState, environ environs.BootstrapEnviron) error {
 	netEnviron, ok := environs.SupportsNetworking(environ)
 	if !ok || netEnviron == nil {
 		return errors.NotSupportedf("spaces discovery in a non-networking environ")

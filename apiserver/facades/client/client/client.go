@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
@@ -62,7 +61,6 @@ type Client struct {
 	api             *API
 	newEnviron      common.NewEnvironFunc
 	check           *common.BlockChecker
-	callContext     context.ProviderCallContext
 	registryAPIFunc func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 }
 
@@ -160,7 +158,6 @@ func NewFacade(ctx facade.Context) (*Client, error) {
 		toolsFinder,
 		newEnviron,
 		blockChecker,
-		context.CallContext(st),
 		leadershipReader,
 		factory,
 		registry.New,
@@ -178,7 +175,6 @@ func NewClient(
 	toolsFinder common.ToolsFinder,
 	newEnviron common.NewEnvironFunc,
 	blockChecker *common.BlockChecker,
-	callCtx context.ProviderCallContext,
 	leadershipReader leadership.Reader,
 	factory multiwatcher.Factory,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
@@ -200,7 +196,6 @@ func NewClient(
 		},
 		newEnviron:      newEnviron,
 		check:           blockChecker,
-		callContext:     callCtx,
 		registryAPIFunc: registryAPIFunc,
 	}
 	return client, nil

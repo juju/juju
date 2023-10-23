@@ -9,7 +9,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
@@ -18,7 +18,7 @@ import (
 // Management API, because the API version requested must match the
 // type of the resource being manipulated through the API, rather than
 // the API version specified statically in the resource client code.
-func collectAPIVersions(ctx context.ProviderCallContext, client *armresources.ProvidersClient) (map[string]string, error) {
+func collectAPIVersions(ctx envcontext.ProviderCallContext, client *armresources.ProvidersClient) (map[string]string, error) {
 	result := make(map[string]string)
 
 	res := client.NewListPager(nil)

@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
@@ -43,7 +44,8 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, nil, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.authorizer, s.authContext, c.MkDir(), loggo.GetLogger("juju.apiserver.applicationoffers"),
+		s.mockState, s.mockStatePool, s.authorizer, s.authContext, apiservertesting.NoopModelCredentialInvalidatorGetter,
+		c.MkDir(), loggo.GetLogger("juju.apiserver.applicationoffers"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

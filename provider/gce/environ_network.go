@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -25,7 +25,7 @@ type networkMap map[string]*compute.Network
 
 // Subnets implements environs.NetworkingEnviron.
 func (e *environ) Subnets(
-	ctx context.ProviderCallContext, inst instance.Id, subnetIds []corenetwork.Id,
+	ctx envcontext.ProviderCallContext, inst instance.Id, subnetIds []corenetwork.Id,
 ) ([]corenetwork.SubnetInfo, error) {
 	// In GCE all the subnets are in all AZs.
 	zones, err := e.zoneNames(ctx)
@@ -50,7 +50,7 @@ func (e *environ) Subnets(
 	return results, nil
 }
 
-func (e *environ) zoneNames(ctx context.ProviderCallContext) ([]string, error) {
+func (e *environ) zoneNames(ctx envcontext.ProviderCallContext) ([]string, error) {
 	zones, err := e.AvailabilityZones(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -62,7 +62,7 @@ func (e *environ) zoneNames(ctx context.ProviderCallContext) ([]string, error) {
 	return names, nil
 }
 
-func (e *environ) networksByURL(ctx context.ProviderCallContext) (networkMap, error) {
+func (e *environ) networksByURL(ctx envcontext.ProviderCallContext) (networkMap, error) {
 	networks, err := e.gce.Networks()
 	if err != nil {
 		return nil, google.HandleCredentialError(errors.Trace(err), ctx)
@@ -75,7 +75,7 @@ func (e *environ) networksByURL(ctx context.ProviderCallContext) (networkMap, er
 }
 
 func (e *environ) getMatchingSubnets(
-	ctx context.ProviderCallContext, subnetIds IncludeSet, zones []string,
+	ctx envcontext.ProviderCallContext, subnetIds IncludeSet, zones []string,
 ) ([]corenetwork.SubnetInfo, error) {
 	allSubnets, err := e.gce.Subnetworks(e.cloud.Region)
 	if err != nil {
@@ -115,7 +115,7 @@ func (e *environ) getMatchingSubnets(
 }
 
 func (e *environ) getInstanceSubnets(
-	ctx context.ProviderCallContext, inst instance.Id, subnetIds IncludeSet, zones []string,
+	ctx envcontext.ProviderCallContext, inst instance.Id, subnetIds IncludeSet, zones []string,
 ) ([]corenetwork.SubnetInfo, error) {
 	ifLists, err := e.NetworkInterfaces(ctx, []instance.Id{inst})
 	if err != nil {
@@ -138,7 +138,7 @@ func (e *environ) getInstanceSubnets(
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
+func (e *environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]corenetwork.InterfaceInfos, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -290,7 +290,7 @@ func findNetworkDetails(iface compute.NetworkInterface, subnets subnetMap, netwo
 	return result, nil
 }
 
-func (e *environ) subnetsByURL(ctx context.ProviderCallContext, urls []string, networks networkMap, zones []string) (subnetMap, error) {
+func (e *environ) subnetsByURL(ctx envcontext.ProviderCallContext, urls []string, networks networkMap, zones []string) (subnetMap, error) {
 	if len(urls) == 0 {
 		return make(map[string]corenetwork.SubnetInfo), nil
 	}
@@ -321,32 +321,32 @@ func (e *environ) subnetsByURL(ctx context.ProviderCallContext, urls []string, n
 }
 
 // SupportsSpaces implements environs.NetworkingEnviron.
-func (e *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
+func (e *environ) SupportsSpaces(ctx envcontext.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
 // SupportsContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
+func (e *environ) SupportsContainerAddresses(ctx envcontext.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 
 // AllocateContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
+func (e *environ) AllocateContainerAddresses(envcontext.ProviderCallContext, instance.Id, names.MachineTag, corenetwork.InterfaceInfos) (corenetwork.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("container addresses")
 }
 
 // ReleaseContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) ReleaseContainerAddresses(context.ProviderCallContext, []corenetwork.ProviderInterfaceInfo) error {
+func (e *environ) ReleaseContainerAddresses(envcontext.ProviderCallContext, []corenetwork.ProviderInterfaceInfo) error {
 	return errors.NotSupportedf("container addresses")
 }
 
 // AreSpacesRoutable implements environs.NetworkingEnviron.
-func (*environ) AreSpacesRoutable(ctx context.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
+func (*environ) AreSpacesRoutable(ctx envcontext.ProviderCallContext, space1, space2 *environs.ProviderSpaceInfo) (bool, error) {
 	return false, nil
 }
 
 // SuperSubnets implements environs.SuperSubnets
-func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error) {
+func (e *environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
 	subnets, err := e.Subnets(ctx, "", nil)
 	if err != nil {
 		return nil, err

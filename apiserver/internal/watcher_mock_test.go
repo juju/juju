@@ -98,16 +98,16 @@ func (m *MockWatcherRegistry) EXPECT() *MockWatcherRegistryMockRecorder {
 }
 
 // Register mocks base method.
-func (m *MockWatcherRegistry) Register(w worker.Worker) (string, error) {
+func (m *MockWatcherRegistry) Register(arg0 worker.Worker) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Register", w)
+	ret := m.ctrl.Call(m, "Register", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Register indicates an expected call of Register.
-func (mr *MockWatcherRegistryMockRecorder) Register(w interface{}) *gomock.Call {
+func (mr *MockWatcherRegistryMockRecorder) Register(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockWatcherRegistry)(nil).Register), w)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockWatcherRegistry)(nil).Register), arg0)
 }

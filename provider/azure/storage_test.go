@@ -4,7 +4,7 @@
 package azure_test
 
 import (
-	stdcontext "context"
+	"context"
 	"fmt"
 	"net/http"
 
@@ -18,7 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
@@ -32,7 +32,7 @@ type storageSuite struct {
 	requests []*http.Request
 	sender   azuretesting.Senders
 
-	cloudCallCtx      *context.CloudCallContext
+	cloudCallCtx      envcontext.ProviderCallContext
 	invalidCredential bool
 }
 
@@ -54,13 +54,10 @@ func (s *storageSuite) SetUpTest(c *gc.C) {
 	env := openEnviron(c, envProvider, &s.sender)
 	s.provider, err = env.StorageProvider("azure")
 	c.Assert(err, jc.ErrorIsNil)
-	s.cloudCallCtx = &context.CloudCallContext{
-		Context: stdcontext.TODO(),
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidCredential = true
-			return nil
-		},
-	}
+	s.cloudCallCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
+		s.invalidCredential = true
+		return nil
+	})
 }
 
 func (s *storageSuite) TearDownTest(c *gc.C) {

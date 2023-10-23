@@ -4,6 +4,7 @@
 package openstack
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -24,7 +25,7 @@ import (
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 // localTests contains tests which do not require a live service or test double to run.
@@ -514,7 +515,7 @@ func (localTests) TestPingInvalidHost(c *gc.C) {
 
 	p, err := environs.Provider("openstack")
 	c.Assert(err, jc.ErrorIsNil)
-	callCtx := context.NewEmptyCloudCallContext()
+	callCtx := envcontext.WithoutCredentialInvalidator(context.Background())
 	for _, t := range tests {
 		err = p.Ping(callCtx, t)
 		if err == nil {
@@ -529,7 +530,7 @@ func (localTests) TestPingNoEndpoint(c *gc.C) {
 	defer server.Close()
 	p, err := environs.Provider("openstack")
 	c.Assert(err, jc.ErrorIsNil)
-	err = p.Ping(context.NewEmptyCloudCallContext(), server.URL)
+	err = p.Ping(envcontext.WithoutCredentialInvalidator(context.Background()), server.URL)
 	c.Assert(err, gc.ErrorMatches, "(?m)No Openstack server running at "+server.URL+".*")
 }
 
@@ -540,7 +541,7 @@ func (localTests) TestPingInvalidResponse(c *gc.C) {
 	defer server.Close()
 	p, err := environs.Provider("openstack")
 	c.Assert(err, jc.ErrorIsNil)
-	err = p.Ping(context.NewEmptyCloudCallContext(), server.URL)
+	err = p.Ping(envcontext.WithoutCredentialInvalidator(context.Background()), server.URL)
 	c.Assert(err, gc.ErrorMatches, "(?m)No Openstack server running at "+server.URL+".*")
 }
 
@@ -559,7 +560,7 @@ func (localTests) TestPingOK(c *gc.C) {
 func pingOk(c *gc.C, server *httptest.Server) {
 	p, err := environs.Provider("openstack")
 	c.Assert(err, jc.ErrorIsNil)
-	err = p.Ping(context.NewEmptyCloudCallContext(), server.URL)
+	err = p.Ping(envcontext.WithoutCredentialInvalidator(context.Background()), server.URL)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

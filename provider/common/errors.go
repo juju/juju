@@ -10,7 +10,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 )
 
 const (
@@ -39,9 +39,9 @@ var AuthorisationFailureStatusCodes = set.NewInts(
 
 // MaybeHandleCredentialError determines if a given error relates to an invalid credential.
 // If it is, the credential is invalidated and the return bool is true.
-func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx context.ProviderCallContext) bool {
+func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx envcontext.ProviderCallContext) bool {
 	denied := isAuthError(errors.Cause(err))
-	if ctx != nil && denied {
+	if denied {
 		converted := fmt.Errorf("cloud denied access: %w", CredentialNotValidError(err))
 		invalidateErr := ctx.InvalidateCredential(converted.Error())
 		if invalidateErr != nil {
@@ -52,6 +52,6 @@ func MaybeHandleCredentialError(isAuthError func(error) bool, err error, ctx con
 }
 
 // HandleCredentialError determines if a given error relates to an invalid credential.
-func HandleCredentialError(isAuthError func(error) bool, err error, ctx context.ProviderCallContext) {
+func HandleCredentialError(isAuthError func(error) bool, err error, ctx envcontext.ProviderCallContext) {
 	MaybeHandleCredentialError(isAuthError, err, ctx)
 }

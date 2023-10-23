@@ -4,6 +4,7 @@
 package openstack_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-goose/goose/v5/cinder"
@@ -19,7 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/provider/common/mocks"
@@ -44,19 +45,17 @@ var _ = gc.Suite(&cinderVolumeSourceSuite{})
 type cinderVolumeSourceSuite struct {
 	testing.BaseSuite
 
-	callCtx           *context.CloudCallContext
+	callCtx           envcontext.ProviderCallContext
 	invalidCredential bool
 	env               *mocks.MockZonedEnviron
 }
 
 func (s *cinderVolumeSourceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.callCtx = &context.CloudCallContext{
-		InvalidateCredentialFunc: func(string) error {
-			s.invalidCredential = true
-			return nil
-		},
-	}
+	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
+		s.invalidCredential = true
+		return nil
+	})
 }
 
 func (s *cinderVolumeSourceSuite) TearDownTest(c *gc.C) {
@@ -1015,7 +1014,7 @@ func (s *cinderVolumeSourceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.env = mocks.NewMockZonedEnviron(ctrl)
 	s.env.EXPECT().InstanceAvailabilityZoneNames(
-		s.callCtx, []instance.Id{mockServerId},
+		gomock.Any(), []instance.Id{mockServerId},
 	).Return(map[instance.Id]string{mockServerId: "zone-1"}, nil).AnyTimes()
 
 	return ctrl

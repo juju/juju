@@ -8,13 +8,13 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 )
 
 func (env *azureEnviron) createDeployment(
-	ctx context.ProviderCallContext,
+	ctx envcontext.ProviderCallContext,
 	resourceGroup string,
 	deploymentName string,
 	t armtemplates.Template,

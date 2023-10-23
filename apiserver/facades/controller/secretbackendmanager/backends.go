@@ -44,7 +44,7 @@ func (s *SecretBackendsManagerAPI) WatchSecretBackendsRotateChanges(ctx context.
 		return result, errors.Trace(err)
 	}
 
-	id, backendChanges, err := internal.EnsureRegisterWatcher[[]corewatcher.SecretBackendRotateChange](s.watcherRegistry, w)
+	id, backendChanges, err := internal.EnsureRegisterWatcher[[]corewatcher.SecretBackendRotateChange](ctx, s.watcherRegistry, w)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result, nil

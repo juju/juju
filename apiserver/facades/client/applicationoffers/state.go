@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 )
 
@@ -67,9 +66,6 @@ type Backend interface {
 	RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error
 	GetOfferUsers(offerUUID string) (map[string]permission.Access, error)
 
-	// GetModelCallContext gets everything that is needed to make cloud calls on behalf of the state current model.
-	GetModelCallContext() context.ProviderCallContext
-
 	AllSpaceInfos() (network.SpaceInfos, error)
 }
 
@@ -112,10 +108,6 @@ func (s *stateShim) SpaceByName(name string) (Space, error) {
 func (s *stateShim) Model() (Model, error) {
 	m, err := s.st.Model()
 	return &modelShim{m}, err
-}
-
-func (s *stateShim) GetModelCallContext() context.ProviderCallContext {
-	return context.CallContext(s.st)
 }
 
 func (s *stateShim) AllSpaceInfos() (network.SpaceInfos, error) {

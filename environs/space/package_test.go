@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package space -destination context_mock_test.go github.com/juju/juju/environs/context ProviderCallContext
 //go:generate go run go.uber.org/mock/mockgen -package space -destination environs_mock_test.go github.com/juju/juju/environs BootstrapEnviron,NetworkingEnviron
 //go:generate go run go.uber.org/mock/mockgen -package space -destination spaces_mock_test.go github.com/juju/juju/environs/space ReloadSpacesState,Space,Constraints
 

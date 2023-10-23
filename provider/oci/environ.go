@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	envcontext "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/storage"

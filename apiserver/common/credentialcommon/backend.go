@@ -5,59 +5,41 @@ package credentialcommon
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names/v4"
 
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/environs/instances"
+	credentialservice "github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/state"
 )
-
-// MachineService provides access to all machines.
-type MachineService interface {
-	// AllMachines returns all machines in the model.
-	AllMachines() ([]Machine, error)
-}
-
-// Machine defines machine methods needed for the check.
-type Machine interface {
-	// IsManual returns true if the machine was manually provisioned.
-	IsManual() (bool, error)
-
-	// IsContainer returns true if the machine is a container.
-	IsContainer() bool
-
-	// InstanceId returns the provider specific instance id for this
-	// machine, or a NotProvisionedError, if not set.
-	InstanceId() (instance.Id, error)
-
-	// Id returns the machine id.
-	Id() string
-}
-
-// CloudProvider defines methods needed from the cloud provider to perform the check.
-type CloudProvider interface {
-	// AllInstances returns all instances currently known to the cloud provider.
-	AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error)
-}
 
 type stateShim struct {
 	*state.State
 }
 
 // NewMachineService creates a machine service to use, based on state.State.
-func NewMachineService(p *state.State) MachineService {
+func NewMachineService(p *state.State) credentialservice.MachineService {
 	return stateShim{p}
 }
 
 // AllMachines implements MachineService.AllMachines.
-func (st stateShim) AllMachines() ([]Machine, error) {
+func (st stateShim) AllMachines() ([]credentialservice.Machine, error) {
 	machines, err := st.State.AllMachines()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]Machine, len(machines))
+	result := make([]credentialservice.Machine, len(machines))
 	for i, m := range machines {
 		result[i] = m
 	}
 	return result, nil
+}
+
+// CloudCredentialTag returns the tag of the cloud credential used for managing the
+// model's cloud resources, and a boolean indicating whether a credential is set.
+func (st stateShim) CloudCredentialTag() (names.CloudCredentialTag, bool, error) {
+	m, err := st.State.Model()
+	if err != nil {
+		return names.CloudCredentialTag{}, false, errors.Trace(err)
+	}
+	credTag, exists := m.CloudCredentialTag()
+	return credTag, exists, nil
 }

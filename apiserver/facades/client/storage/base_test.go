@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/environs/context"
 	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/poolmanager"
 	"github.com/juju/juju/rpc/params"
@@ -51,8 +50,7 @@ type baseStorageSuite struct {
 	pools       map[string]*jujustorage.Config
 	poolsInUse  []string
 
-	blocks      map[state.BlockType]state.Block
-	callContext context.ProviderCallContext
+	blocks map[state.BlockType]state.Block
 }
 
 func (s *baseStorageSuite) SetUpTest(c *gc.C) {
@@ -68,9 +66,8 @@ func (s *baseStorageSuite) SetUpTest(c *gc.C) {
 	s.poolManager = s.constructPoolManager()
 	s.poolsInUse = []string{}
 
-	s.callContext = context.NewEmptyCloudCallContext()
-	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, s.callContext)
-	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.storageMetadata, s.authorizer, s.callContext)
+	s.api = storage.NewStorageAPIForTest(s.state, state.ModelTypeIAAS, s.storageAccessor, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
+	s.apiCaas = storage.NewStorageAPIForTest(s.state, state.ModelTypeCAAS, s.storageAccessor, s.storageMetadata, s.authorizer, apiservertesting.NoopModelCredentialInvalidatorGetter)
 }
 
 func (s *baseStorageSuite) storageMetadata() (poolmanager.PoolManager, jujustorage.ProviderRegistry, error) {

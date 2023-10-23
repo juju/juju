@@ -4,7 +4,7 @@
 package ec2
 
 import (
-	stdcontext "context"
+	"context"
 	"errors"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	jujustorage "github.com/juju/juju/internal/storage"
 )
@@ -39,18 +39,18 @@ func InstanceSDKEC2(inst instances.Instance) types.Instance {
 }
 
 func TerminatedInstances(e environs.Environ) ([]instances.Instance, error) {
-	return e.(*environ).allInstancesByState(context.NewEmptyCloudCallContext(), "shutting-down", "terminated")
+	return e.(*environ).allInstancesByState(envcontext.WithoutCredentialInvalidator(context.Background()), "shutting-down", "terminated")
 }
 
-func InstanceSecurityGroups(e environs.Environ, ctx context.ProviderCallContext, ids []instance.Id, states ...string) ([]types.GroupIdentifier, error) {
+func InstanceSecurityGroups(e environs.Environ, ctx envcontext.ProviderCallContext, ids []instance.Id, states ...string) ([]types.GroupIdentifier, error) {
 	return e.(*environ).instanceSecurityGroups(ctx, ids, states...)
 }
 
-func AllModelVolumes(e environs.Environ, ctx context.ProviderCallContext) ([]string, error) {
+func AllModelVolumes(e environs.Environ, ctx envcontext.ProviderCallContext) ([]string, error) {
 	return e.(*environ).allModelVolumes(ctx, true)
 }
 
-func AllModelGroups(e environs.Environ, ctx context.ProviderCallContext) ([]string, error) {
+func AllModelGroups(e environs.Environ, ctx envcontext.ProviderCallContext) ([]string, error) {
 	groups, err := e.(*environ).modelSecurityGroups(ctx)
 	if err != nil {
 		return nil, err
@@ -86,11 +86,11 @@ type stubAccountAPIClient struct {
 }
 
 func (s *stubAccountAPIClient) DescribeAccountAttributes(
-	_ stdcontext.Context, _ *ec2.DescribeAccountAttributesInput, _ ...func(*ec2.Options),
+	_ context.Context, _ *ec2.DescribeAccountAttributesInput, _ ...func(*ec2.Options),
 ) (*ec2.DescribeAccountAttributesOutput, error) {
 	return nil, errors.New("boom")
 }
 
-func VerifyCredentials(ctx context.ProviderCallContext) error {
+func VerifyCredentials(ctx envcontext.ProviderCallContext) error {
 	return verifyCredentials(&stubAccountAPIClient{}, ctx)
 }

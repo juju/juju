@@ -13,7 +13,7 @@ import (
 	secrets "github.com/juju/juju/core/secrets"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
-	context0 "github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/envcontext"
 	docker "github.com/juju/juju/internal/docker"
 	proxy "github.com/juju/juju/internal/proxy"
 	storage "github.com/juju/juju/internal/storage"
@@ -61,7 +61,7 @@ func (mr *MockBrokerMockRecorder) APIVersion() *gomock.Call {
 }
 
 // AdoptResources mocks base method.
-func (m *MockBroker) AdoptResources(arg0 context0.ProviderCallContext, arg1 string, arg2 version.Number) error {
+func (m *MockBroker) AdoptResources(arg0 envcontext.ProviderCallContext, arg1 string, arg2 version.Number) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AdoptResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -103,7 +103,7 @@ func (mr *MockBrokerMockRecorder) Application(arg0, arg1 interface{}) *gomock.Ca
 }
 
 // Bootstrap mocks base method.
-func (m *MockBroker) Bootstrap(arg0 environs.BootstrapContext, arg1 context0.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
+func (m *MockBroker) Bootstrap(arg0 environs.BootstrapContext, arg1 envcontext.ProviderCallContext, arg2 environs.BootstrapParams) (*environs.BootstrapResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Bootstrap", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*environs.BootstrapResult)
@@ -146,7 +146,7 @@ func (mr *MockBrokerMockRecorder) Config() *gomock.Call {
 }
 
 // ConstraintsValidator mocks base method.
-func (m *MockBroker) ConstraintsValidator(arg0 context0.ProviderCallContext) (constraints.Validator, error) {
+func (m *MockBroker) ConstraintsValidator(arg0 envcontext.ProviderCallContext) (constraints.Validator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConstraintsValidator", arg0)
 	ret0, _ := ret[0].(constraints.Validator)
@@ -161,7 +161,7 @@ func (mr *MockBrokerMockRecorder) ConstraintsValidator(arg0 interface{}) *gomock
 }
 
 // Create mocks base method.
-func (m *MockBroker) Create(arg0 context0.ProviderCallContext, arg1 environs.CreateParams) error {
+func (m *MockBroker) Create(arg0 envcontext.ProviderCallContext, arg1 environs.CreateParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -189,7 +189,7 @@ func (mr *MockBrokerMockRecorder) DeleteJujuSecret(arg0, arg1 interface{}) *gomo
 }
 
 // Destroy mocks base method.
-func (m *MockBroker) Destroy(arg0 context0.ProviderCallContext) error {
+func (m *MockBroker) Destroy(arg0 envcontext.ProviderCallContext) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
@@ -203,7 +203,7 @@ func (mr *MockBrokerMockRecorder) Destroy(arg0 interface{}) *gomock.Call {
 }
 
 // DestroyController mocks base method.
-func (m *MockBroker) DestroyController(arg0 context0.ProviderCallContext, arg1 string) error {
+func (m *MockBroker) DestroyController(arg0 envcontext.ProviderCallContext, arg1 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DestroyController", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -335,7 +335,7 @@ func (mr *MockBrokerMockRecorder) ModelOperatorExists() *gomock.Call {
 }
 
 // PrecheckInstance mocks base method.
-func (m *MockBroker) PrecheckInstance(arg0 context0.ProviderCallContext, arg1 environs.PrecheckInstanceParams) error {
+func (m *MockBroker) PrecheckInstance(arg0 envcontext.ProviderCallContext, arg1 environs.PrecheckInstanceParams) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrecheckInstance", arg0, arg1)
 	ret0, _ := ret[0].(error)

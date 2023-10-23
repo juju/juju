@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/envcontext"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/rpc/params"
 )
@@ -46,7 +46,7 @@ func NewAddSubnetsCache(api Backing) *addSubnetsCache {
 	}
 }
 
-func allZones(ctx context.ProviderCallContext, api Backing, logger loggo.Logger) (params.ZoneResults, error) {
+func allZones(ctx envcontext.ProviderCallContext, api Backing, logger loggo.Logger) (params.ZoneResults, error) {
 	var results params.ZoneResults
 
 	zonesAsString := func(zones network.AvailabilityZones) string {
@@ -88,7 +88,7 @@ func allZones(ctx context.ProviderCallContext, api Backing, logger loggo.Logger)
 // updateZones attempts to retrieve all availability zones from the environment
 // provider (if supported) and then updates the persisted list of zones in
 // state, returning them as well on success.
-func updateZones(ctx context.ProviderCallContext, api Backing) (network.AvailabilityZones, error) {
+func updateZones(ctx envcontext.ProviderCallContext, api Backing) (network.AvailabilityZones, error) {
 	zoned, err := zonedEnviron(ctx, api)
 	if err != nil {
 		return nil, errors.Trace(err)

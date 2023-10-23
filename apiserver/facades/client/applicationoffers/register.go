@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs"
@@ -59,6 +60,7 @@ func newOffersAPI(facadeContext facade.Context) (*OffersAPI, error) {
 		GetStatePool(facadeContext.StatePool()),
 		facadeContext.Auth(),
 		authContext.(*commoncrossmodel.AuthContext),
+		credentialcommon.CredentialInvalidatorGetter(facadeContext),
 		facadeContext.DataDir(),
 		facadeContext.Logger().Child("applicationoffers"),
 	)

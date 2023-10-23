@@ -25,7 +25,6 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
@@ -87,9 +86,8 @@ func makeBases(os string, vers []string) []state.Base {
 type modelUpgradeSuite struct {
 	jujutesting.IsolationSuite
 
-	adminUser   names.UserTag
-	authoriser  apiservertesting.FakeAuthorizer
-	callContext context.ProviderCallContext
+	adminUser  names.UserTag
+	authoriser apiservertesting.FakeAuthorizer
 
 	statePool        *mocks.MockStatePool
 	toolsFinder      *mocks.MockToolsFinder
@@ -111,7 +109,6 @@ func (s *modelUpgradeSuite) SetUpTest(c *gc.C) {
 		Tag: s.adminUser,
 	}
 
-	s.callContext = context.NewEmptyCloudCallContext()
 	s.cloudSpec = lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 }
 
@@ -130,7 +127,7 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 		func(ctx stdcontext.Context) (environs.BootstrapEnviron, error) {
 			return s.bootstrapEnviron, nil
 		},
-		s.blockChecker, s.authoriser, s.callContext,
+		s.blockChecker, s.authoriser, apiservertesting.NoopModelCredentialInvalidatorGetter,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return s.registryProvider, nil
 		},

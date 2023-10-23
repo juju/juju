@@ -5,7 +5,6 @@ package manual_test
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 	"io"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/envcontext"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/manual"
 	coretesting "github.com/juju/juju/testing"
@@ -70,14 +70,14 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 	if err != nil {
 		return nil, err
 	}
-	env, err := manual.ProviderInstance.Open(stdcontext.TODO(), environs.OpenParams{
+	env, err := manual.ProviderInstance.Open(context.Background(), environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: testConfig,
 	})
 	if err != nil {
 		return nil, err
 	}
-	ctx := envtesting.BootstrapContext(context.TODO(), c)
+	ctx := envtesting.BootstrapContext(context.Background(), c)
 	return ctx, env.PrepareForBootstrap(ctx, "controller-1")
 }
 
@@ -146,7 +146,7 @@ func (s *providerSuite) TestPingEndpointWithUser(c *gc.C) {
 	})
 	p, err := environs.Provider("manual")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Ping(nil, endpoint), jc.ErrorIsNil)
+	c.Assert(p.Ping(envcontext.WithoutCredentialInvalidator(context.Background()), endpoint), jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }
 
@@ -165,7 +165,7 @@ func (s *providerSuite) TestPingIP(c *gc.C) {
 	})
 	p, err := environs.Provider("manual")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(p.Ping(nil, endpoint), jc.ErrorIsNil)
+	c.Assert(p.Ping(envcontext.WithoutCredentialInvalidator(context.Background()), endpoint), jc.ErrorIsNil)
 	// Expect the call to be made twice.
 	c.Assert(called, gc.Equals, 1)
 }
