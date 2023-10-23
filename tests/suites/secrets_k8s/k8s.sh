@@ -12,8 +12,7 @@ run_secrets() {
 	juju --show-log trust nginx --scope=cluster
 
 	# create user secrets.
-	juju --show-log add-secret owned-by="$model_name"  --label "$model_name" --info "this is a user secret"
-
+	juju --show-log add-secret owned-by="$model_name" --label "$model_name" --info "this is a user secret"
 
 	wait_for "active" '.applications["hello"] | ."application-status".current'
 	wait_for "hello" "$(idle_condition "hello" 0)"
@@ -121,7 +120,7 @@ run_user_secrets() {
 
 	# grant secret to hello-kubecon app, and now the application can access the revision 2.
 	juju --show-log grant-secret "$secret_uri" hello-kubecon
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri)" "owned-by: $model_uuid-2"
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-2"
 
 	# create a new revision 3.
 	juju --show-log update-secret "$secret_uri" owned-by="$model_name-3"
@@ -129,11 +128,11 @@ run_user_secrets() {
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revision)" '3'
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.owner)" "$model_uuid"
 	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.description)" 'info'
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revisions | length)" '3'
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '3'
 
-	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 1 | yq .${secret_short_uri}.content)" "owned-by: $model_uuid-1"
-	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_uuid-2"
-	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_uuid-3"
+	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 1 | yq .${secret_short_uri}.content)" "owned-by: $model_name-1"
+	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_name-2"
+	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
 	# turn on --auto-prune
 	juju --show-log update-secret "$secret_uri" --auto-prune=true
@@ -141,24 +140,24 @@ run_user_secrets() {
 	# revision 1 should be pruned.
 	# revision 2 is still been used by hello-kubecon app, so it should not be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revisions | length)" '2'
-	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_uuid-2"
-	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_uuid-3"
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '2'
+	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_name-2"
+	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri --peek)" "owned-by: $model_uuid-3"
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri --refresh)" "owned-by: $model_uuid-3"
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri)" "owned-by: $model_uuid-3"
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri --peek)" "owned-by: $model_name-3"
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri --refresh)" "owned-by: $model_name-3"
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-3"
 
 	# revision 2 should be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq .${secret_short_uri}.revisions | length)" '1'
-	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_uuid-3"
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '1'
+	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
 	juju --show-log revoke-secret $secret_uri hello-kubecon
-	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get "$secret_uri" 2>&1)" 'not found' # permission denied??? TODO: fix this in juju.!!!
+	check_contains "$(juju exec --unit hello-kubecon/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
 
 	juju --show-log remove-secret $secret_uri
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions)" 'not found'
+	check_contains "$(juju --show-log secrets --format yaml | yq length)" '0'
 }
 
 run_secret_drain() {
