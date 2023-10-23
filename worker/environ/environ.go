@@ -126,7 +126,7 @@ func (t *Tracker) loop() (err error) {
 		if err != nil {
 			return errors.Annotate(err, "cannot watch environ cloud spec")
 		}
-		if err := t.catacomb.Add(environWatcher); err != nil {
+		if err := t.catacomb.Add(cloudWatcher); err != nil {
 			return errors.Trace(err)
 		}
 		cloudWatcherChanges = cloudWatcher.Changes()
