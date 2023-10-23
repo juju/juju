@@ -89,3 +89,12 @@ func (s *baseSuite) expectStatus(status status.Status) {
 func (s *baseSuite) expectUpgradeVersion(ver version.Number) {
 	s.configSetter.EXPECT().SetUpgradedToVersion(ver)
 }
+
+func (s *baseSuite) dispatchChange(c *gc.C, ch chan struct{}) {
+	// Send initial event.
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("timed out waiting to enqueue change")
+	}
+}
