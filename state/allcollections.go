@@ -587,7 +587,6 @@ const (
 	charmsC                    = "charms"
 	cleanupsC                  = "cleanups"
 	cloudimagemetadataC        = "cloudimagemetadata"
-	cloudsC                    = "clouds"
 	cloudContainersC           = "cloudcontainers"
 	cloudServicesC             = "cloudservices"
 	constraintsC               = "constraints"

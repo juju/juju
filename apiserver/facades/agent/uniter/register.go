@@ -86,7 +86,7 @@ func newUniterAPIWithServices(
 
 	cloudSpec := cloudspec.NewCloudSpecV2(resources,
 		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),
-		cloudspec.MakeCloudSpecWatcherForModel(st),
+		cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
 		common.AuthFuncForTag(m.ModelTag()),

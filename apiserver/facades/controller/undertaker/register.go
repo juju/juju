@@ -42,7 +42,7 @@ func newUndertakerFacade(ctx facade.Context) (*UndertakerAPI, error) {
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		ctx.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),
-		cloudspec.MakeCloudSpecWatcherForModel(st),
+		cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, ctx.ServiceFactory().Credential()),
 		common.AuthFuncForTag(m.ModelTag()),

@@ -71,8 +71,8 @@ func MakeCloudSpecGetterForModel(st *state.State, cloudService common.CloudServi
 // NotifyWatcher for cloud spec changes for a single model.
 // Attempts to request a watcher for any other model other than the
 // one associated with the given state.State results in an error.
-func MakeCloudSpecWatcherForModel(st *state.State) func(names.ModelTag) (state.NotifyWatcher, error) {
-	return func(tag names.ModelTag) (state.NotifyWatcher, error) {
+func MakeCloudSpecWatcherForModel(st *state.State, cloudService common.CloudService) func(context.Context, names.ModelTag) (watcher.NotifyWatcher, error) {
+	return func(ctx context.Context, tag names.ModelTag) (watcher.NotifyWatcher, error) {
 		m, err := st.Model()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -80,7 +80,7 @@ func MakeCloudSpecWatcherForModel(st *state.State) func(names.ModelTag) (state.N
 		if tag.Id() != st.ModelUUID() {
 			return nil, errors.New("cannot get cloud spec for this model")
 		}
-		return m.WatchCloudSpecChanges(), nil
+		return cloudService.WatchCloud(ctx, m.CloudName())
 	}
 }
 

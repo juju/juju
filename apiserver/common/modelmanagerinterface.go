@@ -133,6 +133,7 @@ type CredentialService interface {
 // CloudService provides access to clouds.
 type CloudService interface {
 	Get(ctx context.Context, name string) (*cloud.Cloud, error)
+	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
 }
 
 var _ ModelManagerBackend = (*modelManagerStateShim)(nil)

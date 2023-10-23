@@ -7,23 +7,30 @@ import (
 	ctx "context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v3"
+	"github.com/juju/worker/v3/workertest"
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	modeltesting "github.com/juju/juju/domain/model/testing"
-	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/changestream/testing"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 type stateSuite struct {
-	schematesting.ControllerSuite
+	testing.ControllerSuite
 }
 
 var _ = gc.Suite(&stateSuite{})
@@ -655,4 +662,67 @@ WHERE cloud.name = ?
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(clouds, gc.HasLen, 1)
 	c.Assert(clouds[0].Name, gc.Equals, "fluffy")
+}
+
+type watcherFunc func(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error)
+
+func (f watcherFunc) NewValueWatcher(
+	namespace, changeValue string, changeMask changestream.ChangeType,
+) (watcher.NotifyWatcher, error) {
+	return f(namespace, changeValue, changeMask)
+}
+
+func (s *stateSuite) watcherFunc(c *gc.C, expectedChangeValue string) watcherFunc {
+	return func(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error) {
+		c.Assert(namespace, gc.Equals, "cloud")
+		c.Assert(changeMask, gc.Equals, changestream.All)
+		c.Assert(changeValue, gc.Equals, expectedChangeValue)
+
+		db, err := s.GetWatchableDB(namespace)
+		c.Assert(err, jc.ErrorIsNil)
+
+		base := eventsource.NewBaseWatcher(db, jujutesting.NewCheckLogger(c))
+		return eventsource.NewValueWatcher(base, namespace, changeValue, changeMask), nil
+	}
+}
+
+func (s *stateSuite) TestWatchCloudNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	ctx := context.Background()
+	_, err := st.WatchCloud(ctx, s.watcherFunc(c, ""), "fluffy")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *stateSuite) TestWatchCloud(c *gc.C) {
+	cld := testCloud
+	st := NewState(s.TxnRunnerFactory())
+	err := st.UpsertCloud(ctx.Background(), cld)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var uuid string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, "SELECT uuid FROM cloud WHERE name = ?", "fluffy")
+		err := row.Scan(&uuid)
+		c.Assert(err, jc.ErrorIsNil)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := st.WatchCloud(context.Background(), s.watcherFunc(c, uuid), "fluffy")
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
+
+	wc := watchertest.NewNotifyWatcherC(c, w)
+	wc.AssertChanges(time.Second) // Initial event.
+
+	cld.Config = map[string]any{"foo": "bar"}
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := st.UpsertCloud(ctx, cld)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	workertest.CleanKill(c, w)
 }

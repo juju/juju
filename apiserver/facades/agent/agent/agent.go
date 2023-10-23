@@ -75,7 +75,7 @@ func NewAgentAPI(
 		CloudSpecer: cloudspec.NewCloudSpecV2(
 			resources,
 			cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),
-			cloudspec.MakeCloudSpecWatcherForModel(st),
+			cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
 			cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
 			common.AuthFuncForTag(model.ModelTag()),

@@ -13,7 +13,9 @@ import (
 	"github.com/juju/utils/v3"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/database"
@@ -786,4 +788,32 @@ func AllowCloudType(ctx context.Context, db coredatabase.TxnRunner, version int,
 		_, err := tx.Exec(`INSERT INTO cloud_type VALUES (?, ?)`, version, name)
 		return err
 	}))
+}
+
+// WatchCloud returns a new NotifyWatcher watching for changes to the specified cloud.
+func (st *State) WatchCloud(
+	ctx context.Context,
+	getWatcher func(string, string, changestream.ChangeType) (watcher.NotifyWatcher, error),
+	cloudName string,
+) (watcher.NotifyWatcher, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var uuid string
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, "SELECT uuid FROM cloud WHERE name = ?", cloudName)
+		if err := row.Scan(&uuid); err == sql.ErrNoRows {
+			return fmt.Errorf("cloud %q %w%w", cloudName, errors.NotFound, errors.Hide(err))
+		} else if err != nil {
+			return fmt.Errorf("fetching cloud %q: %w", cloudName, err)
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result, err := getWatcher("cloud", uuid, changestream.All)
+	return result, errors.Annotatef(err, "watching cloud")
 }

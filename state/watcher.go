@@ -2015,12 +2015,6 @@ func (model *Model) WatchForModelConfigChanges() NotifyWatcher {
 	return newEntityWatcher(model.st, settingsC, model.st.docID(modelGlobalKey))
 }
 
-// WatchCloudSpecChanges returns a NotifyWatcher waiting for the cloud
-// to change for the model.
-func (model *Model) WatchCloudSpecChanges() NotifyWatcher {
-	return newEntityWatcher(model.st, cloudsC, model.CloudName())
-}
-
 // WatchModelEntityReferences returns a NotifyWatcher waiting for the Model
 // Entity references to change for specified model.
 func (st *State) WatchModelEntityReferences(mUUID string) NotifyWatcher {

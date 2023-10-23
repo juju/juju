@@ -35,7 +35,7 @@ type CloudSpecAPI struct {
 	resources facade.Resources
 
 	getCloudSpec                           func(names.ModelTag) (environscloudspec.CloudSpec, error)
-	watchCloudSpec                         func(tag names.ModelTag) (state.NotifyWatcher, error)
+	watchCloudSpec                         func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error)
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error)
 	watchCloudSpecCredentialContent        func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error)
 	getAuthFunc                            common.GetAuthFunc
@@ -49,7 +49,7 @@ type CloudSpecAPIV2 struct {
 func NewCloudSpec(
 	resources facade.Resources,
 	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
-	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
+	watchCloudSpec func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error),
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecCredentialContent func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error),
 	getAuthFunc common.GetAuthFunc,
@@ -67,7 +67,7 @@ func NewCloudSpec(
 func NewCloudSpecV2(
 	resources facade.Resources,
 	getCloudSpec func(names.ModelTag) (environscloudspec.CloudSpec, error),
-	watchCloudSpec func(tag names.ModelTag) (state.NotifyWatcher, error),
+	watchCloudSpec func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error),
 	watchCloudSpecModelCredentialReference func(tag names.ModelTag) (state.NotifyWatcher, error),
 	watchCloudSpecCredentialContent func(ctx context.Context, tag names.ModelTag) (corewatcher.NotifyWatcher, error),
 	getAuthFunc common.GetAuthFunc,
@@ -186,7 +186,7 @@ func (w *watcherAdaptor) Err() error {
 
 func (s CloudSpecAPI) watchCloudSpecChanges(ctx context.Context, tag names.ModelTag) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	cloudWatch, err := s.watchCloudSpec(tag)
+	cloudWatch, err := s.watchCloudSpec(ctx, tag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -201,11 +201,11 @@ func (s CloudSpecAPI) watchCloudSpecChanges(ctx context.Context, tag names.Model
 	}
 	var watch *common.MultiNotifyWatcher
 	if credentialContentWatch != nil {
-		watch = common.NewMultiNotifyWatcher(cloudWatch, credentialReferenceWatch, &watcherAdaptor{credentialContentWatch})
+		watch = common.NewMultiNotifyWatcher(&watcherAdaptor{cloudWatch}, credentialReferenceWatch, &watcherAdaptor{credentialContentWatch})
 	} else {
 		// It's rare but possible that a model does not have a credential.
 		// In this case there is no point trying to 'watch' content changes.
-		watch = common.NewMultiNotifyWatcher(cloudWatch, credentialReferenceWatch)
+		watch = common.NewMultiNotifyWatcher(&watcherAdaptor{cloudWatch}, credentialReferenceWatch)
 	}
 	// Consume the initial event. Technically, API
 	// calls to Watch 'transmit' the initial event
