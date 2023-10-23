@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-// coerceConfigForStorage is responsible for taking a config object and
+// CoerceConfigForStorage is responsible for taking a config object and
 // distilling all of its attribute values down to strings for persistence. The
 // best way to have complex types go through this function is for type to
 // implement the stringer interface.
@@ -21,7 +21,7 @@ import (
 // persistence. Instead, the config should be providing translation helpers to
 // deal with this so that each attribute can be encapsulated on its own.
 // This is a leftover copy from Mongo and should be dealt with at some stage.
-func coerceConfigForStorage(attrs map[string]any) (map[string]string, error) {
+func CoerceConfigForStorage(attrs map[string]any) (map[string]string, error) {
 	coerced := make(map[string]string, len(attrs))
 
 	for attrName, attrValue := range attrs {

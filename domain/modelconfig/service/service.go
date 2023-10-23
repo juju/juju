@@ -155,7 +155,7 @@ func (s *Service) SetModelConfig(
 		return fmt.Errorf("validating model config to set for model: %w", err)
 	}
 
-	rawCfg, err := coerceConfigForStorage(cfg.AllAttrs())
+	rawCfg, err := CoerceConfigForStorage(cfg.AllAttrs())
 	if err != nil {
 		return fmt.Errorf("coercing model config for storage: %w", err)
 	}
@@ -199,7 +199,7 @@ func (s *Service) UpdateModelConfig(
 		return fmt.Errorf("validating updated model configuration: %w", err)
 	}
 
-	rawCfg, err := coerceConfigForStorage(updateAttrs)
+	rawCfg, err := CoerceConfigForStorage(updateAttrs)
 	if err != nil {
 		return fmt.Errorf("coercing new configuration for persistence: %w", err)
 	}

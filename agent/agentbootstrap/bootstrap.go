@@ -34,6 +34,8 @@ import (
 	credbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	modeldomain "github.com/juju/juju/domain/model"
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
+	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
+	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -53,7 +55,7 @@ type DqliteInitializerFunc func(
 	mgr database.BootstrapNodeManager,
 	logger database.Logger,
 	preferLoopback bool,
-	ops ...database.BootstrapOpt,
+	concerns ...database.BootstrapConcern,
 ) error
 
 // Logger describes methods for emitting log output.
@@ -227,15 +229,25 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		Type:        controllerModelType,
 	}
 
+	controllerModelDefaults := modeldefaultsbootstrap.ModelDefaultsProvider(
+		nil,
+		stateParams.ControllerInheritedConfig,
+		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
+
 	if err := b.bootstrapDqlite(
 		ctx,
 		database.NewNodeManager(b.agentConfig, b.logger, coredatabase.NoopSlowQueryLogger{}),
 		b.logger,
 		false,
-		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
-		cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
-		credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
-		modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
+		database.BootstrapControllerConcern(
+			ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
+			cloudbootstrap.InsertCloud(stateParams.ControllerCloud),
+			credbootstrap.InsertCredential(credential.IdFromTag(cloudCredTag), cloudCred),
+			modelbootstrap.CreateModel(controllerUUID, controllerModelArgs),
+		),
+		database.BootstrapModelConcern(controllerUUID,
+			modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
+		),
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
