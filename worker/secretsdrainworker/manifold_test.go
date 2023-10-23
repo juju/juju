@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretdrainworker_test
+package secretsdrainworker_test
 
 import (
 	"github.com/juju/errors"
@@ -15,13 +15,13 @@ import (
 
 	"github.com/juju/juju/api/base"
 	jujusecrets "github.com/juju/juju/internal/secrets"
-	"github.com/juju/juju/worker/secretdrainworker"
-	"github.com/juju/juju/worker/secretdrainworker/mocks"
+	"github.com/juju/juju/worker/secretsdrainworker"
+	"github.com/juju/juju/worker/secretsdrainworker/mocks"
 )
 
 type ManifoldSuite struct {
 	testing.IsolationSuite
-	config secretdrainworker.ManifoldConfig
+	config secretsdrainworker.ManifoldConfig
 }
 
 var _ = gc.Suite(&ManifoldSuite{})
@@ -31,15 +31,15 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = s.validConfig()
 }
 
-func (s *ManifoldSuite) validConfig() secretdrainworker.ManifoldConfig {
-	return secretdrainworker.ManifoldConfig{
+func (s *ManifoldSuite) validConfig() secretsdrainworker.ManifoldConfig {
+	return secretsdrainworker.ManifoldConfig{
 		APICallerName: "api-caller",
 		Logger:        loggo.GetLogger("test"),
-		NewWorker: func(config secretdrainworker.Config) (worker.Worker, error) {
+		NewWorker: func(config secretsdrainworker.Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewSecretsDrainFacade: func(base.APICaller) secretdrainworker.SecretsDrainFacade { return nil },
-		NewBackendsClient: func(jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error) {
+		NewSecretsDrainFacade: func(base.APICaller) secretsdrainworker.SecretsDrainFacade { return nil },
+		NewBackendsClient: func(base.APICaller) (jujusecrets.BackendsClient, error) {
 			return nil, nil
 		},
 	}
@@ -84,26 +84,26 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	defer ctrl.Finish()
 
 	facade := mocks.NewMockSecretsDrainFacade(ctrl)
-	s.config.NewSecretsDrainFacade = func(base.APICaller) secretdrainworker.SecretsDrainFacade {
+	s.config.NewSecretsDrainFacade = func(base.APICaller) secretsdrainworker.SecretsDrainFacade {
 		return facade
 	}
 
 	backendClients := mocks.NewMockBackendsClient(ctrl)
-	s.config.NewBackendsClient = func(jujusecrets.JujuAPIClient) (jujusecrets.BackendsClient, error) {
+	s.config.NewBackendsClient = func(base.APICaller) (jujusecrets.BackendsClient, error) {
 		return backendClients, nil
 	}
 
 	called := false
-	s.config.NewWorker = func(config secretdrainworker.Config) (worker.Worker, error) {
+	s.config.NewWorker = func(config secretsdrainworker.Config) (worker.Worker, error) {
 		called = true
 		mc := jc.NewMultiChecker()
 		mc.AddExpr(`_.Facade`, gc.NotNil)
 		mc.AddExpr(`_.Logger`, gc.NotNil)
 		mc.AddExpr(`_.SecretsBackendGetter`, gc.NotNil)
-		c.Check(config, mc, secretdrainworker.Config{SecretsDrainFacade: facade})
+		c.Check(config, mc, secretsdrainworker.Config{SecretsDrainFacade: facade})
 		return nil, nil
 	}
-	manifold := secretdrainworker.Manifold(s.config)
+	manifold := secretsdrainworker.Manifold(s.config)
 	w, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"api-caller": struct{ base.APICaller }{&mockAPICaller{}},
 	}))

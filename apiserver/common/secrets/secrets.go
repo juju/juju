@@ -248,6 +248,8 @@ func backendConfigInfo(
 		// Granted secrets can be consumed in application level for all units.
 		readFilter.ConsumerTags = append(readFilter.ConsumerTags, authApp)
 	case names.ApplicationTag:
+	case names.ModelTag:
+		// Model Tag is validate for user secrets.
 	default:
 		return nil, errors.NotSupportedf("login as %q", authTag)
 	}
@@ -480,24 +482,26 @@ func PingBackend(p provider.SecretBackendProvider, cfg provider.ConfigAttrs) err
 
 // GetSecretMetadata returns the secrets metadata for the given filter.
 func GetSecretMetadata(
-	authTag names.Tag, secretsState SecretsMetaState, leadershipChecker leadership.Checker,
+	ownerTag names.Tag, secretsState SecretsMetaState, leadershipChecker leadership.Checker,
 	filter func(*coresecrets.SecretMetadata, *coresecrets.SecretRevisionMetadata) bool,
 ) (params.ListSecretResults, error) {
 	var result params.ListSecretResults
 	listFilter := state.SecretsFilter{
 		// TODO: there is a bug that operator agents can't get any unit owned secrets!
-		// Because the authTag here is the application tag, but not unit tag.
-		OwnerTags: []names.Tag{authTag},
+		// Because the ownerTag here is the application tag, but not unit tag.
+		OwnerTags: []names.Tag{ownerTag},
 	}
-	// Unit leaders can also get metadata for secrets owned by the app.
-	// TODO(wallyworld) - temp fix for old podspec charms
-	isLeader, err := IsLeaderUnit(authTag, leadershipChecker)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if isLeader {
-		appOwner := names.NewApplicationTag(AuthTagApp(authTag))
-		listFilter.OwnerTags = append(listFilter.OwnerTags, appOwner)
+	if ownerTag.Kind() == names.UnitTagKind {
+		// Unit leaders can also get metadata for secrets owned by the app.
+		// TODO(wallyworld) - temp fix for old podspec charms
+		isLeader, err := IsLeaderUnit(ownerTag, leadershipChecker)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+		if isLeader {
+			appOwner := names.NewApplicationTag(AuthTagApp(ownerTag))
+			listFilter.OwnerTags = append(listFilter.OwnerTags, appOwner)
+		}
 	}
 
 	secrets, err := secretsState.ListSecrets(listFilter)

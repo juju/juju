@@ -1,25 +1,37 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secretsdrain_test
+package secrets_test
 
 import (
 	"context"
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/facades/agent/secretsdrain"
+	"github.com/juju/juju/apiserver/common/secrets"
+	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	"github.com/juju/juju/environs/config"
 	coretesting "github.com/juju/juju/testing"
 )
 
-func (s *SecretsDrainSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
-	defer s.setup(c).Finish()
+type watcherSuite struct {
+	testing.IsolationSuite
+}
+
+var _ = gc.Suite(&watcherSuite{})
+
+func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	modelConfigChangesWatcher := mocks.NewMockNotifyWatcher(ctrl)
+	model := mocks.NewMockModel(ctrl)
 
 	ch := make(chan struct{}, 3)
 	done := make(chan struct{})
@@ -36,11 +48,11 @@ func (s *SecretsDrainSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 	}()
 	receiverReady <- struct{}{}
 
-	s.modelConfigChangesWatcher.EXPECT().Wait().Return(nil)
-	s.modelConfigChangesWatcher.EXPECT().Changes().Return(ch).AnyTimes()
+	modelConfigChangesWatcher.EXPECT().Wait().Return(nil)
+	modelConfigChangesWatcher.EXPECT().Changes().Return(ch).AnyTimes()
 
 	gomock.InOrder(
-		s.model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
+		model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
 			// Initail call to get the current secret backend.
 			func(_ context.Context) (*config.Config, error) {
 				configAttrs := map[string]interface{}{
@@ -54,7 +66,7 @@ func (s *SecretsDrainSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 				return cfg, nil
 			},
 		),
-		s.model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
+		model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
 			// Call to get the current secret backend after the first change(no change, but we always send the initial event).
 			func(_ context.Context) (*config.Config, error) {
 				configAttrs := map[string]interface{}{
@@ -68,7 +80,7 @@ func (s *SecretsDrainSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 				return cfg, nil
 			},
 		),
-		s.model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
+		model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
 			// Call to get the current secret backend after the first change(no change, we won'ts send the event).
 			func(_ context.Context) (*config.Config, error) {
 				configAttrs := map[string]interface{}{
@@ -82,7 +94,7 @@ func (s *SecretsDrainSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 				return cfg, nil
 			},
 		),
-		s.model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
+		model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
 			// Call to get the current secret backend after the second change - backend changed.
 			func(_ context.Context) (*config.Config, error) {
 				configAttrs := map[string]interface{}{
@@ -99,7 +111,7 @@ func (s *SecretsDrainSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 		),
 	)
 
-	w, err := secretsdrain.NewSecretBackendModelConfigWatcher(context.Background(), s.model, s.modelConfigChangesWatcher, loggo.GetLogger("juju.apiserver.secretsdrain"))
+	w, err := secrets.NewSecretBackendModelConfigWatcher(context.Background(), model, modelConfigChangesWatcher, loggo.GetLogger("juju.apiserver.secretsdrain"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
 

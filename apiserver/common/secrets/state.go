@@ -4,6 +4,8 @@
 package secrets
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/names/v4"
 
@@ -24,6 +26,9 @@ type Model interface {
 	Name() string
 	Type() state.ModelType
 	State() *state.State
+
+	ModelConfig(context.Context) (*config.Config, error)
+	WatchForModelConfigChanges() state.NotifyWatcher
 }
 
 type StatePool interface {
@@ -49,6 +54,8 @@ type SecretsState interface {
 type SecretsMetaState interface {
 	ListSecrets(state.SecretsFilter) ([]*secrets.SecretMetadata, error)
 	ListSecretRevisions(uri *secrets.URI) ([]*secrets.SecretRevisionMetadata, error)
+
+	ChangeSecretBackend(state.ChangeSecretBackendParams) error
 }
 
 // SecretsRemoveState instances provide secret removal apis.
