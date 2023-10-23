@@ -42,7 +42,9 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 		s.AddCall("Auth", tag)
 		return tag == coretesting.ModelTag
 	}
-	s.api = s.getTestCloudSpec(apiservertesting.NewFakeNotifyWatcher())
+	s.api = s.getTestCloudSpec(
+		apiservertesting.NewFakeNotifyWatcher(),
+		apiservertesting.NewFakeNotifyWatcher())
 	credential := cloud.NewCredential(
 		"auth-type",
 		map[string]string{"k": "v"},
@@ -60,16 +62,16 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *CloudSpecSuite) getTestCloudSpec(credentialContentWatcher state.NotifyWatcher) cloudspec.CloudSpecAPI {
+func (s *CloudSpecSuite) getTestCloudSpec(cloudWatcher, credentialContentWatcher state.NotifyWatcher) cloudspec.CloudSpecAPI {
 	return cloudspec.NewCloudSpec(
 		common.NewResources(),
 		func(tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 			s.AddCall("CloudSpec", tag)
 			return s.result, s.NextErr()
 		},
-		func(tag names.ModelTag) (state.NotifyWatcher, error) {
+		func(_ context.Context, tag names.ModelTag) (watcher.NotifyWatcher, error) {
 			s.AddCall("WatchCloudSpec", tag)
-			return apiservertesting.NewFakeNotifyWatcher(), s.NextErr()
+			return cloudWatcher, s.NextErr()
 		},
 		func(tag names.ModelTag) (state.NotifyWatcher, error) {
 			s.AddCall("WatchCredentialReference", tag)
@@ -165,7 +167,7 @@ func (s *CloudSpecSuite) TestWatchCloudSpecsChanges(c *gc.C) {
 }
 
 func (s *CloudSpecSuite) TestWatchCloudSpecsNoCredentialContentToWatch(c *gc.C) {
-	s.api = s.getTestCloudSpec(nil)
+	s.api = s.getTestCloudSpec(apiservertesting.NewFakeNotifyWatcher(), nil)
 	result, err := s.api.WatchCloudSpecsChanges(
 		context.Background(),
 		params.Entities{Entities: []params.Entity{

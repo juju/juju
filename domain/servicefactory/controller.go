@@ -125,6 +125,10 @@ func (s *ControllerFactory) Credential() *credentialservice.Service {
 func (s *ControllerFactory) Cloud() *cloudservice.Service {
 	return cloudservice.NewService(
 		cloudstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		domain.NewWatcherFactory(
+			s.controllerDB,
+			s.logger.Child("cloud"),
+		),
 	)
 }
 

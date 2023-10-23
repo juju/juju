@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -1336,6 +1337,10 @@ func (mockModelService) DeleteModel(_ stdcontext.Context, _ model.UUID) error {
 
 type mockCloudService struct {
 	clouds map[string]cloud.Cloud
+}
+
+func (m *mockCloudService) WatchCloud(ctx stdcontext.Context, name string) (watcher.NotifyWatcher, error) {
+	return nil, errors.NotSupported
 }
 
 func (m *mockCloudService) Get(ctx stdcontext.Context, name string) (*cloud.Cloud, error) {
