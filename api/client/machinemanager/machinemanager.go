@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -126,16 +125,12 @@ func (c *Client) RetryProvisioning(all bool, machines ...names.MachineTag) ([]pa
 // UpgradeSeriesPrepare notifies the controller that a series upgrade is taking
 // place for a given machine and as such the machine is guarded against
 // operations that would impede, fail, or interfere with the upgrade process.
-func (client *Client) UpgradeSeriesPrepare(machineName, series string, force bool) error {
-	base, err := corebase.GetBaseFromSeries(series)
-	if err != nil {
-		return errors.Trace(err)
-	}
+func (client *Client) UpgradeSeriesPrepare(machineName, channel string, force bool) error {
 	args := params.UpdateChannelArg{
 		Entity: params.Entity{
 			Tag: names.NewMachineTag(machineName).String(),
 		},
-		Channel: base.Channel.String(),
+		Channel: channel,
 		Force:   force,
 	}
 	var result params.ErrorResult
@@ -167,21 +162,17 @@ func (client *Client) UpgradeSeriesComplete(machineName string) error {
 	return nil
 }
 
-func (client *Client) UpgradeSeriesValidate(machineName, series string) ([]string, error) {
-	base, err := corebase.GetBaseFromSeries(series)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func (client *Client) UpgradeSeriesValidate(machineName, channel string) ([]string, error) {
 	args := params.UpdateChannelArgs{
 		Args: []params.UpdateChannelArg{
 			{
 				Entity:  params.Entity{Tag: names.NewMachineTag(machineName).String()},
-				Channel: base.Channel.String(),
+				Channel: channel,
 			},
 		},
 	}
 	results := new(params.UpgradeSeriesUnitsResults)
-	err = client.facade.FacadeCall("UpgradeSeriesValidate", args, results)
+	err := client.facade.FacadeCall("UpgradeSeriesValidate", args, results)
 	if err != nil {
 		return nil, err
 	}
