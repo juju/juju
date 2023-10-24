@@ -10,6 +10,7 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/domain/modelconfig/validators"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
 )
@@ -70,8 +71,47 @@ func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
 	return config.New(config.NoDefaults, altConfig)
 }
 
+// ModelConfigValues returns the config values for the model and the source of
+// the value.
+func (s *Service) ModelConfigValues(
+	ctx context.Context,
+) (config.ConfigValues, error) {
+	cfg, err := s.ModelConfig(ctx)
+	if err != nil {
+		return config.ConfigValues{}, err
+	}
+
+	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
+	if err != nil {
+		return config.ConfigValues{}, fmt.Errorf("getting model defaults: %w", err)
+	}
+
+	allAtrs := cfg.AllAttrs()
+	if len(allAtrs) == 0 {
+		allAtrs = map[string]any{}
+		for k, v := range defaults {
+			allAtrs[k] = v.Value()
+		}
+	}
+
+	result := make(config.ConfigValues, len(allAtrs))
+	for attr, val := range allAtrs {
+		isDefault, source := defaults[attr].Has(val)
+		if !isDefault {
+			source = config.JujuModelConfigSource
+		}
+
+		result[attr] = config.ConfigValue{
+			Value:  val,
+			Source: source,
+		}
+	}
+
+	return result, nil
+}
+
 // buildUpdatedModelConfig is responsible for taking the currently set
-// ModelConfig and applying in memory update operation.
+// ModelConfig and applying in memory update operations.
 func (s *Service) buildUpdatedModelConfig(
 	ctx context.Context,
 	updates map[string]any,
@@ -166,13 +206,17 @@ func (s *Service) SetModelConfig(
 // UpdateModelConfig takes a set of updated and removed attributes to apply.
 // Removed attributes are replaced with their model default values should they
 // exist. All model config updates are validated against the currently set
-// model config.
+// model config. The model config is ran through several validation steps before
+// being persisted. If an error occurs during validation then a
+// config.ValidationError is returned. The caller can also optionally pass in
+// additional config.Validators to be run.
 func (s *Service) UpdateModelConfig(
 	ctx context.Context,
 	updateAttrs map[string]any,
 	removeAttrs []string,
+	additionalValidators ...config.Validator,
 ) error {
-	// noop with no updates to perform.
+	// noop with no updates or removals to perform.
 	if len(updateAttrs) == 0 && len(removeAttrs) == 0 {
 		return nil
 	}
@@ -194,7 +238,7 @@ func (s *Service) UpdateModelConfig(
 		return fmt.Errorf("making updated model configuration: %w", err)
 	}
 
-	_, err = config.ModelValidator().Validate(newCfg, currCfg)
+	_, err = s.updateModelConfigValidator().Validate(newCfg, currCfg)
 	if err != nil {
 		return fmt.Errorf("validating updated model configuration: %w", err)
 	}
@@ -209,4 +253,40 @@ func (s *Service) UpdateModelConfig(
 		return fmt.Errorf("updating model config: %w", err)
 	}
 	return nil
+}
+
+// dummySecretsBackendProvider implements validators.SecretBackendProvider and
+// always returns true.
+// TODO (tlm): These needs to be swapped out with an actual checker when we have
+// secrets in dqlite
+type dummySecretsBackendProvider struct{}
+
+// dummySpaceProvider implements validators.SpaceProvider and always returns true.
+// TODO (tlm): These needs to be swapped out with an actual checker when we have
+// spaces in dqlite
+type dummySpaceProvider struct{}
+
+// HasSecretsBackend implements validators.SecretBackendProvider
+func (_ *dummySecretsBackendProvider) HasSecretsBackend(_ string) (bool, error) {
+	return true, nil
+}
+
+// HasSpace implements validators.SpaceProvider
+func (_ *dummySpaceProvider) HasSpace(_ string) (bool, error) {
+	return true, nil
+}
+
+func (s *Service) updateModelConfigValidator(
+	additional ...config.Validator,
+) config.Validator {
+	agg := &config.AggregateValidator{
+		Validators: []config.Validator{
+			config.ModelValidator(),
+			validators.CharmhubURLChange(),
+			validators.SpaceChecker(&dummySpaceProvider{}),
+			validators.SecretBackendChecker(&dummySecretsBackendProvider{}),
+		},
+	}
+	agg.Validators = append(agg.Validators, additional...)
+	return agg
 }

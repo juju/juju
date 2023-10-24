@@ -29,13 +29,13 @@ func ModelDefaultsProvider(
 
 		for k, v := range controllerConfig {
 			attr := defaults[k]
-			attr.Default = v
+			attr.Controller = v
 			defaults[k] = attr
 		}
 
 		for k, v := range cloudRegionConfig {
 			attr := defaults[k]
-			attr.Default = v
+			attr.Region = v
 			defaults[k] = attr
 		}
 
