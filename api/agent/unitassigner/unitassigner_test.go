@@ -103,6 +103,10 @@ func (*fakeAssignCaller) BestFacadeVersion(facade string) int {
 	return 1
 }
 
+func (*fakeAssignCaller) Context() context.Context {
+	return context.Background()
+}
+
 type fakeWatchCaller struct {
 	base.APICaller
 	sync.Mutex
@@ -136,4 +140,8 @@ func (f *fakeWatchCaller) APICall(ctx context.Context, objType string, version i
 
 func (*fakeWatchCaller) BestFacadeVersion(facade string) int {
 	return 1
+}
+
+func (*fakeWatchCaller) Context() context.Context {
+	return context.Background()
 }

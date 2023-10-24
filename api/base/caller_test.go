@@ -4,6 +4,8 @@
 package base_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -42,6 +44,7 @@ func (s *apiCallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.apiCaller = mocks.NewMockAPICaller(ctrl)
 	s.apiCaller.EXPECT().BestFacadeVersion("Foo").Return(1)
+	s.apiCaller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	return ctrl
 }

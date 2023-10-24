@@ -348,6 +348,10 @@ func (fakeConnector) BestFacadeVersion(string) int {
 	return 0
 }
 
+func (fakeConnector) Context() context.Context {
+	return context.Background()
+}
+
 func (c fakeConnector) ConnectControllerStream(path string, attrs url.Values, headers http.Header) (base.Stream, error) {
 	c.Stub.AddCall("ConnectControllerStream", path, attrs, headers)
 	return nil, errors.New("sound hound")

@@ -238,6 +238,10 @@ func (*mockCaller) APICall(ctx context.Context, objType string, version int, id,
 	return nil
 }
 
+func (*mockCaller) Context() context.Context {
+	return context.Background()
+}
+
 func (*mockCaller) BestFacadeVersion(facade string) int {
 	return 0
 }

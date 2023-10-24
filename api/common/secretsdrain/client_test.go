@@ -41,7 +41,7 @@ func (s *secretsDrainSuite) TestGetSecretsToDrain(c *gc.C) {
 	uri := coresecrets.NewURI()
 	now := time.Now()
 	apiCaller.EXPECT().FacadeCall(gomock.Any(), "GetSecretsToDrain", nil, gomock.Any()).SetArg(
-		2, params.ListSecretResults{
+		3, params.ListSecretResults{
 			Results: []params.ListSecretResult{{
 				URI:              uri.String(),
 				OwnerTag:         "application-mariadb",

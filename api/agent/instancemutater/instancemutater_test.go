@@ -4,6 +4,7 @@
 package instancemutater_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -89,6 +90,7 @@ func (s *instanceMutaterSuite) setup(c *gc.C) *gomock.Controller {
 
 	s.fCaller = mocks.NewMockFacadeCaller(ctrl)
 	s.apiCaller = mocks.NewMockAPICaller(ctrl)
+	s.apiCaller.EXPECT().Context().Return(context.Background()).AnyTimes()
 
 	return ctrl
 }
