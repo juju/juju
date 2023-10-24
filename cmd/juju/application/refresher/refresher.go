@@ -181,6 +181,10 @@ func (d *localCharmRefresher) Refresh() (*CharmID, error) {
 
 		newOrigin := d.charmOrigin
 		newOrigin.Source = corecharm.Local
+		newOrigin.Channel = nil
+		newOrigin.Hash = ""
+		newOrigin.ID = ""
+		newOrigin.Revision = &addedURL.Revision
 		return &CharmID{
 			URL:    addedURL,
 			Origin: newOrigin,
