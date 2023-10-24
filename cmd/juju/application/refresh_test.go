@@ -569,14 +569,14 @@ func (s *RefreshSuccessStateSuite) SetUpSuite(c *gc.C) {
 	s.RepoSuite.SetUpSuite(c)
 }
 
-func (s *RefreshSuccessStateSuite) assertUpgraded(c *gc.C, riak *state.Application, revision int, forced bool) *charm.URL {
+func (s *RefreshSuccessStateSuite) assertUpgraded(c *gc.C, riak *state.Application, revision int, forced bool) (*charm.URL, *state.CharmOrigin) {
 	err := riak.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	ch, force, err := riak.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Revision(), gc.Equals, revision)
 	c.Assert(force, gc.Equals, forced)
-	return ch.URL()
+	return ch.URL(), riak.CharmOrigin()
 }
 
 func (s *RefreshSuccessStateSuite) runRefresh(c *gc.C, cmd cmd.Command, args ...string) (*cmd.Context, error) {
@@ -637,7 +637,7 @@ func (s *RefreshSuccessStateSuite) assertLocalRevision(c *gc.C, revision int, pa
 func (s *RefreshSuccessStateSuite) TestLocalRevisionUnchanged(c *gc.C) {
 	_, err := s.runRefresh(c, s.cmd, "riak", "--path", s.path)
 	c.Assert(err, jc.ErrorIsNil)
-	curl := s.assertUpgraded(c, s.riak, 8, false)
+	curl, _ := s.assertUpgraded(c, s.riak, 8, false)
 	s.AssertCharmUploaded(c, curl)
 	// Even though the remote revision is bumped, the local one should
 	// be unchanged.
@@ -822,7 +822,7 @@ func (s *RefreshSuccessStateSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C
 	}
 	_, err = s.runRefresh(c, s.cmd, "riak", "--path", s.path)
 	c.Assert(err, jc.ErrorIsNil)
-	curl := s.assertUpgraded(c, s.riak, 42, false)
+	curl, _ := s.assertUpgraded(c, s.riak, 42, false)
 	s.AssertCharmUploaded(c, curl)
 	s.assertLocalRevision(c, 42, s.path)
 }
@@ -1153,7 +1153,7 @@ func (s *RefreshCharmHubSuite) TestUpgradeResourceNoChange(c *gc.C) {
 func (s *RefreshSuccessStateSuite) TestForcedUnitsUpgrade(c *gc.C) {
 	_, err := s.runRefresh(c, s.cmd, "riak", "--force-units", "--path", s.path)
 	c.Assert(err, jc.ErrorIsNil)
-	curl := s.assertUpgraded(c, s.riak, 8, true)
+	curl, _ := s.assertUpgraded(c, s.riak, 8, true)
 	s.AssertCharmUploaded(c, curl)
 	// Local revision is not changed.
 	s.assertLocalRevision(c, 7, s.path)
@@ -1164,7 +1164,7 @@ func (s *RefreshSuccessStateSuite) TestBlockForcedUnitsUpgrade(c *gc.C) {
 	s.BlockAllChanges(c, "TestBlockForcedUpgrade")
 	_, err := s.runRefresh(c, s.cmd, "riak", "--force-units", "--path", s.path)
 	c.Assert(err, jc.ErrorIsNil)
-	curl := s.assertUpgraded(c, s.riak, 8, true)
+	curl, _ := s.assertUpgraded(c, s.riak, 8, true)
 	s.AssertCharmUploaded(c, curl)
 	// Local revision is not changed.
 	s.assertLocalRevision(c, 7, s.path)
@@ -1178,7 +1178,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
-	curl := s.assertUpgraded(c, s.riak, 42, false)
+	curl, _ := s.assertUpgraded(c, s.riak, 42, false)
 	c.Assert(curl.String(), gc.Equals, "local:bionic/riak-42")
 	s.assertLocalRevision(c, 42, myriakPath)
 }
@@ -1199,9 +1199,19 @@ func (s *RefreshSuccessStateSuite) TestSwitchToLocal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.runRefresh(c, s.cmd, "riak", "--switch", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
-	curl := s.assertUpgraded(c, s.riak, 42, false)
+	rev := 42
+	curl, origin := s.assertUpgraded(c, s.riak, rev, false)
 	c.Assert(curl.String(), gc.Equals, "local:bionic/riak-42")
-	s.assertLocalRevision(c, 42, myriakPath)
+	c.Assert(origin, gc.DeepEquals, &state.CharmOrigin{
+		Source:   "local",
+		Revision: &rev,
+		Platform: &state.Platform{
+			Architecture: "amd64",
+			OS:           "ubuntu",
+			Channel:      "18.04",
+		},
+	})
+	s.assertLocalRevision(c, rev, myriakPath)
 }
 
 func (s *RefreshSuccessStateSuite) TestSwitchToLocalNotFound(c *gc.C) {
@@ -1218,7 +1228,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 	s.assertLocalRevision(c, 7, myriakPath)
 	_, err := s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
-	curl := s.assertUpgraded(c, s.riak, 8, false)
+	curl, _ := s.assertUpgraded(c, s.riak, 8, false)
 	c.Assert(curl.String(), gc.Equals, "local:bionic/riak-8")
 }
 
