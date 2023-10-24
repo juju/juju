@@ -74,12 +74,14 @@ import (
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage/looputil"
+	internalupgradesteps "github.com/juju/juju/internal/upgradesteps"
 	"github.com/juju/juju/internal/wrench"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/upgrades"
+	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/dbaccessor"
 	"github.com/juju/juju/worker/deployer"
@@ -552,7 +554,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	a.machineLock = machineLock
-	a.upgradeComplete = upgradesteps.NewLock(agentConfig)
+	a.upgradeComplete = internalupgradesteps.NewLock(agentConfig, jujuversion.Current)
 
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
 	if err := a.createJujudSymlinks(agentConfig.DataDir()); err != nil {

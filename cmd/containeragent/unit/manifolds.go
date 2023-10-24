@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/observability/probe"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/upgrades"
@@ -42,6 +41,7 @@ import (
 	"github.com/juju/juju/worker/lifeflag"
 	wlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
+	"github.com/juju/juju/worker/machineupgradesteps"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/muxhttpserver"
@@ -51,7 +51,6 @@ import (
 	"github.com/juju/juju/worker/secretsdrainworker"
 	"github.com/juju/juju/worker/simplesignalhandler"
 	"github.com/juju/juju/worker/uniter"
-	"github.com/juju/juju/worker/upgradesteps"
 )
 
 // manifoldsConfig allows specialisation of the result of Manifolds.
@@ -88,6 +87,11 @@ type manifoldsConfig struct {
 	// worker to ensure that conditions are OK for an upgrade to
 	// proceed.
 	PreUpgradeSteps upgrades.PreUpgradeStepsFunc
+
+	// UpgradeSteps is a function that is used by the upgradesteps
+	// worker to run any upgrade steps required to upgrade to the
+	// running jujud version.
+	UpgradeSteps upgrades.UpgradeStepsFunc
 
 	// PrometheusRegisterer is a prometheus.Registerer that may be used
 	// by workers to register Prometheus metric collectors.
@@ -247,16 +251,14 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// starts and runs any steps required to upgrade to the
 		// running jujud version. Once upgrade steps have run, the
 		// upgradesteps gate is unlocked and the worker exits.
-		upgradeStepsName: ifNotDead(upgradesteps.Manifold(upgradesteps.ManifoldConfig{
+		upgradeStepsName: ifNotDead(machineupgradesteps.Manifold(machineupgradesteps.ManifoldConfig{
 			AgentName:            agentName,
 			APICallerName:        apiCallerName,
 			UpgradeStepsGateName: upgradeStepsGateName,
 			PreUpgradeSteps:      config.PreUpgradeSteps,
-			NewAgentStatusSetter: func(base.APICaller) (upgradesteps.StatusSetter, error) {
-				return &noopStatusSetter{}, nil
-			},
-			Logger: loggo.GetLogger("juju.worker.upgradesteps"),
-			Clock:  config.Clock,
+			UpgradeSteps:         config.UpgradeSteps,
+			Logger:               loggo.GetLogger("juju.worker.machineupgradesteps"),
+			Clock:                config.Clock,
 		})),
 
 		// The migration workers collaborate to run migrations;
@@ -476,10 +478,3 @@ const (
 	deadFlagName    = "dead-flag"
 	notDeadFlagName = "not-dead-flag"
 )
-
-type noopStatusSetter struct{}
-
-// SetStatus implements upgradesteps.StatusSetter
-func (a *noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]interface{}) error {
-	return nil
-}

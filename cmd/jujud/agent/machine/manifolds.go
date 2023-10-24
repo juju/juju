@@ -76,6 +76,7 @@ import (
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/machineactions"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/machineupgradesteps"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/modelworkermanager"
@@ -915,6 +916,8 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PreUpgradeSteps:      config.PreUpgradeSteps(state.ModelTypeIAAS),
 			UpgradeSteps:         config.UpgradeSteps,
 			NewAgentStatusSetter: config.NewAgentStatusSetter,
+			NewMachineWorker:     machineupgradesteps.NewMachineWorker,
+			NewControllerWorker:  upgradesteps.NewControllerWorker,
 			Logger:               loggo.GetLogger("juju.worker.upgradesteps"),
 			Clock:                config.Clock,
 		}),
@@ -1034,6 +1037,8 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PreUpgradeSteps:      config.PreUpgradeSteps(state.ModelTypeCAAS),
 			UpgradeSteps:         config.UpgradeSteps,
 			NewAgentStatusSetter: config.NewAgentStatusSetter,
+			NewMachineWorker:     machineupgradesteps.NewMachineWorker,
+			NewControllerWorker:  upgradesteps.NewControllerWorker,
 			Logger:               loggo.GetLogger("juju.worker.upgradesteps"),
 			Clock:                config.Clock,
 		}),

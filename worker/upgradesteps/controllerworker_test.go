@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
+	"github.com/juju/juju/internal/upgradesteps"
 	"github.com/juju/juju/testing"
 )
 
@@ -198,7 +199,7 @@ func (s *controllerWorkerSuite) TestUpgradeFailure(c *gc.C) {
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
 
 	w := s.newWorker(c)
-	w.preUpgradeSteps = func(_ agent.Config, _ bool) error {
+	w.base.PreUpgradeSteps = func(_ agent.Config, _ bool) error {
 		return errors.New("boom")
 	}
 	defer workertest.DirtyKill(c, w)
@@ -245,10 +246,10 @@ func (s *controllerWorkerSuite) TestUpgradeFailureWithAPILostError(c *gc.C) {
 	done := make(chan struct{})
 
 	w := s.newWorker(c)
-	w.preUpgradeSteps = func(_ agent.Config, _ bool) error {
+	w.base.PreUpgradeSteps = func(_ agent.Config, _ bool) error {
 		defer close(done)
 
-		return &apiLostDuringUpgrade{err: errors.New("boom")}
+		return upgradesteps.NewAPILostDuringUpgrade(errors.New("boom"))
 	}
 	defer workertest.DirtyKill(c, w)
 
@@ -359,7 +360,7 @@ func (s *controllerWorkerSuite) TestUpgradeFailsWhenKilled(c *gc.C) {
 	srv.SetDBUpgradeFailed(gomock.Any(), s.upgradeUUID).Return(nil)
 
 	w := s.newWorker(c)
-	w.preUpgradeSteps = func(_ agent.Config, _ bool) error {
+	w.base.PreUpgradeSteps = func(_ agent.Config, _ bool) error {
 		select {
 		case w := <-kill:
 			defer close(done)

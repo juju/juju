@@ -1,7 +1,7 @@
-// Copyright 2023 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package upgradesteps
+package machineupgradesteps
 
 import (
 	"github.com/juju/clock"
@@ -10,14 +10,17 @@ import (
 	"github.com/juju/worker/v3/dependency"
 
 	"github.com/juju/juju/agent"
-	apiagent "github.com/juju/juju/api/agent/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/internal/servicefactory"
-	"github.com/juju/juju/internal/upgradesteps"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/worker/gate"
 )
+
+// StatusSetter defines the single method required to set an agent's
+// status.
+type StatusSetter interface {
+	SetStatus(setableStatus status.Status, info string, data map[string]any) error
+}
 
 type (
 	PreUpgradeStepsFunc = upgrades.PreUpgradeStepsFunc
@@ -32,41 +35,14 @@ type Logger interface {
 	Debugf(string, ...any)
 }
 
-// StatusSetter defines the single method required to set an agent's
-// status.
-type StatusSetter interface {
-	SetStatus(setableStatus status.Status, info string, data map[string]any) error
-}
-
-// MachineWorkerFunc defines a function that returns a worker.Worker
-// which runs the upgrade steps for a machine.
-type MachineWorkerFunc func(gate.Lock, agent.Agent, base.APICaller, upgrades.PreUpgradeStepsFunc, upgrades.UpgradeStepsFunc, upgradesteps.StatusSetter, upgradesteps.Logger, clock.Clock) worker.Worker
-
-// ControllerWorkerFunc defines a function that returns a worker.Worker
-// which runs the upgrade steps for a controller.
-type ControllerWorkerFunc func(
-	gate.Lock,
-	agent.Agent, base.APICaller,
-	UpgradeService,
-	upgrades.PreUpgradeStepsFunc,
-	upgrades.UpgradeStepsFunc,
-	StatusSetter,
-	Logger,
-	clock.Clock,
-) (worker.Worker, error)
-
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
 	AgentName            string
 	APICallerName        string
 	UpgradeStepsGateName string
-	ServiceFactoryName   string
 	PreUpgradeSteps      upgrades.PreUpgradeStepsFunc
 	UpgradeSteps         upgrades.UpgradeStepsFunc
-	NewAgentStatusSetter func(base.APICaller) (StatusSetter, error)
-	NewMachineWorker     MachineWorkerFunc
-	NewControllerWorker  ControllerWorkerFunc
 	Logger               Logger
 	Clock                clock.Clock
 }
@@ -81,9 +57,6 @@ func (c ManifoldConfig) Validate() error {
 	}
 	if c.UpgradeStepsGateName == "" {
 		return errors.NotValidf("empty UpgradeStepsGateName")
-	}
-	if c.ServiceFactoryName == "" {
-		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if c.PreUpgradeSteps == nil {
 		return errors.NotValidf("nil PreUpgradeSteps")
@@ -108,7 +81,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.APICallerName,
 			config.UpgradeStepsGateName,
-			config.ServiceFactoryName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
 			if err := config.Validate(); err != nil {
@@ -133,53 +105,26 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			agentTag := agent.CurrentConfig().Tag()
-			isController, err := apiagent.IsController(apiCaller, agentTag)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			// Get a component capable of setting machine status
-			// to indicate progress to the user.
-			statusSetter, err := config.NewAgentStatusSetter(apiCaller)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			if !isController {
-				// Create a new machine worker. As this is purely a
-				// machine worker, we don't need to worry about the
-				// upgrade service.
-				return config.NewMachineWorker(
-					upgradeStepsLock,
-					agent,
-					apiCaller,
-					config.PreUpgradeSteps,
-					config.UpgradeSteps,
-					statusSetter,
-					config.Logger,
-					config.Clock,
-				), nil
-			}
-
-			// Service factory is used to get the upgrade service and
-			// then we can locate all the model uuids.
-			var serviceFactoryGetter servicefactory.ControllerServiceFactory
-			if err := context.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
-				return nil, errors.Trace(err)
-			}
-
-			return config.NewControllerWorker(
+			// Create a new machine worker. As this is purely a
+			// machine worker, we don't need to worry about the
+			// upgrade service.
+			return NewMachineWorker(
 				upgradeStepsLock,
 				agent,
 				apiCaller,
-				serviceFactoryGetter.Upgrade(),
 				config.PreUpgradeSteps,
 				config.UpgradeSteps,
-				statusSetter,
+				noopStatusSetter{},
 				config.Logger,
 				config.Clock,
-			)
+			), nil
+
 		},
 	}
+}
+
+type noopStatusSetter struct{}
+
+func (noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]any) error {
+	return nil
 }

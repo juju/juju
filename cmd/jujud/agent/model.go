@@ -27,11 +27,11 @@ import (
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/internal/upgradesteps"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/upgradesteps"
 )
 
 // ModelCommand is a cmd.Command responsible for running a model agent.
@@ -121,7 +121,7 @@ func (m *ModelCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "creating agent config from template")
 	}
 
-	m.upgradeComplete = upgradesteps.NewLock(m.CurrentConfig())
+	m.upgradeComplete = upgradesteps.NewLock(m.CurrentConfig(), jujuversion.Current)
 
 	_ = m.runner.StartWorker("modeloperator", m.Workers)
 	return cmdutil.AgentDone(logger, m.runner.Wait())

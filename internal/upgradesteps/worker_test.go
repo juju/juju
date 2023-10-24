@@ -30,7 +30,7 @@ func (s *baseWorkerSuite) TestAlreadyUpgraded(c *gc.C) {
 
 	s.lock.EXPECT().IsUnlocked().Return(true)
 
-	upgraded := w.alreadyUpgraded()
+	upgraded := w.AlreadyUpgraded()
 	c.Assert(upgraded, jc.IsTrue)
 }
 
@@ -42,7 +42,7 @@ func (s *baseWorkerSuite) TestAlreadyUpgradedVersionMatching(c *gc.C) {
 	s.lock.EXPECT().IsUnlocked().Return(false)
 	s.lock.EXPECT().Unlock()
 
-	upgraded := w.alreadyUpgraded()
+	upgraded := w.AlreadyUpgraded()
 	c.Assert(upgraded, jc.IsTrue)
 }
 
@@ -53,7 +53,7 @@ func (s *baseWorkerSuite) TestAlreadyUpgradedVersionNotMatching(c *gc.C) {
 
 	s.lock.EXPECT().IsUnlocked().Return(false)
 
-	upgraded := w.alreadyUpgraded()
+	upgraded := w.AlreadyUpgraded()
 	c.Assert(upgraded, jc.IsFalse)
 }
 
@@ -65,7 +65,7 @@ func (s *baseWorkerSuite) TestRunUpgradeSteps(c *gc.C) {
 	s.expectUpgradeVersion(version.MustParse("6.6.6"))
 
 	w := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("6.6.6"))
-	fn := w.runUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
+	fn := w.RunUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
 	err := fn(s.configSetter)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -77,15 +77,15 @@ func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableTrue(c *gc.C) {
 	s.expectStatus(status.Started)
 
 	w := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("6.6.6"))
-	w.apiCaller = &breakableAPICaller{
+	w.APICaller = &breakableAPICaller{
 		APICaller: s.apiCaller,
 		broken:    true,
 	}
-	w.performUpgradeSteps = func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
+	w.PerformUpgradeSteps = func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
 		return errors.New("boom")
 	}
 
-	fn := w.runUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
+	fn := w.RunUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
 	err := fn(s.configSetter)
 	c.Assert(err, gc.ErrorMatches, "API connection lost during upgrade: boom")
 }
@@ -103,24 +103,24 @@ func (s *baseWorkerSuite) TestRunUpgradeStepsFailureBreakableFalse(c *gc.C) {
 	//  - It will set the error status on each attempt.
 
 	go func() {
-		for i := 0; i < defaultRetryAttempts; i++ {
+		for i := 0; i < DefaultRetryAttempts; i++ {
 			ch <- time.Now()
 		}
 	}()
-	for i := 0; i < defaultRetryAttempts; i++ {
+	for i := 0; i < DefaultRetryAttempts; i++ {
 		s.expectStatus(status.Error)
 	}
 
 	w := s.newBaseWorker(c, version.MustParse("6.6.6"), version.MustParse("6.6.6"))
-	w.apiCaller = &breakableAPICaller{
+	w.APICaller = &breakableAPICaller{
 		APICaller: s.apiCaller,
 		broken:    false,
 	}
-	w.performUpgradeSteps = func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
+	w.PerformUpgradeSteps = func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
 		return errors.New("boom")
 	}
 
-	fn := w.runUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
+	fn := w.RunUpgradeSteps(context.Background(), []upgrades.Target{upgrades.Controller})
 	err := fn(s.configSetter)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

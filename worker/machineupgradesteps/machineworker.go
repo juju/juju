@@ -1,11 +1,12 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package upgradesteps
+package machineupgradesteps
 
 import (
 	"context"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v4"
 	"github.com/juju/worker/v3"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/upgradesteps"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
@@ -28,34 +30,40 @@ func NewMachineWorker(
 	apiCaller base.APICaller,
 	preUpgradeSteps upgrades.PreUpgradeStepsFunc,
 	performUpgradeSteps upgrades.UpgradeStepsFunc,
-	logger Logger,
+	statusSetter upgradesteps.StatusSetter,
+	logger upgradesteps.Logger,
+	clock clock.Clock,
 ) worker.Worker {
-	return newMachineWorker(&baseWorker{
-		agent:               agent,
-		apiCaller:           apiCaller,
-		tag:                 agent.CurrentConfig().Tag(),
-		upgradeCompleteLock: upgradeCompleteLock,
-		preUpgradeSteps:     preUpgradeSteps,
-		performUpgradeSteps: performUpgradeSteps,
-		statusSetter:        noopStatusSetter{},
-		fromVersion:         agent.CurrentConfig().UpgradedToVersion(),
-		toVersion:           jujuversion.Current,
-		logger:              logger,
+	return newMachineWorker(&upgradesteps.BaseWorker{
+		Agent:               agent,
+		APICaller:           apiCaller,
+		Tag:                 agent.CurrentConfig().Tag(),
+		UpgradeCompleteLock: upgradeCompleteLock,
+		PreUpgradeSteps:     preUpgradeSteps,
+		PerformUpgradeSteps: performUpgradeSteps,
+		StatusSetter:        statusSetter,
+		FromVersion:         agent.CurrentConfig().UpgradedToVersion(),
+		ToVersion:           jujuversion.Current,
+		Logger:              logger,
+		Clock:               clock,
 	})
 }
 
-func newMachineWorker(base *baseWorker) *machineWorker {
+func newMachineWorker(base *upgradesteps.BaseWorker) *machineWorker {
 	w := &machineWorker{
-		baseWorker: base,
+		base:   base,
+		logger: base.Logger,
 	}
 	w.tomb.Go(w.run)
 	return w
 }
 
 type machineWorker struct {
-	*baseWorker
+	base *upgradesteps.BaseWorker
 
 	tomb tomb.Tomb
+
+	logger Logger
 }
 
 // Kill is part of the worker.Worker interface.
@@ -70,7 +78,7 @@ func (w *machineWorker) Wait() error {
 
 func (w *machineWorker) run() error {
 	// We're already upgraded, so do nothing.
-	if w.alreadyUpgraded() {
+	if w.base.AlreadyUpgraded() {
 		return nil
 	}
 
@@ -83,7 +91,7 @@ func (w *machineWorker) run() error {
 		// state went away (possible mongo primary change). Returning
 		// an error when the connection is lost will cause the agent
 		// to restart.
-		if errors.Is(err, &apiLostDuringUpgrade{}) {
+		if errors.Is(err, &upgradesteps.APILostDuringUpgrade{}) {
 			return errors.Trace(err)
 		}
 
@@ -93,9 +101,9 @@ func (w *machineWorker) run() error {
 	}
 
 	// Upgrade succeeded - signal that the upgrade is complete.
-	w.logger.Infof("upgrade to %v completed successfully.", w.toVersion)
-	_ = w.statusSetter.SetStatus(status.Started, "", nil)
-	w.upgradeCompleteLock.Unlock()
+	w.logger.Infof("upgrade to %v completed successfully.", w.base.ToVersion)
+	_ = w.base.StatusSetter.SetStatus(status.Started, "", nil)
+	w.base.UpgradeCompleteLock.Unlock()
 	return nil
 }
 
@@ -104,12 +112,12 @@ func (w *machineWorker) run() error {
 func (w *machineWorker) runUpgrades(ctx context.Context) error {
 	// Every upgrade needs to prepare the environment for the upgrade.
 	w.logger.Infof("checking that upgrade can proceed")
-	if err := w.preUpgradeSteps(w.agent.CurrentConfig(), false); err != nil {
-		return errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.tag))
+	if err := w.base.PreUpgradeSteps(w.base.Agent.CurrentConfig(), false); err != nil {
+		return errors.Annotatef(err, "%s cannot be upgraded", names.ReadableString(w.base.Tag))
 	}
 
-	w.logger.Infof("running upgrade steps for %q", w.tag)
-	if err := w.agent.ChangeConfig(w.runUpgradeSteps(ctx, []upgrades.Target{
+	w.logger.Infof("running upgrade steps for %q", w.base.Tag)
+	if err := w.base.Agent.ChangeConfig(w.base.RunUpgradeSteps(ctx, []upgrades.Target{
 		upgrades.HostMachine,
 	})); err != nil {
 		return errors.Annotatef(err, "failed to run upgrade steps")
@@ -120,10 +128,4 @@ func (w *machineWorker) runUpgrades(ctx context.Context) error {
 
 func (w *machineWorker) scopedContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(w.tomb.Context(context.Background()))
-}
-
-type noopStatusSetter struct{}
-
-func (noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]any) error {
-	return nil
 }

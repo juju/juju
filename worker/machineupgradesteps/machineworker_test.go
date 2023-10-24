@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package upgradesteps
+package machineupgradesteps
 
 import (
 	"errors"
@@ -16,6 +16,7 @@ import (
 
 	agent "github.com/juju/juju/agent"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/upgradesteps"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 )
@@ -71,11 +72,11 @@ func (s *machineWorkerSuite) TestRunUpgrades(c *gc.C) {
 	var called int64
 
 	w := s.newWorker(c)
-	w.preUpgradeSteps = func(_ agent.Config, isController bool) error {
+	w.base.PreUpgradeSteps = func(_ agent.Config, isController bool) error {
 		atomic.AddInt64(&called, 1)
 		return nil
 	}
-	w.performUpgradeSteps = func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
+	w.base.PerformUpgradeSteps = func(from version.Number, targets []upgrades.Target, context upgrades.Context) error {
 		atomic.AddInt64(&called, 1)
 
 		// Ensure that the targets are correct.
@@ -108,11 +109,11 @@ func (s *machineWorkerSuite) TestRunUpgradesFailedWithAPIError(c *gc.C) {
 	var called int64
 
 	w := s.newWorker(c)
-	w.preUpgradeSteps = func(_ agent.Config, isController bool) error {
+	w.base.PreUpgradeSteps = func(_ agent.Config, isController bool) error {
 		defer close(done)
 
 		atomic.AddInt64(&called, 1)
-		return &apiLostDuringUpgrade{err: errors.New("boom")}
+		return upgradesteps.NewAPILostDuringUpgrade(errors.New("boom"))
 	}
 	defer workertest.DirtyKill(c, w)
 
@@ -141,7 +142,7 @@ func (s *machineWorkerSuite) TestRunUpgradesFailedWithNotAPIError(c *gc.C) {
 	var called int64
 
 	w := s.newWorker(c)
-	w.preUpgradeSteps = func(_ agent.Config, isController bool) error {
+	w.base.PreUpgradeSteps = func(_ agent.Config, isController bool) error {
 		defer close(done)
 
 		atomic.AddInt64(&called, 1)
