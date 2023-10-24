@@ -53,12 +53,32 @@ func (s *bootstrapSuite) TestBootstrapSuccess(c *gc.C) {
 				return fmt.Errorf("expected 2 rows, got %d", count)
 			}
 
+			// Ensure we have a nodeID in the controller node.
+			row := tx.QueryRowContext(ctx, "SELECT controller_id, dqlite_node_id, bind_address FROM controller_node")
+			var controllerID, nodeID uint64
+			var bindAddress string
+			err = row.Scan(&controllerID, &nodeID, &bindAddress)
+			if err != nil {
+				return err
+			}
+
+			if controllerID != 0 {
+				return fmt.Errorf("expected controller_id to be 0, got %d", controllerID)
+			}
+			if nodeID == 0 {
+				return fmt.Errorf("expected dqlite_node_id to be non-zero")
+			}
+			if bindAddress != "127.0.0.1" {
+				return fmt.Errorf("expected bind_address to be 127.0.0.1")
+			}
+
 			return nil
 		})
 	}
 
 	err := BootstrapDqlite(context.Background(), mgr, stubLogger{}, true, BootstrapControllerConcern(check))
 	c.Assert(err, jc.ErrorIsNil)
+
 }
 
 type testNodeManager struct {

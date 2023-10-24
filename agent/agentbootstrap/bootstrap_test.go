@@ -592,7 +592,7 @@ func (e *fakeEnviron) Provider() environs.EnvironProvider {
 func bootstrapDqliteWithDummyCloudType(ctx context.Context, mgr database.BootstrapNodeManager, logger database.Logger, preferLoopback bool, concerns ...database.BootstrapConcern) error {
 	// The dummy cloud type needs to be inserted before the other operations.
 	concerns = append([]database.BootstrapConcern{
-		database.BootstrapControllerConcern(jujujujutesting.InsertDummyCloudType),
+		database.BootstrapControllerInitConcern(database.EmptyInit, jujujujutesting.InsertDummyCloudType),
 	}, concerns...)
 
 	return database.BootstrapDqlite(ctx, mgr, logger, preferLoopback, concerns...)

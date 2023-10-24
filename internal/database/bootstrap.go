@@ -67,21 +67,51 @@ func (r *txnRunner) StdTxn(ctx context.Context, f func(context.Context, *sql.Tx)
 // perform on a dqlite application.
 type BootstrapConcern = func(ctx context.Context, logger Logger, dqlite *app.App) error
 
+// BootstrapInit is a type for describing a bootstrap operation that
+// initialises a database.
+type BootstrapInit = func(ctx context.Context, runner coredatabase.TxnRunner, dqlite *app.App) error
+
 // BootstrapControllerConcern is a BootstrapConcern type that will run the
 // provided BootstrapOpts on the controller database.
 func BootstrapControllerConcern(ops ...BootstrapOpt) BootstrapConcern {
-	return bootstrapDBConcern(coredatabase.ControllerNS, schema.ControllerDDL(), ops...)
+	return bootstrapDBConcern(coredatabase.ControllerNS, schema.ControllerDDL(), controllerBootstrapInit, ops...)
 }
 
 // BootstrapModelConcern is a BootstrapConcern type that will run the
 // provided BootstrapOpts on the specified model database.
 func BootstrapModelConcern(uuid model.UUID, ops ...BootstrapOpt) BootstrapConcern {
-	return bootstrapDBConcern(uuid.String(), schema.ModelDDL(), ops...)
+	return bootstrapDBConcern(uuid.String(), schema.ModelDDL(), EmptyInit, ops...)
+}
+
+// BootstrapControllerInitConcern is a BootstrapConcern type that will run the
+// provided BootstrapOpts on the controller database, after first running the
+// provided BootstrapInit.
+func BootstrapControllerInitConcern(bootstrapInit BootstrapInit, ops ...BootstrapOpt) BootstrapConcern {
+	return bootstrapDBConcern(coredatabase.ControllerNS, schema.ControllerDDL(), bootstrapInit, ops...)
+}
+
+func controllerBootstrapInit(ctx context.Context, runner coredatabase.TxnRunner, dqlite *app.App) error {
+	if err := InsertControllerNodeID(ctx, runner, dqlite.ID()); err != nil {
+		// If the controller node ID already exists, we assume that
+		// the database has already been bootstrapped. Mask the unique
+		// constraint error with a more user-friendly error.
+		if IsErrConstraintUnique(err) {
+			return errors.AlreadyExistsf("controller node ID")
+		}
+		return errors.Annotatef(err, "inserting controller node ID")
+	}
+	return nil
+}
+
+// EmptyInit is a BootstrapInit type that does nothing.
+func EmptyInit(ctx context.Context, runner coredatabase.TxnRunner, dqlite *app.App) error {
+	return nil
 }
 
 func bootstrapDBConcern(
 	namespace string,
 	namespaceSchema *coreschema.Schema,
+	bootstrapInit BootstrapInit,
 	ops ...BootstrapOpt,
 ) BootstrapConcern {
 	return func(ctx context.Context, logger Logger, dqlite *app.App) error {
@@ -105,6 +135,10 @@ func bootstrapDBConcern(
 		migration := NewDBMigration(runner, logger, namespaceSchema)
 		if err := migration.Apply(ctx); err != nil {
 			return errors.Annotatef(err, "creating database with namespace %q schema", namespace)
+		}
+
+		if err := bootstrapInit(ctx, runner, dqlite); err != nil {
+			return errors.Annotatef(err, "running bootstrap init for database with namespace %q", namespace)
 		}
 
 		for i, op := range ops {

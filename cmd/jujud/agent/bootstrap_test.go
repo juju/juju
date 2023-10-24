@@ -856,7 +856,7 @@ func bootstrapDqliteWithDummyCloudType(
 ) error {
 	// The dummy cloud type needs to be inserted before the other operations.
 	concerns = append([]database.BootstrapConcern{
-		database.BootstrapControllerConcern(jujutesting.InsertDummyCloudType),
+		database.BootstrapControllerInitConcern(database.EmptyInit, jujutesting.InsertDummyCloudType),
 	}, concerns...)
 
 	return database.BootstrapDqlite(ctx, mgr, logger, preferLoopback, concerns...)
