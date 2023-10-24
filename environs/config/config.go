@@ -266,7 +266,7 @@ const (
 
 	// DefaultSpace specifies which space should be used for the default
 	// endpoint bindings.
-	DefaultSpace = "default-space"
+	DefaultSpaceKey = "default-space"
 
 	// LXDSnapChannel selects the channel to use when installing LXD from a snap.
 	LXDSnapChannel = "lxd-snap-channel"
@@ -315,6 +315,9 @@ const (
 
 	// SecretBackendKey is used to specify the secret backend.
 	SecretBackendKey = "secret-backend"
+
+	// LoggingConfigKey is used to specify the logging backend configuration.
+	LoggingConfigKey = "logging-config"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -530,7 +533,7 @@ var defaultConfigValues = map[string]interface{}{
 	IgnoreMachineAddresses:       false,
 	"ssl-hostname-verification":  true,
 	"proxy-ssh":                  false,
-	DefaultSpace:                 "",
+	DefaultSpaceKey:              "",
 	// Why is net-bond-reconfigure-delay set to 17 seconds?
 	//
 	// The value represents the amount of time in seconds to sleep
@@ -557,7 +560,7 @@ var defaultConfigValues = map[string]interface{}{
 	NumProvisionWorkersKey:          16,
 	NumContainerProvisionWorkersKey: 4,
 	ResourceTagsKey:                 "",
-	"logging-config":                "",
+	LoggingConfigKey:                "",
 	LoggingOutputKey:                "",
 	AutomaticallyRetryHooks:         true,
 	"enable-os-refresh-update":      true,
@@ -645,30 +648,17 @@ func ConfigDefaults() map[string]interface{} {
 }
 
 func (c *Config) setLoggingFromEnviron() error {
-	loggingConfig := c.asString("logging-config")
+	loggingConfig := c.asString(LoggingConfigKey)
 	// If the logging config hasn't been set, then look for the os environment
 	// variable, and failing that, get the config from loggo itself.
 	if loggingConfig == "" {
 		if environmentValue := os.Getenv(osenv.JujuLoggingConfigEnvKey); environmentValue != "" {
-			c.defined["logging-config"] = environmentValue
+			c.defined[LoggingConfigKey] = environmentValue
 		} else {
-			c.defined["logging-config"] = defaultLoggingConfig
+			c.defined[LoggingConfigKey] = defaultLoggingConfig
 		}
 	}
 	return nil
-}
-
-// ProcessDeprecatedAttributes gathers any deprecated attributes in attrs and adds or replaces
-// them with new name value pairs for the replacement attrs.
-// Ths ensures that older versions of Juju which require that deprecated
-// attribute values still be used will work as expected.
-func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interface{} {
-	processedAttrs := make(map[string]interface{}, len(attrs))
-	for k, v := range attrs {
-		processedAttrs[k] = v
-	}
-	// No deprecated attributes at the moment.
-	return processedAttrs
 }
 
 // CoerceForStorage transforms attributes prior to being saved in a persistent store.
@@ -723,7 +713,7 @@ func Validate(cfg, old *Config) error {
 	}
 
 	// If the logging config is set, make sure it is valid.
-	if v, ok := cfg.defined["logging-config"].(string); ok {
+	if v, ok := cfg.defined[LoggingConfigKey].(string); ok {
 		if _, err := loggo.ParseConfigString(v); err != nil {
 			return err
 		}
@@ -920,7 +910,6 @@ func Validate(cfg, old *Config) error {
 		return errors.New("cannot specify both legacy proxy values and juju proxy values")
 	}
 
-	cfg.defined = ProcessDeprecatedAttributes(cfg.defined)
 	return nil
 }
 
@@ -995,7 +984,7 @@ func (c *Config) UUID() string {
 }
 
 func (c *Config) validateDefaultSpace() error {
-	if raw, ok := c.defined[DefaultSpace]; ok {
+	if raw, ok := c.defined[DefaultSpaceKey]; ok {
 		if v, ok := raw.(string); ok {
 			if v == "" {
 				return nil
@@ -1013,7 +1002,7 @@ func (c *Config) validateDefaultSpace() error {
 // DefaultSpace returns the name of the space for to be used
 // for endpoint bindings that are not explicitly set.
 func (c *Config) DefaultSpace() string {
-	return c.asString(DefaultSpace)
+	return c.asString(DefaultSpaceKey)
 }
 
 func (c *Config) validateDefaultBase() error {
@@ -1391,7 +1380,7 @@ func (c *Config) SSLHostnameVerification() bool {
 
 // LoggingConfig returns the configuration string for the loggers.
 func (c *Config) LoggingConfig() string {
-	return c.asString("logging-config")
+	return c.asString(LoggingConfigKey)
 }
 
 // BackupDir returns the configuration string for the temporary files
@@ -1894,7 +1883,7 @@ var alwaysOptional = schema.Defaults{
 	CloudInitUserDataKey:            schema.Omit,
 	ContainerInheritPropertiesKey:   schema.Omit,
 	BackupDirKey:                    schema.Omit,
-	DefaultSpace:                    schema.Omit,
+	DefaultSpaceKey:                 schema.Omit,
 	LXDSnapChannel:                  schema.Omit,
 	CharmHubURLKey:                  schema.Omit,
 }
@@ -2454,7 +2443,7 @@ CIDRs specifying what ingress can be applied to offers in this model.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	DefaultSpace: {
+	DefaultSpaceKey: {
 		Description: "The default network space used for application endpoints in this model",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,

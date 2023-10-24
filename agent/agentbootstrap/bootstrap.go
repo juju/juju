@@ -413,7 +413,7 @@ func (b *AgentBootstrap) verifyModelConfigDefaultSpace(st *state.State) error {
 	}
 
 	_, err = st.SpaceByName(name)
-	return errors.Annotatef(err, "cannot verify %s", config.DefaultSpace)
+	return errors.Annotatef(err, "cannot verify %s", config.DefaultSpaceKey)
 }
 
 func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCredentialTag, error) {

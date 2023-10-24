@@ -170,8 +170,7 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 	checkSecretBackend := c.checkSecretBackend()
 
 	// Replace any deprecated attributes with their new values.
-	attrs := config.ProcessDeprecatedAttributes(args.Config)
-	return c.backend.UpdateModelConfig(attrs,
+	return c.backend.UpdateModelConfig(args.Config,
 		nil,
 		checkAgentVersion,
 		checkLogTrace,
