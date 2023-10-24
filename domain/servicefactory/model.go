@@ -5,6 +5,7 @@ package servicefactory
 
 import (
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/domain"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 )
@@ -18,12 +19,13 @@ type ModelFactory struct {
 // Config returns the model's configuration service. A ModelDefaultsProvider
 // needs to be supplied for the model config service. The provider can be
 // obtained from the controller service factory model defaults service.
-func (f *ModelFactory) Config(
+func (s *ModelFactory) Config(
 	defaultsProvider modelconfigservice.ModelDefaultsProvider,
 ) *modelconfigservice.Service {
 	return modelconfigservice.NewService(
 		defaultsProvider,
-		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(f.modelDB)),
+		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		domain.NewWatcherFactory(s.modelDB, s.logger.Child("modelconfig")),
 	)
 }
 

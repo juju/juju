@@ -27,6 +27,12 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	}
 }
 
+// AllKeysQuery returns a SQL statement that will return all known model config
+// keys.
+func (st *State) AllKeysQuery() string {
+	return "SELECT key from model_config"
+}
+
 // ModelConfigHasAttributes will take a set of model config attributes and
 // return the subset of keys that are set and exist in the Model Config.
 func (st *State) ModelConfigHasAttributes(

@@ -107,3 +107,34 @@ func (s *stateSuite) TestModelConfigHasAttributes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rval, gc.DeepEquals, []string{"wallyworld"})
 }
+
+func (s *stateSuite) TestSetModelConfig(c *gc.C) {
+	tests := []struct {
+		Config map[string]string
+	}{
+		{
+			Config: map[string]string{
+				"foo": "bar",
+			},
+		},
+		{
+			Config: map[string]string{
+				"status": "healthy",
+				"one":    "two",
+			},
+		},
+	}
+
+	// We don't want to make new state for each test as set explicitly overrides
+	// so we want to test that this is happening between tests.
+	st := state.NewState(s.TxnRunnerFactory())
+
+	for _, test := range tests {
+		err := st.SetModelConfig(context.Background(), test.Config)
+		c.Assert(err, jc.ErrorIsNil)
+
+		config, err := st.ModelConfig(context.Background())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(config, jc.DeepEquals, test.Config)
+	}
+}

@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"context"
+
 	"github.com/juju/utils/v3"
 
 	coretesting "github.com/juju/juju/core/testing"
@@ -29,4 +31,10 @@ const LongWait = coretesting.LongWait
 var LongAttempt = &utils.AttemptStrategy{
 	Total: LongWait,
 	Delay: ShortWait,
+}
+
+// LongWaitContext returns a context whose deadline is tied to the duration of
+// a LongWait.
+func LongWaitContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), LongWait)
 }

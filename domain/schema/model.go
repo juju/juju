@@ -7,11 +7,17 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
+const (
+	tableModelConfig tableNamespaceID = iota + 1
+)
+
 // ModelDDL is used to create model databases.
 func ModelDDL() *schema.Schema {
 	patches := []func() schema.Patch{
 		changeLogSchema,
+		changeLogModelNamespace,
 		modelConfig,
+		changeLogTriggersForTable("model_config", "key", tableModelConfig),
 	}
 
 	schema := schema.New()
@@ -19,6 +25,15 @@ func ModelDDL() *schema.Schema {
 		schema.Add(fn())
 	}
 	return schema
+}
+
+func changeLogModelNamespace() schema.Patch {
+	// Note: These should match exactly the values of the tableNamespaceID
+	// constants above.
+	return schema.MakePatch(`
+INSERT INTO change_log_namespace VALUES
+    (1, 'model_config', 'model config changes based on config key')
+`)
 }
 
 func modelConfig() schema.Patch {

@@ -12,6 +12,7 @@ import (
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
+	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modelmanagerservice "github.com/juju/juju/domain/modelmanager/service"
 	upgradeservice "github.com/juju/juju/domain/upgrade/service"
 )
@@ -25,6 +26,8 @@ type ControllerServiceFactory interface {
 	ControllerNode() *controllernodeservice.Service
 	// Model returns the model service.
 	Model() *modelservice.Service
+	//ModelDefaults returns the modeldefaults service.
+	ModelDefaults() *modeldefaultsservice.Service
 	// ModelManager returns the model manager service.
 	ModelManager() *modelmanagerservice.Service
 	// ExternalController returns the external controller service.

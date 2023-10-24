@@ -10,6 +10,8 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/modelconfig/validators"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
@@ -27,11 +29,16 @@ type ModelDefaultsProvider interface {
 type Service struct {
 	defaultsProvider ModelDefaultsProvider
 	st               State
+	watcherFactory   WatcherFactory
 }
 
 // State represents the state entity for accessing and setting per
 // model configuration values.
 type State interface {
+	// AllKeysQuery returns a SQL statement that will return all known model config
+	// keys.
+	AllKeysQuery() string
+
 	// ModelConfig returns the currently set config for the model.
 	ModelConfig(context.Context) (map[string]string, error)
 
@@ -49,14 +56,23 @@ type State interface {
 	UpdateModelConfig(context.Context, map[string]string, []string) error
 }
 
+// WatcherFactory describes methods for creating watchers.
+type WatcherFactory interface {
+	// NewNamespaceWatcher returns a new namespace watcher
+	// for events based on the input change mask.
+	NewNamespaceWatcher(string, changestream.ChangeType, string) (watcher.StringsWatcher, error)
+}
+
 // NewService creates a new ModelConfig service.
 func NewService(
 	defaultsProvider ModelDefaultsProvider,
 	st State,
+	wf WatcherFactory,
 ) *Service {
 	return &Service{
 		defaultsProvider: defaultsProvider,
 		st:               st,
+		watcherFactory:   wf,
 	}
 }
 
@@ -253,6 +269,12 @@ func (s *Service) UpdateModelConfig(
 		return fmt.Errorf("updating model config: %w", err)
 	}
 	return nil
+}
+
+// Watch returns a watcher that returns keys for any changes to model
+// config.
+func (s *Service) Watch() (watcher.StringsWatcher, error) {
+	return s.watcherFactory.NewNamespaceWatcher("model_config", changestream.All, s.st.AllKeysQuery())
 }
 
 // dummySecretsBackendProvider implements validators.SecretBackendProvider and
