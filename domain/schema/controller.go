@@ -470,7 +470,8 @@ INSERT INTO upgrade_state_type VALUES
     (0, 'created'),
     (1, 'started'),
     (2, 'db-completed'),
-    (3, 'steps-completed');
+    (3, 'steps-completed'),
+    (4, 'error');
 
 CREATE TABLE upgrade_info (
     uuid             TEXT PRIMARY KEY,
