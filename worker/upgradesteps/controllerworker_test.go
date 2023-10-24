@@ -10,6 +10,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	version "github.com/juju/version/v2"
+	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/workertest"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -319,6 +320,71 @@ func (s *controllerWorkerSuite) TestUpgradeStepsComplete(c *gc.C) {
 	case <-done:
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting complete")
+	}
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *controllerWorkerSuite) TestUpgradeFailsWhenKilled(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Walk through the upgrade process:
+	// - Check if the upgrade is already done
+	// - Check if the active and upgrade info is available
+	// - Register the watchers
+	// - Send initial events
+	// - When running the upgrade steps, kill the worker
+	// - Expect the upgrade to be marked as failed
+
+	s.expectAnyClock(make(chan time.Time))
+	s.expectUpgradeInfo(c, upgrade.DBCompleted)
+	s.expectRunUpdates(c)
+
+	chCompleted := make(chan struct{})
+	chFailed := make(chan struct{})
+
+	completedWatcher := watchertest.NewMockNotifyWatcher(chCompleted)
+	defer workertest.DirtyKill(c, completedWatcher)
+
+	failedWatcher := watchertest.NewMockNotifyWatcher(chFailed)
+	defer workertest.DirtyKill(c, failedWatcher)
+
+	done := make(chan struct{})
+	kill := make(chan worker.Worker)
+
+	srv := s.upgradeService.EXPECT()
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.StepsCompleted).Return(completedWatcher, nil)
+	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
+
+	srv.SetDBUpgradeFailed(gomock.Any(), s.upgradeUUID).Return(nil)
+
+	w := s.newWorker(c)
+	w.preUpgradeSteps = func(_ agent.Config, _ bool) error {
+		select {
+		case w := <-kill:
+			defer close(done)
+			w.Kill()
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting for kill")
+		}
+		return nil
+	}
+	defer workertest.DirtyKill(c, w)
+
+	// Dispatch the initial event.
+	s.dispatchChange(c, chCompleted)
+	s.dispatchChange(c, chFailed)
+
+	select {
+	case kill <- w:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for kill")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for done")
 	}
 
 	workertest.CleanKill(c, w)

@@ -174,6 +174,11 @@ func (w *controllerWorker) run() error {
 	for {
 		select {
 		case <-w.catacomb.Dying():
+			w.logger.Errorf("upgrade worker is dying whilst performing upgrade steps: %s, marking upgrade as failed", upgradeUUID)
+			// We didn't perform the upgrade, so we need to mark it as failed.
+			if err := w.upgradeService.SetDBUpgradeFailed(ctx, upgradeUUID); err != nil {
+				w.logger.Errorf("failed to set db upgrade failed: %v, manual intervention required.", err)
+			}
 			return w.catacomb.ErrDying()
 
 		case <-completedWatcher.Changes():
