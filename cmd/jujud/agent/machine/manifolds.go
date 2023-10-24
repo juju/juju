@@ -80,6 +80,7 @@ import (
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/multiwatcher"
+	"github.com/juju/juju/worker/objectstore"
 	"github.com/juju/juju/worker/peergrouper"
 	prworker "github.com/juju/juju/worker/presence"
 	"github.com/juju/juju/worker/provisioner"
@@ -637,6 +638,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AuditConfigUpdaterName: auditConfigUpdaterName,
 			CharmhubHTTPClientName: charmhubHTTPClientName,
 			TraceName:              traceName,
+			ObjectStoreName:        objectStoreName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability
@@ -802,6 +804,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:     loggo.GetLogger("juju.worker.controlsocket"),
 			NewWorker:  controlsocket.NewWorker,
 			SocketName: paths.ControlSocket(paths.OSUnixLike),
+		})),
+
+		objectStoreName: ifController(objectstore.Manifold(objectstore.ManifoldConfig{
+			AgentName:            agentName,
+			StateName:            stateName,
+			TraceName:            traceName,
+			Clock:                config.Clock,
+			Logger:               loggo.GetLogger("juju.worker.objectstore"),
+			NewObjectStoreWorker: objectstore.NewStateObjectStore,
 		})),
 	}
 
@@ -1147,6 +1158,7 @@ const (
 	lxdContainerProvisioner       = "lxd-container-provisioner"
 	kvmContainerProvisioner       = "kvm-container-provisioner"
 	controllerAgentConfigName     = "controller-agent-config"
+	objectStoreName               = "object-store"
 
 	secretBackendRotateName = "secret-backend-rotate"
 

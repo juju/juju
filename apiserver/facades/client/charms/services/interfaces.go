@@ -4,6 +4,7 @@
 package services
 
 import (
+	"context"
 	"io"
 
 	"github.com/juju/juju/environs/config"
@@ -29,6 +30,8 @@ type ModelBackend interface {
 
 // Storage describes an API for storing and deleting blobs.
 type Storage interface {
-	Put(path string, r io.Reader, length int64) error
-	Remove(path string) error
+	// Put stores data from reader at path, namespaced to the model.
+	Put(context.Context, string, io.Reader, int64) error
+	// Remove removes data at path, namespaced to the model.
+	Remove(context.Context, string) error
 }

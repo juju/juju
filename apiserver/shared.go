@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/objectstore"
 	"github.com/juju/juju/worker/trace"
 )
 
@@ -51,6 +52,7 @@ type sharedServerContext struct {
 	dbGetter             changestream.WatchableDBGetter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
 	tracerGetter         trace.TracerGetter
+	objectStoreGetter    objectstore.ObjectStoreGetter
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
@@ -75,6 +77,7 @@ type sharedServerConfig struct {
 	dbGetter             changestream.WatchableDBGetter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
 	tracerGetter         trace.TracerGetter
+	objectStoreGetter    objectstore.ObjectStoreGetter
 	machineTag           names.Tag
 	dataDir              string
 	logDir               string
@@ -108,6 +111,9 @@ func (c *sharedServerConfig) validate() error {
 	if c.tracerGetter == nil {
 		return errors.NotValidf("nil tracerGetter")
 	}
+	if c.objectStoreGetter == nil {
+		return errors.NotValidf("nil objectStoreGetter")
+	}
 	if c.machineTag == nil {
 		return errors.NotValidf("empty machineTag")
 	}
@@ -130,6 +136,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		dbGetter:             config.dbGetter,
 		serviceFactoryGetter: config.serviceFactoryGetter,
 		tracerGetter:         config.tracerGetter,
+		objectStoreGetter:    config.objectStoreGetter,
 		machineTag:           config.machineTag,
 		dataDir:              config.dataDir,
 		logDir:               config.logDir,

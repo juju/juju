@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
 )
 
 // RestHTTPHandler creates is a http.Handler which serves ReST requests.
@@ -42,9 +41,10 @@ func (h *RestHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // modelRestHandler handles ReST requests through HTTPS in the API server.
 type modelRestHandler struct {
-	ctxt          httpContext
-	dataDir       string
-	stateAuthFunc func(*http.Request) (*state.PooledState, error)
+	ctxt              httpContext
+	dataDir           string
+	stateAuthFunc     func(*http.Request) (*state.PooledState, error)
+	objectStoreGetter ObjectStoreGetter
 }
 
 // ServeGet handles http GET requests.
@@ -115,9 +115,15 @@ func (h *modelRestHandler) processRemoteApplication(r *http.Request, w http.Resp
 		return errors.Trace(err)
 	}
 
-	store := storage.NewStorage(sourceSt.ModelUUID(), sourceSt.MongoSession())
+	// Get the underlying object store for the model UUID, which we can then
+	// retrieve the blob from.
+	store, err := h.objectStoreGetter.GetObjectStore(r.Context(), sourceSt.ModelUUID())
+	if err != nil {
+		return errors.Annotate(err, "cannot get object store")
+	}
+
 	// Use the storage to retrieve and save the charm archive.
-	charmPath, err := common.ReadCharmFromStorage(store, h.dataDir, ch.StoragePath())
+	charmPath, err := common.ReadCharmFromStorage(r.Context(), store, h.dataDir, ch.StoragePath())
 	if errors.Is(err, errors.NotFound) {
 		return h.byteSender(w, ".svg", []byte(common.DefaultCharmIcon))
 	}

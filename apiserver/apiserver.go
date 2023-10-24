@@ -56,6 +56,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/objectstore"
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/trace"
 )
@@ -223,6 +224,10 @@ type ServerConfig struct {
 	// TracerGetter returns a tracer for the given namespace, this is used
 	// for opentelmetry tracing.
 	TracerGetter trace.TracerGetter
+
+	// ObjectStoreGetter returns an object store for the given namespace.
+	// This is used for retrieving blobs for charms and agents.
+	ObjectStoreGetter objectstore.ObjectStoreGetter
 }
 
 // Validate validates the API server configuration.
@@ -273,6 +278,9 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.TracerGetter == nil {
 		return errors.NotValidf("missing TracerGetter")
+	}
+	if c.ObjectStoreGetter == nil {
+		return errors.NotValidf("missing ObjectStoreGetter")
 	}
 	return nil
 }
@@ -344,6 +352,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		dbGetter:             cfg.DBGetter,
 		serviceFactoryGetter: cfg.ServiceFactoryGetter,
 		tracerGetter:         cfg.TracerGetter,
+		objectStoreGetter:    cfg.ObjectStoreGetter,
 		machineTag:           cfg.Tag,
 		dataDir:              cfg.DataDir,
 		logDir:               cfg.LogDir,
@@ -738,17 +747,20 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		controllerModelUUID,
 	)
 	modelRestHandler := &modelRestHandler{
-		ctxt:          httpCtxt,
-		dataDir:       srv.dataDir,
-		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
+		ctxt:              httpCtxt,
+		dataDir:           srv.dataDir,
+		objectStoreGetter: srv.shared.objectStoreGetter,
+		stateAuthFunc:     httpCtxt.stateForRequestAuthenticatedUser,
 	}
 	modelRestServer := &RestHTTPHandler{
 		GetHandler: modelRestHandler.ServeGet,
 	}
 	modelCharmsHandler := &charmsHandler{
-		ctxt:          httpCtxt,
-		dataDir:       srv.dataDir,
-		stateAuthFunc: httpCtxt.stateForRequestAuthenticatedUser,
+		ctxt:              httpCtxt,
+		dataDir:           srv.dataDir,
+		stateAuthFunc:     httpCtxt.stateForRequestAuthenticatedUser,
+		objectStoreGetter: srv.shared.objectStoreGetter,
+		logger:            logger.Child("charms-handler"),
 	}
 	modelCharmsHTTPHandler := &CharmsHTTPHandler{
 		PostHandler: modelCharmsHandler.ServePost,
@@ -815,9 +827,11 @@ func (srv *Server) endpoints() ([]apihttp.Endpoint, error) {
 		controllerTag: systemState.ControllerTag(),
 	}
 	migrateCharmsHandler := &charmsHandler{
-		ctxt:          httpCtxt,
-		dataDir:       srv.dataDir,
-		stateAuthFunc: httpCtxt.stateForMigrationImporting,
+		ctxt:              httpCtxt,
+		dataDir:           srv.dataDir,
+		stateAuthFunc:     httpCtxt.stateForMigrationImporting,
+		objectStoreGetter: srv.shared.objectStoreGetter,
+		logger:            logger.Child("charms-handler"),
 	}
 	migrateCharmsHTTPHandler := &CharmsHTTPHandler{
 		PostHandler: migrateCharmsHandler.ServePost,
@@ -1108,13 +1122,18 @@ func (srv *Server) serveConn(
 		logger.Infof("failed to get tracer for model %q: %v", resolvedModelUUID, err)
 		tracer = coretrace.NoopTracer{}
 	}
+	objectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, resolvedModelUUID)
+	if err != nil {
+		return errors.Annotatef(err, "getting object store for model %q", resolvedModelUUID)
+	}
+
 	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(resolvedModelUUID)
 
 	var handler *apiHandler
 	st, err := statePool.Get(resolvedModelUUID)
 	if err == nil {
 		defer st.Release()
-		handler, err = newAPIHandler(srv, st.State, conn, serviceFactory, tracer, modelUUID, connectionID, host)
+		handler, err = newAPIHandler(srv, st.State, conn, serviceFactory, tracer, objectStore, modelUUID, connectionID, host)
 	}
 	if errors.Is(err, errors.NotFound) {
 		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelUUID)

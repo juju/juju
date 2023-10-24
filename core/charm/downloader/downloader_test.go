@@ -4,6 +4,7 @@
 package downloader_test
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/url"
@@ -154,7 +155,7 @@ func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 	s.repo.EXPECT().GetDownloadURL(curl, requestedOrigin).Return(retURL, knownOrigin, nil)
 
 	dl := s.newDownloader()
-	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, false)
+	gotOrigin, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
 	c.Assert(gotOrigin, gc.DeepEquals, knownOrigin, gc.Commentf("expected to get back the known origin for the existing charm"))
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -170,7 +171,7 @@ func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
 	)
 
 	dl := s.newDownloader()
-	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, false)
+	gotOrigin, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
 	c.Assert(gotOrigin, gc.DeepEquals, corecharm.Origin{}, gc.Commentf("expected a blank origin when encountering errors"))
 	c.Assert(err, gc.ErrorMatches, "something went wrong")
 }
@@ -214,8 +215,8 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 
 	c.Log(curl.String())
 	s.storage.EXPECT().PrepareToStoreCharm(curl.String()).Return(nil)
-	s.storage.EXPECT().Store(curl.String(), gomock.AssignableToTypeOf(downloader.DownloadedCharm{})).DoAndReturn(
-		func(_ string, dc downloader.DownloadedCharm) error {
+	s.storage.EXPECT().Store(gomock.Any(), curl.String(), gomock.AssignableToTypeOf(downloader.DownloadedCharm{})).DoAndReturn(
+		func(_ context.Context, _ string, dc downloader.DownloadedCharm) error {
 			c.Assert(dc.Size, gc.Equals, int64(10))
 
 			contents, err := io.ReadAll(dc.CharmData)
@@ -241,7 +242,7 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 	s.charmArchive.EXPECT().LXDProfile().Return(nil)
 
 	dl := s.newDownloader()
-	gotOrigin, err := dl.DownloadAndStore(curl, requestedOrigin, false)
+	gotOrigin, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin, gc.Commentf("expected to get back the resolved origin"))
 	c.Assert(err, jc.ErrorIsNil)
 }

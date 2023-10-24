@@ -4,10 +4,12 @@
 package testing
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"database/sql"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -44,6 +46,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/trace"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
@@ -66,6 +69,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/lease"
 	wmultiwatcher "github.com/juju/juju/worker/multiwatcher"
+	workerobjectstore "github.com/juju/juju/worker/objectstore"
 )
 
 const AdminSecret = "dummy-secret"
@@ -308,6 +312,9 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c)
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
+	cfg.ObjectStoreGetter = &stubObjectStoreGetter{
+		statePool: s.controller.StatePool(),
+	}
 
 	cfg.UpgradeComplete = func() bool {
 		return !s.WithUpgrading
@@ -621,6 +628,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		DBGetter:                   stubDBGetter{},
 		ServiceFactoryGetter:       nil,
 		TracerGetter:               &stubTracerGetter{},
+		ObjectStoreGetter:          &stubObjectStoreGetter{},
 		StatePool:                  &state.StatePool{},
 		Mux:                        &apiserverhttp.Mux{},
 		LocalMacaroonAuthenticator: &mockAuthenticator{},
@@ -643,6 +651,40 @@ type stubTracerGetter struct{}
 
 func (s *stubTracerGetter) GetTracer(ctx context.Context, namespace trace.TracerNamespace) (trace.Tracer, error) {
 	return trace.NoopTracer{}, nil
+}
+
+type stubObjectStoreGetter struct {
+	statePool *state.StatePool
+}
+
+func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
+	// If no statePool is provided, then fallback to a stub implementation.
+	if s.statePool == nil {
+		return &stubObjectStore{}, nil
+	}
+
+	// If a statePool is provided, use the actual object store logic to
+	// serve the files.
+	state, err := s.statePool.Get(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return workerobjectstore.NewStateObjectStore(ctx, namespace, state, loggo.GetLogger("juju.worker.objectstore"))
+}
+
+type stubObjectStore struct{}
+
+func (s *stubObjectStore) Get(context.Context, string) (io.ReadCloser, int64, error) {
+	return io.NopCloser(bytes.NewBufferString("")), 0, nil
+}
+
+func (s *stubObjectStore) Put(ctx context.Context, path string, r io.Reader, length int64) error {
+	return nil
+}
+
+func (s *stubObjectStore) Remove(ctx context.Context, path string) error {
+	return nil
 }
 
 type stubWatchableDB struct {

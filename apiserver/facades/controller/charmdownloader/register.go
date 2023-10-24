@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
-	"github.com/juju/juju/state/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -39,9 +38,7 @@ func newFacadeV1(ctx facade.Context) (*CharmDownloaderAPI, error) {
 		modelBackend,
 		clock.WallClock,
 		ctx.HTTPClient(facade.CharmhubHTTPClient),
-		func(modelUUID string) services.Storage {
-			return storage.NewStorage(modelUUID, rawState.MongoSession())
-		},
+		ctx.ObjectStore(),
 		func(cfg services.CharmDownloaderConfig) (Downloader, error) {
 			return services.NewCharmDownloader(cfg)
 		},

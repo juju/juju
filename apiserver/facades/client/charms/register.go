@@ -11,10 +11,8 @@ import (
 	charmscommon "github.com/juju/juju/apiserver/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/state/storage"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -79,14 +77,8 @@ func newFacadeBase(ctx facade.Context) (*API, error) {
 		backendState:       newStateShim(st),
 		backendModel:       m,
 		charmhubHTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
-		newStorage: func(modelUUID string) services.Storage {
-			return storage.NewStorage(modelUUID, st.MongoSession())
-		},
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
 			return services.NewCharmRepoFactory(cfg)
-		},
-		newDownloader: func(cfg services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error) {
-			return services.NewCharmDownloader(cfg)
 		},
 		tag:             m.ModelTag(),
 		requestRecorder: ctx.RequestRecorder(),

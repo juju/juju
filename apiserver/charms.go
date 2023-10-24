@@ -6,6 +6,7 @@ package apiserver
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"io"
@@ -26,9 +27,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	"github.com/juju/juju/core/charm/downloader"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/storage"
 )
 
 type FailableHandlerFunc func(http.ResponseWriter, *http.Request) error
@@ -79,11 +80,25 @@ func (h *CharmsHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Logger is an interface for logging for the apiserver.
+type Logger interface {
+	Tracef(string, ...interface{})
+	IsTraceEnabled() bool
+}
+
+// ObjectStoreGetter is an interface for getting an object store.
+type ObjectStoreGetter interface {
+	// GetObjectStore returns the object store for the given namespace.
+	GetObjectStore(context.Context, string) (objectstore.ObjectStore, error)
+}
+
 // charmsHandler handles charm upload through HTTPS in the API server.
 type charmsHandler struct {
-	ctxt          httpContext
-	dataDir       string
-	stateAuthFunc func(*http.Request) (*state.PooledState, error)
+	ctxt              httpContext
+	dataDir           string
+	stateAuthFunc     func(*http.Request) (*state.PooledState, error)
+	objectStoreGetter ObjectStoreGetter
+	logger            Logger
 }
 
 // bundleContentSenderFunc functions are responsible for sending a
@@ -95,7 +110,10 @@ func (h *charmsHandler) ServeUnsupported(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error {
-	logger.Child("charmsHandler").Tracef("ServePost(%s)", r.URL)
+	if h.logger.IsTraceEnabled() {
+		h.logger.Tracef("ServePost(%s)", r.URL)
+	}
+
 	if r.Method != "POST" {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
@@ -121,7 +139,10 @@ func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
-	logger.Child("charmsHandler").Tracef("ServeGet(%s)", r.URL)
+	if h.logger.IsTraceEnabled() {
+		h.logger.Tracef("ServeGet(%s)", r.URL)
+	}
+
 	if r.Method != "GET" {
 		return errors.Trace(emitUnsupportedMethodErr(r.Method))
 	}
@@ -242,6 +263,13 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		}
 	}
 
+	// Attempt to get the object store early, so we're not unnecessarily
+	// creating a parsing/reading if we can't get the object store.
+	objectStore, err := h.objectStoreGetter.GetObjectStore(r.Context(), st.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	charmFileName, err := writeCharmToTempFile(r.Body)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -303,7 +331,7 @@ func (h *charmsHandler) processPost(r *http.Request, st *state.State) (*charm.UR
 		return nil, errors.Errorf("unsupported schema %q", schema)
 	}
 
-	err = RepackageAndUploadCharm(st, archive, curl)
+	err = RepackageAndUploadCharm(r.Context(), objectStore, st, archive, curl)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -400,7 +428,7 @@ func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 // RepackageAndUploadCharm expands the given charm archive to a
 // temporary directory, repackages it with the given curl's revision,
 // then uploads it to storage, and finally updates the state.
-func RepackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
+func RepackageAndUploadCharm(ctx context.Context, objectStore services.Storage, st *state.State, archive *charm.CharmArchive, curl *charm.URL) error {
 	// Create a temp dir to contain the extracted charm dir.
 	tempDir, err := os.MkdirTemp("", "charm-download")
 	if err != nil {
@@ -448,12 +476,10 @@ func RepackageAndUploadCharm(st *state.State, archive *charm.CharmArchive, curl 
 	charmStorage := services.NewCharmStorage(services.CharmStorageConfig{
 		Logger:       logger,
 		StateBackend: storageStateShim{st},
-		StorageFactory: func(modelUUID string) services.Storage {
-			return storage.NewStorage(modelUUID, st.MongoSession())
-		},
+		ObjectStore:  objectStore,
 	})
 
-	return charmStorage.Store(curl.String(), downloader.DownloadedCharm{
+	return charmStorage.Store(ctx, curl.String(), downloader.DownloadedCharm{
 		Charm:        archive,
 		CharmData:    &repackagedArchive,
 		CharmVersion: version,
@@ -505,7 +531,6 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 		fileArg = "icon.svg"
 	}
 
-	store := storage.NewStorage(st.ModelUUID(), st.MongoSession())
 	// Use the storage to retrieve and save the charm archive.
 	ch, err := st.Charm(curl)
 	if err != nil {
@@ -517,7 +542,14 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 		return errRet(errors.NewNotYetAvailable(nil, curl))
 	}
 
-	archivePath, err = common.ReadCharmFromStorage(store, h.dataDir, ch.StoragePath())
+	// Get the underlying object store for the model UUID, which we can then
+	// retrieve the blob from.
+	store, err := h.objectStoreGetter.GetObjectStore(r.Context(), st.ModelUUID())
+	if err != nil {
+		return errRet(errors.Annotate(err, "cannot get object store"))
+	}
+
+	archivePath, err = common.ReadCharmFromStorage(r.Context(), store, h.dataDir, ch.StoragePath())
 	if err != nil {
 		return errRet(errors.Annotatef(err, "cannot read charm %q from storage", curl))
 	}

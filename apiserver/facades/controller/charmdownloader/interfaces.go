@@ -4,6 +4,8 @@
 package charmdownloader
 
 import (
+	"context"
+
 	"github.com/juju/charm/v11"
 	"github.com/juju/worker/v3"
 
@@ -46,7 +48,9 @@ type Charm interface {
 
 // Downloader defines an API for downloading and storing charms.
 type Downloader interface {
-	DownloadAndStore(charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error)
+	// DownloadAndStore downloads the charm at the specified URL and stores it
+	// in the object store.
+	DownloadAndStore(context.Context, *charm.URL, corecharm.Origin, bool) (corecharm.Origin, error)
 }
 
 // AuthChecker provides an API for checking if the API client is a controller.

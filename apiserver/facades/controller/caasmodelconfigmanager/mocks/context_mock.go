@@ -12,6 +12,7 @@ import (
 	leadership "github.com/juju/juju/core/leadership"
 	lease "github.com/juju/juju/core/lease"
 	multiwatcher "github.com/juju/juju/core/multiwatcher"
+	objectstore "github.com/juju/juju/core/objectstore"
 	servicefactory "github.com/juju/juju/internal/servicefactory"
 	state "github.com/juju/juju/state"
 	loggo "github.com/juju/loggo"
@@ -282,6 +283,20 @@ func (m *MockContext) MultiwatcherFactory() multiwatcher.Factory {
 func (mr *MockContextMockRecorder) MultiwatcherFactory() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MultiwatcherFactory", reflect.TypeOf((*MockContext)(nil).MultiwatcherFactory))
+}
+
+// ObjectStore mocks base method.
+func (m *MockContext) ObjectStore() objectstore.ObjectStore {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObjectStore")
+	ret0, _ := ret[0].(objectstore.ObjectStore)
+	return ret0
+}
+
+// ObjectStore indicates an expected call of ObjectStore.
+func (mr *MockContextMockRecorder) ObjectStore() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObjectStore", reflect.TypeOf((*MockContext)(nil).ObjectStore))
 }
 
 // Presence mocks base method.

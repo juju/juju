@@ -21,9 +21,7 @@ import (
 	apiservermocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/charms"
 	"github.com/juju/juju/apiserver/facades/client/charms/interfaces"
-	charmsinterfaces "github.com/juju/juju/apiserver/facades/client/charms/interfaces"
 	"github.com/juju/juju/apiserver/facades/client/charms/mocks"
-	"github.com/juju/juju/apiserver/facades/client/charms/services"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
@@ -141,7 +139,6 @@ type charmsMockSuite struct {
 	repoFactory  *mocks.MockRepositoryFactory
 	repository   *mocks.MockRepository
 	charmArchive *mocks.MockCharmArchive
-	downloader   *mocks.MockDownloader
 	application  *mocks.MockApplication
 	unit         *mocks.MockUnit
 	unit2        *mocks.MockUnit
@@ -631,11 +628,7 @@ func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 		s.authorizer,
 		s.state,
 		s.model,
-		nil,
 		s.repoFactory,
-		func(services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error) {
-			return s.downloader, nil
-		},
 		loggo.GetLogger("juju.apiserver.charms"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -658,7 +651,6 @@ func (s *charmsMockSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.repoFactory = mocks.NewMockRepositoryFactory(ctrl)
 	s.repository = mocks.NewMockRepository(ctrl)
 	s.charmArchive = mocks.NewMockCharmArchive(ctrl)
-	s.downloader = mocks.NewMockDownloader(ctrl)
 
 	s.application = mocks.NewMockApplication(ctrl)
 	s.unit = mocks.NewMockUnit(ctrl)

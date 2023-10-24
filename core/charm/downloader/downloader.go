@@ -4,6 +4,7 @@
 package downloader
 
 import (
+	"context"
 	"io"
 	"net/url"
 	"os"
@@ -46,7 +47,7 @@ type RepositoryGetter interface {
 // Storage provides an API for storing downloaded charms.
 type Storage interface {
 	PrepareToStoreCharm(string) error
-	Store(string, DownloadedCharm) error
+	Store(context.Context, string, DownloadedCharm) error
 }
 
 // DownloadedCharm encapsulates the details of a downloaded charm.
@@ -111,7 +112,7 @@ func NewDownloader(logger Logger, storage Storage, repoGetter RepositoryGetter) 
 // API so it can be persisted.
 //
 // The method ensures that all temporary resources are cleaned up before returning.
-func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error) {
+func (d *Downloader) DownloadAndStore(ctx context.Context, charmURL *charm.URL, requestedOrigin corecharm.Origin, force bool) (corecharm.Origin, error) {
 	var (
 		err           error
 		channelOrigin = requestedOrigin
@@ -168,7 +169,7 @@ func (d *Downloader) DownloadAndStore(charmURL *charm.URL, requestedOrigin corec
 	}
 
 	// Store Charm
-	if err := d.storeCharm(charmURL, downloadedCharm, tmpFile.Name()); err != nil {
+	if err := d.storeCharm(ctx, charmURL, downloadedCharm, tmpFile.Name()); err != nil {
 		return corecharm.Origin{}, errors.Annotatef(err, "storing charm %q from origin %v", charmURL, requestedOrigin)
 	}
 
@@ -205,7 +206,7 @@ func (d *Downloader) downloadAndHash(charmURL *charm.URL, requestedOrigin corech
 	}, actualOrigin, nil
 }
 
-func (d *Downloader) storeCharm(charmURL *charm.URL, dc DownloadedCharm, archivePath string) error {
+func (d *Downloader) storeCharm(ctx context.Context, charmURL *charm.URL, dc DownloadedCharm, archivePath string) error {
 	charmArchive, err := os.Open(archivePath)
 	if err != nil {
 		return errors.Annotatef(err, "unable to open downloaded charm archive at %q", archivePath)
@@ -213,7 +214,7 @@ func (d *Downloader) storeCharm(charmURL *charm.URL, dc DownloadedCharm, archive
 	defer func() { _ = charmArchive.Close() }()
 
 	dc.CharmData = charmArchive
-	if err := d.storage.Store(charmURL.String(), dc); err != nil {
+	if err := d.storage.Store(ctx, charmURL.String(), dc); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

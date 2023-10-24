@@ -4,6 +4,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -22,26 +23,26 @@ type CharmStorageConfig struct {
 	Logger loggo.Logger
 
 	// A factory for accessing model-scoped storage for charm blobs.
-	StorageFactory func(modelUUID string) Storage
+	ObjectStore Storage
 
 	StateBackend StateBackend
 }
 
 // CharmStorage provides an abstraction for storing charm blobs.
 type CharmStorage struct {
-	logger         loggo.Logger
-	stateBackend   StateBackend
-	storageFactory func(modelUUID string) Storage
-	uuidGenerator  func() (utils.UUID, error)
+	logger        loggo.Logger
+	stateBackend  StateBackend
+	objectStore   Storage
+	uuidGenerator func() (utils.UUID, error)
 }
 
 // NewCharmStorage creates a new CharmStorage instance with the specified config.
 func NewCharmStorage(cfg CharmStorageConfig) *CharmStorage {
 	return &CharmStorage{
-		logger:         cfg.Logger.Child("charmstorage"),
-		stateBackend:   cfg.StateBackend,
-		storageFactory: cfg.StorageFactory,
-		uuidGenerator:  utils.NewUUID,
+		logger:        cfg.Logger.Child("charmstorage"),
+		stateBackend:  cfg.StateBackend,
+		objectStore:   cfg.ObjectStore,
+		uuidGenerator: utils.NewUUID,
 	}
 }
 
@@ -62,14 +63,13 @@ func (s *CharmStorage) PrepareToStoreCharm(charmURL string) error {
 }
 
 // CharmStorage attempts to store the contents of a downloaded charm.
-func (s *CharmStorage) Store(charmURL string, downloadedCharm charmdownloader.DownloadedCharm) error {
+func (s *CharmStorage) Store(ctx context.Context, charmURL string, downloadedCharm charmdownloader.DownloadedCharm) error {
 	s.logger.Tracef("store %q", charmURL)
-	storage := s.storageFactory(s.stateBackend.ModelUUID())
 	storagePath, err := s.charmArchiveStoragePath(charmURL)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")
 	}
-	if err := storage.Put(storagePath, downloadedCharm.CharmData, downloadedCharm.Size); err != nil {
+	if err := s.objectStore.Put(ctx, storagePath, downloadedCharm.CharmData, downloadedCharm.Size); err != nil {
 		return errors.Annotate(err, "cannot add charm to storage")
 	}
 
@@ -87,7 +87,7 @@ func (s *CharmStorage) Store(charmURL string, downloadedCharm charmdownloader.Do
 		alreadyUploaded := err == stateerrors.ErrCharmRevisionAlreadyModified ||
 			errors.Cause(err) == stateerrors.ErrCharmRevisionAlreadyModified ||
 			stateerrors.IsCharmAlreadyUploadedError(err)
-		if err := storage.Remove(storagePath); err != nil {
+		if err := s.objectStore.Remove(ctx, storagePath); err != nil {
 			if alreadyUploaded {
 				s.logger.Errorf("cannot remove duplicated charm archive from storage: %v", err)
 			} else {

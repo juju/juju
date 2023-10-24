@@ -64,8 +64,6 @@ type API struct {
 	tag             names.ModelTag
 	requestRecorder facade.RequestRecorder
 
-	newStorage     func(modelUUID string) services.Storage
-	newDownloader  func(services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error)
 	newRepoFactory func(services.CharmRepoFactoryConfig) corecharm.RepositoryFactory
 
 	mu          sync.Mutex
@@ -104,17 +102,13 @@ func NewCharmsAPI(
 	authorizer facade.Authorizer,
 	st charmsinterfaces.BackendState,
 	m charmsinterfaces.BackendModel,
-	newStorage func(modelUUID string) services.Storage,
 	repoFactory corecharm.RepositoryFactory,
-	newDownloader func(cfg services.CharmDownloaderConfig) (charmsinterfaces.Downloader, error),
 	logger loggo.Logger,
 ) (*API, error) {
 	return &API{
 		authorizer:      authorizer,
 		backendState:    st,
 		backendModel:    m,
-		newStorage:      newStorage,
-		newDownloader:   newDownloader,
 		tag:             m.ModelTag(),
 		requestRecorder: noopRequestRecorder{},
 		repoFactory:     repoFactory,

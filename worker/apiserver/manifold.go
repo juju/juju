@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/objectstore"
 	workerstate "github.com/juju/juju/worker/state"
 	"github.com/juju/juju/worker/syslogger"
 	"github.com/juju/juju/worker/trace"
@@ -52,6 +53,7 @@ type ManifoldConfig struct {
 	ChangeStreamName       string
 	ServiceFactoryName     string
 	TraceName              string
+	ObjectStoreName        string
 
 	PrometheusRegisterer              prometheus.Registerer
 	RegisterIntrospectionHTTPHandlers func(func(path string, _ http.Handler))
@@ -112,6 +114,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.TraceName == "" {
 		return errors.NotValidf("empty TraceName")
 	}
+	if config.ObjectStoreName == "" {
+		return errors.NotValidf("empty ObjectStoreName")
+	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
@@ -147,6 +152,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.ChangeStreamName,
 			config.ServiceFactoryName,
 			config.TraceName,
+			config.ObjectStoreName,
 		},
 		Start: config.start,
 	}
@@ -228,6 +234,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var objectStoreGetter objectstore.ObjectStoreGetter
+	if err := context.Get(config.ObjectStoreName, &objectStoreGetter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
@@ -267,6 +278,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		DBGetter:                          dbGetter,
 		ServiceFactoryGetter:              serviceFactoryGetter,
 		TracerGetter:                      tracerGetter,
+		ObjectStoreGetter:                 objectStoreGetter,
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes

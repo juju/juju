@@ -20,11 +20,13 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/objectstore"
 	"github.com/juju/juju/worker/trace"
 )
 
@@ -56,6 +58,10 @@ func (testingAPIRootHandler) ServiceFactory() servicefactory.ServiceFactory {
 }
 
 func (testingAPIRootHandler) Tracer() coretrace.Tracer {
+	return nil
+}
+
+func (testingAPIRootHandler) ObjectStore() coreobjectstore.ObjectStore {
 	return nil
 }
 
@@ -109,7 +115,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, configGe
 		},
 		tag: names.NewMachineTag("0"),
 	}
-	h, err := newAPIHandler(srv, st, nil, nil, coretrace.NoopTracer{}, st.ModelUUID(), 6543, "testing.invalid:1234")
+	h, err := newAPIHandler(srv, st, nil, nil, coretrace.NoopTracer{}, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.Resources()
 }
@@ -122,6 +128,10 @@ func (s *StubServiceFactoryGetter) FactoryForModel(string) servicefactory.Servic
 
 type StubTracerGetter struct {
 	trace.TracerGetter
+}
+
+type StubObjectStoreGetter struct {
+	objectstore.ObjectStoreGetter
 }
 
 // TestingAPIHandlerWithEntity gives you the sane kind of APIHandler as
