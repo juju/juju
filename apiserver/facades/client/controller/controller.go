@@ -987,13 +987,18 @@ func getTargetControllerUsers(conn api.Connection) (userList, error) {
 }
 
 func targetToAPIInfo(ti *coremigration.TargetInfo) *api.Info {
-	return &api.Info{
+	info := &api.Info{
 		Addrs:     ti.Addrs,
 		CACert:    ti.CACert,
-		Tag:       ti.AuthTag,
 		Password:  ti.Password,
 		Macaroons: ti.Macaroons,
 	}
+	// Only local users must be added to the api info.
+	// For external users, the tag needs to be left empty.
+	if ti.AuthTag.IsLocal() {
+		info.Tag = ti.AuthTag
+	}
+	return info
 }
 
 func grantControllerAccess(accessor ControllerAccess, targetUserTag, apiUser names.UserTag, access permission.Access) error {

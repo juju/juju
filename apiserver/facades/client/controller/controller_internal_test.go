@@ -5,8 +5,14 @@ package controller
 
 import (
 	"github.com/juju/collections/set"
+	"github.com/juju/names/v4"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon.v2"
+
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&controllerSuite{})
@@ -101,4 +107,39 @@ the current model:
 			c.Assert(err.Error(), gc.Equals, spec.expErr)
 		}
 	}
+}
+
+func (s *controllerSuite) TestTargetToAPIInfoLocalUser(c *gc.C) {
+	targetInfo := migration.TargetInfo{
+		Addrs:     []string{"6.6.6.6"},
+		CACert:    testing.CACert,
+		AuthTag:   names.NewUserTag("fred"),
+		Password:  "sekret",
+		Macaroons: []macaroon.Slice{{}},
+	}
+	apiInfo := targetToAPIInfo(&targetInfo)
+	c.Assert(apiInfo, jc.DeepEquals, &api.Info{
+		Addrs:     targetInfo.Addrs,
+		CACert:    targetInfo.CACert,
+		Tag:       targetInfo.AuthTag,
+		Password:  targetInfo.Password,
+		Macaroons: targetInfo.Macaroons,
+	})
+}
+
+func (s *controllerSuite) TestTargetToAPIInfoExternalUser(c *gc.C) {
+	targetInfo := migration.TargetInfo{
+		Addrs:     []string{"6.6.6.6"},
+		CACert:    testing.CACert,
+		AuthTag:   names.NewUserTag("fred@external"),
+		Password:  "sekret",
+		Macaroons: []macaroon.Slice{{}},
+	}
+	apiInfo := targetToAPIInfo(&targetInfo)
+	c.Assert(apiInfo, jc.DeepEquals, &api.Info{
+		Addrs:     targetInfo.Addrs,
+		CACert:    targetInfo.CACert,
+		Password:  targetInfo.Password,
+		Macaroons: targetInfo.Macaroons,
+	})
 }
