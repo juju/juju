@@ -30,7 +30,6 @@ import (
 type Backend interface {
 	network.SpaceLookup
 
-	AbortCurrentUpgrade() error
 	AddControllerUser(state.UserAccessSpec) (permission.UserAccess, error)
 	AddMachineInsideMachine(state.MachineTemplate, string, instance.ContainerType) (*state.Machine, error)
 	AddMachineInsideNewMachine(template, parentTemplate state.MachineTemplate, containerType instance.ContainerType) (*state.Machine, error)
@@ -71,7 +70,7 @@ type Backend interface {
 	RemoteConnectionStatus(string) (*state.RemoteConnectionStatus, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
 	SetAnnotations(state.GlobalEntity, map[string]string) error
-	SetModelAgentVersion(version.Number, *string, bool) error
+	SetModelAgentVersion(version.Number, *string, bool, state.Upgrader) error
 	SetModelConstraints(constraints.Value) error
 	Unit(string) (Unit, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error

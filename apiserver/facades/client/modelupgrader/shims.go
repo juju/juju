@@ -30,8 +30,7 @@ type State interface {
 	AllModelUUIDs() ([]string, error)
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
-	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error
-	AbortCurrentUpgrade() error
+	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool, upgrader state.Upgrader) error
 	ControllerConfig() (controller.Config, error)
 	AllCharmURLs() ([]*string, error)
 }
@@ -110,12 +109,8 @@ func (s stateShim) MachineCountForBase(base ...state.Base) (map[string]int, erro
 	return count, nil
 }
 
-func (s stateShim) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) error {
-	return s.PooledState.SetModelAgentVersion(newVersion, stream, ignoreAgentVersions)
-}
-
-func (s stateShim) AbortCurrentUpgrade() error {
-	return s.PooledState.AbortCurrentUpgrade()
+func (s stateShim) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool, upgrader state.Upgrader) error {
+	return s.PooledState.SetModelAgentVersion(newVersion, stream, ignoreAgentVersions, upgrader)
 }
 
 func (s stateShim) AllModelUUIDs() ([]string, error) {

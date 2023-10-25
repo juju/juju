@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
+	"github.com/juju/juju/state/mocks"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -43,6 +44,7 @@ type upgraderSuite struct {
 	hosted     *state.State
 
 	controllerConfigGetter *MockControllerConfigGetter
+	isUpgrader             *mocks.MockUpgrader
 }
 
 var _ = gc.Suite(&upgraderSuite{})
@@ -54,9 +56,6 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-
-	ctrl := gomock.NewController(c)
-	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
 
 	// For now, test with the controller model, but
 	// we may add a different hosted model later.
@@ -97,6 +96,8 @@ func (s *upgraderSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionNothing(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Not an error to watch nothing
 	results, err := s.upgrader.WatchAPIVersion(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -104,6 +105,8 @@ func (s *upgraderSuite) TestWatchAPIVersionNothing(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
@@ -127,6 +130,8 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.hosted.ModelUUID())
 	defer release()
 
@@ -168,6 +173,8 @@ func (s *upgraderSuite) TestWatchAPIVersionApplication(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	f, release := s.NewFactory(c, s.hosted.ModelUUID())
 	defer release()
 
@@ -212,6 +219,8 @@ func (s *upgraderSuite) TestWatchAPIVersionUnit(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	node, err := s.hosted.ControllerNode("0")
 	c.Assert(err, jc.ErrorIsNil)
 	authorizer := apiservertesting.FakeAuthorizer{
@@ -252,6 +261,8 @@ func (s *upgraderSuite) TestWatchAPIVersionControllerAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// We are a machine agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
@@ -278,6 +289,8 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestToolsNothing(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Not an error to watch nothing
 	results, err := s.upgrader.Tools(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -310,6 +323,8 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	current := coretesting.CurrentVersion()
 	agent := params.Entity{Tag: s.rawMachine.Tag().String()}
 
@@ -355,6 +370,8 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestSetToolsNothing(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Not an error to watch nothing
 	results, err := s.upgrader.SetTools(context.Background(), params.EntitiesVersion{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -362,6 +379,8 @@ func (s *upgraderSuite) TestSetToolsNothing(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
 	systemState, err := s.StatePool().SystemState()
@@ -391,6 +410,8 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestSetTools(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	current := coretesting.CurrentVersion()
 	_, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -417,6 +438,8 @@ func (s *upgraderSuite) TestSetTools(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionNothing(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Not an error to watch nothing
 	results, err := s.upgrader.DesiredVersion(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -424,6 +447,8 @@ func (s *upgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
 	systemState, err := s.StatePool().SystemState()
@@ -449,6 +474,8 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.rawMachine.Tag().String()},
 		{Tag: "machine-12345"},
@@ -467,6 +494,8 @@ func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	results, err := s.upgrader.DesiredVersion(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
@@ -478,6 +507,8 @@ func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 }
 
 func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
+	defer s.setupMocks(c).Finish()
+
 	// In order to call SetModelAgentVersion we have to first SetTools on
 	// all the existing machines
 	current := coretesting.CurrentVersion()
@@ -487,7 +518,7 @@ func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 	c.Assert(err, jc.ErrorIsNil)
 	newer := current
 	newer.Patch++
-	err = s.hosted.SetModelAgentVersion(newer.Number, nil, false)
+	err = s.hosted.SetModelAgentVersion(newer.Number, nil, false, s.isUpgrader)
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := s.hosted.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -500,6 +531,8 @@ func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
 }
 
 func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	newVersion := s.bumpDesiredAgentVersion(c)
 	// Grab a different Upgrader for the apiMachine
 	authorizer := apiservertesting.FakeAuthorizer{
@@ -527,6 +560,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	newVersion := s.bumpDesiredAgentVersion(c)
 	c.Assert(newVersion, gc.Not(gc.Equals), jujuversion.Current)
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
@@ -537,4 +571,15 @@ func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *gc.C) {
 	agentVersion := results.Results[0].Version
 	c.Assert(agentVersion, gc.NotNil)
 	c.Check(*agentVersion, gc.DeepEquals, jujuversion.Current)
+}
+
+func (s *upgraderSuite) setupMocks(c *gc.C) *gomock.Controller {
+
+	ctrl := gomock.NewController(c)
+
+	s.controllerConfigGetter = NewMockControllerConfigGetter(ctrl)
+	s.isUpgrader = mocks.NewMockUpgrader(ctrl)
+	s.isUpgrader.EXPECT().IsUpgrading().Return(false, nil).AnyTimes()
+
+	return ctrl
 }

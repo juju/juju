@@ -42,13 +42,14 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
+	serviceFactory := ctx.ServiceFactory()
 	configGetter := stateenvirons.EnvironConfigGetter{
-		Model: model, CloudService: ctx.ServiceFactory().Cloud(), CredentialService: ctx.ServiceFactory().Credential()}
-	cloudService := ctx.ServiceFactory().Cloud()
-	credentialService := ctx.ServiceFactory().Credential()
+		Model: model, CloudService: ctx.ServiceFactory().Cloud(), CredentialService: serviceFactory.Credential()}
+	cloudService := serviceFactory.Cloud()
+	credentialService := serviceFactory.Credential()
 	newEnviron := common.EnvironFuncForModel(model, cloudService, credentialService, configGetter)
 
-	controllerConfigGetter := ctx.ServiceFactory().ControllerConfig()
+	controllerConfigGetter := serviceFactory.ControllerConfig()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, systemState)
 	toolsFinder := common.NewToolsFinder(controllerConfigGetter, configGetter, st, urlGetter, newEnviron)
@@ -71,6 +72,7 @@ func newFacadeV1(ctx facade.Context) (*ModelUpgraderAPI, error) {
 		credentialcommon.CredentialInvalidatorGetter(ctx),
 		registry.New,
 		environscloudspecGetter,
+		serviceFactory.Upgrade(),
 		ctx.Logger().Child("modelupgrader"),
 	)
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/utils/v3"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v3/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
@@ -51,6 +52,7 @@ import (
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
+	"github.com/juju/juju/state/mocks"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -85,6 +87,8 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 
 type StateSuite struct {
 	ConnSuite
+
+	upgrader *mocks.MockUpgrader
 }
 
 var _ = gc.Suite(&StateSuite{})
@@ -4146,6 +4150,10 @@ func (s *StateSuite) TestWatchRemoteRelationsDiesOnStateClose(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectIsUpgrade(false)
+
 	// Get the agent-version set in the model.
 	modelConfig, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -4172,7 +4180,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify machine0 and machine1 are reported as error.
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false, s.upgrader)
 	expectErr := fmt.Sprintf("some agents have not upgraded to the current model version %s: machine-0, machine-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -4205,7 +4213,7 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 
 	// Verify unit0 and unit1 are reported as error, along with the
 	// machines from before.
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false, s.upgrader)
 	expectErr = fmt.Sprintf("some agents have not upgraded to the current model version %s: machine-0, machine-1, unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
@@ -4219,13 +4227,17 @@ func (s *StateSuite) TestSetModelAgentVersionErrors(c *gc.C) {
 	}
 
 	// Verify only the units are reported as error.
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false, s.upgrader)
 	expectErr = fmt.Sprintf("some agents have not upgraded to the current model version %s: unit-wordpress-0, unit-wordpress-1", stringVersion)
 	c.Assert(err, gc.ErrorMatches, expectErr)
 	c.Assert(err, jc.Satisfies, state.IsVersionInconsistentError)
 }
 
 func (s *StateSuite) prepareAgentVersionTests(c *gc.C, st *state.State) (*config.Config, string) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectIsUpgrade(false)
+
 	// Get the agent-version set in the model.
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -4277,6 +4289,10 @@ func assertAgentVersion(c *gc.C, st *state.State, vers, stream string) {
 }
 
 func (s *StateSuite) TestSetModelAgentVersionRetriesOnConfigChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectIsUpgrade(false)
+
 	modelConfig, _ := s.prepareAgentVersionTests(c, s.State)
 
 	// Set up a transaction hook to change something
@@ -4287,12 +4303,16 @@ func (s *StateSuite) TestSetModelAgentVersionRetriesOnConfigChange(c *gc.C) {
 	}).Check()
 
 	// Change the agent-version and ensure it has changed.
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false, s.upgrader)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, s.State, "4.5.6", "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionSucceedsWithSameVersion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectIsUpgrade(false)
+
 	modelConfig, _ := s.prepareAgentVersionTests(c, s.State)
 
 	// Set up a transaction hook to change the version
@@ -4303,30 +4323,42 @@ func (s *StateSuite) TestSetModelAgentVersionSucceedsWithSameVersion(c *gc.C) {
 	}).Check()
 
 	// Change the agent-version and verify.
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false, s.upgrader)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, s.State, "4.5.6", "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionUpdateStream(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectIsUpgrade(false)
+
 	proposed := "proposed"
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), &proposed, false)
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), &proposed, false, s.upgrader)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, s.State, "4.5.6", proposed)
 
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.7"), nil, false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.7"), nil, false, s.upgrader)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, s.State, "4.5.7", proposed)
 }
 
 func (s *StateSuite) TestSetModelAgentVersionUpdateStreamEmpty(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectIsUpgrade(false)
+
 	stream := ""
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), &stream, false)
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), &stream, false, s.upgrader)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, s.State, "4.5.6", "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectIsUpgrade(false)
+
 	current := version.MustParseBinary("1.24.7-ubuntu-amd64")
 	s.PatchValue(&jujuversion.Current, current.Number)
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
@@ -4339,17 +4371,17 @@ func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
 	lower := version.MustParseBinary("1.24.6-ubuntu-amd64")
 
 	// Set other model version to < controller model version
-	err := otherSt.SetModelAgentVersion(lower.Number, nil, false)
+	err := otherSt.SetModelAgentVersion(lower.Number, nil, false, s.upgrader)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, otherSt, lower.Number.String(), "released")
 
 	// Set other model version == controller version
-	err = otherSt.SetModelAgentVersion(jujuversion.Current, nil, false)
+	err = otherSt.SetModelAgentVersion(jujuversion.Current, nil, false, s.upgrader)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, otherSt, jujuversion.Current.String(), "released")
 
 	// Set other model version to > server version
-	err = otherSt.SetModelAgentVersion(higher.Number, nil, false)
+	err = otherSt.SetModelAgentVersion(higher.Number, nil, false, s.upgrader)
 	expected := fmt.Sprintf("model cannot be upgraded to %s while the controller is %s: upgrade 'controller' model first",
 		higher.Number,
 		jujuversion.Current,
@@ -4358,6 +4390,10 @@ func (s *StateSuite) TestSetModelAgentVersionOnOtherModel(c *gc.C) {
 }
 
 func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectIsUpgrade(false)
+
 	modelConfig, currentVersion := s.prepareAgentVersionTests(c, s.State)
 
 	// Set a hook to change the config 3 times
@@ -4370,13 +4406,17 @@ func (s *StateSuite) TestSetModelAgentVersionExcessiveContention(c *gc.C) {
 
 	state.SetMaxTxnAttempts(c, s.State, 3)
 	defer state.SetTestHooks(c, s.State, hooks...).Check()
-	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
+	err := s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false, s.upgrader)
 	c.Assert(err, jc.ErrorIs, jujutxn.ErrExcessiveContention)
 	// Make sure the version remained the same.
 	assertAgentVersion(c, s.State, currentVersion, "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionMixedVersions(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectIsUpgrade(false)
+
 	_, currentVersion := s.prepareAgentVersionTests(c, s.State)
 	machine, err := s.State.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -4384,17 +4424,19 @@ func (s *StateSuite) TestSetModelAgentVersionMixedVersions(c *gc.C) {
 	err = machine.SetAgentVersion(version.MustParseBinary("1.0.1-ubuntu-amd64"))
 	c.Assert(err, jc.ErrorIsNil)
 	// This should be refused because an agent doesn't match "currentVersion"
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, false, s.upgrader)
 	c.Check(err, gc.ErrorMatches, "some agents have not upgraded to the current model version .*: machine-0")
 	// Version hasn't changed
 	assertAgentVersion(c, s.State, currentVersion, "released")
 	// But we can force it
-	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, true)
+	err = s.State.SetModelAgentVersion(version.MustParse("4.5.6"), nil, true, s.upgrader)
 	c.Assert(err, jc.ErrorIsNil)
 	assertAgentVersion(c, s.State, "4.5.6", "released")
 }
 
 func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Get the agent-version set in the model.
 	modelConfig, err := s.Model.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -4412,14 +4454,15 @@ func (s *StateSuite) TestSetModelAgentVersionFailsIfUpgrading(c *gc.C) {
 	nextVersion.Minor++
 
 	// Create an unfinished UpgradeInfo instance.
-	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	s.expectIsUpgrade(true)
 
-	err = s.State.SetModelAgentVersion(nextVersion, nil, false)
+	err = s.State.SetModelAgentVersion(nextVersion, nil, false, s.upgrader)
 	c.Assert(err, jc.ErrorIs, stateerrors.ErrUpgradeInProgress)
 }
 
 func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	// Ensure that the correct error is reported if an upgrade is
 	// progress but that isn't the reason for the
 	// SetModelAgentVersion call failing.
@@ -4441,10 +4484,9 @@ func (s *StateSuite) TestSetModelAgentVersionFailsReportsCorrectError(c *gc.C) {
 	nextVersion.Minor++
 
 	// Create an unfinished UpgradeInfo instance.
-	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
-	c.Assert(err, jc.ErrorIsNil)
+	s.expectIsUpgrade(true)
 
-	err = s.State.SetModelAgentVersion(nextVersion, nil, false)
+	err = s.State.SetModelAgentVersion(nextVersion, nil, false, s.upgrader)
 	c.Assert(err, gc.ErrorMatches, "some agents have not upgraded to the current model version.+")
 }
 
@@ -5108,4 +5150,16 @@ func (s *StateSuite) TestPeerRelationCreatesApplicationSettings(c *gc.C) {
 	key := fmt.Sprintf("r#%d#riak", rel.Id())
 	_, err = settings.ReadSettings(key)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *StateSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.upgrader = mocks.NewMockUpgrader(ctrl)
+
+	return ctrl
+}
+
+func (s *StateSuite) expectIsUpgrade(value bool) {
+	s.upgrader.EXPECT().IsUpgrading().Return(value, nil).AnyTimes()
 }

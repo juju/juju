@@ -2003,12 +2003,6 @@ func (m *Model) Watch() NotifyWatcher {
 	return newEntityWatcher(m.st, modelsC, m.doc.UUID)
 }
 
-// WatchUpgradeInfo returns a watcher for observing changes to upgrade
-// synchronisation state.
-func (st *State) WatchUpgradeInfo() NotifyWatcher {
-	return newEntityWatcher(st, upgradeInfoC, currentUpgradeId)
-}
-
 // WatchForModelConfigChanges returns a NotifyWatcher waiting for the Model
 // Config to change.
 func (model *Model) WatchForModelConfigChanges() NotifyWatcher {

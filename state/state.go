@@ -607,11 +607,17 @@ func (st *State) checkCanUpgradeIAAS(currentVersion, newVersion string) error {
 	return nil
 }
 
+// Upgrader is an interface that can be used to check if an upgrade is in
+// progress.
+type Upgrader interface {
+	IsUpgrading() (bool, error)
+}
+
 // SetModelAgentVersion changes the agent version for the model to the
 // given version, only if the model is in a stable state (all agents are
 // running the current version). If this is a hosted model, newVersion
 // cannot be higher than the controller version.
-func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool) (err error) {
+func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool, upgrader Upgrader) (err error) {
 	if newVersion.Compare(jujuversion.Current) > 0 && !st.IsController() {
 		return errors.Errorf("model cannot be upgraded to %s while the controller is %s: upgrade 'controller' model first",
 			newVersion.String(),
@@ -662,13 +668,15 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string,
 			}
 		}
 
+		if upgrading, err := upgrader.IsUpgrading(); err != nil {
+			return nil, errors.Annotate(err, "cannot set agent version")
+		} else if upgrading {
+			return nil, errors.Trace(stateerrors.ErrUpgradeInProgress)
+		}
+
 		ops := []txn.Op{
 			// Can't set agent-version if there's an active upgradeInfo doc.
 			{
-				C:      upgradeInfoC,
-				Id:     currentUpgradeId,
-				Assert: txn.DocMissing,
-			}, {
 				C:      settingsC,
 				Id:     st.docID(modelGlobalKey),
 				Assert: bson.D{{"version", settings.version}},
@@ -686,10 +694,10 @@ func (st *State) SetModelAgentVersion(newVersion version.Number, stream *string,
 		// Although there is a small chance of a race here, try to
 		// return a more helpful error message in the case of an
 		// active upgradeInfo document being in place.
-		if upgrading, _ := st.IsUpgrading(); upgrading {
-			err = stateerrors.ErrUpgradeInProgress
-		} else {
-			err = errors.Annotate(err, "cannot set agent version")
+		if upgrading, err := upgrader.IsUpgrading(); err != nil {
+			return errors.Annotate(err, "cannot set agent version")
+		} else if upgrading {
+			return errors.Trace(stateerrors.ErrUpgradeInProgress)
 		}
 	}
 	return errors.Trace(err)

@@ -58,8 +58,6 @@ When looking for an agent to upgrade to Juju will check the currently
 configured agent stream for that model. It's possible to overwrite this for
 the lifetime of this upgrade using --agent-stream
 
-If a failed upgrade has been resolved, '--reset-previous-upgrade' can be
-used to allow the upgrade to proceed.
 Backups are recommended prior to upgrading.
 
 `
@@ -79,14 +77,13 @@ func newUpgradeJujuCommand() cmd.Command {
 // upgradeJujuCommand and upgradeControllerCommand
 // to hold flags common to both.
 type baseUpgradeCommand struct {
-	vers          string
-	Version       version.Number
-	BuildAgent    bool
-	DryRun        bool
-	ResetPrevious bool
-	AssumeYes     bool
-	AgentStream   string
-	timeout       time.Duration
+	vers        string
+	Version     version.Number
+	BuildAgent  bool
+	DryRun      bool
+	AssumeYes   bool
+	AgentStream string
+	timeout     time.Duration
 	// IgnoreAgentVersions is used to allow an admin to request an agent
 	// version without waiting for all agents to be at the right version.
 	IgnoreAgentVersions bool
@@ -104,7 +101,6 @@ func (c *baseUpgradeCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.AgentStream, "agent-stream", "", "Check this agent stream for upgrades")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build a local version of the agent binary; for development use only")
 	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would be changed")
-	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "Clear the previous (incomplete) upgrade status (use with care)")
 	f.BoolVar(&c.AssumeYes, "y", false, "Answer 'yes' to confirmation prompts")
 	f.BoolVar(&c.AssumeYes, "yes", false, "")
 	f.BoolVar(&c.IgnoreAgentVersions, "ignore-agent-versions", false,
@@ -174,7 +170,6 @@ type ModelUpgraderAPI interface {
 	UpgradeModel(
 		modelUUID string, targetVersion version.Number, stream string, ignoreAgentVersions, druRun bool,
 	) (version.Number, error)
-	AbortModelUpgrade(modelUUID string) error
 	UploadTools(r io.ReadSeeker, vers version.Binary) (coretools.List, error)
 
 	Close() error
@@ -511,18 +506,6 @@ func (c *upgradeJujuCommand) notifyControllerUpgrade(
 	}
 	modelTag := names.NewModelTag(details.ModelUUID)
 
-	if c.ResetPrevious {
-		if ok, err := c.confirmResetPreviousUpgrade(ctx); !ok || err != nil {
-			const message = "previous upgrade not reset and no new upgrade triggered"
-			if err != nil {
-				return chosenVersion, errors.Annotate(err, message)
-			}
-			return chosenVersion, errors.New(message)
-		}
-		if err := modelUpgrader.AbortModelUpgrade(modelTag.Id()); err != nil {
-			return chosenVersion, block.ProcessBlockedError(err, block.BlockChange)
-		}
-	}
 	if chosenVersion, err = modelUpgrader.UpgradeModel(
 		modelTag.Id(), targetVersion, c.AgentStream, c.IgnoreAgentVersions, dryRun,
 	); err != nil {

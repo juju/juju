@@ -93,6 +93,7 @@ type modelUpgradeSuite struct {
 	toolsFinder      *mocks.MockToolsFinder
 	bootstrapEnviron *mocks.MockBootstrapEnviron
 	blockChecker     *mocks.MockBlockCheckerInterface
+	upgradeService   *mocks.MockUpgradeService
 	registryProvider *registrymocks.MockRegistry
 	cloudSpec        lxd.CloudSpec
 }
@@ -112,14 +113,19 @@ func (s *modelUpgradeSuite) SetUpTest(c *gc.C) {
 	s.cloudSpec = lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 }
 
-func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *modelupgrader.ModelUpgraderAPI) {
+func (s *modelUpgradeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.statePool = mocks.NewMockStatePool(ctrl)
 	s.toolsFinder = mocks.NewMockToolsFinder(ctrl)
 	s.bootstrapEnviron = mocks.NewMockBootstrapEnviron(ctrl)
 	s.blockChecker = mocks.NewMockBlockCheckerInterface(ctrl)
 	s.registryProvider = registrymocks.NewMockRegistry(ctrl)
+	s.upgradeService = mocks.NewMockUpgradeService(ctrl)
 
+	return ctrl
+}
+
+func (s *modelUpgradeSuite) newFacade(c *gc.C) *modelupgrader.ModelUpgraderAPI {
 	api, err := modelupgrader.NewModelUpgraderAPI(
 		coretesting.ControllerTag,
 		s.statePool,
@@ -134,15 +140,17 @@ func (s *modelUpgradeSuite) getModelUpgraderAPI(c *gc.C) (*gomock.Controller, *m
 		func(names.ModelTag) (environscloudspec.CloudSpec, error) {
 			return s.cloudSpec.CloudSpec, nil
 		},
+		s.upgradeService,
 		loggo.GetLogger("juju.apiserver.modelupgrader"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	return ctrl, api
+	return api
 }
 
 func (s *modelUpgradeSuite) TestUpgradeModelWithInvalidModelTag(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
+
+	api := s.newFacade(c)
 
 	_, err := api.UpgradeModel(stdcontext.Background(), params.UpgradeModelParams{ModelTag: "!!!"})
 	c.Assert(err, gc.ErrorMatches, `"!!!" is not a valid tag`)
@@ -152,8 +160,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelWithModelWithNoPermission(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("user"),
 	}
-	ctrl, api := s.getModelUpgraderAPI(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
+
+	api := s.newFacade(c)
 
 	_, err := api.UpgradeModel(
 		stdcontext.Background(),
@@ -166,8 +175,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelWithModelWithNoPermission(c *gc.C) {
 }
 
 func (s *modelUpgradeSuite) TestUpgradeModelWithChangeNotAllowed(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
+
+	api := s.newFacade(c)
 
 	s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(errors.Errorf("the operation has been blocked"))
 
@@ -182,7 +192,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelWithChangeNotAllowed(c *gc.C) {
 }
 
 func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, dryRun bool) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
@@ -275,8 +285,10 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	server.EXPECT().ServerVersion().Return("5.2")
 
 	if !dryRun {
-		ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil)
+		ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false, gomock.Any()).Return(nil)
 	}
+
+	api := s.newFacade(c)
 
 	result, err := api.UpgradeModel(
 		stdcontext.Background(),
@@ -302,7 +314,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3DryRun(c *gc.
 }
 
 func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
@@ -385,7 +397,9 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 	// Skip this dying model.
 	model1.EXPECT().Life().Return(state.Dying)
 
-	ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil)
+	ctrlState.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false, gomock.Any()).Return(nil)
+
+	api := s.newFacade(c)
 
 	result, err := api.UpgradeModel(
 		stdcontext.Background(),
@@ -403,7 +417,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 }
 
 func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
@@ -503,6 +517,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	model1.EXPECT().Owner().Return(names.NewUserTag("admin"))
 	model1.EXPECT().Name().Return("model-1")
 
+	api := s.newFacade(c)
+
 	result, err := api.UpgradeModel(
 		stdcontext.Background(),
 		params.UpgradeModelParams{
@@ -527,7 +543,7 @@ cannot upgrade to "3.9.99" due to issues with these models:
 }
 
 func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	server := upgradevalidationmocks.NewMockServer(ctrl)
@@ -577,8 +593,10 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, dryRun bool) {
 	server.EXPECT().ServerVersion().Return("5.2")
 
 	if !dryRun {
-		st.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false).Return(nil)
+		st.EXPECT().SetModelAgentVersion(version.MustParse("3.9.99"), nil, false, gomock.Any()).Return(nil)
 	}
+
+	api := s.newFacade(c)
 
 	result, err := api.UpgradeModel(
 		stdcontext.Background(),
@@ -604,7 +622,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3DryRun(c *gc.C) {
 }
 
 func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	server := upgradevalidationmocks.NewMockServer(ctrl)
@@ -660,6 +678,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	model.EXPECT().Owner().Return(names.NewUserTag("admin"))
 	model.EXPECT().Name().Return("model-1")
 
+	api := s.newFacade(c)
+
 	result, err := api.UpgradeModel(
 		stdcontext.Background(),
 		params.UpgradeModelParams{
@@ -677,24 +697,17 @@ cannot upgrade to "3.9.99" due to issues with these models:
 }
 
 func (s *modelUpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	modelUUID := coretesting.ModelTag.Id()
-	st := mocks.NewMockState(ctrl)
-	st.EXPECT().Release()
+	api := s.newFacade(c)
 
-	gomock.InOrder(
-		s.blockChecker.EXPECT().ChangeAllowed(gomock.Any()).Return(nil),
-		s.statePool.EXPECT().Get(modelUUID).Return(st, nil),
-		st.EXPECT().AbortCurrentUpgrade().Return(nil),
-	)
 	err := api.AbortModelUpgrade(stdcontext.Background(), params.ModelParam{ModelTag: coretesting.ModelTag.String()})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *modelUpgradeSuite) TestFindToolsIAAS(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	simpleStreams := []*coretools.Tools{
@@ -704,6 +717,7 @@ func (s *modelUpgradeSuite) TestFindToolsIAAS(c *gc.C) {
 	s.toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{
 		MajorVersion: 2, ModelType: state.ModelTypeIAAS}).Return(simpleStreams, nil)
 
+	api := s.newFacade(c)
 	result, err := api.FindAgents(stdcontext.Background(), common.FindAgentsParams{MajorVersion: 2, ModelType: state.ModelTypeIAAS})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
@@ -712,7 +726,7 @@ func (s *modelUpgradeSuite) TestFindToolsIAAS(c *gc.C) {
 }
 
 func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	st := mocks.NewMockState(ctrl)
@@ -749,6 +763,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
+	api := s.newFacade(c)
 	result, err := api.FindAgents(stdcontext.Background(), common.FindAgentsParams{MajorVersion: 2, MinorVersion: 9, ModelType: state.ModelTypeCAAS})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
@@ -760,7 +775,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
 }
 
 func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	st := mocks.NewMockState(ctrl)
@@ -790,6 +805,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
+	api := s.newFacade(c)
 	result, err := api.FindAgents(stdcontext.Background(), common.FindAgentsParams{
 		Number: version.MustParse("2.9.10"), ModelType: state.ModelTypeCAAS})
 	c.Assert(err, jc.ErrorIsNil)
@@ -799,7 +815,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
 }
 
 func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	st := mocks.NewMockState(ctrl)
@@ -836,6 +852,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
+	api := s.newFacade(c)
 	result, err := api.FindAgents(
 		stdcontext.Background(),
 		common.FindAgentsParams{
@@ -852,7 +869,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 }
 
 func (s *modelUpgradeSuite) TestDecideVersionFindToolUseAgentVersionMajorMinor(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	st := mocks.NewMockState(ctrl)
@@ -864,6 +881,7 @@ func (s *modelUpgradeSuite) TestDecideVersionFindToolUseAgentVersionMajorMinor(c
 		ModelType: state.ModelTypeIAAS,
 	}).Return(nil, errors.New(`fail to exit early`))
 
+	api := s.newFacade(c)
 	targetVersion, err := api.DecideVersion(
 		stdcontext.Background(),
 		version.MustParse("3.9.99"), common.FindAgentsParams{
@@ -874,7 +892,7 @@ func (s *modelUpgradeSuite) TestDecideVersionFindToolUseAgentVersionMajorMinor(c
 }
 
 func (s *modelUpgradeSuite) TestDecideVersionFindToolUseTargetMajor(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	st := mocks.NewMockState(ctrl)
@@ -886,6 +904,7 @@ func (s *modelUpgradeSuite) TestDecideVersionFindToolUseTargetMajor(c *gc.C) {
 		ModelType: state.ModelTypeIAAS,
 	}).Return(nil, errors.New(`fail to exit early`))
 
+	api := s.newFacade(c)
 	targetVersion, err := api.DecideVersion(
 		stdcontext.Background(),
 		version.MustParse("3.9.99"),
@@ -896,7 +915,7 @@ func (s *modelUpgradeSuite) TestDecideVersionFindToolUseTargetMajor(c *gc.C) {
 }
 
 func (s *modelUpgradeSuite) TestDecideVersionValidateAndUseTargetVersion(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	st := mocks.NewMockState(ctrl)
@@ -911,6 +930,7 @@ func (s *modelUpgradeSuite) TestDecideVersionValidateAndUseTargetVersion(c *gc.C
 		Number: version.MustParse("3.9.98"), ModelType: state.ModelTypeIAAS,
 	}).Return(simpleStreams, nil)
 
+	api := s.newFacade(c)
 	targetVersion, err := api.DecideVersion(
 		stdcontext.Background(),
 		version.MustParse("2.9.99"),
@@ -922,7 +942,7 @@ func (s *modelUpgradeSuite) TestDecideVersionValidateAndUseTargetVersion(c *gc.C
 }
 
 func (s *modelUpgradeSuite) TestDecideVersionNewestMinor(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	st := mocks.NewMockState(ctrl)
@@ -941,6 +961,7 @@ func (s *modelUpgradeSuite) TestDecideVersionNewestMinor(c *gc.C) {
 		ModelType:    state.ModelTypeIAAS,
 	}).Return(simpleStreams, nil)
 
+	api := s.newFacade(c)
 	targetVersion, err := api.DecideVersion(
 		stdcontext.Background(),
 		version.MustParse("2.9.99"),
@@ -953,7 +974,7 @@ func (s *modelUpgradeSuite) TestDecideVersionNewestMinor(c *gc.C) {
 }
 
 func (s *modelUpgradeSuite) TestDecideVersionIgnoresNewerMajor(c *gc.C) {
-	ctrl, api := s.getModelUpgraderAPI(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
 	st := mocks.NewMockState(ctrl)
@@ -970,6 +991,7 @@ func (s *modelUpgradeSuite) TestDecideVersionIgnoresNewerMajor(c *gc.C) {
 		ModelType:    state.ModelTypeIAAS,
 	}).Return(simpleStreams, nil)
 
+	api := s.newFacade(c)
 	targetVersion, err := api.DecideVersion(
 		stdcontext.Background(),
 		version.MustParse("2.9.99"),
