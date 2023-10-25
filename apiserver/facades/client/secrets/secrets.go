@@ -224,22 +224,6 @@ func (s *SecretsAPI) secretContentFromBackend(uri *coresecrets.URI, rev int) (co
 	}
 }
 
-func (s *SecretsAPI) getBackend(id *string) (provider.SecretsBackend, error) {
-	if s.activeBackendID == "" {
-		if err := s.getBackendInfo(); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	if id == nil {
-		id = &s.activeBackendID
-	}
-	backend, ok := s.backends[*id]
-	if !ok {
-		return nil, errors.NotFoundf("external secret backend %q", s.activeBackendID)
-	}
-	return backend, nil
-}
-
 func (s *SecretsAPI) getBackendForUserSecretsWrite() (provider.SecretsBackend, error) {
 	if s.activeBackendID == "" {
 		if err := s.getBackendInfo(); err != nil {

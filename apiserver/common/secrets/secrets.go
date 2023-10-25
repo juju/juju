@@ -604,20 +604,33 @@ func removeSecrets(
 
 	removeFromExternal := func(uri *coresecrets.URI, revisions ...int) error {
 		externalRevs := make(map[string]provider.SecretRevisions)
-		for _, rev := range revisions {
-			revMeta, err := removeState.GetSecretRevision(uri, rev)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			valRef := revMeta.ValueRef
+		gatherExternalRevs := func(valRef *coresecrets.ValueRef) {
 			if valRef == nil {
 				// Internal secret, nothing to do here.
-				continue
+				return
 			}
 			if _, ok := externalRevs[valRef.BackendID]; !ok {
 				externalRevs[valRef.BackendID] = provider.SecretRevisions{}
 			}
 			externalRevs[valRef.BackendID].Add(uri, valRef.RevisionID)
+		}
+		if len(revisions) == 0 {
+			// Remove all revisions.
+			revs, err := removeState.ListSecretRevisions(uri)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			for _, rev := range revs {
+				gatherExternalRevs(rev.ValueRef)
+			}
+		} else {
+			for _, rev := range revisions {
+				revMeta, err := removeState.GetSecretRevision(uri, rev)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				gatherExternalRevs(revMeta.ValueRef)
+			}
 		}
 
 		for backendID, r := range externalRevs {
